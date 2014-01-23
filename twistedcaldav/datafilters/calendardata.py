@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ from twistedcaldav.caldavxml import LimitRecurrenceSet, Expand, AllComponents, \
 from twistedcaldav.datafilters.filter import CalendarFilter
 from twistedcaldav.dateops import clipPeriod
 from twistedcaldav.ical import Component
-from pycalendar.period import PyCalendarPeriod
+from pycalendar.period import Period
 
 __all__ = [
     "CalendarDataFilter",
@@ -161,7 +161,7 @@ class CalendarDataFilter(CalendarFilter):
             for property in component.properties("FREEBUSY"):
                 newvalue = []
                 for period in property.value():
-                    clipped = clipPeriod(period.getValue(), PyCalendarPeriod(self.calendardata.freebusy_set.start, self.calendardata.freebusy_set.end))
+                    clipped = clipPeriod(period.getValue(), Period(self.calendardata.freebusy_set.start, self.calendardata.freebusy_set.end))
                     if clipped:
                         newvalue.append(clipped)
                 if len(newvalue):

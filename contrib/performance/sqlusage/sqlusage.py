@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2012-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2012-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,8 +27,8 @@ from contrib.performance.sqlusage.requests.propfind_invite import PropfindInvite
 from contrib.performance.sqlusage.requests.put import PutTest
 from contrib.performance.sqlusage.requests.query import QueryTest
 from contrib.performance.sqlusage.requests.sync import SyncTest
-from pycalendar.datetime import PyCalendarDateTime
-from twext.web2.dav.util import joinURL
+from pycalendar.datetime import DateTime
+from txweb2.dav.util import joinURL
 import getopt
 import itertools
 import sys
@@ -127,11 +127,17 @@ class EventSQLUsage(object):
         ]
         self.requestLabels = [request.label for request in requests]
 
-        # Warm-up server by doing calendar home and calendar propfinds
-        props = (davxml.resourcetype,)
-        for session in sessions:
-            session.getPropertiesOnHierarchy(URL(path=session.homeHref), props)
-            session.getPropertiesOnHierarchy(URL(path=session.calendarHref), props)
+        def _warmUp():
+            # Warm-up server by doing calendar home and child collection propfinds.
+            # Do this twice because the very first time might provision DB objects and
+            # blow any DB cache - the second time will warm the DB cache.
+            props = (davxml.resourcetype,)
+            for _ignore in range(2):
+                for session in sessions:
+                    session.getPropertiesOnHierarchy(URL(path=session.homeHref), props)
+                    session.getPropertiesOnHierarchy(URL(path=session.calendarHref), props)
+                    session.getPropertiesOnHierarchy(URL(path=session.inboxHref), props)
+                    session.getPropertiesOnHierarchy(URL(path=session.notificationHref), props)
 
         # Now loop over sets of events
         for count in event_counts:
@@ -140,6 +146,7 @@ class EventSQLUsage(object):
             result = {}
             for request in requests:
                 print("  Test = %s" % (request.label,))
+                _warmUp()
                 result[request.label] = request.execute(count)
             self.results[count] = result
 
@@ -176,7 +183,7 @@ class EventSQLUsage(object):
         @param n: number of events
         @type n: C{int}
         """
-        now = PyCalendarDateTime.getNowUTC()
+        now = DateTime.getNowUTC()
         for i in range(n - self.currentCount):
             index = self.currentCount + i + 1
             href = joinURL(calendarhref, "%d.ics" % (index,))

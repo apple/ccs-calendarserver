@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,16 +21,16 @@ import re
 import subprocess
 import sys
 
-CONNECTNAME   = "_postgres"
-USERNAME      = "caldav"
-DATABASENAME  = "caldav"
-PGSOCKETDIR   = "/Library/Server/PostgreSQL For Server Services/Socket"
-SCHEMAFILE    = "/Applications/Server.app/Contents/ServerRoot/usr/share/caldavd/lib/python/txdav/common/datastore/sql_schema/current.sql"
+CONNECTNAME = "_postgres"
+USERNAME = "caldav"
+DATABASENAME = "caldav"
+PGSOCKETDIR = "/Library/Server/PostgreSQL For Server Services/Socket"
+SCHEMAFILE = "/Applications/Server.app/Contents/ServerRoot/usr/share/caldavd/lib/python/txdav/common/datastore/sql_schema/current.sql"
 
 # Executables:
-CREATEDB      = "/Applications/Server.app/Contents/ServerRoot/usr/bin/createdb"
-CREATEUSER    = "/Applications/Server.app/Contents/ServerRoot/usr/bin/createuser"
-PSQL          = "/Applications/Server.app/Contents/ServerRoot/usr/bin/psql"
+CREATEDB = "/Applications/Server.app/Contents/ServerRoot/usr/bin/createdb"
+CREATEUSER = "/Applications/Server.app/Contents/ServerRoot/usr/bin/createuser"
+PSQL = "/Applications/Server.app/Contents/ServerRoot/usr/bin/psql"
 
 def usage(e=None):
     name = os.path.basename(sys.argv[0])
@@ -48,6 +48,8 @@ def usage(e=None):
         sys.exit(64)
     else:
         sys.exit(0)
+
+
 
 def createUser(verbose=False):
     """
@@ -84,6 +86,7 @@ def createUser(verbose=False):
         )
 
 
+
 def createDatabase(verbose=False):
     """
     Create the database which calendar server will use within postgres.
@@ -114,6 +117,7 @@ def createDatabase(verbose=False):
             "%s failed:\n%s (exit code = %d)" %
             (CREATEDB, e.output, e.returncode)
         )
+
 
 
 def getSchemaVersion(verbose=False):
@@ -153,6 +157,8 @@ def getSchemaVersion(verbose=False):
         )
     return version
 
+
+
 def installSchema(verbose=False):
     """
     Install the calendar server database schema.
@@ -184,16 +190,21 @@ def installSchema(verbose=False):
         )
 
 
+
 class BootstrapError(Exception):
     pass
+
+
 
 def error(s):
     sys.stderr.write("%s\n" % (s,))
     sys.exit(1)
 
+
+
 def main():
     try:
-        (optargs, args) = getopt(
+        (optargs, _ignore_args) = getopt(
             sys.argv[1:], "hv", [
                 "help",
                 "verbose",
@@ -204,14 +215,13 @@ def main():
 
     verbose = False
 
-    for opt, arg in optargs:
+    for opt, _ignore_arg in optargs:
         if opt in ("-h", "--help"):
             usage()
         elif opt in ("-v", "--verbose"):
             verbose = True
         else:
             raise NotImplementedError(opt)
-
 
     # Create the calendar server database user within postgres
     try:
@@ -252,12 +262,12 @@ def main():
             required_version = int(found.group(1))
             if version == required_version:
                 print("Latest schema version (%d) is installed" % (version,))
-        
+
             elif version == 0: # No schema installed
                 installSchema(verbose=verbose)
                 version = getSchemaVersion(verbose=verbose)
                 print("Successfully installed schema version %d" % (version,))
-        
+
             else: # upgrade needed
                 error(
                     "Schema needs to be upgraded from %d to %d" %

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,24 +18,24 @@ import os
 
 from twisted.trial.unittest import SkipTest
 
-from twext.web2 import responsecode
-from twext.web2.iweb import IResponse
-from twext.web2.stream import MemoryStream
+from txweb2 import responsecode
+from txweb2.iweb import IResponse
+from txweb2.stream import MemoryStream
 from txdav.xml import element as davxml
-from twext.web2.dav.util import davXMLFromStream
+from txweb2.dav.util import davXMLFromStream
 
 from twistedcaldav import caldavxml
 from twistedcaldav import ical
 
-from twistedcaldav.query import calendarqueryfilter
 from twistedcaldav.config import config
 from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest
 from twisted.internet.defer import inlineCallbacks, returnValue
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 from twistedcaldav.ical import Component
 from txdav.caldav.icalendarstore import ComponentUpdateState
 from twistedcaldav.directory.directory import DirectoryService
+from txdav.caldav.datastore.query.filter import TimeRange
 
 
 @inlineCallbacks
@@ -124,8 +124,8 @@ class CalendarQuery (StoreTestCase):
         )
 
         query_timerange = caldavxml.TimeRange(
-            start="%04d1001T000000Z" % (PyCalendarDateTime.getToday().getYear(),),
-            end="%04d1101T000000Z" % (PyCalendarDateTime.getToday().getYear(),),
+            start="%04d1001T000000Z" % (DateTime.getToday().getYear(),),
+            end="%04d1101T000000Z" % (DateTime.getToday().getYear(),),
         )
 
         query = caldavxml.CalendarQuery(
@@ -167,7 +167,7 @@ class CalendarQuery (StoreTestCase):
                             cal = property.calendar()
                             instances = cal.expandTimeRanges(query_timerange.end)
                             vevents = [x for x in cal.subcomponents() if x.name() == "VEVENT"]
-                            if not calendarqueryfilter.TimeRange(query_timerange).matchinstance(vevents[0], instances):
+                            if not TimeRange(query_timerange).matchinstance(vevents[0], instances):
                                 self.fail("REPORT property %r returned calendar %s outside of request time range %r"
                                           % (property, property.calendar, query_timerange))
 

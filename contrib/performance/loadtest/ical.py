@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,9 +29,9 @@ from contrib.performance.httpauth import AuthHandlerAgent
 from contrib.performance.httpclient import StringProducer, readBody
 from contrib.performance.loadtest.subscribe import Periodical
 
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.duration import PyCalendarDuration
-from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.datetime import DateTime
+from pycalendar.duration import Duration
+from pycalendar.timezone import Timezone
 
 from twext.internet.adaptendpoint import connect
 from twext.internet.gaiendpoint import GAIEndpoint
@@ -1199,7 +1199,7 @@ class BaseAppleClient(BaseClient):
         connect(GAIEndpoint(self.reactor, host, port), factory)
 
 
-    def _receivedPush(self, inboundID, dataChangedTimestamp):
+    def _receivedPush(self, inboundID, dataChangedTimestamp, priority=5):
         for href, id in self.ampPushKeys.iteritems():
             if inboundID == id:
                 self._checkCalendarsForEvents(href, push=True)
@@ -1609,13 +1609,13 @@ class BaseAppleClient(BaseClient):
             msg("Availability request spanning multiple days (%r to %r), "
                 "dropping the end date." % (start, end))
 
-        start.setTimezone(PyCalendarTimezone(utc=True))
+        start.setTimezone(Timezone(utc=True))
         start.setHHMMSS(0, 0, 0)
-        end = start + PyCalendarDuration(hours=24)
+        end = start + Duration(hours=24)
 
         start = start.getText()
         end = end.getText()
-        now = PyCalendarDateTime.getNowUTC().getText()
+        now = DateTime.getNowUTC().getText()
 
         label_suffix = "small"
         if len(users) > 5:
@@ -1919,7 +1919,7 @@ class iOS_5(BaseAppleClient):
         # the sim can fire a PUT between the PROPFIND and when process the removals.
         old_hrefs = set([calendar.url + child for child in calendar.events.keys()])
 
-        now = PyCalendarDateTime.getNowUTC()
+        now = DateTime.getNowUTC()
         now.setDateOnly(True)
         now.offsetMonth(-1) # 1 month back default
         result = yield self._report(

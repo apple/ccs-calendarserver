@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.carddav.datastore.test.test_file -*-
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,8 +30,8 @@ __all__ = [
 from errno import ENOENT
 
 from txdav.xml.rfc2518 import GETContentType
-from twext.web2.dav.resource import TwistedGETContentMD5
-from twext.web2.http_headers import MimeType
+from txweb2.dav.resource import TwistedGETContentMD5
+from txweb2.http_headers import MimeType
 
 from twisted.python import hashlib
 

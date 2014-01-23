@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ##
-# Copyright (c) 2012-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2012-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,9 +24,9 @@ from twisted.internet.defer import inlineCallbacks
 from twisted.python.usage import Options
 
 from twext.python.log import Logger, LogLevel, StandardIOObserver
-from twext.web2.client.http import ClientRequest
-from twext.web2.http_headers import Headers
-from twext.web2.stream import MemoryStream
+from txweb2.client.http import ClientRequest
+from txweb2.http_headers import Headers
+from txweb2.stream import MemoryStream
 
 from txdav.caldav.datastore.scheduling.ischedule.dkim import RSA256, DKIMRequest, \
     PublicKeyLookup, DKIMVerifier, DKIMVerificationError

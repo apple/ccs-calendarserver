@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009-2013 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2009-2014 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -26,7 +26,7 @@ Test memcacheprops.
 
 import os
 
-from twext.web2.http import HTTPError
+from txweb2.http import HTTPError
 
 from txdav.xml.base import encodeXMLName
 

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2013 Apple Inc. All rights reserved.
+# Copyright (c) 2013-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,13 +16,13 @@
 
 from calendarserver.tap.util import directoryFromConfig
 
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.value import PyCalendarValue
+from pycalendar.datetime import DateTime
+from pycalendar.value import Value
 
 from twext.enterprise.dal.syntax import Delete
 from twext.python.clsprop import classproperty
-from twext.web2.http_headers import MimeType
-from twext.web2.stream import MemoryStream
+from txweb2.http_headers import MimeType
+from txweb2.stream import MemoryStream
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.filepath import FilePath
@@ -1249,7 +1249,7 @@ class ManagedAttachmentTests(AttachmentTests):
 
 
 
-now = PyCalendarDateTime.getToday().getYear()
+now = DateTime.getToday().getYear()
 
 PLAIN_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1454,7 +1454,7 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         cal.mainComponent().addProperty(Property(
             "ATTACH",
             "http://localhost/calendars/users/%s/dropbox/%s.dropbox/%s" % (home.name(), dropboxid, name,),
-            valuetype=PyCalendarValue.VALUETYPE_URI
+            valuetype=Value.VALUETYPE_URI
         ))
         yield event.setComponent(cal)
         yield txn.commit()
@@ -1477,7 +1477,7 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         cal.mainComponent().addProperty(Property(
             "ATTACH",
             "http://localhost/calendars/users/%s/dropbox/%s.dropbox/%s" % (owner_home, dropboxid, name,),
-            valuetype=PyCalendarValue.VALUETYPE_URI
+            valuetype=Value.VALUETYPE_URI
         ))
         yield event.setComponent(cal)
         yield txn.commit()

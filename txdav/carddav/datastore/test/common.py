@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.carddav.datastore,txdav.carddav.datastore.test.test_sql.AddressBookSQLStorageTests -*-
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@ Tests for common addressbook store API functions.
 
 from twext.python.filepath import CachingFilePath as FilePath
 
-from twext.web2.http import HTTPError
-from twext.web2.responsecode import FORBIDDEN
+from txweb2.http import HTTPError
+from txweb2.responsecode import FORBIDDEN
 
 from twisted.internet.defer import inlineCallbacks, returnValue, maybeDeferred
 from twisted.python import hashlib
@@ -39,6 +39,8 @@ from txdav.common.icommondatastore import NoSuchHomeChildError
 from txdav.common.icommondatastore import ObjectResourceNameAlreadyExistsError
 from txdav.idav import IPropertyStore, IDataStore
 from txdav.xml.element import WebDAVUnknownElement
+from calendarserver.push.util import PushPriority
+
 
 storePath = FilePath(__file__).parent().child("addressbook_store")
 
@@ -371,10 +373,9 @@ class CommonTests(CommonCommonTests):
         #self.assertIdentical((yield home.addressbookWithName(name)), None)
         yield home.removeAddressBookWithName(name)
         self.assertNotIdentical((yield home.addressbookWithName(name)), None)
+        # notify is called prior to commit
+        self.assertTrue(("/CardDAV/example.com/home1/", PushPriority.high) in self.notifierFactory.history)
         yield self.commit()
-
-        # Make sure notification fired after commit
-        self.assertTrue("/CardDAV/example.com/home1/" in self.notifierFactory.history)
 
         # Make sure it's available in a new transaction; i.e. test the commit.
         home = yield self.homeUnderTest()
@@ -396,16 +397,16 @@ class CommonTests(CommonCommonTests):
             ab = yield home.addressbookWithName(name)
             self.assertEquals((yield ab.listAddressBookObjects()), [])
 
-        yield self.commit()
-
-        # Make sure notification fired after commit
+        # notify is called prior to commit
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
-                "/CardDAV/example.com/home1/",
-                "/CardDAV/example.com/home1/addressbook/",
+                ("/CardDAV/example.com/home1/", PushPriority.high),
+                ("/CardDAV/example.com/home1/addressbook/", PushPriority.high),
             ])
         )
+
+        yield self.commit()
 
 
     @inlineCallbacks
@@ -530,13 +531,11 @@ class CommonTests(CommonCommonTests):
                 (yield addressbook.addressbookObjectWithName(name)), None
             )
 
-        # Make sure notifications are fired after commit
-        yield self.commit()
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
-                "/CardDAV/example.com/home1/",
-                "/CardDAV/example.com/home1/addressbook/",
+                ("/CardDAV/example.com/home1/", PushPriority.high),
+                ("/CardDAV/example.com/home1/addressbook/", PushPriority.high),
             ])
         )
 
@@ -692,16 +691,16 @@ class CommonTests(CommonCommonTests):
         addressbookObject = yield addressbook1.addressbookObjectWithName(name)
         self.assertEquals((yield addressbookObject.component()), component)
 
-        yield self.commit()
-
-        # Make sure notifications fire after commit
+        # notify is called prior to commit
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
-                "/CardDAV/example.com/home1/",
-                "/CardDAV/example.com/home1/addressbook/",
+                ("/CardDAV/example.com/home1/", PushPriority.high),
+                ("/CardDAV/example.com/home1/addressbook/", PushPriority.high),
             ])
         )
+
+        yield self.commit()
 
 
     @inlineCallbacks
@@ -808,16 +807,16 @@ class CommonTests(CommonCommonTests):
         addressbookObject = yield addressbook1.addressbookObjectWithName("1.vcf")
         self.assertEquals((yield addressbookObject.component()), component)
 
-        yield self.commit()
-
-        # Make sure notification fired after commit
+        # notify is called prior to commit
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
-                "/CardDAV/example.com/home1/",
-                "/CardDAV/example.com/home1/addressbook/",
+                ("/CardDAV/example.com/home1/", PushPriority.high),
+                ("/CardDAV/example.com/home1/addressbook/", PushPriority.high),
             ])
         )
+
+        yield self.commit()
 
 
     def checkPropertiesMethod(self, thunk):

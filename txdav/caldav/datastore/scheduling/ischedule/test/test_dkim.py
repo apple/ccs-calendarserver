@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2012-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2012-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,9 +16,9 @@
 
 from Crypto.PublicKey import RSA
 
-from twext.web2.dav.util import allDataFromStream
-from twext.web2.http_headers import Headers, MimeType
-from twext.web2.stream import MemoryStream
+from txweb2.dav.util import allDataFromStream
+from txweb2.http_headers import Headers, MimeType
+from txweb2.stream import MemoryStream
 
 from twisted.internet.defer import inlineCallbacks, succeed
 from twisted.names import client

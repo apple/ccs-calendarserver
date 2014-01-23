@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,52 +34,54 @@ class XMLFileBase(object):
         DirectoryService.recordType_users,
         DirectoryService.recordType_groups,
         DirectoryService.recordType_locations,
-        DirectoryService.recordType_resources
+        DirectoryService.recordType_resources,
+        DirectoryService.recordType_addresses,
     ))
 
     users = {
-        "admin"      : { "password": "nimda",      "guid": "D11F03A0-97EA-48AF-9A6C-FAC7F3975766", "addresses": () },
-        "wsanchez"   : { "password": "zehcnasw",   "guid": "6423F94A-6B76-4A3A-815B-D52CFD77935D", "addresses": ("mailto:wsanchez@example.com",) },
-        "cdaboo"     : { "password": "oobadc",     "guid": "5A985493-EE2C-4665-94CF-4DFEA3A89500", "addresses": ("mailto:cdaboo@example.com",)   },
-        "lecroy"     : { "password": "yorcel",     "guid": "8B4288F6-CC82-491D-8EF9-642EF4F3E7D0", "addresses": ("mailto:lecroy@example.com",)   },
-        "dreid"      : { "password": "dierd",      "guid": "5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1", "addresses": ("mailto:dreid@example.com",)    },
-        "nocalendar" : { "password": "radnelacon", "guid": "543D28BA-F74F-4D5F-9243-B3E3A61171E5", "addresses": () },
-        "user01"     : { "password": "01user",     "guid": None                                  , "addresses": ("mailto:c4ca4238a0@example.com",) },
-        "user02"     : { "password": "02user",     "guid": None                                  , "addresses": ("mailto:c81e728d9d@example.com",) },
-    }
+        "admin"      : {"password": "nimda", "guid": "D11F03A0-97EA-48AF-9A6C-FAC7F3975766", "addresses": ()},
+        "wsanchez"   : {"password": "zehcnasw", "guid": "6423F94A-6B76-4A3A-815B-D52CFD77935D", "addresses": ("mailto:wsanchez@example.com",)},
+        "cdaboo"     : {"password": "oobadc", "guid": "5A985493-EE2C-4665-94CF-4DFEA3A89500", "addresses": ("mailto:cdaboo@example.com",)  },
+        "lecroy"     : {"password": "yorcel", "guid": "8B4288F6-CC82-491D-8EF9-642EF4F3E7D0", "addresses": ("mailto:lecroy@example.com",)  },
+        "dreid"      : {"password": "dierd", "guid": "5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1", "addresses": ("mailto:dreid@example.com",)   },
+        "nocalendar" : {"password": "radnelacon", "guid": "543D28BA-F74F-4D5F-9243-B3E3A61171E5", "addresses": ()},
+        "user01"     : {"password": "01user", "guid": None, "addresses": ("mailto:c4ca4238a0@example.com",)},
+        "user02"     : {"password": "02user", "guid": None, "addresses": ("mailto:c81e728d9d@example.com",)},
+   }
 
     groups = {
-        "admin"      : { "password": "admin",       "guid": None, "addresses": (), "members": ((DirectoryService.recordType_groups, "managers"),)},
-        "managers"   : { "password": "managers",    "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users , "lecroy"),)},
-        "grunts"     : { "password": "grunts",      "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users , "wsanchez"),
+        "admin"      : {"password": "admin", "guid": None, "addresses": (), "members": ((DirectoryService.recordType_groups, "managers"),)},
+        "managers"   : {"password": "managers", "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users , "lecroy"),)},
+        "grunts"     : {"password": "grunts", "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users , "wsanchez"),
                                                                                                (DirectoryService.recordType_users , "cdaboo"),
                                                                                                (DirectoryService.recordType_users , "dreid"))},
-        "right_coast": { "password": "right_coast", "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users , "cdaboo"),)},
-        "left_coast" : { "password": "left_coast",  "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users , "wsanchez"),
+        "right_coast": {"password": "right_coast", "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users , "cdaboo"),)},
+        "left_coast" : {"password": "left_coast", "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users , "wsanchez"),
                                                                                                (DirectoryService.recordType_users , "dreid"),
                                                                                                (DirectoryService.recordType_users , "lecroy"))},
-        "both_coasts": { "password": "both_coasts", "guid": None, "addresses": (), "members": ((DirectoryService.recordType_groups, "right_coast"),
+        "both_coasts": {"password": "both_coasts", "guid": None, "addresses": (), "members": ((DirectoryService.recordType_groups, "right_coast"),
                                                                                                (DirectoryService.recordType_groups, "left_coast"))},
-        "recursive1_coasts":  { "password": "recursive1_coasts",  "guid": None, "addresses": (), "members": ((DirectoryService.recordType_groups, "recursive2_coasts"),
+        "recursive1_coasts": {"password": "recursive1_coasts", "guid": None, "addresses": (), "members": ((DirectoryService.recordType_groups, "recursive2_coasts"),
                                                                                                (DirectoryService.recordType_users, "wsanchez"))},
-        "recursive2_coasts":  { "password": "recursive2_coasts",  "guid": None, "addresses": (), "members": ((DirectoryService.recordType_groups, "recursive1_coasts"),
+        "recursive2_coasts": {"password": "recursive2_coasts", "guid": None, "addresses": (), "members": ((DirectoryService.recordType_groups, "recursive1_coasts"),
                                                                                                (DirectoryService.recordType_users, "cdaboo"))},
-        "non_calendar_group": { "password": "non_calendar_group", "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users , "cdaboo"),
+        "non_calendar_group": {"password": "non_calendar_group", "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users , "cdaboo"),
                                                                                                (DirectoryService.recordType_users , "lecroy"))},
-    }
+   }
 
     locations = {
-        "mercury": { "password": "mercury", "guid": None, "addresses": ("mailto:mercury@example.com",) },
-        "gemini" : { "password": "gemini",  "guid": None, "addresses": ("mailto:gemini@example.com",)  },
-        "apollo" : { "password": "apollo",  "guid": None, "addresses": ("mailto:apollo@example.com",)  },
-        "orion"  : { "password": "orion",   "guid": None, "addresses": ("mailto:orion@example.com",)   },
-    }
+        "mercury": {"password": "mercury", "guid": None, "addresses": ("mailto:mercury@example.com",)},
+        "gemini" : {"password": "gemini", "guid": None, "addresses": ("mailto:gemini@example.com",)},
+        "apollo" : {"password": "apollo", "guid": None, "addresses": ("mailto:apollo@example.com",)},
+        "orion"  : {"password": "orion", "guid": None, "addresses": ("mailto:orion@example.com",)},
+   }
 
     resources = {
-        "transporter"        : { "password": "transporter",        "guid": None,                 "addresses": ("mailto:transporter@example.com",)        },
-        "ftlcpu"             : { "password": "ftlcpu",             "guid": None,                 "addresses": ("mailto:ftlcpu@example.com",)             },
-        "non_calendar_proxy" : { "password": "non_calendar_proxy", "guid": "non_calendar_proxy", "addresses": ("mailto:non_calendar_proxy@example.com",) },
-    }
+        "transporter"        : {"password": "transporter", "guid": None, "addresses": ("mailto:transporter@example.com",)       },
+        "ftlcpu"             : {"password": "ftlcpu", "guid": None, "addresses": ("mailto:ftlcpu@example.com",)            },
+        "non_calendar_proxy" : {"password": "non_calendar_proxy", "guid": "non_calendar_proxy", "addresses": ("mailto:non_calendar_proxy@example.com",)},
+   }
+
 
     def xmlFile(self):
         """
@@ -155,10 +157,10 @@ class XMLFile (
 """
         )
         for recordType, expectedRecords in (
-            ( DirectoryService.recordType_users     , ("admin",) ),
-            ( DirectoryService.recordType_groups    , ()         ),
-            ( DirectoryService.recordType_locations , ()         ),
-            ( DirectoryService.recordType_resources , ()         ),
+            (DirectoryService.recordType_users     , ("admin",)),
+            (DirectoryService.recordType_groups    , ()),
+            (DirectoryService.recordType_locations , ()),
+            (DirectoryService.recordType_resources , ()),
         ):
             # Fault records in
             for name in expectedRecords:
@@ -168,6 +170,7 @@ class XMLFile (
                 set(r.shortNames[0] for r in service.listRecords(recordType)),
                 set(expectedRecords)
             )
+
 
     def test_okAutoSchedule(self):
         service = self.service()
@@ -201,10 +204,10 @@ class XMLFile (
         service.augmentService.refresh()
 
         for recordType, expectedRecords in (
-            ( DirectoryService.recordType_users     , ()             ),
-            ( DirectoryService.recordType_groups    , ()             ),
-            ( DirectoryService.recordType_locations , ("my office",) ),
-            ( DirectoryService.recordType_resources , ()             ),
+            (DirectoryService.recordType_users     , ()),
+            (DirectoryService.recordType_groups    , ()),
+            (DirectoryService.recordType_locations , ("my office",)),
+            (DirectoryService.recordType_resources , ()),
         ):
             # Fault records in
             for name in expectedRecords:
@@ -239,12 +242,12 @@ class XMLFile (
 </accounts>
 """
         )
-        
+
         for recordType, expectedRecords in (
-            ( DirectoryService.recordType_users     , ()                       ),
-            ( DirectoryService.recordType_groups    , ("enabled", "disabled")  ),
-            ( DirectoryService.recordType_locations , ()                       ),
-            ( DirectoryService.recordType_resources , ()                       ),
+            (DirectoryService.recordType_users     , ()),
+            (DirectoryService.recordType_groups    , ("enabled", "disabled")),
+            (DirectoryService.recordType_locations , ()),
+            (DirectoryService.recordType_resources , ()),
         ):
             # Fault records in
             for name in expectedRecords:
@@ -279,12 +282,13 @@ class XMLFile (
 </accounts>
 """
         )
-        
+
         record = service.recordWithShortName(
             DirectoryService.recordType_locations, "my office")
         self.assertEquals(record.guid, "myoffice")
         self.assertEquals(record.extras["comment"], "This is the comment")
         self.assertEquals(record.extras["capacity"], "40")
+
 
     def test_writeExtras(self):
         service = self.service()
@@ -301,7 +305,6 @@ class XMLFile (
             DirectoryService.recordType_locations, "New office")
         self.assertEquals(record.extras["comment"], "Test comment")
         self.assertEquals(record.extras["capacity"], "10")
-
 
         service.updateRecord(DirectoryService.recordType_locations, "newguid",
             shortNames=("New office",),
@@ -333,6 +336,7 @@ class XMLFile (
         self.assertNotEquals(None, service._lookupInIndex(service.recordType_locations, service.INDEX_TYPE_SHORTNAME, "orion"))
         self.assertEquals(None, service._lookupInIndex(service.recordType_users, service.INDEX_TYPE_CUA, "mailto:nobody@example.com"))
 
+
     def test_repeat(self):
         service = self.service()
         record = service.recordWithShortName(
@@ -342,6 +346,8 @@ class XMLFile (
         self.assertEquals(record.lastName, "c4ca4238a User 01")
         self.assertEquals(record.emailAddresses, set(['c4ca4238a0@example.com']))
 
+
+
 class XMLFileSubset (XMLFileBase, TestCase):
     """
     Test the recordTypes subset feature of XMLFile service.
@@ -350,6 +356,7 @@ class XMLFileSubset (XMLFileBase, TestCase):
         DirectoryService.recordType_users,
         DirectoryService.recordType_groups,
     ))
+
 
     def test_recordTypesSubset(self):
         directory = XMLDirectoryService(
@@ -366,4 +373,3 @@ class XMLFileSubset (XMLFileBase, TestCase):
             alwaysStat=True
         )
         self.assertEquals(set(("users", "groups")), set(directory.recordTypes()))
-    

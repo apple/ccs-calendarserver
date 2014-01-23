@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ from twistedcaldav import xmlutil
 
 """
 XML based iSchedule configuration file handling. This is for handling of remote servers. The localservers.py module
-handles servers that are local (partitioned or podded).
+handles servers that are local (podded).
 """
 
 __all__ = [
@@ -138,7 +138,7 @@ class IScheduleServerRecord (object):
     """
     Contains server-to-server details.
     """
-    def __init__(self, uri=None):
+    def __init__(self, uri=None, unNormalizeAddresses=True, moreHeaders=[], podding=False):
         """
         @param recordType: record type for directory entry.
         """
@@ -148,8 +148,9 @@ class IScheduleServerRecord (object):
         self.allow_to = True
         self.domains = []
         self.client_hosts = []
-        self.unNormalizeAddresses = True
-        self.moreHeaders = []
+        self.unNormalizeAddresses = unNormalizeAddresses
+        self.moreHeaders = moreHeaders
+        self._podding = podding
 
         if uri:
             self.uri = uri
@@ -158,6 +159,10 @@ class IScheduleServerRecord (object):
 
     def details(self):
         return (self.ssl, self.host, self.port, self.path,)
+
+
+    def podding(self):
+        return self._podding
 
 
     def redirect(self, location):

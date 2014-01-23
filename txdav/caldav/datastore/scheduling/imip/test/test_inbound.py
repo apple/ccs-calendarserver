@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2008-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2008-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -300,7 +300,7 @@ END:VCALENDAR
         yield txn.commit()
         self.assertEquals(
             "1.2;Scheduling message has been delivered",
-            result.responses[0].children[1].toString()
+            result.responses[0].reqstatus.toString()
         )
 
 
@@ -333,7 +333,7 @@ END:VCALENDAR
         yield txn.commit()
         self.assertEquals(
             "3.7;Invalid Calendar User",
-            result.responses[0].children[1].toString()
+            result.responses[0].reqstatus.toString()
         )
 
 

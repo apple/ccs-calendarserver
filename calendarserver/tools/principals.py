@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -87,8 +87,14 @@ def usage(e=None):
     print("  --get-auto-schedule-mode: read auto-schedule mode")
     print("  --set-auto-accept-group=principal: set auto-accept-group")
     print("  --get-auto-accept-group: read auto-accept-group")
-    print("  --add {locations|resources} 'full name' [record name] [GUID]: add a principal")
+    print("  --add {locations|resources|addresses} 'full name' [record name] [GUID]: add a principal")
     print("  --remove: remove a principal")
+    print("  --set-geo=url: set the geo: url for an address (e.g. geo:37.331741,-122.030333)")
+    print("  --get-geo: get the geo: url for an address")
+    print("  --set-street-address=streetaddress: set the street address string for an address")
+    print("  --get-street-address: get the street address string for an address")
+    print("  --set-address=guid: associate principal with an address (by guid)")
+    print("  --get-address: get the associated address's guid")
 
     if e:
         sys.exit(64)
@@ -116,6 +122,27 @@ class PrincipalService(WorkerService):
             directory = rootResource.getDirectory()
             yield self.function(rootResource, directory, self.store, *self.params)
 
+attrMap = {
+    'GeneratedUID' : { 'attr' : 'guid', },
+    'RealName' : { 'attr' : 'fullName', },
+    'RecordName' : { 'attr' : 'shortNames', },
+    'AutoSchedule' : { 'attr' : 'autoSchedule', },
+    'AutoAcceptGroup' : { 'attr' : 'autoAcceptGroup', },
+
+    'Comment' : { 'extras' : True, 'attr' : 'comment', },
+    'Description' : { 'extras' : True, 'attr' : 'description', },
+    'Type' : { 'extras' : True, 'attr' : 'type', },
+
+    # For "Locations", i.e. scheduled spaces
+    'Capacity' : { 'extras' : True, 'attr' : 'capacity', },
+    'Floor' : { 'extras' : True, 'attr' : 'floor', },
+    'AssociatedAddress' : { 'extras' : True, 'attr' : 'associatedAddress', },
+
+    # For "Addresses", i.e. nonscheduled areas containing Locations
+    'AbbreviatedName' : { 'extras' : True, 'attr' : 'abbreviatedName', },
+    'StreetAddress' : { 'extras' : True, 'attr' : 'streetAddress', },
+    'Geo' : { 'extras' : True, 'attr' : 'geo', },
+}
 
 
 def main():
@@ -142,6 +169,12 @@ def main():
                 "get-auto-schedule-mode",
                 "set-auto-accept-group=",
                 "get-auto-accept-group",
+                "set-geo=",
+                "get-geo",
+                "set-address=",
+                "get-address",
+                "set-street-address=",
+                "get-street-address",
                 "verbose",
             ],
         )
@@ -258,6 +291,24 @@ def main():
         elif opt in ("", "--get-auto-accept-group"):
             principalActions.append((action_getAutoAcceptGroup,))
 
+        elif opt in ("", "--set-geo"):
+            principalActions.append((action_setValue, "Geo", arg))
+
+        elif opt in ("", "--get-geo"):
+            principalActions.append((action_getValue, "Geo"))
+
+        elif opt in ("", "--set-street-address"):
+            principalActions.append((action_setValue, "StreetAddress", arg))
+
+        elif opt in ("", "--get-street-address"):
+            principalActions.append((action_getValue, "StreetAddress"))
+
+        elif opt in ("", "--set-address"):
+            principalActions.append((action_setValue, "AssociatedAddress", arg))
+
+        elif opt in ("", "--get-address"):
+            principalActions.append((action_getValue, "AssociatedAddress"))
+
         else:
             raise NotImplementedError(opt)
 
@@ -274,7 +325,7 @@ def main():
     elif addType:
 
         try:
-            addType = matchStrings(addType, ["locations", "resources"])
+            addType = matchStrings(addType, ["locations", "resources", "addresses"])
         except ValueError, e:
             print(e)
             return
@@ -296,7 +347,7 @@ def main():
     elif listPrincipals:
         try:
             listPrincipals = matchStrings(listPrincipals, ["users", "groups",
-                "locations", "resources"])
+                "locations", "resources", "addresses"])
         except ValueError, e:
             print(e)
             return
@@ -393,6 +444,7 @@ def runSearch(service, rootResource, directory, store, searchTerm):
                  "groups" : "Group",
                  "locations" : "Place",
                  "resources" : "Resource",
+                 "addresses" : "Address",
                 }.get(record.recordType),
             ))
             print("   GUID: %s" % (record.guid,))
@@ -665,6 +717,32 @@ def action_getAutoAcceptGroup(rootResource, directory, store, principal):
         print("Invalid auto-accept-group assigned: %s" % (autoAcceptGroup,))
     else:
         print("No auto-accept-group assigned to %s" % (prettyPrincipal(principal),))
+
+
+
+@inlineCallbacks
+def action_setValue(rootResource, directory, store, principal, name, value):
+    print("Setting %s to %s for %s" % (
+        name, value, prettyPrincipal(principal),
+    ))
+
+    principal.record.extras[attrMap[name]["attr"]] = value
+    (yield updateRecord(False, directory,
+        principal.record.recordType,
+        guid=principal.record.guid,
+        shortNames=principal.record.shortNames,
+        fullName=principal.record.fullName,
+        **principal.record.extras
+    ))
+
+
+
+def action_getValue(rootResource, directory, store, principal, name):
+    print("%s for %s is %s" % (
+        name,
+        prettyPrincipal(principal),
+        principal.record.extras[attrMap[name]["attr"]]
+    ))
 
 
 

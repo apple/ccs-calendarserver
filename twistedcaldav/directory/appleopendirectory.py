@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.directory.test.test_opendirectory -*-
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ from uuid import UUID
 
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twisted.cred.credentials import UsernamePassword
-from twext.web2.auth.digest import DigestedCredentials
+from txweb2.auth.digest import DigestedCredentials
 from twext.python.log import Logger
 
 from twistedcaldav.directory.cachingdirectory import CachingDirectoryService, \
@@ -121,7 +121,7 @@ class OpenDirectoryService(CachingDirectoryService):
             self.restrictToGUID = True
         self.restrictedTimestamp = 0
 
-        # Set up the /Local/Default node if it's in the search path so we can 
+        # Set up the /Local/Default node if it's in the search path so we can
         # send custom queries to it
         self.localNode = None
         try:
@@ -581,7 +581,7 @@ class OpenDirectoryService(CachingDirectoryService):
 
         def collectResults(results):
             self.log.debug("Got back %d records from OD" % (len(results),))
-            for key, value in results:
+            for _ignore_key, value in results:
                 # self.log.debug("OD result: {key} {value}", key=key, value=value)
                 try:
                     recordNodeName = value.get(
@@ -787,7 +787,7 @@ class OpenDirectoryService(CachingDirectoryService):
 
         def collectResults(results):
             self.log.debug("Got back %d records from OD" % (len(results),))
-            for key, value in results:
+            for _ignore_key, value in results:
                 # self.log.debug("OD result: {key} {value}", key=key, value=value)
                 try:
                     recordNodeName = value.get(
@@ -1375,12 +1375,13 @@ def buildLocalQueriesFromTokens(tokens, mapping):
     return results
 
 
+
 def buildNestedQueryFromTokens(tokens, mapping):
     """
     Build a DS query espression such that all the tokens must appear in either
     the fullName (anywhere), emailAddresses (at the beginning) or record name
     (at the beginning).
-    
+
     @param tokens: The tokens to search on
     @type tokens: C{list} of C{str}
     @param mapping: The mapping of DirectoryRecord attributes to OD attributes
@@ -1407,6 +1408,7 @@ def buildNestedQueryFromTokens(tokens, mapping):
             inner.append(query)
         outer.append(dsquery.expression(dsquery.expression.OR, inner))
     return dsquery.expression(dsquery.expression.AND, outer)
+
 
 
 class OpenDirectoryRecord(CachingDirectoryRecord):

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,18 +31,12 @@ This is used in an environment where more than one server is being used within a
 the principals across the whole domain need to be able to directly schedule each other and know of each others
 existence. A common scenario would be a production server and a development/test server.
 
-Each server is identified by an id and url. The id is used when assigning principals to a specific server. Each
-server can also support multiple partitions, and each of those is identified by an id and url, with the id also
-being used to assign principals to a specific partition.
+Each server is identified by an id and url. The id is used when assigning principals to a specific server.
 
-These servers support the concept of "partitioning" and "podding".
-
-A "partitioned" service is one that spreads its
-users out across multiple stores and does reverse proxying of incoming requests to the appropriate partitioned host.
-All servers within the same partition have to be running the same version of the software etc.
+These servers support the concept of "podding".
 
 A "podded" service is one where different groups of users are hosted on different servers, which may be of
-different versions etc. A "pod" may itself be "partitioned", but the partitioning is "invisible" to the outside world.
+different versions etc.
 """
 
 __all__ = [
@@ -90,6 +84,12 @@ class ServersDB(object):
         self._thisServer = None
 
 
+    def addServer(self, server):
+        self._servers[server.id] = server
+        if server.thisServer:
+            self._thisServer = server
+
+
     def getServerById(self, id):
         return self._servers.get(id)
 
@@ -104,25 +104,47 @@ class ServersDB(object):
     def getThisServer(self):
         return self._thisServer
 
+
+    def installReverseProxies(self, maxClients):
+        """
+        Install a reverse proxy for each of the other servers in the "pod".
+
+        @param maxClients: maximum number of clients in the pool.
+        @type maxClients: C{int}
+        """
+
+        for server in self._servers.values():
+            if server.thisServer:
+                continue
+            installPool(
+                server.id,
+                server.uri,
+                maxClients,
+            )
+
 Servers = ServersDB()   # Global server DB
 
 
 
 class Server(object):
     """
-    Represents a server which may itself be partitioned.
+    Represents a server.
     """
 
-    def __init__(self):
-        self.id = None
-        self.uri = None
-        self.thisServer = False
+    def __init__(self, id=None, uri=None, sharedSecret=None, thisServer=False):
+        self.id = id
+        self.uri = uri
+        self.thisServer = thisServer
         self.ips = set()
         self.allowed_from_ips = set()
-        self.shared_secret = None
-        self.partitions = {}
-        self.partitions_ips = set()
+        self.shared_secret = sharedSecret
         self.isImplicit = True
+
+
+    def details(self):
+        if not hasattr(self, "ssl"):
+            self._parseDetails()
+        return (self.ssl, self.host, self.port, self.path,)
 
 
     def check(self, ignoreIPLookupFailures=False):
@@ -164,25 +186,12 @@ class Server(object):
                 actual_ips.add(item)
         self.allowed_from_ips = actual_ips
 
-        for uri in self.partitions.values():
-            parsed_uri = urlparse.urlparse(uri)
-            try:
-                ips = getIPsFromHost(parsed_uri.hostname)
-            except socket.gaierror, e:
-                msg = "Unable to lookup ip-addr for partition '%s': %s" % (parsed_uri.hostname, str(e))
-                log.error(msg)
-                if ignoreIPLookupFailures:
-                    ips = ()
-                else:
-                    raise ValueError(msg)
-            self.partitions_ips.update(ips)
-
 
     def checkThisIP(self, ip):
         """
-        Check that the passed in IP address corresponds to this server or one of its partitions.
+        Check that the passed in IP address corresponds to this server.
         """
-        return (ip in self.ips) or (ip in self.partitions_ips)
+        return (ip in self.ips)
 
 
     def hasAllowedFromIP(self):
@@ -218,27 +227,25 @@ class Server(object):
         return (SERVER_SECRET_HEADER, self.shared_secret,)
 
 
-    def addPartition(self, id, uri):
-        self.partitions[id] = uri
+    def _parseDetails(self):
+        # Extract scheme, host, port and path
+        if self.uri.startswith("http://"):
+            self.ssl = False
+            rest = self.uri[7:]
+        elif self.uri.startswith("https://"):
+            self.ssl = True
+            rest = self.uri[8:]
 
-
-    def getPartitionURIForId(self, id):
-        return self.partitions.get(id)
-
-
-    def isPartitioned(self):
-        return len(self.partitions) != 0
-
-
-    def installReverseProxies(self, ownUID, maxClients):
-
-        for partition, url in self.partitions.iteritems():
-            if partition != ownUID:
-                installPool(
-                    partition,
-                    url,
-                    maxClients,
-                )
+        splits = rest.split("/", 1)
+        hostport = splits[0].split(":")
+        self.host = hostport[0]
+        if len(hostport) > 1:
+            self.port = int(hostport[1])
+        else:
+            self.port = {False: 80, True: 443}[self.ssl]
+        self.path = "/"
+        if len(splits) > 1:
+            self.path += splits[1]
 
 
 
@@ -248,8 +255,6 @@ ELEMENT_ID = "id"
 ELEMENT_URI = "uri"
 ELEMENT_ALLOWED_FROM = "allowed-from"
 ELEMENT_SHARED_SECRET = "shared-secret"
-ELEMENT_PARTITIONS = "partitions"
-ELEMENT_PARTITION = "partition"
 ATTR_IMPLICIT = "implicit"
 ATTR_VALUE_YES = "yes"
 ATTR_VALUE_NO = "no"
@@ -286,39 +291,13 @@ class ServersParser(object):
                     server.allowed_from_ips.add(node.text)
                 elif node.tag == ELEMENT_SHARED_SECRET:
                     server.shared_secret = node.text
-                elif node.tag == ELEMENT_PARTITIONS:
-                    ServersParser._parsePartition(xmlFile, node, server)
                 else:
                     raise RuntimeError("Invalid element '%s' in servers file: '%s'" % (node.tag, xmlFile,))
 
             if server.id is None or server.uri is None:
-                raise RuntimeError("Invalid partition '%s' in servers file: '%s'" % (child.tag, xmlFile,))
+                raise RuntimeError("Invalid server '%s' in servers file: '%s'" % (child.tag, xmlFile,))
 
             server.check(ignoreIPLookupFailures=ignoreIPLookupFailures)
             results[server.id] = server
 
         return results
-
-
-    @staticmethod
-    def _parsePartition(xmlFile, partitions, server):
-
-        for child in partitions:
-
-            if child.tag != ELEMENT_PARTITION:
-                raise RuntimeError("Unknown partition type: '%s' in servers file: '%s'" % (child.tag, xmlFile,))
-
-            id = None
-            uri = None
-            for node in child:
-                if node.tag == ELEMENT_ID:
-                    id = node.text
-                elif node.tag == ELEMENT_URI:
-                    uri = node.text
-                else:
-                    raise RuntimeError("Invalid element '%s' in augment file: '%s'" % (node.tag, xmlFile,))
-
-            if id is None or uri is None:
-                raise RuntimeError("Invalid partition '%s' in servers file: '%s'" % (child.tag, xmlFile,))
-
-            server.addPartition(id, uri)

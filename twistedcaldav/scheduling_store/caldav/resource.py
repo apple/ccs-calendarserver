@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.directory.test.test_calendar -*-
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,11 +33,11 @@ from twistedcaldav.config import config
 # around that for now.
 __import__("twistedcaldav.stdconfig") # FIXME
 
-from twext.web2 import responsecode
-from twext.web2.dav.http import ErrorResponse, MultiStatusResponse
-from twext.web2.dav.resource import davPrivilegeSet
-from twext.web2.dav.util import joinURL, normalizeURL
-from twext.web2.http import HTTPError
+from txweb2 import responsecode
+from txweb2.dav.http import ErrorResponse, MultiStatusResponse
+from txweb2.dav.resource import davPrivilegeSet
+from txweb2.dav.util import joinURL, normalizeURL
+from txweb2.http import HTTPError
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python.failure import Failure
@@ -45,7 +45,7 @@ from twisted.python.failure import Failure
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.caldavxml import caldav_namespace, CalendarFreeBusySet
 from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.ical import allowedComponents, Component
+from twistedcaldav.ical import Component, allowedSchedulingComponents
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.resource import isCalendarCollectionResource
 
@@ -300,8 +300,14 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         """
         Write either the default VEVENT or VTODO calendar property, validating and canonicalizing the value
         """
-        tasks = property.qname() == customxml.ScheduleDefaultTasksURL
-        error_element = (calendarserver_namespace, "valid-schedule-default-tasks-URL") if tasks else (caldav_namespace, "valid-schedule-default-calendar-URL")
+        if property.qname() == caldavxml.ScheduleDefaultCalendarURL.qname():
+            ctype = "VEVENT"
+            error_element = (caldav_namespace, "valid-schedule-default-calendar-URL")
+        elif property.qname() == customxml.ScheduleDefaultTasksURL.qname():
+            ctype = "VTODO"
+            error_element = (calendarserver_namespace, "valid-schedule-default-tasks-URL")
+        else:
+            returnValue(None)
 
         # Verify that the calendar added in the PROPPATCH is valid.
         property.children = [davxml.HRef(normalizeURL(str(href))) for href in property.children]
@@ -325,7 +331,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
 
         try:
             # Now set it on the new store object
-            yield self.parent._newStoreHome.setDefaultCalendar(cal._newStoreObject, tasks)
+            yield self.parent._newStoreHome.setDefaultCalendar(cal._newStoreObject, ctype)
         except InvalidDefaultCalendar as e:
             raise HTTPError(ErrorResponse(
                 responsecode.CONFLICT,
@@ -390,7 +396,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
 
     def getSupportedComponentSet(self):
         return caldavxml.SupportedCalendarComponentSet(
-            *[caldavxml.CalendarComponent(name=item) for item in allowedComponents]
+            *[caldavxml.CalendarComponent(name=item) for item in allowedSchedulingComponents]
         )
 
 
@@ -407,7 +413,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         # Check authentication and access controls
         yield self.authorize(request, (caldavxml.ScheduleSend(),))
 
-        calendar = (yield self.loadCalendarFromRequest(request))
+        calendar, format = (yield self.loadCalendarFromRequest(request))
         originator = (yield self.loadOriginatorFromRequestDetails(request))
         recipients = self.loadRecipientsFromCalendarData(calendar)
 
@@ -422,19 +428,34 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                 authz = (yield request.locateResource(principalURL))
                 self._associatedTransaction._authz_uid = authz.record.guid
 
+        # Log extended item
+        if not hasattr(request, "extendedLogItems"):
+            request.extendedLogItems = {}
+
         # This is a local CALDAV scheduling operation.
-        scheduler = CalDAVScheduler(self._associatedTransaction, self.parent._newStoreHome.uid())
+        scheduler = CalDAVScheduler(self._associatedTransaction, self.parent._newStoreHome.uid(), logItems=request.extendedLogItems)
 
         # Do the POST processing treating
         result = (yield scheduler.doSchedulingViaPOST(originator, recipients, calendar))
-        returnValue(result.response())
+        returnValue(result.response(format=format))
+
+
+    def determineType(self, content_type):
+        """
+        Determine if the supplied content-type is valid for storing and return the matching PyCalendar type.
+        """
+        format = None
+        if content_type is not None:
+            format = "%s/%s" % (content_type.mediaType, content_type.mediaSubtype,)
+        return format if format in Component.allowedTypes() else None
 
 
     @inlineCallbacks
     def loadCalendarFromRequest(self, request):
         # Must be content-type text/calendar
         contentType = request.headers.getHeader("content-type")
-        if contentType is not None and (contentType.mediaType, contentType.mediaSubtype) != ("text", "calendar"):
+        format = self.determineType(contentType)
+        if format is None:
             self.log.error("MIME type %s not allowed in calendar collection" % (contentType,))
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
@@ -444,7 +465,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
 
         # Parse the calendar object from the HTTP request stream
         try:
-            calendar = (yield Component.fromIStream(request.stream))
+            calendar = (yield Component.fromIStream(request.stream, format=format))
         except:
             # FIXME: Bare except
             self.log.error("Error while handling POST: %s" % (Failure(),))
@@ -454,7 +475,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                 description="Can't parse calendar data"
             ))
 
-        returnValue(calendar)
+        returnValue((calendar, format,))
 
 
     @inlineCallbacks

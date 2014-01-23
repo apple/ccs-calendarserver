@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 from twisted.cred.error import LoginFailed
 from twisted.cred.error import UnauthorizedLogin
 from twisted.internet.defer import inlineCallbacks
-from twext.web2.test.test_server import SimpleRequest
+from txweb2.test.test_server import SimpleRequest
 
 from twistedcaldav import authkerb
 import twistedcaldav.test.util

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from txdav.caldav.datastore.test.util import buildCalendarStore
 
 """
 Tests for txdav.caldav.datastore.util.
@@ -22,7 +21,7 @@ Tests for txdav.caldav.datastore.util.
 import textwrap
 
 from twisted.trial.unittest import TestCase as BaseTestCase
-from twext.web2.http_headers import MimeType
+from txweb2.http_headers import MimeType
 
 from twisted.internet.defer import inlineCallbacks
 
@@ -30,6 +29,7 @@ from twistedcaldav.ical import Component
 from twistedcaldav.test.util import TestCase
 
 from txdav.common.datastore.test.util import populateCalendarsFrom, CommonCommonTests
+from txdav.caldav.datastore.test.util import buildCalendarStore
 
 from txdav.caldav.datastore.util import dropboxIDFromCalendarObject, \
     StorageTransportBase, migrateHome
@@ -323,7 +323,12 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(HomeMigrationTests, self).setUp()
-        self.theStore = yield buildCalendarStore(self, self.notifierFactory, homes=("conflict1", "conflict2",))
+        self.theStore = yield buildCalendarStore(self, self.notifierFactory, homes=(
+            "conflict1",
+            "conflict2",
+            "empty_home",
+            "non_empty_home",
+        ))
 
 
     def storeUnderTest(self):
@@ -349,7 +354,8 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
                 "inbox": {},
                 # XXX: implementation is configuration-sensitive regarding the
                 # 'tasks' calendar and it shouldn't be.
-                "tasks": {}
+                "tasks": {},
+                "polls": {},
             }
         }, self.storeUnderTest())
         txn = self.transactionUnderTest()
@@ -412,7 +418,7 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
             c1 = {"1.ics": self.sampleEvent("uid1")}
         if c2 is None:
             c2 = {"2.ics": self.sampleEvent("uid2")}
-        defaults = {"calendar": {}, "inbox": {}, "tasks": {}}
+        defaults = {"calendar": {}, "inbox": {}, "tasks": {}, "polls": {}}
         def conflicted(caldata):
             d = defaults.copy()
             d.update(conflicted=caldata)
@@ -525,16 +531,25 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
                 "different-name": self.sampleEvent("other-uid", "tgt other"),
             },
         )
+
         txn = self.transactionUnderTest()
-        c1 = yield txn.calendarHomeWithUID("conflict1")
         c2 = yield txn.calendarHomeWithUID("conflict2")
         otherCal = yield c2.createCalendarWithName("othercal")
-        otherCal.createCalendarObjectWithName(
+        yield otherCal.createCalendarObjectWithName(
             "some-name", Component.fromString(
                 self.sampleEvent("oc", "target calendar")[0]
             )
         )
+        yield self.commit()
+
+        txn = self.transactionUnderTest()
+        c1 = yield txn.calendarHomeWithUID("conflict1")
+        c2 = yield txn.calendarHomeWithUID("conflict2")
         yield migrateHome(c1, c2, merge=True)
+        yield self.commit()
+
+        txn = self.transactionUnderTest()
+        c2 = yield txn.calendarHomeWithUID("conflict2")
         targetCal = yield c2.calendarWithName("conflicted")
         yield self.checkSummary("same-name", "target", targetCal)
         yield self.checkSummary("different-name", "tgt other", targetCal)

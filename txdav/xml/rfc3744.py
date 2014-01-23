@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -49,6 +49,7 @@ class Read (WebDAVEmptyElement):
     3.1)
     """
     name = "read"
+
 
 
 # For DAV:write element (RFC 3744, section 3.2) see Write class in
@@ -251,6 +252,7 @@ class GroupMembership (WebDAVElement):
     allowed_children = {(dav_namespace, "href"): (0, None)}
 
 
+
 ##
 # Section 5 (Access Control Properties)
 ##
@@ -441,6 +443,7 @@ class CurrentUserPrivilegeSet (WebDAVElement):
     allowed_children = {(dav_namespace, "privilege"): (0, None)}
 
 
+
 # For DAV:privilege element (RFC 3744, section 5.4) see Privilege class above.
 
 
@@ -549,6 +552,7 @@ class ACE (WebDAVElement):
 # class above.
 
 
+
 # For DAV:all element (RFC 3744, section 5.5.1) see All class above.
 
 
@@ -570,6 +574,7 @@ class Unauthenticated (WebDAVEmptyElement):
     Principal which matches unauthenticated users. (RFC 3744, section 5.5.1)
     """
     name = "unauthenticated"
+
 
 
 # For DAV:property element (RFC 3744, section 5.5.1) see Property
@@ -624,6 +629,7 @@ class Deny (WebDAVElement):
     allowed_children = {(dav_namespace, "privilege"): (1, None)}
 
 
+
 # For DAV:privilege element (RFC 3744, section 5.5.2) see Privilege
 # class above.
 
@@ -643,7 +649,7 @@ class Protected (WebDAVEmptyElement):
 @registerElementClass
 class Inherited (WebDAVElement):
     """
-    Indicates that an ACE is inherited from the resource indentified by the
+    Indicates that an ACE is inherited from the resource identified by the
     contained DAV:href element. (RFC 3744, section 5.5.4)
     """
     name = "inherited"
@@ -889,6 +895,7 @@ class PrincipalProperty (WebDAVElement):
     name = "principal-property"
 
     allowed_children = {WebDAVElement: (0, None)}
+
 
 
 # For DAV:self element (RFC 3744, section 9.3) see Self class above.

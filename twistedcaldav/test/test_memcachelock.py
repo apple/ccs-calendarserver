@@ -5,15 +5,16 @@
 Test the memcache client protocol.
 """
 
-from twext.protocols.memcache import MemCacheProtocol
-
 from twisted.test.proto_helpers import StringTransportWithDisconnection
 from twisted.internet.task import Clock
 from twisted.internet.defer import inlineCallbacks
+from twisted.protocols.memcache import MemCacheProtocol
 
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 
 from twistedcaldav.test.util import TestCase
+
+
 
 class MemCacheTestCase(TestCase):
     """
@@ -22,22 +23,32 @@ class MemCacheTestCase(TestCase):
 
     class FakedMemcacheLock(MemcacheLock):
 
-        def __init__(self, faked, namespace, locktoken, timeout=5.0, retry_interval=0.1, expire_time=0):
+        def __init__(
+            self, faked, namespace, locktoken,
+            timeout=5.0, retry_interval=0.1, expire_time=0
+        ):
             """
-
             @param namespace: a unique namespace for this lock's tokens
             @type namespace: C{str}
+
             @param locktoken: the name of the locktoken
             @type locktoken: C{str}
-            @param timeout: the maximum time in seconds that the lock should block
+
+            @param timeout: the maximum time in seconds that the lock should
+                block
             @type timeout: C{float}
+
             @param retry_interval: the interval to retry acquiring the lock
             @type retry_interval: C{float}
-            @param expiryTime: the time in seconds for the lock to expire. Zero: no expiration.
+
+            @param expiryTime: the time in seconds for the lock to expire.
+                Zero: no expiration.
             @type expiryTime: C{float}
             """
 
-            super(MemCacheTestCase.FakedMemcacheLock, self).__init__(namespace, locktoken, timeout, retry_interval, expire_time)
+            super(MemCacheTestCase.FakedMemcacheLock, self).__init__(
+                namespace, locktoken, timeout, retry_interval, expire_time
+            )
             self.faked = faked
 
         def _getMemcacheProtocol(self):
@@ -90,11 +101,16 @@ class MemCacheTestCase(TestCase):
         called back with the value and the flag associated with the given key
         if the server returns a successful result.
         """
-        lock = MemCacheTestCase.FakedMemcacheLock(self.proto, "lock", "locking")
+        lock = MemCacheTestCase.FakedMemcacheLock(
+            self.proto, "lock", "locking"
+        )
         return self._test(
             lock.get("foo"),
             "get lock:foo-acbd18db4cc2f85cedef654fccc4a4d8\r\n",
-            "VALUE lock:foo-acbd18db4cc2f85cedef654fccc4a4d8 0 3\r\nbar\r\nEND\r\n",
+            (
+                "VALUE lock:foo-acbd18db4cc2f85cedef654fccc4a4d8 0 3\r\n"
+                "bar\r\nEND\r\n"
+            ),
             "bar"
         )
 
@@ -105,7 +121,9 @@ class MemCacheTestCase(TestCase):
         called back with the value and the flag associated with the given key
         if the server returns a successful result.
         """
-        lock = MemCacheTestCase.FakedMemcacheLock(self.proto, "lock", "locking")
+        lock = MemCacheTestCase.FakedMemcacheLock(
+            self.proto, "lock", "locking"
+        )
         return self._test(
             lock.set("foo", "bar"),
             "set lock:foo-acbd18db4cc2f85cedef654fccc4a4d8 0 0 3\r\nbar\r\n",
@@ -121,7 +139,9 @@ class MemCacheTestCase(TestCase):
         called back with the value and the flag associated with the given key
         if the server returns a successful result.
         """
-        lock = MemCacheTestCase.FakedMemcacheLock(self.proto, "lock", "locking")
+        lock = MemCacheTestCase.FakedMemcacheLock(
+            self.proto, "lock", "locking"
+        )
         yield self._test(
             lock.acquire(),
             "add lock:locking-559159aa00cc525bfe5c4b34cf16cccb 0 0 1\r\n1\r\n",
@@ -138,7 +158,9 @@ class MemCacheTestCase(TestCase):
         called back with the value and the flag associated with the given key
         if the server returns a successful result.
         """
-        lock = MemCacheTestCase.FakedMemcacheLock(self.proto, "lock", "locking", timeout=0)
+        lock = MemCacheTestCase.FakedMemcacheLock(
+            self.proto, "lock", "locking", timeout=0
+        )
         yield self._test(
             lock.acquire(),
             "add lock:locking-559159aa00cc525bfe5c4b34cf16cccb 0 0 1\r\n1\r\n",
@@ -155,11 +177,17 @@ class MemCacheTestCase(TestCase):
         called back with the value and the flag associated with the given key
         if the server returns a successful result.
         """
-        lock = MemCacheTestCase.FakedMemcacheLock(self.proto, "lock", "locking", timeout=0)
+        lock = MemCacheTestCase.FakedMemcacheLock(
+            self.proto, "lock", "locking", timeout=0
+        )
         try:
             yield self._test(
                 lock.acquire(),
-                "add lock:locking-559159aa00cc525bfe5c4b34cf16cccb 0 0 1\r\n1\r\n",
+                (
+                    "add lock:"
+                    "locking-559159aa00cc525bfe5c4b34cf16cccb 0 0 1\r\n"
+                    "1\r\n"
+                ),
                 "NOT_STORED\r\n",
                 True
             )
@@ -179,7 +207,9 @@ class MemCacheTestCase(TestCase):
         called back with the value and the flag associated with the given key
         if the server returns a successful result.
         """
-        lock = MemCacheTestCase.FakedMemcacheLock(self.proto, "lock", "locking")
+        lock = MemCacheTestCase.FakedMemcacheLock(
+            self.proto, "lock", "locking"
+        )
         yield self._test(
             lock.acquire(),
             "add lock:locking-559159aa00cc525bfe5c4b34cf16cccb 0 0 1\r\n1\r\n",
@@ -203,7 +233,9 @@ class MemCacheTestCase(TestCase):
         called back with the value and the flag associated with the given key
         if the server returns a successful result.
         """
-        lock = MemCacheTestCase.FakedMemcacheLock(self.proto, "lock", "locking")
+        lock = MemCacheTestCase.FakedMemcacheLock(
+            self.proto, "lock", "locking"
+        )
         yield self._test(
             lock.acquire(),
             "add lock:locking-559159aa00cc525bfe5c4b34cf16cccb 0 0 1\r\n1\r\n",
@@ -225,7 +257,9 @@ class MemCacheTestCase(TestCase):
         called back with the value and the flag associated with the given key
         if the server returns a successful result.
         """
-        lock = MemCacheTestCase.FakedMemcacheLock(self.proto, "lock", u"locking")
+        lock = MemCacheTestCase.FakedMemcacheLock(
+            self.proto, "lock", u"locking"
+        )
         yield self._test(
             lock.acquire(),
             "add lock:locking-559159aa00cc525bfe5c4b34cf16cccb 0 0 1\r\n1\r\n",
@@ -253,7 +287,9 @@ class MemCacheTestCase(TestCase):
             self.fail("AssertionError not raised")
 
         try:
-            lock = MemCacheTestCase.FakedMemcacheLock(self.proto, "lock", ("abc",))
+            lock = MemCacheTestCase.FakedMemcacheLock(
+                self.proto, "lock", ("abc",)
+            )
             yield lock.acquire()
             self.fail("AssertionError not raised")
         except AssertionError:

@@ -5,4 +5,3 @@ __bundle__ = _objc.initFrameworkWrapper("OpenDirectory",
     frameworkPath=_objc.pathForFramework(
     "/System/Library/Frameworks/OpenDirectory.framework"),
     globals=globals())
-

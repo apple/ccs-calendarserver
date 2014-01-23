@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,11 +33,11 @@ from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
 from twisted.internet.error import ConnectionLost, ConnectionDone, ConnectError
 from twisted.internet.protocol import ClientFactory
 
-from twext.web2 import responsecode
-from twext.web2.client.http import HTTPClientProtocol
-from twext.web2.http import StatusResponse, HTTPError
-from twext.web2.dav.util import allDataFromStream
-from twext.web2.stream import MemoryStream
+from txweb2 import responsecode
+from txweb2.client.http import HTTPClientProtocol
+from txweb2.http import StatusResponse, HTTPError
+from txweb2.dav.util import allDataFromStream
+from txweb2.stream import MemoryStream
 
 class PooledHTTPClientFactory(ClientFactory):
     """

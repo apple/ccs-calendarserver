@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,10 +31,10 @@ import uuid
 import xattr
 import zlib
 
-from twext.python.plistlib import readPlistFromString
+from plistlib import readPlistFromString
 
-from pycalendar.calendar import PyCalendar
-from pycalendar.attribute import PyCalendarAttribute
+from pycalendar.icalendar.calendar import Calendar
+from pycalendar.parameter import Parameter
 
 COPY_CAL_XATTRS = (
     'WebDAV:{DAV:}resourcetype',
@@ -67,6 +67,8 @@ def usage(e=None):
     else:
         sys.exit(0)
 
+
+
 def main():
 
     try:
@@ -83,8 +85,6 @@ def main():
     # Get configuration
     #
     directoryNode = "/Search"
-    sourceDirectory = None
-    destDirectory = None
 
     for opt, arg in optargs:
         if opt in ("-h", "--help"):
@@ -105,6 +105,7 @@ def main():
     directoryMap.printStats()
 
     directoryMap.dumpDsImports(os.path.join(destDirectory, "dsimports"))
+
 
 
 def anonymizeRoot(directoryMap, sourceDirectory, destDirectory):
@@ -244,11 +245,9 @@ def anonymizeRoot(directoryMap, sourceDirectory, destDirectory):
 
                     resources += 1
 
-
                 # Store new ctag on calendar
                 xml = "<?xml version='1.0' encoding='UTF-8'?>\r\n<getctag xmlns='http://calendarserver.org/ns/'>%s</getctag>\r\n" % (str(datetime.datetime.now()),)
                 xattr.setxattr(destCal, "WebDAV:{http:%2F%2Fcalendarserver.org%2Fns%2F}getctag", zlib.compress(xml))
-
 
             # Calendar home quota
             xml = "<?xml version='1.0' encoding='UTF-8'?>\r\n<quota-used xmlns='http://twistedmatrix.com/xml_namespace/dav/private/'>%d</quota-used>\r\n" % (quotaUsed,)
@@ -280,9 +279,10 @@ def anonymizeRoot(directoryMap, sourceDirectory, destDirectory):
     print("")
 
 
+
 def anonymizeData(directoryMap, data):
     try:
-        pyobj = PyCalendar.parseText(data)
+        pyobj = Calendar.parseText(data)
     except Exception, e:
         print("Failed to parse (%s): %s" % (e, data))
         return None
@@ -309,13 +309,13 @@ def anonymizeData(directoryMap, data):
                             comp.removeProperty(prop)
                             continue
                     prop.setValue("urn:uuid:%s" % (record['guid'],))
-                    if prop.hasAttribute('X-CALENDARSERVER-EMAIL'):
-                        prop.replaceAttribute(PyCalendarAttribute('X-CALENDARSERVER-EMAIL', record['email']))
+                    if prop.hasParameter('X-CALENDARSERVER-EMAIL'):
+                        prop.replaceParameter(Parameter('X-CALENDARSERVER-EMAIL', record['email']))
                     else:
-                        prop.removeAttributes('EMAIL')
-                        prop.addAttribute(PyCalendarAttribute('EMAIL', record['email']))
-                    prop.removeAttributes('CN')
-                    prop.addAttribute(PyCalendarAttribute('CN', record['name']))
+                        prop.removeParameters('EMAIL')
+                        prop.addParameter(Parameter('EMAIL', record['email']))
+                    prop.removeParameters('CN')
+                    prop.addParameter(Parameter('CN', record['name']))
             except KeyError:
                 pass
 
@@ -345,11 +345,12 @@ def anonymizeData(directoryMap, data):
     return pyobj.getText(includeTimezones=True)
 
 
+
 class DirectoryMap(object):
 
     def __init__(self, node):
 
-        self.map = { }
+        self.map = {}
         self.byType = {
             'users' : [],
             'groups' : [],
@@ -373,10 +374,10 @@ class DirectoryMap(object):
 
         print("Fetching records from directory: %s" % (node,))
 
-        for internalType, (recordType, friendlyType) in self.strings.iteritems():
+        for internalType, (recordType, _ignore_friendlyType) in self.strings.iteritems():
             print(" %s..." % (internalType,))
             child = Popen(
-                args = [
+                args=[
                     "/usr/bin/dscl", "-plist", node, "-readall",
                     "/%s" % (recordType,),
                     "GeneratedUID", "RecordName", "EMailAddress", "GroupMembers"
@@ -404,6 +405,7 @@ class DirectoryMap(object):
 
         print("Done.")
         print("")
+
 
     def addRecord(self, internalType="users", guid=None, names=None,
         emails=None, members=None, cua=None):
@@ -458,6 +460,7 @@ class DirectoryMap(object):
                 keys.append(email)
         return keys
 
+
     def cua2key(self, cua):
         key = cua.lower()
 
@@ -473,10 +476,11 @@ class DirectoryMap(object):
 
         return key
 
+
     def lookupCUA(self, cua):
         key = self.cua2key(cua)
 
-        if key and self.map.has_key(key):
+        if key and key in self.map:
             return self.map[key]
         else:
             return None
@@ -490,6 +494,7 @@ class DirectoryMap(object):
         unknown = self.counts['unknown']
         if unknown:
             print(" Principals not found in directory: %d" % (unknown,))
+
 
     def dumpDsImports(self, dirPath):
         if not os.path.exists(dirPath):
@@ -567,12 +572,12 @@ class DirectoryError(Exception):
     Error trying to access dscl
     """
 
+
+
 class DatabaseError(Exception):
     """
     Error trying to access sqlite3
     """
-
-
 
 
 
@@ -592,17 +597,16 @@ def anonymize(text):
     h = hashlib.md5(text)
     h = h.hexdigest()
     l = len(text)
-    return (h*((l/32)+1))[:-(32-(l%32))]
+    return (h * ((l / 32) + 1))[:-(32 - (l % 32))]
 
 
 
 nameChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 def randomName(length):
     l = []
-    for i in xrange(length):
+    for _ignore in xrange(length):
         l.append(random.choice(nameChars))
     return "".join(l)
-
 
 
 

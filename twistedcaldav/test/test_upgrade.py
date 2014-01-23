@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2008-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2008-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1675,8 +1675,8 @@ ATTENDEE;CN=Wilfredo Sanchez;CUTYPE=INDIVIDUAL;EMAIL=wsanchez@example.com;
 ATTENDEE;CN=Double 'quotey' Quotes;CUTYPE=INDIVIDUAL;EMAIL=doublequotes@ex
  ample.com;PARTSTAT=ACCEPTED:urn:uuid:8E04787E-336D-41ED-A70B-D233AD0DCE6F
 ATTENDEE;CN=Cyrus Daboo;CUTYPE=INDIVIDUAL;EMAIL=cdaboo@example.com;PARTSTA
- T=ACCEPTED;ROLE=REQ-PARTICIPANT:urn:uuid:5A985493-EE2C-4665-94CF-4DFEA3A89
- 500
+ T=ACCEPTED;ROLE=REQ-PARTICIPANT:urn:uuid:5A985493-EE2C-4665-94CF-4DFEA3A8
+ 9500
 CREATED:20090203T181910Z
 DESCRIPTION:This has " Bad Quotes " in it
 DTSTAMP:20090203T181924Z

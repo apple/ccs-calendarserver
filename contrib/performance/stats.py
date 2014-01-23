@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,16 +15,19 @@
 ##
 
 from __future__ import print_function
+
 from math import log, sqrt
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.duration import PyCalendarDuration
-from pycalendar.property import PyCalendarProperty
-from pycalendar.timezone import PyCalendarTimezone
-from twisted.python.util import FancyEqMixin
-from zope.interface import Interface, implements
+from time import mktime
 import random
-import time
 import sqlparse
+
+from pycalendar.datetime import DateTime
+from pycalendar.duration import Duration as PyDuration
+from pycalendar.icalendar.property import Property
+from pycalendar.timezone import Timezone
+
+from zope.interface import Interface, implements
+from twisted.python.util import FancyEqMixin
 
 
 NANO = 1000000000.0
@@ -338,7 +341,7 @@ class NearFutureDistribution(object, FancyEqMixin):
 
 
     def sample(self):
-        now = PyCalendarDateTime.getNowUTC()
+        now = DateTime.getNowUTC()
         now.offsetSeconds(int(self._offset.sample()))
         return now
 
@@ -390,11 +393,11 @@ class WorkDistribution(object, FancyEqMixin):
             60 * 60 * 8 * 6,
             # Standard deviation of 4 workdays
             60 * 60 * 8 * 4)
-        self.now = PyCalendarDateTime.getNow
+        self.now = DateTime.getNow
 
 
     def astimestamp(self, dt):
-        return time.mktime(dt.timetuple())
+        return mktime(dt.timetuple())
 
 
     def _findWorkAfter(self, when):
@@ -406,7 +409,7 @@ class WorkDistribution(object, FancyEqMixin):
         # Find a workday that follows the timestamp
         weekday = when.getDayOfWeek()
         for i in range(NUM_WEEKDAYS):
-            day = when + PyCalendarDuration(days=i)
+            day = when + PyDuration(days=i)
             if (weekday + i) % NUM_WEEKDAYS in self._daysOfWeek:
                 # Joy, a day on which work might occur.  Find the first hour on
                 # this day when work may start.
@@ -419,8 +422,8 @@ class WorkDistribution(object, FancyEqMixin):
 
 
     def sample(self):
-        offset = PyCalendarDuration(seconds=int(self._helperDistribution.sample()))
-        beginning = self.now(PyCalendarTimezone(tzid=self._tzname))
+        offset = PyDuration(seconds=int(self._helperDistribution.sample()))
+        beginning = self.now(Timezone(tzid=self._tzname))
         while offset:
             start, end = self._findWorkAfter(beginning)
             if end - start > offset:
@@ -463,8 +466,7 @@ class RecurrenceDistribution(object, FancyEqMixin):
             index = self._helperDistribution.sample()
             rrule = self._rrules[index]
             if rrule:
-                prop = PyCalendarProperty()
-                prop.parse(rrule)
+                prop = Property.parseText(rrule)
                 return prop
 
         return None

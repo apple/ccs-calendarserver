@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,28 +31,29 @@ from cStringIO import StringIO
 class Table(object):
     """
     Class that allows pretty printing ascii tables.
-    
+
     The table supports multiline headers and footers, independent
-    column formatting by row, alternative tab-delimited output. 
+    column formatting by row, alternative tab-delimited output.
     """
-    
+
     class ColumnFormat(object):
         """
         Defines the format string, justification and span for a column.
         """
-        
+
         LEFT_JUSTIFY = 0
         RIGHT_JUSTIFY = 1
         CENTER_JUSTIFY = 2
 
         def __init__(self, strFormat="%s", justify=LEFT_JUSTIFY, span=1):
-            
+
             self.format = strFormat
             self.justify = justify
             self.span = span
 
+
     def __init__(self, table=None):
-        
+
         self.headers = []
         self.headerColumnFormats = []
         self.rows = []
@@ -65,60 +66,71 @@ class Table(object):
         if table:
             self.setData(table)
 
+
     def setData(self, table):
-        
+
         self.hasTitles = True
         self.headers.append(table[0])
         self.rows = table[1:]
         self._getMaxColumnCount()
 
+
     def setDefaultColumnFormats(self, columnFormats):
-        
+
         self.defaultColumnFormats = columnFormats
 
+
     def addDefaultColumnFormat(self, columnFormat):
-        
+
         self.defaultColumnFormats.append(columnFormat)
 
+
     def setHeaders(self, rows, columnFormats=None):
-        
+
         self.headers = rows
-        self.headerColumnFormats = columnFormats if columnFormats else [None,] * len(self.headers)
+        self.headerColumnFormats = columnFormats if columnFormats else [None, ] * len(self.headers)
         self._getMaxColumnCount()
 
+
     def addHeader(self, row, columnFormats=None):
-        
+
         self.headers.append(row)
         self.headerColumnFormats.append(columnFormats)
         self._getMaxColumnCount()
 
+
     def addHeaderDivider(self, skipColumns=()):
-        
+
         self.headers.append((None, skipColumns,))
         self.headerColumnFormats.append(None)
 
+
     def setFooters(self, row, columnFormats=None):
-        
+
         self.footers = row
-        self.footerColumnFormats = columnFormats if columnFormats else [None,] * len(self.footers)
+        self.footerColumnFormats = columnFormats if columnFormats else [None, ] * len(self.footers)
         self._getMaxColumnCount()
 
+
     def addFooter(self, row, columnFormats=None):
-        
+
         self.footers.append(row)
         self.footerColumnFormats.append(columnFormats)
         self._getMaxColumnCount()
 
+
     def addRow(self, row=None, columnFormats=None):
-        
+
         self.rows.append(row)
         if columnFormats:
             self.columnFormatsByRow[len(self.rows) - 1] = columnFormats
         self._getMaxColumnCount()
-    
+
+
     def addDivider(self, skipColumns=()):
-        
+
         self.rows.append((None, skipColumns,))
+
 
     def toString(self):
 
@@ -126,10 +138,11 @@ class Table(object):
         self.printTable(os=output)
         return output.getvalue()
 
+
     def printTable(self, os=stdout):
-        
+
         maxWidths = self._getMaxWidths()
-        
+
         self.printDivider(os, maxWidths, False)
         if self.headers:
             for header, format in zip(self.headers, self.headerColumnFormats):
@@ -142,9 +155,10 @@ class Table(object):
             for footer, format in zip(self.footers, self.footerColumnFormats):
                 self.printRow(os, footer, self._getFooterColumnFormat(format), maxWidths)
         self.printDivider(os, maxWidths, False)
-    
+
+
     def printRow(self, os, row, format, maxWidths):
-        
+
         if row is None or type(row) is tuple and row[0] is None:
             self.printDivider(os, maxWidths, skipColumns=row[1] if type(row) is tuple else ())
         else:
@@ -165,7 +179,7 @@ class Table(object):
                 t += " " + text + " |"
             t += "\n"
             os.write(t)
-            
+
 
     def printDivider(self, os, maxWidths, intermediate=True, double=False, skipColumns=()):
         t = "|" if intermediate else "+"
@@ -179,8 +193,9 @@ class Table(object):
         t += "\n"
         os.write(t)
 
+
     def printTabDelimitedData(self, os=stdout, footer=True):
-        
+
         if self.headers:
             titles = [""] * len(self.headers[0])
             for row, header in enumerate(self.headers):
@@ -193,20 +208,22 @@ class Table(object):
             for footer in self.footers:
                 self.printTabDelimitedRow(os, footer, self._getFooterColumnFormat(self.footerColumnFormats[0]))
 
+
     def printTabDelimitedRow(self, os, row, format):
-        
+
         if row is None:
             row = [""] * self.columnCount
-        
+
         if len(row) != self.columnCount:
             row = list(row)
             row.extend([""] * (self.columnCount - len(row)))
 
         textItems = [self._columnText(row, ctr, format) for ctr in xrange((len(row)))]
         os.write("\t".join(textItems) + "\n")
-        
+
+
     def _getMaxColumnCount(self):
-        
+
         self.columnCount = 0
         if self.headers:
             for header in self.headers:
@@ -217,6 +234,7 @@ class Table(object):
             for footer in self.footers:
                 self.columnCount = max(self.columnCount, len(footer) if footer else 0)
 
+
     def _getMaxWidths(self):
 
         maxWidths = [0] * self.columnCount
@@ -224,55 +242,60 @@ class Table(object):
         if self.headers:
             for header, format in zip(self.headers, self.headerColumnFormats):
                 self._updateMaxWidthsFromRow(header, self._getHeaderColumnFormat(format), maxWidths)
-            
+
         for ctr, row in enumerate(self.rows):
             self._updateMaxWidthsFromRow(row, self._getColumnFormatForRow(ctr), maxWidths)
 
         if self.footers:
             for footer, format in zip(self.footers, self.footerColumnFormats):
                 self._updateMaxWidthsFromRow(footer, self._getFooterColumnFormat(format), maxWidths)
-            
+
         return maxWidths
 
+
     def _updateMaxWidthsFromRow(self, row, format, maxWidths):
-        
+
         if row and (type(row) is not tuple or row[0] is not None):
             ctr = 0
             while ctr < len(row):
-                
-                text = self._columnText(row, ctr, format)       
+
+                text = self._columnText(row, ctr, format)
                 startCtr = ctr
                 for _ignore_span in xrange(format[startCtr].span if format else 1):
                     maxWidths[ctr] = max(maxWidths[ctr], len(text) / (format[startCtr].span if format else 1))
                     ctr += 1
-    
+
+
     def _getHeaderColumnFormat(self, format):
-        
+
         if format:
             return format
         else:
             justify = Table.ColumnFormat.CENTER_JUSTIFY if len(self.headers) == 1 else Table.ColumnFormat.LEFT_JUSTIFY
-            return [Table.ColumnFormat(justify = justify)] * self.columnCount
+            return [Table.ColumnFormat(justify=justify)] * self.columnCount
+
 
     def _getFooterColumnFormat(self, format):
-        
+
         if format:
             return format
         else:
             return self.defaultColumnFormats
 
+
     def _getColumnFormatForRow(self, ctr):
-        
+
         if ctr in self.columnFormatsByRow:
             return self.columnFormatsByRow[ctr]
         else:
             return self.defaultColumnFormats
 
+
     def _columnText(self, row, column, format, width=0):
-        
+
         if row is None or column >= len(row):
             return ""
-        
+
         colData = row[column]
         if colData is None:
             colData = ""

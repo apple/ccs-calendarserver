@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,41 +19,37 @@ Tests for the interaction between model-level and protocol-level logic.
 """
 
 
-from twext.web2.responsecode import UNAUTHORIZED
-from twext.web2.http_headers import Headers
 from twext.enterprise.ienterprise import AlreadyFinishedError
-
-from txdav.xml import element as davxml
-from twistedcaldav.config import config
+from twext.enterprise.locking import NamedLock
+from txweb2 import responsecode
+from txweb2.http import HTTPError
+from txweb2.http_headers import Headers, MimeType
+from txweb2.responsecode import INSUFFICIENT_STORAGE_SPACE
+from txweb2.responsecode import UNAUTHORIZED
+from txweb2.stream import MemoryStream
 
 from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import maybeDeferred
 
+from twistedcaldav.config import config
+from twistedcaldav.directory.test.test_xmlfile import XMLFileBase
 from twistedcaldav.ical import Component as VComponent
-from twistedcaldav.vcard import Component as VCComponent
-
 from twistedcaldav.storebridge import DropboxCollection, \
     CalendarCollectionResource
-
 from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest
+from twistedcaldav.vcard import Component as VCComponent
 
-from txdav.idav import IDataStore
-from txdav.caldav.datastore.test.test_file import test_event_text
-
-from txdav.carddav.datastore.test.test_file import vcard4_text
-
-from txdav.common.datastore.test.util import assertProvides
-
-
-from twext.web2.http import HTTPError
-from twext.web2.responsecode import INSUFFICIENT_STORAGE_SPACE
-from twext.web2.stream import MemoryStream
-from txdav.common.datastore.test.util import deriveQuota
-from twistedcaldav.directory.test.test_xmlfile import XMLFileBase
-from txdav.caldav.icalendarstore import ICalendarHome
-from txdav.carddav.iaddressbookstore import IAddressBookHome
-
-from twisted.internet.defer import maybeDeferred
 from txdav.caldav.datastore.file import Calendar
+from txdav.caldav.datastore.test.test_file import test_event_text
+from txdav.caldav.icalendarstore import ICalendarHome
+from txdav.carddav.datastore.test.test_file import vcard4_text
+from txdav.carddav.iaddressbookstore import IAddressBookHome
+from txdav.common.datastore.test.util import assertProvides
+from txdav.common.datastore.test.util import deriveQuota
+from txdav.idav import IDataStore
+from txdav.xml import element as davxml
+
+import hashlib
 
 def _todo(f, why):
     f.todo = why
@@ -560,3 +556,90 @@ END:VEVENT""".format(wsanchez=wsanchez, cdaboo=cdaboo)
         self.requestUnderTest = None
         yield self.assertCalendarEmpty(wsanchez)
         yield self.assertCalendarEmpty(cdaboo)
+
+
+
+class TimeoutTests(StoreTestCase):
+    """
+    Tests for L{twistedcaldav.storebridge} lock timeouts.
+    """
+
+    @inlineCallbacks
+    def test_timeoutOnPUT(self):
+        """
+        PUT gets a 503 on a lock timeout.
+        """
+
+        # Create a fake lock
+        txn = self.transactionUnderTest()
+        yield NamedLock.acquire(txn, "ImplicitUIDLock:%s" % (hashlib.md5("uid1").hexdigest(),))
+
+        # PUT fails
+        request = SimpleStoreRequest(
+            self,
+            "PUT",
+            "/calendars/users/wsanchez/calendar/1.ics",
+            headers=Headers({"content-type": MimeType.fromString("text/calendar")}),
+            authid="wsanchez"
+        )
+        request.stream = MemoryStream("""BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Apple Computer\, Inc//iCal 2.0//EN
+VERSION:2.0
+BEGIN:VEVENT
+UID:uid1
+DTSTART;VALUE=DATE:20020101
+DTEND;VALUE=DATE:20020102
+DTSTAMP:20020101T121212Z
+SUMMARY:New Year's Day
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n"))
+        response = yield self.send(request)
+        self.assertEqual(response.code, responsecode.SERVICE_UNAVAILABLE)
+
+
+    @inlineCallbacks
+    def test_timeoutOnDELETE(self):
+        """
+        DELETE gets a 503 on a lock timeout.
+        """
+
+        # PUT works
+        request = SimpleStoreRequest(
+            self,
+            "PUT",
+            "/calendars/users/wsanchez/calendar/1.ics",
+            headers=Headers({"content-type": MimeType.fromString("text/calendar")}),
+            authid="wsanchez"
+        )
+        request.stream = MemoryStream("""BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Apple Computer\, Inc//iCal 2.0//EN
+VERSION:2.0
+BEGIN:VEVENT
+UID:uid1
+DTSTART;VALUE=DATE:20020101
+DTEND;VALUE=DATE:20020102
+DTSTAMP:20020101T121212Z
+ORGANIZER:mailto:wsanchez@example.com
+ATTENDEE:mailto:wsanchez@example.com
+SUMMARY:New Year's Day
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n"))
+        response = yield self.send(request)
+        self.assertEqual(response.code, responsecode.CREATED)
+
+        # Create a fake lock
+        txn = self.transactionUnderTest()
+        yield NamedLock.acquire(txn, "ImplicitUIDLock:%s" % (hashlib.md5("uid1").hexdigest(),))
+
+        request = SimpleStoreRequest(
+            self,
+            "DELETE",
+            "/calendars/users/wsanchez/calendar/1.ics",
+            authid="wsanchez"
+        )
+        response = yield self.send(request)
+        self.assertEqual(response.code, responsecode.SERVICE_UNAVAILABLE)

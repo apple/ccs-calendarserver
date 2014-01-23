@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,15 +14,15 @@
 # limitations under the License.
 ##
 
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.datetime import DateTime
+from pycalendar.timezone import Timezone
 
-from twext.web2 import responsecode
-from twext.web2.dav.http import ErrorResponse
-from twext.web2.dav.noneprops import NonePropertyStore
-from twext.web2.dav.util import allDataFromStream
-from twext.web2.http import Response, HTTPError, StatusResponse, XMLResponse
-from twext.web2.http_headers import MimeType
+from txweb2 import responsecode
+from txweb2.dav.http import ErrorResponse
+from txweb2.dav.noneprops import NonePropertyStore
+from txweb2.dav.util import allDataFromStream
+from txweb2.http import Response, HTTPError, StatusResponse, XMLResponse
+from txweb2.http_headers import MimeType
 
 from twisted.internet.defer import succeed, returnValue, inlineCallbacks
 from twisted.python.failure import Failure
@@ -52,7 +52,7 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
     Extends L{DAVResource} to provide iSchedule inbox functionality.
     """
 
-    def __init__(self, parent, store):
+    def __init__(self, parent, store, podding=False):
         """
         @param parent: the parent resource of this one.
         """
@@ -62,6 +62,7 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
 
         self.parent = parent
         self._newStore = store
+        self._podding = podding
 
 
     def deadProperties(self):
@@ -109,12 +110,12 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
     def render(self, request):
         output = """<html>
 <head>
-<title>Server To Server Inbox Resource</title>
+<title>%(rtype)s Inbox Resource</title>
 </head>
 <body>
-<h1>Server To Server Inbox Resource.</h1>
+<h1>%(rtype)s Inbox Resource.</h1>
 </body
-</html>"""
+</html>""" % {"rtype" : "Podding" if self._podding else "iSchedule", }
 
         response = Response(200, {}, output)
         response.headers.setHeader("content-type", MimeType("text", "html"))
@@ -126,7 +127,7 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
         The iSchedule GET method.
         """
 
-        if not request.args:
+        if not request.args or self._podding:
             # Do normal GET behavior
             return self.render(request)
 
@@ -157,12 +158,26 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
         """
 
         # Determine min/max date-time for iSchedule
-        now = PyCalendarDateTime.getNowUTC()
-        minDateTime = PyCalendarDateTime(now.getYear(), 1, 1, 0, 0, 0, PyCalendarTimezone(utc=True))
+        now = DateTime.getNowUTC()
+        minDateTime = DateTime(now.getYear(), 1, 1, 0, 0, 0, Timezone(utc=True))
         minDateTime.offsetYear(-1)
-        maxDateTime = PyCalendarDateTime(now.getYear(), 1, 1, 0, 0, 0, PyCalendarTimezone(utc=True))
+        maxDateTime = DateTime(now.getYear(), 1, 1, 0, 0, 0, Timezone(utc=True))
         maxDateTime.offsetYear(10)
 
+        dataTypes = []
+        dataTypes.append(
+            ischedulexml.CalendarDataType(**{
+                "content-type": "text/calendar",
+                "version": "2.0",
+            })
+        )
+        if config.EnableJSONData:
+            dataTypes.append(
+                ischedulexml.CalendarDataType(**{
+                    "content-type": "application/calendar+json",
+                    "version": "2.0",
+                })
+            )
         result = ischedulexml.QueryResult(
 
             ischedulexml.Capabilities(
@@ -188,12 +203,7 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
                         name="VFREEBUSY"
                     ),
                 ),
-                ischedulexml.CalendarDataTypes(
-                    ischedulexml.CalendarDataType(**{
-                            "content-type": "text/calendar",
-                            "version": "2.0",
-                    }),
-                ),
+                ischedulexml.CalendarDataTypes(*dataTypes),
                 ischedulexml.Attachments(
                     ischedulexml.External(),
                 ),
@@ -220,24 +230,49 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
         txn = transactionFromRequest(request, self._newStore)
 
         # This is a server-to-server scheduling operation.
-        scheduler = IScheduleScheduler(txn, None)
+        scheduler = IScheduleScheduler(txn, None, podding=self._podding)
+
+        # Check content first
+        contentType = request.headers.getHeader("content-type")
+        format = self.determineType(contentType)
+
+        if format is None:
+            msg = "MIME type %s not allowed in iSchedule request" % (contentType,)
+            self.log.error(msg)
+            raise HTTPError(scheduler.errorResponse(
+                responsecode.FORBIDDEN,
+                (ischedule_namespace, "invalid-calendar-data-type"),
+                msg,
+            ))
 
         originator = self.loadOriginatorFromRequestHeaders(request)
         recipients = self.loadRecipientsFromRequestHeaders(request)
         body = (yield allDataFromStream(request.stream))
+        calendar = Component.fromString(body, format=format)
 
         # Do the POST processing treating this as a non-local schedule
         try:
-            result = (yield scheduler.doSchedulingViaPOST(request.remoteAddr, request.headers, body, originator, recipients))
+            result = (yield scheduler.doSchedulingViaPOST(request.remoteAddr, request.headers, body, calendar, originator, recipients))
         except Exception:
             ex = Failure()
             yield txn.abort()
             ex.raiseException()
         else:
             yield txn.commit()
-        response = result.response()
-        response.headers.addRawHeader(ISCHEDULE_CAPABILITIES, str(config.Scheduling.iSchedule.SerialNumber))
+        response = result.response(format=format)
+        if not self._podding:
+            response.headers.addRawHeader(ISCHEDULE_CAPABILITIES, str(config.Scheduling.iSchedule.SerialNumber))
         returnValue(response)
+
+
+    def determineType(self, content_type):
+        """
+        Determine if the supplied content-type is valid for storing and return the matching PyCalendar type.
+        """
+        format = None
+        if content_type is not None:
+            format = "%s/%s" % (content_type.mediaType, content_type.mediaSubtype,)
+        return format if format in Component.allowedTypes() else None
 
 
     def loadOriginatorFromRequestHeaders(self, request):

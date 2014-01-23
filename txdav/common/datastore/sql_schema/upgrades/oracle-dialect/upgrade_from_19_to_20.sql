@@ -1,5 +1,5 @@
 ----
--- Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+-- Copyright (c) 2011-2014 Apple Inc. All rights reserved.
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -113,8 +113,12 @@ create table ABO_FOREIGN_MEMBERS (
 -- Alter  ADDRESSBOOK_HOME --
 -----------------------------
 
+-- This is tricky as we have to create a new not null column and populate it, but we can't do
+-- not null immediately without a default - which we do not want. So we create the column without not null,
+-- do the updates, then add the constraint.
+
 alter table ADDRESSBOOK_HOME
-	add ("ADDRESSBOOK_PROPERTY_STORE_ID" integer not null);
+	add ("ADDRESSBOOK_PROPERTY_STORE_ID" integer);
 
 update ADDRESSBOOK_HOME
 	set	ADDRESSBOOK_PROPERTY_STORE_ID = (
@@ -133,7 +137,10 @@ update ADDRESSBOOK_HOME
 			ADDRESSBOOK_BIND.BIND_MODE = 0 and 	-- CALENDAR_BIND_MODE 'own'
 			ADDRESSBOOK_BIND.ADDRESSBOOK_RESOURCE_NAME = 'addressbook'
   	);
-	
+
+alter table ADDRESSBOOK_HOME
+	modify ("ADDRESSBOOK_PROPERTY_STORE_ID" not null);
+
 
 --------------------------------
 -- change  ADDRESSBOOK_OBJECT --

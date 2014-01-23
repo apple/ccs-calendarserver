@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ from twistedcaldav import caldavxml, carddavxml
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.ical import Component as iComponent
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
 
 calendarserver_namespace = "http://calendarserver.org/ns/"
@@ -74,6 +74,10 @@ calendarserver_partstat_changes_compliance = (
 
 calendarserver_home_sync_compliance = (
     "calendarserver-home-sync",
+)
+
+calendarserver_recurrence_split = (
+    "calendarserver-recurrence-split",
 )
 
 
@@ -639,8 +643,9 @@ class DTStamp (WebDAVTextElement):
     name = "dtstamp"
 
     def __init__(self, *children):
-        super(DTStamp, self).__init__(children)
-        self.children = (PCDATAElement(PyCalendarDateTime.getNowUTC().getText()),)
+        super(DTStamp, self).__init__(*children)
+        if not self.children:
+            self.children = (PCDATAElement(DateTime.getNowUTC().getText()),)
 
 
 

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -772,7 +772,7 @@ class Commands(CommandsBase):
 
             class Handler(object):
 
-                def addOutput(innerSelf, bytes, async=False):
+                def addOutput(innerSelf, bytes, async=False): #@NoSelf
                     """
                     This is a delegate method, called by ManholeInterpreter.
                     """
@@ -867,5 +867,5 @@ class Commands(CommandsBase):
         """
         self.terminal.write("Nothing happens.")
         self.terminal.nextLine()
-        
+
     cmd_sql.hidden = ""

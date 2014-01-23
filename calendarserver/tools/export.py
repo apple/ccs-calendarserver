@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- test-case-name: calendarserver.tools.test.test_export -*-
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,13 +42,12 @@ import itertools
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options, UsageError
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.application.service import Service
 
 from twext.python.log import Logger
 from twistedcaldav.ical import Component
 
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
-from calendarserver.tools.cmdline import utilityMain
+from calendarserver.tools.cmdline import utilityMain, WorkerService
 
 log = Logger()
 
@@ -285,14 +284,13 @@ def exportToFile(calendars, fileobj):
 
 
 
-class ExporterService(Service, object):
+class ExporterService(WorkerService, object):
     """
     Service which runs, exports the appropriate records, then stops the reactor.
     """
 
     def __init__(self, store, options, output, reactor, config):
-        super(ExporterService, self).__init__()
-        self.store = store
+        super(ExporterService, self).__init__(store)
         self.options = options
         self.output = output
         self.reactor = reactor
@@ -300,16 +298,8 @@ class ExporterService(Service, object):
         self._directory = self.store.directoryService()
 
 
-    def startService(self):
-        """
-        Start the service.
-        """
-        super(ExporterService, self).startService()
-        self.doExport()
-
-
     @inlineCallbacks
-    def doExport(self):
+    def doWork(self):
         """
         Do the export, stopping the reactor when done.
         """
@@ -326,9 +316,7 @@ class ExporterService(Service, object):
             # update stuff needed to happen, don't want to undo it.
             self.output.close()
         except:
-            log.failure("doExport()")
-
-        self.reactor.stop()
+            log.failure("doWork()")
 
 
     def directoryService(self):

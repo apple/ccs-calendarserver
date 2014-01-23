@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,45 +23,45 @@ __all__ = [
     "OpenDirectoryBackingService", "VCardRecord",
 ]
 
-import traceback
-import hashlib
+from calendarserver.platform.darwin.od import opendirectory, dsattributes, dsquery
 
-import os
-import sys
-import time
+from pycalendar.datetime import DateTime
+from pycalendar.vcard.adr import Adr
+from pycalendar.vcard.n import N
 
-from os import listdir
-from os.path import join, abspath
-from tempfile import mkstemp, gettempdir
-from random import random
 
-from pycalendar.n import N
-from pycalendar.adr import Adr
-from pycalendar.datetime import PyCalendarDateTime
+from twext.python.filepath import CachingFilePath as FilePath
 
-from socket import getfqdn
+from txweb2.dav.resource import DAVPropertyMixIn
+from txweb2.dav.util import joinURL
+from txweb2.http_headers import MimeType, generateContentType, ETag
 
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, deferredGenerator, succeed
-from twext.python.filepath import CachingFilePath as FilePath
-from txdav.xml import element as davxml
-from txdav.xml.base import twisted_dav_namespace, dav_namespace, parse_date, twisted_private_namespace
-from twext.web2.dav.resource import DAVPropertyMixIn
-from twext.web2.dav.util import joinURL
-from twext.web2.http_headers import MimeType, generateContentType, ETag
-
 
 from twistedcaldav import customxml, carddavxml
-from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.config import config
+from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
-from twistedcaldav.query import addressbookqueryfilter
 from twistedcaldav.vcard import Component, Property, vCardProductID
 
-from xmlrpclib import datetime
+from txdav.carddav.datastore.query.filter import IsNotDefined, ParameterFilter, \
+    TextMatch
+from txdav.xml import element as davxml
+from txdav.xml.base import twisted_dav_namespace, dav_namespace, parse_date, twisted_private_namespace
 
-from calendarserver.platform.darwin.od import opendirectory, dsattributes, dsquery
+from os import listdir
+from os.path import join, abspath
+from random import random
+from socket import getfqdn
+from tempfile import mkstemp, gettempdir
+from xmlrpclib import datetime
+import hashlib
+import os
+import sys
+import time
+import traceback
 
 class OpenDirectoryBackingService(DirectoryService):
     """
@@ -830,11 +830,11 @@ class OpenDirectoryBackingService(DirectoryService):
                 if not constant and not allAttrStrings:
                     return (False, [], [])
 
-                if propFilter.qualifier and isinstance(propFilter.qualifier, addressbookqueryfilter.IsNotDefined):
+                if propFilter.qualifier and isinstance(propFilter.qualifier, IsNotDefined):
                     return definedExpression(False, filterAllOf, propFilter.filter_name, constant, queryAttributes, allAttrStrings)
 
-                paramFilterElements = [paramFilterElement for paramFilterElement in propFilter.filters if isinstance(paramFilterElement, addressbookqueryfilter.ParameterFilter)]
-                textMatchElements = [textMatchElement for textMatchElement in propFilter.filters if isinstance(textMatchElement, addressbookqueryfilter.TextMatch)]
+                paramFilterElements = [paramFilterElement for paramFilterElement in propFilter.filters if isinstance(paramFilterElement, ParameterFilter)]
+                textMatchElements = [textMatchElement for textMatchElement in propFilter.filters if isinstance(textMatchElement, TextMatch)]
                 propFilterAllOf = propFilter.propfilter_test == "allof"
 
                 # handle parameter filter elements
@@ -1494,7 +1494,7 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
 
             birthdate = self.isoDateStringForDateAttribute(dsattributes.kDS1AttrBirthday)
             if birthdate:
-                vcard.addProperty(Property("BDAY", PyCalendarDateTime.parseText(birthdate, fullISO=True)))
+                vcard.addProperty(Property("BDAY", DateTime.parseText(birthdate, fullISO=True)))
 
             # 3.2 Delivery Addressing Types http://tools.ietf.org/html/rfc2426#section-3.2
             #
@@ -1685,7 +1685,7 @@ class VCardRecord(DirectoryRecord, DAVPropertyMixIn):
             # 3.6.4 REV Type Definition
             revDate = self.isoDateStringForDateAttribute(dsattributes.kDS1AttrModificationTimestamp)
             if revDate:
-                vcard.addProperty(Property("REV", PyCalendarDateTime.parseText(revDate, fullISO=True)))
+                vcard.addProperty(Property("REV", DateTime.parseText(revDate, fullISO=True)))
 
             """
             # UNIMPLEMENTED:

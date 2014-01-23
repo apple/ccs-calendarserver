@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- test-case-name: calendarserver.tools.test.test_agent -*-
 ##
-# Copyright (c) 2013 Apple Inc. All rights reserved.
+# Copyright (c) 2013-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,11 +30,11 @@ import cStringIO
 import socket
 
 from calendarserver.tap.util import getRootResource
-from twext.python.plistlib import readPlistFromString, writePlistToString
+from plistlib import readPlistFromString, writePlistToString
 from twisted.application.internet import StreamServerEndpointService
 from twisted.cred.checkers import ICredentialsChecker
 from twisted.cred.credentials import IUsernameHashedPassword
-from twisted.cred.error import UnauthorizedLogin 
+from twisted.cred.error import UnauthorizedLogin
 from twisted.cred.portal import IRealm, Portal
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed, fail
 from twisted.internet.endpoints import AdoptedStreamServerEndpoint
@@ -68,6 +68,7 @@ class DirectoryServiceChecker:
         """
         self.node = node
         self.directory = self.directoryModule.odInit(node)
+
 
     def requestAvatarId(self, credentials):
         record = self.directoryModule.getUserRecord(self.directory, credentials.username)
@@ -119,6 +120,7 @@ class DirectoryServiceChecker:
             return fail(UnauthorizedLogin())
 
 
+
 class CustomDigestCredentialFactory(DigestCredentialFactory):
     """
     DigestCredentialFactory without qop, to interop with OD.
@@ -128,6 +130,7 @@ class CustomDigestCredentialFactory(DigestCredentialFactory):
         result = DigestCredentialFactory.getChallenge(self, address)
         del result["qop"]
         return result
+
 
 
 class AgentRealm(object):
@@ -143,6 +146,7 @@ class AgentRealm(object):
         """
         self.root = root
         self.allowedAvatarIds = allowedAvatarIds
+
 
     def requestAvatar(self, avatarId, mind, *interfaces):
         if IResource in interfaces:
@@ -175,6 +179,7 @@ class AgentGatewayResource(Resource):
         self.davRootResource = davRootResource
         self.directory = directory
         self.inactivityDetector = inactivityDetector
+
 
     def render_POST(self, request):
         """
@@ -217,8 +222,6 @@ class AgentGatewayResource(Resource):
 
 
 
-
-
 def makeAgentService(store):
     """
     Returns a service which will process GatewayAMPCommands, using a socket
@@ -229,9 +232,9 @@ def makeAgentService(store):
     """
     from twisted.internet import reactor
 
-    sockets = getLaunchDSocketFDs() 
+    sockets = getLaunchDSocketFDs()
     fd = sockets["AgentSocket"][0]
-    
+
     family = socket.AF_INET
     endpoint = AdoptedStreamServerEndpoint(reactor, fd, family)
 
@@ -321,10 +324,11 @@ class InactivityDetector(object):
 
 class GatewayAMPCommand(amp.Command):
     """
-    A command to be executed by gateway.Runner 
+    A command to be executed by gateway.Runner
     """
     arguments = [('command', amp.String())]
     response = [('result', amp.String())]
+
 
 
 class GatewayAMPProtocol(amp.AMP):
@@ -374,6 +378,7 @@ class GatewayAMPProtocol(amp.AMP):
         returnValue(dict(result=result))
 
 
+
 class GatewayAMPFactory(Factory):
     """
     Builds GatewayAMPProtocols
@@ -388,6 +393,7 @@ class GatewayAMPFactory(Factory):
         from twistedcaldav.config import config
         self.davRootResource = getRootResource(config, self.store)
         self.directory = self.davRootResource.getDirectory()
+
 
     def buildProtocol(self, addr):
         return GatewayAMPProtocol(self.store, self.davRootResource,

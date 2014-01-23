@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2007-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2007-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,14 +35,20 @@ from twext.internet.gaiendpoint import GAIEndpoint
 ##
 
 try:
-    from ctypes import *
-    import ctypes.util
+    from ctypes import (
+        cdll,
+        c_int, c_uint64, c_ulong,
+        c_char_p, c_void_p,
+        addressof, sizeof, c_size_t,
+        connect,
+    )
+    from ctypes.util import find_library
     hasCtypes = True
 except ImportError:
     hasCtypes = False
 
 if sys.platform == "darwin" and hasCtypes:
-    libc = cdll.LoadLibrary(ctypes.util.find_library("libc"))
+    libc = cdll.LoadLibrary(find_library("libc"))
 
     def getNCPU():
         """
@@ -56,8 +62,8 @@ if sys.platform == "darwin" and hasCtypes:
         ]
         libc.sysctlbyname(
             "hw.ncpu",
-            c_voidp(addressof(ncpu)),
-            c_voidp(addressof(size)),
+            c_void_p(addressof(ncpu)),
+            c_void_p(addressof(size)),
             None,
             0
         )
@@ -77,8 +83,8 @@ if sys.platform == "darwin" and hasCtypes:
         ]
         libc.sysctlbyname(
             "hw.memsize",
-            c_voidp(addressof(memsize)),
-            c_voidp(addressof(size)),
+            c_void_p(addressof(memsize)),
+            c_void_p(addressof(size)),
             None,
             0
         )
@@ -87,7 +93,7 @@ if sys.platform == "darwin" and hasCtypes:
 
 
 elif sys.platform == "linux2" and hasCtypes:
-    libc = cdll.LoadLibrary(ctypes.util.find_library("libc"))
+    libc = cdll.LoadLibrary(find_library("libc"))
 
     def getNCPU():
         return libc.get_nprocs()
@@ -517,3 +523,52 @@ def normalizationLookup(cuaddr, principalFunction, config):
         cuas = principal.record.calendarUserAddresses
 
         return (fullName, rec.guid, cuas)
+
+
+
+def bestAcceptType(accepts, allowedTypes):
+    """
+    Given a set of Accept headers and the set of types the server can return, determine the best choice
+    of format to return to the client.
+
+    @param accepts: parsed accept headers
+    @type accepts: C{dict}
+    @param allowedTypes: list of allowed types in server preferred order
+    @type allowedTypes: C{list}
+    """
+
+    # If no Accept present just use the first allowed type - the server's preference
+    if not accepts:
+        return allowedTypes[0]
+
+    # Get mapping for ordered top-level types for use in subtype wildcard match
+    toptypes = {}
+    for allowed in allowedTypes:
+        mediaType = allowed.split("/")[0]
+        if mediaType not in toptypes:
+            toptypes[mediaType] = allowed
+
+    result = None
+    result_qval = 0.0
+    for content_type, qval in accepts.items():
+        # Exact match
+        ctype = "%s/%s" % (content_type.mediaType, content_type.mediaSubtype,)
+        if ctype in allowedTypes:
+            if qval > result_qval:
+                result = ctype
+                result_qval = qval
+
+        # Subtype wildcard match
+        elif content_type.mediaType != "*" and content_type.mediaSubtype == "*":
+            if content_type.mediaType in toptypes:
+                if qval > result_qval:
+                    result = toptypes[content_type.mediaType]
+                    result_qval = qval
+
+        # Full wildcard match
+        elif content_type.mediaType == "*" and content_type.mediaSubtype == "*":
+            if qval > result_qval:
+                result = allowedTypes[0]
+                result_qval = qval
+
+    return result

@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_resource,twistedcaldav.test.test_wrapping -*-
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,17 +46,17 @@ from twext.python.log import Logger
 from txdav.xml import element
 from txdav.xml.element import dav_namespace
 
-from twext.web2 import responsecode, http, http_headers
-from twext.web2.dav.auth import AuthenticationWrapper as SuperAuthenticationWrapper
-from twext.web2.dav.idav import IDAVPrincipalCollectionResource
-from twext.web2.dav.resource import AccessDeniedError, DAVPrincipalCollectionResource, \
+from txweb2 import responsecode, http, http_headers
+from txweb2.dav.auth import AuthenticationWrapper as SuperAuthenticationWrapper
+from txweb2.dav.idav import IDAVPrincipalCollectionResource
+from txweb2.dav.resource import AccessDeniedError, DAVPrincipalCollectionResource, \
     davPrivilegeSet
-from twext.web2.dav.resource import TwistedACLInheritable
-from twext.web2.dav.util import joinURL, parentForURL, normalizeURL
-from twext.web2.http import HTTPError, RedirectResponse, StatusResponse, Response
-from twext.web2.dav.http import ErrorResponse
-from twext.web2.http_headers import MimeType, ETag
-from twext.web2.stream import MemoryStream
+from txweb2.dav.resource import TwistedACLInheritable
+from txweb2.dav.util import joinURL, parentForURL, normalizeURL
+from txweb2.http import HTTPError, RedirectResponse, StatusResponse, Response
+from txweb2.dav.http import ErrorResponse
+from txweb2.http_headers import MimeType, ETag
+from txweb2.stream import MemoryStream
 
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav import carddavxml
@@ -68,9 +68,9 @@ from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.datafilters.hiddeninstance import HiddenInstanceFilter
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
-from twistedcaldav.directory.internal import InternalDirectoryRecord
 from twistedcaldav.extensions import DAVResource, DAVPrincipalResource, \
     DAVResourceWithChildrenMixin
+from twistedcaldav import ical
 from twistedcaldav.ical import Component
 
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
@@ -257,10 +257,11 @@ class CalDAVResource (
                 # Redirect to include trailing '/' in URI
                 return RedirectResponse(request.unparseURL(path=urllib.quote(urllib.unquote(request.path), safe=':/') + '/'))
 
-            def _defer(data):
+            def _defer(result):
+                data, accepted_type = result
                 response = Response()
-                response.stream = MemoryStream(str(data))
-                response.headers.setHeader("content-type", MimeType.fromString("text/calendar"))
+                response.stream = MemoryStream(data.getText(accepted_type))
+                response.headers.setHeader("content-type", MimeType.fromString("%s; charset=utf-8" % (accepted_type,)))
                 return response
 
             d = self.iCalendarRolledup(request)
@@ -320,7 +321,7 @@ class CalDAVResource (
         successfully rendered.
 
         @param request: the request to generate a response for.
-        @type request: L{twext.web2.iweb.IRequest}
+        @type request: L{txweb2.iweb.IRequest}
         @param transaction: optional transaction to use instead of associated transaction
         @type transaction: L{txdav.caldav.idav.ITransaction}
         """
@@ -332,6 +333,12 @@ class CalDAVResource (
                 yield transaction.abort()
             else:
                 yield transaction.commit()
+
+                # Log extended item
+                if transaction.logItems:
+                    if not hasattr(request, "extendedLogItems"):
+                        request.extendedLogItems = {}
+                    request.extendedLogItems.update(transaction.logItems)
 
                 # May need to reset the last-modified header in the response as txn.commit() can change it due to pre-commit hooks
                 if response.headers.hasHeader("last-modified"):
@@ -369,7 +376,7 @@ class CalDAVResource (
                                   (self,))
 
 
-    def storeStream(self, stream):
+    def storeStream(self, stream, format):
         """
         Store the content of the stream in this resource, as it would via a PUT.
 
@@ -379,8 +386,7 @@ class CalDAVResource (
         @return: a L{Deferred} which fires with an HTTP response.
         @rtype: L{Deferred}
         """
-        raise NotImplementedError("%s does not implement storeStream" %
-                                  (self,))
+        raise NotImplementedError("%s does not implement storeStream" % (self,))
 
     # End transitional new-store interface
 
@@ -599,12 +605,21 @@ class CalDAVResource (
             returnValue(self.getSupportedComponentSet())
 
         elif qname == caldavxml.SupportedCalendarData.qname() and self.isPseudoCalendarCollection():
-            returnValue(caldavxml.SupportedCalendarData(
+            dataTypes = []
+            dataTypes.append(
                 caldavxml.CalendarData(**{
                     "content-type": "text/calendar",
                     "version"     : "2.0",
                 }),
-            ))
+            )
+            if config.EnableJSONData:
+                dataTypes.append(
+                    caldavxml.CalendarData(**{
+                        "content-type": "application/calendar+json",
+                        "version"     : "2.0",
+                    }),
+                )
+            returnValue(caldavxml.SupportedCalendarData(*dataTypes))
 
         elif qname == caldavxml.MaxResourceSize.qname() and self.isPseudoCalendarCollection():
             if config.MaxResourceSize:
@@ -636,12 +651,21 @@ class CalDAVResource (
 
         elif qname == carddavxml.SupportedAddressData.qname() and self.isAddressBookCollection():
             # CardDAV, section 6.2.2
-            returnValue(carddavxml.SupportedAddressData(
+            dataTypes = []
+            dataTypes.append(
                 carddavxml.AddressDataType(**{
                     "content-type": "text/vcard",
                     "version"     : "3.0",
                 }),
-            ))
+            )
+            if config.EnableJSONData:
+                dataTypes.append(
+                    carddavxml.AddressDataType(**{
+                        "content-type": "application/vcard+json",
+                        "version"     : "3.0",
+                    }),
+                )
+            returnValue(carddavxml.SupportedAddressData(*dataTypes))
 
         elif qname == carddavxml.MaxResourceSize.qname() and self.isAddressBookCollection() and not self.isDirectoryBackedAddressBookCollection():
             # CardDAV, section 6.2.3
@@ -666,7 +690,7 @@ class CalDAVResource (
 
         elif qname == customxml.SharedURL.qname():
             if self.isShareeResource():
-                returnValue(customxml.SharedURL(element.HRef.fromString(self._share.url())))
+                returnValue(customxml.SharedURL(element.HRef.fromString(self._share_url)))
             else:
                 returnValue(None)
 
@@ -834,8 +858,12 @@ class CalDAVResource (
         Return the DAV:owner property value (MUST be a DAV:href or None).
         """
 
-        if self.isShareeResource():
-            parent = (yield self.locateParent(request, self._share.url()))
+        if hasattr(self, "_newStoreObject"):
+            if not hasattr(self._newStoreObject, "ownerHome"):
+                home = self._newStoreObject.parentCollection().ownerHome()
+            else:
+                home = self._newStoreObject.ownerHome()
+            returnValue(element.HRef(self.principalForUID(home.uid()).principalURL()))
         else:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
         if parent and isinstance(parent, CalDAVResource):
@@ -850,8 +878,12 @@ class CalDAVResource (
         """
         Return the DAV:owner property value (MUST be a DAV:href or None).
         """
-        if self.isShareeResource():
-            parent = (yield self.locateParent(request, self._share.url()))
+        if hasattr(self, "_newStoreObject"):
+            if not hasattr(self._newStoreObject, "ownerHome"):
+                home = self._newStoreObject.parentCollection().ownerHome()
+            else:
+                home = self._newStoreObject.ownerHome()
+            returnValue(self.principalForUID(home.uid()))
         else:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
         if parent and isinstance(parent, CalDAVResource):
@@ -1226,13 +1258,13 @@ class CalDAVResource (
         sharedParent = None
         if self.isShareeResource():
             # A sharee collection's quota root is the resource owner's root
-            sharedParent = (yield request.locateResource(parentForURL(self._share.url())))
+            sharedParent = (yield request.locateResource(parentForURL(self._share_url)))
         else:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
             if isCalendarCollectionResource(parent) or isAddressBookCollectionResource(parent):
                 if parent.isShareeResource():
                     # A sharee collection's quota root is the resource owner's root
-                    sharedParent = (yield request.locateResource(parentForURL(parent._share.url())))
+                    sharedParent = (yield request.locateResource(parentForURL(parent._share_url)))
 
         if sharedParent:
             result = (yield sharedParent.quotaRootResource(request))
@@ -1321,7 +1353,7 @@ class CalDAVResource (
             if self.exists() and hasattr(self, "scheduleEtags"):
                 etags = self.scheduleEtags
                 if len(etags) > 1:
-                    # This is almost verbatim from twext.web2.static.checkPreconditions
+                    # This is almost verbatim from txweb2.static.checkPreconditions
                     if request.method not in ("GET", "HEAD"):
 
                         # Always test against the current etag first just in case schedule-etags is out of sync
@@ -1369,7 +1401,7 @@ class CalDAVResource (
         @param request: the request used to look up parent resources to
             validate.
 
-        @type request: L{twext.web2.iweb.IRequest}
+        @type request: L{txweb2.iweb.IRequest}
 
         @return: a deferred that fires when a calendar collection has been
             created in this resource.
@@ -1440,11 +1472,6 @@ class CalDAVResource (
         returnValue(caldata)
 
 
-    def iCalendarText(self):
-        # storebridge handles this method
-        raise NotImplementedError()
-
-
     def iCalendar(self):
         # storebridge handles this method
         raise NotImplementedError()
@@ -1460,7 +1487,7 @@ class CalDAVResource (
         @param request: the request used to look up parent resources to
             validate.
 
-        @type request: L{twext.web2.iweb.IRequest}
+        @type request: L{txweb2.iweb.IRequest}
 
         @return: a deferred that fires when an addressbook collection has been
             created in this resource.
@@ -2440,18 +2467,13 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
 
         if qname == caldavxml.SupportedCalendarComponentSets.qname():
             if config.RestrictCalendarsToOneComponentType:
-                prop = caldavxml.SupportedCalendarComponentSets(
+                prop = caldavxml.SupportedCalendarComponentSets(*[
                     caldavxml.SupportedCalendarComponentSet(
                         caldavxml.CalendarComponent(
-                            name="VEVENT",
+                            name=name,
                         ),
-                    ),
-                    caldavxml.SupportedCalendarComponentSet(
-                        caldavxml.CalendarComponent(
-                            name="VTODO",
-                        ),
-                    ),
-                )
+                    ) for name in ical.allowedStoreComponents
+                ])
             else:
                 prop = caldavxml.SupportedCalendarComponentSets()
             returnValue(prop)
@@ -2527,6 +2549,11 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         return config.Sharing.Enabled and config.Sharing.Calendars.Enabled and self.exists()
 
 
+    def _otherPrincipalHomeURL(self, otherUID):
+        ownerPrincipal = self.principalForUID(otherUID)
+        return ownerPrincipal.calendarHomeURLs()[0]
+
+
     @inlineCallbacks
     def makeRegularChild(self, name):
         newCalendar = yield self._newStoreHome.calendarWithName(name)
@@ -2549,15 +2576,6 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         Pass through direct to store.
         """
         return self._newStoreHome.hasCalendarResourceUIDSomewhereElse(uid, ok_object._newStoreObject, mode)
-
-
-    def getCalendarResourcesForUID(self, uid, allow_shared=False):
-        """
-        Return all child object resources with the specified UID.
-
-        Pass through direct to store.
-        """
-        return self._newStoreHome.getCalendarResourcesForUID(uid, allow_shared)
 
 
     def defaultAccessControlList(self):
@@ -2648,10 +2666,9 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
     @inlineCallbacks
     def _indexWhatChanged(self, revision, depth):
         # The newstore implementation supports this directly
-        changed, deleted = yield self._newStoreHome.resourceNamesSinceToken(
+        changed, deleted, notallowed = yield self._newStoreHome.resourceNamesSinceToken(
             revision, depth
         )
-        notallowed = []
 
         # Need to insert some addition items on first sync
         if revision == 0:
@@ -2776,9 +2793,6 @@ class AddressBookHomeResource (CommonHomeResource):
             from twistedcaldav.notifications import NotificationCollectionResource
             self._provisionedChildren["notification"] = NotificationCollectionResource
 
-        if config.GlobalAddressBook.Enabled:
-            self._provisionedLinks[config.GlobalAddressBook.Name] = "/addressbooks/public/global/addressbook/"
-
 
     def makeNewStore(self):
         return self._associatedTransaction.addressbookHomeWithUID(self.name, create=True), False     # Don't care about created
@@ -2788,19 +2802,19 @@ class AddressBookHomeResource (CommonHomeResource):
         return config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled and self.exists()
 
 
+    def _otherPrincipalHomeURL(self, otherUID):
+        ownerPrincipal = self.principalForUID(otherUID)
+        return ownerPrincipal.addressBookHomeURLs()[0]
+
+
     @inlineCallbacks
     def makeRegularChild(self, name):
 
         # Check for public/global path
         from twistedcaldav.storebridge import (
             AddressBookCollectionResource,
-            GlobalAddressBookCollectionResource,
         )
         mainCls = AddressBookCollectionResource
-        if isinstance(self.record, InternalDirectoryRecord):
-            if "global" in self.record.shortNames:
-                mainCls = GlobalAddressBookCollectionResource
-
         newAddressBook = yield self._newStoreHome.addressbookWithName(name)
         if newAddressBook and not newAddressBook.owned() and not self.canShare():
             newAddressBook = None
@@ -2870,10 +2884,9 @@ class AddressBookHomeResource (CommonHomeResource):
     @inlineCallbacks
     def _indexWhatChanged(self, revision, depth):
         # The newstore implementation supports this directly
-        changed, deleted = yield self._newStoreHome.resourceNamesSinceToken(
+        changed, deleted, notallowed = yield self._newStoreHome.resourceNamesSinceToken(
             revision, depth
         )
-        notallowed = []
 
         # Need to insert some addition items on first sync
         if revision == 0:
@@ -2889,50 +2902,6 @@ class AddressBookHomeResource (CommonHomeResource):
             notallowed.extend([joinURL("notification", name) for name in noti_notallowed])
 
         returnValue((changed, deleted, notallowed))
-
-
-
-class GlobalAddressBookResource (ReadOnlyResourceMixIn, CalDAVResource):
-    """
-    Global address book. All we care about is making sure permissions are setup.
-    """
-
-    def resourceType(self):
-        return element.ResourceType.sharedaddressbook #@UndefinedVariable
-
-
-    def defaultAccessControlList(self):
-
-        aces = (
-            element.ACE(
-                element.Principal(element.Authenticated()),
-                element.Grant(
-                    element.Privilege(element.Read()),
-                    element.Privilege(element.ReadCurrentUserPrivilegeSet()),
-                    element.Privilege(element.Write()),
-                ),
-                element.Protected(),
-                TwistedACLInheritable(),
-           ),
-        )
-
-        if config.GlobalAddressBook.EnableAnonymousReadAccess:
-            aces += (
-                element.ACE(
-                    element.Principal(element.Unauthenticated()),
-                    element.Grant(
-                        element.Privilege(element.Read()),
-                    ),
-                    element.Protected(),
-                    TwistedACLInheritable(),
-               ),
-            )
-        return element.ACL(*aces)
-
-
-    def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
-        # Permissions here are fixed, and are not subject to inheritance rules, etc.
-        return succeed(self.defaultAccessControlList())
 
 
 
@@ -2965,7 +2934,6 @@ class AuthenticationWrapper(SuperAuthenticationWrapper):
         factories = self.overrides.get(req.path.rstrip("/"),
             req.credentialFactories)
         req.credentialFactories = factories
-
 
 
 ##

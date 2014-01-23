@@ -1,6 +1,6 @@
 # -*- test-case-name: calendarserver.push.test.test_applepush -*-
 ##
-# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,12 +18,12 @@
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 from twext.python.log import Logger
 
-from twext.web2 import responsecode
+from txweb2 import responsecode
 from txdav.xml import element as davxml
-from twext.web2.dav.noneprops import NonePropertyStore
-from twext.web2.http import Response
-from twext.web2.http_headers import MimeType
-from twext.web2.server import parsePOSTData
+from txweb2.dav.noneprops import NonePropertyStore
+from txweb2.http import Response
+from txweb2.http_headers import MimeType
+from txweb2.server import parsePOSTData
 from twisted.application import service
 from twisted.internet import protocol
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
@@ -36,13 +36,24 @@ import OpenSSL
 import struct
 import time
 from txdav.common.icommondatastore import InvalidSubscriptionValues
-
-from calendarserver.push.util import validToken, TokenHistory, PushScheduler
-
+from calendarserver.push.util import (
+    validToken, TokenHistory, PushScheduler, PushPriority
+)
 from twext.internet.adaptendpoint import connect
 from twext.internet.gaiendpoint import GAIEndpoint
+from twisted.python.constants import Values, ValueConstant
 
 log = Logger()
+
+
+
+class ApplePushPriority(Values):
+    """
+    Maps calendarserver.push.util.PushPriority values to APNS-specific values
+    """
+    low = ValueConstant(PushPriority.low.value)
+    medium = ValueConstant(PushPriority.medium.value)
+    high = ValueConstant(PushPriority.high.value)
 
 
 
@@ -55,7 +66,7 @@ class ApplePushNotifierService(service.MultiService):
 
     The Apple Push Notification protocol is described here:
 
-    http://developer.apple.com/library/ios/#documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingWIthAPS/CommunicatingWIthAPS.html
+    https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html
     """
     log = Logger()
 
@@ -177,7 +188,8 @@ class ApplePushNotifierService(service.MultiService):
 
 
     @inlineCallbacks
-    def enqueue(self, transaction, pushKey, dataChangedTimestamp=None):
+    def enqueue(self, transaction, pushKey, dataChangedTimestamp=None,
+        priority=PushPriority.high):
         """
         Sends an Apple Push Notification to any device token subscribed to
         this pushKey.
@@ -191,6 +203,8 @@ class ApplePushNotifierService(service.MultiService):
         @param dataChangedTimestamp: Timestamp (epoch seconds) for the data change
             which triggered this notification (Only used for unit tests)
         @type key: C{int}
+        @param priority: the priority level
+        @type priority: L{PushPriority}
         """
 
         try:
@@ -219,7 +233,8 @@ class ApplePushNotifierService(service.MultiService):
                     if token and uid:
                         tokens.append(token)
                 if tokens:
-                    provider.scheduleNotifications(tokens, pushKey, dataChangedTimestamp)
+                    provider.scheduleNotifications(tokens, pushKey,
+                        dataChangedTimestamp, priority)
 
 
 
@@ -230,8 +245,7 @@ class APNProviderProtocol(protocol.Protocol):
     log = Logger()
 
     # Sent by provider
-    COMMAND_SIMPLE = 0
-    COMMAND_ENHANCED = 1
+    COMMAND_PROVIDER = 2
 
     # Received by provider
     COMMAND_ERROR = 8
@@ -333,7 +347,7 @@ class APNProviderProtocol(protocol.Protocol):
                 yield txn.commit()
 
 
-    def sendNotification(self, token, key, dataChangedTimestamp):
+    def sendNotification(self, token, key, dataChangedTimestamp, priority):
         """
         Sends a push notification message for the key to the device associated
         with the token.
@@ -357,6 +371,7 @@ class APNProviderProtocol(protocol.Protocol):
             return
 
         identifier = self.history.add(token)
+        apnsPriority = ApplePushPriority.lookupByValue(priority.value).value
         payload = json.dumps(
             {
                 "key" : key,
@@ -365,18 +380,75 @@ class APNProviderProtocol(protocol.Protocol):
             }
         )
         payloadLength = len(payload)
-        self.log.debug("Sending APNS notification to {token}: id={id} payload={payload}",
-            token=token, id=identifier, payload=payload)
+        self.log.debug("Sending APNS notification to {token}: id={id} payload={payload} priority={priority}",
+            token=token, id=identifier, payload=payload, priority=apnsPriority)
+
+        """
+        Notification format
+
+        Top level:  Command (1 byte), Frame length (4 bytes), Frame data (variable)
+        Within Frame data:  Item ...
+        Item: Item number (1 byte), Item data length (2 bytes), Item data (variable)
+        Item 1: Device token (32 bytes)
+        Item 2: Payload (variable length) in JSON format, not null-terminated
+        Item 3: Notification ID (4 bytes) an opaque value used for reporting errors
+        Item 4: Expiration date (4 bytes) UNIX epoch in secondcs UTC
+        Item 5: Priority (1 byte): 10 (push sent immediately) or 5 (push sent
+            at a time that conservces power on the device receiving it)
+        """
+
+                                                    # Frame struct.pack format
+                                                    # ! Network byte order
+        command = self.COMMAND_PROVIDER             # B
+        frameLength = (# I
+            # Item 1 (Device token)
+            1 + # Item number                      # B
+            2 + # Item length                      # H
+            32 + # device token                     # 32s
+            # Item 2 (Payload)
+            1 + # Item number                      # B
+            2 + # Item length                      # H
+            payloadLength + # the JSON payload      # %d s
+            # Item 3 (Notification ID)
+            1 + # Item number                      # B
+            2 + # Item length                      # H
+            4 + # Notification ID                  # I
+            # Item 4 (Expiration)
+            1 + # Item number                      # B
+            2 + # Item length                      # H
+            4 + # Expiration seconds since epoch   # I
+            # Item 5 (Priority)
+            1 + # Item number                      # B
+            2 + # Item length                      # H
+            1    # Priority                         # B
+        )
 
         self.transport.write(
-            struct.pack("!BIIH32sH%ds" % (payloadLength,),
-                self.COMMAND_ENHANCED,           # Command
-                identifier,                      # Identifier
-                int(time.time()) + 72 * 60 * 60, # Expires in 72 hours
+            struct.pack("!BIBH32sBH%dsBHIBHIBHB" % (payloadLength,),
+
+                command,                         # Command
+                frameLength,                     # Frame length
+
+                1,                               # Item 1 (Device token)
                 32,                              # Token Length
                 binaryToken,                     # Token
-                payloadLength,                   # Payload Length
-                payload,                         # Payload in JSON format
+
+                2,                               # Item 2 (Payload)
+                payloadLength,                   # Payload length
+                payload,                         # Payload
+
+                3,                               # Item 3 (Notification ID)
+                4,                               # Notification ID Length
+                identifier,                      # Notification ID
+
+                4,                               # Item 4 (Expiration)
+                4,                               # Expiration length
+                int(time.time()) + 72 * 60 * 60, # Expires in 72 hours
+
+                5,                               # Item 5 (Priority)
+                1,                               # Priority length
+                apnsPriority,                    # Priority
+
             )
         )
 
@@ -509,12 +581,13 @@ class APNProviderService(APNConnectionService):
             # sent will be put back into the queue.
             queued = list(self.queue)
             self.queue = []
-            for (token, key), dataChangedTimestamp in queued:
-                if token and key and dataChangedTimestamp:
-                    self.sendNotification(token, key, dataChangedTimestamp)
+            for (token, key), dataChangedTimestamp, priority in queued:
+                if token and key and dataChangedTimestamp and priority:
+                    self.sendNotification(token, key, dataChangedTimestamp,
+                        priority)
 
 
-    def scheduleNotifications(self, tokens, key, dataChangedTimestamp):
+    def scheduleNotifications(self, tokens, key, dataChangedTimestamp, priority):
         """
         The starting point for getting notifications to the APNS server.  If there is
         a connection to the APNS server, these notifications are scheduled (or directly
@@ -533,15 +606,15 @@ class APNProviderService(APNConnectionService):
         connection = getattr(self.factory, "connection", None)
         if connection is not None:
             if self.scheduler is not None:
-                self.scheduler.schedule(tokens, key, dataChangedTimestamp)
+                self.scheduler.schedule(tokens, key, dataChangedTimestamp, priority)
             else:
                 for token in tokens:
-                    self.sendNotification(token, key, dataChangedTimestamp)
+                    self.sendNotification(token, key, dataChangedTimestamp, priority)
         else:
-            self._saveForWhenConnected(tokens, key, dataChangedTimestamp)
+            self._saveForWhenConnected(tokens, key, dataChangedTimestamp, priority)
 
 
-    def _saveForWhenConnected(self, tokens, key, dataChangedTimestamp):
+    def _saveForWhenConnected(self, tokens, key, dataChangedTimestamp, priority):
         """
         Called in order to save notifications that can't be sent now because there
         is no connection to the APNS server.  (token, key) tuples are appended to
@@ -557,16 +630,16 @@ class APNProviderService(APNConnectionService):
         """
         for token in tokens:
             tokenKeyPair = (token, key)
-            for existingPair, ignored in self.queue:
+            for existingPair, _ignore_timstamp, priority in self.queue:
                 if tokenKeyPair == existingPair:
                     self.log.debug("APNProviderService has no connection; skipping duplicate: %s %s" % (token, key))
                     break # Already scheduled
             else:
                 self.log.debug("APNProviderService has no connection; queuing: %s %s" % (token, key))
-                self.queue.append(((token, key), dataChangedTimestamp))
+                self.queue.append(((token, key), dataChangedTimestamp, priority))
 
 
-    def sendNotification(self, token, key, dataChangedTimestamp):
+    def sendNotification(self, token, key, dataChangedTimestamp, priority):
         """
         If there is a connection the notification is sent right away, otherwise
         the notification is saved for later.
@@ -579,15 +652,15 @@ class APNProviderService(APNConnectionService):
             which triggered this notification
         @type key: C{int}
         """
-        if not (token and key and dataChangedTimestamp):
+        if not (token and key and dataChangedTimestamp, priority):
             return
 
         # Service has reference to factory has reference to protocol instance
         connection = getattr(self.factory, "connection", None)
         if connection is None:
-            self._saveForWhenConnected([token], key, dataChangedTimestamp)
+            self._saveForWhenConnected([token], key, dataChangedTimestamp, priority)
         else:
-            connection.sendNotification(token, key, dataChangedTimestamp)
+            connection.sendNotification(token, key, dataChangedTimestamp, priority)
 
 
 
@@ -816,7 +889,7 @@ class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn,
         to add a subscription entry to the database.
 
         @param request: The request to process
-        @type request: L{twext.web2.server.Request}
+        @type request: L{txweb2.server.Request}
         """
 
         token = request.args.get("token", ("",))[0].replace(" ", "").lower()

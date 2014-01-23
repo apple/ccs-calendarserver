@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2012-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2012-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 
 from caldavclientlibrary.protocol.url import URL
 from contrib.performance.sqlusage.requests.httpTests import HTTPTestBase
-from pycalendar.datetime import PyCalendarDateTime
-from twext.web2.dav.util import joinURL
+from pycalendar.datetime import DateTime
+from txweb2.dav.util import joinURL
 from caldavclientlibrary.protocol.webdav.definitions import davxml
 
 ICAL = """BEGIN:VCALENDAR
@@ -67,7 +67,7 @@ class InviteTest(HTTPTestBase):
         """
 
         # Invite as user02
-        now = PyCalendarDateTime.getNowUTC()
+        now = DateTime.getNowUTC()
         href = joinURL(self.sessions[1].calendarHref, "organizer.ics")
         self.sessions[1].writeData(URL(path=href), ICAL % (now.getYear() + 1,), "text/calendar")
 

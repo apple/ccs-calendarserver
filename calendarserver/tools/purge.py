@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- test-case-name: calendarserver.tools.test.test_purge -*-
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,17 +23,16 @@ from calendarserver.tools.util import removeProxy
 
 from getopt import getopt, GetoptError
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
 from twext.python.log import Logger
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twistedcaldav import caldavxml
-from twistedcaldav.caldavxml import TimeRange
 from twistedcaldav.directory.directory import DirectoryRecord
-from twistedcaldav.query import calendarqueryfilter
 
+from txdav.caldav.datastore.query.filter import Filter
 from txdav.xml import element as davxml
 
 
@@ -147,7 +146,7 @@ class PurgeOldEventsService(WorkerService):
         if dryrun:
             verbose = True
 
-        cutoff = PyCalendarDateTime.getToday()
+        cutoff = DateTime.getToday()
         cutoff.setDateOnly(False)
         cutoff.offsetDay(-days)
         cls.cutoff = cutoff
@@ -328,7 +327,7 @@ class PurgeAttachmentsService(WorkerService):
 
         cls.uuid = uuid
         if days > 0:
-            cutoff = PyCalendarDateTime.getToday()
+            cutoff = DateTime.getToday()
             cutoff.setDateOnly(False)
             cutoff.offsetDay(-days)
             cls.cutoff = cutoff
@@ -352,7 +351,7 @@ class PurgeAttachmentsService(WorkerService):
         service = cls(store)
         service.uuid = uuid
         if days > 0:
-            cutoff = PyCalendarDateTime.getToday()
+            cutoff = DateTime.getToday()
             cutoff.setDateOnly(False)
             cutoff.offsetDay(-days)
             service.cutoff = cutoff
@@ -732,7 +731,7 @@ class PurgePrincipalService(WorkerService):
     def _purgeUID(self, uid):
 
         if self.when is None:
-            self.when = PyCalendarDateTime.getNowUTC()
+            self.when = DateTime.getNowUTC()
 
         # Does the record exist?
         record = self.directory.recordWithUID(uid)
@@ -817,13 +816,13 @@ class PurgePrincipalService(WorkerService):
         query_filter = caldavxml.Filter(
               caldavxml.ComponentFilter(
                   caldavxml.ComponentFilter(
-                      TimeRange(start=whenString,),
+                      caldavxml.TimeRange(start=whenString,),
                       name=("VEVENT",),
                   ),
                   name="VCALENDAR",
                )
           )
-        query_filter = calendarqueryfilter.Filter(query_filter)
+        query_filter = Filter(query_filter)
 
         count = 0
         txn = self.store.newTransaction()
@@ -844,7 +843,7 @@ class PurgePrincipalService(WorkerService):
                     childNames.append(childName)
             else:
                 # events matching filter
-                for childName, _ignore_childUid, _ignore_childType in (yield calendar._index.indexedSearch(query_filter)):
+                for childName, _ignore_childUid, _ignore_childType in (yield calendar.search(query_filter)):
                     childNames.append(childName)
             yield txn.commit()
 
@@ -1020,7 +1019,7 @@ class PurgePrincipalService(WorkerService):
         @type event: L{twistedcaldav.ical.Component}
 
         @param when: the cutoff date (anything after which is removed)
-        @type when: PyCalendarDateTime
+        @type when: DateTime
 
         @param cua: Calendar User Address of principal being purged, to compare
             to see if it's the organizer of the event or just an attendee

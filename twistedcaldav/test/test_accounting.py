@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
 # limitations under the License.
 ##
 
-from twext.web2.channel.http import HTTPLoggingChannelRequest
-from twext.web2 import http_headers
-from twext.web2.channel.http import HTTPChannel
+from txweb2.channel.http import HTTPLoggingChannelRequest
+from txweb2 import http_headers
+from txweb2.channel.http import HTTPChannel
 from twistedcaldav.accounting import emitAccounting
 from twistedcaldav.config import config
 import twistedcaldav.test.util

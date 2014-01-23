@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_icalendar -*-
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,7 +28,6 @@ __all__ = [
     "tzexpand",
 ]
 
-import cStringIO as StringIO
 import codecs
 from difflib import unified_diff
 import heapq
@@ -36,8 +35,8 @@ import itertools
 import uuid
 
 from twext.python.log import Logger
-from twext.web2.stream import IStream
-from twext.web2.dav.util import allDataFromStream
+from txweb2.stream import IStream
+from txweb2.dav.util import allDataFromStream
 
 from twistedcaldav.config import config
 from twistedcaldav.dateops import timeRangesOverlap, normalizeForIndex, differenceDateTime, \
@@ -46,30 +45,33 @@ from twistedcaldav.instance import InstanceList
 from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.timezones import hasTZ, TimezoneException
 
-from pycalendar import definitions
-from pycalendar.attribute import PyCalendarAttribute
-from pycalendar.calendar import PyCalendar
-from pycalendar.componentbase import PyCalendarComponentBase
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.duration import PyCalendarDuration
-from pycalendar.exceptions import PyCalendarError
-from pycalendar.period import PyCalendarPeriod
-from pycalendar.property import PyCalendarProperty
-from pycalendar.timezone import PyCalendarTimezone
-from pycalendar.utcoffsetvalue import PyCalendarUTCOffsetValue
+from pycalendar.icalendar import definitions
+from pycalendar.parameter import Parameter
+from pycalendar.icalendar.calendar import Calendar
+from pycalendar.icalendar.component import Component as PyComponent
+from pycalendar.componentbase import ComponentBase
+from pycalendar.datetime import DateTime
+from pycalendar.duration import Duration
+from pycalendar.exceptions import ErrorBase
+from pycalendar.period import Period
+from pycalendar.icalendar.property import Property as PyProperty
+from pycalendar.timezone import Timezone
+from pycalendar.utcoffsetvalue import UTCOffsetValue
 
 log = Logger()
 
 iCalendarProductID = "-//CALENDARSERVER.ORG//NONSGML Version 1//EN"
 
-allowedComponents = (
-    "VEVENT",
-    "VTODO",
-    "VTIMEZONE",
-    # "VJOURNAL",
-    "VFREEBUSY",
-    # "VAVAILABILITY",
-)
+allowedStoreComponents = ("VEVENT", "VTODO", "VPOLL",)
+allowedSchedulingComponents = allowedStoreComponents + ("VFREEBUSY",)
+allowedComponents = allowedSchedulingComponents + ("VTIMEZONE",)
+
+def _updateAllowedComponents(allowed):
+    global allowedStoreComponents, allowedSchedulingComponents, allowedComponents
+    allowedStoreComponents = allowed
+    allowedSchedulingComponents = allowedStoreComponents + ("VFREEBUSY",)
+    allowedComponents = allowedSchedulingComponents + ("VTIMEZONE",)
+
 
 # Additional per-user data components - see datafilters.peruserdata.py for details
 PERUSER_COMPONENT = "X-CALENDARSERVER-PERUSER"
@@ -134,19 +136,28 @@ normalizeProps = {
     "LAST-MODIFIED": (None, {"VALUE": "DATE-TIME"}),
     "SEQUENCE": (0, {"VALUE": "INTEGER"}),
     "REQUEST-STATUS": (None, {"VALUE": "TEXT"}),
+
+    "VOTER": (None, {
+        "VALUE": "CAL-ADDRESS",
+        "CUTYPE": "INDIVIDUAL",
+        "ROLE": "REQ-PARTICIPANT",
+        "RSVP": "FALSE",
+        "SCHEDULE-AGENT": "SERVER",
+    }),
 }
 
 # transformations to apply to property values
 normalizePropsValue = {
     "ATTENDEE": normalizeCUAddr,
     "ORGANIZER": normalizeCUAddr,
+    "VOTER": normalizeCUAddr,
 }
 
 ignoredComponents = ("VTIMEZONE", PERUSER_COMPONENT,)
 
 # Used for min/max time-range query limits
-minDateTime = PyCalendarDateTime(1900, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
-maxDateTime = PyCalendarDateTime(2100, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+minDateTime = DateTime(1900, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+maxDateTime = DateTime(2100, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
 
 class InvalidICalendarDataError(ValueError):
     pass
@@ -170,16 +181,16 @@ class Property (object):
 
             pyobj = kwargs["pycalendar"]
 
-            if not isinstance(pyobj, PyCalendarProperty):
-                raise TypeError("Not a PyCalendarProperty: %r" % (property,))
+            if not isinstance(pyobj, PyProperty):
+                raise TypeError("Not a Property: %r" % (property,))
 
             self._pycalendar = pyobj
         else:
             # Convert params dictionary to list of lists format used by pycalendar
             valuetype = kwargs.get("valuetype")
-            self._pycalendar = PyCalendarProperty(name, value, valuetype=valuetype)
+            self._pycalendar = PyProperty(name, value, valuetype=valuetype)
             for attrname, attrvalue in params.items():
-                self._pycalendar.addAttribute(PyCalendarAttribute(attrname, attrvalue))
+                self._pycalendar.addParameter(Parameter(attrname, attrvalue))
 
         self._parent = parent
 
@@ -267,7 +278,7 @@ class Property (object):
         Returns a set containing parameter names for this property.
         """
         result = set()
-        for pyattrlist in self._pycalendar.getAttributes().values():
+        for pyattrlist in self._pycalendar.getParameters().values():
             for pyattr in pyattrlist:
                 result.add(pyattr.getName())
         return result
@@ -275,31 +286,40 @@ class Property (object):
 
     def parameterValue(self, name, default=None):
         """
-        Returns a single value for the given parameter.  Raises
-        InvalidICalendarDataError if the parameter has more than one value.
+        Returns a single value for the given parameter.
         """
         try:
-            return self._pycalendar.getAttributeValue(name)
+            return self._pycalendar.getParameterValue(name)
+        except KeyError:
+            return default
+
+
+    def parameterValues(self, name, default=None):
+        """
+        Returns a multi-value C{list} for the given parameter.
+        """
+        try:
+            return self._pycalendar.getParameterValues(name)
         except KeyError:
             return default
 
 
     def hasParameter(self, paramname):
-        return self._pycalendar.hasAttribute(paramname)
+        return self._pycalendar.hasParameter(paramname)
 
 
     def setParameter(self, paramname, paramvalue):
-        self._pycalendar.replaceAttribute(PyCalendarAttribute(paramname, paramvalue))
+        self._pycalendar.replaceParameter(Parameter(paramname, paramvalue))
         self._markAsDirty()
 
 
     def removeParameter(self, paramname):
-        self._pycalendar.removeAttributes(paramname)
+        self._pycalendar.removeParameters(paramname)
         self._markAsDirty()
 
 
     def removeAllParameters(self):
-        self._pycalendar.setAttributes({})
+        self._pycalendar.setParameters({})
         self._markAsDirty()
 
 
@@ -308,11 +328,11 @@ class Property (object):
         paramname = paramname.upper()
         for attrName in self.parameterNames():
             if attrName.upper() == paramname:
-                for attr in tuple(self._pycalendar.getAttributes()[attrName]):
+                for attr in tuple(self._pycalendar.getParameters()[attrName]):
                     for value in attr.getValues():
                         if value == paramvalue:
                             if not attr.removeValue(value):
-                                self._pycalendar.removeAttributes(paramname)
+                                self._pycalendar.removeParameters(paramname)
         self._markAsDirty()
 
 
@@ -322,8 +342,8 @@ class Property (object):
         start/end period.
         The only properties allowed for this query are: COMPLETED, CREATED, DTSTAMP and
         LAST-MODIFIED (caldav -09).
-        @param start: a L{PyCalendarDateTime} specifying the beginning of the given time span.
-        @param end: a L{PyCalendarDateTime} specifying the end of the given time span.
+        @param start: a L{DateTime} specifying the beginning of the given time span.
+        @param end: a L{DateTime} specifying the end of the given time span.
             C{end} may be None, indicating that there is no end date.
         @param defaulttz: the default L{PyTimezone} to use in datetime comparisons.
         @return: True if the property's date/date-time value is within the given time range,
@@ -337,7 +357,7 @@ class Property (object):
 
         # get date/date-time value
         dt = self._pycalendar.getValue().getValue()
-        assert isinstance(dt, PyCalendarDateTime), "Not a date/date-time value: %r" % (self,)
+        assert isinstance(dt, DateTime), "Not a date/date-time value: %r" % (self,)
 
         return timeRangesOverlap(dt, None, start, end, defaulttz)
 
@@ -375,66 +395,95 @@ class Component (object):
     # Hidden instance.
     HIDDEN_INSTANCE_PROPERTY = "X-CALENDARSERVER-HIDDEN-INSTANCE"
 
+    allowedTypesList = None
+
+
     @classmethod
-    def allFromString(clazz, string):
+    def allowedTypes(cls):
+        if cls.allowedTypesList is None:
+            cls.allowedTypesList = ["text/calendar"]
+            if config.EnableJSONData:
+                cls.allowedTypesList.append("application/calendar+json")
+        return cls.allowedTypesList
+
+
+    @classmethod
+    def allFromString(clazz, string, format=None):
         """
         Just default to reading a single VCALENDAR
         """
-        return clazz.fromString(string)
+        return clazz.fromString(string, format)
 
 
     @classmethod
-    def allFromStream(clazz, stream):
+    def allFromStream(clazz, stream, format=None):
         """
         Just default to reading a single VCALENDAR
         """
-        return clazz.fromStream(stream)
+        return clazz.fromStream(stream, format)
 
 
     @classmethod
-    def fromString(clazz, string):
+    def fromString(clazz, string, format=None):
         """
         Construct a L{Component} from a string.
         @param string: a string containing iCalendar data.
         @return: a L{Component} representing the first component described by
             C{string}.
         """
-        if type(string) is unicode:
-            string = string.encode("utf-8")
-        else:
-            # Valid utf-8 please
-            string.decode("utf-8")
-
-        # No BOMs please
-        if string[:3] == codecs.BOM_UTF8:
-            string = string[3:]
-
-        return clazz.fromStream(StringIO.StringIO(string))
+        return clazz._fromData(string, False, format)
 
 
     @classmethod
-    def fromStream(clazz, stream):
+    def fromStream(clazz, stream, format=None):
         """
         Construct a L{Component} from a stream.
         @param stream: a C{read()}able stream containing iCalendar data.
         @return: a L{Component} representing the first component described by
             C{stream}.
         """
-        cal = PyCalendar()
-        errmsg = "Unknown"
-        try:
-            result = cal.parse(stream)
-        except PyCalendarError, e:
-            errmsg = "%s: %s" % (e.mReason, e.mData,)
-            result = None
-        if not result:
-            stream.seek(0)
-            raise InvalidICalendarDataError("%s\n%s" % (errmsg, stream.read(),))
-        return clazz(None, pycalendar=cal)
+        return clazz._fromData(stream, True, format)
 
 
     @classmethod
-    def fromIStream(clazz, stream):
+    def _fromData(clazz, data, isstream, format=None):
+        """
+        Construct a L{Component} from a stream.
+        @param stream: a C{read()}able stream containing iCalendar data.
+        @param format: a C{str} indicating whether the data is iCalendar or jCal
+        @return: a L{Component} representing the first component described by
+            C{stream}.
+        """
+
+        if isstream:
+            pass
+        else:
+            if type(data) is unicode:
+                data = data.encode("utf-8")
+            else:
+                # Valid utf-8 please
+                data.decode("utf-8")
+
+            # No BOMs please
+            if data[:3] == codecs.BOM_UTF8:
+                data = data[3:]
+
+        errmsg = "Unknown"
+        try:
+            result = Calendar.parseData(data, format)
+        except ErrorBase, e:
+            errmsg = "%s: %s" % (e.mReason, e.mData,)
+            result = None
+        if not result:
+            if isstream:
+                data.seek(0)
+                data = data.read()
+            raise InvalidICalendarDataError("%s\n%s" % (errmsg, data,))
+        return clazz(None, pycalendar=result)
+
+
+    @classmethod
+    def fromIStream(clazz, stream, format=None):
         """
         Construct a L{Component} from a stream.
         @param stream: an L{IStream} containing iCalendar data.
@@ -448,7 +497,7 @@ class Component (object):
         #   request stream.
         #
         def parse(data):
-            return clazz.fromString(data)
+            return clazz.fromString(data, format)
         return allDataFromStream(IStream(stream), parse)
 
 
@@ -480,8 +529,8 @@ class Component (object):
                 pyobj = kwargs["pycalendar"]
 
                 if pyobj is not None:
-                    if not isinstance(pyobj, PyCalendarComponentBase):
-                        raise TypeError("Not a PyCalendarComponentBase: %r" % (pyobj,))
+                    if not isinstance(pyobj, ComponentBase):
+                        raise TypeError("Not a ComponentBase: %r" % (pyobj,))
 
                 self._pycalendar = pyobj
             else:
@@ -499,7 +548,7 @@ class Component (object):
                 self._parent = None
         else:
             # FIXME: figure out creating an arbitrary component
-            self._pycalendar = PyCalendar(add_defaults=False) if name == "VCALENDAR" else PyCalendar.makeComponent(name, None)
+            self._pycalendar = Calendar(add_defaults=False) if name == "VCALENDAR" else PyComponent.makeComponent(name, None)
             self._parent = None
 
 
@@ -542,13 +591,20 @@ class Component (object):
         return self._pycalendar == other._pycalendar
 
 
-    def getTextWithTimezones(self, includeTimezones):
+    def getText(self, format=None):
+        return self.getTextWithTimezones(False, format)
+
+
+    def getTextWithTimezones(self, includeTimezones, format=None):
         """
-        Return text representation and include timezones if the option is on
+        Return text representation and include timezones if the option is on.
         """
         assert self.name() == "VCALENDAR", "Must be a VCALENDAR: %r" % (self,)
 
-        return self._pycalendar.getText(includeTimezones=includeTimezones)
+        result = self._pycalendar.getText(includeTimezones=includeTimezones, format=format)
+        if result is None:
+            raise ValueError("Unknown format requested for calendar data.")
+        return result
 
 
     # FIXME: Should this not be in __eq__?
@@ -627,14 +683,14 @@ class Component (object):
         This also returns the matching master component if recurrence_id is C{None}.
 
         @param recurrence_id: The RECURRENCE-ID property value to match.
-        @type recurrence_id: L{PyCalendarDateTime}
+        @type recurrence_id: L{DateTime}
         @return: the L{Component} for the overridden component,
             or C{None} if there isn't one.
         """
         assert self.name() == "VCALENDAR", "Must be a VCALENDAR: %r" % (self,)
 
         if isinstance(recurrence_id, str):
-            recurrence_id = PyCalendarDateTime.parseText(recurrence_id) if recurrence_id else None
+            recurrence_id = DateTime.parseText(recurrence_id) if recurrence_id else None
 
         for component in self.subcomponents():
             if component.name() in ignoredComponents:
@@ -760,7 +816,7 @@ class Component (object):
         Return the start date or date-time for the specified component
         converted to UTC.
         @param component: the Component whose start should be returned.
-        @return: the L{PyCalendarDateTime} for the start.
+        @return: the L{DateTime} for the start.
         """
         dtstart = self.propertyValue("DTSTART")
         return dtstart.duplicateAsUTC() if dtstart is not None else None
@@ -772,7 +828,7 @@ class Component (object):
         taking into account the presence or absence of DTEND/DURATION properties.
         The returned date-time is converted to UTC.
         @param component: the Component whose end should be returned.
-        @return: the L{PyCalendarDateTime} for the end.
+        @return: the L{DateTime} for the end.
         """
         dtend = self.propertyValue("DTEND")
         if dtend is None:
@@ -789,7 +845,7 @@ class Component (object):
         Return the due date or date-time for the specified component
         converted to UTC. Use DTSTART/DURATION if no DUE property.
         @param component: the Component whose start should be returned.
-        @return: the L{PyCalendarDateTime} for the start.
+        @return: the L{DateTime} for the start.
         """
         due = self.propertyValue("DUE")
         if due is None:
@@ -827,7 +883,7 @@ class Component (object):
         """
         Return the recurrence-id for the specified component.
         @param component: the Component whose r-id should be returned.
-        @return: the L{PyCalendarDateTime} for the r-id.
+        @return: the L{DateTime} for the r-id.
         """
         rid = self.propertyValue("RECURRENCE-ID")
         return rid.duplicateAsUTC() if rid is not None else None
@@ -1086,7 +1142,7 @@ class Component (object):
         to match the new limit, remove RDATEs/EXDATEs and overridden components beyond the limit.
 
         @param rid: the recurrence-id limit
-        @type rid: L{PyCalendarDateTime}
+        @type rid: L{DateTime}
         """
 
         if not self.isRecurring():
@@ -1148,7 +1204,7 @@ class Component (object):
         match any RRULE pattern.
 
         @param rid: the recurrence-id limit
-        @type rid: L{PyCalendarDateTime}
+        @type rid: L{DateTime}
         """
 
         if not self.isRecurring():
@@ -1157,33 +1213,41 @@ class Component (object):
         if master:
             # Check if cut-off matches an RDATE
             adjusted_rid = rid
+            adjust_rrule = None
+            adjust_count = 0
             continuing_rrule = True
-            rdates = set([v.getValue() for v in itertools.chain(*[rdate.value() for rdate in master.properties("RDATE")])])
-            if rid in rdates:
-                # Need to detect the first valid RRULE instance after the cut-off
-                rrules = master._pycalendar.getRecurrenceSet()
-                if rrules and len(rrules.getRules()) != 0:
-                    rrule = rrules.getRules()[0]
-                    upperlimit = rid.duplicate()
-                    upperlimit.offsetYear(1)
-                    rrule_expanded = []
-                    rrule.expand(
-                        master.propertyValue("DTSTART"),
-                        PyCalendarPeriod(PyCalendarDateTime(1900, 1, 1), upperlimit),
-                        rrule_expanded,
-                    )
-                    for i in sorted(rrule_expanded):
-                        if i > rid:
-                            adjusted_rid = i
-                            break
-                    else:
-                        # RRULE not needed in derived master
-                        continuing_rrule = False
+
+            # Need to detect the first valid RRULE instance after the cut-off as that needs to be the new DTSTART
+            rrules = master._pycalendar.getRecurrenceSet()
+            if rrules and len(rrules.getRules()) != 0:
+                rrule = rrules.getRules()[0]
+                upperlimit = rid.duplicate()
+                upperlimit.offsetYear(1)
+                rrule_expanded = []
+                rrule.expand(
+                    master.propertyValue("DTSTART"),
+                    Period(DateTime(1900, 1, 1), upperlimit),
+                    rrule_expanded,
+                )
+                for ctr, i in enumerate(sorted(rrule_expanded)):
+                    if i >= rid:
+                        adjusted_rid = i
+                        adjust_rrule = rrule
+                        adjust_count = ctr
+                        break
+                else:
+                    # RRULE not needed in derived master
+                    continuing_rrule = False
 
             # Adjust master to previously derived instance
             derived = self.deriveInstance(adjusted_rid, allowExcluded=True)
             if derived is None:
                 return
+
+            # Adjust any COUNT to exclude the earlier instances - note we do this after
+            # deriving the instance otherwise it might truncate the instance we care about
+            if adjust_rrule is not None and rrule.getUseCount():
+                adjust_rrule.setCount(adjust_rrule.getCount() - adjust_count)
 
             # Fix up recurrence properties so the derived one looks like the master
             derived.removeProperty(derived.getProperty("RECURRENCE-ID"))
@@ -1244,14 +1308,14 @@ class Component (object):
         instance in the specified range. Date-times are converted to UTC. A
         new calendar object is returned.
 
-        @param start: the L{PyCalendarDateTime} for the start of the range.
-        @param end: the L{PyCalendarDateTime} for the end of the range.
-        @param timezone: the L{Component} or L{PyCalendarTimezone} of the VTIMEZONE to use for floating/all-day.
+        @param start: the L{DateTime} for the start of the range.
+        @param end: the L{DateTime} for the end of the range.
+        @param timezone: the L{Component} or L{Timezone} of the VTIMEZONE to use for floating/all-day.
         @return: the L{Component} for the new calendar with expanded instances.
         """
 
         if timezone is not None and isinstance(timezone, Component):
-            pytz = PyCalendarTimezone(tzid=timezone.propertyValue("TZID"))
+            pytz = Timezone(tzid=timezone.propertyValue("TZID"))
         else:
             pytz = timezone
 
@@ -1297,7 +1361,7 @@ class Component (object):
         # Convert all datetime properties to UTC unless they are floating
         for property in newcomp.properties():
             value = property.value()
-            if isinstance(value, PyCalendarDateTime) and value.local():
+            if isinstance(value, DateTime) and value.local():
                 property.removeParameter("TZID")
                 property.setValue(value.duplicateAsUTC())
 
@@ -1324,7 +1388,7 @@ class Component (object):
         breathing room to return results for future instances.
 
         @param limit: the max datetime to cache up to.
-        @type limit: L{PyCalendarDateTime}
+        @type limit: L{DateTime}
         """
 
         # Checked for cached values first
@@ -1335,7 +1399,7 @@ class Component (object):
                 # so return cached instances
                 return self.cachedInstances
 
-        lookAheadLimit = limit + PyCalendarDuration(days=365)
+        lookAheadLimit = limit + Duration(days=365)
         self.cachedInstances = self.expandTimeRanges(
             lookAheadLimit,
             ignoreInvalidInstances=ignoreInvalidInstances
@@ -1349,7 +1413,7 @@ class Component (object):
         contained within this VCALENDAR component. We will assume
         that this component has already been validated as a CalDAV resource
         (i.e. only one type of component, all with the same UID)
-        @param limit: L{PyCalendarDateTime} value representing the end of the expansion.
+        @param limit: L{DateTime} value representing the end of the expansion.
         @param ignoreInvalidInstances: C{bool} whether to ignore instance errors.
         @return: a set of Instances for each recurrence in the set.
         """
@@ -1368,14 +1432,14 @@ class Component (object):
         @param componentSet: the set of components that are to make up the
                 recurrence set. These MUST all be components with the same UID
                 and type, forming a proper recurring set.
-        @param limit: L{PyCalendarDateTime} value representing the end of the expansion.
+        @param limit: L{DateTime} value representing the end of the expansion.
 
         @param componentSet: the set of components that are to make up the recurrence set.
             These MUST all be components with the same UID and type, forming a proper
             recurring set.
         @type componentSet: C{list}
         @param limit: the end of the expansion
-        @type limit: L{PyCalendarDateTime}
+        @type limit: L{DateTime}
         @param ignoreInvalidInstances: whether or not invalid recurrences raise an exception
         @type ignoreInvalidInstances: C{bool}
         @param normalizeFunction: a function used to normalize date/time values in instances
@@ -1451,7 +1515,7 @@ class Component (object):
         There is always some new thing that will surprise you.
 
         @param rid: recurrence-id value
-        @type rid: L{PyCalendarDateTime} or C{str}
+        @type rid: L{DateTime} or C{str}
         @param allowCancelled: whether to allow a STATUS:CANCELLED override
         @type allowCancelled: C{bool}
         @param allowExcluded: whether to derive an instance for an existing EXDATE
@@ -1469,7 +1533,7 @@ class Component (object):
             return None
 
         if isinstance(rid, str):
-            rid = PyCalendarDateTime.parseText(rid) if rid else None
+            rid = DateTime.parseText(rid) if rid else None
 
         # TODO: Check that the recurrence-id is a valid instance
         # For now we just check that there is no matching EXDATE
@@ -1586,7 +1650,7 @@ class Component (object):
             # Pre-cache instance expansion up to the highest rid
             highest_rid = max(non_master_rids)
             self.cacheExpandedTimeRanges(
-                highest_rid + PyCalendarDuration(days=1),
+                highest_rid + Duration(days=1),
                 ignoreInvalidInstances=ignoreInvalidInstances
             )
         for rid in rids:
@@ -1600,7 +1664,7 @@ class Component (object):
         Test whether the specified recurrence-id is a valid instance in this event.
 
         @param rid: recurrence-id value
-        @type rid: L{PyCalendarDateTime}
+        @type rid: L{DateTime}
 
         @return: C{bool}
         """
@@ -1984,12 +2048,12 @@ class Component (object):
 
     def gettimezone(self):
         """
-        Get the PyCalendarTimezone for a Timezone component.
+        Get the Timezone for a Timezone component.
 
-        @return: L{PyCalendarTimezone} if this is a VTIMEZONE, otherwise None.
+        @return: L{Timezone} if this is a VTIMEZONE, otherwise None.
         """
         if self.name() == "VTIMEZONE":
-            return PyCalendarTimezone(tzid=self._pycalendar.getID())
+            return Timezone(tzid=self._pycalendar.getID())
         elif self.name() == "VCALENDAR":
             for component in self.subcomponents():
                 if component.name() == "VTIMEZONE":
@@ -2137,6 +2201,10 @@ class Component (object):
         return is_server
 
 
+    def recipientPropertyName(self):
+        return "VOTER" if self.name() == "VPOLL" else "ATTENDEE"
+
+
     def getAttendees(self):
         """
         Get the attendee value. Works on either a VCALENDAR or on a component.
@@ -2152,7 +2220,7 @@ class Component (object):
                     return component.getAttendees()
         else:
             # Find the property values
-            return [p.value() for p in self.properties("ATTENDEE")]
+            return [p.value() for p in self.properties(self.recipientPropertyName())]
 
         return None
 
@@ -2179,7 +2247,7 @@ class Component (object):
             result = ()
             attendees = set()
             rid = self.getRecurrenceIDUTC()
-            for attendee in tuple(self.properties("ATTENDEE")):
+            for attendee in tuple(self.properties(self.recipientPropertyName())):
 
                 if onlyScheduleAgentServer:
                     if attendee.hasParameter("SCHEDULE-AGENT"):
@@ -2193,6 +2261,27 @@ class Component (object):
                     result += ((cuaddr, rid),)
                     attendees.add(cuaddr)
             return result
+
+
+    def getVoterProperty(self, match):
+        """
+        Get the voters matching a value.
+
+        @param match: a C{list} of calendar user address strings to try and match.
+        @return: the matching Voter property, or None
+        """
+
+        # Need to normalize http/https cu addresses
+        test = set()
+        for item in match:
+            test.add(normalizeCUAddr(item))
+
+        # Find the primary subcomponent
+        for voter in self.properties("VOTER"):
+            if normalizeCUAddr(voter.value()) in test:
+                return voter
+
+        return None
 
 
     def getAttendeeProperty(self, match):
@@ -2217,7 +2306,7 @@ class Component (object):
                         return attendee
         else:
             # Find the primary subcomponent
-            for attendee in self.properties("ATTENDEE"):
+            for attendee in self.properties(self.recipientPropertyName()):
                 if normalizeCUAddr(attendee.value()) in test:
                     return attendee
 
@@ -2260,7 +2349,7 @@ class Component (object):
                         yield attendee
         else:
             # Find the primary subcomponent
-            for attendee in self.properties("ATTENDEE"):
+            for attendee in self.properties(self.recipientPropertyName()):
                 yield attendee
 
 
@@ -2611,7 +2700,7 @@ class Component (object):
     def filterComponents(self, rids):
 
         # If master is in rids do nothing
-        if not rids or "" in rids:
+        if not rids or None in rids:
             return True
 
         assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
@@ -2624,7 +2713,7 @@ class Component (object):
                 remaining -= 1
                 continue
             rid = component.getRecurrenceIDUTC()
-            if (rid.getText() if rid else "") not in rids:
+            if rid not in rids:
                 self.removeComponent(component)
                 remaining -= 1
 
@@ -2641,7 +2730,7 @@ class Component (object):
         for component in self.subcomponents():
             if component.name() in ignoredComponents:
                 continue
-            [component.removeProperty(p) for p in tuple(component.properties("ATTENDEE")) if p.value().lower() != attendee.lower()]
+            [component.removeProperty(p) for p in tuple(component.properties(component.recipientPropertyName())) if p.value().lower() != attendee.lower()]
 
 
     def removeAllButTheseAttendees(self, attendees):
@@ -2656,7 +2745,7 @@ class Component (object):
         for component in self.subcomponents():
             if component.name() in ignoredComponents:
                 continue
-            [component.removeProperty(p) for p in tuple(component.properties("ATTENDEE")) if p.value().lower() not in attendees]
+            [component.removeProperty(p) for p in tuple(component.properties(component.recipientPropertyName())) if p.value().lower() not in attendees]
 
 
     def hasAlarm(self):
@@ -2977,7 +3066,7 @@ END:VCALENDAR
             # Bump all components
             self.replacePropertyInAllComponents(Property("SEQUENCE", newseq))
 
-        self.replacePropertyInAllComponents(Property("DTSTAMP", PyCalendarDateTime.getNowUTC()))
+        self.replacePropertyInAllComponents(Property("DTSTAMP", DateTime.getNowUTC()))
 
 
     def sequenceInSync(self, oldcalendar):
@@ -3059,7 +3148,7 @@ END:VCALENDAR
             dtend = self.getProperty("DTEND")
             duration = self.getProperty("DURATION")
 
-            timeRange = PyCalendarPeriod(
+            timeRange = Period(
                 start=dtstart.value(),
                 end=dtend.value()    if dtend is not None else None,
                 duration=duration.value() if duration is not None else None,
@@ -3163,7 +3252,8 @@ END:VCALENDAR
                 continue
             for prop in itertools.chain(
                 component.properties("ORGANIZER"),
-                component.properties("ATTENDEE")
+                component.properties("ATTENDEE"),
+                component.properties("VOTER")
             ):
 
                 # Check that we can lookup this calendar user address - if not
@@ -3261,6 +3351,10 @@ END:VCALENDAR
                     else:
                         prop.removeParameter("EMAIL")
 
+            # For VPOLL also do immediate children
+            if component.name() == "VPOLL":
+                component.normalizeCalendarUserAddresses(lookupFunction, principalFunction, toUUID)
+
 
     def allPerUserUIDs(self):
 
@@ -3311,7 +3405,7 @@ END:VCALENDAR
         Determine whether an event exists completely prior to a given moment.
 
         @param limit: the moment to compare against.
-        @type limit: L{PyCalendarDateTime}
+        @type limit: L{DateTime}
 
         @return: a C{bool}, True if the event has any instances occurring after
         limit, False otherwise.
@@ -3329,6 +3423,32 @@ END:VCALENDAR
                 return True
 
         # Exists completely prior to limit
+        return False
+
+
+    def hasDuplicatePrivateComments(self, doFix=False):
+        """
+        Test and optionally remove "X-CALENDARSERVER-ATTENDEE-COMMENT" properties that have the same
+        "X-CALENDARSERVER-ATTENDEE-REF" parameter values in the same component.
+
+        @return: C{True} if there are duplicates that were not fixed.
+        """
+        if self.name() == "VCALENDAR":
+            for component in self.subcomponents():
+                if component.name() in ("VTIMEZONE",):
+                    continue
+                if component.hasDuplicatePrivateComments(doFix):
+                    return True
+        else:
+            attendee_refs = set()
+            for prop in tuple(self.properties("X-CALENDARSERVER-ATTENDEE-COMMENT")):
+                ref = prop.parameterValue("X-CALENDARSERVER-ATTENDEE-REF")
+                if ref in attendee_refs:
+                    if doFix:
+                        self.removeProperty(prop)
+                    else:
+                        return True
+                attendee_refs.add(ref)
         return False
 
 
@@ -3369,13 +3489,13 @@ def tzexpand(tzdata, start, end):
     start.setDateOnly(False)
     if tzexpanded:
         if start != tzexpanded[0][0]:
-            results.append((str(start), PyCalendarUTCOffsetValue(tzexpanded[0][1]).getText(),))
+            results.append((str(start), UTCOffsetValue(tzexpanded[0][1]).getText(),))
     else:
-        results.append((str(start), PyCalendarUTCOffsetValue(tzcomp._pycalendar.getTimezoneOffsetSeconds(start)).getText(),))
+        results.append((str(start), UTCOffsetValue(tzcomp._pycalendar.getTimezoneOffsetSeconds(start)).getText(),))
     for tzstart, _ignore_tzoffsetfrom, tzoffsetto in tzexpanded:
         results.append((
             tzstart.getText(),
-            PyCalendarUTCOffsetValue(tzoffsetto).getText(),
+            UTCOffsetValue(tzoffsetto).getText(),
         ))
 
     return results
@@ -3388,7 +3508,7 @@ def tzexpandlocal(tzdata, start, end):
     time range.
 
     @param tzdata: the iCalendar data containing a VTIMEZONE.
-    @type tzdata: L{PyCalendar}
+    @type tzdata: L{Calendar}
     @param start: date for the start of the expansion.
     @type start: C{date}
     @param end: date for the end of the expansion.
@@ -3533,7 +3653,7 @@ def normalize_iCalStr(icalstr):
     icalstr = str(icalstr).replace("\r\n ", "")
     icalstr = icalstr.replace("\n ", "")
     icalstr = "\r\n".join([line for line in icalstr.splitlines() if not line.startswith("DTSTAMP")])
-    return icalstr
+    return icalstr + "\r\n"
 
 
 

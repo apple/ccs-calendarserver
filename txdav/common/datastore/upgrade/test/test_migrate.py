@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ Tests for L{txdav.common.datastore.upgrade.migrate}.
 from twext.enterprise.adbapi2 import Pickle
 from twext.enterprise.dal.syntax import Delete
 from twext.python.filepath import CachingFilePath
-from twext.web2.http_headers import MimeType
+from txweb2.http_headers import MimeType
 
 from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 from twisted.internet.protocol import Protocol
@@ -143,7 +143,17 @@ class HomeMigrationTests(TestCase):
             self.filesPath, {"push": StubNotifierFactory()}, TestStoreDirectoryService(), True, True
         )
         self.sqlStore = yield theStoreBuilder.buildStore(
-            self, StubNotifierFactory()
+            self,
+            StubNotifierFactory(),
+            homes=(
+                "home1",
+                "home2",
+                "home3",
+                "home_defaults",
+                "home_no_splits",
+                "home_splits",
+                "home_splits_shared",
+            )
         )
         self.upgrader = UpgradeToDatabaseStep(self.fileStore, self.sqlStore)
 

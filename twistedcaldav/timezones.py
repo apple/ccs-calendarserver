@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ from twisted.python.filepath import FilePath
 
 from twistedcaldav.config import config
 
-from pycalendar.timezonedb import PyCalendarTimezoneDatabase
+from pycalendar.timezonedb import TimezoneDatabase
 
 log = Logger()
 
@@ -95,7 +95,7 @@ class TimezoneCache(object):
             TimezoneCache.dirName = None
             TimezoneCache.validatePath()
         TimezoneCache.version = TimezoneCache.getTZVersion(TimezoneCache.getDBPath())
-        PyCalendarTimezoneDatabase.createTimezoneDatabase(TimezoneCache.getDBPath())
+        TimezoneDatabase.createTimezoneDatabase(TimezoneCache.getDBPath())
 
 
     @staticmethod
@@ -171,7 +171,7 @@ class TimezoneCache(object):
 
     @staticmethod
     def clear():
-        PyCalendarTimezoneDatabase.clearTimezoneDatabase()
+        TimezoneDatabase.clearTimezoneDatabase()
 
 # zoneinfo never changes in a running instance so cache all this data as we use it
 cachedTZs = {}
@@ -207,7 +207,7 @@ def readVTZ(tzid):
 
     if tzid not in cachedVTZs:
 
-        tzcal = PyCalendarTimezoneDatabase.getTimezoneInCalendar(tzid)
+        tzcal = TimezoneDatabase.getTimezoneInCalendar(tzid)
         if tzcal:
             cachedVTZs[tzid] = tzcal
         else:

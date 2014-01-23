@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,38 +30,36 @@ from twistedcaldav.xmlutil import readXML
 
 log = Logger()
 
-ELEMENT_AUGMENTS          = "augments"
-ELEMENT_RECORD            = "record"
+ELEMENT_AUGMENTS = "augments"
+ELEMENT_RECORD = "record"
 
-ELEMENT_UID               = "uid"
-ELEMENT_ENABLE            = "enable"
-ELEMENT_SERVERID          = "server-id"
-ELEMENT_PARTITIONID       = "partition-id"
-ELEMENT_HOSTEDAT          = "hosted-at"   # Backwards compatibility
-ELEMENT_ENABLECALENDAR    = "enable-calendar"
+ELEMENT_UID = "uid"
+ELEMENT_ENABLE = "enable"
+ELEMENT_SERVERID = "server-id"
+ELEMENT_PARTITIONID = "partition-id"   # Backwards compatibility
+ELEMENT_HOSTEDAT = "hosted-at"   # Backwards compatibility
+ELEMENT_ENABLECALENDAR = "enable-calendar"
 ELEMENT_ENABLEADDRESSBOOK = "enable-addressbook"
-ELEMENT_ENABLELOGIN       = "enable-login"
-ELEMENT_AUTOSCHEDULE      = "auto-schedule"
+ELEMENT_ENABLELOGIN = "enable-login"
+ELEMENT_AUTOSCHEDULE = "auto-schedule"
 ELEMENT_AUTOSCHEDULE_MODE = "auto-schedule-mode"
-ELEMENT_AUTOACCEPTGROUP   = "auto-accept-group"
+ELEMENT_AUTOACCEPTGROUP = "auto-accept-group"
 
-ATTRIBUTE_REPEAT          = "repeat"
+ATTRIBUTE_REPEAT = "repeat"
 
-VALUE_TRUE                = "true"
-VALUE_FALSE               = "false"
+VALUE_TRUE = "true"
+VALUE_FALSE = "false"
 
 ELEMENT_AUGMENTRECORD_MAP = {
-    ELEMENT_UID:               "uid",
-    ELEMENT_ENABLE:            "enabled",
-    ELEMENT_SERVERID:          "serverID",
-    ELEMENT_PARTITIONID:       "partitionID",
-    ELEMENT_HOSTEDAT:          "partitionID",   # Backwards compatibility
-    ELEMENT_ENABLECALENDAR:    "enabledForCalendaring",
+    ELEMENT_UID: "uid",
+    ELEMENT_ENABLE: "enabled",
+    ELEMENT_SERVERID: "serverID",
+    ELEMENT_ENABLECALENDAR: "enabledForCalendaring",
     ELEMENT_ENABLEADDRESSBOOK: "enabledForAddressBooks",
-    ELEMENT_ENABLELOGIN:       "enabledForLogin",
-    ELEMENT_AUTOSCHEDULE:      "autoSchedule",
+    ELEMENT_ENABLELOGIN: "enabledForLogin",
+    ELEMENT_AUTOSCHEDULE: "autoSchedule",
     ELEMENT_AUTOSCHEDULE_MODE: "autoScheduleMode",
-    ELEMENT_AUTOACCEPTGROUP:   "autoAcceptGroup",
+    ELEMENT_AUTOACCEPTGROUP: "autoAcceptGroup",
 }
 
 class XMLAugmentsParser(object):
@@ -70,6 +68,7 @@ class XMLAugmentsParser(object):
     """
     def __repr__(self):
         return "<%s %r>" % (self.__class__.__name__, self.xmlFile)
+
 
     def __init__(self, xmlFile, items):
 
@@ -84,13 +83,14 @@ class XMLAugmentsParser(object):
 
         self._parseXML(augments_node)
 
+
     def _parseXML(self, rootnode):
         """
         Parse the XML root node from the augments configuration document.
         @param rootnode: the L{Element} to parse.
         """
         for child in rootnode:
-            
+
             if child.tag != ELEMENT_RECORD:
                 raise RuntimeError("Unknown augment type: '%s' in augment file: '%s'" % (child.tag, self.xmlFile,))
 
@@ -98,7 +98,7 @@ class XMLAugmentsParser(object):
 
             fields = {}
             for node in child:
-                
+
                 if node.tag in (
                     ELEMENT_UID,
                     ELEMENT_SERVERID,
@@ -118,33 +118,35 @@ class XMLAugmentsParser(object):
                     fields[node.tag] = node.text == VALUE_TRUE
                 else:
                     raise RuntimeError("Invalid element '%s' in augment file: '%s'" % (node.tag, self.xmlFile,))
-                    
+
             # Must have at least a uid
             if ELEMENT_UID not in fields:
                 raise RuntimeError("Invalid record '%s' without a uid in augment file: '%s'" % (child, self.xmlFile,))
-                
+
             if repeat > 1:
-                for i in xrange(1, repeat+1):
+                for i in xrange(1, repeat + 1):
                     self.buildRecord(fields, i)
             else:
                 self.buildRecord(fields)
-    
+
+
     def buildRecord(self, fields, count=None):
-        
+
         from twistedcaldav.directory.augment import AugmentRecord
 
         def expandCount(value, count):
-            
+
             if type(value) in types.StringTypes:
                 return value % (count,) if count and "%" in value else value
             elif type(value) == set:
                 return set([item % (count,) if count and "%" in item else item for item in value])
             else:
                 return value
-        
+
         actualFields = {}
-        for k,v in fields.iteritems():
-            actualFields[ELEMENT_AUGMENTRECORD_MAP[k]] = expandCount(v, count)
+        for k, v in fields.iteritems():
+            if k in ELEMENT_AUGMENTRECORD_MAP:
+                actualFields[ELEMENT_AUGMENTRECORD_MAP[k]] = expandCount(v, count)
 
         record = AugmentRecord(**actualFields)
         self.items[record.uid] = record

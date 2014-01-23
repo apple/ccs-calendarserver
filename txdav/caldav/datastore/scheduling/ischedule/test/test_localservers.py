@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from twext.web2.test.test_server import SimpleRequest
+from txweb2.test.test_server import SimpleRequest
 
 from twisted.trial import unittest
 
@@ -37,16 +37,6 @@ class ServerTests(unittest.TestCase):
   <server>
     <id>00002</id>
     <uri>https://caldav2.example.com:8843</uri>
-    <partitions>
-        <partition>
-            <id>A</id>
-            <uri>https://machine1.example.com:8443</uri>
-        </partition>
-        <partition>
-            <id>B</id>
-            <uri>https://machine2.example.com:8443</uri>
-        </partition>
-    </partitions>
   </server>
 </servers>
 """
@@ -62,16 +52,6 @@ class ServerTests(unittest.TestCase):
   <server>
     <id>00002</id>
     <uri>https://caldav2.example.com:8843</uri>
-    <partitions>
-        <partition>
-            <id>A</id>
-            <uri>https://machine1.example.com:8443</uri>
-        </partition>
-        <partition>
-            <id>B</id>
-            <uri>https://machine2.example.com:8443</uri>
-        </partition>
-    </partitions>
   </server>
 </servers>
 """
@@ -103,12 +83,6 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(servers.getServerById("00001").shared_secret, "foobar")
         self.assertEqual(servers.getServerById("00002").shared_secret, None)
 
-        self.assertEqual(len(servers.getServerById("00001").partitions), 0)
-        self.assertEqual(len(servers.getServerById("00002").partitions), 2)
-
-        self.assertEqual(servers.getServerById("00002").getPartitionURIForId("A"), "https://machine1.example.com:8443")
-        self.assertEqual(servers.getServerById("00002").getPartitionURIForId("B"), "https://machine2.example.com:8443")
-
 
     def test_this_server(self):
 
@@ -127,14 +101,6 @@ class ServerTests(unittest.TestCase):
 
         self.assertFalse(servers.getServerById("00001").thisServer)
         self.assertTrue(servers.getServerById("00002").thisServer)
-
-
-    def test_check_is_partitioned(self):
-
-        servers = self._setupServers()
-
-        self.assertFalse(servers.getServerById("00001").isPartitioned())
-        self.assertTrue(servers.getServerById("00002").isPartitioned())
 
 
     def test_check_this_ip(self):

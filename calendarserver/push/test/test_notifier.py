@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,11 +18,12 @@ from twistedcaldav.test.util import StoreTestCase
 from calendarserver.push.notifier import PushDistributor
 from calendarserver.push.notifier import getPubSubAPSConfiguration
 from calendarserver.push.notifier import PushNotificationWork
-from twisted.internet.defer import inlineCallbacks, succeed
+from twisted.internet.defer import inlineCallbacks, succeed, gatherResults
 from twistedcaldav.config import ConfigDict
 from txdav.common.datastore.test.util import populateCalendarsFrom
 from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
-
+from calendarserver.push.util import PushPriority
+from txdav.idav import ChangeCategory
 
 class StubService(object):
     def __init__(self):
@@ -33,8 +34,9 @@ class StubService(object):
         self.history = []
 
 
-    def enqueue(self, transaction, id):
-        self.history.append(id)
+    def enqueue(self, transaction, id, dataChangedTimestamp=None,
+        priority=None):
+        self.history.append((id, priority))
         return(succeed(None))
 
 
@@ -45,8 +47,8 @@ class PushDistributorTests(StoreTestCase):
     def test_enqueue(self):
         stub = StubService()
         dist = PushDistributor([stub])
-        yield dist.enqueue(None, "testing")
-        self.assertEquals(stub.history, ["testing"])
+        yield dist.enqueue(None, "testing", PushPriority.high)
+        self.assertEquals(stub.history, [("testing", PushPriority.high)])
 
 
     def test_getPubSubAPSConfiguration(self):
@@ -91,8 +93,10 @@ class StubDistributor(object):
         self.history = []
 
 
-    def enqueue(self, transaction, pushID):
-        self.history.append(pushID)
+    def enqueue(self, transaction, pushID, dataChangedTimestamp=None,
+        priority=None):
+        self.history.append((pushID, priority))
+        return(succeed(None))
 
 
 
@@ -111,42 +115,79 @@ class PushNotificationWorkTests(StoreTestCase):
         txn = self._sqlCalendarStore.newTransaction()
         wp = (yield txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/foo/",
+            priority=PushPriority.high.value
         ))
-        yield txn.commit()
-        yield wp.whenExecuted()
-        self.assertEquals(pushDistributor.history, ["/CalDAV/localhost/foo/"])
-
-        pushDistributor.reset()
-        txn = self._sqlCalendarStore.newTransaction()
-        wp = (yield txn.enqueue(PushNotificationWork,
-            pushID="/CalDAV/localhost/bar/",
-        ))
-        wp = (yield txn.enqueue(PushNotificationWork,
-            pushID="/CalDAV/localhost/bar/",
-        ))
-        wp = (yield txn.enqueue(PushNotificationWork,
-            pushID="/CalDAV/localhost/bar/",
-        ))
-        # Enqueue a different pushID to ensure those are not grouped with
-        # the others:
-        wp = (yield txn.enqueue(PushNotificationWork,
-            pushID="/CalDAV/localhost/baz/",
-        ))
-
         yield txn.commit()
         yield wp.whenExecuted()
         self.assertEquals(pushDistributor.history,
-            ["/CalDAV/localhost/bar/", "/CalDAV/localhost/baz/"])
+            [("/CalDAV/localhost/foo/", PushPriority.high)])
+
+        pushDistributor.reset()
+        txn = self._sqlCalendarStore.newTransaction()
+        proposals = []
+        wp = txn.enqueue(PushNotificationWork,
+            pushID="/CalDAV/localhost/bar/",
+            priority=PushPriority.high.value
+        )
+        proposals.append(wp.whenExecuted())
+        wp = txn.enqueue(PushNotificationWork,
+            pushID="/CalDAV/localhost/bar/",
+            priority=PushPriority.high.value
+        )
+        proposals.append(wp.whenExecuted())
+        wp = txn.enqueue(PushNotificationWork,
+            pushID="/CalDAV/localhost/bar/",
+            priority=PushPriority.high.value
+        )
+        proposals.append(wp.whenExecuted())
+        # Enqueue a different pushID to ensure those are not grouped with
+        # the others:
+        wp = txn.enqueue(PushNotificationWork,
+            pushID="/CalDAV/localhost/baz/",
+            priority=PushPriority.high.value
+        )
+        proposals.append(wp.whenExecuted())
+
+        yield txn.commit()
+        yield gatherResults(proposals)
+        self.assertEquals(set(pushDistributor.history),
+            set([("/CalDAV/localhost/bar/", PushPriority.high),
+             ("/CalDAV/localhost/baz/", PushPriority.high)]))
+
+        # Ensure only the high-water-mark priority push goes out, by
+        # enqueuing low, medium, and high notifications
+        pushDistributor.reset()
+        txn = self._sqlCalendarStore.newTransaction()
+        proposals = []
+        wp = txn.enqueue(PushNotificationWork,
+            pushID="/CalDAV/localhost/bar/",
+            priority=PushPriority.low.value
+        )
+        proposals.append(wp.whenExecuted())
+        wp = txn.enqueue(PushNotificationWork,
+            pushID="/CalDAV/localhost/bar/",
+            priority=PushPriority.high.value
+        )
+        proposals.append(wp.whenExecuted())
+        wp = txn.enqueue(PushNotificationWork,
+            pushID="/CalDAV/localhost/bar/",
+            priority=PushPriority.medium.value
+        )
+        proposals.append(wp.whenExecuted())
+        yield txn.commit()
+        yield gatherResults(proposals)
+        self.assertEquals(pushDistributor.history,
+            [("/CalDAV/localhost/bar/", PushPriority.high)])
 
 
 
 class NotifierFactory(StoreTestCase):
 
     requirements = {
-        "home1" : {
+        "user01" : {
             "calendar_1" : {}
         },
-        "home2" : {
+        "user02" : {
             "calendar_1" : {}
         },
     }
@@ -167,79 +208,87 @@ class NotifierFactory(StoreTestCase):
     @inlineCallbacks
     def test_homeNotifier(self):
 
-        home = yield self.homeUnderTest()
-        yield home.notifyChanged()
+        home = yield self.homeUnderTest(name="user01")
+        yield home.notifyChanged(category=ChangeCategory.default)
+        self.assertEquals(self.notifierFactory.history,
+            [("/CalDAV/example.com/user01/", PushPriority.high)])
         yield self.commit()
-        self.assertEquals(self.notifierFactory.history, ["/CalDAV/example.com/home1/"])
 
 
     @inlineCallbacks
     def test_calendarNotifier(self):
 
-        calendar = yield self.calendarUnderTest()
-        yield calendar.notifyChanged()
-        yield self.commit()
+        calendar = yield self.calendarUnderTest(home="user01")
+        yield calendar.notifyChanged(category=ChangeCategory.default)
         self.assertEquals(
             set(self.notifierFactory.history),
-            set(["/CalDAV/example.com/home1/", "/CalDAV/example.com/home1/calendar_1/"])
+            set([
+                ("/CalDAV/example.com/user01/", PushPriority.high),
+                ("/CalDAV/example.com/user01/calendar_1/", PushPriority.high)])
         )
+        yield self.commit()
 
 
     @inlineCallbacks
     def test_shareWithNotifier(self):
 
-        calendar = yield self.calendarUnderTest()
-        home2 = yield self.homeUnderTest(name="home2")
-        yield calendar.shareWith(home2, _BIND_MODE_WRITE)
-        yield self.commit()
+        calendar = yield self.calendarUnderTest(home="user01")
+        yield calendar.inviteUserToShare("user02", _BIND_MODE_WRITE, "")
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
-                "/CalDAV/example.com/home1/",
-                "/CalDAV/example.com/home1/calendar_1/",
-                "/CalDAV/example.com/home2/"
+                ("/CalDAV/example.com/user01/", PushPriority.high),
+                ("/CalDAV/example.com/user01/calendar_1/", PushPriority.high),
+                ("/CalDAV/example.com/user02/", PushPriority.high),
+                ("/CalDAV/example.com/user02/notification/", PushPriority.high),
             ])
         )
+        yield self.commit()
 
-        calendar = yield self.calendarUnderTest()
-        home2 = yield self.homeUnderTest(name="home2")
-        yield calendar.unshareWith(home2)
-        yield self.commit()
+        calendar = yield self.calendarUnderTest(home="user01")
+        yield calendar.uninviteUserFromShare("user02")
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
-                "/CalDAV/example.com/home1/",
-                "/CalDAV/example.com/home1/calendar_1/",
-                "/CalDAV/example.com/home2/"
+                ("/CalDAV/example.com/user01/", PushPriority.high),
+                ("/CalDAV/example.com/user01/calendar_1/", PushPriority.high),
+                ("/CalDAV/example.com/user02/", PushPriority.high),
+                ("/CalDAV/example.com/user02/notification/", PushPriority.high),
             ])
         )
+        yield self.commit()
 
 
     @inlineCallbacks
     def test_sharedCalendarNotifier(self):
 
-        calendar = yield self.calendarUnderTest()
-        home2 = yield self.homeUnderTest(name="home2")
-        shareName = yield calendar.shareWith(home2, _BIND_MODE_WRITE)
+        calendar = yield self.calendarUnderTest(home="user01")
+        shareeView = yield calendar.inviteUserToShare("user02", _BIND_MODE_WRITE, "")
+        yield shareeView.acceptShare("")
+        shareName = shareeView.name()
         yield self.commit()
         self.notifierFactory.reset()
 
-        shared = yield self.calendarUnderTest(home="home2", name=shareName)
-        yield shared.notifyChanged()
-        yield self.commit()
+        shared = yield self.calendarUnderTest(home="user02", name=shareName)
+        yield shared.notifyChanged(category=ChangeCategory.default)
         self.assertEquals(
             set(self.notifierFactory.history),
-            set(["/CalDAV/example.com/home1/", "/CalDAV/example.com/home1/calendar_1/"])
+            set([
+                ("/CalDAV/example.com/user01/", PushPriority.high),
+                ("/CalDAV/example.com/user01/calendar_1/", PushPriority.high)])
         )
+        yield self.commit()
 
 
     @inlineCallbacks
     def test_notificationNotifier(self):
 
-        notifications = yield self.transactionUnderTest().notificationsWithUID("home1")
-        yield notifications.notifyChanged()
-        yield self.commit()
+        notifications = yield self.transactionUnderTest().notificationsWithUID("user01")
+        yield notifications.notifyChanged(category=ChangeCategory.default)
         self.assertEquals(
             set(self.notifierFactory.history),
-            set(["/CalDAV/example.com/home1/", "/CalDAV/example.com/home1/notification/"])
+            set([
+                ("/CalDAV/example.com/user01/", PushPriority.high),
+                ("/CalDAV/example.com/user01/notification/", PushPriority.high)])
         )
+        yield self.commit()

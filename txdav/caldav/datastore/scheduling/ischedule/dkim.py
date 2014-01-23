@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2012-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2012-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,11 +15,11 @@
 ##
 
 from twext.python.log import Logger
-from twext.web2.client.http import ClientRequest
-from twext.web2.dav.util import allDataFromStream, joinURL
-from twext.web2.http import Response
-from twext.web2.http_headers import MimeType
-from twext.web2.stream import MemoryStream
+from txweb2.client.http import ClientRequest
+from txweb2.dav.util import allDataFromStream, joinURL
+from txweb2.http import Response
+from txweb2.http_headers import MimeType
+from txweb2.stream import MemoryStream
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twistedcaldav.client.geturl import getURL
@@ -516,7 +516,7 @@ class DKIMVerifier(object):
     def __init__(self, headers, body, key_lookup=None, protocol_debug=False):
         """
         @param headers: The HTTP request headers to process
-        @type headers: L{twext.web2.http_headers.Headers}
+        @type headers: L{txweb2.http_headers.Headers}
         @param body: The HTTP request body to process
         @type body: C{str}
         """

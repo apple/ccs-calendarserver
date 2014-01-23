@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ##
-# Copyright (c) 2012-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2012-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@ This tool takes data from stdin and validates it as iCalendar data suitable
 for the server.
 """
 
-from calendarserver.tools.cmdline import utilityMain
-from twisted.application.service import Service
+from calendarserver.tools.cmdline import utilityMain, WorkerService
+from twisted.internet.defer import succeed
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options
 from twistedcaldav.config import config
@@ -119,14 +119,13 @@ class ValidOptions(Options):
 
 errorPrefix = "Calendar data had unfixable problems:\n  "
 
-class ValidService(Service, object):
+class ValidService(WorkerService, object):
     """
     Service which runs, exports the appropriate records, then stops the reactor.
     """
 
     def __init__(self, store, options, output, input, reactor, config):
-        super(ValidService, self).__init__()
-        self.store = store
+        super(ValidService, self).__init__(store)
         self.options = options
         self.output = output
         self.input = input
@@ -135,7 +134,7 @@ class ValidService(Service, object):
         self._directory = None
 
 
-    def startService(self):
+    def doWork(self):
         """
         Start the service.
         """
@@ -149,7 +148,7 @@ class ValidService(Service, object):
             print("Calendar data OK")
         else:
             print(message)
-        self.reactor.stop()
+        return succeed(None)
 
 
     def parseCalendarData(self):

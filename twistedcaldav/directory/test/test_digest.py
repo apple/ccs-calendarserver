@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,16 +21,16 @@ from twisted.cred import error
 from twisted.internet import address
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python import failure
-from twext.web2.auth import digest
-from twext.web2.auth.wrapper import UnauthorizedResponse
-from twext.web2.test.test_server import SimpleRequest
+from txweb2.auth import digest
+from txweb2.auth.wrapper import UnauthorizedResponse
+from txweb2.test.test_server import SimpleRequest
 
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.config import config
-from twext.web2.auth.digest import DigestCredentialFactory
-from twext.web2.test.test_httpauth import makeDigestDeterministic
-from twext.web2.test.test_httpauth import FAKE_STATIC_NONCE
+from txweb2.auth.digest import DigestCredentialFactory
+from txweb2.test.test_httpauth import makeDigestDeterministic
+from txweb2.test.test_httpauth import FAKE_STATIC_NONCE
 
 class FakeDigestCredentialFactory(QopDigestCredentialFactory):
     """
@@ -55,7 +55,7 @@ challengeNonce = '178288758716122392881254770685'
 challengeResponse = ('digest',
                      {'nonce': challengeNonce,
                       'qop': 'auth', 'realm': 'test realm',
-                      'algorithm': 'md5',})
+                      'algorithm': 'md5', })
 
 cnonce = "29fc54aa1641c6fa0e151419361c8f23"
 
@@ -116,6 +116,7 @@ class DigestAuthTestCase(TestCase):
                                           self.namespace2
                                       ))
 
+
     def getDigestResponse(self, challenge, ncount):
         """
         Calculate the response for the given challenge
@@ -145,6 +146,7 @@ class DigestAuthTestCase(TestCase):
                 algo, nonce, None, None, None, "GET", "/write/", None
                 )
         return expected
+
 
     def getDigestResponseComma(self, challenge, ncount):
         """
@@ -176,6 +178,7 @@ class DigestAuthTestCase(TestCase):
                 )
         return expected
 
+
     @inlineCallbacks
     def assertRaisesDeferred(self, exception, f, *args, **kwargs):
         try:
@@ -191,6 +194,7 @@ class DigestAuthTestCase(TestCase):
             raise self.failureException('%s not raised (%r returned)'
                                         % (exception.__name__, result))
 
+
     @inlineCallbacks
     def test_getChallenge(self):
         """
@@ -203,13 +207,14 @@ class DigestAuthTestCase(TestCase):
         self.assertEquals(challenge['qop'], 'auth')
         self.assertEquals(challenge['realm'], 'test realm')
         self.assertEquals(challenge['algorithm'], 'md5')
-        self.assertTrue(challenge.has_key("nonce"))
+        self.assertTrue("nonce" in challenge)
 
         challenge = (yield self.credentialFactories[1].getChallenge(clientAddress))
-        self.assertFalse(challenge.has_key('qop'))
+        self.assertFalse('qop' in challenge)
         self.assertEquals(challenge['realm'], 'test realm')
         self.assertEquals(challenge['algorithm'], 'md5')
-        self.assertTrue(challenge.has_key("nonce"))
+        self.assertTrue("nonce" in challenge)
+
 
     @inlineCallbacks
     def test_response(self):
@@ -219,14 +224,15 @@ class DigestAuthTestCase(TestCase):
 
         for ctr, factory in enumerate(self.credentialFactories):
             challenge = (yield factory.getChallenge(clientAddress))
-    
+
             clientResponse = authRequest1[ctr] % (
                 challenge['nonce'],
                 self.getDigestResponse(challenge, "00000001"),
             )
-    
+
             creds = (yield factory.decode(clientResponse, _trivial_GET()))
             self.failUnless(creds.checkPassword('password'))
+
 
     @inlineCallbacks
     def test_multiResponse(self):
@@ -237,22 +243,23 @@ class DigestAuthTestCase(TestCase):
 
         for ctr, factory in enumerate(self.credentialFactories):
             challenge = (yield factory.getChallenge(clientAddress))
-    
+
             clientResponse = authRequest1[ctr] % (
                 challenge['nonce'],
                 self.getDigestResponse(challenge, "00000001"),
             )
-    
+
             creds = (yield factory.decode(clientResponse, _trivial_GET()))
             self.failUnless(creds.checkPassword('password'))
-    
+
             clientResponse = authRequest2[ctr] % (
                 challenge['nonce'],
                 self.getDigestResponse(challenge, "00000002"),
             )
-    
+
             creds = (yield factory.decode(clientResponse, _trivial_GET()))
             self.failUnless(creds.checkPassword('password'))
+
 
     @inlineCallbacks
     def test_failsWithDifferentMethod(self):
@@ -263,15 +270,16 @@ class DigestAuthTestCase(TestCase):
 
         for ctr, factory in enumerate(self.credentialFactories):
             challenge = (yield factory.getChallenge(clientAddress))
-    
+
             clientResponse = authRequest1[ctr] % (
                 challenge['nonce'],
                 self.getDigestResponse(challenge, "00000001"),
             )
-    
+
             creds = (yield factory.decode(clientResponse,
                                                   SimpleRequest(None, 'POST', '/')))
             self.failIf(creds.checkPassword('password'))
+
 
     @inlineCallbacks
     def test_noUsername(self):
@@ -287,13 +295,14 @@ class DigestAuthTestCase(TestCase):
                                   namelessAuthRequest,
                                   _trivial_GET()))
             self.assertEquals(str(e), "Invalid response, no username given.")
-    
+
             # Check for an empty username
             e = (yield self.assertRaisesDeferred(error.LoginFailed,
                                   factory.decode,
                                   namelessAuthRequest + ',username=""',
                                   _trivial_GET()))
             self.assertEquals(str(e), "Invalid response, no username given.")
+
 
     @inlineCallbacks
     def test_noNonce(self):
@@ -307,6 +316,7 @@ class DigestAuthTestCase(TestCase):
                                   'realm="Test",username="Foo",opaque="bar"',
                                   _trivial_GET()))
             self.assertEquals(str(e), "Invalid response, no nonce given.")
+
 
     @inlineCallbacks
     def test_emptyAttribute(self):
@@ -323,6 +333,7 @@ class DigestAuthTestCase(TestCase):
                                   _trivial_GET()))
             self.assertEquals(str(e), "Invalid response, no username given.")
 
+
     @inlineCallbacks
     def test_checkHash(self):
         """
@@ -332,19 +343,20 @@ class DigestAuthTestCase(TestCase):
 
         for ctr, factory in enumerate(self.credentialFactories):
             challenge = (yield factory.getChallenge(clientAddress))
-    
+
             clientResponse = authRequest1[ctr] % (
                 challenge['nonce'],
                 self.getDigestResponse(challenge, "00000001"),
             )
-    
+
             creds = (yield factory.decode(clientResponse, _trivial_GET()))
-    
+
             self.failUnless(creds.checkHash(
                     md5('username:test realm:password').hexdigest()))
-    
+
             self.failIf(creds.checkHash(
                     md5('username:test realm:bogus').hexdigest()))
+
 
     @inlineCallbacks
     def test_invalidNonceCount(self):
@@ -359,20 +371,20 @@ class DigestAuthTestCase(TestCase):
 
         for ctr, factory in enumerate(credentialFactories):
             challenge = (yield factory.getChallenge(clientAddress))
-    
+
             clientResponse1 = authRequest1[ctr] % (
                 challenge['nonce'],
                 self.getDigestResponse(challenge, "00000001"),
             )
-    
+
             clientResponse2 = authRequest2[ctr] % (
                 challenge['nonce'],
                 self.getDigestResponse(challenge, "00000002"),
             )
-    
+
             yield factory.decode(clientResponse1, _trivial_GET())
             yield factory.decode(clientResponse2, _trivial_GET())
-    
+
             if challenge.get('qop') is not None:
                 yield self.assertRaisesDeferred(
                     error.LoginFailed,
@@ -380,7 +392,7 @@ class DigestAuthTestCase(TestCase):
                     clientResponse2,
                     _trivial_GET()
                 )
-                
+
                 challenge = (yield factory.getChallenge(clientAddress))
 
                 clientResponse1 = authRequest1[ctr] % (
@@ -400,6 +412,7 @@ class DigestAuthTestCase(TestCase):
                     _trivial_GET()
                 )
 
+
     @inlineCallbacks
     def test_invalidNonce(self):
         """
@@ -415,12 +428,12 @@ class DigestAuthTestCase(TestCase):
         for ctr, factory in enumerate(credentialFactories):
             challenge = (yield factory.getChallenge(clientAddress))
             challenge['nonce'] = "noNoncense"
-    
+
             clientResponse = authRequest1[ctr] % (
                 challenge['nonce'],
                 self.getDigestResponse(challenge, "00000001"),
             )
-    
+
             request = _trivial_GET()
             yield self.assertRaisesDeferred(
                 error.LoginFailed,
@@ -431,10 +444,11 @@ class DigestAuthTestCase(TestCase):
 
             factory._invalidate(FAKE_STATIC_NONCE)
             response = (yield UnauthorizedResponse.makeResponse(
-                {"Digest":factory},
+                {"Digest": factory},
                 request.remoteAddr
             ))
             response.headers.getHeader("www-authenticate")[0][1]
+
 
     @inlineCallbacks
     def test_oldNonce(self):
@@ -452,12 +466,12 @@ class DigestAuthTestCase(TestCase):
             challenge = (yield factory.getChallenge(clientAddress))
             nonce_count, timestamp = (yield factory.db.get(challenge['nonce']))
             factory.db.set(challenge['nonce'], (nonce_count, timestamp - 2 * digest.DigestCredentialFactory.CHALLENGE_LIFETIME_SECS))
-    
+
             clientResponse = authRequest1[ctr] % (
                 challenge['nonce'],
                 self.getDigestResponse(challenge, "00000001"),
             )
-    
+
             request = _trivial_GET()
             yield self.assertRaisesDeferred(
                 error.LoginFailed,
@@ -465,14 +479,15 @@ class DigestAuthTestCase(TestCase):
                 clientResponse,
                 request
             )
-            
+
             response = (yield UnauthorizedResponse.makeResponse(
-                {"Digest":factory},
+                {"Digest": factory},
                 request.remoteAddr,
             ))
             wwwhdrs = response.headers.getHeader("www-authenticate")[0][1]
             self.assertTrue('stale' in wwwhdrs, msg="No stale parameter in Digest WWW-Authenticate headers: %s" % (wwwhdrs,))
             self.assertEquals(wwwhdrs['stale'], 'true', msg="stale parameter not set to true in Digest WWW-Authenticate headers: %s" % (wwwhdrs,))
+
 
     def test_incompatibleCalcHA1Options(self):
         """
@@ -500,6 +515,7 @@ class DigestAuthTestCase(TestCase):
                 preHA1=preHA1
                 )
 
+
     @inlineCallbacks
     def test_commaURI(self):
         """
@@ -508,14 +524,15 @@ class DigestAuthTestCase(TestCase):
 
         for ctr, factory in enumerate(self.credentialFactories):
             challenge = (yield factory.getChallenge(clientAddress))
-    
+
             clientResponse = authRequestComma[ctr] % (
                 challenge['nonce'],
                 self.getDigestResponseComma(challenge, "00000001"),
             )
-    
+
             creds = (yield factory.decode(clientResponse, _trivial_GET()))
             self.failUnless(creds.checkPassword('password'))
+
 
     @inlineCallbacks
     def test_stale_response(self):
@@ -526,20 +543,20 @@ class DigestAuthTestCase(TestCase):
         class newtime(object):
             def time(self):
                 return theTime
-        from twistedcaldav.directory import digest
-        self.patch(digest, "time", newtime())
+        from twistedcaldav.directory import digest as ddigest
+        self.patch(ddigest, "time", newtime())
 
         for ctr, factory in enumerate(self.credentialFactories):
             challenge = (yield factory.getChallenge(clientAddress))
-    
+
             clientResponse = authRequest1[ctr] % (
                 challenge['nonce'],
                 self.getDigestResponse(challenge, "00000001"),
             )
-    
+
             creds = (yield factory.decode(clientResponse, _trivial_GET()))
             self.failUnless(creds.checkPassword('password'))
-            
+
             theTime += DigestCredentialFactory.CHALLENGE_LIFETIME_SECS + 1
             request = _trivial_GET()
             try:
@@ -555,8 +572,8 @@ class DigestAuthTestCase(TestCase):
                 self.fail("Invalid exception from nonce timeout: %s" % e)
             challenge = (yield factory.getChallenge(request.remoteAddr))
             self.assertTrue(challenge.get("stale") == "true")
-            
+
+
 
 def _trivial_GET():
     return SimpleRequest(None, 'GET', '/')
-

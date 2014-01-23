@@ -1,5 +1,5 @@
 # #
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,8 +21,7 @@ CalDAV POST method.
 
 __all__ = ["http_POST"]
 
-from twext.web2 import responsecode
-from twext.web2.http import StatusResponse
+from txweb2 import responsecode
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 
@@ -45,13 +44,9 @@ def http_POST(self, request):
         action = request.args.get("action", ("",))
         if len(action) == 1:
             action = action[0]
-            if action in ("attachment-add", "attachment-update", "attachment-remove") and \
-                hasattr(self, "POST_handler_attachment"):
-                if config.EnableManagedAttachments:
-                    result = (yield self.POST_handler_attachment(request, action))
-                    returnValue(result)
-                else:
-                    returnValue(StatusResponse(responsecode.FORBIDDEN, "Managed Attachments not supported."))
+            if hasattr(self, "POST_handler_action"):
+                result = (yield self.POST_handler_action(request, action))
+                returnValue(result)
 
     # Content-type handlers
     contentType = request.headers.getHeader("content-type")

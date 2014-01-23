@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ from twisted.internet.defer import inlineCallbacks
 
 from twext.python.filepath import CachingFilePath as FilePath
 
-from twext.python.vcomponent import VComponent
+from twistedcaldav.ical import Component as VComponent
 
 from txdav.common.icommondatastore import HomeChildNameNotAllowedError
 from txdav.common.icommondatastore import ObjectResourceNameNotAllowedError
@@ -42,7 +42,7 @@ from txdav.common.datastore.test.util import deriveQuota
 from txdav.caldav.datastore.test.common import (
     CommonTests, test_event_text, event1modified_text)
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
 storePath = FilePath(__file__).parent().child("calendar_store")
 
@@ -68,7 +68,7 @@ def setUpCalendarStore(test):
     storePath.copyTo(calendarPath)
 
     # Set year values to current year
-    nowYear = PyCalendarDateTime.getToday().getYear()
+    nowYear = DateTime.getToday().getYear()
     for home in calendarPath.child("ho").child("me").children():
         if not home.basename().startswith("."):
             for calendar in home.children():

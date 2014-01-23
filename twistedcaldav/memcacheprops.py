@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009-2013 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2009-2014 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -33,14 +33,15 @@ except ImportError:
     from md5 import new as md5
 
 from twext.python.log import Logger
-from twext.python.memcacheclient import ClientFactory
-from twext.python.memcacheclient import MemcacheError, TokenMismatchError
 from twext.python.filepath import CachingFilePath as FilePath
+from txweb2 import responsecode
+from txweb2.http import HTTPError, StatusResponse
+
 from txdav.xml.base import encodeXMLName
-from twext.web2 import responsecode
-from twext.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav.config import config
+from twistedcaldav.memcacheclient import ClientFactory
+from twistedcaldav.memcacheclient import MemcacheError, TokenMismatchError
 
 
 

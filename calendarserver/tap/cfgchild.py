@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -95,12 +95,12 @@ class ChildConfigurator(AMP):
         # Adjust the child's configuration to add all the relevant options for
         # the store that won't be mentioned in the config file.
         changedConfig = dict(
-            EnableCalDAV  = True,
-            EnableCardDAV = True,
-            LogID         = logID,
-            PIDFile       = pidFile,
-            MultiProcess  = dict(
-                ProcessCount = processCount
+            EnableCalDAV=True,
+            EnableCardDAV=True,
+            LogID=logID,
+            PIDFile=pidFile,
+            MultiProcess=dict(
+                ProcessCount=processCount
             )
         )
         setupMemcached(self.config)
@@ -177,16 +177,16 @@ class ConfiguredChildSpawner(StoreSpawnerService):
             # until the call to spawn (and hence spawnProcess) below; otherwise
             # that end of the socket will be closed and there will be nothing
             # to inherit.
-            poolskt  = self.dispenser.dispense()
-            poolfd   = poolskt.fileno()
+            poolskt = self.dispenser.dispense()
+            poolfd = poolskt.fileno()
             childFDs = {
                 0: "w", 1: "r", 2: "r", # behave like normal, but
                 poolfd: poolfd          # bonus FD
             }
-            extra    = dict(connectionPoolFD=poolfd)
+            extra = dict(connectionPoolFD=poolfd)
         else:
             childFDs = None
-            extra    = {}
+            extra = {}
         controller = yield self.spawn(
             AMP(), ChildConfigurator, childFDs=childFDs
         )
@@ -201,6 +201,3 @@ class ConfiguredChildSpawner(StoreSpawnerService):
             **extra
         )
         returnValue(swapAMP(controller, here))
-
-
-

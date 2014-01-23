@@ -1,6 +1,6 @@
 # -*- test-case-name: calendarserver.tap.test.test_caldav -*-
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,55 +37,55 @@ from os import getuid, getgid
 
 from zope.interface import implements
 
+from twisted.application.internet import TCPServer, UNIXServer
+from twisted.application.service import MultiService, IServiceMaker
+from twisted.application.service import Service
+from twisted.internet.defer import gatherResults, Deferred, inlineCallbacks, succeed
+from twisted.internet.endpoints import UNIXClientEndpoint, TCP4ClientEndpoint
+from twisted.internet.process import ProcessExitedAlready
+from twisted.internet.protocol import ProcessProtocol
+from twisted.internet.protocol import Protocol, Factory
+from twisted.plugin import IPlugin
+from twisted.protocols.amp import AMP
 from twisted.python.log import FileLogObserver, ILogObserver
 from twisted.python.logfile import LogFile
 from twisted.python.usage import Options, UsageError
 from twisted.python.util import uidFromString, gidFromString
-from twisted.plugin import IPlugin
-from twisted.internet.defer import gatherResults, Deferred, inlineCallbacks, succeed
-from twisted.internet.process import ProcessExitedAlready
-from twisted.internet.protocol import Protocol, Factory
-from twisted.internet.protocol import ProcessProtocol
-from twisted.internet.endpoints import UNIXClientEndpoint, TCP4ClientEndpoint
-from twisted.application.internet import TCPServer, UNIXServer
-from twisted.application.service import MultiService, IServiceMaker
-from twisted.application.service import Service
-from twisted.protocols.amp import AMP
 
-from twext.web2.server import Site
-from twext.python.log import Logger, LogLevel, replaceTwistedLoggers
-from twext.python.filepath import CachingFilePath
-from twext.internet.ssl import ChainingOpenSSLContextFactory
-from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
-from twext.internet.fswatch import DirectoryChangeListener, IDirectoryChangeListenee
-from twext.web2.channel.http import LimitingHTTPFactory, SSLRedirectRequest, \
-    HTTPChannel
-from twext.web2.metafd import ConnectionLimiter, ReportingHTTPService
-from twext.enterprise.ienterprise import POSTGRES_DIALECT
-from twext.enterprise.ienterprise import ORACLE_DIALECT
 from twext.enterprise.adbapi2 import ConnectionPool
+from twext.enterprise.ienterprise import ORACLE_DIALECT
+from twext.enterprise.ienterprise import POSTGRES_DIALECT
 from twext.enterprise.queue import NonPerformingQueuer
 from twext.enterprise.queue import PeerConnectionPool
 from twext.enterprise.queue import WorkerFactory as QueueWorkerFactory
+from twext.internet.fswatch import DirectoryChangeListener, IDirectoryChangeListenee
+from twext.internet.ssl import ChainingOpenSSLContextFactory
+from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
+from twext.python.filepath import CachingFilePath
+from twext.python.log import Logger, LogLevel, replaceTwistedLoggers
+from txweb2.channel.http import LimitingHTTPFactory, SSLRedirectRequest, \
+    HTTPChannel
+from txweb2.metafd import ConnectionLimiter, ReportingHTTPService
+from txweb2.server import Site
 
-from txdav.common.datastore.sql_tables import schema
-from txdav.common.datastore.upgrade.sql.upgrade import (
-    UpgradeDatabaseSchemaStep, UpgradeDatabaseAddressBookDataStep,
-    UpgradeDatabaseCalendarDataStep, UpgradeDatabaseOtherStep,
-    UpgradeAcquireLockStep, UpgradeReleaseLockStep
-)
-from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseStep
 from txdav.caldav.datastore.scheduling.imip.inbound import MailRetriever
 from txdav.caldav.datastore.scheduling.imip.inbound import scheduleNextMailPoll
+from txdav.common.datastore.sql_tables import schema
+from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseStep
+from txdav.common.datastore.upgrade.sql.upgrade import (
+    UpgradeDatabaseCalendarDataStep, UpgradeDatabaseOtherStep,
+    UpgradeDatabaseSchemaStep, UpgradeDatabaseAddressBookDataStep,
+    UpgradeAcquireLockStep, UpgradeReleaseLockStep, UpgradeDatabaseNotificationDataStep)
+from txdav.common.datastore.work.revision_cleanup import scheduleFirstFindMinRevision
 
+from twistedcaldav import memcachepool
 from twistedcaldav.config import config, ConfigurationError
-from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.directory import GroupMembershipCacheUpdater
-from twistedcaldav.localization import processLocalizationFiles
-from twistedcaldav import memcachepool
-from twistedcaldav.upgrade import UpgradeFileSystemFormatStep, PostDBImportStep
 from twistedcaldav.directory.directory import scheduleNextGroupCachingUpdate
+from twistedcaldav.localization import processLocalizationFiles
+from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
+from twistedcaldav.upgrade import UpgradeFileSystemFormatStep, PostDBImportStep
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -93,22 +93,22 @@ try:
 except ImportError:
     NegotiateCredentialFactory = None
 
-from calendarserver.tap.util import pgServiceFromConfig, getDBPool, MemoryLimitService
-from calendarserver.tap.util import checkDirectories
-from calendarserver.tap.util import Stepper
-from calendarserver.tap.util import ConnectionDispenser
-from calendarserver.tap.util import getRootResource
-from calendarserver.tap.util import storeFromConfig
-from calendarserver.tap.util import pgConnectorFromConfig
-from calendarserver.tap.util import oracleConnectorFromConfig
-from calendarserver.controlsocket import ControlSocket
-from calendarserver.controlsocket import ControlSocketConnectingService
 from calendarserver.accesslog import AMPCommonAccessLoggingObserver
 from calendarserver.accesslog import AMPLoggingFactory
 from calendarserver.accesslog import RotatingFileAccessLoggingObserver
-from calendarserver.push.notifier import PushDistributor
+from calendarserver.controlsocket import ControlSocket
+from calendarserver.controlsocket import ControlSocketConnectingService
 from calendarserver.push.amppush import AMPPushMaster, AMPPushForwarder
 from calendarserver.push.applepush import ApplePushNotifierService
+from calendarserver.push.notifier import PushDistributor
+from calendarserver.tap.util import ConnectionDispenser
+from calendarserver.tap.util import Stepper
+from calendarserver.tap.util import checkDirectories
+from calendarserver.tap.util import getRootResource
+from calendarserver.tap.util import oracleConnectorFromConfig
+from calendarserver.tap.util import pgConnectorFromConfig
+from calendarserver.tap.util import pgServiceFromConfig, getDBPool, MemoryLimitService
+from calendarserver.tap.util import storeFromConfig
 
 try:
     from calendarserver.version import version
@@ -120,7 +120,7 @@ except ImportError:
     from version import version as getVersion
     version = "%s (%s*)" % getVersion()
 
-from twext.web2.server import VERSION as TWISTED_VERSION
+from txweb2.server import VERSION as TWISTED_VERSION
 TWISTED_VERSION = "CalendarServer/%s %s" % (
     version.replace(" ", ""), TWISTED_VERSION,
 )
@@ -401,6 +401,14 @@ class CalDAVOptions (Options):
         print("Reading configuration from file: %s" % (self["config"],))
 
         config.load(self["config"])
+
+        for path in config.getProvider().importedFiles:
+            print("Imported configuration from file: '%s'" % (path,))
+        for path in config.getProvider().includedFiles:
+            print("Adding configuration from file: '%s'" % (path,))
+        for path in config.getProvider().missingFiles:
+            print("Missing configuration file: '%s'" % (path,))
+
         config.updateDefaults(self.overrides)
 
 
@@ -543,6 +551,7 @@ class WorkSchedulingService(Service):
             yield scheduleNextMailPoll(self.store, int(config.LogID) if config.LogID else 5)
         if self.doGroupCaching:
             yield scheduleNextGroupCachingUpdate(self.store, int(config.LogID) if config.LogID else 5)
+        yield scheduleFirstFindMinRevision(self.store, int(config.LogID) if config.LogID else 5)
 
 
 
@@ -1212,6 +1221,28 @@ class CalDAVServiceMaker (object):
             else:
                 groupCacher = None
 
+            # Optionally enable Manhole access
+            if config.Manhole.Enabled:
+                try:
+                    from twisted.conch.manhole_tap import makeService as manholeMakeService
+                    portString = "tcp:%d:interface=127.0.0.1" % (config.Manhole.StartingPortNumber,)
+                    manholeService = manholeMakeService({
+                        "sshPort" : None,
+                        "telnetPort" : portString,
+                        "namespace" : {
+                            "config" : config,
+                            "service" : result,
+                            "store" : store,
+                            "directory" : directory,
+                            },
+                        "passwd" : config.Manhole.PasswordFilePath,
+                    })
+                    manholeService.setServiceParent(result)
+                    # Using print(because logging isn't ready at this point)
+                    print("Manhole access enabled: %s" % (portString,))
+                except ImportError:
+                    print("Manhole access could not enabled because manhole_tap could not be imported")
+
             def decorateTransaction(txn):
                 txn._pushDistributor = pushDistributor
                 txn._rootResource = result.rootResource
@@ -1390,6 +1421,12 @@ class CalDAVServiceMaker (object):
                 )
 
                 pps.addStep(
+                    UpgradeDatabaseNotificationDataStep(
+                        store, uid=overrideUID, gid=overrideGID
+                    )
+                )
+
+                pps.addStep(
                     UpgradeToDatabaseStep(
                         UpgradeToDatabaseStep.fileStoreFromPath(
                             CachingFilePath(config.DocumentRoot)
@@ -1407,7 +1444,9 @@ class CalDAVServiceMaker (object):
 
                 # Conditionally stop after upgrade at this point
                 pps.addStep(
-                    QuitAfterUpgradeStep(config.StopAfterUpgradeTriggerFile)
+                    QuitAfterUpgradeStep(
+                        config.StopAfterUpgradeTriggerFile or config.UpgradeHomePrefix
+                    )
                 )
 
                 pps.addStep(
@@ -1654,11 +1693,9 @@ class CalDAVServiceMaker (object):
                 raise StoreNotAvailable()
 
             from twisted.internet import reactor
-            pool = PeerConnectionPool(reactor, store.newTransaction,
-                                      7654, schema)
+            pool = PeerConnectionPool(reactor, store.newTransaction, config.WorkQueue.ampPort, schema)
             store.queuer = store.queuer.transferProposalCallbacks(pool)
-            controlSocket.addFactory(_QUEUE_ROUTE,
-                                     pool.workerListenerFactory())
+            controlSocket.addFactory(_QUEUE_ROUTE, pool.workerListenerFactory())
             # TODO: now that we have the shared control socket, we should get
             # rid of the connection dispenser and make a shared / async
             # connection pool implementation that can dispense transactions

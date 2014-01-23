@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.common.datastore.test.test_sql_tables -*-
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -149,6 +149,15 @@ def _schemaConstantsMaps(nameColumn, valueColumn):
 
 # Various constants
 
+_homeStatus = _schemaConstants(
+    schema.HOME_STATUS.DESCRIPTION,
+    schema.HOME_STATUS.ID
+)
+
+
+_HOME_STATUS_NORMAL = _homeStatus('normal')
+_HOME_STATUS_EXTERNAL = _homeStatus('external')
+
 _bindStatus = _schemaConstants(
     schema.CALENDAR_BIND_STATUS.DESCRIPTION,
     schema.CALENDAR_BIND_STATUS.ID
@@ -158,6 +167,7 @@ _BIND_STATUS_INVITED = _bindStatus('invited')
 _BIND_STATUS_ACCEPTED = _bindStatus('accepted')
 _BIND_STATUS_DECLINED = _bindStatus('declined')
 _BIND_STATUS_INVALID = _bindStatus('invalid')
+_BIND_STATUS_DELETED = _bindStatus('deleted')
 
 
 _transpValues = _schemaConstants(
@@ -189,6 +199,7 @@ _BIND_MODE_OWN = _bindMode('own')
 _BIND_MODE_READ = _bindMode('read')
 _BIND_MODE_WRITE = _bindMode('write')
 _BIND_MODE_DIRECT = _bindMode('direct')
+_BIND_MODE_INDIRECT = _bindMode('indirect')
 
 
 _addressBookObjectKind = _schemaConstants(

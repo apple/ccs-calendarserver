@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <!--
-Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+Copyright (c) 2011-2014 Apple Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
  -->
 
-<!DOCTYPE servers SYSTEM "servers.dtd">
+<!DOCTYPE servers SYSTEM "localservers.dtd">
 
 <servers>
   <!--
@@ -30,16 +30,6 @@ limitations under the License.
     <allowed-from>127.0.0.1</allowed-from>
     <allowed-from>example.local</allowed-from>
     <shared-secret>ABC</shared-secret>
-    <partitions>
-    	<partition>
-    		<id>00001</id>
-    		<url>https://machine1.example.com:8443</url>
-    	</partition>
-    	<partition>
-    		<id>00002</id>
-    		<url>https://machine2.example.com:8443</url>
-    	</partition>
-    </partitions>
   </server>
   -->
 </servers>

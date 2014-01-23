@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.directory.test.test_principal -*-
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,12 +38,12 @@ from twisted.internet.defer import succeed
 from twisted.web.template import XMLFile, Element, renderer, tags
 from twistedcaldav.directory.util import NotFoundResource
 
-from twext.web2.auth.digest import DigestedCredentials
-from twext.web2 import responsecode
-from twext.web2.http import HTTPError
+from txweb2.auth.digest import DigestedCredentials
+from txweb2 import responsecode
+from txweb2.http import HTTPError
 from txdav.xml import element as davxml
-from twext.web2.dav.util import joinURL
-from twext.web2.dav.noneprops import NonePropertyStore
+from txweb2.dav.util import joinURL
+from txweb2.dav.noneprops import NonePropertyStore
 
 from twext.python.log import Logger
 
@@ -601,7 +601,6 @@ class DirectoryPrincipalDetailElement(Element):
         record = self.resource.record
         return tag.fillSlots(
             hostedAt=str(record.serverURI()),
-            partition=str(record.effectivePartitionID()),
         )
 
 
@@ -923,6 +922,23 @@ class DirectoryPrincipalResource (
 
 
     @inlineCallbacks
+    def proxyMode(self, principal):
+        """
+        Determine whether what proxy mode this principal has in relation to the one specified.
+        """
+
+        read_uids = (yield self.proxyFor(False))
+        if principal in read_uids:
+            returnValue("read")
+
+        write_uids = (yield self.proxyFor(True))
+        if principal in write_uids:
+            returnValue("write")
+
+        returnValue("none")
+
+
+    @inlineCallbacks
     def proxyFor(self, read_write, resolve_memberships=True):
 
         proxyFors = set()
@@ -1064,14 +1080,6 @@ class DirectoryPrincipalResource (
 
     def server(self):
         return self.record.server()
-
-
-    def partitionURI(self):
-        return self.record.partitionURI()
-
-
-    def locallyHosted(self):
-        return self.record.locallyHosted()
 
 
     def thisServer(self):

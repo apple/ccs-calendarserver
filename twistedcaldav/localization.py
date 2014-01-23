@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import array
 from locale import normalize
 
 from twext.python.log import Logger
-from pycalendar.duration import PyCalendarDuration
+from pycalendar.duration import Duration
 
 try:
     from Foundation import (
@@ -89,12 +89,12 @@ If you use the with/as form, you will get an object that implements some
 helper methods for date formatting:
 
     with translationTo('en') as trans:
-        print(trans.dtDate(PyCalendarDateTime.getToday()))
+        print(trans.dtDate(DateTime.getToday()))
 
     ... Thursday, October 23, 2008
 
     with translationTo('fr') as trans:
-        print(trans.dtDate(PyCalendarDateTime.getToday()))
+        print(trans.dtDate(DateTime.getToday()))
 
     ... Jeudi, Octobre 23, 2008
 
@@ -124,12 +124,13 @@ class translationTo(object):
                 localedir=localeDir, languages=[lang, 'en'], fallback=True)
             self.translations[key] = self.translation
 
+
     def __enter__(self):
         # Get the caller's globals so we can rebind their '_' to our translator
         caller_globals = inspect.stack()[1][0].f_globals
 
         # Store whatever '_' is already bound to so we can restore it later
-        if caller_globals.has_key('_'):
+        if '_' in caller_globals:
             self.prev = caller_globals['_']
 
         # Rebind '_' to our translator
@@ -137,6 +138,7 @@ class translationTo(object):
 
         # What we return here is accessible to the caller via the 'as' clause
         return self
+
 
     def __exit__(self, type, value, traceback):
         # Restore '_' if it previously had a value
@@ -146,12 +148,15 @@ class translationTo(object):
         # Don't swallow exceptions
         return False
 
+
     def monthAbbreviation(self, monthNumber):
         return self.translation.ugettext(monthsAbbrev[monthNumber])
+
 
     def date(self, component):
         dtStart = component.propertyValue("DTSTART")
         return self.dtDate(dtStart)
+
 
     def time(self, component):
         """
@@ -191,9 +196,9 @@ class translationTo(object):
             else:
                 if dtStart.isDateOnly():
                     dtEnd = None
-                    duration = PyCalendarDuration(days=1)
+                    duration = Duration(days=1)
                 else:
-                    dtEnd = dtStart + PyCalendarDuration(days=1)
+                    dtEnd = dtStart + Duration(days=1)
                     dtEnd.setHHMMSS(0, 0, 0)
                     duration = dtEnd - dtStart
 
@@ -225,6 +230,7 @@ class translationTo(object):
             }
         )
 
+
     def dtTime(self, val, includeTimezone=True):
         if val.isDateOnly():
             return ""
@@ -252,6 +258,7 @@ class translationTo(object):
 
         return result
 
+
     def dtDuration(self, val):
 
         # Bind to '_' so pygettext.py will pick this up for translation
@@ -265,7 +272,7 @@ class translationTo(object):
             parts.append(_("1 day"))
         elif days > 1:
             parts.append(_("%(dayCount)d days") %
-                { 'dayCount' : days })
+                {'dayCount' : days})
 
         hours = divmod(total / 3600, 24)[1]
         minutes = divmod(total / 60, 60)[1]
@@ -275,19 +282,19 @@ class translationTo(object):
             parts.append(_("1 hour"))
         elif hours > 1:
             parts.append(_("%(hourCount)d hours") %
-                { 'hourCount' : hours })
+                {'hourCount' : hours})
 
         if minutes == 1:
             parts.append(_("1 minute"))
         elif minutes > 1:
             parts.append(_("%(minuteCount)d minutes") %
-                { 'minuteCount' : minutes })
+                {'minuteCount' : minutes})
 
         if seconds == 1:
             parts.append(_("1 second"))
         elif seconds > 1:
             parts.append(_("%(secondCount)d seconds") %
-                { 'secondCount' : seconds })
+                {'secondCount' : seconds})
 
         return " ".join(parts)
 
@@ -398,12 +405,14 @@ def processLocalizationFiles(settings):
                     else:
                         log.info("%s is up to date" % (moFile,))
 
+
+
 class ParseError(Exception):
     pass
 
 
+
 def convertStringsFile(src, dest):
-    strings = { }
 
     dir = os.path.dirname(dest)
 
@@ -458,13 +467,13 @@ def convertStringsFile(src, dest):
 
     result = struct.pack(
         "Iiiiiii",
-        0x950412DEL,         # magic number
-        0,                   # file format revision
-        len(originals),      # number of strings
-        28,                  # offset of table with original strings
-        28+len(originals)*8, # offset of table with translation strings
-        0,                   # size of hashing table
-        0                    # offset of hashing table
+        0x950412DEL,           # magic number
+        0,                     # file format revision
+        len(originals),        # number of strings
+        28,                    # offset of table with original strings
+        28 + len(originals) * 8, # offset of table with translation strings
+        0,                     # size of hashing table
+        0                      # offset of hashing table
     )
     result += array.array("i", keyDescriptors).tostring()
     result += array.array("i", valueDescriptors).tostring()
@@ -473,6 +482,7 @@ def convertStringsFile(src, dest):
 
     with open(dest, "wb") as outFile:
         outFile.write(result)
+
 
 
 def getLanguage(config):

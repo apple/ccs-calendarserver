@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import getopt
 import os
 import sys
 import traceback
-from pycalendar.calendar import PyCalendar
+from pycalendar.icalendar.calendar import Calendar
 
 def usage(error_msg=None):
     if error_msg:
@@ -72,7 +72,7 @@ if __name__ == "__main__":
                 print("Path does not exist: '%s'. Ignoring." % (arg,))
                 continue
 
-            cal = PyCalendar()
+            cal = Calendar()
             cal.parse(open(arg))
             print(str(cal.serialize()))
 

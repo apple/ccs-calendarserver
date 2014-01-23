@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,15 +23,15 @@ __all__ = ["http_MKCALENDAR"]
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.failure import Failure
-from twext.web2 import responsecode
+from txweb2 import responsecode
 from txdav.xml import element as davxml
-from twext.web2.dav.http import MultiStatusResponse, PropertyStatusResponseQueue
-from twext.web2.dav.util import davXMLFromStream
-from twext.web2.dav.util import parentForURL
-from twext.web2.http import HTTPError, StatusResponse
+from txweb2.dav.http import MultiStatusResponse, PropertyStatusResponseQueue
+from txweb2.dav.util import davXMLFromStream
+from txweb2.dav.util import parentForURL
+from txweb2.http import HTTPError, StatusResponse
 
 from twext.python.log import Logger
-from twext.web2.dav.http import ErrorResponse
+from txweb2.dav.http import ErrorResponse
 
 from twistedcaldav import caldavxml
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ##
-# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 ##
 from __future__ import print_function
 
-from pycalendar.calendar import PyCalendar
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.icalendar.calendar import Calendar
+from pycalendar.datetime import DateTime
 
 
 from twext.python.log import StandardIOObserver
@@ -95,11 +95,11 @@ def _doRefresh(tzpath, xmlfile, tzdb, tzvers):
         pass
 
     if not tzvers:
-        tzvers = PyCalendarDateTime.getToday().getText()
+        tzvers = DateTime.getToday().getText()
     print("Converting data (version: %s) at: %s" % (tzvers, zonedir,))
     startYear = 1800
-    endYear = PyCalendarDateTime.getToday().getYear() + 10
-    PyCalendar.sProdID = "-//calendarserver.org//Zonal//EN"
+    endYear = DateTime.getToday().getYear() + 10
+    Calendar.sProdID = "-//calendarserver.org//Zonal//EN"
     zonefiles = "northamerica", "southamerica", "europe", "africa", "asia", "australasia", "antarctica", "etcetera", "backward"
     parser = tzconvert()
     for file in zonefiles:

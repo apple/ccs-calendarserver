@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,19 @@
 
 from OpenSSL import crypto
 from twext.python.log import Logger
+from twisted.python.constants import Values, ValueConstant
+
+
+
+class PushPriority(Values):
+    """
+    Constants to use for push priorities
+    """
+    low = ValueConstant(1)
+    medium = ValueConstant(5)
+    high = ValueConstant(10)
+
+
 
 def getAPNTopicFromCertificate(certPath):
     """
@@ -128,7 +141,7 @@ class PushScheduler(object):
         self.staggerSeconds = staggerSeconds
 
 
-    def schedule(self, tokens, key, dataChangedTimestamp):
+    def schedule(self, tokens, key, dataChangedTimestamp, priority):
         """
         Schedules a batch of notifications for the given tokens, staggered
         with self.staggerSeconds between each one.  Duplicates are ignored,
@@ -151,13 +164,14 @@ class PushScheduler(object):
                     (internalKey,))
             else:
                 self.outstanding[internalKey] = self.reactor.callLater(
-                    scheduleTime, self.send, token, key, dataChangedTimestamp)
+                    scheduleTime, self.send, token, key, dataChangedTimestamp,
+                    priority)
                 self.log.debug("PushScheduler scheduled: %s in %.0f sec" %
                     (internalKey, scheduleTime))
                 scheduleTime += self.staggerSeconds
 
 
-    def send(self, token, key, dataChangedTimestamp):
+    def send(self, token, key, dataChangedTimestamp, priority):
         """
         This method is what actually gets scheduled.  Its job is to remove
         its corresponding entry from the outstanding dict and call the
@@ -173,7 +187,7 @@ class PushScheduler(object):
         """
         self.log.debug("PushScheduler fired for %s %s %d" % (token, key, dataChangedTimestamp))
         del self.outstanding[(token, key)]
-        return self.callback(token, key, dataChangedTimestamp)
+        return self.callback(token, key, dataChangedTimestamp, priority)
 
 
     def stop(self):

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ##
-# Copyright (c) 2009-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 ##
 
 from twext.python.filepath import CachingFilePath as FilePath
-from twext.web2.http_headers import MimeType
-from twext.web2.static import MetaDataMixin
+from txweb2.http_headers import MimeType
+from txweb2.static import MetaDataMixin
 
 from twisted.internet.defer import inlineCallbacks, Deferred, succeed
 from twisted.web.microdom import parseString

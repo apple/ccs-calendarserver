@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ##
-# Copyright (c) 2009-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -303,8 +303,6 @@ def usage():
     print("--procs N  specifies how many python processes are expected in the log file (default: 80)")
     print("--top N    how many long requests to print (default: 10)")
     print("--users N  how many top users to print (default: 5)")
-    print("--router   analyze a partition server router node")
-    print("--worker   analyze a partition server worker node")
     print("")
     print("Version: 5")
 
@@ -313,19 +311,13 @@ numProcs = 80
 numTop = 10
 numUsers = 5
 lineRange = None
-router = False
-worker = False
-options, args = getopt.getopt(sys.argv[1:], "h", ["debug", "router", "worker", "lines=", "range=", "procs=", "top=", "users="])
+options, args = getopt.getopt(sys.argv[1:], "h", ["debug", "lines=", "range=", "procs=", "top=", "users="])
 for option, value in options:
     if option == "-h":
         usage()
         sys.exit(0)
     elif option == "--debug":
         debug = True
-    elif option == "--router":
-        router = True
-    elif option == "--worker":
-        worker = True
     elif option == "--lines":
         numLines = int(value)
     elif option == "--range":

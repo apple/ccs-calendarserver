@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@ class CalDAV (unittest.TestCase):
         Make sure we do an exact comparison on EmailDomain
         """
 
+        self.patch(config.Scheduling.iSchedule, "Enabled", True)
         self.patch(config.Scheduling.iSchedule, "RemoteServers", "")
 
         # Only mailtos:
@@ -63,4 +64,10 @@ class CalDAV (unittest.TestCase):
         result = yield ScheduleViaISchedule.matchCalendarUserAddress("mailto:user@example.org?subject=foobar")
         self.assertFalse(result)
         result = yield ScheduleViaISchedule.matchCalendarUserAddress("mailto:user")
+        self.assertFalse(result)
+
+        # Test when not enabled
+        ScheduleViaISchedule.domainServerMap = {}
+        self.patch(config.Scheduling.iSchedule, "Enabled", False)
+        result = yield ScheduleViaISchedule.matchCalendarUserAddress("mailto:user@example.com")
         self.assertFalse(result)

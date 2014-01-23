@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,10 +16,10 @@
 
 from twisted.internet.defer import inlineCallbacks
 from twext.python.filepath import CachingFilePath as FilePath
-from twext.web2 import responsecode
-from twext.web2.iweb import IResponse
-from twext.web2.stream import MemoryStream, FileStream
-from twext.web2.http_headers import MimeType
+from txweb2 import responsecode
+from txweb2.iweb import IResponse
+from txweb2.stream import MemoryStream, FileStream
+from txweb2.http_headers import MimeType
 
 from twistedcaldav.ical import Component
 from twistedcaldav.memcachelock import MemcacheLock
@@ -27,7 +27,7 @@ from twistedcaldav.memcacher import Memcacher
 
 
 from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest
-from twext.web2.dav.util import joinURL
+from txweb2.dav.util import joinURL
 from txdav.caldav.datastore.sql import CalendarObject
 
 class CollectionContents(StoreTestCase):

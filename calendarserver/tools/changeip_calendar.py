@@ -2,7 +2,7 @@
 #
 # changeip script for calendar server
 #
-# Copyright (c) 2005-2013 Apple Inc.  All Rights Reserved.
+# Copyright (c) 2005-2014 Apple Inc.  All Rights Reserved.
 #
 # IMPORTANT NOTE:  This file is licensed only for use on Apple-labeled
 # computers and is subject to the terms and conditions of the Apple
@@ -30,6 +30,7 @@ def usage():
     print("    new-ip       - new IPv4 address of the server")
     print("    old-hostname - current FQDN for the server")
     print("    new-hostname - new FQDN for the server")
+
 
 
 def main():
@@ -93,6 +94,8 @@ def main():
     if verbose:
         print("Calendar Server: done")
 
+
+
 def updatePlist(plist, oldIP, newIP, oldHostname, newHostname, verbose=False):
 
     keys = (
@@ -118,13 +121,13 @@ def updatePlist(plist, oldIP, newIP, oldHostname, newHostname, verbose=False):
         key = keyPath[-1]
 
         for step in path:
-            if not parent.has_key(step):
+            if step not in parent:
                 parent = None
                 break
             parent = parent[step]
 
         if parent:
-            if parent.has_key(key):
+            if key in parent:
                 value = parent[key]
 
                 if isinstance(value, list):
@@ -138,9 +141,6 @@ def updatePlist(plist, oldIP, newIP, oldHostname, newHostname, verbose=False):
                         newHostname)
 
                 parent[key] = newValue
-
-
-
 
 
 

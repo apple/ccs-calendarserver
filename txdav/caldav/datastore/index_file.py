@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_index -*-
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+
 
 """
 CalDAV Index.
@@ -43,21 +44,23 @@ from twisted.internet.defer import maybeDeferred, succeed
 
 from twext.python.log import Logger
 
+from txdav.caldav.datastore.query.builder import buildExpression
+from txdav.caldav.datastore.query.filter import Filter
+from txdav.common.datastore.query.filegenerator import sqllitegenerator
 from txdav.common.icommondatastore import SyncTokenValidException, \
     ReservationError, IndexedSearchException
 
 from twistedcaldav.dateops import pyCalendarTodatetime
 from twistedcaldav.ical import Component
-from twistedcaldav.query import calendarquery, calendarqueryfilter
 from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav.sql import db_prefix
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.config import config
 from twistedcaldav.memcachepool import CachePoolUserMixIn
 
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.duration import PyCalendarDuration
-from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.datetime import DateTime
+from pycalendar.duration import Duration
+from pycalendar.timezone import Timezone
 
 log = Logger()
 
@@ -275,6 +278,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
 
         changed = []
         deleted = []
+        invalid = []
         for name, wasdeleted in results:
             if name:
                 if wasdeleted == 'Y':
@@ -285,7 +289,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
             else:
                 raise SyncTokenValidException
 
-        return changed, deleted,
+        return (changed, deleted, invalid)
 
 
     def lastRevision(self):
@@ -320,7 +324,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
 
         # Make sure we have a proper Filter element and get the partial SQL
         # statement to use.
-        if isinstance(filter, calendarqueryfilter.Filter):
+        if isinstance(filter, Filter):
             if fbtype:
                 # Lookup the useruid - try the empty (default) one if needed
                 dbuseruid = self._db_value_for_sql(
@@ -330,7 +334,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
             else:
                 dbuseruid = ""
 
-            qualifiers = calendarquery.sqlcalendarquery(filter, None, dbuseruid, fbtype)
+            qualifiers = sqlcalendarquery(filter, None, dbuseruid, fbtype)
             if qualifiers is not None:
                 # Determine how far we need to extend the current expansion of
                 # events. If we have an open-ended time-range we will expand one
@@ -341,7 +345,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
                     maxDate = maxDate.duplicate()
                     maxDate.setDateOnly(True)
                     if isStartDate:
-                        maxDate += PyCalendarDuration(days=365)
+                        maxDate += Duration(days=365)
                     self.testAndUpdateIndex(maxDate)
             else:
                 # We cannot handle this filter in an indexed search
@@ -434,6 +438,24 @@ class AbstractCalendarIndex(AbstractSQLDatabase):
         @param uid: the uid of the resource to delete.
         """
         raise NotImplementedError
+
+
+
+def sqlcalendarquery(filter, calendarid=None, userid=None, freebusy=False):
+    """
+    Convert the supplied calendar-query into a partial SQL statement.
+
+    @param filter: the L{Filter} for the calendar-query to convert.
+    @return: a C{tuple} of (C{str}, C{list}), where the C{str} is the partial SQL statement,
+            and the C{list} is the list of argument substitutions to use with the SQL API execute method.
+            Or return C{None} if it is not possible to create an SQL query to fully match the calendar-query.
+    """
+    try:
+        expression = buildExpression(filter, sqllitegenerator.FIELDS)
+        sql = sqllitegenerator(expression, calendarid, userid, freebusy)
+        return sql.generate()
+    except ValueError:
+        return None
 
 
 
@@ -671,7 +693,7 @@ class CalendarIndex (AbstractCalendarIndex):
         if master is None or not calendar.isRecurring():
             # When there is no master we have a set of overridden components - index them all.
             # When there is one instance - index it.
-            expand = PyCalendarDateTime(2100, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+            expand = DateTime(2100, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
             doInstanceIndexing = True
         else:
             # If migrating or re-creating or config option for delayed indexing is off, always index
@@ -682,8 +704,8 @@ class CalendarIndex (AbstractCalendarIndex):
             # by default.  This is a caching parameter which affects the size of the index;
             # it does not affect search results beyond this period, but it may affect
             # performance of such a search.
-            expand = (PyCalendarDateTime.getToday() +
-                      PyCalendarDuration(days=config.FreeBusyIndexExpandAheadDays))
+            expand = (DateTime.getToday() +
+                      Duration(days=config.FreeBusyIndexExpandAheadDays))
 
             if expand_until and expand_until > expand:
                 expand = expand_until
@@ -700,8 +722,8 @@ class CalendarIndex (AbstractCalendarIndex):
             # occurrences into some obscenely far-in-the-future date, so we cap the caching
             # period.  Searches beyond this period will always be relatively expensive for
             # resources with occurrences beyond this period.
-            if expand > (PyCalendarDateTime.getToday() +
-                         PyCalendarDuration(days=config.FreeBusyIndexExpandMaxDays)):
+            if expand > (DateTime.getToday() +
+                         Duration(days=config.FreeBusyIndexExpandMaxDays)):
                 raise IndexedSearchException()
 
         # Always do recurrence expansion even if we do not intend to index - we need this to double-check the
@@ -716,7 +738,7 @@ class CalendarIndex (AbstractCalendarIndex):
         # Now coerce indexing to off if needed
         if not doInstanceIndexing:
             instances = None
-            recurrenceLimit = PyCalendarDateTime(1900, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+            recurrenceLimit = DateTime(1900, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
 
         self._delete_from_db(name, uid, False)
 
@@ -782,8 +804,8 @@ class CalendarIndex (AbstractCalendarIndex):
             # Special - for unbounded recurrence we insert a value for "infinity"
             # that will allow an open-ended time-range to always match it.
             if calendar.isRecurringUnbounded():
-                start = PyCalendarDateTime(2100, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
-                end = PyCalendarDateTime(2100, 1, 1, 1, 0, 0, tzid=PyCalendarTimezone(utc=True))
+                start = DateTime(2100, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+                end = DateTime(2100, 1, 1, 1, 0, 0, tzid=Timezone(utc=True))
                 float = 'N'
                 self._db_execute(
                     """

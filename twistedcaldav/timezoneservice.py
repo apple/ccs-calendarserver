@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2008-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2008-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,17 +22,17 @@ __all__ = [
     "TimezoneServiceResource",
 ]
 
-from twext.web2.dav.http import ErrorResponse
+from txweb2.dav.http import ErrorResponse
 
-from twext.web2 import responsecode
+from txweb2 import responsecode
 from txdav.xml import element as davxml
-from twext.web2.dav.method.propfind import http_PROPFIND
-from twext.web2.dav.noneprops import NonePropertyStore
-from twext.web2.http import HTTPError
-from twext.web2.http import Response
-from twext.web2.http import XMLResponse
-from twext.web2.http_headers import MimeType
-from twext.web2.stream import MemoryStream
+from txweb2.dav.method.propfind import http_PROPFIND
+from txweb2.dav.noneprops import NonePropertyStore
+from txweb2.http import HTTPError
+from txweb2.http import Response
+from txweb2.http import XMLResponse
+from txweb2.http_headers import MimeType
+from txweb2.stream import MemoryStream
 
 from twisted.internet.defer import succeed
 
@@ -46,7 +46,7 @@ from twistedcaldav.timezones import TimezoneException
 from twistedcaldav.timezones import listTZs
 from twistedcaldav.timezones import readTZ
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
 class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildrenMixin, DAVResource):
     """
@@ -66,19 +66,24 @@ class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutCh
         self.parent = parent
         self.cache = {}
 
+
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
             self._dead_properties = NonePropertyStore(self)
         return self._dead_properties
 
+
     def etag(self):
         return succeed(None)
+
 
     def checkPreconditions(self, request):
         return None
 
+
     def checkPrivileges(self, request, privileges, recurse=False, principal=None, inherited_aces=None):
         return succeed(None)
+
 
     def defaultAccessControlList(self):
         return davxml.ACL(
@@ -92,20 +97,26 @@ class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutCh
             ),
         )
 
+
     def contentType(self):
         return MimeType.fromString("text/xml")
+
 
     def resourceType(self):
         return davxml.ResourceType.timezones
 
+
     def isCollection(self):
         return False
+
 
     def isCalendarCollection(self):
         return False
 
+
     def isPseudoCalendarCollection(self):
         return False
+
 
     def render(self, request):
         output = """<html>
@@ -127,9 +138,10 @@ class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutCh
         """
         The timezone service POST method.
         """
-        
+
         # GET and POST do the same thing
         return self.http_POST(request)
+
 
     def http_POST(self, request):
         """
@@ -138,11 +150,11 @@ class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutCh
 
         # Check authentication and access controls
         def _gotResult(_):
-            
+
             if not request.args:
                 # Do normal GET behavior
                 return self.render(request)
-    
+
             method = request.args.get("method", ("",))
             if len(method) != 1:
                 raise HTTPError(ErrorResponse(
@@ -151,41 +163,43 @@ class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutCh
                     "Invalid method query parameter",
                 ))
             method = method[0]
-                
+
             action = {
                 "list"   : self.doPOSTList,
                 "get"    : self.doPOSTGet,
                 "expand" : self.doPOSTExpand,
             }.get(method, None)
-            
+
             if action is None:
                 raise HTTPError(ErrorResponse(
                     responsecode.BAD_REQUEST,
                     (calendarserver_namespace, "supported-method"),
                     "Unknown method query parameter",
                 ))
-    
+
             return action(request)
-            
+
         d = self.authorize(request, (davxml.Read(),))
         d.addCallback(_gotResult)
         return d
+
 
     def doPOSTList(self, request):
         """
         Return a list of all timezones known to the server.
         """
-        
+
         tzids = listTZs()
         tzids.sort()
         result = customxml.TZIDs(*[customxml.TZID(tzid) for tzid in tzids])
         return XMLResponse(responsecode.OK, result)
 
+
     def doPOSTGet(self, request):
         """
         Return the specified timezone data.
         """
-        
+
         tzid = request.args.get("tzid", ())
         if len(tzid) != 1:
             raise HTTPError(ErrorResponse(
@@ -208,6 +222,7 @@ class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutCh
         response.stream = MemoryStream(tzdata)
         response.headers.setHeader("content-type", MimeType.fromString("text/calendar; charset=utf-8"))
         return response
+
 
     def doPOSTExpand(self, request):
         """
@@ -235,7 +250,7 @@ class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutCh
             start = request.args.get("start", ())
             if len(start) != 1:
                 raise ValueError()
-            start = PyCalendarDateTime.parseText(start[0])
+            start = DateTime.parseText(start[0])
         except ValueError:
             raise HTTPError(ErrorResponse(
                 responsecode.BAD_REQUEST,
@@ -247,7 +262,7 @@ class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutCh
             end = request.args.get("end", ())
             if len(end) != 1:
                 raise ValueError()
-            end = PyCalendarDateTime.parseText(end[0])
+            end = DateTime.parseText(end[0])
             if end <= start:
                 raise ValueError()
         except ValueError:

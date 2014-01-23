@@ -1,6 +1,6 @@
 # -*- test-case-name: calendarserver.provision.test.test_root -*-
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,11 +20,11 @@ __all__ = [
 ]
 
 from twext.python.log import Logger
-from twext.web2 import responsecode
-from twext.web2.auth.wrapper import UnauthorizedResponse
+from txweb2 import responsecode
+from txweb2.auth.wrapper import UnauthorizedResponse
 from txdav.xml import element as davxml
-from twext.web2.dav.xattrprops import xattrPropertyStore
-from twext.web2.http import HTTPError, StatusResponse, RedirectResponse
+from txweb2.dav.xattrprops import xattrPropertyStore
+from txweb2.http import HTTPError, StatusResponse, RedirectResponse
 
 from twisted.cred.error import LoginFailed, UnauthorizedLogin
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -91,7 +91,7 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
             self.responseCache = DisabledCache()
 
         if config.ResponseCompression:
-            from twext.web2.filter import gzip
+            from txweb2.filter import gzip
             self.contentFilters.append((gzip.gzipfilter, True))
 
 

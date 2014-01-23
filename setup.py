@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+
 from __future__ import print_function
 
 import sys
@@ -24,18 +25,20 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "support"))
 
 from version import version
 
-def find_modules():
+
+
+def find_packages():
     modules = [
         "twisted.plugins",
     ]
 
-    for root, dirs, files in os.walk("."):
-        excludes = [
-            ".svn",
-            "_trial_temp",
-            "build",
-        ]
+    excludes = [
+        ".svn",
+        "_trial_temp",
+        "build",
+    ]
 
+    for root, dirs, files in os.walk("."):
         if root == ".":
             excludes.append("data")
 
@@ -48,16 +51,18 @@ def find_modules():
 
     return modules
 
+
 #
 # Options
 #
 
-description = "CalDAV/CardDAV protocol extensions to twext.web2.dav",
+description = "Calendar and Contacts Server",
 long_description = """
-Extends twisted.web2.dav to implement CalDAV/CardDAV-aware resources and methods.
+Calendar and Contacts Server, implementing the CalDAV and CardDAV protocols.
 """
 
 classifiers = None
+
 
 #
 # Write version file
@@ -65,10 +70,14 @@ classifiers = None
 
 version_number, version_info = version()
 
-version_string = "{number} ({info})".format(number=version_number, info=version_info)
+version_string = (
+    "{number} ({info})"
+    .format(number=version_number, info=version_info)
+)
 version_file = file(os.path.join("calendarserver", "version.py"), "w")
 version_file.write('version = "{version}"\n'.format(version=version_string))
 version_file.close()
+
 
 #
 # Set up Extension modules that need to be built
@@ -76,10 +85,7 @@ version_file.close()
 
 from distutils.core import Extension
 
-extensions = [
-    Extension("twext.python.sendmsg",
-              sources=["twext/python/sendmsg.c"])
-]
+extensions = []
 
 if sys.platform == "darwin":
     extensions.append(
@@ -89,10 +95,6 @@ if sys.platform == "darwin":
             sources=["calendarserver/platform/darwin/_sacl.c"]
         )
     )
-
-    from twext.python import launchd
-    extensions.append(launchd.ffi.verifier.get_extension())
-
 
 
 #
@@ -107,59 +109,58 @@ def doSetup():
         version=version_string,
         description=description,
         long_description=long_description,
-        url=None,
+        url="http://www.calendarserver.org/",
         classifiers=classifiers,
         author="Apple Inc.",
         author_email=None,
-        license=None,
+        license="Apache License, Version 2.0",
         platforms=["all"],
-        packages=find_modules(),
+        packages=find_packages(),
         package_data={
-                             "twistedcaldav": [
-                               "*.html",
-                               "zoneinfo/*.ics",
-                               "zoneinfo/*/*.ics",
-                               "zoneinfo/*/*/*.ics",
-                               "images/*/*.jpg",
-                             ],
-                             "calendarserver.webadmin": [
-                                 "*.html"
-                             ],
-                             "twistedcaldav.directory": [
-                                 "*.html"
-                             ],
-                             "txdav.common.datastore": [
-                               "sql_schema/*.sql",
-                               "sql_schema/*/*.sql",
-                               "sql_schema/*/*/*.sql",
-                             ],
-                           },
+            "twistedcaldav": [
+                "*.html",
+                "zoneinfo/*.ics",
+                "zoneinfo/*/*.ics",
+                "zoneinfo/*/*/*.ics",
+                "images/*/*.jpg",
+            ],
+            "calendarserver.webadmin": [
+                "*.html"
+            ],
+            "twistedcaldav.directory": [
+                "*.html"
+            ],
+            "txdav.common.datastore": [
+                "sql_schema/*.sql",
+                "sql_schema/*/*.sql",
+                "sql_schema/*/*/*.sql",
+            ],
+        },
         scripts=[
-                             "bin/caldavd",
-                             "bin/calendarserver_backup",
-                             "bin/calendarserver_bootstrap_database",
-                             "bin/calendarserver_command_gateway",
-                             "bin/calendarserver_config",
-                            #"bin/calendarserver_dbinspect",
-                            #"bin/calendarserver_dkimtool",
-                             "bin/calendarserver_export",
-                            #"bin/calendarserver_icalendar_validate",
-                            #"bin/calendarserver_load_augmentdb",
-                            #"bin/calendarserver_make_partition",
-                            #"bin/calendarserver_manage_postgres",
-                             "bin/calendarserver_manage_principals",
-                             "bin/calendarserver_manage_push",
-                             "bin/calendarserver_manage_timezones",
-                             "bin/calendarserver_migrate_resources",
-                            #"bin/calendarserver_monitor_amp_notifications",
-                            #"bin/calendarserver_monitor_notifications",
-                             "bin/calendarserver_purge_attachments",
-                             "bin/calendarserver_purge_events",
-                             "bin/calendarserver_purge_principals",
-                             "bin/calendarserver_shell",
-                             "bin/calendarserver_upgrade",
-                            #"bin/calendarserver_verify_data",
-                           ],
+            "bin/caldavd",
+            "bin/calendarserver_backup",
+            "bin/calendarserver_bootstrap_database",
+            "bin/calendarserver_command_gateway",
+            "bin/calendarserver_config",
+            # "bin/calendarserver_dbinspect",
+            # "bin/calendarserver_dkimtool",
+            "bin/calendarserver_export",
+            # "bin/calendarserver_icalendar_validate",
+            # "bin/calendarserver_load_augmentdb",
+            # "bin/calendarserver_manage_postgres",
+            "bin/calendarserver_manage_principals",
+            "bin/calendarserver_manage_push",
+            "bin/calendarserver_manage_timezones",
+            "bin/calendarserver_migrate_resources",
+            # "bin/calendarserver_monitor_amp_notifications",
+            # "bin/calendarserver_monitor_notifications",
+            "bin/calendarserver_purge_attachments",
+            "bin/calendarserver_purge_events",
+            "bin/calendarserver_purge_principals",
+            "bin/calendarserver_shell",
+            "bin/calendarserver_upgrade",
+            # "bin/calendarserver_verify_data",
+        ],
         data_files=[("caldavd", ["conf/caldavd.plist"]), ],
         ext_modules=extensions,
         py_modules=[],
@@ -178,7 +179,9 @@ def doSetup():
             install_lib = install_lib[len(root):]
 
         for script in dist.scripts:
-            scriptPath = os.path.join(install_scripts, os.path.basename(script))
+            scriptPath = os.path.join(
+                install_scripts, os.path.basename(script)
+            )
 
             print("rewriting {0}".format(scriptPath))
 
@@ -197,17 +200,29 @@ def doSetup():
                 line = line.rstrip("\n")
                 if fileType == "sh":
                     if line == "#PYTHONPATH":
-                        script.append('PYTHONPATH="{add}:$PYTHONPATH"'.format(add=install_lib))
+                        script.append(
+                            'PYTHONPATH="{add}:$PYTHONPATH"'
+                            .format(add=install_lib)
+                        )
                     elif line == "#PATH":
-                        script.append('PATH="{add}:$PATH"'.format(add=os.path.join(base, "usr", "bin")))
+                        script.append(
+                            'PATH="{add}:$PATH"'
+                            .format(add=os.path.join(base, "usr", "bin"))
+                        )
                     else:
                         script.append(line)
 
                 elif fileType == "python":
                     if line == "#PYTHONPATH":
-                        script.append('PYTHONPATH="{path}"'.format(path=install_lib))
+                        script.append(
+                            'PYTHONPATH="{path}"'
+                            .format(path=install_lib)
+                        )
                     elif line == "#PATH":
-                        script.append('PATH="{path}"'.format(path=os.path.join(base, "usr", "bin")))
+                        script.append(
+                            'PATH="{path}"'
+                            .format(path=os.path.join(base, "usr", "bin"))
+                        )
                     else:
                         script.append(line)
 
@@ -217,7 +232,6 @@ def doSetup():
             newScript = open(scriptPath, "w")
             newScript.write("\n".join(script))
             newScript.close()
-
 
 
 if __name__ == "__main__":

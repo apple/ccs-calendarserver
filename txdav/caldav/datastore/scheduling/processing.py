@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,13 +14,13 @@
 # limitations under the License.
 ##
 
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.duration import PyCalendarDuration
-from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.datetime import DateTime
+from pycalendar.duration import Duration
+from pycalendar.timezone import Timezone
 
 from twext.python.log import Logger
-from twext.web2.dav.method.report import NumberOfMatchesWithinLimits
-from twext.web2.http import HTTPError
+from txweb2.dav.method.report import NumberOfMatchesWithinLimits
+from txweb2.http import HTTPError
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 
@@ -474,10 +474,10 @@ class ImplicitProcessor(object):
                 update_details = []
                 for rid, props_changed in sorted(rids.iteritems(), key=lambda x: x[0]):
                     recurrence = []
-                    if rid == "":
+                    if rid is None:
                         recurrence.append(customxml.Master())
                     else:
-                        recurrence.append(customxml.RecurrenceID.fromString(rid))
+                        recurrence.append(customxml.RecurrenceID.fromString(rid.getText()))
                     changes = []
                     for propName, paramNames in sorted(props_changed.iteritems(), key=lambda x: x[0]):
                         params = tuple([customxml.ChangedParameter(name=param) for param in paramNames])
@@ -549,7 +549,7 @@ class ImplicitProcessor(object):
                     # Build the schedule-changes XML element
                     if rids:
                         action = customxml.Cancel(
-                            *[customxml.Recurrence(customxml.RecurrenceID.fromString(rid)) for rid in sorted(rids)]
+                            *[customxml.Recurrence(customxml.RecurrenceID.fromString(rid.getText())) for rid in sorted(rids)]
                         )
                     else:
                         action = customxml.Cancel()
@@ -595,13 +595,13 @@ class ImplicitProcessor(object):
         cuas = self.recipient.principal.calendarUserAddresses
 
         # First expand current one to get instances (only go 1 year into the future)
-        default_future_expansion_duration = PyCalendarDuration(days=config.Scheduling.Options.AutoSchedule.FutureFreeBusyDays)
-        expand_max = PyCalendarDateTime.getToday() + default_future_expansion_duration
+        default_future_expansion_duration = Duration(days=config.Scheduling.Options.AutoSchedule.FutureFreeBusyDays)
+        expand_max = DateTime.getToday() + default_future_expansion_duration
         instances = calendar.expandTimeRanges(expand_max, ignoreInvalidInstances=True)
 
         # We are going to ignore auto-accept processing for anything more than a day old (actually use -2 days
         # to add some slop to account for possible timezone offsets)
-        min_date = PyCalendarDateTime.getToday()
+        min_date = DateTime.getToday()
         min_date.offsetDay(-2)
         allOld = True
 
@@ -634,7 +634,7 @@ class ImplicitProcessor(object):
             # Get the timezone property from the collection, and store in the query filter
             # for use during the query itself.
             tz = testcal.getTimezone()
-            tzinfo = tz.gettimezone() if tz is not None else PyCalendarTimezone(utc=True)
+            tzinfo = tz.gettimezone() if tz is not None else Timezone(utc=True)
 
             # Now do search for overlapping time-range and set instance.free based
             # on whether there is an overlap or not

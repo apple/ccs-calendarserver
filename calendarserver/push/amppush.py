@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2012-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2012-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@ from twisted.internet.protocol import Factory, ServerFactory
 from twisted.protocols import amp
 import time
 import uuid
+
+from calendarserver.push.util import PushPriority
 
 
 log = Logger()
@@ -48,7 +50,9 @@ class UnsubscribeFromID(amp.Command):
 # AMP Commands sent to client (and forwarded to Master)
 
 class NotificationForID(amp.Command):
-    arguments = [('id', amp.String()), ('dataChangedTimestamp', amp.Integer())]
+    arguments = [('id', amp.String()),
+                 ('dataChangedTimestamp', amp.Integer(optional=True)),
+                 ('priority', amp.Integer(optional=True))]
     response = [('status', amp.String())]
 
 
@@ -81,12 +85,14 @@ class AMPPushForwarder(object):
 
 
     @inlineCallbacks
-    def enqueue(self, transaction, id, dataChangedTimestamp=None):
+    def enqueue(self, transaction, id, dataChangedTimestamp=None,
+        priority=PushPriority.high):
         if dataChangedTimestamp is None:
             dataChangedTimestamp = int(time.time())
         for protocol in self.protocols:
             yield protocol.callRemote(NotificationForID, id=id,
-                dataChangedTimestamp=dataChangedTimestamp)
+                dataChangedTimestamp=dataChangedTimestamp,
+                priority=priority.value)
 
 
 
@@ -102,10 +108,12 @@ class AMPPushMasterListeningProtocol(amp.AMP):
 
 
     @NotificationForID.responder
-    def enqueueFromWorker(self, id, dataChangedTimestamp=None):
+    def enqueueFromWorker(self, id, dataChangedTimestamp=None,
+        priority=PushPriority.high.value):
         if dataChangedTimestamp is None:
             dataChangedTimestamp = int(time.time())
-        self.master.enqueue(None, id, dataChangedTimestamp=dataChangedTimestamp)
+        self.master.enqueue(None, id, dataChangedTimestamp=dataChangedTimestamp,
+            priority=PushPriority.lookupByValue(priority))
         return {"status" : "OK"}
 
 
@@ -166,7 +174,8 @@ class AMPPushMaster(object):
         self.subscribers.remove(p)
 
 
-    def enqueue(self, transaction, pushKey, dataChangedTimestamp=None):
+    def enqueue(self, transaction, pushKey, dataChangedTimestamp=None,
+        priority=PushPriority.high):
         """
         Sends an AMP push notification to any clients subscribing to this pushKey.
 
@@ -191,23 +200,26 @@ class AMPPushMaster(object):
             if token is not None:
                 tokens.append(token)
         if tokens:
-            return self.scheduleNotifications(tokens, pushKey, dataChangedTimestamp)
+            return self.scheduleNotifications(tokens, pushKey,
+                dataChangedTimestamp, priority)
 
 
     @inlineCallbacks
-    def sendNotification(self, token, id, dataChangedTimestamp):
+    def sendNotification(self, token, id, dataChangedTimestamp, priority):
         for subscriber in self.subscribers:
             if subscriber.subscribedToID(id):
-                yield subscriber.notify(token, id, dataChangedTimestamp)
+                yield subscriber.notify(token, id, dataChangedTimestamp,
+                    priority)
 
 
     @inlineCallbacks
-    def scheduleNotifications(self, tokens, id, dataChangedTimestamp):
+    def scheduleNotifications(self, tokens, id, dataChangedTimestamp, priority):
         if self.scheduler is not None:
-            self.scheduler.schedule(tokens, id, dataChangedTimestamp)
+            self.scheduler.schedule(tokens, id, dataChangedTimestamp, priority)
         else:
             for token in tokens:
-                yield self.sendNotification(token, id, dataChangedTimestamp)
+                yield self.sendNotification(token, id, dataChangedTimestamp,
+                    priority)
 
 
 
@@ -237,11 +249,12 @@ class AMPPushNotifierProtocol(amp.AMP):
         return {"status" : "OK"}
     UnsubscribeFromID.responder(unsubscribe)
 
-    def notify(self, token, id, dataChangedTimestamp):
+    def notify(self, token, id, dataChangedTimestamp, priority):
         if self.subscribedToID(id) == token:
             self.log.debug("Sending notification for %s to %s" % (id, token))
             return self.callRemote(NotificationForID, id=id,
-                dataChangedTimestamp=dataChangedTimestamp)
+                dataChangedTimestamp=dataChangedTimestamp,
+                priority=priority.value)
 
 
     def subscribedToID(self, id):
@@ -287,8 +300,8 @@ class AMPPushClientProtocol(amp.AMP):
 
 
     @inlineCallbacks
-    def notificationForID(self, id, dataChangedTimestamp):
-        yield self.callback(id, dataChangedTimestamp)
+    def notificationForID(self, id, dataChangedTimestamp, priority):
+        yield self.callback(id, dataChangedTimestamp, PushPriority.lookupByValue(priority))
         returnValue({"status" : "OK"})
 
     NotificationForID.responder(notificationForID)

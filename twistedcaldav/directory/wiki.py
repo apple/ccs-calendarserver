@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,10 +27,10 @@ from calendarserver.platform.darwin.wiki import accessForUserToWiki
 
 from twext.internet.gaiendpoint import MultiFailure
 from twext.python.log import Logger
-from twext.web2 import responsecode
-from twext.web2.auth.wrapper import UnauthorizedResponse
-from twext.web2.dav.resource import TwistedACLInheritable
-from twext.web2.http import HTTPError, StatusResponse
+from txweb2 import responsecode
+from txweb2.auth.wrapper import UnauthorizedResponse
+from txweb2.dav.resource import TwistedACLInheritable
+from txweb2.http import HTTPError, StatusResponse
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web.error import Error as WebError

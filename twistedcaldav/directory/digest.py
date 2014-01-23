@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.directory.test.test_digest -*-
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,12 +17,12 @@
 
 from twisted.cred import error
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twext.web2.auth.digest import DigestCredentialFactory
-from twext.web2.auth.digest import DigestedCredentials
-from twext.web2.http_headers import Token
-from twext.web2.http_headers import parseKeyValue
-from twext.web2.http_headers import split
-from twext.web2.http_headers import tokenize
+from txweb2.auth.digest import DigestCredentialFactory
+from txweb2.auth.digest import DigestedCredentials
+from txweb2.http_headers import Token
+from txweb2.http_headers import parseKeyValue
+from txweb2.http_headers import split
+from txweb2.http_headers import tokenize
 
 from twext.python.log import Logger
 
@@ -35,7 +35,7 @@ import time
 log = Logger()
 
 """
-Overrides twext.web2.auth.digest to allow specifying a qop value as a configuration parameter.
+Overrides txweb2.auth.digest to allow specifying a qop value as a configuration parameter.
 Also adds an sqlite-based credentials cache that is multi-process safe.
 
 """
@@ -57,6 +57,7 @@ class IDigestCredentialsDatabase(Interface):
         """
         pass
 
+
     def set(self, key, value):
         """
         Store per-client credential information the first time a nonce is generated and used.
@@ -67,6 +68,7 @@ class IDigestCredentialsDatabase(Interface):
         @type value:       any.
         """
         pass
+
 
     def get(self, key):
         """
@@ -80,6 +82,7 @@ class IDigestCredentialsDatabase(Interface):
         """
         pass
 
+
     def delete(self, key):
         """
         Remove the record associated with the supplied key.
@@ -88,6 +91,8 @@ class IDigestCredentialsDatabase(Interface):
         @type key:         C{str}
         """
         pass
+
+
 
 class DigestCredentialsMemcache(Memcacher):
 
@@ -101,13 +106,15 @@ class DigestCredentialsMemcache(Memcacher):
             pickle=True,
         )
 
+
     def has_key(self, key):
         """
         See IDigestCredentialsDatabase.
         """
         d = self.get(key)
-        d.addCallback(lambda value:value is not None)
+        d.addCallback(lambda value: value is not None)
         return d
+
 
     def set(self, key, value):
         """
@@ -119,9 +126,11 @@ class DigestCredentialsMemcache(Memcacher):
             expireTime=self.CHALLENGE_MAXTIME_SECS
         )
 
+
+
 class QopDigestCredentialFactory(DigestCredentialFactory):
     """
-    See twext.web2.auth.digest.DigestCredentialFactory
+    See txweb2.auth.digest.DigestCredentialFactory
     """
 
     def __init__(self, algorithm, qop, realm, namespace="DIGESTCREDENTIALS"):
@@ -163,7 +172,7 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
         c = challenge['nonce']
 
         # Make sure it is not a duplicate
-        result = (yield self.db.has_key(c))
+        result = (yield self.db.has_key(c)) #@IgnorePep8
         if result:
             raise AssertionError("nonce value already cached in credentials database: %s" % (c,))
 
@@ -196,7 +205,7 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
         @type response: C{str}
         @param response: A string of comma seperated key=value pairs
 
-        @type request: L{twext.web2.server.Request}
+        @type request: L{txweb2.server.Request}
         @param request: the request being processed
 
         @return: L{DigestedCredentials}
@@ -237,12 +246,13 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
                                               self._real.authenticationRealm,
                                               auth)
 
-            if not self.qop and credentials.fields.has_key('qop'):
+            if not self.qop and 'qop' in credentials.fields:
                 del credentials.fields['qop']
 
             returnValue(credentials)
         else:
             raise error.LoginFailed('Invalid nonce/cnonce values')
+
 
     @inlineCallbacks
     def _validate(self, auth, request):
@@ -253,7 +263,7 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
         @param auth:        the response parameters.
         @type auth:         C{dict}
         @param request:     the request being processed.
-        @type request:      L{twext.web2.server.Request}
+        @type request:      L{txweb2.server.Request}
 
         @return:            C{True} if validated.
         @raise LoginFailed: if validation fails.
@@ -302,6 +312,7 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
             raise error.LoginFailed('Digest credentials expired')
 
         returnValue(True)
+
 
     def _invalidate(self, nonce):
         """

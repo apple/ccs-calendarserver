@@ -1,0 +1,112 @@
+Getting Started
+===============
+
+This is the core code base for the Calendar and Contacts Server, which
+is a CalDAV, CardDAV, WebDAV, and HTTP server.
+
+For general information about the server, see:
+
+  http://www.calendarserver.org/
+
+
+Copyright and License
+=====================
+
+Copyright (c) 2005-2014 Apple Inc.  All rights reserved.
+
+This software is licensed under the Apache License, Version 2.0.  The
+Apache License is a well-established open source license, enabling
+collaborative open source software development.
+
+See the "LICENSE" file for the full text of the license terms.
+
+
+Quick Start
+===========
+
+**WARNING:** these instructions are for running a server from the
+source tree, which is useful for development. 
+These are not the correct steps for running the server in
+deployment or as part of an OS install. You should **not** be using
+the ``run`` script in system startup files (eg. ``/etc/init.d``); it
+does things (like download software) that you don't want to happen in
+that context.
+
+Begin by creating a directory to contain Calendar and Contacts Server
+and all its dependencies:
+
+  ::
+
+    mkdir ~/CalendarServer
+    cd CalendarServer
+
+Next, check out the source code from the SVN repository. To check out
+the latest trunk code:
+
+  ::
+
+    svn co http://svn.calendarserver.org/repository/calendarserver/CalendarServer/trunk/ CalendarServer
+
+The server requires a number of libraries in order to operate, which
+will need to be placed as peers of the source directory.  The ``run``
+script in the sources will automatically download or check out the
+appropriate libraries and build them for you:
+
+  ::
+
+    cd CalendarServer
+    ./run -s
+
+The result will be a set of directories, including the CalendarServer
+source directory in your original empty directory:
+
+  ::
+
+    % ls -1 ~/CalendarServer
+    CalDAVTester
+    CalendarServer
+    PyGreSQL-4.0
+    ...
+
+Before you can run the server, you need to set up a configuration file
+for development.  There is a provided test configuration that you can
+use to start with, called ``caldavd-test.plist``. Copy this to
+``caldavd-dev.plist``, which the server will use in development:
+
+ ::
+
+    cp ./conf/caldavd-test.plist ./conf/caldavd-dev.plist
+
+You will need to choose a "directory service" to use to populate your
+server's principals (users, groups and resources).  A directory
+service provides the Calendar and Contacts Server with information
+about these principals.  Some of the directory services which are
+supported by the Calendar and Contacts Server include:
+
+ * ``XMLDirectoryService``: this service is configurable via an XML
+   file that contains principal information.  The file
+   ``conf/auth/accounts.xml`` provides an example principals
+   configuration.
+
+ * ``OpenDirectoryService``: this service uses Apple's OpenDirectory
+   client (which in turn uses LDAP, Active Directory, etc.) to obtain
+   principal information.
+
+The ``caldavd-test.plist`` configuration uses ``XMLDirectoryService``
+by default, set up to use ``conf/auth/accounts-test.xml``.  This is a
+generally useful configuration for development and testing.
+
+This file contains a user principal, named ``admin``, with password
+``admin``, which is set up (in ``caldavd-test.plist``) to have
+administrative permissions on the server.
+
+You can then run the server as follows:
+
+  ::
+
+    ./run
+
+The server should then start up and bind to port 8008 for HTTP and
+8443 for HTTPS.  You should then be able to connect to the server
+using your web browser (eg. Safari, Firefox) or with a CalDAV client
+(eg. iCal).

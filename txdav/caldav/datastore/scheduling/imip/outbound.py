@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,8 +26,8 @@ import os
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import email.utils
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.duration import PyCalendarDuration
+from pycalendar.datetime import DateTime
+from pycalendar.duration import Duration
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.queue import WorkItem
 from twext.python.log import Logger
@@ -320,8 +320,8 @@ class MailSender(object):
         """
 
         if onlyAfter is None:
-            duration = PyCalendarDuration(days=self.suppressionDays)
-            onlyAfter = PyCalendarDateTime.getNowUTC() - duration
+            duration = Duration(days=self.suppressionDays)
+            onlyAfter = DateTime.getNowUTC() - duration
 
         icaluid = calendar.resourceUID()
         method = calendar.propertyValue("METHOD")

@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.common.datastore.upgrade.sql.test -*-
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -74,8 +74,12 @@ class UpgradeReleaseLockStep(object):
         yield sqlTxn.commit()
 
 
-    def stepWithFailure(self, failure):
-        return self.stepWithResult(None)
+
+class NotAllowedToUpgrade(Exception):
+    """
+    Exception indicating an upgrade is needed but we're not configured to
+    perform it.
+    """
 
 
 
@@ -136,8 +140,7 @@ class UpgradeDatabaseCoreStep(object):
             self.log.error(msg)
             raise RuntimeError(msg)
         elif self.failIfUpgradeNeeded:
-                # TODO: change this exception to be upgrade-specific
-            raise RuntimeError("Database upgrade is needed but not allowed.")
+            raise NotAllowedToUpgrade()
         else:
             self.sqlStore.setUpgrading(True)
             yield self.upgradeVersion(actual_version, required_version, dialect)
@@ -408,6 +411,34 @@ class UpgradeDatabaseCalendarDataStep(_UpgradeDatabaseDataStep):
         self.versionDescriptor = "calendar data"
         self.upgradeFilePrefix = "calendar_"
         self.upgradeFileSuffix = ".py"
+
+
+
+class UpgradeDatabaseNotificationDataStep(_UpgradeDatabaseDataStep):
+    """
+    Checks and upgrades the database data. This assumes there are a bunch of
+    upgrade python modules that we can execute against the database to
+    accomplish the upgrade.
+
+    @ivar sqlStore: The store to operate on.
+
+    @type sqlStore: L{txdav.idav.IDataStore}
+    """
+
+    def __init__(self, sqlStore, **kwargs):
+        """
+        Initialize the service.
+
+        @param sqlStore: The store to operate on. Can be C{None} when doing unit tests.
+        @param service:  Wrapped service. Can be C{None} when doing unit tests.
+        """
+        super(UpgradeDatabaseNotificationDataStep, self).__init__(sqlStore, **kwargs)
+
+        self.versionKey = "NOTIFICATION-DATAVERSION"
+        self.versionDescriptor = "notification data"
+        self.upgradeFilePrefix = "notification_"
+        self.upgradeFileSuffix = ".py"
+        self.defaultKeyValue = 0
 
 
 

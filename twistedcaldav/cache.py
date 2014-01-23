@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2008-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2008-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,10 +15,10 @@
 ##
 
 from twext.python.log import Logger
-from twext.web2.dav.util import allDataFromStream
-from twext.web2.http import Response
-from twext.web2.iweb import IResource
-from twext.web2.stream import MemoryStream
+from txweb2.dav.util import allDataFromStream
+from txweb2.http import Response
+from txweb2.iweb import IResource
+from txweb2.stream import MemoryStream
 
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 

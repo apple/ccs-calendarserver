@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,6 +47,13 @@ __all__ = [
 class CommonStoreError(RuntimeError):
     """
     Store generic error.
+    """
+
+
+
+class RecordNotAllowedError(CommonStoreError):
+    """
+    User not allowed.
     """
 
 
@@ -202,6 +209,29 @@ class AllRetriesFailed(CommonStoreError):
     """
     In a re-tried subtransaction, all attempts failed to produce useful
     progress.  Other exceptions will be logged.
+    """
+
+
+
+class ShareNotAllowed(CommonStoreError):
+    """
+    An operation on a shared resource is not allowed.
+    """
+
+
+
+class ExternalShareFailed(CommonStoreError):
+    """
+    An external sharee operation failed.
+    """
+
+
+
+class NonExistentExternalShare(CommonStoreError):
+    """
+    An external sharee operation failed because the share does not exist on the
+    other pod. The caller of the external request receiving this exception should
+    remove the local external share to "heal" this mismatch.
     """
 
 

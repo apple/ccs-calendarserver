@@ -1,6 +1,6 @@
 # -*- test-case-name: calendarserver.tools.shell.test.test_vfs -*-
 ##
-# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -481,7 +481,7 @@ class PrincipalHomeFolder(Folder):
         self._didInitChildren = True
 
 
-    def _needsChildren(m):
+    def _needsChildren(m): #@NoSelf
         def decorate(self, *args, **kwargs):
             d = self._initChildren()
             d.addCallback(lambda _: m(self, *args, **kwargs))

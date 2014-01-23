@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
 # limitations under the License.
 ##
 
-from twext.web2 import http_headers, responsecode
-from twext.web2.test.test_server import SimpleRequest
+from txweb2 import http_headers, responsecode
+from txweb2.test.test_server import SimpleRequest
 
 from twisted.internet.defer import inlineCallbacks
 
@@ -28,10 +28,10 @@ from txdav.caldav.datastore.scheduling.ischedule.remoteservers import IScheduleS
 from txdav.common.datastore.test.util import populateCalendarsFrom, \
     CommonCommonTests
 from twext.python.clsprop import classproperty
-import twext.web2.dav.test.util
+import txweb2.dav.test.util
 from txdav.caldav.datastore.test.util import buildCalendarStore
 
-class iSchedulePOST (CommonCommonTests, twext.web2.dav.test.util.TestCase):
+class iSchedulePOST (CommonCommonTests, txweb2.dav.test.util.TestCase):
 
     @inlineCallbacks
     def setUp(self):
@@ -94,6 +94,7 @@ class iSchedulePOST (CommonCommonTests, twext.web2.dav.test.util.TestCase):
             headers=http_headers.Headers(rawHeaders={
                 "Originator": ("mailto:wsanchez@example.com",),
                 "Recipient": ("mailto:cdaboo@example.com",),
+                "Content-Type": "text/calendar",
             }),
             content="""BEGIN:VCALENDAR
 CALSCALE:GREGORIAN
@@ -144,6 +145,7 @@ END:VCALENDAR
             headers=http_headers.Headers(rawHeaders={
                 "Originator": ("mailto:user01@example.org",),
                 "Recipient": ("mailto:user02@example.com",),
+                "Content-Type": ("text/calendar",)
             }),
             content="""BEGIN:VCALENDAR
 CALSCALE:GREGORIAN

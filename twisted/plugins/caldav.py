@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,6 @@
 # limitations under the License.
 ##
 
-__import__("twext") # install patches before doing anything
-
 from zope.interface import implements
 from twisted.plugin import IPlugin
 from twisted.application.service import IServiceMaker
@@ -24,7 +22,6 @@ from twisted.python import reflect
 
 from twisted.internet.protocol import Factory
 Factory.noisy = False
-
 
 def serviceMakerProperty(propname):
     def getProperty(self):

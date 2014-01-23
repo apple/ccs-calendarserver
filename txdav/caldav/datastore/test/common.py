@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.caldav.datastore -*-
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ from twisted.internet.protocol import Protocol
 from twisted.python import hashlib
 
 from twext.python.clsprop import classproperty
-from twext.python.vcomponent import VComponent
+from twistedcaldav.ical import Component as VComponent
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.enterprise.ienterprise import AlreadyFinishedError
 
@@ -41,18 +41,20 @@ from txdav.common.icommondatastore import NoSuchHomeChildError
 from txdav.common.icommondatastore import ObjectResourceNameAlreadyExistsError
 from txdav.common.inotifications import INotificationObject
 from txdav.common.datastore.test.util import CommonCommonTests
-from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE, _BIND_MODE_READ
 
 from txdav.caldav.icalendarstore import (
     ICalendarObject, ICalendarHome,
     ICalendar, ICalendarTransaction,
     ComponentUpdateState)
 
-from twistedcaldav.customxml import InviteNotification, InviteSummary
 from txdav.common.datastore.test.util import transactionClean
 from txdav.common.icommondatastore import ConcurrentModification
 from twistedcaldav.ical import Component
 from twistedcaldav.config import config
+from calendarserver.push.util import PushPriority
+
+import json
+
 
 storePath = FilePath(__file__).parent().child("calendar_store")
 
@@ -84,73 +86,75 @@ home1_calendarNames = [
 
 OTHER_HOME_UID = "home_splits"
 
-test_event_text = (
-    "BEGIN:VCALENDAR\r\n"
-      "VERSION:2.0\r\n"
-      "PRODID:-//Apple Inc.//iCal 4.0.1//EN\r\n"
-      "CALSCALE:GREGORIAN\r\n"
-      "BEGIN:VTIMEZONE\r\n"
-        "TZID:US/Pacific\r\n"
-        "BEGIN:DAYLIGHT\r\n"
-          "TZOFFSETFROM:-0800\r\n"
-          "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU\r\n"
-          "DTSTART:20070311T020000\r\n"
-          "TZNAME:PDT\r\n"
-          "TZOFFSETTO:-0700\r\n"
-        "END:DAYLIGHT\r\n"
-        "BEGIN:STANDARD\r\n"
-          "TZOFFSETFROM:-0700\r\n"
-          "RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU\r\n"
-          "DTSTART:20071104T020000\r\n"
-          "TZNAME:PST\r\n"
-          "TZOFFSETTO:-0800\r\n"
-        "END:STANDARD\r\n"
-      "END:VTIMEZONE\r\n"
-      "BEGIN:VEVENT\r\n"
-        "CREATED:20100203T013849Z\r\n"
-        "UID:uid-test\r\n"
-        "DTEND;TZID=US/Pacific:20100207T173000\r\n"
-        "TRANSP:OPAQUE\r\n"
-        "SUMMARY:New Event\r\n"
-        "DTSTART;TZID=US/Pacific:20100207T170000\r\n"
-        "DTSTAMP:20100203T013909Z\r\n"
-        "SEQUENCE:3\r\n"
-        "X-APPLE-DROPBOX:/calendars/users/wsanchez/dropbox/uid-test.dropbox\r\n"
-        "BEGIN:VALARM\r\n"
-          "X-WR-ALARMUID:1377CCC7-F85C-4610-8583-9513D4B364E1\r\n"
-          "TRIGGER:-PT20M\r\n"
-          "ATTACH:Basso\r\n"
-          "ACTION:AUDIO\r\n"
-        "END:VALARM\r\n"
-      "END:VEVENT\r\n"
-    "END:VCALENDAR\r\n"
-)
+test_event_text = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VTIMEZONE
+TZID:US/Pacific
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0800
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+DTSTART:20070311T020000
+TZNAME:PDT
+TZOFFSETTO:-0700
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0700
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+DTSTART:20071104T020000
+TZNAME:PST
+TZOFFSETTO:-0800
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:uid-test
+DTEND;TZID=US/Pacific:20100207T173000
+TRANSP:OPAQUE
+SUMMARY:New Event
+DTSTART;TZID=US/Pacific:20100207T170000
+DTSTAMP:20100203T013909Z
+SEQUENCE:3
+X-APPLE-DROPBOX:/calendars/users/wsanchez/dropbox/uid-test.dropbox
+BEGIN:VALARM
+X-WR-ALARMUID:1377CCC7-F85C-4610-8583-9513D4B364E1
+TRIGGER:-PT20M
+ATTACH:Basso
+ACTION:AUDIO
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
 
 
 
-test_event_notCalDAV_text = (
-    "BEGIN:VCALENDAR\r\n"
-      "VERSION:2.0\r\n"
-      "PRODID:-//Apple Inc.//iCal 4.0.1//EN\r\n"
-      "CALSCALE:GREGORIAN\r\n"
-      "BEGIN:VEVENT\r\n"
-        "CREATED:20100203T013849Z\r\n"
-        "UID:test\r\n"
-        "DTEND;TZID=US/Pacific:20100207T173000\r\n" # TZID without VTIMEZONE
-        "TRANSP:OPAQUE\r\n"
-        "SUMMARY:New Event\r\n"
-        "DTSTART;TZID=US/Pacific:20100207T170000\r\n"
-        "DTSTAMP:20100203T013909Z\r\n"
-        "SEQUENCE:3\r\n"
-        "BEGIN:VALARM\r\n"
-          "X-WR-ALARMUID:1377CCC7-F85C-4610-8583-9513D4B364E1\r\n"
-          "TRIGGER:-PT20M\r\n"
-          "ATTACH:Basso\r\n"
-          "ACTION:AUDIO\r\n"
-        "END:VALARM\r\n"
-      "END:VEVENT\r\n"
-    "END:VCALENDAR\r\n"
-)
+test_event_notCalDAV_text = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:test-bad1
+DTEND:20100207T173000Z
+TRANSP:OPAQUE
+SUMMARY:New Event
+DTSTART:20100207T170000Z
+DTSTAMP:20100203T013909Z
+SEQUENCE:3
+END:VEVENT
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:test-bad2
+DTEND:20100207T173000Z
+TRANSP:OPAQUE
+SUMMARY:New Event
+DTSTART:20100207T170000Z
+DTSTAMP:20100203T013909Z
+SEQUENCE:3
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
 
 
 
@@ -370,9 +374,11 @@ class CommonTests(CommonCommonTests):
     def notificationUnderTest(self):
         txn = self.transactionUnderTest()
         notifications = yield txn.notificationsWithUID("home1")
-        inviteNotification = InviteNotification()
-        yield notifications.writeNotificationObject("abc", inviteNotification,
-            inviteNotification.toxml())
+        yield notifications.writeNotificationObject(
+            "abc",
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+        )
         notificationObject = yield notifications.notificationObjectWithUID("abc")
         returnValue(notificationObject)
 
@@ -395,20 +401,29 @@ class CommonTests(CommonCommonTests):
         """
         txn = self.transactionUnderTest()
         coll = yield txn.notificationsWithUID("home1")
-        invite1 = InviteNotification()
-        yield coll.writeNotificationObject("1", invite1, invite1.toxml())
+        yield coll.writeNotificationObject(
+            "1",
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+        )
         st = yield coll.syncToken()
-        yield coll.writeNotificationObject("2", invite1, invite1.toxml())
+        yield coll.writeNotificationObject(
+            "2",
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+        )
         rev = self.token2revision(st)
         yield coll.removeNotificationObjectWithUID("1")
         st2 = yield coll.syncToken()
         rev2 = self.token2revision(st2)
-        changed, deleted = yield coll.resourceNamesSinceToken(rev)
+        changed, deleted, invalid = yield coll.resourceNamesSinceToken(rev)
         self.assertEquals(set(changed), set(["2.xml"]))
         self.assertEquals(set(deleted), set(["1.xml"]))
-        changed, deleted = yield coll.resourceNamesSinceToken(rev2)
+        self.assertEquals(len(invalid), 0)
+        changed, deleted, invalid = yield coll.resourceNamesSinceToken(rev2)
         self.assertEquals(set(changed), set([]))
         self.assertEquals(set(deleted), set([]))
+        self.assertEquals(len(invalid), 0)
 
 
     @inlineCallbacks
@@ -420,14 +435,21 @@ class CommonTests(CommonCommonTests):
         notifications = yield self.transactionUnderTest().notificationsWithUID(
             "home1"
         )
-        inviteNotification = InviteNotification()
-        yield notifications.writeNotificationObject("abc", inviteNotification,
-            inviteNotification.toxml())
-        inviteNotification2 = InviteNotification(InviteSummary("a summary"))
         yield notifications.writeNotificationObject(
-            "abc", inviteNotification, inviteNotification2.toxml())
+            "abc",
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+        )
+        yield notifications.writeNotificationObject(
+            "abc",
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+            json.loads("{\"notification-type\":\"invite-notification\",\"summary\":\"a summary\"}"),
+        )
         abc = yield notifications.notificationObjectWithUID("abc")
-        self.assertEquals((yield abc.xmldata()), inviteNotification2.toxml())
+        self.assertEquals(
+            (yield abc.notificationData()),
+            json.loads("{\"notification-type\":\"invite-notification\",\"summary\":\"a summary\"}"),
+        )
 
 
     @inlineCallbacks
@@ -446,20 +468,21 @@ class CommonTests(CommonCommonTests):
             "home1"
         )
         self.notifierFactory.reset()
-        inviteNotification = InviteNotification()
-        yield notifications.writeNotificationObject("abc", inviteNotification,
-            inviteNotification.toxml())
+        yield notifications.writeNotificationObject(
+            "abc",
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+        )
 
-        yield self.commit()
-
-        # Make sure notification fired after commit
+        # notify is called prior to commit
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
-                "/CalDAV/example.com/home1/",
-                "/CalDAV/example.com/home1/notification/",
+                ("/CalDAV/example.com/home1/", PushPriority.high),
+                ("/CalDAV/example.com/home1/notification/", PushPriority.high),
             ])
         )
+        yield self.commit()
 
         notifications = yield self.transactionUnderTest().notificationsWithUID(
             "home1"
@@ -469,16 +492,15 @@ class CommonTests(CommonCommonTests):
         abc = yield notifications.notificationObjectWithUID("abc")
         self.assertEquals(abc, None)
 
-        yield self.commit()
-
-        # Make sure notification fired after commit
+        # notify is called prior to commit
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
-                "/CalDAV/example.com/home1/",
-                "/CalDAV/example.com/home1/notification/",
+                ("/CalDAV/example.com/home1/", PushPriority.high),
+                ("/CalDAV/example.com/home1/notification/", PushPriority.high),
             ])
         )
+        yield self.commit()
 
 
     @inlineCallbacks
@@ -490,12 +512,16 @@ class CommonTests(CommonCommonTests):
         notifications = yield self.transactionUnderTest().notificationsWithUID(
             "home1"
         )
-        inviteNotification = InviteNotification()
-        yield notifications.writeNotificationObject("abc", inviteNotification,
-            inviteNotification.toxml())
-        inviteNotification2 = InviteNotification(InviteSummary("a summary"))
         yield notifications.writeNotificationObject(
-            "def", inviteNotification, inviteNotification2.toxml())
+            "abc",
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+        )
+        yield notifications.writeNotificationObject(
+            "def",
+            json.loads("{\"notification-type\":\"invite-notification\"}"),
+            json.loads("{\"notification-type\":\"invite-notification\",\"summary\":\"a summary\"}"),
+        )
 
         yield self.commit()
 
@@ -697,10 +723,9 @@ class CommonTests(CommonCommonTests):
         self.assertNotIdentical((yield home.calendarWithName(name)), None)
         calendarProperties = (yield home.calendarWithName(name)).properties()
         self.assertEqual(len(calendarProperties), 0)
+        # notify is called prior to commit
+        self.assertTrue(("/CalDAV/example.com/home1/", PushPriority.high) in self.notifierFactory.history)
         yield self.commit()
-
-        # Make sure notification fired after commit
-        self.assertTrue("/CalDAV/example.com/home1/" in self.notifierFactory.history)
 
         # Make sure it's available in a new transaction; i.e. test the commit.
         home = yield self.homeUnderTest()
@@ -742,10 +767,10 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
-                "/CalDAV/example.com/home1/",
-                "/CalDAV/example.com/home1/calendar_1/",
-                "/CalDAV/example.com/home1/calendar_2/",
-                "/CalDAV/example.com/home1/calendar_empty/",
+                ("/CalDAV/example.com/home1/", PushPriority.high),
+                ("/CalDAV/example.com/home1/calendar_1/", PushPriority.high),
+                ("/CalDAV/example.com/home1/calendar_2/", PushPriority.high),
+                ("/CalDAV/example.com/home1/calendar_empty/", PushPriority.high),
             ])
         )
 
@@ -915,15 +940,15 @@ class CommonTests(CommonCommonTests):
                 None
             )
 
-        # Make sure notifications are fired after commit
-        yield self.commit()
+        # notify is called prior to commit
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
-                "/CalDAV/example.com/home1/",
-                "/CalDAV/example.com/home1/calendar_1/",
+                ("/CalDAV/example.com/home1/", PushPriority.high),
+                ("/CalDAV/example.com/home1/calendar_1/", PushPriority.high),
             ])
         )
+        yield self.commit()
 
 
     @inlineCallbacks
@@ -947,156 +972,6 @@ class CommonTests(CommonCommonTests):
         L{Calendar.name} reflects the name of the calendar.
         """
         self.assertEquals((yield self.calendarUnderTest()).name(), "calendar_1")
-
-
-    @inlineCallbacks
-    def test_shareWith(self):
-        """
-        L{ICalendar.shareWith} will share a calendar with a given home UID.
-        """
-        cal = yield self.calendarUnderTest()
-        other = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        newCalName = yield cal.shareWith(other, _BIND_MODE_WRITE)
-        self.sharedName = newCalName
-        yield self.commit()
-        normalCal = yield self.calendarUnderTest()
-        otherHome = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        otherCal = yield otherHome.childWithName(newCalName)
-        self.assertNotIdentical(otherCal, None)
-        self.assertEqual(
-            (yield
-             (yield otherCal.calendarObjectWithName("1.ics")).component()),
-            (yield
-             (yield normalCal.calendarObjectWithName("1.ics")).component())
-        )
-
-
-    @inlineCallbacks
-    def test_shareAgainChangesMode(self):
-        """
-        If a calendar is already shared with a given calendar home,
-        L{ICalendar.shareWith} will change the sharing mode.
-        """
-        yield self.test_shareWith()
-        # yield self.commit() # txn is none? why?
-        cal = yield self.calendarUnderTest()
-        other = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        newName = yield cal.shareWith(other, _BIND_MODE_READ)
-        otherCal = yield other.childWithName(self.sharedName)
-
-        # Name should not change just because we updated the mode.
-        self.assertEqual(newName, self.sharedName)
-        self.assertNotIdentical(otherCal, None)
-
-        invitedCals = yield cal.sharingInvites()
-        self.assertEqual(len(invitedCals), 1)
-        self.assertEqual(invitedCals[0].mode(), _BIND_MODE_READ)
-
-
-    @inlineCallbacks
-    def test_unshareWith(self, commit=False):
-        """
-        L{ICalendar.unshareWith} will remove a previously-shared calendar from
-        another user's calendar home.
-        """
-        yield self.test_shareWith()
-        if commit:
-            yield self.commit()
-        cal = yield self.calendarUnderTest()
-        other = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        newName = yield cal.unshareWith(other)
-        otherCal = yield other.childWithName(newName)
-        self.assertIdentical(otherCal, None)
-        invitedCals = yield cal.sharingInvites()
-        self.assertEqual(len(invitedCals), 0)
-
-
-    @inlineCallbacks
-    def test_unshareSharerSide(self, commit=False):
-        """
-        Verify the coll.unshare( ) method works when called from the
-        sharer's copy
-        """
-        yield self.test_shareWith()
-        if commit:
-            yield self.commit()
-        cal = yield self.calendarUnderTest()
-        other = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        otherCal = yield other.childWithName(self.sharedName)
-        self.assertNotEqual(otherCal, None)
-        yield cal.unshare()
-        otherCal = yield other.childWithName(self.sharedName)
-        self.assertEqual(otherCal, None)
-        invitedCals = yield cal.sharingInvites()
-        self.assertEqual(len(invitedCals), 0)
-
-
-    @inlineCallbacks
-    def test_unshareShareeSide(self, commit=False):
-        """
-        Verify the coll.unshare( ) method works when called from the
-        sharee's copy
-        """
-        yield self.test_shareWith()
-        if commit:
-            yield self.commit()
-        cal = yield self.calendarUnderTest()
-        other = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        otherCal = yield other.childWithName(self.sharedName)
-        self.assertNotEqual(otherCal, None)
-        yield otherCal.unshare()
-        otherCal = yield other.childWithName(self.sharedName)
-        self.assertEqual(otherCal, None)
-        invitedCals = yield cal.sharingInvites()
-        self.assertEqual(len(invitedCals), 0)
-
-
-    @inlineCallbacks
-    def test_unshareWithInDifferentTransaction(self):
-        """
-        L{ICalendar.unshareWith} will remove a previously-shared calendar from
-        another user's calendar home, assuming the sharing was committed in a
-        previous transaction.
-        """
-        yield self.test_unshareWith(True)
-
-
-    @inlineCallbacks
-    def test_sharingInvites(self):
-        """
-        L{ICalendar.sharingInvites} returns an iterable of all versions of a shared
-        calendar.
-        """
-        cal = yield self.calendarUnderTest()
-        sharedBefore = yield cal.sharingInvites()
-        # It's not shared yet; make sure sharingInvites doesn't include owner version.
-        self.assertEqual(len(sharedBefore), 0)
-        yield self.test_shareWith()
-        # FIXME: don't know why this separate transaction is needed; remove it.
-        yield self.commit()
-        cal = yield self.calendarUnderTest()
-        sharedAfter = yield cal.sharingInvites()
-        self.assertEqual(len(sharedAfter), 1)
-        self.assertEqual(sharedAfter[0].mode(), _BIND_MODE_WRITE)
-        self.assertEqual(sharedAfter[0].shareeUID(), OTHER_HOME_UID)
-
-
-    @inlineCallbacks
-    def test_sharedNotifierID(self):
-        yield self.test_shareWith()
-        yield self.commit()
-
-        home = yield self.homeUnderTest()
-        self.assertEquals(home.notifierID(), ("CalDAV", "home1",))
-        calendar = yield home.calendarWithName("calendar_1")
-        self.assertEquals(calendar.notifierID(), ("CalDAV", "home1/calendar_1",))
-        yield self.commit()
-
-        home = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        self.assertEquals(home.notifierID(), ("CalDAV", OTHER_HOME_UID,))
-        calendar = yield home.calendarWithName(self.sharedName)
-        self.assertEquals(calendar.notifierID(), ("CalDAV", "home1/calendar_1",))
-        yield self.commit()
 
 
     @inlineCallbacks
@@ -1338,7 +1213,7 @@ END:VCALENDAR
     @inlineCallbacks
     def test_iCalendarText(self):
         """
-        L{ICalendarObject.iCalendarText} returns a C{str} describing the same
+        L{ICalendarObject._text} returns a C{str} describing the same
         data provided by L{ICalendarObject.component}.
         """
         text = yield (yield self.calendarObjectUnderTest())._text()
@@ -1471,16 +1346,15 @@ END:VCALENDAR
         self.assertEquals((yield calendarObject.componentForUser()), component)
         self.assertEquals((yield calendarObject.getMetadata()), metadata)
 
-        yield self.commit()
-
-        # Make sure notifications fire after commit
+        # notify is called prior to commit
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
-                "/CalDAV/example.com/home1/",
-                "/CalDAV/example.com/home1/calendar_1/",
+                ("/CalDAV/example.com/home1/", PushPriority.high),
+                ("/CalDAV/example.com/home1/calendar_1/", PushPriority.high),
             ])
         )
+        yield self.commit()
 
 
     @inlineCallbacks
@@ -1591,16 +1465,15 @@ END:VCALENDAR
         calendarObject = yield calendar1.calendarObjectWithName("1.ics")
         self.assertEquals((yield calendarObject.componentForUser()), component)
 
-        yield self.commit()
-
-        # Make sure notification fired after commit
+        # notify is called prior to commit
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
-                "/CalDAV/example.com/home1/",
-                "/CalDAV/example.com/home1/calendar_1/",
+                ("/CalDAV/example.com/home1/", PushPriority.high),
+                ("/CalDAV/example.com/home1/calendar_1/", PushPriority.high),
             ])
         )
+        yield self.commit()
 
 
     def checkPropertiesMethod(self, thunk):
@@ -1731,7 +1604,7 @@ END:VCALENDAR
 
         home = yield self.homeUnderTest()
 
-        changed, deleted = yield home.resourceNamesSinceToken(
+        changed, deleted, invalid = yield home.resourceNamesSinceToken(
             self.token2revision(st), "infinity")
 
         self.assertEquals(set(changed), set(["calendar_1/",
@@ -1739,11 +1612,13 @@ END:VCALENDAR
                                              "calendar_1/2.ics",
                                              "other-calendar/"]))
         self.assertEquals(set(deleted), set(["calendar_1/2.ics"]))
+        self.assertEquals(invalid, [])
 
-        changed, deleted = yield home.resourceNamesSinceToken(
+        changed, deleted, invalid = yield home.resourceNamesSinceToken(
             self.token2revision(st2), "infinity")
         self.assertEquals(changed, [])
         self.assertEquals(deleted, [])
+        self.assertEquals(invalid, [])
 
 
     @inlineCallbacks
@@ -1763,12 +1638,14 @@ END:VCALENDAR
         yield obj1.remove()
         st2 = yield cal.syncToken()
         rev2 = self.token2revision(st2)
-        changed, deleted = yield cal.resourceNamesSinceToken(rev)
+        changed, deleted, invalid = yield cal.resourceNamesSinceToken(rev)
         self.assertEquals(set(changed), set(["new.ics"]))
         self.assertEquals(set(deleted), set(["2.ics"]))
-        changed, deleted = yield cal.resourceNamesSinceToken(rev2)
+        self.assertEquals(len(invalid), 0)
+        changed, deleted, invalid = yield cal.resourceNamesSinceToken(rev2)
         self.assertEquals(set(changed), set([]))
         self.assertEquals(set(deleted), set([]))
+        self.assertEquals(len(invalid), 0)
 
 
     @inlineCallbacks
@@ -1832,7 +1709,7 @@ END:VCALENDAR
         L{ICalendarStore.withEachCalendarHomeDo} executes its C{action}
         argument repeatedly with all homes that have been created.
         """
-        additionalUIDs = set('alpha-uid home2 home3 beta-uid'.split())
+        additionalUIDs = set('user01 home2 home3 uid1'.split())
         txn = self.transactionUnderTest()
         for name in additionalUIDs:
             yield txn.calendarHomeWithUID(name, create=True)

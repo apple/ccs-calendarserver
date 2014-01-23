@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2013 Apple Inc. All rights reserved.
+# Copyright (c) 2013-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
 from twistedcaldav.ical import Property
 
@@ -34,10 +34,10 @@ class iCalSplitter(object):
 
         """
         self.threshold = threshold
-        self.past = PyCalendarDateTime.getNowUTC()
+        self.past = DateTime.getNowUTC()
         self.past.setHHMMSS(0, 0, 0)
         self.past.offsetDay(-past)
-        self.now = PyCalendarDateTime.getNowUTC()
+        self.now = DateTime.getNowUTC()
         self.now.setHHMMSS(0, 0, 0)
         self.now.offsetDay(-1)
 
@@ -83,16 +83,20 @@ class iCalSplitter(object):
         return len(str(ical)) > self.threshold
 
 
-    def whereSplit(self, ical):
+    def whereSplit(self, ical, break_point=None, allow_past_the_end=True):
         """
         Determine where a split is going to happen - i.e., the RECURRENCE-ID.
 
         @param ical: the iCalendar object to test
         @type ical: L{Component}
+        @param break_point: the date-time where the break should occur
+        @type break_point: L{DateTime}
 
         @return: recurrence-id of the split
-        @rtype: L{PyCalendarDateTime}
+        @rtype: L{DateTime}
         """
+
+        break_point = self.past if break_point is None else break_point
 
         # Find the instance RECURRENCE-ID where a split is going to happen
         now = self.now.duplicate()
@@ -101,14 +105,18 @@ class iCalSplitter(object):
         instances = sorted(instances.instances.values(), key=lambda x: x.start)
         rid = instances[0].rid
         for instance in instances:
-            rid = instance.rid
-            if instance.start >= self.past:
+            if instance.start >= break_point:
+                rid = instance.rid
+
+                # Do not allow a rid prior to the first instance
+                if break_point and rid == instances[0].rid:
+                    rid = None
                 break
         else:
-            # We can get here when splitting and event for overrides only in the past,
+            # We can get here when splitting an event for overrides only in the past,
             # which happens when splitting an Attendee's copy of an Organizer event
             # where the Organizer event has L{willSplit} == C{True}
-            rid = self.past
+            rid = break_point if allow_past_the_end else None
 
         return rid
 
@@ -124,7 +132,7 @@ class iCalSplitter(object):
         @type ical: L{Component}
 
         @param rid: recurrence-id where the split should occur, or C{None} to determine it here
-        @type rid: L{PyCalendarDateTime} or C{None}
+        @type rid: L{DateTime} or C{None}
 
         @param olderUID: UID to use for the split off component, or C{None} to generate one here
         @type olderUID: C{str} or C{None}

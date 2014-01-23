@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2012-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2012-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,14 +20,16 @@ Tests for calendarserver.tools.calverify
 """
 
 from calendarserver.tools.calverify import BadDataService, \
-    SchedulingMismatchService, DoubleBookingService, DarkPurgeService
+    SchedulingMismatchService, DoubleBookingService, DarkPurgeService, \
+    EventSplitService
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
 
 from twistedcaldav.config import config
+from twistedcaldav.ical import normalize_iCalStr
 from twistedcaldav.test.util import StoreTestCase
 
 from txdav.common.datastore.test.util import populateCalendarsFrom
@@ -511,7 +513,7 @@ class CalVerifyDataTests(StoreTestCase):
         """
 
         sync_token_old = (yield (yield self.calendarUnderTest()).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": True,
@@ -555,7 +557,7 @@ class CalVerifyDataTests(StoreTestCase):
         """
 
         sync_token_old = (yield (yield self.calendarUnderTest()).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": True,
@@ -627,7 +629,7 @@ class CalVerifyDataTests(StoreTestCase):
         """
 
         sync_token_old = (yield (yield self.calendarUnderTest()).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": False,
@@ -667,7 +669,7 @@ class CalVerifyDataTests(StoreTestCase):
         """
 
         sync_token_old = (yield (yield self.calendarUnderTest()).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": False,
@@ -969,7 +971,7 @@ class CalVerifyMismatchTestsBase(StoreTestCase):
         self.notifierFactory.reset()
 
 
-now = PyCalendarDateTime.getToday()
+now = DateTime.getToday()
 now.setDay(1)
 now.offsetMonth(2)
 nowYear = now.getYear()
@@ -1404,7 +1406,7 @@ END:VCALENDAR
 
         home = (yield self.homeUnderTest(name=self.uuid3))
         calendar = (yield self.calendarUnderTest(name="calendar2", home=self.uuid3))
-        yield home.setDefaultCalendar(calendar)
+        yield home.setDefaultCalendar(calendar, "VEVENT")
         yield self.commit()
 
 
@@ -1418,7 +1420,7 @@ END:VCALENDAR
         sync_token_old1 = (yield (yield self.calendarUnderTest(home=self.uuid1, name="calendar")).syncToken())
         sync_token_old2 = (yield (yield self.calendarUnderTest(home=self.uuid2, name="calendar")).syncToken())
         sync_token_old3 = (yield (yield self.calendarUnderTest(home=self.uuid3, name="calendar")).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": False,
@@ -1431,7 +1433,7 @@ END:VCALENDAR
             "uid": "",
             "uuid": "",
             "tzid": "",
-            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
+            "start": DateTime(nowYear, 1, 1, 0, 0, 0),
         }
         output = StringIO()
         calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
@@ -1485,7 +1487,7 @@ END:VCALENDAR
         sync_token_old1 = (yield (yield self.calendarUnderTest(home=self.uuid1, name="calendar")).syncToken())
         sync_token_old2 = (yield (yield self.calendarUnderTest(home=self.uuid2, name="calendar")).syncToken())
         sync_token_old3 = (yield (yield self.calendarUnderTest(home=self.uuid3, name="calendar")).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": False,
@@ -1498,7 +1500,7 @@ END:VCALENDAR
             "uid": "",
             "uuid": "",
             "tzid": "",
-            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
+            "start": DateTime(nowYear, 1, 1, 0, 0, 0),
         }
         output = StringIO()
         calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
@@ -1576,7 +1578,7 @@ END:VCALENDAR
         self.assertNotEqual(sync_token_old3, sync_token_new3)
 
         # Re-scan after changes to make sure there are no errors
-        self.commit()
+        yield self.commit()
         options["fix"] = False
         calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
         yield calverify.doAction()
@@ -1694,7 +1696,7 @@ END:VCALENDAR
 
         sync_token_old1 = (yield (yield self.calendarUnderTest(home=self.uuid1, name="calendar")).syncToken())
         sync_token_oldl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": False,
@@ -1707,7 +1709,7 @@ END:VCALENDAR
             "uid": "",
             "uuid": "",
             "tzid": "",
-            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
+            "start": DateTime(nowYear, 1, 1, 0, 0, 0),
         }
         output = StringIO()
         calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
@@ -1745,7 +1747,7 @@ END:VCALENDAR
 
         sync_token_old1 = (yield (yield self.calendarUnderTest(home=self.uuid1, name="calendar")).syncToken())
         sync_token_oldl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": False,
@@ -1758,7 +1760,7 @@ END:VCALENDAR
             "uid": "",
             "uuid": "",
             "tzid": "",
-            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
+            "start": DateTime(nowYear, 1, 1, 0, 0, 0),
         }
         output = StringIO()
         calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
@@ -1803,7 +1805,7 @@ END:VCALENDAR
         self.assertNotEqual(sync_token_oldl1, sync_token_newl1)
 
         # Re-scan after changes to make sure there are no errors
-        self.commit()
+        yield self.commit()
         options["fix"] = False
         calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
         yield calverify.doAction()
@@ -1921,7 +1923,7 @@ END:VCALENDAR
 
         sync_token_old1 = (yield (yield self.calendarUnderTest(home=self.uuid1, name="calendar")).syncToken())
         sync_token_oldl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": False,
@@ -1934,7 +1936,7 @@ END:VCALENDAR
             "uid": "",
             "uuid": CalVerifyMismatchTestsBase.uuidl1,
             "tzid": "",
-            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
+            "start": DateTime(nowYear, 1, 1, 0, 0, 0),
         }
         output = StringIO()
         calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
@@ -1970,7 +1972,7 @@ END:VCALENDAR
 
         sync_token_old1 = (yield (yield self.calendarUnderTest(home=self.uuid1, name="calendar")).syncToken())
         sync_token_oldl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": False,
@@ -1983,7 +1985,7 @@ END:VCALENDAR
             "uid": "",
             "uuid": CalVerifyMismatchTestsBase.uuidl1,
             "tzid": "",
-            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
+            "start": DateTime(nowYear, 1, 1, 0, 0, 0),
         }
         output = StringIO()
         calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
@@ -2021,7 +2023,7 @@ END:VCALENDAR
         self.assertNotEqual(sync_token_oldl1, sync_token_newl1)
 
         # Re-scan after changes to make sure there are no errors
-        self.commit()
+        yield self.commit()
         options["fix"] = False
         options["uuid"] = CalVerifyMismatchTestsBase.uuidl1
         calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
@@ -2430,7 +2432,7 @@ END:VCALENDAR
 
         sync_token_old1 = (yield (yield self.calendarUnderTest(home=self.uuid1, name="calendar")).syncToken())
         sync_token_oldl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": False,
@@ -2446,7 +2448,7 @@ END:VCALENDAR
             "uid": "",
             "uuid": self.uuidl1,
             "tzid": "utc",
-            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
+            "start": DateTime(nowYear, 1, 1, 0, 0, 0),
         }
         output = StringIO()
         calverify = DoubleBookingService(self._sqlCalendarStore, options, output, reactor, config)
@@ -2592,7 +2594,7 @@ END:VCALENDAR
         """
 
         sync_token_oldl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": False,
@@ -2609,7 +2611,7 @@ END:VCALENDAR
             "uid": "",
             "uuid": self.uuidl1,
             "tzid": "utc",
-            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
+            "start": DateTime(nowYear, 1, 1, 0, 0, 0),
             "no-organizer": False,
             "invalid-organizer": False,
             "disabled-organizer": False,
@@ -2639,7 +2641,7 @@ END:VCALENDAR
         """
 
         sync_token_oldl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": False,
@@ -2656,7 +2658,7 @@ END:VCALENDAR
             "uid": "",
             "uuid": self.uuidl1,
             "tzid": "utc",
-            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
+            "start": DateTime(nowYear, 1, 1, 0, 0, 0),
             "no-organizer": False,
             "invalid-organizer": False,
             "disabled-organizer": False,
@@ -2678,7 +2680,7 @@ END:VCALENDAR
         self.assertNotEqual(sync_token_oldl1, sync_token_newl1)
 
         # Re-scan after changes to make sure there are no errors
-        self.commit()
+        yield self.commit()
         options["fix"] = False
         options["uuid"] = self.uuidl1
         calverify = DarkPurgeService(self._sqlCalendarStore, options, output, reactor, config)
@@ -2698,7 +2700,7 @@ END:VCALENDAR
         """
 
         sync_token_oldl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": False,
@@ -2715,7 +2717,7 @@ END:VCALENDAR
             "uid": "",
             "uuid": self.uuidl1,
             "tzid": "utc",
-            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
+            "start": DateTime(nowYear, 1, 1, 0, 0, 0),
             "no-organizer": True,
             "invalid-organizer": False,
             "disabled-organizer": False,
@@ -2737,7 +2739,7 @@ END:VCALENDAR
         self.assertNotEqual(sync_token_oldl1, sync_token_newl1)
 
         # Re-scan after changes to make sure there are no errors
-        self.commit()
+        yield self.commit()
         options["fix"] = False
         options["uuid"] = self.uuidl1
         calverify = DarkPurgeService(self._sqlCalendarStore, options, output, reactor, config)
@@ -2757,7 +2759,7 @@ END:VCALENDAR
         """
 
         sync_token_oldl1 = (yield (yield self.calendarUnderTest(home=self.uuidl1, name="calendar")).syncToken())
-        self.commit()
+        yield self.commit()
 
         options = {
             "ical": False,
@@ -2774,7 +2776,7 @@ END:VCALENDAR
             "uid": "",
             "uuid": self.uuidl1,
             "tzid": "utc",
-            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
+            "start": DateTime(nowYear, 1, 1, 0, 0, 0),
             "no-organizer": True,
             "invalid-organizer": True,
             "disabled-organizer": True,
@@ -2796,7 +2798,7 @@ END:VCALENDAR
         self.assertNotEqual(sync_token_oldl1, sync_token_newl1)
 
         # Re-scan after changes to make sure there are no errors
-        self.commit()
+        yield self.commit()
         options["fix"] = False
         options["uuid"] = self.uuidl1
         calverify = DarkPurgeService(self._sqlCalendarStore, options, output, reactor, config)
@@ -2806,3 +2808,322 @@ END:VCALENDAR
         self.assertEqual(len(calverify.results["Dark Events"]), 0)
         self.assertTrue("Fix dark events" not in calverify.results)
         self.assertTrue("Fix remove" not in calverify.results)
+
+
+
+class CalVerifyEventPurge(CalVerifyMismatchTestsBase):
+    """
+    Tests calverify for events.
+    """
+
+    # No organizer
+    NO_ORGANIZER_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_ORGANIZER_ICS
+TRANSP:OPAQUE
+SUMMARY:INVITE_NO_ORGANIZER_ICS
+DTSTART:%(now_fwd10)s
+DURATION:PT1H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+    # Valid organizer
+    VALID_ORGANIZER_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+BEGIN:VEVENT
+UID:INVITE_VALID_ORGANIZER_ICS
+DTSTART:%(now)s
+DURATION:PT1H
+ATTENDEE:urn:uuid:%(uuid1)s
+ATTENDEE:urn:uuid:%(uuid2)s
+ORGANIZER:urn:uuid:%(uuid1)s
+RRULE:FREQ=DAILY
+SUMMARY:INVITE_VALID_ORGANIZER_ICS
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+    # Valid attendee
+    VALID_ATTENDEE_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+BEGIN:VEVENT
+UID:INVITE_VALID_ORGANIZER_ICS
+DTSTART:%(now)s
+DURATION:PT1H
+ATTENDEE:urn:uuid:%(uuid1)s
+ATTENDEE:urn:uuid:%(uuid2)s
+ORGANIZER:urn:uuid:%(uuid1)s
+RRULE:FREQ=DAILY
+SUMMARY:INVITE_VALID_ORGANIZER_ICS
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+    # Valid organizer
+    VALID_ORGANIZER_FUTURE_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+BEGIN:VEVENT
+UID:INVITE_VALID_ORGANIZER_ICS
+DTSTART:%(now_fwd11)s
+DURATION:PT1H
+ATTENDEE:urn:uuid:%(uuid1)s
+ATTENDEE:urn:uuid:%(uuid2)s
+ORGANIZER:urn:uuid:%(uuid1)s
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+RRULE:FREQ=DAILY
+SEQUENCE:1
+SUMMARY:INVITE_VALID_ORGANIZER_ICS
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+    # Valid attendee
+    VALID_ATTENDEE_FUTURE_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+BEGIN:VEVENT
+UID:INVITE_VALID_ORGANIZER_ICS
+DTSTART:%(now_fwd11)s
+DURATION:PT1H
+ATTENDEE:urn:uuid:%(uuid1)s
+ATTENDEE:urn:uuid:%(uuid2)s
+ORGANIZER:urn:uuid:%(uuid1)s
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+RRULE:FREQ=DAILY
+SEQUENCE:1
+SUMMARY:INVITE_VALID_ORGANIZER_ICS
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+    # Valid organizer
+    VALID_ORGANIZER_PAST_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+BEGIN:VEVENT
+UID:%(relID)s
+DTSTART:%(now)s
+DURATION:PT1H
+ATTENDEE:urn:uuid:%(uuid1)s
+ATTENDEE:urn:uuid:%(uuid2)s
+ORGANIZER:urn:uuid:%(uuid1)s
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+RRULE:FREQ=DAILY;UNTIL=%(now_fwd11_1)s
+SEQUENCE:1
+SUMMARY:INVITE_VALID_ORGANIZER_ICS
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+    # Valid attendee
+    VALID_ATTENDEE_PAST_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+BEGIN:VEVENT
+UID:%(relID)s
+DTSTART:%(now)s
+DURATION:PT1H
+ATTENDEE:urn:uuid:%(uuid1)s
+ATTENDEE:urn:uuid:%(uuid2)s
+ORGANIZER:urn:uuid:%(uuid1)s
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+RRULE:FREQ=DAILY;UNTIL=%(now_fwd11_1)s
+SEQUENCE:1
+SUMMARY:INVITE_VALID_ORGANIZER_ICS
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+    # Valid organizer
+    VALID_ORGANIZER_OVERRIDE_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+BEGIN:VEVENT
+UID:VALID_ORGANIZER_OVERRIDE_ICS
+DTSTART:%(now)s
+DURATION:PT1H
+ATTENDEE:urn:uuid:%(uuid1)s
+ATTENDEE:urn:uuid:%(uuid2)s
+ORGANIZER:urn:uuid:%(uuid1)s
+RRULE:FREQ=DAILY
+SUMMARY:INVITE_VALID_ORGANIZER_ICS
+END:VEVENT
+BEGIN:VEVENT
+UID:VALID_ORGANIZER_OVERRIDE_ICS
+RECURRENCE-ID:%(now_fwd11)s
+DTSTART:%(now_fwd11)s
+DURATION:PT2H
+ATTENDEE:urn:uuid:%(uuid1)s
+ATTENDEE:urn:uuid:%(uuid2)s
+ORGANIZER:urn:uuid:%(uuid1)s
+RRULE:FREQ=DAILY
+SUMMARY:INVITE_VALID_ORGANIZER_ICS
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+    @inlineCallbacks
+    def setUp(self):
+
+        self.subs = {
+            "uuid1" : CalVerifyMismatchTestsBase.uuid1,
+            "uuid2" : CalVerifyMismatchTestsBase.uuid2,
+        }
+
+        self.now = DateTime.getNowUTC()
+        self.now.setHHMMSS(0, 0, 0)
+
+        self.subs["now"] = self.now
+
+        for i in range(30):
+            attrname = "now_back%s" % (i + 1,)
+            setattr(self, attrname, self.now.duplicate())
+            getattr(self, attrname).offsetDay(-(i + 1))
+            self.subs[attrname] = getattr(self, attrname)
+
+            attrname_12h = "now_back%s_12h" % (i + 1,)
+            setattr(self, attrname_12h, getattr(self, attrname).duplicate())
+            getattr(self, attrname_12h).offsetHours(12)
+            self.subs[attrname_12h] = getattr(self, attrname_12h)
+
+            attrname_1 = "now_back%s_1" % (i + 1,)
+            setattr(self, attrname_1, getattr(self, attrname).duplicate())
+            getattr(self, attrname_1).offsetSeconds(-1)
+            self.subs[attrname_1] = getattr(self, attrname_1)
+
+        for i in range(30):
+            attrname = "now_fwd%s" % (i + 1,)
+            setattr(self, attrname, self.now.duplicate())
+            getattr(self, attrname).offsetDay(i + 1)
+            self.subs[attrname] = getattr(self, attrname)
+
+            attrname_12h = "now_fwd%s_12h" % (i + 1,)
+            setattr(self, attrname_12h, getattr(self, attrname).duplicate())
+            getattr(self, attrname_12h).offsetHours(12)
+            self.subs[attrname_12h] = getattr(self, attrname_12h)
+
+            attrname_1 = "now_fwd%s_1" % (i + 1,)
+            setattr(self, attrname_1, getattr(self, attrname).duplicate())
+            getattr(self, attrname_1).offsetSeconds(-1)
+            self.subs[attrname_1] = getattr(self, attrname_1)
+
+        self.requirements = {
+            CalVerifyMismatchTestsBase.uuid1 : {
+                "calendar" : {
+                    "invite1.ics" : (self.NO_ORGANIZER_ICS % self.subs, CalVerifyMismatchTestsBase.metadata,),
+                    "invite2.ics" : (self.VALID_ORGANIZER_ICS % self.subs, CalVerifyMismatchTestsBase.metadata,),
+                    "invite3.ics" : (self.VALID_ORGANIZER_OVERRIDE_ICS % self.subs, CalVerifyMismatchTestsBase.metadata,),
+                },
+                "inbox" : {},
+            },
+            CalVerifyMismatchTestsBase.uuid2 : {
+                "calendar" : {
+                    "invite2a.ics" : (self.VALID_ATTENDEE_ICS % self.subs, CalVerifyMismatchTestsBase.metadata,),
+                },
+                "inbox" : {},
+            },
+            CalVerifyMismatchTestsBase.uuid3 : {
+                "calendar" : {},
+                "inbox" : {},
+            },
+            CalVerifyMismatchTestsBase.uuidl1 : {
+                "calendar" : {},
+                "inbox" : {},
+            },
+        }
+
+        yield super(CalVerifyEventPurge, self).setUp()
+
+
+    @inlineCallbacks
+    def test_validSplit(self):
+        """
+        CalVerifyService.doScan without fix for dark events. Make sure it detects
+        as much as it can. Make sure sync-token is not changed.
+        """
+
+        options = {
+            "nuke": False,
+            "missing": False,
+            "ical": False,
+            "mismatch": False,
+            "double": True,
+            "dark-purge": False,
+            "split": True,
+            "path": "/calendars/__uids__/%(uuid1)s/calendar/invite2.ics" % self.subs,
+            "rid": "%(now_fwd11)s" % self.subs,
+            "summary": False,
+        }
+        output = StringIO()
+        calverify = EventSplitService(self._sqlCalendarStore, options, output, reactor, config)
+        oldUID = yield calverify.doAction()
+
+        relsubs = dict(self.subs)
+        relsubs["relID"] = oldUID
+
+        calendar = yield self.calendarUnderTest(home=CalVerifyMismatchTestsBase.uuid1, name="calendar")
+        objs = yield calendar.listObjectResources()
+        self.assertEqual(len(objs), 4)
+        self.assertTrue("invite2.ics" in objs)
+        oldName = filter(lambda x: not x.startswith("invite"), objs)[0]
+
+        obj1 = yield calendar.objectResourceWithName("invite2.ics")
+        ical1 = yield obj1.component()
+        self.assertEqual(normalize_iCalStr(ical1), self.VALID_ORGANIZER_FUTURE_ICS % relsubs)
+
+        obj2 = yield calendar.objectResourceWithName(oldName)
+        ical2 = yield obj2.component()
+        self.assertEqual(normalize_iCalStr(ical2), self.VALID_ORGANIZER_PAST_ICS % relsubs)
+
+        calendar = yield self.calendarUnderTest(home=CalVerifyMismatchTestsBase.uuid2, name="calendar")
+        objs = yield calendar.listObjectResources()
+        self.assertEqual(len(objs), 2)
+        self.assertTrue("invite2a.ics" in objs)
+        oldName = filter(lambda x: not x.startswith("invite"), objs)[0]
+
+        obj1 = yield calendar.objectResourceWithName("invite2a.ics")
+        ical1 = yield obj1.component()
+        self.assertEqual(normalize_iCalStr(ical1), self.VALID_ATTENDEE_FUTURE_ICS % relsubs)
+
+        obj2 = yield calendar.objectResourceWithName(oldName)
+        ical2 = yield obj2.component()
+        self.assertEqual(normalize_iCalStr(ical2), self.VALID_ATTENDEE_PAST_ICS % relsubs)
+
+
+    @inlineCallbacks
+    def test_summary(self):
+        """
+        CalVerifyService.doScan without fix for dark events. Make sure it detects
+        as much as it can. Make sure sync-token is not changed.
+        """
+
+        options = {
+            "nuke": False,
+            "missing": False,
+            "ical": False,
+            "mismatch": False,
+            "double": True,
+            "dark-purge": False,
+            "split": True,
+            "path": "/calendars/__uids__/%(uuid1)s/calendar/invite3.ics" % self.subs,
+            "rid": "%(now_fwd11)s" % self.subs,
+            "summary": True,
+        }
+        output = StringIO()
+        calverify = EventSplitService(self._sqlCalendarStore, options, output, reactor, config)
+        yield calverify.doAction()
+        result = output.getvalue().splitlines()
+        self.assertTrue("%(now)s" % self.subs in result)
+        self.assertTrue("%(now_fwd10)s" % self.subs in result)
+        self.assertTrue("%(now_fwd11)s *" % self.subs in result)
+        self.assertTrue("%(now_fwd12)s" % self.subs in result)

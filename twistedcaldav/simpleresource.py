@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,9 +26,9 @@ __all__ = [
     "SimpleDataResource",
 ]
 
-from twext.web2 import http
-from twext.web2.dav.noneprops import NonePropertyStore
-from twext.web2.http import Response
+from txweb2 import http
+from txweb2.dav.noneprops import NonePropertyStore
+from txweb2.http import Response
 
 from twisted.internet.defer import succeed
 

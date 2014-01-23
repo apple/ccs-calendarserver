@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -33,8 +33,8 @@ See RFC 2518: http://www.ietf.org/rfc/rfc2518.txt
 __all__ = []
 
 
-from twext.web2 import responsecode
-from twext.web2.http_headers import MimeType
+from txweb2 import responsecode
+from txweb2.http_headers import MimeType
 
 from txdav.xml.base import WebDAVElement, WebDAVTextElement, PCDATAElement
 from txdav.xml.base import WebDAVEmptyElement, WebDAVOneShotElement
@@ -290,7 +290,6 @@ class Response (WebDAVElement):
         (dav_namespace, "responsedescription"): (0, 1),
     }
 
-
     def __new__(cls, *children):
         if cls is not Response:
             return WebDAVElement.__new__(cls)
@@ -387,17 +386,16 @@ class Status (WebDAVTextElement):
     """
     name = "status"
 
+    @classmethod
     def fromResponseCode(cls, code):
         """
         code must be an integer response code in
-        twext.web2.responsecode.RESPONSES.keys()
+        txweb2.responsecode.RESPONSES.keys()
         """
         if code not in responsecode.RESPONSES:
             raise ValueError("Invalid response code: %r" % (code,))
 
         return cls(PCDATAElement("HTTP/1.1 %d %s" % (code, responsecode.RESPONSES[code])))
-
-    fromResponseCode = classmethod(fromResponseCode)
 
 
     def __init__(self, *children, **attributes):
@@ -768,7 +766,6 @@ class SupportedLock (WebDAVElement):
 
 
 # FIXME: Add preconditions codes defined in RFC4918
-
 
 @registerElement
 @registerElementClass

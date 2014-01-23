@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.common.datastore.upgrade.sql.test -*-
 # #
-# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,8 @@ from twisted.internet.defer import inlineCallbacks
 from txdav.base.propertystore.base import PropertyName
 from txdav.common.datastore.sql_tables import _ABO_KIND_GROUP, schema
 from txdav.common.datastore.upgrade.sql.upgrades.util import updateAddressBookDataVersion, \
-    doToEachHomeNotAtVersion, removeProperty, cleanPropertyStore
+    doToEachHomeNotAtVersion, removeProperty, cleanPropertyStore, \
+    logUpgradeStatus
 from txdav.xml import element
 
 """
@@ -73,14 +74,20 @@ def populateMemberTables(sqlStore):
                 #update rest
                 yield abObject.setComponent(component)
 
+    logUpgradeStatus("Starting Addressbook Populate Members")
+
     # Do this to each calendar home not already at version 2
-    yield doToEachHomeNotAtVersion(sqlStore, schema.ADDRESSBOOK_HOME, UPGRADE_TO_VERSION, doIt)
+    yield doToEachHomeNotAtVersion(sqlStore, schema.ADDRESSBOOK_HOME, UPGRADE_TO_VERSION, doIt, "Populate Members")
 
 
 
 @inlineCallbacks
 def removeResourceType(sqlStore):
+    logUpgradeStatus("Starting Addressbook Remove Resource Type")
+
     sqlTxn = sqlStore.newTransaction()
     yield removeProperty(sqlTxn, PropertyName.fromElement(element.ResourceType))
     yield sqlTxn.commit()
     yield cleanPropertyStore()
+
+    logUpgradeStatus("End Addressbook Remove Resource Type")

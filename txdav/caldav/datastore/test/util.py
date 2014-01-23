@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.carddav.datastore.test -*-
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -61,19 +61,14 @@ class TestCalendarStoreDirectoryRecord(TestStoreDirectoryRecord):
         fullName,
         calendarUserAddresses,
         cutype="INDIVIDUAL",
-        locallyHosted=True,
         thisServer=True,
+        server=None,
+        extras={},
     ):
 
-        super(TestCalendarStoreDirectoryRecord, self).__init__(uid, shortNames, fullName)
-        self.uid = uid
-        self.shortNames = shortNames
-        self.fullName = fullName
-        self.displayName = self.fullName if self.fullName else self.shortNames[0]
+        super(TestCalendarStoreDirectoryRecord, self).__init__(uid, shortNames, fullName, thisServer, server, extras=extras)
         self.calendarUserAddresses = calendarUserAddresses
         self.cutype = cutype
-        self._locallyHosted = locallyHosted
-        self._thisServer = thisServer
 
 
     def canonicalCalendarUserAddress(self):
@@ -90,14 +85,6 @@ class TestCalendarStoreDirectoryRecord(TestStoreDirectoryRecord):
             elif candidate.startswith("mailto:"):
                 cua = candidate
         return cua
-
-
-    def locallyHosted(self):
-        return self._locallyHosted
-
-
-    def thisServer(self):
-        return self._thisServer
 
 
     def calendarsEnabled(self):
@@ -154,15 +141,52 @@ def buildDirectory(homes=None):
     homes.update((
         "home1",
         "home2",
-        "Home_attachments",
+        "home3",
+        "home_attachments",
         "home_bad",
         "home_defaults",
         "home_no_splits",
+        "home_provision1",
+        "home_provision2",
         "home_splits",
         "home_splits_shared",
+        "uid1",
+        "uid2",
+        "new-home",
+        "xyzzy",
     ))
     for uid in homes:
         directory.addRecord(buildDirectoryRecord(uid))
+
+    # Structured Locations
+    directory.addRecord(TestCalendarStoreDirectoryRecord(
+        "il1", ("il1",), "1 Infinite Loop", [],
+        extras={
+            "geo" : "37.331741,-122.030333",
+            "streetAddress" : "1 Infinite Loop, Cupertino, CA 95014",
+        }
+    ))
+    directory.addRecord(TestCalendarStoreDirectoryRecord(
+        "il2", ("il2",), "2 Infinite Loop", [],
+        extras={
+            "geo" : "37.332633,-122.030502",
+            "streetAddress" : "2 Infinite Loop, Cupertino, CA 95014",
+        }
+    ))
+    directory.addRecord(TestCalendarStoreDirectoryRecord(
+        "room1", ("room1",), "Conference Room One",
+        frozenset(("urn:uuid:room1",)),
+        extras={
+            "associatedAddress" : "il1",
+        }
+    ))
+    directory.addRecord(TestCalendarStoreDirectoryRecord(
+        "room2", ("room2",), "Conference Room Two",
+        frozenset(("urn:uuid:room2",)),
+        extras={
+            "associatedAddress" : "il2",
+        }
+    ))
 
     return directory
 

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,15 +35,18 @@ class match(object):
         self.value = value
         self.matchType = matchType
 
+
     def generate(self):
         return {
-            dsattributes.eDSExact :        "(%s=%s)",
-            dsattributes.eDSStartsWith :   "(%s=%s*)",
-            dsattributes.eDSEndsWith :     "(%s=*%s)",
-            dsattributes.eDSContains :     "(%s=*%s*)",
-            dsattributes.eDSLessThan :     "(%s<%s)",
-            dsattributes.eDSGreaterThan :  "(%s>%s)",
+            dsattributes.eDSExact: "(%s=%s)",
+            dsattributes.eDSStartsWith: "(%s=%s*)",
+            dsattributes.eDSEndsWith: "(%s=*%s)",
+            dsattributes.eDSContains: "(%s=*%s*)",
+            dsattributes.eDSLessThan: "(%s<%s)",
+            dsattributes.eDSGreaterThan : "(%s>%s)",
         }.get(self.matchType, "(%s=*%s*)") % (self.attribute, self.value,)
+
+
 
 class expression(object):
     """
@@ -53,13 +56,14 @@ class expression(object):
     """
 
     AND = "&"
-    OR  = "|"
+    OR = "|"
     NOT = "!"
 
     def __init__(self, operator, subexpressions):
         assert(operator == expression.AND or operator == expression.OR or operator == expression.NOT)
         self.operator = operator
         self.subexpressions = subexpressions
+
 
     def generate(self):
         result = ""
@@ -80,7 +84,7 @@ class expression(object):
 
 
 # Do some tests
-if __name__=='__main__':
+if __name__ == '__main__':
     exprs = (
         (expression(
             expression.AND, (
@@ -106,26 +110,26 @@ if __name__=='__main__':
             )
         ), "(ServicesLocator=*GUID:VGUID:calendar*)"),
         (expression(
-            expression.NOT, match(dsattributes.kDSNAttrNickName, "", dsattributes.eDSStartsWith )
+            expression.NOT, match(dsattributes.kDSNAttrNickName, "", dsattributes.eDSStartsWith)
         ), "(!(" + dsattributes.kDSNAttrNickName + "=*))"),
         (expression(
             expression.AND, (
                expression(
-                    expression.NOT, match(dsattributes.kDSNAttrNickName, "Billy", dsattributes.eDSContains )
+                    expression.NOT, match(dsattributes.kDSNAttrNickName, "Billy", dsattributes.eDSContains)
                ),
                expression(
-                    expression.NOT, match(dsattributes.kDSNAttrEMailAddress, "Billy", dsattributes.eDSContains )
+                    expression.NOT, match(dsattributes.kDSNAttrEMailAddress, "Billy", dsattributes.eDSContains)
                ),
             ),
         ), "(&(!(" + dsattributes.kDSNAttrNickName + "=*Billy*))(!(" + dsattributes.kDSNAttrEMailAddress + "=*Billy*)))"),
         (expression(
             expression.NOT, expression(
                     expression.OR, (
-                        match(dsattributes.kDSNAttrNickName, "", dsattributes.eDSStartsWith ),
-                        match(dsattributes.kDSNAttrEMailAddress, "", dsattributes.eDSStartsWith ),
+                        match(dsattributes.kDSNAttrNickName, "", dsattributes.eDSStartsWith),
+                        match(dsattributes.kDSNAttrEMailAddress, "", dsattributes.eDSStartsWith),
                     ),
             ),
-        ), "(!(|("+dsattributes.kDSNAttrNickName+"=*)("+dsattributes.kDSNAttrEMailAddress+"=*)))"),
+        ), "(!(|(" + dsattributes.kDSNAttrNickName + "=*)(" + dsattributes.kDSNAttrEMailAddress + "=*)))"),
     )
 
     for expr, result in exprs:

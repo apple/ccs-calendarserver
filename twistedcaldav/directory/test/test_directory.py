@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -119,7 +119,6 @@ class GroupMembershipTests (TestCase):
         Update a counter in the following test
         """
         self.count += 1
-
 
 
     def test_expandedMembers(self):
@@ -540,6 +539,166 @@ class GroupMembershipTests (TestCase):
                 groups,
             )
 
+        #
+        # Now remove all external assignments, and those should take effect.
+        #
+        def fakeExternalProxiesEmpty():
+            return []
+
+        updater = GroupMembershipCacheUpdater(
+            calendaruserproxy.ProxyDBService, self.directoryService, 30, 30, 30,
+            cache=cache, useExternalProxies=True,
+            externalProxiesSource=fakeExternalProxiesEmpty)
+
+        yield updater.updateCache()
+
+        delegates = (
+
+            # record name
+            # read-write delegators
+            # read-only delegators
+            # groups delegate is in (restricted to only those groups
+            #   participating in delegation)
+
+            # Note: "transporter" is now gone for everyone
+
+            ("wsanchez",
+             set(["mercury", "apollo", "orion", "gemini"]),
+             set(["non_calendar_proxy"]),
+             set(['left_coast',
+                  'both_coasts',
+                  'recursive1_coasts',
+                  'recursive2_coasts',
+                  'gemini#calendar-proxy-write',
+                ]),
+            ),
+            ("cdaboo",
+             set(["apollo", "orion", "non_calendar_proxy"]),
+             set(["non_calendar_proxy"]),
+             set(['both_coasts',
+                  'non_calendar_group',
+                  'recursive1_coasts',
+                  'recursive2_coasts',
+                ]),
+            ),
+            ("lecroy",
+             set(["apollo", "mercury", "non_calendar_proxy"]),
+             set(),
+             set(['both_coasts',
+                  'left_coast',
+                      'non_calendar_group',
+                ]),
+            ),
+        )
+
+        for name, write, read, groups in delegates:
+            delegate = self._getPrincipalByShortName(DirectoryService.recordType_users, name)
+
+            proxyFor = (yield delegate.proxyFor(True))
+            self.assertEquals(
+                set([p.record.guid for p in proxyFor]),
+                write,
+            )
+            proxyFor = (yield delegate.proxyFor(False))
+            self.assertEquals(
+                set([p.record.guid for p in proxyFor]),
+                read,
+            )
+            groupsIn = (yield delegate.groupMemberships())
+            uids = set()
+            for group in groupsIn:
+                try:
+                    uid = group.uid # a sub-principal
+                except AttributeError:
+                    uid = group.record.guid # a regular group
+                uids.add(uid)
+            self.assertEquals(
+                set(uids),
+                groups,
+            )
+
+        #
+        # Now add back an external assignments, and those should take effect.
+        #
+        def fakeExternalProxiesAdded():
+            return [
+                (
+                    "transporter#calendar-proxy-write",
+                    set(["8B4288F6-CC82-491D-8EF9-642EF4F3E7D0"])
+                ),
+            ]
+
+        updater = GroupMembershipCacheUpdater(
+            calendaruserproxy.ProxyDBService, self.directoryService, 30, 30, 30,
+            cache=cache, useExternalProxies=True,
+            externalProxiesSource=fakeExternalProxiesAdded)
+
+        yield updater.updateCache()
+
+        delegates = (
+
+            # record name
+            # read-write delegators
+            # read-only delegators
+            # groups delegate is in (restricted to only those groups
+            #   participating in delegation)
+
+            ("wsanchez",
+             set(["mercury", "apollo", "orion", "gemini"]),
+             set(["non_calendar_proxy"]),
+             set(['left_coast',
+                  'both_coasts',
+                  'recursive1_coasts',
+                  'recursive2_coasts',
+                  'gemini#calendar-proxy-write',
+                ]),
+            ),
+            ("cdaboo",
+             set(["apollo", "orion", "non_calendar_proxy"]),
+             set(["non_calendar_proxy"]),
+             set(['both_coasts',
+                  'non_calendar_group',
+                  'recursive1_coasts',
+                  'recursive2_coasts',
+                ]),
+            ),
+            ("lecroy",
+             set(["apollo", "mercury", "non_calendar_proxy", "transporter"]),
+             set(),
+             set(['both_coasts',
+                  'left_coast',
+                  'non_calendar_group',
+                  'transporter#calendar-proxy-write',
+                ]),
+            ),
+        )
+
+        for name, write, read, groups in delegates:
+            delegate = self._getPrincipalByShortName(DirectoryService.recordType_users, name)
+
+            proxyFor = (yield delegate.proxyFor(True))
+            self.assertEquals(
+                set([p.record.guid for p in proxyFor]),
+                write,
+            )
+            proxyFor = (yield delegate.proxyFor(False))
+            self.assertEquals(
+                set([p.record.guid for p in proxyFor]),
+                read,
+            )
+            groupsIn = (yield delegate.groupMemberships())
+            uids = set()
+            for group in groupsIn:
+                try:
+                    uid = group.uid # a sub-principal
+                except AttributeError:
+                    uid = group.record.guid # a regular group
+                uids.add(uid)
+            self.assertEquals(
+                set(uids),
+                groups,
+            )
+
 
     def test_diffAssignments(self):
         """
@@ -729,7 +888,7 @@ class GroupMembershipTests (TestCase):
         }
         members = pickle.loads(snapshotFile.getContent())
         self.assertEquals(members, expected)
-        
+
         # "Corrupt" the snapshot and verify it is regenerated properly
         snapshotFile.setContent("xyzzy")
         cache.delete("group-cacher-populated")
@@ -740,7 +899,7 @@ class GroupMembershipTests (TestCase):
         self.assertTrue(snapshotFile.exists())
         members = pickle.loads(snapshotFile.getContent())
         self.assertEquals(members, expected)
-        
+
 
     def test_autoAcceptMembers(self):
         """
@@ -766,6 +925,7 @@ class GroupMembershipTests (TestCase):
             ])
         )
 
+
     @inlineCallbacks
     def testScheduling(self):
         """
@@ -773,6 +933,7 @@ class GroupMembershipTests (TestCase):
         """
 
         groupCacher = StubGroupCacher()
+
 
         def decorateTransaction(txn):
             txn._groupCacher = groupCacher
@@ -785,13 +946,17 @@ class GroupMembershipTests (TestCase):
 
     testScheduling.skip = "Fix WorkProposal to track delayed calls and cancel them"
 
+
+
 class StubGroupCacher(object):
     def __init__(self):
         self.called = False
         self.updateSeconds = 99
 
+
     def updateCache(self):
         self.called = True
+
 
 
 class RecordsMatchingTokensTests(TestCase):
@@ -834,8 +999,9 @@ class RecordsMatchingTokensTests(TestCase):
         Exercise the default recordsMatchingTokens implementation
         """
         records = list((yield self.directoryService.recordsMatchingTokens(["Use", "01"])))
-        self.assertEquals(len(records), 1)
-        self.assertEquals(records[0].shortNames[0], "user01")
+        self.assertNotEquals(len(records), 0)
+        shorts = [record.shortNames[0] for record in records]
+        self.assertTrue("user01" in shorts)
 
         records = list((yield self.directoryService.recordsMatchingTokens(['"quotey"'],
             context=self.directoryService.searchContext_attendee)))
@@ -876,6 +1042,7 @@ class RecordsMatchingTokensTests(TestCase):
             ]),
             set(self.directoryService.recordTypesForSearchContext("attendee"))
         )
+
 
 
 class GUIDTests(TestCase):

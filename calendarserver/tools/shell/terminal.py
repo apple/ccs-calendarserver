@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,12 +38,11 @@ from shlex import shlex
 from twisted.python.failure import Failure
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options, UsageError
-from twisted.internet.defer import Deferred
+from twisted.internet.defer import Deferred, succeed
 from twisted.internet.defer import inlineCallbacks
 from twisted.internet.stdio import StandardIO
 from twisted.conch.recvline import HistoricRecvLine as ReceiveLineProtocol
 from twisted.conch.insults.insults import ServerProtocol
-from twisted.application.service import Service
 
 from twext.python.log import Logger
 
@@ -51,7 +50,7 @@ from txdav.common.icommondatastore import NotFoundError
 
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 
-from calendarserver.tools.cmdline import utilityMain
+from calendarserver.tools.cmdline import utilityMain, WorkerService
 from calendarserver.tools.util import getDirectory
 from calendarserver.tools.shell.cmd import Commands, UsageError as CommandUsageError
 
@@ -71,6 +70,7 @@ def usage(e=None):
         sys.exit(64)
     else:
         sys.exit(0)
+
 
 
 class ShellOptions(Options):
@@ -95,7 +95,7 @@ class ShellOptions(Options):
 
 
 
-class ShellService(Service, object):
+class ShellService(WorkerService, object):
     """
     A L{ShellService} collects all the information that a shell needs to run;
     when run, it invokes the shell on stdin/stdout.
@@ -117,21 +117,19 @@ class ShellService(Service, object):
     """
 
     def __init__(self, store, directory, options, reactor, config):
-        super(ShellService, self).__init__()
-        self.store      = store
-        self.directory  = directory
-        self.options    = options
-        self.reactor    = reactor
-        self.config     = config
+        super(ShellService, self).__init__(store)
+        self.directory = directory
+        self.options = options
+        self.reactor = reactor
+        self.config = config
         self.terminalFD = None
-        self.protocol   = None
+        self.protocol = None
 
 
-    def startService(self):
+    def doWork(self):
         """
-        Start the service.
+        Service startup.
         """
-        super(ShellService, self).startService()
 
         # Set up the terminal for interactive action
         self.terminalFD = sys.__stdin__.fileno()
@@ -140,6 +138,14 @@ class ShellService(Service, object):
 
         self.protocol = ServerProtocol(lambda: ShellProtocol(self))
         StandardIO(self.protocol)
+        return succeed(None)
+
+
+    def postStartService(self):
+        """
+        Don't quit right away
+        """
+        pass
 
 
     def stopService(self):
@@ -176,6 +182,7 @@ class ShellProtocol(ReceiveLineProtocol):
         self.activeCommand = None
         self.emulate = "emacs"
 
+
     def reloadCommands(self):
         # FIXME: doesn't work for alternative Commands classes passed
         # to __init__.
@@ -184,6 +191,7 @@ class ShellProtocol(ReceiveLineProtocol):
         import calendarserver.tools.shell.cmd
         reload(calendarserver.tools.shell.cmd)
         self.commands = calendarserver.tools.shell.cmd.Commands(self)
+
 
     #
     # Input handling
@@ -196,7 +204,7 @@ class ShellProtocol(ReceiveLineProtocol):
         self.keyHandlers['\x04'] = self.handle_EOF   # Control-D
         self.keyHandlers['\x1c'] = self.handle_QUIT  # Control-\
         self.keyHandlers['\x0c'] = self.handle_FF    # Control-L
-       #self.keyHandlers['\t'  ] = self.handle_TAB   # Tab
+        #self.keyHandlers['\t'  ] = self.handle_TAB   # Tab
 
         if self.emulate == "emacs":
             # EMACS key bindinds
@@ -219,8 +227,10 @@ class ShellProtocol(ReceiveLineProtocol):
 
         log.startLoggingWithObserver(observer)
 
+
     def handle_INT(self):
         return self.resetInputLine()
+
 
     def handle_EOF(self):
         if self.lineBuffer:
@@ -231,6 +241,7 @@ class ShellProtocol(ReceiveLineProtocol):
         else:
             self.handle_QUIT()
 
+
     def handle_FF(self):
         """
         Handle a "form feed" byte - generally used to request a screen
@@ -239,11 +250,14 @@ class ShellProtocol(ReceiveLineProtocol):
         # FIXME: Clear screen != redraw screen.
         return self.clearScreen()
 
+
     def handle_QUIT(self):
         return self.exit()
 
+
     def handle_TAB(self):
         return self.completeLine()
+
 
     #
     # Utilities
@@ -257,6 +271,7 @@ class ShellProtocol(ReceiveLineProtocol):
         self.terminal.cursorHome()
         self.drawInputLine()
 
+
     def resetInputLine(self):
         """
         Reset the current input variables to their initial state.
@@ -266,6 +281,7 @@ class ShellProtocol(ReceiveLineProtocol):
         self.lineBufferIndex = 0
         self.terminal.nextLine()
         self.drawInputLine()
+
 
     @inlineCallbacks
     def completeLine(self):
@@ -280,7 +296,7 @@ class ShellProtocol(ReceiveLineProtocol):
                 word = ""
             else:
                 word = tokens[-1]
-            cmd  = tokens.pop(0)
+            cmd = tokens.pop(0)
         else:
             word = cmd = ""
 
@@ -313,12 +329,14 @@ class ShellProtocol(ReceiveLineProtocol):
                 self.terminal.write("%s%s\n" % (word, completion))
             self.drawInputLine()
 
+
     def exit(self):
         """
         Exit.
         """
         self.terminal.loseConnection()
         self.service.reactor.stop()
+
 
     def handleFailure(self, f):
         """
@@ -331,6 +349,7 @@ class ShellProtocol(ReceiveLineProtocol):
         if not f.check(NotImplementedError, NotFoundError):
             log.info(f.getTraceback())
         self.resetInputLine()
+
 
     #
     # Command dispatch
@@ -381,6 +400,7 @@ class ShellProtocol(ReceiveLineProtocol):
         else:
             self.drawInputLine()
 
+
     @staticmethod
     def tokenize(line):
         """
@@ -400,6 +420,7 @@ class ShellProtocol(ReceiveLineProtocol):
         return tokens
 
 
+
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
     if reactor is None:
         from twisted.internet import reactor
@@ -409,6 +430,7 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
         options.parseOptions(argv[1:])
     except UsageError, e:
         usage(e)
+
 
     def makeService(store):
         from twistedcaldav.config import config

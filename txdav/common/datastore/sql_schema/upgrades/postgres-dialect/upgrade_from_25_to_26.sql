@@ -1,5 +1,5 @@
 ----
--- Copyright (c) 2012-2013 Apple Inc. All rights reserved.
+-- Copyright (c) 2012-2014 Apple Inc. All rights reserved.
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -18,84 +18,14 @@
 -- Upgrade database schema from VERSION 25 to 26 --
 ---------------------------------------------------
 
--- New tables
+-- Replace index
+drop index CALENDAR_OBJECT_REVISIONS_RESOURCE_ID_RESOURCE_NAME;
+create index CALENDAR_OBJECT_REVISIONS_RESOURCE_ID_RESOURCE_NAME_DELETED_REVISION
+  on CALENDAR_OBJECT_REVISIONS(CALENDAR_RESOURCE_ID, RESOURCE_NAME, DELETED, REVISION);
 
----------------------------
--- Schedule Refresh Work --
----------------------------
-
-create table SCHEDULE_REFRESH_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
-  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  ICALENDAR_UID        			varchar(255) not null,
-  HOME_RESOURCE_ID              integer      not null references CALENDAR_HOME on delete cascade,
-  RESOURCE_ID                   integer      not null references CALENDAR_OBJECT on delete cascade
-);
-
-create index SCHEDULE_REFRESH_WORK_HOME_RESOURCE_ID on
-	SCHEDULE_REFRESH_WORK(HOME_RESOURCE_ID);
-create index SCHEDULE_REFRESH_WORK_RESOURCE_ID on
-	SCHEDULE_REFRESH_WORK(RESOURCE_ID);
-
-create table SCHEDULE_REFRESH_ATTENDEES (
-  RESOURCE_ID                   integer      not null references CALENDAR_OBJECT on delete cascade,
-  ATTENDEE			            varchar(255) not null
-);
-
-create index SCHEDULE_REFRESH_ATTENDEES_RESOURCE_ID_ATTENDEE on
-	SCHEDULE_REFRESH_ATTENDEES(RESOURCE_ID, ATTENDEE);
-
-------------------------------
--- Schedule Auto Reply Work --
-------------------------------
-
-create table SCHEDULE_AUTO_REPLY_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
-  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  ICALENDAR_UID        			varchar(255) not null,
-  HOME_RESOURCE_ID              integer      not null references CALENDAR_HOME on delete cascade,
-  RESOURCE_ID                   integer      not null references CALENDAR_OBJECT on delete cascade,
-  PARTSTAT						varchar(255) not null
-);
-
-create index SCHEDULE_AUTO_REPLY_WORK_HOME_RESOURCE_ID on
-	SCHEDULE_AUTO_REPLY_WORK(HOME_RESOURCE_ID);
-create index SCHEDULE_AUTO_REPLY_WORK_RESOURCE_ID on
-	SCHEDULE_AUTO_REPLY_WORK(RESOURCE_ID);
-
--------------------------
--- Schedule Reply Work --
--------------------------
-
-create table SCHEDULE_REPLY_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
-  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  ICALENDAR_UID        			varchar(255) not null,
-  HOME_RESOURCE_ID              integer      not null references CALENDAR_HOME on delete cascade,
-  RESOURCE_ID                   integer      not null references CALENDAR_OBJECT on delete cascade,
-  CHANGED_RIDS       			text
-);
-
-create index SCHEDULE_REPLY_WORK_HOME_RESOURCE_ID on
-	SCHEDULE_REPLY_WORK(HOME_RESOURCE_ID);
-create index SCHEDULE_REPLY_WORK_RESOURCE_ID on
-	SCHEDULE_REPLY_WORK(RESOURCE_ID);
-
---------------------------------
--- Schedule Reply Cancel Work --
---------------------------------
-
-create table SCHEDULE_REPLY_CANCEL_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
-  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  ICALENDAR_UID        			varchar(255) not null,
-  HOME_RESOURCE_ID              integer      not null references CALENDAR_HOME on delete cascade,
-  ICALENDAR_TEXT       			text         not null
-);
-
-create index SCHEDULE_REPLY_CANCEL_WORK_HOME_RESOURCE_ID on
-	SCHEDULE_REPLY_CANCEL_WORK(HOME_RESOURCE_ID);
-
+drop index ADDRESSBOOK_OBJECT_REVISIONS_OWNER_HOME_RESOURCE_ID_RESOURCE_NAME;
+create index ADDRESSBOOK_OBJECT_REVISIONS_OWNER_HOME_RESOURCE_ID_RESOURCE_NAME_DELETED_REVISION
+  on ADDRESSBOOK_OBJECT_REVISIONS(OWNER_HOME_RESOURCE_ID, RESOURCE_NAME, DELETED, REVISION);
 
 -- Now update the version
 -- No data upgrades

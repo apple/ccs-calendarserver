@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,8 +18,8 @@ from __future__ import print_function
 from twistedcaldav.directory.directory import DirectoryService
 
 from txdav.xml import element as davxml
-from twext.web2.dav.resource import AccessDeniedError
-from twext.web2.test.test_server import SimpleRequest
+from txweb2.dav.resource import AccessDeniedError
+from txweb2.test.test_server import SimpleRequest
 
 from twistedcaldav.directory.test.util import maybeCommit
 from twistedcaldav.test.util import TestCase, xmlFile
@@ -52,7 +52,7 @@ class ProvisionedPrincipals(TestCase):
         newUID = "38D8AC00-5490-4425-BE3A-05FFB9862444"
 
         homeResource = "/calendars/users/cdaboo/"
-        
+
         def privs1(result):
             # Change GUID in record
             self.xmlFile.setContent(
@@ -65,10 +65,10 @@ class ProvisionedPrincipals(TestCase):
 
             # Now force the calendar home resource to be reset
             self.resetCalendars()
-            
+
             # Make sure new user cannot access old user's calendar home
             return self._checkPrivileges(None, homeResource, davxml.HRef("/principals/__uids__/" + newUID + "/"), davxml.Write, False)
-            
+
         # Make sure current user has access to their calendar home
         d = self._checkPrivileges(None, homeResource, davxml.HRef("/principals/__uids__/" + oldUID + "/"), davxml.Write, True)
         d.addCallback(privs1)

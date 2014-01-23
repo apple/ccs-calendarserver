@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.base.datastore.test.test_subpostgres -*-
 # #
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -167,7 +167,7 @@ class PostgresService(MultiService):
     def __init__(self, dataStoreDirectory, subServiceFactory,
                  schema, resetSchema=False, databaseName='subpostgres',
                  clusterName="cluster",
-                 logFile="postgres.log", socketDir="/tmp",
+                 logFile="postgres.log", socketDir="",
                  listenAddresses=[], sharedBuffers=30,
                  maxConnections=20, options=[],
                  testMode=False,
@@ -223,20 +223,15 @@ class PostgresService(MultiService):
             self.host, self.port = listenAddresses[0].split(":") if ":" in listenAddresses[0] else (listenAddresses[0], None,)
             self.listenAddresses = [addr.split(":")[0] for addr in listenAddresses]
         else:
-            if socketDir:
-                # Unix socket length path limit
-                self.socketDir = CachingFilePath("%s/ccs_postgres_%s/" %
-                    (socketDir, md5(dataStoreDirectory.path).hexdigest()))
-                if len(self.socketDir.path) > 64:
-                    socketDir = "/tmp"
-                    self.socketDir = CachingFilePath("/tmp/ccs_postgres_%s/" %
-                        (md5(dataStoreDirectory.path).hexdigest()))
-                self.host = self.socketDir.path
-                self.port = None
-            else:
-                self.socketDir = None
-                self.host = "localhost"
-                self.port = None
+            if not socketDir:
+                # Socket directory was not specified, so come up with one
+                # in /tmp and based on a hash of the data store directory
+                digest = md5(dataStoreDirectory.path).hexdigest()
+                socketDir = "/tmp/ccs_postgres_" + digest
+
+            self.socketDir = CachingFilePath(socketDir)
+            self.host = self.socketDir.path
+            self.port = None
             self.listenAddresses = []
         self.sharedBuffers = sharedBuffers if not testMode else 16
         self.maxConnections = maxConnections if not testMode else 4
@@ -454,6 +449,10 @@ class PostgresService(MultiService):
             self.deactivateDelayedShutdown()
 
         def gotReady(result):
+            """
+            We started postgres; we're responsible for stopping it later.
+            Call pgCtl status to get the pid.
+            """
             log.warn("{cmd} exited", cmd=pgCtl)
             self.shouldStopDatabase = True
             d = Deferred()
@@ -465,13 +464,32 @@ class PostgresService(MultiService):
             )
             return d.addCallback(gotStatus)
 
-        def reportit(f):
-            log.failure("starting postgres", f)
+        def couldNotStart(f):
+            """
+            There was an error trying to start postgres.  Try to connect
+            because it might already be running.  In this case, we won't
+            be the one to stop it.
+            """
+            d = Deferred()
+            statusMonitor = CapturingProcessProtocol(d, None)
+            self.reactor.spawnProcess(
+                statusMonitor, pgCtl, [pgCtl, "status"],
+                env=self.env, path=self.workingDir.path,
+                uid=self.uid, gid=self.gid,
+            )
+            return d.addCallback(gotStatus).addErrback(giveUp)
+
+        def giveUp(f):
+            """
+            We can't start postgres or connect to a running instance.  Shut
+            down.
+            """
+            log.failure("Can't start or connect to postgres", f)
             self.deactivateDelayedShutdown()
             self.reactor.stop()
 
         self.monitor.completionDeferred.addCallback(
-            gotReady).addErrback(reportit)
+            gotReady).addErrback(couldNotStart)
 
     shouldStopDatabase = False
 

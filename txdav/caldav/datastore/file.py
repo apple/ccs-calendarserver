@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.caldav.datastore.test.test_file -*-
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,14 +35,14 @@ from errno import ENOENT
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed, fail
 
-from twext.python.vcomponent import VComponent
+from twistedcaldav.ical import Component as VComponent
 from txdav.xml import element as davxml
 from txdav.xml.rfc2518 import GETContentType
-from twext.web2.dav.resource import TwistedGETContentMD5
-from twext.web2.http_headers import generateContentType, MimeType
+from txweb2.dav.resource import TwistedGETContentMD5
+from txweb2.http_headers import generateContentType, MimeType
 
-from twistedcaldav import caldavxml, customxml
-from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
+from twistedcaldav import caldavxml, customxml, ical
+from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque, Transparent
 from twistedcaldav.config import config
 from twistedcaldav.ical import InvalidICalendarDataError
 
@@ -78,11 +78,21 @@ CalendarStoreTransaction = CommonStoreTransaction
 
 IGNORE_NAMES = ('dropbox', 'notification', 'freebusy')
 
+
+
 class CalendarHome(CommonHome):
     implements(ICalendarHome)
 
     _topPath = "calendars"
     _notifierPrefix = "CalDAV"
+
+    _componentCalendarName = {
+        "VEVENT": "calendar",
+        "VTODO": "tasks",
+        "VJOURNAL": "journals",
+        "VAVAILABILITY": "available",
+        "VPOLL": "polls",
+    }
 
     def __init__(self, uid, path, calendarStore, transaction):
         super(CalendarHome, self).__init__(uid, path, calendarStore, transaction)
@@ -128,7 +138,7 @@ class CalendarHome(CommonHome):
     @inlineCallbacks
     def hasCalendarResourceUIDSomewhereElse(self, uid, ok_object, type):
 
-        objectResources = (yield self.objectResourcesWithUID(uid, ("inbox",)))
+        objectResources = (yield self.getCalendarResourcesForUID(uid))
         for objectResource in objectResources:
             if ok_object and objectResource._path == ok_object._path:
                 continue
@@ -140,14 +150,9 @@ class CalendarHome(CommonHome):
 
 
     @inlineCallbacks
-    def getCalendarResourcesForUID(self, uid, allow_shared=False):
+    def getCalendarResourcesForUID(self, uid):
 
-        results = []
-        objectResources = (yield self.objectResourcesWithUID(uid, ("inbox",)))
-        for objectResource in objectResources:
-            if allow_shared or objectResource._parentCollection.owned():
-                results.append(objectResource)
-
+        results = (yield self.objectResourcesWithUID(uid, ("inbox",)))
         returnValue(results)
 
 
@@ -182,19 +187,18 @@ class CalendarHome(CommonHome):
 
     def createdHome(self):
 
-        # Default calendar
-        defaultCal = self.createCalendarWithName("calendar")
-        props = defaultCal.properties()
-        props[PropertyName(*ScheduleCalendarTransp.qname())] = ScheduleCalendarTransp(Opaque())
-
         # Check whether components type must be separate
         if config.RestrictCalendarsToOneComponentType:
-            defaultCal.setSupportedComponents("VEVENT")
-
-            # Default tasks
-            defaultTasks = self.createCalendarWithName("tasks")
-            props = defaultTasks.properties()
-            defaultTasks.setSupportedComponents("VTODO")
+            for name in ical.allowedStoreComponents:
+                cal = self.createCalendarWithName(self._componentCalendarName[name])
+                cal.setSupportedComponents(name)
+                props = cal.properties()
+                if name not in ("VEVENT", "VAVAILABILITY",):
+                    props[PropertyName(*ScheduleCalendarTransp.qname())] = ScheduleCalendarTransp(Transparent())
+                else:
+                    props[PropertyName(*ScheduleCalendarTransp.qname())] = ScheduleCalendarTransp(Opaque())
+        else:
+            cal = self.createCalendarWithName("calendar")
 
         self.createCalendarWithName("inbox")
 

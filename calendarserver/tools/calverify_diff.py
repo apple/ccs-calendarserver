@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- test-case-name: calendarserver.tools.test.test_calverify -*-
 ##
-# Copyright (c) 2012-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2012-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import os
 
 
 def analyze(fname):
-    
+
     lines = open(os.path.expanduser(fname)).read().splitlines()
     total = len(lines)
     ctr = 0
@@ -56,8 +56,10 @@ def analyze(fname):
         elif line.startswith("Attendee events mismatched in Organizer's calendar"):
             ctr = _tableParser(ctr, "table4", parseTableMismatch)
         ctr += 1
-    
+
     return results
+
+
 
 def parseTableMissing(line):
     splits = line.split("|")
@@ -66,6 +68,8 @@ def parseTableMissing(line):
     uid = splits[3].strip()
     resid = splits[4].strip()
     return (organizer, attendee, uid, resid,)
+
+
 
 def parseTableMismatch(line):
     splits = line.split("|")
@@ -76,34 +80,40 @@ def parseTableMismatch(line):
     attendee_resid = splits[7].strip()
     return (organizer, attendee, uid, organizer_resid, attendee_resid,)
 
+
+
 def diff(results1, results2):
-    
+
     print("\n\nEvents missing from Attendee's calendars")
     diffSets(results1["table1"], results2["table1"])
-    
+
     print("\n\nEvents mismatched between Organizer's and Attendee's calendars")
     diffSets(results1["table2"], results2["table2"])
-    
+
     print("\n\nAttendee events missing in Organizer's calendar")
     diffSets(results1["table3"], results2["table3"])
-    
+
     print("\n\nAttendee events mismatched in Organizer's calendar")
     diffSets(results1["table4"], results2["table4"])
 
+
+
 def diffSets(results1, results2):
-    
+
     s1 = set(results1)
     s2 = set(results2)
-    
+
     d = s1 - s2
     print("\nIn first, not in second: (%d)" % (len(d),))
     for i in sorted(d):
         print(i)
-    
+
     d = s2 - s1
     print("\nIn second, not in first: (%d)" % (len(d),))
     for i in sorted(d):
         print(i)
+
+
 
 def usage(error_msg=None):
     if error_msg:

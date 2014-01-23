@@ -1,6 +1,6 @@
-# -*- test-case-name: twext.web2.dav.test.test_prop.PROP.test_PROPFIND -*-
+# -*- test-case-name: txweb2.dav.test.test_prop.PROP.test_PROPFIND -*-
 ##
-# Copyright (c) 2005-2013 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -29,13 +29,13 @@ __all__ = ["http_PROPFIND"]
 
 from twisted.python.failure import Failure
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twext.web2.http import HTTPError
-from twext.web2 import responsecode
-from twext.web2.http import StatusResponse
+from txweb2.http import HTTPError
+from txweb2 import responsecode
+from txweb2.http import StatusResponse
 from txdav.xml import element as davxml
-from twext.web2.dav.http import MultiStatusResponse, statusForFailure, \
+from txweb2.dav.http import MultiStatusResponse, statusForFailure, \
     ErrorResponse
-from twext.web2.dav.util import normalizeURL, davXMLFromStream, parentForURL
+from txweb2.dav.util import normalizeURL, davXMLFromStream, parentForURL
 
 from twext.python.log import Logger
 
@@ -98,7 +98,7 @@ def http_PROPFIND(self, request):
             search_properties = "names"
         elif isinstance(container, davxml.PropertyContainer):
             properties = container.children
-            search_properties = [(p.namespace, p.name) for p in properties]
+            search_properties = properties
         else:
             raise AssertionError("Unexpected element type in %s: %s"
                                  % (davxml.PropertyFind.sname(), container))
@@ -245,7 +245,11 @@ def http_PROPFIND(self, request):
 # Utilities
 ##
 
-def propertyName(name):
+def propertyName(prop):
+    if type(prop) is tuple:
+        name = prop
+    else:
+        name = prop.qname()
     property_namespace, property_name = name
     pname = davxml.WebDAVUnknownElement()
     pname.namespace = property_namespace

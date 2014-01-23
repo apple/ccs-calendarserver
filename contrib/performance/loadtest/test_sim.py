@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -253,7 +253,7 @@ class LoadSimulatorTests(TestCase):
         exc = self.assertRaises(
             SystemExit, StubSimulator.main, ['--config', config.path])
         self.assertEquals(
-            exc.args, (StubSimulator(None, None, None, None, None, None).run(),))
+            exc.args, (StubSimulator(None, None, None, None, None, None, None).run(),))
 
 
     def test_createSimulator(self):
@@ -264,7 +264,7 @@ class LoadSimulatorTests(TestCase):
         """
         server = 'http://127.0.0.7:1243/'
         reactor = object()
-        sim = LoadSimulator(server, None, None, None, None, None, reactor=reactor)
+        sim = LoadSimulator(server, None, None, None, None, None, None, reactor=reactor)
         calsim = sim.createSimulator()
         self.assertIsInstance(calsim, CalendarClientSimulator)
         self.assertIsInstance(calsim.reactor, LagTrackingReactor)
@@ -447,7 +447,7 @@ class LoadSimulatorTests(TestCase):
 
         reactor = object()
         sim = LoadSimulator(
-            None, None, None, None, Arrival(FakeArrival, {'x': 3, 'y': 2}), None, reactor=reactor)
+            None, None, None, None, None, Arrival(FakeArrival, {'x': 3, 'y': 2}), None, reactor=reactor)
         arrival = sim.createArrivalPolicy()
         self.assertIsInstance(arrival, FakeArrival)
         self.assertIdentical(arrival.reactor, sim.reactor)
@@ -478,7 +478,9 @@ class LoadSimulatorTests(TestCase):
                             "weight": 3,
                             }]}))
 
-        sim = LoadSimulator.fromCommandLine(['--config', config.path])
+        sim = LoadSimulator.fromCommandLine(
+            ['--config', config.path, '--clients', config.path]
+        )
         expectedParameters = PopulationParameters()
         expectedParameters.addClient(
             3, ClientType(OS_X_10_6, {"foo": "bar"}, [ProfileType(Eventer, {
@@ -495,7 +497,9 @@ class LoadSimulatorTests(TestCase):
         """
         config = FilePath(self.mktemp())
         config.setContent(writePlistToString({"clients": []}))
-        sim = LoadSimulator.fromCommandLine(['--config', config.path])
+        sim = LoadSimulator.fromCommandLine(
+            ['--config', config.path, '--clients', config.path]
+        )
         expectedParameters = PopulationParameters()
         expectedParameters.addClient(
             1, ClientType(OS_X_10_6, {}, [Eventer, Inviter, Accepter]))
@@ -526,6 +530,7 @@ class LoadSimulatorTests(TestCase):
         sim = LoadSimulator(
             "http://example.com:123/",
             "/principals/users/%s/",
+            None,
             None,
             None,
             Arrival(lambda reactor: NullArrival(), {}),

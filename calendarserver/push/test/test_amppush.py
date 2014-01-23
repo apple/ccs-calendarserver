@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ from calendarserver.push.amppush import AMPPushMaster, AMPPushNotifierProtocol
 from calendarserver.push.amppush import NotificationForID
 from twistedcaldav.test.util import StoreTestCase
 from twisted.internet.task import Clock
+from calendarserver.push.util import PushPriority
 
 class AMPPushMasterTests(StoreTestCase):
 
@@ -57,27 +58,81 @@ class AMPPushMasterTests(StoreTestCase):
         self.assertTrue(client3.subscribedToID("/CalDAV/localhost/user03/"))
 
         dataChangedTimestamp = 1354815999
-        service.enqueue(None, "/CalDAV/localhost/user01/", dataChangedTimestamp=dataChangedTimestamp)
+        service.enqueue(None, "/CalDAV/localhost/user01/",
+            dataChangedTimestamp=dataChangedTimestamp,
+            priority=PushPriority.high)
         self.assertEquals(len(client1.history), 0)
         self.assertEquals(len(client2.history), 0)
         self.assertEquals(len(client3.history), 0)
         clock.advance(1)
-        self.assertEquals(client1.history, [(NotificationForID, {'id': '/CalDAV/localhost/user01/', 'dataChangedTimestamp': 1354815999})])
+        self.assertEquals(
+            client1.history,
+            [
+                (
+                    NotificationForID,
+                    {
+                        'id'                   : '/CalDAV/localhost/user01/',
+                        'dataChangedTimestamp' : 1354815999,
+                        'priority'             : PushPriority.high.value,
+                    }
+                )
+            ]
+        )
         self.assertEquals(len(client2.history), 0)
         self.assertEquals(len(client3.history), 0)
         clock.advance(3)
-        self.assertEquals(client2.history, [(NotificationForID, {'id': '/CalDAV/localhost/user01/', 'dataChangedTimestamp': 1354815999})])
+        self.assertEquals(
+            client2.history,
+            [
+                (
+                    NotificationForID,
+                    {
+                        'id'                   : '/CalDAV/localhost/user01/',
+                        'dataChangedTimestamp' : 1354815999,
+                        'priority'             : PushPriority.high.value,
+                    }
+                )
+            ]
+        )
+
         self.assertEquals(len(client3.history), 0)
         clock.advance(3)
-        self.assertEquals(client3.history, [(NotificationForID, {'id': '/CalDAV/localhost/user01/', 'dataChangedTimestamp': 1354815999})])
+        self.assertEquals(
+            client3.history,
+            [
+                (
+                    NotificationForID,
+                    {
+                        'id'                   : '/CalDAV/localhost/user01/',
+                        'dataChangedTimestamp' : 1354815999,
+                        'priority'             : PushPriority.high.value,
+                    }
+                )
+            ]
+        )
 
         client1.reset()
         client2.reset()
         client2.unsubscribe("token2", "/CalDAV/localhost/user01/")
-        service.enqueue(None, "/CalDAV/localhost/user01/", dataChangedTimestamp=dataChangedTimestamp)
+        service.enqueue(None, "/CalDAV/localhost/user01/",
+            dataChangedTimestamp=dataChangedTimestamp,
+            priority=PushPriority.low)
         self.assertEquals(len(client1.history), 0)
         clock.advance(1)
-        self.assertEquals(client1.history, [(NotificationForID, {'id': '/CalDAV/localhost/user01/', 'dataChangedTimestamp' : 1354815999})])
+        self.assertEquals(
+            client1.history,
+            [
+                (
+                    NotificationForID,
+                    {
+                        'id'                   : '/CalDAV/localhost/user01/',
+                        'dataChangedTimestamp' : 1354815999,
+                        'priority'             : PushPriority.low.value,
+                    }
+                )
+            ]
+        )
+
         self.assertEquals(len(client2.history), 0)
         clock.advance(3)
         self.assertEquals(len(client2.history), 0)
@@ -87,9 +142,35 @@ class AMPPushMasterTests(StoreTestCase):
         client1.reset()
         client2.reset()
         client2.subscribe("token2", "/CalDAV/localhost/user01/")
-        service.enqueue(None, "/CalDAV/localhost/user01/", dataChangedTimestamp=dataChangedTimestamp)
-        self.assertEquals(client1.history, [(NotificationForID, {'id': '/CalDAV/localhost/user01/', 'dataChangedTimestamp' : 1354815999})])
-        self.assertEquals(client2.history, [(NotificationForID, {'id': '/CalDAV/localhost/user01/', 'dataChangedTimestamp' : 1354815999})])
+        service.enqueue(None, "/CalDAV/localhost/user01/",
+            dataChangedTimestamp=dataChangedTimestamp,
+            priority=PushPriority.medium)
+        self.assertEquals(
+            client1.history,
+            [
+                (
+                    NotificationForID,
+                    {
+                        'id'                   : '/CalDAV/localhost/user01/',
+                        'dataChangedTimestamp' : 1354815999,
+                        'priority'             : PushPriority.medium.value,
+                    }
+                )
+            ]
+        )
+        self.assertEquals(
+            client2.history,
+            [
+                (
+                    NotificationForID,
+                    {
+                        'id'                   : '/CalDAV/localhost/user01/',
+                        'dataChangedTimestamp' : 1354815999,
+                        'priority'             : PushPriority.medium.value,
+                    }
+                )
+            ]
+        )
 
 
 

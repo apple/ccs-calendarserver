@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,12 +14,12 @@
 # limitations under the License.
 ##
 
-from twext.web2 import responsecode
-from twext.web2.dav.util import allDataFromStream
-from twext.web2.http_headers import MimeType
-from twext.web2.iweb import IResponse
+from txweb2 import responsecode
+from txweb2.dav.util import allDataFromStream
+from txweb2.http_headers import MimeType
+from txweb2.iweb import IResponse
 
-from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twistedcaldav import customxml
 from twistedcaldav import sharing
@@ -30,6 +30,7 @@ from twistedcaldav.sharing import WikiDirectoryService
 from twistedcaldav.test.test_cache import StubResponseCacheResource
 from twistedcaldav.test.util import norequest, StoreTestCase, SimpleStoreRequest
 
+from txdav.caldav.datastore.test.util import buildDirectory
 from txdav.common.datastore.sql_tables import _BIND_MODE_DIRECT
 from txdav.xml import element as davxml
 from txdav.xml.parser import WebDAVDocument
@@ -52,8 +53,7 @@ def normalize(x):
 
 
 class FakeHome(object):
-    def removeShareByUID(self, request, uid):
-        pass
+    pass
 
 
 
@@ -105,6 +105,10 @@ class FakePrincipal(DirectoryCalendarPrincipalResource):
         returnValue(b)
 
 
+    def calendarHomeURLs(self):
+        return (self.homepath,)
+
+
     def principalURL(self):
         return self.path
 
@@ -140,22 +144,6 @@ class SharingTests(StoreTestCase):
             """
             self.patch(CalDAVResource, c.__name__, c)
             return c
-
-        @patched
-        def sendInviteNotification(resourceSelf, record, request):
-            """
-            For testing purposes, sending an invite notification succeeds
-            without doing anything.
-            """
-            return succeed(True)
-
-        @patched
-        def removeInviteNotification(resourceSelf, record, request):
-            """
-            For testing purposes, removing an invite notification succeeds
-            without doing anything.
-            """
-            return succeed(True)
 
         @patched
         def principalForCalendarUserAddress(resourceSelf, cuaddr):
@@ -751,6 +739,8 @@ class SharingTests(StoreTestCase):
         home is at /.  Return the name of the newly shared calendar in the
         sharee's home.
         """
+
+        self._sqlCalendarStore._directoryService = buildDirectory(homes=("wiki-testing",))
         wcreate = self._sqlCalendarStore.newTransaction("create wiki")
         yield wcreate.calendarHomeWithUID("wiki-testing", create=True)
         yield wcreate.commit()

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- test-case-name: calendarserver.tools.test.test_upgrade -*-
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,15 +25,15 @@ import os
 import sys
 import time
 
+from twisted.internet.defer import succeed
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options, UsageError
 
 from twext.python.log import Logger, LogLevel, formatEvent, addObserver
 
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
-from twisted.application.service import Service
 
-from calendarserver.tools.cmdline import utilityMain
+from calendarserver.tools.cmdline import utilityMain, WorkerService
 from calendarserver.tap.caldav import CalDAVServiceMaker
 
 log = Logger()
@@ -82,6 +82,7 @@ class UpgradeOptions(Options):
 
     optParameters = [
         ['config', 'f', DEFAULT_CONFIG_FILE, "Specify caldavd.plist configuration path."],
+        ['prefix', 'x', "", "Only upgrade homes with the specified GUID prefix - partial upgrade only."],
     ]
 
     def __init__(self):
@@ -121,7 +122,7 @@ class UpgradeOptions(Options):
 
 
 
-class UpgraderService(Service, object):
+class UpgraderService(WorkerService, object):
     """
     Service which runs, exports the appropriate records, then stops the reactor.
     """
@@ -129,8 +130,7 @@ class UpgraderService(Service, object):
     started = False
 
     def __init__(self, store, options, output, reactor, config):
-        super(UpgraderService, self).__init__()
-        self.store = store
+        super(UpgraderService, self).__init__(store)
         self.options = options
         self.output = output
         self.reactor = reactor
@@ -138,17 +138,29 @@ class UpgraderService(Service, object):
         self._directory = None
 
 
-    def startService(self):
+    def doWork(self):
         """
         Immediately stop.  The upgrade will have been run before this.
         """
-        # If we get this far the database is OK
-        if self.options["status"]:
-            self.output.write("Database OK.\n")
+        if self.store is None:
+            if self.options["status"]:
+                self.output.write("Upgrade needed.\n")
+            else:
+                self.output.write("Upgrade failed.\n")
         else:
-            self.output.write("Upgrade complete, shutting down.\n")
+            # If we get this far the database is OK
+            if self.options["status"]:
+                self.output.write("Database OK.\n")
+            else:
+                self.output.write("Upgrade complete, shutting down.\n")
         UpgraderService.started = True
+        return succeed(None)
 
+
+    def postStartService(self):
+        """
+        Quit right away
+        """
         from twisted.internet import reactor
         from twisted.internet.error import ReactorNotRunning
         try:
@@ -191,8 +203,10 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
             data.MergeUpgrades = True
         config.addPostUpdateHooks([setMerge])
 
+
     def makeService(store):
         return UpgraderService(store, options, output, reactor, config)
+
 
     def onlyUpgradeEvents(eventDict):
         text = formatEvent(eventDict)
@@ -203,13 +217,18 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
         log.publisher.levels.setLogLevelForNamespace(None, LogLevel.debug)
         addObserver(onlyUpgradeEvents)
 
+
     def customServiceMaker():
         customService = CalDAVServiceMaker()
         customService.doPostImport = options["postprocess"]
         return customService
 
+
     def _patchConfig(config):
         config.FailIfUpgradeNeeded = options["status"]
+        if options["prefix"]:
+            config.UpgradeHomePrefix = options["prefix"]
+
 
     def _onShutdown():
         if not UpgraderService.started:

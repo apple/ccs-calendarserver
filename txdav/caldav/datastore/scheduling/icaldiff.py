@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 
 from difflib import unified_diff
 
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.period import PyCalendarPeriod
+from pycalendar.datetime import DateTime
+from pycalendar.period import Period
 
 from twext.python.log import Logger
 
@@ -334,7 +334,7 @@ class iCalDiff(object):
                     overridden = returnCalendar.overriddenComponent(rid)
                     if self._attendeeDecline(overridden):
                         changeCausesReply = True
-                        changedRids.append(rid.getText() if rid else "")
+                        changedRids.append(rid)
 
                     # When a master component is present we keep the missing override in place but mark it as hidden.
                     # When no master is present we now do the same so we can track updates to the override correctly.
@@ -417,7 +417,7 @@ class iCalDiff(object):
                 #return False, False, (), None
             changeCausesReply |= reply
             if reply:
-                changedRids.append(rid.getText() if rid else "")
+                changedRids.append(rid)
 
         # We need to derive instances for any declined using an EXDATE
         for decline in sorted(declines):
@@ -427,7 +427,7 @@ class iCalDiff(object):
                 if overridden is not None:
                     if self._attendeeDecline(overridden):
                         changeCausesReply = True
-                        changedRids.append(decline.getText() if decline else "")
+                        changedRids.append(decline)
 
                     # When a master component is present we keep the missing override in place but mark it as hidden.
                     # When no master is present we remove the override,
@@ -484,7 +484,7 @@ class iCalDiff(object):
 
             # If PARTSTAT was changed by the attendee, add a timestamp if needed
             if config.Scheduling.Options.TimestampAttendeePartStatChanges:
-                serverAttendee.setParameter("X-CALENDARSERVER-DTSTAMP", PyCalendarDateTime.getNowUTC().getText())
+                serverAttendee.setParameter("X-CALENDARSERVER-DTSTAMP", DateTime.getNowUTC().getText())
 
             replyNeeded = True
 
@@ -515,6 +515,10 @@ class iCalDiff(object):
         for comp in clientComponent.subcomponents():
             if comp.name() == "VALARM":
                 serverComponent.addComponent(comp)
+
+        # VPOLL
+        if serverComponent.name() == "VPOLL":
+            replyNeeded = self._transferVPOLLData(serverComponent, clientComponent)
 
         return True, replyNeeded
 
@@ -556,6 +560,44 @@ class iCalDiff(object):
             return True
 
 
+    def _transferVPOLLData(self, serverComponent, clientComponent):
+
+        changed = False
+
+        # Get the VOTER properties in sub-components of the VPOLL as set by the attendee
+        poll_items = {}
+        for component in clientComponent.subcomponents():
+            poll_id = component.propertyValue("POLL-ITEM-ID")
+            if poll_id is not None:
+                poll_items[poll_id] = component.getVoterProperty((self.attendee,))
+
+        # Transfer attendee data with the master set
+        for component in serverComponent.subcomponents():
+            poll_id = component.propertyValue("POLL-ITEM-ID")
+            if poll_id is not None:
+                voter = component.getVoterProperty((self.attendee,))
+                attendee_voter = poll_items.get(poll_id)
+                if attendee_voter is None:
+                    if voter is not None:
+                        component.removeProperty(voter)
+                        changed = True
+                elif voter is None:
+                    component.addProperty(attendee_voter)
+                    changed = True
+                else:
+                    for paramname in ("RESPONSE",):
+                        paramvalue = attendee_voter.parameterValue(paramname)
+                        if paramvalue is None:
+                            voter.removeParameter(paramname)
+                            changed = True
+                        else:
+                            if paramvalue != voter.parameterValue(paramname):
+                                voter.setParameter(paramname, paramvalue)
+                                changed = True
+
+        return changed
+
+
     def _checkInvalidChanges(self, serverComponent, clientComponent, declines):
 
         # Properties we care about: DTSTART, DTEND, DURATION, RRULE, RDATE, EXDATE
@@ -585,12 +627,12 @@ class iCalDiff(object):
     def _getNormalizedDateTimeProperties(self, component):
 
         # Basic time properties
-        if component.name() in ("VEVENT", "VJOURNAL",):
+        if component.name() in ("VEVENT", "VJOURNAL", "VPOLL"):
             dtstart = component.getProperty("DTSTART")
             dtend = component.getProperty("DTEND")
             duration = component.getProperty("DURATION")
 
-            timeRange = PyCalendarPeriod(
+            timeRange = Period(
                 start=dtstart.value()  if dtstart  is not None else None,
                 end=dtend.value()    if dtend    is not None else None,
                 duration=duration.value() if duration is not None else None,
@@ -602,16 +644,19 @@ class iCalDiff(object):
             duration = component.getProperty("DURATION")
 
             if dtstart or duration:
-                timeRange = PyCalendarPeriod(
+                timeRange = Period(
                     start=dtstart.value()  if dtstart  is not None else None,
                     duration=duration.value() if duration is not None else None,
                 )
             else:
-                timeRange = PyCalendarPeriod()
+                timeRange = Period()
 
             newdue = component.getProperty("DUE")
             if newdue is not None:
                 newdue = newdue.value().duplicate().adjustToUTC()
+        else:
+            timeRange = Period()
+            newdue = None
 
         # Recurrence rules - we need to normalize the order of the value parts
         newrrules = set()
@@ -627,7 +672,7 @@ class iCalDiff(object):
         rdates = component.properties("RDATE")
         for rdate in rdates:
             for value in rdate.value():
-                if isinstance(value, PyCalendarDateTime):
+                if isinstance(value, DateTime):
                     value = value.duplicate().adjustToUTC()
                 newrdates.add(value)
 
@@ -734,6 +779,7 @@ class iCalDiff(object):
         comp.normalizePropertyValueLists("EXDATE")
         comp.removePropertyParameters("ORGANIZER", ("SCHEDULE-STATUS",))
         comp.removePropertyParameters("ATTENDEE", ("SCHEDULE-STATUS", "SCHEDULE-FORCE-SEND",))
+        comp.removePropertyParameters("VOTER", ("SCHEDULE-STATUS", "SCHEDULE-FORCE-SEND",))
         comp.removeAlarms()
         comp.normalizeAll()
         comp.normalizeAttachments()
@@ -782,7 +828,7 @@ class iCalDiff(object):
 
         if addedChanges:
             rid = comp1.getRecurrenceIDUTC()
-            rids[rid.getText() if rid is not None else ""] = propsChanged
+            rids[rid] = propsChanged
 
 
     def _logDiffError(self, title):

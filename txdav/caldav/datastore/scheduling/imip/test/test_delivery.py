@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from twext.web2 import responsecode
+from txweb2 import responsecode
 
 from twisted.internet.defer import inlineCallbacks
 from twisted.trial import unittest
@@ -64,7 +64,7 @@ END:VCALENDAR
         yield delivery.generateSchedulingResponses()
 
         self.assertEqual(len(responses.responses), 1)
-        self.assertEqual(str(responses.responses[0].children[1]), iTIPRequestStatus.SERVICE_UNAVAILABLE)
+        self.assertEqual(str(responses.responses[0].reqstatus), iTIPRequestStatus.SERVICE_UNAVAILABLE)
 
 
     @inlineCallbacks

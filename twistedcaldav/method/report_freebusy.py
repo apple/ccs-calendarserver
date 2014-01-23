@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,15 +23,17 @@ __all__ = ["report_urn_ietf_params_xml_ns_caldav_free_busy_query"]
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twext.python.log import Logger
-from twext.web2 import responsecode
-from twext.web2.dav.http import ErrorResponse
-from twext.web2.dav.method.report import NumberOfMatchesWithinLimits
-from twext.web2.http import HTTPError, Response, StatusResponse
-from twext.web2.http_headers import MimeType
-from twext.web2.stream import MemoryStream
+from txweb2 import responsecode
+from txweb2.dav.http import ErrorResponse
+from txweb2.dav.method.report import NumberOfMatchesWithinLimits
+from txweb2.http import HTTPError, Response, StatusResponse
+from txweb2.http_headers import MimeType
+from txweb2.stream import MemoryStream
 
 from twistedcaldav import caldavxml
+from twistedcaldav.ical import Component
 from twistedcaldav.method import report_common
+from twistedcaldav.util import bestAcceptType
 
 from txdav.caldav.icalendarstore import TimeRangeLowerLimit, TimeRangeUpperLimit
 from txdav.xml import element as davxml
@@ -59,6 +61,11 @@ def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy
     fbinfo = ([], [], [])
 
     matchcount = [0]
+
+    accepted_type = bestAcceptType(request.headers.getHeader("accept"), Component.allowedTypes())
+    if accepted_type is None:
+        raise HTTPError(StatusResponse(responsecode.NOT_ACCEPTABLE, "Cannot generate requested data type"))
+
 
     def generateFreeBusyInfo(calresource, uri): #@UnusedVariable
         """
@@ -104,7 +111,7 @@ def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy
     fbcalendar = report_common.buildFreeBusyResult(fbinfo, timerange)
 
     response = Response()
-    response.stream = MemoryStream(str(fbcalendar))
-    response.headers.setHeader("content-type", MimeType.fromString("text/calendar; charset=utf-8"))
+    response.stream = MemoryStream(fbcalendar.getText(accepted_type))
+    response.headers.setHeader("content-type", MimeType.fromString("%s; charset=utf-8" % (accepted_type,)))
 
     returnValue(response)

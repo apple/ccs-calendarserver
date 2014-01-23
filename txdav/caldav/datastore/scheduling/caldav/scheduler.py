@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2012-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2012-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,9 +15,9 @@
 ##
 
 from twext.python.log import Logger
-from twext.web2 import responsecode
-from twext.web2.dav.http import ErrorResponse
-from twext.web2.http import HTTPError, StatusResponse
+from txweb2 import responsecode
+from txweb2.dav.http import ErrorResponse
+from txweb2.http import HTTPError, StatusResponse
 
 from twisted.internet.defer import inlineCallbacks
 
@@ -101,6 +101,14 @@ class CalDAVScheduler(Scheduler):
                 "No principal for originator",
             ))
         else:
+            if not (originatorPrincipal.calendarsEnabled() and originatorPrincipal.thisServer()):
+                log.error("Originator not enabled or hosted on this server: %s" % (self.originator,))
+                raise HTTPError(self.errorResponse(
+                    responsecode.FORBIDDEN,
+                    self.errorElements["originator-denied"],
+                    "Originator cannot be scheduled",
+                ))
+
             self.originator = LocalCalendarUser(self.originator, originatorPrincipal)
 
 
@@ -127,8 +135,8 @@ class CalDAVScheduler(Scheduler):
             else:
                 # Map recipient to their inbox
                 inbox = None
-                if principal.calendarsEnabled() and principal.thisServer():
-                    if principal.locallyHosted():
+                if principal.calendarsEnabled():
+                    if principal.thisServer():
                         recipient_home = yield self.txn.calendarHomeWithUID(principal.uid, create=True)
                         if recipient_home:
                             inbox = (yield recipient_home.calendarWithName("inbox"))
@@ -138,7 +146,7 @@ class CalDAVScheduler(Scheduler):
                 if inbox:
                     results.append(calendarUserFromPrincipal(recipient, principal, inbox))
                 else:
-                    log.error("No schedule inbox for principal: %s" % (principal,))
+                    log.error("Recipient not enabled for calendaring: %s" % (principal,))
                     results.append(InvalidCalendarUser(recipient))
 
         self.recipients = results

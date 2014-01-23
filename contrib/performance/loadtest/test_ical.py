@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,8 +24,8 @@ from contrib.performance.httpclient import MemoryConsumer, StringProducer
 from contrib.performance.loadtest.ical import XMPPPush, Event, Calendar, OS_X_10_6
 from contrib.performance.loadtest.sim import _DirectoryRecord
 
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.datetime import DateTime
+from pycalendar.timezone import Timezone
 
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
 from twisted.internet.protocol import ProtocolToConsumerAdapter
@@ -1957,8 +1957,8 @@ class VFreeBusyTests(OS_X_10_6Mixin, TestCase):
         self.client.outbox = "/calendars/__uids__/%s/outbox/" % (self.record.uid,)
         requests = self.interceptRequests()
 
-        start = PyCalendarDateTime(2011, 6, 10, 10, 45, 0, tzid=PyCalendarTimezone(utc=True))
-        end = PyCalendarDateTime(2011, 6, 10, 11, 15, 0, tzid=PyCalendarTimezone(utc=True))
+        start = DateTime(2011, 6, 10, 10, 45, 0, tzid=Timezone(utc=True))
+        end = DateTime(2011, 6, 10, 11, 15, 0, tzid=Timezone(utc=True))
         d = self.client.requestAvailability(
             start, end, [u"urn:uuid:user05", u"urn:uuid:user10"])
 

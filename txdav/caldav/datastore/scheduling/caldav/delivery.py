@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,19 +15,18 @@
 ##
 
 from twext.python.log import Logger, LogLevel
-from twext.web2.dav.http import ErrorResponse
+from txweb2.dav.http import ErrorResponse
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python.failure import Failure
-from twext.web2 import responsecode
-from twext.web2.http import HTTPError
+from txweb2 import responsecode
+from txweb2.http import HTTPError
 
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 
 from txdav.base.propertystore.base import PropertyName
-from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser, RemoteCalendarUser, \
-    PartitionedCalendarUser, OtherServerCalendarUser
+from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser, RemoteCalendarUser, OtherServerCalendarUser
 from txdav.caldav.datastore.scheduling.delivery import DeliveryService
 from txdav.caldav.datastore.scheduling.freebusy import processAvailabilityFreeBusy, \
     generateFreeBusyInfo, buildFreeBusyResult
@@ -99,7 +98,7 @@ class ScheduleViaCalDAV(DeliveryService):
         uid = self.scheduler.calendar.resourceUID()
 
         organizerPrincipal = None
-        if type(self.scheduler.organizer) in (LocalCalendarUser, PartitionedCalendarUser, OtherServerCalendarUser,):
+        if type(self.scheduler.organizer) in (LocalCalendarUser, OtherServerCalendarUser,):
             organizerPrincipal = self.scheduler.organizer.principal.uid
 
         for recipient in self.recipients:

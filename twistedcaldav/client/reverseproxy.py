@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,10 +20,10 @@ __all__ = [
 
 from zope.interface.declarations import implements
 
-from twext.web2 import iweb, responsecode
-from twext.web2.client.http import ClientRequest
-from twext.web2.http import StatusResponse, HTTPError
-from twext.web2.resource import LeafResource
+from txweb2 import iweb, responsecode
+from txweb2.client.http import ClientRequest
+from txweb2.http import StatusResponse, HTTPError
+from txweb2.resource import LeafResource
 
 from twext.python.log import Logger
 

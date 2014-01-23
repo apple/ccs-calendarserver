@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Computer, Inc. All rights reserved.
 # Copyright (c) 2007 Twisted Matrix Laboratories.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -51,7 +51,7 @@ import cStringIO as StringIO
 import re
 
 from twext.python.log import Logger
-from twext.web2.http_headers import parseDateTime
+from txweb2.http_headers import parseDateTime
 
 log = Logger()
 
@@ -128,7 +128,6 @@ class WebDAVElement (object):
     hidden = False         # Don't list in PROPFIND with <allprop>
     protected = False         # See RFC 3253 section 1.4.1
     unregistered = False         # Subclass of factory; doesn't register
-
 
     def __init__(self, *children, **attributes):
         super(WebDAVElement, self).__init__()
@@ -635,7 +634,6 @@ class WebDAVTextElement (WebDAVElement):
             return clazz(PCDATAElement(str(string)))
 
     allowed_children = {PCDATAElement: (0, None)}
-
 
     def toString(self):
         """

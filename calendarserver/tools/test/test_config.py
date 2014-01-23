@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2013 Apple Inc. All rights reserved.
+# Copyright (c) 2013-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -108,6 +108,7 @@ class WritableConfigTestCase(TestCase):
         writable2 = WritableConfig(config, self.configFile)
         writable2.read()
         self.assertEquals(writable2.currentConfigSubset, {'key1': u'\U0001f4a3'})
+
 
 
 class ConfigTestCase(RunCommandTestCase):

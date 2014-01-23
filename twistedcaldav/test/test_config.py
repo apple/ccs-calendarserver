@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 import socket
 
-from twext.python.plistlib import writePlist #@UnresolvedImport
+from plistlib import writePlist #@UnresolvedImport
 from twext.python.log import LogLevel
 from twext.python.test.test_log import defaultLogLevel, logLevelForNamespace
 
@@ -34,7 +34,7 @@ testConfig = """<?xml version="1.0" encoding="UTF-8"?>
 <dict>
 
   <key>ResponseCompression</key>
-  <false/>
+  <true/>
 
   <key>HTTPPort</key>
   <integer>8008</integer>
@@ -73,7 +73,7 @@ testConfig = """<?xml version="1.0" encoding="UTF-8"?>
 
 
 def _testResponseCompression(testCase):
-    testCase.assertEquals(config.ResponseCompression, False)
+    testCase.assertEquals(config.ResponseCompression, True)
 
 
 
@@ -114,19 +114,19 @@ class ConfigTests(TestCase):
 
 
     def testLoadConfig(self):
-        self.assertEquals(config.ResponseCompression, True)
+        self.assertEquals(config.ResponseCompression, False)
 
         config.load(self.testConfig)
 
-        self.assertEquals(config.ResponseCompression, False)
+        self.assertEquals(config.ResponseCompression, True)
 
 
     def testScoping(self):
-        self.assertEquals(config.ResponseCompression, True)
+        self.assertEquals(config.ResponseCompression, False)
 
         config.load(self.testConfig)
 
-        self.assertEquals(config.ResponseCompression, False)
+        self.assertEquals(config.ResponseCompression, True)
 
         _testResponseCompression(self)
 

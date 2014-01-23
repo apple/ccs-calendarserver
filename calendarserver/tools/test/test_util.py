@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ class UtilTestCase(TestCase):
         config = loadConfig(configPath)
         self.assertEquals(config.EnableCalDAV, True)
         self.assertEquals(config.EnableCardDAV, True)
+
 
     def test_checkDirectory(self):
         tmpDir = tempfile.mkdtemp()

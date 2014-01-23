@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,21 +18,51 @@
 Implements a directory-backed principal hierarchy.
 """
 
-from twext.web2.dav.util import joinURL
+from txweb2.dav.util import joinURL
 
 from twistedcaldav.client.reverseproxy import ReverseProxyResource
+
+from twisted.internet.defer import succeed
 
 __all__ = ["DirectoryReverseProxyResource"]
 
 class DirectoryReverseProxyResource(ReverseProxyResource):
-    
+
     def __init__(self, parent, record):
         self.parent = parent
         self.record = record
-        
-        super(DirectoryReverseProxyResource, self).__init__(self.record.partitionID)
-    
+
+        super(DirectoryReverseProxyResource, self).__init__(self.record.serverID)
+
+
     def url(self):
         return joinURL(self.parent.url(), self.record.uid)
 
 
+    def hasQuota(self, request):
+        return succeed(False)
+
+
+    def hasQuotaRoot(self, request):
+        return succeed(False)
+
+
+    def quotaRootResource(self, request):
+        """
+        Return the quota root for this resource.
+
+        @return: L{DAVResource} or C{None}
+        """
+
+        return succeed(None)
+
+
+    def checkPrivileges(
+        self, request, privileges, recurse=False,
+        principal=None, inherited_aces=None
+    ):
+        return succeed(None)
+
+
+    def hasProperty(self, property, request):
+        return succeed(False)

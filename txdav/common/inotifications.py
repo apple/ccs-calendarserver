@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -72,10 +72,10 @@ class INotificationCollection(Interface):
             object exists.
         """
 
-    def writeNotificationObject(uid, xmltype, xmldata): #@NoSelf
+    def writeNotificationObject(uid, notificationtype, notificationdata): #@NoSelf
         """
         Write a notification with the given C{uid} in this notification
-        collection from the given C{xmldata} with given C{xmltype}.  If a
+        collection from the given C{notificationdata} with given C{notificationtype}.  If a
         L{INotificationObject} with the same uid already exists in this
         L{INotificationCollection}, it will be overwritten.
 
@@ -83,18 +83,12 @@ class INotificationCollection(Interface):
             written.
         @type uid: C{str}
 
-        @param xmltype: the node within the notification payload, emptied of
-            its children, to indicate the type of notification and fill out the
-            C{CS:notificationtype} property.
+        @param notificationtype: the type of notification as a C{dict}.
 
-        @type xmltype: an instance of
-            L{txdav.xml.base.WebDAVElement},
-            most likely a subclass like L{twistedcaldav.customxml.InviteReply},
-            L{twistedcaldav.customxml.InviteRemove}, etc.
+        @type notificationtype: C{dict}
 
-        @param xmldata: the serialized representation of the C{CS:notification}
-            node.
-        @type xmldata: C{str}
+        @param notificationdata: the representation of the notification data as a C{dict}.
+        @type notificationdata: C{dict}
         """
 
     def removeNotificationObjectWithName(name): #@NoSelf
@@ -142,23 +136,23 @@ class INotificationObject(IDataStoreObject):
     An notification object describes an XML notification.
     """
 
-    def setData(uid, xmltype, xmldata, inserting=False): #@NoSelf
+    def setData(uid, notificationtype, notificationdata, inserting=False): #@NoSelf
         """
-        Rewrite this notification object to match the given C{xmltype} and
-        C{xmldata}. C{xmldata} must have the same UID as this notification object.
+        Rewrite this notification object to match the given C{notificationtype} and
+        C{notificationdata}. C{notificationdata} must have the same UID as this notification object.
 
-        @param xmltype: a string.
-        @param xmldata: a string.
+        @param notificationtype: a string.
+        @param notificationdata: a string.
         @raise InvalidObjectResourceError: if the given
-            C{xmltype} or C{xmldata} is not a valid for
+            C{notificationtype} or C{notificationdata} is not a valid for
             an notification object.
         """
 
-    def xmldata(): #@NoSelf
+    def notificationData(): #@NoSelf
         """
         Retrieve the notification data for this notification object.
 
-        @return: a string.
+        @return: a C{dict}.
         """
 
     def uid(): #@NoSelf

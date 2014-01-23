@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -478,9 +478,9 @@ END:VCALENDAR
 
 
     @inlineCallbacks
-    def test_validation_preservePrivateComments(self):
+    def test_validation_noPreservePrivateComments(self):
         """
-        Test that resource private comments are restored.
+        Test that attendee private comments are no longer restored.
         """
 
         data1 = """BEGIN:VCALENDAR
@@ -524,7 +524,60 @@ END:VCALENDAR
         calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
         calendar1 = (yield calendar_resource.component())
         calendar1 = str(calendar1).replace("\r\n ", "")
-        self.assertTrue("X-CALENDARSERVER-PRIVATE-COMMENT:My Comment" in calendar1)
+        self.assertFalse("X-CALENDARSERVER-PRIVATE-COMMENT:My Comment" in calendar1)
+        self.assertTrue("SUMMARY:Changed" in calendar1)
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_validation_preserveOrganizerPrivateComments(self):
+        """
+        Test that organizer private comments are restored.
+        """
+
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-organizer
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+X-CALENDARSERVER-ATTENDEE-COMMENT;X-CALENDARSERVER-ATTENDEE-REF="urn:uuid:user01";
+ X-CALENDARSERVER-DTSTAMP=20131101T100000Z:Someone else's comment
+END:VEVENT
+END:VCALENDAR
+"""
+
+        calendar_collection = (yield self.calendarUnderTest(home="user01"))
+        calendar = Component.fromString(data1)
+        yield calendar_collection.createCalendarObjectWithName("test.ics", calendar)
+        yield self.commit()
+
+        data2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-organizer
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Changed
+END:VEVENT
+END:VCALENDAR
+"""
+
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
+        calendar = Component.fromString(data2)
+        txn = self.transactionUnderTest()
+        txn._authz_uid = "user01"
+        yield calendar_resource.setComponent(calendar)
+        yield self.commit()
+
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
+        calendar1 = (yield calendar_resource.component())
+        calendar1 = str(calendar1).replace("\r\n ", "")
+        self.assertTrue("X-CALENDARSERVER-ATTENDEE-COMMENT;X-CALENDARSERVER-ATTENDEE-REF=\"urn:uuid:user01\";X-CALENDARSERVER-DTSTAMP=20131101T100000Z:Someone else's comment" in calendar1)
         self.assertTrue("SUMMARY:Changed" in calendar1)
         yield self.commit()
 

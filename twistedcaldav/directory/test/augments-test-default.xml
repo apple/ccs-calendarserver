@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <!--
-Copyright (c) 2009-2013 Apple Inc. All rights reserved.
+Copyright (c) 2009-2014 Apple Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,40 +24,34 @@ limitations under the License.
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
-    <partition-id>00001</partition-id>
   </record>
   <record>
     <uid>Location-Default</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
-    <partition-id>00004</partition-id>
     <auto-schedule>true</auto-schedule>
   </record>
   <record>
     <uid>Location-AA*</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
-    <partition-id>00005</partition-id>
     <auto-schedule>true</auto-schedule>
   </record>
   <record>
     <uid>Resource-Default</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
-    <partition-id>00006</partition-id>
     <auto-schedule>true</auto-schedule>
   </record>
   <record>
     <uid>Resource-AA*</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
-    <partition-id>00007</partition-id>
     <auto-schedule>true</auto-schedule>
   </record>
   <record>
     <uid>AA*</uid>
     <enable>true</enable>
-    <partition-id>00001</partition-id>
   </record>
   <record>
     <uid>AB*</uid>
@@ -66,14 +60,12 @@ limitations under the License.
   <record>
     <uid>B*</uid>
     <enable>true</enable>
-    <partition-id>00002</partition-id>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
   </record>
   <record>
     <uid>C*</uid>
     <enable>true</enable>
-    <partition-id>00003</partition-id>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <auto-schedule>true</auto-schedule>
@@ -102,17 +94,14 @@ limitations under the License.
   <record>
     <uid>5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1</uid>
     <enable>true</enable>
-    <partition-id>00001</partition-id>
   </record>
   <record>
     <uid>543D28BA-F74F-4D5F-9243-B3E3A61171E5</uid>
     <enable>true</enable>
-    <partition-id>00002</partition-id>
   </record>
   <record>
     <uid>6A73326A-F781-47E7-A9F8-AF47364D4152</uid>
     <enable>true</enable>
-    <partition-id>00002</partition-id>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <auto-schedule>true</auto-schedule>

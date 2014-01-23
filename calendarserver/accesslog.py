@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,9 +40,9 @@ from calendarserver.logAnalysis import getAdjustedMethodName, \
     getAdjustedClientName
 
 from twext.python.log import Logger
-from twext.web2 import iweb
-from twext.web2.log import BaseCommonAccessLoggingObserver
-from twext.web2.log import LogWrapperResource
+from txweb2 import iweb
+from txweb2.log import BaseCommonAccessLoggingObserver
+from txweb2.log import LogWrapperResource
 
 from twisted.internet import protocol, task
 from twisted.protocols import amp
@@ -173,7 +173,7 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                     formatArgs["t"] = (nowtime - request.timeStamps[0][1]) * 1000
 
                 if hasattr(request, "extendedLogItems"):
-                    for k, v in request.extendedLogItems.iteritems():
+                    for k, v in sorted(request.extendedLogItems.iteritems(), key=lambda x: x[0]):
                         k = str(k).replace('"', "%22")
                         v = str(v).replace('"', "%22")
                         if " " in v:

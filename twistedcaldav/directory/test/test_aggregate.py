@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,7 +36,8 @@ class AggregatedDirectories (twistedcaldav.directory.test.util.DirectoryTestCase
                 recordTypes.add(prefix + recordType)
         return recordTypes
 
-    def _records(key):
+
+    def _records(key): #@NoSelf
         def get(self):
             records = {}
             for prefix, testClass in testServices:
@@ -55,8 +56,10 @@ class AggregatedDirectories (twistedcaldav.directory.test.util.DirectoryTestCase
     groups = property(_records("groups"))
     locations = property(_records("locations"))
     resources = property(_records("resources"))
+    addresses = property(_records("addresses"))
 
     recordTypePrefixes = tuple(s[0] for s in testServices)
+
 
     def service(self):
         """
@@ -71,8 +74,8 @@ class AggregatedDirectories (twistedcaldav.directory.test.util.DirectoryTestCase
         )
         xmlService.recordTypePrefix = xml_prefix
 
-
         return AggregateDirectoryService((xmlService,), None)
+
 
     def test_setRealm(self):
         """
@@ -82,4 +85,3 @@ class AggregatedDirectories (twistedcaldav.directory.test.util.DirectoryTestCase
         aggregatedService.setRealm("foo.example.com")
         for service in aggregatedService._recordTypes.values():
             self.assertEquals("foo.example.com", service.realmName)
-

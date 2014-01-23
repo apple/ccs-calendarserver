@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ from twext.enterprise.queue import NonPerformingQueuer
 
 # TODO: direct unit tests for these functions.
 
+
 def utilityMain(configFileName, serviceClass, reactor=None, serviceMaker=CalDAVServiceMaker, patchConfig=None, onShutdown=None, verbose=False):
     """
     Shared main-point for utilities.
@@ -67,6 +68,13 @@ def utilityMain(configFileName, serviceClass, reactor=None, serviceMaker=CalDAVS
         will be imported and used.
     """
 
+    # We want to validate that the actual service is always an instance of WorkerService, so wrap the
+    # service maker callback inside a function that does that check
+    def _makeValidService(store):
+        service = serviceClass(store)
+        assert isinstance(service, WorkerService)
+        return service
+
     # Install std i/o observer
     if verbose:
         observer = StandardIOObserver()
@@ -82,7 +90,7 @@ def utilityMain(configFileName, serviceClass, reactor=None, serviceMaker=CalDAVS
         checkDirectories(config)
 
         config.ProcessType = "Utility"
-        config.UtilityServiceClass = serviceClass
+        config.UtilityServiceClass = _makeValidService
 
         autoDisableMemcached(config)
 
@@ -139,7 +147,6 @@ class WorkerService(Service):
     @inlineCallbacks
     def startService(self):
 
-        from twisted.internet import reactor
         try:
             # Work can be queued but will not be performed by the command
             # line tool
@@ -154,7 +161,7 @@ class WorkerService(Service):
             sys.stderr.write("Error: %s\n" % (e,))
             raise
         finally:
-            reactor.stop()
+            self.postStartService()
 
 
     def doWorkWithoutStore(self):
@@ -165,3 +172,15 @@ class WorkerService(Service):
         """
         sys.stderr.write("Error: Data store is not available\n")
         return succeed(None)
+
+
+    def postStartService(self):
+        """
+        By default, stop the reactor after doWork( ) finishes.  Subclasses
+        can override this if they want different behavior.
+        """
+        if hasattr(self, "reactor"):
+            self.reactor.stop()
+        else:
+            from twisted.internet import reactor
+            reactor.stop()

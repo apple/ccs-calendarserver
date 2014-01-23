@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.caldav.datastore.test.test_file -*-
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,8 +24,8 @@ from twext.internet.decorate import memoizedKey
 from twext.python.log import Logger
 from txdav.xml.rfc2518 import GETContentType, HRef
 from txdav.xml.rfc5842 import ResourceID
-from twext.web2.http_headers import generateContentType, MimeType
-from twext.web2.dav.resource import TwistedGETContentMD5, \
+from txweb2.http_headers import generateContentType, MimeType
+from txweb2.dav.resource import TwistedGETContentMD5, \
     TwistedQuotaUsedProperty
 
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
@@ -58,6 +58,7 @@ from txdav.base.propertystore.xattr import PropertyStore as XattrPropertyStore
 from errno import EEXIST, ENOENT
 from zope.interface import implements, directlyProvides
 
+import json
 import uuid
 from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
 import os
@@ -851,7 +852,8 @@ class CommonHome(FileMetaDataMixin):
     def resourceNamesSinceToken(self, token, depth):
         deleted = []
         changed = []
-        return succeed((changed, deleted))
+        invalid = []
+        return succeed((changed, deleted, invalid))
 
 
     # @cached
@@ -926,6 +928,7 @@ class CommonHome(FileMetaDataMixin):
         return (self._notifierPrefix, self.uid(),)
 
 
+    @inlineCallbacks
     def notifyChanged(self):
         """
         Trigger a notification of a change
@@ -933,8 +936,14 @@ class CommonHome(FileMetaDataMixin):
 
         # Only send one set of change notifications per transaction
         if self._notifiers and not self._transaction.isNotifiedAlready(self):
-            for notifier in self._notifiers.values():
+            # cache notifiers run in post commit
+            notifier = self._notifiers.get("cache", None)
+            if notifier:
                 self._transaction.postCommit(notifier.notify)
+            # push notifiers add their work items immediately
+            notifier = self._notifiers.get("push", None)
+            if notifier:
+                yield notifier.notify(self._transaction)
             self._transaction.notificationAddedForObject(self)
 
 
@@ -1272,6 +1281,7 @@ class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
         return self.ownerHome().notifierID()
 
 
+    @inlineCallbacks
     def notifyChanged(self):
         """
         Trigger a notification of a change
@@ -1279,8 +1289,14 @@ class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
 
         # Only send one set of change notifications per transaction
         if self._notifiers and not self._transaction.isNotifiedAlready(self):
-            for notifier in self._notifiers.values():
+            # cache notifiers run in post commit
+            notifier = self._notifiers.get("cache", None)
+            if notifier:
                 self._transaction.postCommit(notifier.notify)
+            # push notifiers add their work items immediately
+            notifier = self._notifiers.get("push", None)
+            if notifier:
+                yield notifier.notify(self._transaction)
             self._transaction.notificationAddedForObject(self)
 
 
@@ -1485,17 +1501,17 @@ class NotificationCollection(CommonHomeChild):
         return self.notificationObjectWithName(name)
 
 
-    def writeNotificationObject(self, uid, xmltype, xmldata):
+    def writeNotificationObject(self, uid, notificationtype, notificationdata):
         name = uid + ".xml"
         if name.startswith("."):
             raise ObjectResourceNameNotAllowedError(name)
 
         objectResource = NotificationObject(name, self)
-        objectResource.setData(uid, xmltype, xmldata)
+        objectResource.setData(uid, notificationtype, notificationdata)
         self._cachedObjectResources[name] = objectResource
 
         # Update database
-        self.retrieveOldIndex().addOrUpdateRecord(NotificationRecord(uid, name, xmltype.name))
+        self.retrieveOldIndex().addOrUpdateRecord(NotificationRecord(uid, name, notificationtype))
 
         self.notifyChanged()
 
@@ -1558,15 +1574,16 @@ class NotificationObject(CommonObjectResource):
 
 
     @writeOperation
-    def setData(self, uid, xmltype, xmldata, inserting=False):
+    def setData(self, uid, notificationtype, notificationdata, inserting=False):
 
         rname = uid + ".xml"
         self._parentCollection.retrieveOldIndex().addOrUpdateRecord(
-            NotificationRecord(uid, rname, xmltype.name)
+            NotificationRecord(uid, rname, notificationtype)
         )
 
-        self._xmldata = xmldata
-        md5 = hashlib.md5(xmldata).hexdigest()
+        self._notificationdata = notificationdata
+        notificationtext = json.dumps(self._notificationdata)
+        md5 = hashlib.md5(notificationtext).hexdigest()
 
         def do():
             backup = None
@@ -1577,7 +1594,7 @@ class NotificationObject(CommonObjectResource):
             try:
                 # FIXME: concurrency problem; if this write is interrupted
                 # halfway through, the underlying file will be corrupt.
-                fh.write(xmldata)
+                fh.write(notificationtext)
             finally:
                 fh.close()
             def undo():
@@ -1596,7 +1613,7 @@ class NotificationObject(CommonObjectResource):
 
         props = self.properties()
         props[PropertyName(*GETContentType.qname())] = GETContentType.fromString(generateContentType(MimeType("text", "xml", params={"charset": "utf-8"})))
-        props[PropertyName.fromElement(NotificationType)] = NotificationType(xmltype)
+        props[PropertyName.fromElement(NotificationType)] = NotificationType(json.dumps(notificationtype))
         props[PropertyName.fromElement(TwistedGETContentMD5)] = TwistedGETContentMD5.fromString(md5)
 
         # FIXME: the property store's flush() method may already have been
@@ -1606,11 +1623,11 @@ class NotificationObject(CommonObjectResource):
         # manipulation methods won't work.
         self._transaction.addOperation(self.properties().flush, "post-update property flush")
 
-    _xmldata = None
+    _notificationdata = None
 
-    def xmldata(self):
-        if self._xmldata is not None:
-            return self._xmldata
+    def notificationData(self):
+        if self._notificationdata is not None:
+            return self._notificationdata
         try:
             fh = self._path.open()
         except IOError, e:
@@ -1624,14 +1641,14 @@ class NotificationObject(CommonObjectResource):
         finally:
             fh.close()
 
-        return text
+        return json.loads(text)
 
 
     def uid(self):
         return self._uid
 
 
-    def xmlType(self):
+    def notificationType(self):
         # NB This is the NotificationType property element
         return self.properties()[PropertyName.fromElement(NotificationType)]
 

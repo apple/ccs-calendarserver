@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav -*-
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ from twisted.python import hashlib
 
 from twext.python.log import Logger
 from twext.enterprise.ienterprise import AlreadyFinishedError
-from twext.web2.dav.resource import TwistedGETContentMD5
+from txweb2.dav.resource import TwistedGETContentMD5
 from txdav.idav import IDataStoreObject
 from txdav.base.propertystore.base import PropertyName
 from txdav.xml.element import GETContentType

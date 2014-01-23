@@ -1,6 +1,6 @@
 # -*- test-case-name: calendarserver.tap.test.test_caldav -*-
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,11 +34,11 @@ import psutil
 
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.python.log import Logger
-from twext.web2.auth.basic import BasicCredentialFactory
-from twext.web2.dav import auth
-from twext.web2.http_headers import Headers
-from twext.web2.resource import Resource
-from twext.web2.static import File as FileResource
+from txweb2.auth.basic import BasicCredentialFactory
+from txweb2.dav import auth
+from txweb2.http_headers import Headers
+from txweb2.resource import Resource
+from txweb2.static import File as FileResource
 
 from twisted.application.service import Service
 from twisted.cred.portal import Portal
@@ -57,7 +57,6 @@ from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav.directory.directory import GroupMembershipCache
-from twistedcaldav.directory.internal import InternalDirectoryService
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.wiki import WikiDirectoryService
 from calendarserver.push.notifier import NotifierFactory
@@ -92,9 +91,11 @@ from calendarserver.tools.util import checkDirectory
 from calendarserver.webadmin.resource import WebAdminResource
 from calendarserver.webcal.resource import WebCalendarResource
 
+from txdav.common.datastore.podding.resource import ConduitResource
 from txdav.common.datastore.sql import CommonDataStore as CommonSQLDataStore
 from txdav.common.datastore.file import CommonDataStore as CommonFileDataStore
 from txdav.common.datastore.sql import current_sql_schema
+from txdav.common.datastore.upgrade.sql.upgrade import NotAllowedToUpgrade
 from twext.python.filepath import CachingFilePath
 from urllib import quote
 from twisted.python.usage import UsageError
@@ -129,7 +130,7 @@ def pgServiceFromConfig(config, subServiceFactory, uid=None, gid=None):
         databaseName=config.Postgres.DatabaseName,
         clusterName=config.Postgres.ClusterName,
         logFile=config.Postgres.LogFile,
-        socketDir=config.RunRoot,
+        socketDir=config.Postgres.SocketDirectory,
         listenAddresses=config.Postgres.ListenAddresses,
         sharedBuffers=config.Postgres.SharedBuffers,
         maxConnections=config.Postgres.MaxConnections,
@@ -353,14 +354,6 @@ def directoryFromConfig(config):
         wikiDirectory.realmName = baseDirectory.realmName
         directories.append(wikiDirectory)
 
-    #
-    # Add internal directory service
-    # Right now we only use this for CardDAV
-    #
-    if config.EnableCardDAV:
-        internalDirectory = InternalDirectoryService(baseDirectory.realmName)
-        directories.append(internalDirectory)
-
     directory = AggregateDirectoryService(directories, groupMembershipCache)
 
     #
@@ -406,6 +399,7 @@ def getRootResource(config, newStore, resources=None):
     rootResourceClass = RootResource
     calendarResourceClass = DirectoryCalendarHomeProvisioningResource
     iScheduleResourceClass = IScheduleInboxResource
+    conduitResourceClass = ConduitResource
     timezoneServiceResourceClass = TimezoneServiceResource
     timezoneStdServiceResourceClass = TimezoneStdServiceResource
     webCalendarResourceClass = WebCalendarResource
@@ -635,11 +629,31 @@ def getRootResource(config, newStore, resources=None):
             addSystemEventTrigger("after", "startup", timezoneStdService.onStartup)
 
     #
-    # iSchedule service
+    # iSchedule/cross-pod service for podding
+    #
+    if config.Servers.Enabled:
+        log.info("Setting up iSchedule podding inbox resource: {cls}", cls=iScheduleResourceClass)
+
+        ischedule = iScheduleResourceClass(
+            root,
+            newStore,
+            podding=True
+        )
+        root.putChild(config.Servers.InboxName, ischedule)
+
+        log.info("Setting up podding conduit resource: {cls}", cls=conduitResourceClass)
+
+        conduit = conduitResourceClass(
+            root,
+            newStore,
+        )
+        root.putChild(config.Servers.ConduitName, conduit)
+
+    #
+    # iSchedule service (not used for podding)
     #
     if config.Scheduling.iSchedule.Enabled:
-        log.info("Setting up iSchedule inbox resource: {cls}",
-                      cls=iScheduleResourceClass)
+        log.info("Setting up iSchedule inbox resource: {cls}", cls=iScheduleResourceClass)
 
         ischedule = iScheduleResourceClass(
             root,
@@ -650,8 +664,7 @@ def getRootResource(config, newStore, resources=None):
         # Do DomainKey resources
         DKIMUtils.validConfiguration(config)
         if config.Scheduling.iSchedule.DKIM.Enabled:
-            log.info("Setting up domainkey resource: {res}",
-                res=DomainKeyResource)
+            log.info("Setting up domainkey resource: {res}", res=DomainKeyResource)
             domain = config.Scheduling.iSchedule.DKIM.Domain if config.Scheduling.iSchedule.DKIM.Domain else config.ServerHostName
             dk = DomainKeyResource(
                 domain,
@@ -1077,7 +1090,8 @@ class Stepper(object):
 
 
     def defaultStepWithFailure(self, failure):
-        log.failure("Step failure", failure=failure)
+        if failure.type != NotAllowedToUpgrade:
+            log.failure("Step failure", failure=failure)
         return failure
 
     # def protectStep(self, callback):

@@ -1,7 +1,7 @@
 # -*- sh-basic-offset: 2 -*-
 
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+
+set -e
+set -u
 
 . "${wd}/support/py.sh";
 
@@ -40,11 +43,45 @@ conditional_set () {
   fi;
 }
 
+# Checks for presence of a C header, optionally with a version comparison.
+# With only a header file name, try to include it, returning nonzero if absent.
+# With 3 params, also attempt a version check, returning nonzero if too old.
+# Param 2 is a minimum acceptable version number
+# Param 3 is a #define from the source that holds the installed version number
+# Examples:
+#   Assert that ldap.h is present
+#     find_header "ldap.h"
+#   Assert that ldap.h is present with a version >= 20344
+#     find_header "ldap.h" 20344 "LDAP_VENDOR_VERSION"
 find_header () {
-  local sysheader="$1"; shift;
-  echo "#include <${sysheader}>" | cc -x c -c - -o /dev/null 2> /dev/null;
-  return "$?";
-}
+  sys_header="$1"; shift;
+  if [ $# -ge 1 ]; then
+        min_version="$1"; shift;
+      version_macro="$1"; shift;
+  fi;
+
+  # No min_version given:
+  # Check for presence of a header. We use the "-c" cc option because we don't
+  # need to emit a file; cc exits nonzero if it can't find the header
+  if [ -z "${min_version:-}" ]; then
+    echo "#include <${sys_header}>" | cc -x c -c - -o /dev/null 2> /dev/null;
+    return "$?";
+  fi;
+
+  # Check for presence of a header of specified version
+  found_version="$(printf "#include <${sys_header}>\n${version_macro}\n" | cc -x c -E - | tail -1)";
+
+  if [ "${found_version}" == "${version_macro}" ]; then
+    # Macro was not replaced
+    return 1;
+  fi;
+
+  if cmp_version "${min_version}" "${found_version}"; then
+    return 0;
+  else
+    return 1;
+  fi;
+};
 
 # Initialize all the global state required to use this library.
 init_build () {
@@ -213,10 +250,13 @@ www_get () {
   if "${force_setup}" || [ ! -d "${path}" ]; then
     local ext="$(echo "${url}" | sed 's|^.*\.\([^.]*\)$|\1|')";
 
+    untar () { tar -xvf -; }
+    unzipstream () { tmp="$(mktemp -t ccsXXXXX)"; cat > "${tmp}"; unzip "${tmp}"; rm "${tmp}"; }
     case "${ext}" in
-      gz|tgz) decompress="gzip -d -c"; ;;
-      bz2)    decompress="bzip2 -d -c"; ;;
-      tar)    decompress="cat"; ;;
+      gz|tgz) decompress="gzip -d -c"; unpack="untar"; ;;
+      bz2)    decompress="bzip2 -d -c"; unpack="untar"; ;;
+      tar)    decompress="untar"; unpack="untar"; ;;
+      zip)    decompress="cat"; unpack="unzipstream"; ;;
       *)
         echo "Error in www_get of URL ${url}: Unknown extension ${ext}";
         exit 1;
@@ -228,7 +268,7 @@ www_get () {
     if [ -n "${cache_deps}" ] && [ -n "${hash}" ]; then
       mkdir -p "${cache_deps}";
 
-      local cache_basename="${name}-$(echo "${url}" | hash)-$(basename "${url}")";
+      local cache_basename="$(echo ${name} | tr '[ ]' '_')-$(echo "${url}" | hash)-$(basename "${url}")";
       local cache_file="${cache_deps}/${cache_basename}";
 
       check_hash () {
@@ -327,7 +367,7 @@ www_get () {
 
     rm -rf "${path}";
     cd "$(dirname "${path}")";
-    get | ${decompress} | tar -xvf -;
+    get | ${decompress} | ${unpack};
     apply_patches "${name}" "${path}";
     cd /;
   fi;
@@ -469,9 +509,7 @@ py_dependency () {
                           # already has it?
   local  inplace="";      # Do development in-place; don't run setup.py to
                           # build, and instead add the source directory plus the
-                          # given relative path directly to sys.path.  twisted
-                          # and pycalendar are developed often enough that this is
-                          # convenient.
+                          # given relative path directly to sys.path.
   local skip_egg="false"; # Skip even the 'egg_info' step, because nothing needs
                           # to be built.
   local revision="0";     # Revision (if svn)
@@ -670,21 +708,23 @@ dependencies () {
   if type -P memcached > /dev/null; then
     using_system "memcached";
   else
-    local le="libevent-2.0.17-stable";
-    local mc="memcached-1.4.13";
-    c_dependency -m "dad64aaaaff16b5fbec25160c06fee9a" \
+    local le="libevent-2.0.21-stable";
+    local mc="memcached-1.4.16";
+    c_dependency -m "b2405cc9ebf264aa47ff615d9de527a2" \
       "libevent" "${le}" \
-      "https://github.com/downloads/libevent/libevent/${le}.tar.gz";
-    c_dependency -m "6d18c6d25da945442fcc1187b3b63b7f" \
+      "http://github.com/downloads/libevent/libevent/${le}.tar.gz";
+    c_dependency -m "1c5781fecb52d70b615c6d0c9c140c9c" \
       "memcached" "${mc}" \
-      "http://memcached.googlecode.com/files/${mc}.tar.gz";
+      "http://www.memcached.org/files/${mc}.tar.gz";
+    # "http://memcached.googlecode.com/files/${mc}.tar.gz";
   fi;
 
   if type -P postgres > /dev/null; then
     using_system "Postgres";
   else
-    local pgv="9.2.4";
-    local pg="postgresql-${pgv}";
+    local v="9.3.1";
+    local n="postgresql";
+    local p="${n}-${v}";
 
     if type -P dtrace > /dev/null; then
       local enable_dtrace="--enable-dtrace";
@@ -692,19 +732,21 @@ dependencies () {
       local enable_dtrace="";
     fi;
 
-    c_dependency -m "52df0a9e288f02d7e6e0af89ed4dcfc6" \
-      "PostgreSQL" "${pg}" \
-      "ftp://ftp5.us.postgresql.org/pub/PostgreSQL/source/v${pgv}/${pg}.tar.gz" \
+    c_dependency -m "c003d871f712d4d3895956b028a96e74" \
+      "PostgreSQL" "${p}" \
+      "http://ftp.postgresql.org/pub/source/v${v}/${p}.tar.bz2" \
       --with-python ${enable_dtrace};
-    :;
   fi;
 
-  if find_header ldap.h; then
+  if find_header ldap.h 20428 LDAP_VENDOR_VERSION; then
     using_system "OpenLDAP";
   else
-    c_dependency -m "ec63f9c2add59f323a0459128846905b" \
-      "OpenLDAP" "openldap-2.4.25" \
-      "http://www.openldap.org/software/download/OpenLDAP/openldap-release/openldap-2.4.25.tgz" \
+    local v="2.4.38";
+    local n="openldap";
+    local p="${n}-${v}";
+    c_dependency -m "39831848c731bcaef235a04e0d14412f" \
+      "OpenLDAP" "${p}" \
+      "http://www.openldap.org/software/download/OpenLDAP/${n}-release/${p}.tgz" \
       --disable-bdb --disable-hdb;
   fi;
 
@@ -726,46 +768,62 @@ dependencies () {
 
   # Sourceforge mirror hostname.
   local sf="superb-sea2.dl.sourceforge.net";
-  local st="setuptools-0.6c11";
+  local st="setuptools-1.4";
   local pypi="http://pypi.python.org/packages/source";
 
-  py_dependency -m "7df2a529a074f613b509fb44feefe74e" \
+  py_dependency -v 1 -m "5710464bc5a61d75f5087f15ce63cfe0" \
     "setuptools" "setuptools" "${st}" \
     "$pypi/s/setuptools/${st}.tar.gz";
 
-  local v="4.0.3";
+  local v="0.6";
+  local n="cffi";
+  local p="${n}-${v}";
+  py_dependency -v "0.6" -m "5be33b1ab0247a984d42b27344519337" \
+    "${n}" "${n}" "${p}" \
+    "${pypi}/c/${n}/${p}.tar.gz";
+
+  local v="2.10";
+  local n="pycparser";
+  local p="${n}-${v}";
+  py_dependency -v "0.6" -m "d87aed98c8a9f386aa56d365fe4d515f" \
+    "${n}" "${n}" "${p}" \
+    "${pypi}/p/${n}/${p}.tar.gz";
+
+  local v="4.0.5";
   local n="zope.interface";
   local p="${n}-${v}";
-  py_dependency -v 4 -m "1ddd308f2c83703accd1696158c300eb" \
+  py_dependency -v 4 -m "caf26025ae1b02da124a58340e423dfe" \
     "Zope Interface" "${n}" "${p}" \
-    "http://pypi.python.org/packages/source/z/${n}/${p}.tar.gz";
+    "http://pypi.python.org/packages/source/z/${n}/${p}.zip";
 
-  local v="0.10";
+  local v="0.12";
   local n="pyOpenSSL";
   local p="${n}-${v}";
-  py_dependency -v 0.9 -m "34db8056ec53ce80c7f5fc58bee9f093" \
+  py_dependency -v 0.12 -m "60a7bbb6160950823eddcbba2cbcb0d6" \
     "${n}" "OpenSSL" "${p}" \
     "http://pypi.python.org/packages/source/p/${n}/${p}.tar.gz";
 
   local n="PyKerberos";
   if type -P krb5-config > /dev/null; then
-    py_dependency -r 9409 \
-      "${n}" "kerberos" "${n}" \
+    local v="9409";
+    local p="${n}-${v}";
+    py_dependency -r "${v}" \
+      "${n}" "kerberos" "${p}" \
       "${svn_uri_base}/${n}/trunk";
   fi;
 
-  local v="0.6.1";
+  local v="0.6.4";
   local n="xattr";
   local p="${n}-${v}";
-  py_dependency -v 0.5 -r 1038 \
-    "${n}" "${n}" "${n}" \
-    "http://svn.red-bean.com/bob/${n}/releases/${p}/";
+  py_dependency -v 0.6 -m "1bef31afb7038800f8d5cfa2f4562b37" \
+    "${n}" "${n}" "${p}" \
+    "${pypi}/x/${n}/${n}-${v}.tar.gz";
 
   if [ -n "${ORACLE_HOME:-}" ]; then
-    local v="5.1";
+    local v="5.1.2";
     local n="cx_Oracle";
     local p="${n}-${v}";
-    py_dependency -v "${v}" -m "d2697493a40c9d46c9b7c1c210b61671" \
+    py_dependency -v "${v}" -m "462f309e00f7bff7100e2077fc43172c" \
       "${n}" "${n}" "${p}" \
       "http://${sf}/project/cx-oracle/${v}/${p}.tar.gz";
   fi;
@@ -777,14 +835,40 @@ dependencies () {
     "${n}" "pgdb" "${p}" \
     "${pypi}/P/${n}/${p}.tgz";
 
-  # Maintenance note: next time the Twisted dependency gets updated, check out
-  # twext/patches.py.
-  local v="12.3.0";
+  local v="0.1.2";
+  local n="sqlparse";
+  local p="${n}-${v}";
+  py_dependency -v "${v}" -s "978874e5ebbd78e6d419e8182ce4fb3c30379642" \
+    "SQLParse" "${n}" "${p}" \
+    "http://python-sqlparse.googlecode.com/files/${p}.tar.gz";
+
+  local v="2.6.1";
+  local n="pycrypto";
+  local p="${n}-${v}";
+  py_dependency -v "${v}" -m "55a61a054aa66812daf5161a0d5d7eda" \
+    "PyCrypto" "Crypto" "${p}" \
+    "http://ftp.dlitz.net/pub/dlitz/crypto/${n}/${p}.tar.gz";
+
+  local v="0.1.7";
+  local n="pyasn1";
+  local p="${n}-${v}";
+  py_dependency -v "${v}" -m "2cbd80fcd4c7b1c82180d3d76fee18c8" \
+    "${n}" "${n}" "${p}" \
+    "${pypi}/p/${n}/${p}.tar.gz";
+
+  local v="13.2.0";
   local n="Twisted";
   local p="${n}-${v}";
-  py_dependency -v 12.2 -m "6e289825f3bf5591cfd670874cc0862d" \
+  py_dependency -v 13.2 -m "83fe6c0c911cc1602dbffb036be0ba79" \
     "${n}" "twisted" "${p}" \
     "${pypi}/T/${n}/${p}.tar.bz2";
+
+  local v="12414";
+  local n="twext";
+  local p="${n}-${v}";
+  py_dependency -fe -r "${v}" \
+    "${n}" "${n}" "${p}" \
+    "${svn_uri_base}/${n}/trunk";
 
   local v="1.5";
   local n="python-dateutil";
@@ -793,36 +877,39 @@ dependencies () {
     "${n}" "dateutil" "${p}" \
     "http://www.labix.org/download/${n}/${p}.tar.gz";
 
-  local v="0.6.1";
+  local v="1.2.0";
   local n="psutil";
   local p="${n}-${v}";
-  py_dependency -m "3cfcbfb8525f6e4c70110e44a85e907e" \
+  py_dependency -m "f8ae906249e65db21f17d873ae07e584" \
     "${n}" "${n}" "${p}" \
-    "http://${n}.googlecode.com/files/${p}.tar.gz";
+    "${pypi}/p/${n}/${p}.tar.gz";
 
-  local v="2.3.13";
+  local v="2.4.13";
   local n="python-ldap";
   local p="${n}-${v}";
-  py_dependency -v "${v}" -m "895223d32fa10bbc29aa349bfad59175" \
+  py_dependency -v "${v}" -m "74b7b50267761540451eade44b2049ee" \
     "Python-LDAP" "ldap" "${p}" \
     "${pypi}/p/${n}/${p}.tar.gz";
 
-  # XXX actually PyCalendar should be imported in-place.
-  py_dependency -fe -i "src" -r 11458 \
-    "PyCalendar" "pycalendar" "pycalendar" \
-    "${svn_uri_base}/PyCalendar/trunk";
+  local v="11947";
+  local n="PyCalendar";
+  local p="${n}-${v}";
+  py_dependency -fe -i "src" -r "${v}" \
+    "${n}" "pycalendar" "${p}" \
+    "${svn_uri_base}/${n}/trunk";
+
+  # Can't add "-v 2011g" to args because the version check expects numbers.
+  local v="2013.8";
+  local n="pytz";
+  local p="${n}-${v}";
+  py_dependency -m "37750ca749ed3a52523b9682b0b7e381" \
+    "${n}" "${n}" "${p}" \
+    "${pypi}/p/${n}/${p}.tar.gz";
 
   #
   # Tool dependencies.  The code itself doesn't depend on these, but
   # they are useful to developers.
   #
-
-  local v="0.1.2";
-  local n="sqlparse";
-  local p="${n}-${v}";
-  py_dependency -v "${v}" -s "978874e5ebbd78e6d419e8182ce4fb3c30379642" \
-    "SQLParse" "${n}" "${p}" \
-    "http://python-sqlparse.googlecode.com/files/${p}.tar.gz";
 
   if type -P pyflakes > /dev/null; then
     using_system "PyFlakes";
@@ -835,51 +922,19 @@ dependencies () {
       "${pypi}/p/${n}/${p}.tar.gz";
   fi;
  
-  py_dependency -o -r HEAD \
-    "CalDAVClientLibrary" "caldavclientlibrary" "CalDAVClientLibrary" \
-    "${svn_uri_base}/CalDAVClientLibrary/trunk";
-
-  # Can't add "-v 2011g" to args because the version check expects numbers.
-  local n="pytz";
-  local p="${n}-2011n";
-  py_dependency -m "75ffdc113a4bcca8096ab953df746391" \
-    "${n}" "${n}" "${p}" \
-    "${pypi}/p/${n}/${p}.tar.gz";
-
-  local v="2.5";
-  local n="pycrypto";
+  local v="12068";
+  local n="CalDAVClientLibrary";
   local p="${n}-${v}";
-  py_dependency -v "${v}" -m "783e45d4a1a309e03ab378b00f97b291" \
-    "PyCrypto" "${n}" "${p}" \
-    "http://ftp.dlitz.net/pub/dlitz/crypto/${n}/${p}.tar.gz";
+  py_dependency -o -r "${v}" \
+    "${n}" "caldavclientlibrary" "${p}" \
+    "${svn_uri_base}/${n}/trunk";
 
-  local v="0.1.2";
-  local n="pyasn1";
-  local p="${n}-${v}";
-  py_dependency -v "${v}" -m "a7c67f5880a16a347a4d3ce445862a47" \
-    "${n}" "${n}" "${p}" \
-    "${pypi}/p/${n}/${p}.tar.gz";
-
-  local v="1.1.6";
+  local v="1.1.8";
   local n="setproctitle";
   local p="${n}-${v}";
-  py_dependency -v "1.0" -m "1e42e43b440214b971f4b33c21eac369" \
+  py_dependency -v "1.0" -m "728f4c8c6031bbe56083a48594027edd" \
     "${n}" "${n}" "${p}" \
     "${pypi}/s/${n}/${p}.tar.gz";
-
-  local v="0.6";
-  local n="cffi";
-  local p="${n}-${v}";
-  py_dependency -v "0.6" -m "5be33b1ab0247a984d42b27344519337" \
-    "${n}" "${n}" "${p}" \
-    "${pypi}/c/${n}/${p}.tar.gz";
-
-  local v="2.09.1";
-  local n="pycparser";
-  local p="${n}-${v}";
-  py_dependency -v "0.6" -m "74aa075fc28b7c24a4426574d1ac91e0" \
-    "${n}" "${n}" "${p}" \
-    "${pypi}/p/${n}/${p}.tar.gz";
 
   svn_get "CalDAVTester" "${top}/CalDAVTester" \
       "${svn_uri_base}/CalDAVTester/trunk" HEAD;
@@ -889,21 +944,21 @@ dependencies () {
   local p="${n}-${v}";
   py_dependency -o -m "36407974bd5da2af00bf90ca27feeb44" \
     "Epydoc" "${n}" "${p}" \
-    "https://pypi.python.org/packages/source/e/${n}/${p}.tar.gz";
+    "${pypi}/e/${n}/${p}.tar.gz";
 
   local v="0.10.0";
   local n="Nevow";
   local p="${n}-${v}";
   py_dependency -o -m "66dda2ad88f42dea05911add15f4d1b2" \
-    "${n}" "${n}" "${p}" \
-    "https://pypi.python.org/packages/source/N/${n}/${p}.tar.gz";
+    "${n}" "nevow" "${p}" \
+    "${pypi}/N/${n}/${p}.tar.gz";
 
-  local v="0.4";
+  local v="0.5b1";
   local n="pydoctor";
   local p="${n}-${v}";
-  py_dependency -o -m "b7564e12b5d35d4cb529a2c220b25d3a" \
+  py_dependency -o -m "c4fb33672f37624116cc7a0606f74f28" \
     "${n}" "${n}" "${p}" \
-    "https://pypi.python.org/packages/source/p/${n}/${p}.tar.gz";
+    "{$pypi}/p/${n}/${p}.tar.gz";
 
   if "${do_setup}"; then
     cd "${caldav}";

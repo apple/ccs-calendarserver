@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,16 +19,16 @@ Bind methods.
 Have to have this in a separate module for now.
 """
 
-from twext.web2.dav.util import bindMethods
+from txweb2.dav.util import bindMethods
 
 ##
 # Attach methods
 ##
 
 def doBind():
-    import twext.web2.dav.method
-    from twext.web2.dav.resource import DAVResource
-    bindMethods(twext.web2.dav.method, DAVResource)
+    import txweb2.dav.method
+    from txweb2.dav.resource import DAVResource
+    bindMethods(txweb2.dav.method, DAVResource)
 
     import twistedcaldav.method
     from twistedcaldav.resource import CalDAVResource

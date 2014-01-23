@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,9 +28,9 @@ Fix xattrs on calendar collections and calendar object resources
 def usage():
     print """Usage: xattr_fix CALENDARS
 Options:
-    
+
 CALENDARS - a list of directories that are to be treated as calendars
-    
+
 Description:
 This utility will add xattrs to the specified directories and their contents
 to make them appear to be calendars and calendar resources when used with
@@ -40,8 +40,10 @@ It can be used to fix xattrs lost as a result of restoring an iCal Server docume
 root without properly preserving the xattrs.
 """
 
+
+
 def fixCalendar(path):
-    
+
     # First fix the resourcetype & getctag on the calendar
     x = xattr.xattr(path)
     x["WebDAV:{DAV:}resourcetype"] = """<?xml version='1.0' encoding='UTF-8'?>
@@ -60,7 +62,7 @@ def fixCalendar(path):
         if not child.endswith(".ics"):
             continue
         fullpath = os.path.join(path, child)
-        
+
         # getcontenttype
         x = xattr.xattr(fullpath)
         x["WebDAV:{DAV:}getcontenttype"] = """<?xml version='1.0' encoding='UTF-8'?>
@@ -94,7 +96,7 @@ if __name__ == "__main__":
             if not os.path.exists(arg):
                 print "Path does not exist: '%s'. Ignoring." % (arg,)
                 continue
-            
+
             if os.path.basename(arg) in ("inbox", "outbox", "dropbox",):
                 print "Cannot be used on inbox, outbox or dropbox."
                 continue
@@ -103,4 +105,3 @@ if __name__ == "__main__":
 
     except Exception, e:
         sys.exit(str(e))
-    

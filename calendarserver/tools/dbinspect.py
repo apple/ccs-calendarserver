@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- test-case-name: calendarserver.tools.test.test_calverify -*-
 ##
-# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,12 +23,11 @@ of simple commands.
 """
 
 from calendarserver.tools import tables
-from calendarserver.tools.cmdline import utilityMain
-from pycalendar.datetime import PyCalendarDateTime
+from calendarserver.tools.cmdline import utilityMain, WorkerService
+from pycalendar.datetime import DateTime
 from twext.enterprise.dal.syntax import Select, Parameter, Count, Delete, \
     Constant
-from twisted.application.service import Service
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python.filepath import FilePath
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options
@@ -37,8 +36,8 @@ from twistedcaldav.config import config
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.directory import DirectoryService
-from twistedcaldav.query import calendarqueryfilter
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
+from txdav.caldav.datastore.query.filter import Filter
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 from uuid import UUID
 import os
@@ -715,12 +714,12 @@ class EventsInTimerange(Cmd):
             end += "T000000Z"
 
         try:
-            start = PyCalendarDateTime.parseText(start)
+            start = DateTime.parseText(start)
         except ValueError:
             print("Invalid start value")
             returnValue(None)
         try:
-            end = PyCalendarDateTime.parseText(end)
+            end = DateTime.parseText(end)
         except ValueError:
             print("Invalid end value")
             returnValue(None)
@@ -757,10 +756,10 @@ class EventsInTimerange(Cmd):
                           name="VCALENDAR",
                        )
                   )
-        filter = calendarqueryfilter.Filter(filter)
+        filter = Filter(filter)
         filter.settimezone(None)
 
-        matches = yield calendar._index.indexedSearch(filter, useruid=uid, fbtype=False)
+        matches = yield calendar.search(filter, useruid=uid, fbtype=False)
         if matches is None:
             returnValue(None)
         for name, _ignore_uid, _ignore_type in matches:
@@ -851,14 +850,13 @@ class Purge(Cmd):
 
 
 
-class DBInspectService(Service, object):
+class DBInspectService(WorkerService, object):
     """
     Service which runs, exports the appropriate records, then stops the reactor.
     """
 
     def __init__(self, store, options, reactor, config):
-        super(DBInspectService, self).__init__()
-        self.store = store
+        super(DBInspectService, self).__init__(store)
         self.options = options
         self.reactor = reactor
         self.config = config
@@ -866,11 +864,10 @@ class DBInspectService(Service, object):
         self.commandMap = {}
 
 
-    def startService(self):
+    def doWork(self):
         """
         Start the service.
         """
-        super(DBInspectService, self).startService()
 
         # Register commands
         self.registerCommand(TableSizes)
@@ -889,6 +886,15 @@ class DBInspectService(Service, object):
         self.registerCommand(EventsByContent)
         self.registerCommand(EventsInTimerange)
         self.doDBInspect()
+
+        return succeed(None)
+
+
+    def postStartService(self):
+        """
+        Don't quit right away
+        """
+        pass
 
 
     def registerCommand(self, cmd):

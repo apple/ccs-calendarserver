@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,11 +17,14 @@
 import os
 
 from twisted.trial.unittest import SkipTest
+
 from twistedcaldav.ical import Component
-from twistedcaldav.query import calendarqueryfilter
 import twistedcaldav.test.util
 from twistedcaldav.caldavxml import ComponentFilter, PropertyFilter, TextMatch, \
     Filter, TimeRange
+
+from txdav.caldav.datastore.query.filter import Filter as storeFilter
+from txdav.caldav.datastore.query.filter import ComponentFilter as storeComponentFilter
 
 class XML (twistedcaldav.test.util.TestCase):
     """
@@ -46,7 +49,7 @@ class XML (twistedcaldav.test.util.TestCase):
             else:
                 no = ""
 
-            if has != calendarqueryfilter.ComponentFilter(
+            if has != storeComponentFilter(
                 ComponentFilter(
                     ComponentFilter(
                         name=component_name
@@ -70,7 +73,7 @@ class XML (twistedcaldav.test.util.TestCase):
             else:
                 no = ""
 
-            if has != calendarqueryfilter.ComponentFilter(
+            if has != storeComponentFilter(
                 ComponentFilter(
                     ComponentFilter(
                         PropertyFilter(
@@ -106,7 +109,7 @@ class XML (twistedcaldav.test.util.TestCase):
             else:
                 no = ""
 
-            if has != calendarqueryfilter.ComponentFilter(
+            if has != storeComponentFilter(
                 ComponentFilter(
                     ComponentFilter(
                         PropertyFilter(
@@ -148,7 +151,7 @@ class XML (twistedcaldav.test.util.TestCase):
             else:
                 no = ""
 
-            if has != calendarqueryfilter.Filter(
+            if has != storeFilter(
                 Filter(
                     ComponentFilter(
                         ComponentFilter(

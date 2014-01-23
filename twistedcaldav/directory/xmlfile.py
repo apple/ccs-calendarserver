@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ import pwd
 import types
 
 from twisted.cred.credentials import UsernamePassword
-from twext.web2.auth.digest import DigestedCredentials
+from txweb2.auth.digest import DigestedCredentials
 from twext.python.filepath import CachingFilePath as FilePath
 from twistedcaldav.config import config
 from twisted.internet.defer import succeed
@@ -71,6 +71,7 @@ class XMLDirectoryService(DirectoryService):
                 self.recordType_groups,
                 self.recordType_locations,
                 self.recordType_resources,
+                self.recordType_addresses,
             ),
             'realmName' : '/Search',
             'statSeconds' : 15,
@@ -373,6 +374,7 @@ class XMLDirectoryService(DirectoryService):
             'groups'    : 'group',
             'locations' : 'location',
             'resources' : 'resource',
+            'addresses' : 'address',
         }
         xmlType = xmlTypes[principal.recordType]
 

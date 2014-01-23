@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ __all__ = [
 from twext.python.log import Logger
 from txdav.xml import element as davxml
 from txdav.xml.base import encodeXMLName
-from twext.web2.dav.resource import TwistedGETContentMD5, \
+from txweb2.dav.resource import TwistedGETContentMD5, \
     TwistedQuotaRootProperty
 
 from txdav.idav import IPropertyStore, IPropertyName
@@ -214,7 +214,13 @@ class AbstractPropertyStore(DictMixin, object):
 
     def __delitem__(self, key):
         # Handle per-user behavior
-        if self.isGlobalProperty(key):
+        if self.isShadowableProperty(key):
+            try:
+                self._delitem_uid(key, self._perUser)
+            except KeyError:
+                # It is OK for shadowable delete to fail
+                pass
+        elif self.isGlobalProperty(key):
             self._delitem_uid(key, self._defaultUser)
         else:
             self._delitem_uid(key, self._perUser)

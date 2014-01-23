@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ from txdav.caldav.datastore.scheduling.utils import extractEmailDomain
 
 __all__ = [
     "LocalCalendarUser",
-    "PartitionedCalendarUser",
     "OtherServerCalendarUser",
     "RemoteCalendarUser",
     "EmailCalendarUser",
@@ -50,19 +49,6 @@ class LocalCalendarUser(CalendarUser):
 
     def __str__(self):
         return "Local calendar user: %s" % (self.cuaddr,)
-
-
-
-class PartitionedCalendarUser(CalendarUser):
-
-    def __init__(self, cuaddr, principal):
-        self.cuaddr = cuaddr
-        self.principal = principal
-        self.serviceType = DeliveryService.serviceType_ischedule
-
-
-    def __str__(self):
-        return "Partitioned calendar user: %s" % (self.cuaddr,)
 
 
 
@@ -145,9 +131,7 @@ def calendarUserFromPrincipal(recipient, principal, inbox=None):
     Get the appropriate calendar user address class for the provided principal.
     """
 
-    if principal.locallyHosted():
+    if principal.thisServer():
         return LocalCalendarUser(recipient, principal, inbox)
-    elif principal.thisServer():
-        return PartitionedCalendarUser(recipient, principal)
     else:
         return OtherServerCalendarUser(recipient, principal)

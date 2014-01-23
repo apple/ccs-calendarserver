@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ __all__ = [
 ]
 
 from twext.python.log import Logger
-from twext.web2 import responsecode
+from txweb2 import responsecode
 from txdav.xml import element as davxml
 
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue,\
@@ -35,6 +35,7 @@ from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
 
 from txdav.common.icommondatastore import SyncTokenValidException
 
+import json
 import os
 import types
 
@@ -48,49 +49,48 @@ class NotificationResource(CalDAVResource):
         self._parent = parent
         CalDAVResource.__init__(self)
 
+
     def principalCollections(self):
         return self._parent.principalCollections()
+
 
     def isCollection(self):
         return False
 
+
     def resourceName(self):
         raise NotImplementedError
-        
+
+
     def http_PUT(self, request):
         return responsecode.FORBIDDEN
 
+
     @inlineCallbacks
     def http_DELETE(self, request):
-        
+
         response = (yield super(NotificationResource, self).http_DELETE(request))
         if response == responsecode.NO_CONTENT:
             yield self._parent.removedNotifictionMessage(request, self.resourceName())
         returnValue(response)
-    
+
+
+
 class NotificationCollectionResource(ReadOnlyNoCopyResourceMixIn, CalDAVResource):
 
     def notificationsDB(self):
-        
+
         if not hasattr(self, "_notificationsDB"):
             self._notificationsDB = NotificationsDatabase(self)
         return self._notificationsDB
 
+
     def isCollection(self):
         return True
 
+
     def resourceType(self):
         return davxml.ResourceType.notification
-
-    @inlineCallbacks
-    def addNotification(self, request, uid, xmltype, xmldata):
-        
-        # Write data to file
-        rname = uid + ".xml"
-        yield self._writeNotification(request, uid, rname, xmltype, xmldata)
-
-        # Update database
-        self.notificationsDB().addOrUpdateRecord(NotificationRecord(uid, rname, xmltype.name))
 
 
     def getNotifictionMessages(self, request, componentType=None, returnLatestVersion=True):
@@ -103,7 +103,7 @@ class NotificationCollectionResource(ReadOnlyNoCopyResourceMixIn, CalDAVResource
 
     @inlineCallbacks
     def deleteNotifictionMessageByUID(self, request, uid):
-        
+
         # See if it exists and delete the resource
         record = yield self.notificationsDB().recordForUID(uid)
         if record:
@@ -117,7 +117,7 @@ class NotificationCollectionResource(ReadOnlyNoCopyResourceMixIn, CalDAVResource
         record = yield self.notificationsDB().recordForName(rname)
         if record:
             yield self.deleteNotification(request, record)
-        
+
         returnValue(None)
 
 
@@ -131,12 +131,15 @@ class NotificationCollectionResource(ReadOnlyNoCopyResourceMixIn, CalDAVResource
         return maybeDeferred(self.notificationsDB().removeRecordForName, rname)
 
 
+
 class NotificationRecord(object):
-    
-    def __init__(self, uid, name, xmltype):
+
+    def __init__(self, uid, name, notificationtype):
         self.uid = uid
         self.name = name
-        self.xmltype = xmltype
+        self.notificationtype = notificationtype if isinstance(notificationtype, dict) else json.loads(notificationtype)
+
+
 
 class NotificationsDatabase(AbstractSQLDatabase):
     log = Logger()
@@ -154,35 +157,40 @@ class NotificationsDatabase(AbstractSQLDatabase):
         db_filename = os.path.join(self.resource.fp.path, NotificationsDatabase.db_basename)
         super(NotificationsDatabase, self).__init__(db_filename, True, autocommit=True)
 
+
     def allRecords(self):
-        
+
         records = self._db_execute("select * from NOTIFICATIONS")
         return [self._makeRecord(row) for row in (records if records is not None else ())]
-    
+
+
     def recordForUID(self, uid):
-        
+
         row = self._db_execute("select * from NOTIFICATIONS where UID = :1", uid)
         return self._makeRecord(row[0]) if row else None
-    
+
+
     def addOrUpdateRecord(self, record):
 
         self._db_execute("""insert or replace into NOTIFICATIONS (UID, NAME, TYPE)
             values (:1, :2, :3)
-            """, record.uid, record.name, record.xmltype,
+            """, record.uid, record.name, json.dumps(record.notificationtype),
         )
-            
+
         self._db_execute(
             """
             insert or replace into REVISIONS (NAME, REVISION, DELETED)
             values (:1, :2, :3)
             """, record.name, self.bumpRevision(fast=True), 'N',
         )
-    
+
+
     def removeRecordForUID(self, uid):
 
         record = self.recordForUID(uid)
         self.removeRecordForName(record.name)
-    
+
+
     def removeRecordForName(self, rname):
 
         self._db_execute("delete from NOTIFICATIONS where NAME = :1", rname)
@@ -192,12 +200,13 @@ class NotificationsDatabase(AbstractSQLDatabase):
             where NAME = :3
             """, self.bumpRevision(fast=True), 'Y', rname
         )
-    
+
+
     def whatchanged(self, revision):
 
         results = [(name.encode("utf-8"), deleted) for name, deleted in self._db_execute("select NAME, DELETED from REVISIONS where REVISION > :1", revision)]
-        results.sort(key=lambda x:x[1])
-        
+        results.sort(key=lambda x: x[1])
+
         changed = []
         deleted = []
         for name, wasdeleted in results:
@@ -209,13 +218,15 @@ class NotificationsDatabase(AbstractSQLDatabase):
                     changed.append(name)
             else:
                 raise SyncTokenValidException
-        
+
         return changed, deleted,
+
 
     def lastRevision(self):
         return self._db_value_for_sql(
             "select REVISION from REVISION_SEQUENCE"
         )
+
 
     def bumpRevision(self, fast=False):
         self._db_execute(
@@ -230,17 +241,20 @@ class NotificationsDatabase(AbstractSQLDatabase):
             """,
         )
 
+
     def _db_version(self):
         """
         @return: the schema version assigned to this index.
         """
         return NotificationsDatabase.schema_version
 
+
     def _db_type(self):
         """
         @return: the collection type assigned to this index.
         """
         return NotificationsDatabase.db_type
+
 
     def _db_init_data_tables(self, q):
         """
@@ -302,6 +316,7 @@ class NotificationsDatabase(AbstractSQLDatabase):
             """
         )
 
+
     def _db_upgrade_data_tables(self, q, old_version):
         """
         Upgrade the data from an older version of the DB.
@@ -310,7 +325,7 @@ class NotificationsDatabase(AbstractSQLDatabase):
         # Nothing to do as we have not changed the schema
         pass
 
-    def _makeRecord(self, row):
-        
-        return NotificationRecord(*[str(item) if type(item) == types.UnicodeType else item for item in row])
 
+    def _makeRecord(self, row):
+
+        return NotificationRecord(*[str(item) if type(item) == types.UnicodeType else item for item in row])

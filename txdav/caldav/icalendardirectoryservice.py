@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2013 Apple Inc. All rights reserved.
+# Copyright (c) 2013-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -58,23 +58,6 @@ class ICalendarStoreDirectoryRecord(IStoreDirectoryRecord):
 
         @return: the canonical calendar user address.
         @rtype: C{str}
-        """
-
-    def locallyHosted(): #@NoSelf
-        """
-        Indicates whether the record is host on this specific server "pod".
-
-        @return: C{True} if locally hosted.
-        @rtype: C{bool}
-        """
-
-    def thisServer(): #@NoSelf
-        """
-        Indicates whether the record is hosted on this server or another "pod"
-        that hosts the same directory service.
-
-        @return: C{True} if hosted by this service.
-        @rtype: C{bool}
         """
 
     def calendarsEnabled(): #@NoSelf

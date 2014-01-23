@@ -1,6 +1,6 @@
 # -*- test-case-name: contrib.performance.loadtest.test_population -*-
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -396,6 +396,7 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
         self._failed_clients = []
         self._failed_sim = collections.defaultdict(int)
         self._startTime = datetime.now()
+        self._expired_data = None
 
         # Load parameters from config
         if "thresholdsPath" in params:
@@ -421,6 +422,13 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
 
         if "failCutoff" in params:
             self._fail_cut_off = params["failCutoff"]
+
+
+    def observe(self, event):
+        if event.get('type') == 'sim-expired':
+            self.simExpired(event)
+        else:
+            super(ReportStatistics, self).observe(event)
 
 
     def countUsers(self):
@@ -454,6 +462,10 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
         self._failed_sim[event['reason']] += 1
 
 
+    def simExpired(self, event):
+        self._expired_data = event['reason']
+
+
     def printMiscellaneous(self, output, items):
         maxColumnWidth = str(len(max(items.iterkeys(), key=len)))
         fmt = "%" + maxColumnWidth + "s : %-s\n"
@@ -480,7 +492,7 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
             if result is not None:
                 differences.append(result)
 
-        return mean(differences) if differences else "None"
+        return ("%-8.4f" % mean(differences)) if differences else "None"
 
 
     def qos_value(self, method, value):
@@ -518,7 +530,7 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
             'Start time': self._startTime.strftime('%m/%d %H:%M:%S'),
             'Run time': "%02d:%02d:%02d" % (runHours, runMinutes, runSeconds),
             'CPU Time': "user %-5.2f sys %-5.2f total %02d:%02d:%02d" % (cpuUser, cpuSys, cpuHours, cpuMinutes, cpuSeconds,),
-            'QoS': "%-8.4f" % (self.qos(),),
+            'QoS': self.qos(),
         }
         if self.countClientFailures() > 0:
             items['Failed clients'] = self.countClientFailures()
@@ -527,8 +539,22 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
         if self.countSimFailures() > 0:
             for reason, count in self._failed_sim.items():
                 items['Failed operation'] = "%s : %d times" % (reason, count,)
+        output.write("* Client\n")
         self.printMiscellaneous(output, items)
         output.write("\n")
+
+        if self._expired_data is not None:
+            items = {
+                "Req/sec" : "%.1f" % (self._expired_data[0],),
+                "Response": "%.1f (ms)" % (self._expired_data[1],),
+                "Slots": "%.2f" % (self._expired_data[2],),
+                "CPU": "%.1f%%" % (self._expired_data[3],),
+            }
+            output.write("* Server (Last 5 minutes)\n")
+            self.printMiscellaneous(output, items)
+            output.write("\n")
+        output.write("* Details\n")
+
         self.printHeader(output, [
                 (label, width)
                 for (label, width, _ignore_fmt)

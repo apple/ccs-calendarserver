@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,9 +22,9 @@ __all__ = ["http_ACL"]
 
 
 from twext.python.log import Logger
-from twext.web2 import responsecode
-from twext.web2.dav.util import parentForURL
-from twext.web2.http import HTTPError
+from txweb2 import responsecode
+from txweb2.dav.util import parentForURL
+from txweb2.http import HTTPError
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 

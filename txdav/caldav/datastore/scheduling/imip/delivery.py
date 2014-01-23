@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.caldav.datastore.scheduling.test.test_imip -*-
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,9 +21,9 @@ Handles the sending of scheduling messages via iMIP (mail gateway).
 
 from twext.enterprise.queue import inTransaction
 from twext.python.log import Logger
-from twext.web2 import responsecode
-from twext.web2.dav.http import ErrorResponse
-from twext.web2.http import HTTPError
+from txweb2 import responsecode
+from txweb2.dav.http import ErrorResponse
+from txweb2.http import HTTPError
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.failure import Failure
 from twistedcaldav.caldavxml import caldav_namespace

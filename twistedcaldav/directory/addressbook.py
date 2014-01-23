@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,10 +26,10 @@ __all__ = [
 ]
 
 from twext.python.log import Logger
-from twext.web2 import responsecode
-from twext.web2.dav.util import joinURL
-from twext.web2.http import HTTPError
-from twext.web2.http_headers import ETag, MimeType
+from txweb2 import responsecode
+from txweb2.dav.util import joinURL
+from txweb2.http import HTTPError
+from txweb2.http_headers import ETag, MimeType
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 
@@ -56,6 +56,8 @@ class CalDAVComplianceMixIn(object):
             + config.CalDAVComplianceClasses
         )
 
+
+
 class DirectoryAddressBookProvisioningResource (
     ReadOnlyResourceMixIn,
     CalDAVComplianceMixIn,
@@ -65,18 +67,21 @@ class DirectoryAddressBookProvisioningResource (
     def defaultAccessControlList(self):
         return config.ProvisioningResourceACL
 
+
     def etag(self):
         return succeed(ETag(str(uuid4())))
 
+
     def contentType(self):
         return MimeType("httpd", "unix-directory")
+
 
 
 class DirectoryAddressBookHomeProvisioningResource (
         DirectoryAddressBookProvisioningResource
     ):
     """
-    Resource which provisions address book home collections as needed.    
+    Resource which provisions address book home collections as needed.
     """
     def __init__(self, directory, url, store):
         """
@@ -103,21 +108,26 @@ class DirectoryAddressBookHomeProvisioningResource (
 
         self.putChild(uidsResourceName, DirectoryAddressBookHomeUIDProvisioningResource(self))
 
+
     def url(self):
         return self._url
 
+
     def listChildren(self):
         return self.directory.recordTypes()
+
 
     def principalCollections(self):
         # FIXME: directory.principalCollection smells like a hack
         # See DirectoryPrincipalProvisioningResource.__init__()
         return self.directory.principalCollection.principalCollections()
 
+
     def principalForRecord(self, record):
         # FIXME: directory.principalCollection smells like a hack
         # See DirectoryPrincipalProvisioningResource.__init__()
         return self.directory.principalCollection.principalForRecord(record)
+
 
     def homeForDirectoryRecord(self, record, request):
         uidResource = self.getChild(uidsResourceName)
@@ -126,15 +136,18 @@ class DirectoryAddressBookHomeProvisioningResource (
         else:
             return uidResource.homeResourceForRecord(record, request)
 
+
     ##
     # DAV
     ##
-    
+
     def isCollection(self):
         return True
 
+
     def displayName(self):
         return "addressbooks"
+
 
 
 class DirectoryAddressBookHomeTypeProvisioningResource (
@@ -159,6 +172,7 @@ class DirectoryAddressBookHomeTypeProvisioningResource (
         self.recordType = recordType
         self._parent = parent
 
+
     def url(self):
         return joinURL(self._parent.url(), self.recordType)
 
@@ -177,15 +191,18 @@ class DirectoryAddressBookHomeTypeProvisioningResource (
             # Not a listable collection
             raise HTTPError(responsecode.FORBIDDEN)
 
+
     def makeChild(self, name):
         return None
+
 
     ##
     # DAV
     ##
-    
+
     def isCollection(self):
         return True
+
 
     def displayName(self):
         return self.recordType
@@ -194,11 +211,14 @@ class DirectoryAddressBookHomeTypeProvisioningResource (
     # ACL
     ##
 
+
     def principalCollections(self):
         return self._parent.principalCollections()
 
+
     def principalForRecord(self, record):
         return self._parent.principalForRecord(record)
+
 
 
 class DirectoryAddressBookHomeUIDProvisioningResource (
@@ -210,9 +230,11 @@ class DirectoryAddressBookHomeUIDProvisioningResource (
 
     enabledAttribute = 'enabledForAddressBooks'
 
+
     def homeResourceCreator(self, record, transaction):
         return DirectoryAddressBookHomeResource.createHomeResource(
             self, record, transaction)
+
 
 
 class DirectoryAddressBookHomeResource (AddressBookHomeResource):

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2007-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2007-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,9 +42,9 @@ from twisted.application import internet
 
 from twext.python.log import Logger
 from twext.python.filepath import CachingFilePath as FilePath
-from twext.python.plistlib import writePlist #@UnresolvedImport
-from twext.web2.dav import auth
-from twext.web2.log import LogWrapperResource
+from plistlib import writePlist #@UnresolvedImport
+from txweb2.dav import auth
+from txweb2.log import LogWrapperResource
 from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 
 from twistedcaldav.config import config, ConfigDict, ConfigurationError
@@ -1473,13 +1473,16 @@ class PreProcessingServiceTestCase(TestCase):
         self.assertFalse(triggerFile.exists())
 
 
+
 class StubStorageService(object):
 
     def __init__(self):
         self.hardStopCalled = False
 
+
     def hardStop(self):
         self.hardStopCalled = True
+
 
 
 class StubReactor(object):
@@ -1487,8 +1490,10 @@ class StubReactor(object):
     def __init__(self):
         self.stopCalled = False
 
+
     def stop(self):
         self.stopCalled = True
+
 
 
 class DataStoreMonitorTestCase(TestCase):

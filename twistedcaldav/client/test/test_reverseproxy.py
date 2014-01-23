@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
 # limitations under the License.
 ##
 
-from twext.web2.client.http import ClientRequest
-from twext.web2.http import HTTPError
-from twext.web2.test.test_server import SimpleRequest
+from txweb2.client.http import ClientRequest
+from txweb2.http import HTTPError
+from txweb2.test.test_server import SimpleRequest
 from twistedcaldav.client.pool import _clientPools
 from twistedcaldav.client.reverseproxy import ReverseProxyResource
 from twistedcaldav.config import config

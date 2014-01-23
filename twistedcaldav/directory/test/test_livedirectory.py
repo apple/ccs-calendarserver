@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -142,8 +142,6 @@ if runLDAPTests or runODTests:
             record = self.svc.recordWithShortName("users", "odtestcarlene")
             self.assertTrue(record in records)
 
-
-
     if runLDAPTests:
 
         from twistedcaldav.directory.ldapdirectory import LdapDirectoryService
@@ -195,7 +193,6 @@ if runLDAPTests or runODTests:
                     },
                 }
                 self.svc = LdapDirectoryService(params)
-
 
     if runODTests:
 

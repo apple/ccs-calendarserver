@@ -18,9 +18,17 @@ create table NAMED_LOCK (
 create table CALENDAR_HOME (
     "RESOURCE_ID" integer primary key,
     "OWNER_UID" nvarchar2(255) unique,
+    "STATUS" integer default 0 not null,
     "DATAVERSION" integer default 0 not null
 );
 
+create table HOME_STATUS (
+    "ID" integer primary key,
+    "DESCRIPTION" nvarchar2(16) unique
+);
+
+insert into HOME_STATUS (DESCRIPTION, ID) values ('normal', 0);
+insert into HOME_STATUS (DESCRIPTION, ID) values ('external', 1);
 create table CALENDAR (
     "RESOURCE_ID" integer primary key
 );
@@ -30,6 +38,7 @@ create table CALENDAR_HOME_METADATA (
     "QUOTA_USED_BYTES" integer default 0 not null,
     "DEFAULT_EVENTS" integer default null references CALENDAR on delete set null,
     "DEFAULT_TASKS" integer default null references CALENDAR on delete set null,
+    "DEFAULT_POLLS" integer default null references CALENDAR on delete set null,
     "ALARM_VEVENT_TIMED" nclob default null,
     "ALARM_VEVENT_ALLDAY" nclob default null,
     "ALARM_VTODO_TIMED" nclob default null,
@@ -48,15 +57,17 @@ create table CALENDAR_METADATA (
 
 create table NOTIFICATION_HOME (
     "RESOURCE_ID" integer primary key,
-    "OWNER_UID" nvarchar2(255) unique
+    "OWNER_UID" nvarchar2(255) unique,
+    "STATUS" integer default 0 not null,
+    "DATAVERSION" integer default 0 not null
 );
 
 create table NOTIFICATION (
     "RESOURCE_ID" integer primary key,
     "NOTIFICATION_HOME_RESOURCE_ID" integer not null references NOTIFICATION_HOME,
     "NOTIFICATION_UID" nvarchar2(255),
-    "XML_TYPE" nvarchar2(255),
-    "XML_DATA" nclob,
+    "NOTIFICATION_TYPE" nvarchar2(255),
+    "NOTIFICATION_DATA" nclob,
     "MD5" nchar(32),
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC', 
@@ -66,6 +77,7 @@ create table NOTIFICATION (
 create table CALENDAR_BIND (
     "CALENDAR_HOME_RESOURCE_ID" integer not null references CALENDAR_HOME,
     "CALENDAR_RESOURCE_ID" integer not null references CALENDAR on delete cascade,
+    "EXTERNAL_ID" integer default null,
     "CALENDAR_RESOURCE_NAME" nvarchar2(255),
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
@@ -90,6 +102,7 @@ insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('own', 0);
 insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('read', 1);
 insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('write', 2);
 insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('direct', 3);
+insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('indirect', 4);
 create table CALENDAR_BIND_STATUS (
     "ID" integer primary key,
     "DESCRIPTION" nvarchar2(16) unique
@@ -99,6 +112,7 @@ insert into CALENDAR_BIND_STATUS (DESCRIPTION, ID) values ('invited', 0);
 insert into CALENDAR_BIND_STATUS (DESCRIPTION, ID) values ('accepted', 1);
 insert into CALENDAR_BIND_STATUS (DESCRIPTION, ID) values ('declined', 2);
 insert into CALENDAR_BIND_STATUS (DESCRIPTION, ID) values ('invalid', 3);
+insert into CALENDAR_BIND_STATUS (DESCRIPTION, ID) values ('deleted', 4);
 create table CALENDAR_TRANSP (
     "ID" integer primary key,
     "DESCRIPTION" nvarchar2(16) unique
@@ -206,6 +220,7 @@ create table ADDRESSBOOK_HOME (
     "RESOURCE_ID" integer primary key,
     "ADDRESSBOOK_PROPERTY_STORE_ID" integer not null,
     "OWNER_UID" nvarchar2(255) unique,
+    "STATUS" integer default 0 not null,
     "DATAVERSION" integer default 0 not null
 );
 
@@ -219,6 +234,7 @@ create table ADDRESSBOOK_HOME_METADATA (
 create table SHARED_ADDRESSBOOK_BIND (
     "ADDRESSBOOK_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME,
     "OWNER_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME on delete cascade,
+    "EXTERNAL_ID" integer default null,
     "ADDRESSBOOK_RESOURCE_NAME" nvarchar2(255),
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
@@ -252,10 +268,13 @@ insert into ADDRESSBOOK_OBJECT_KIND (DESCRIPTION, ID) values ('group', 1);
 insert into ADDRESSBOOK_OBJECT_KIND (DESCRIPTION, ID) values ('resource', 2);
 insert into ADDRESSBOOK_OBJECT_KIND (DESCRIPTION, ID) values ('location', 3);
 create table ABO_MEMBERS (
-    "GROUP_ID" integer not null references ADDRESSBOOK_OBJECT on delete cascade,
+    "GROUP_ID" integer not null,
     "ADDRESSBOOK_ID" integer not null references ADDRESSBOOK_HOME on delete cascade,
-    "MEMBER_ID" integer not null references ADDRESSBOOK_OBJECT, 
-    primary key("GROUP_ID", "MEMBER_ID")
+    "MEMBER_ID" integer not null,
+    "REVISION" integer not null,
+    "REMOVED" integer default 0 not null,
+    "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC', 
+    primary key("GROUP_ID", "MEMBER_ID", "REVISION")
 );
 
 create table ABO_FOREIGN_MEMBERS (
@@ -268,6 +287,7 @@ create table ABO_FOREIGN_MEMBERS (
 create table SHARED_GROUP_BIND (
     "ADDRESSBOOK_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME,
     "GROUP_RESOURCE_ID" integer not null references ADDRESSBOOK_OBJECT on delete cascade,
+    "EXTERNAL_ID" integer default null,
     "GROUP_ADDRESSBOOK_NAME" nvarchar2(255),
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
@@ -283,23 +303,27 @@ create table CALENDAR_OBJECT_REVISIONS (
     "CALENDAR_NAME" nvarchar2(255) default null,
     "RESOURCE_NAME" nvarchar2(255),
     "REVISION" integer not null,
-    "DELETED" integer not null
+    "DELETED" integer not null,
+    "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
 );
 
 create table ADDRESSBOOK_OBJECT_REVISIONS (
     "ADDRESSBOOK_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME,
     "OWNER_HOME_RESOURCE_ID" integer references ADDRESSBOOK_HOME,
     "ADDRESSBOOK_NAME" nvarchar2(255) default null,
+    "OBJECT_RESOURCE_ID" integer default 0,
     "RESOURCE_NAME" nvarchar2(255),
     "REVISION" integer not null,
-    "DELETED" integer not null
+    "DELETED" integer not null,
+    "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
 );
 
 create table NOTIFICATION_OBJECT_REVISIONS (
     "NOTIFICATION_HOME_RESOURCE_ID" integer not null references NOTIFICATION_HOME on delete cascade,
     "RESOURCE_NAME" nvarchar2(255),
     "REVISION" integer not null,
-    "DELETED" integer not null, 
+    "DELETED" integer not null,
+    "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC', 
     unique("NOTIFICATION_HOME_RESOURCE_ID", "RESOURCE_NAME")
 );
 
@@ -346,7 +370,8 @@ create table IMIP_REPLY_WORK (
 create table PUSH_NOTIFICATION_WORK (
     "WORK_ID" integer primary key not null,
     "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
-    "PUSH_ID" nvarchar2(255)
+    "PUSH_ID" nvarchar2(255),
+    "PRIORITY" integer not null
 );
 
 create table GROUP_CACHER_POLLING_WORK (
@@ -358,6 +383,16 @@ create table CALENDAR_OBJECT_SPLITTER_WORK (
     "WORK_ID" integer primary key not null,
     "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade
+);
+
+create table FIND_MIN_VALID_REVISION_WORK (
+    "WORK_ID" integer primary key not null,
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
+);
+
+create table REVISION_CLEANUP_WORK (
+    "WORK_ID" integer primary key not null,
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
 );
 
 create table SCHEDULE_REFRESH_WORK (
@@ -382,6 +417,25 @@ create table SCHEDULE_AUTO_REPLY_WORK (
     "PARTSTAT" nvarchar2(255)
 );
 
+create table SCHEDULE_ORGANIZER_WORK (
+    "WORK_ID" integer primary key not null,
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
+    "ICALENDAR_UID" nvarchar2(255),
+    "SCHEDULE_ACTION" integer not null,
+    "HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade,
+    "RESOURCE_ID" integer,
+    "ICALENDAR_TEXT" nclob,
+    "SMART_MERGE" integer
+);
+
+create table SCHEDULE_ACTION (
+    "ID" integer primary key,
+    "DESCRIPTION" nvarchar2(16) unique
+);
+
+insert into SCHEDULE_ACTION (DESCRIPTION, ID) values ('create', 0);
+insert into SCHEDULE_ACTION (DESCRIPTION, ID) values ('modify', 1);
+insert into SCHEDULE_ACTION (DESCRIPTION, ID) values ('remove', 2);
 create table SCHEDULE_REPLY_WORK (
     "WORK_ID" integer primary key not null,
     "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
@@ -404,15 +458,21 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '26');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '34');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
+insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');
+insert into CALENDARSERVER (NAME, VALUE) values ('MIN-VALID-REVISION', '1');
 create index CALENDAR_HOME_METADAT_3cb9049e on CALENDAR_HOME_METADATA (
     DEFAULT_EVENTS
 );
 
 create index CALENDAR_HOME_METADAT_d55e5548 on CALENDAR_HOME_METADATA (
     DEFAULT_TASKS
+);
+
+create index CALENDAR_HOME_METADAT_910264ce on CALENDAR_HOME_METADATA (
+    DEFAULT_POLLS
 );
 
 create index NOTIFICATION_NOTIFICA_f891f5f9 on NOTIFICATION (
@@ -457,6 +517,10 @@ create index ATTACHMENT_CALENDAR_H_0078845c on ATTACHMENT (
     CALENDAR_HOME_RESOURCE_ID
 );
 
+create index ATTACHMENT_DROPBOX_ID_5073cf23 on ATTACHMENT (
+    DROPBOX_ID
+);
+
 create index ATTACHMENT_CALENDAR_O_81508484 on ATTACHMENT_CALENDAR_OBJECT (
     CALENDAR_OBJECT_RESOURCE_ID
 );
@@ -486,9 +550,11 @@ create index CALENDAR_OBJECT_REVIS_3a3956c4 on CALENDAR_OBJECT_REVISIONS (
     CALENDAR_RESOURCE_ID
 );
 
-create index CALENDAR_OBJECT_REVIS_2643d556 on CALENDAR_OBJECT_REVISIONS (
+create index CALENDAR_OBJECT_REVIS_6d9d929c on CALENDAR_OBJECT_REVISIONS (
     CALENDAR_RESOURCE_ID,
-    RESOURCE_NAME
+    RESOURCE_NAME,
+    DELETED,
+    REVISION
 );
 
 create index CALENDAR_OBJECT_REVIS_265c8acf on CALENDAR_OBJECT_REVISIONS (
@@ -501,9 +567,11 @@ create index ADDRESSBOOK_OBJECT_RE_2bfcf757 on ADDRESSBOOK_OBJECT_REVISIONS (
     OWNER_HOME_RESOURCE_ID
 );
 
-create index ADDRESSBOOK_OBJECT_RE_980b9872 on ADDRESSBOOK_OBJECT_REVISIONS (
+create index ADDRESSBOOK_OBJECT_RE_00fe8288 on ADDRESSBOOK_OBJECT_REVISIONS (
     OWNER_HOME_RESOURCE_ID,
-    RESOURCE_NAME
+    RESOURCE_NAME,
+    DELETED,
+    REVISION
 );
 
 create index ADDRESSBOOK_OBJECT_RE_45004780 on ADDRESSBOOK_OBJECT_REVISIONS (
@@ -546,6 +614,14 @@ create index SCHEDULE_AUTO_REPLY_W_0256478d on SCHEDULE_AUTO_REPLY_WORK (
 );
 
 create index SCHEDULE_AUTO_REPLY_W_0755e754 on SCHEDULE_AUTO_REPLY_WORK (
+    RESOURCE_ID
+);
+
+create index SCHEDULE_ORGANIZER_WO_18ce4edd on SCHEDULE_ORGANIZER_WORK (
+    HOME_RESOURCE_ID
+);
+
+create index SCHEDULE_ORGANIZER_WO_14702035 on SCHEDULE_ORGANIZER_WORK (
     RESOURCE_ID
 );
 

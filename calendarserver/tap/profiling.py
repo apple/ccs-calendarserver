@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,7 +29,8 @@ class CProfileCPURunner(CProfileRunner):
         Run reactor under the cProfile profiler.
         """
         try:
-            import cProfile, pstats
+            import cProfile
+            import pstats
         except ImportError, e:
             self._reportImportError("cProfile", e)
 

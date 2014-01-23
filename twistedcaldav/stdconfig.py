@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_stdconfig -*-
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,9 +22,9 @@ from socket import getfqdn, gethostbyname
 
 from twisted.python.runtime import platform
 
-from twext.python.plistlib import PlistParser #@UnresolvedImport
+from plistlib import PlistParser #@UnresolvedImport
 from twext.python.log import Logger, InvalidLogLevelError, LogLevel
-from twext.web2.dav.resource import TwistedACLInheritable
+from txweb2.dav.resource import TwistedACLInheritable
 
 from txdav.xml import element as davxml
 
@@ -34,8 +34,10 @@ from twistedcaldav.config import config, mergeData, fullServerPath
 from twistedcaldav.util import getPasswordFromKeychain
 from twistedcaldav.util import KeychainAccessError, KeychainPasswordNotFound
 from twistedcaldav.util import computeProcessCount
+from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 
 from calendarserver.push.util import getAPNTopicFromCertificate
+from twistedcaldav import ical
 
 log = Logger()
 
@@ -156,9 +158,8 @@ DEFAULT_SERVICE_PARAMS = {
             "resourceInfoAttr": None, # contains location/resource info
             "autoAcceptGroupAttr": None, # auto accept group
         },
-        "partitionSchema": {
+        "poddingSchema": {
             "serverIdAttr": None, # maps to augments server-id
-            "partitionIdAttr": None, # maps to augments partition-id
         },
     },
 }
@@ -166,7 +167,7 @@ DEFAULT_SERVICE_PARAMS = {
 DEFAULT_RESOURCE_PARAMS = {
     "twistedcaldav.directory.xmlfile.XMLDirectoryService": {
         "xmlFile": "resources.xml",
-        "recordTypes" : ("locations", "resources"),
+        "recordTypes" : ("locations", "resources", "addresses"),
     },
     "twistedcaldav.directory.appleopendirectory.OpenDirectoryService": {
         "node": "/Search",
@@ -304,11 +305,24 @@ DEFAULT_CONFIG = {
                                     # the master process, rather than having
                                     # each client make its connections directly.
 
-    "FailIfUpgradeNeeded"  : True, # Set to True to prevent the server or utility tools
+    "FailIfUpgradeNeeded"  : True, # Set to True to prevent the server or utility
                                    # tools from running if the database needs a schema
                                    # upgrade.
-    "StopAfterUpgradeTriggerFile" : "stop_after_upgrade", # if this file exists
-        # in ConfigRoot, stop the service after finishing upgrade phase
+    "StopAfterUpgradeTriggerFile" : "stop_after_upgrade",   # if this file exists in ConfigRoot, stop
+                                                            # the service after finishing upgrade phase
+
+    "UpgradeHomePrefix"    : "",    # When upgrading, only upgrade homes where the owner UID starts with
+                                    # with the specified prefix. The upgrade will only be partial and only
+                                    # apply to upgrade pieces that affect entire homes. The upgrade will
+                                    # need to be run again without this prefix set to complete the overall
+                                    # upgrade.
+
+    #
+    # Work queue configuration information
+    #
+    "WorkQueue" : {
+        "ampPort": 7654,            # Port used for hosts in a cluster to take to each other
+    },
 
     #
     # Types of service provided
@@ -354,7 +368,7 @@ DEFAULT_CONFIG = {
     #
     # Directory service
     #
-    #    A directory service provides information about principals (eg.
+    #    A directory service provides information about principals (e.g.
     #    users, groups, locations and resources) to the server.
     #
     "DirectoryService": {
@@ -540,6 +554,11 @@ DEFAULT_CONFIG = {
     "EnableManagedAttachments"    : False, # Support Managed Attachments
 
     #
+    # Generic CalDAV/CardDAV extensions
+    #
+    "EnableJSONData"          : True, # Allow clients to send/receive JSON jCal and jCard format data
+
+    #
     # Non-standard CalDAV extensions
     #
     "EnableDropBox"           : False, # Calendar Drop Box
@@ -564,8 +583,8 @@ DEFAULT_CONFIG = {
         }
     },
 
-    "EnableTimezonesByReference" : False, # Strip out VTIMEZONES that are known
-    "UsePackageTimezones" : False, # Use timezone data from twistedcaldav.zoneinfo - don't copy to Data directory
+    "EnableTimezonesByReference" : True, # Strip out VTIMEZONES that are known
+    "UsePackageTimezones"        : False, # Use timezone data from twistedcaldav.zoneinfo - don't copy to Data directory
 
     "EnableBatchUpload"       : True, # POST batch uploads
     "MaxResourcesBatchUpload" : 100, # Maximum number of resources in a batch POST
@@ -577,10 +596,13 @@ DEFAULT_CONFIG = {
 
         "Calendars" : {
             "Enabled"         : True, # Calendar on/off switch
+            "IgnorePerUserProperties" : [
+                "X-APPLE-STRUCTURED-LOCATION",
+            ],
         },
         "AddressBooks" : {
             "Enabled"         : False, # Address Books on/off switch
-        }
+        },
     },
 
     "RestrictCalendarsToOneComponentType" : True, # Only allow calendars to be created with a single component type
@@ -588,6 +610,12 @@ DEFAULT_CONFIG = {
                                                    # split existing calendars into multiples based on component type.
                                                    # If on, it will also cause new accounts to provision with separate
                                                    # calendars for events and tasks.
+
+    "SupportedComponents" : [                      # Set of supported iCalendar components
+        "VEVENT",
+        "VTODO",
+        #"VPOLL",
+    ],
 
     "ParallelUpgrades" : False, # Perform upgrades - currently only the
                                    # database -> filesystem migration - but in
@@ -602,6 +630,11 @@ DEFAULT_CONFIG = {
     "EnableDefaultAlarms" : True, # Support for default alarms generated by the server
     "RemoveDuplicateAlarms": True, # Remove duplicate alarms on PUT
 
+    "RemoveDuplicatePrivateComments": False, # Remove duplicate private comments on PUT
+
+    "SyncTokenLifetimeDays" : 14,       # Number of days that a client sync report token is valid
+    "RevisionCleanupPeriodDays" : 2,    # Number of days between revision cleanups
+
     # CardDAV Features
     "DirectoryAddressBook": {
         "Enabled": True,
@@ -612,12 +645,6 @@ DEFAULT_CONFIG = {
     },
     "EnableSearchAddressBook": False, # /directory resource exists
     "AnonymousDirectoryAddressBookAccess": False, # Anonymous users may access directory address book
-
-    "GlobalAddressBook": {
-        "Enabled": False,
-        "Name": "global-addressbook",
-        "EnableAnonymousReadAccess": False,
-    },
 
     # /XXX CardDAV
 
@@ -803,11 +830,12 @@ DEFAULT_CONFIG = {
     # Support multiple hosts within a domain
     #
     "Servers" : {
-        "Enabled": False, # Multiple servers/partitions enabled or not
-        "ConfigFile": "localservers.xml", # File path for server information
-        "MaxClients": 5, # Pool size for connections to each partition
+        "Enabled": False,                   # Multiple servers enabled or not
+        "ConfigFile": "localservers.xml",   # File path for server information
+        "MaxClients": 5,                    # Pool size for connections between servers
+        "InboxName": "podding",             # Name for top-level inbox resource
+        "ConduitName": "conduit",           # Name for top-level cross-pod resource
     },
-    "ServerPartitionID": "", # Unique ID for this server's partition instance.
 
     #
     # Performance tuning
@@ -878,7 +906,8 @@ DEFAULT_CONFIG = {
 
     # Support for Content-Encoding compression options as specified in
     # RFC2616 Section 3.5
-    "ResponseCompression": True,
+    # Defaults off, because it weakens TLS (CRIME attack).
+    "ResponseCompression": False,
 
     # The retry-after value (in seconds) to return with a 503 error
     "HTTPRetryAfter": 180,
@@ -933,6 +962,7 @@ DEFAULT_CONFIG = {
         "DatabaseName": "caldav",
         "ClusterName": "cluster",
         "LogFile": "postgres.log",
+        "SocketDirectory": "",
         "ListenAddresses": [],
         "SharedBuffers": 0, # BuffersToConnectionsRatio * MaxConnections
                             # Note: don't set this, it will be computed dynamically
@@ -989,7 +1019,7 @@ DEFAULT_CONFIG = {
     "FreeBusyIndexDelayedExpand": True,
 
     # The RootResource uses a twext property store. Specify the class here
-    "RootResourcePropStoreClass": "twext.web2.dav.xattrprops.xattrPropertyStore",
+    "RootResourcePropStoreClass": "txweb2.dav.xattrprops.xattrPropertyStore",
 
     # Used in the command line utilities to specify which service class to
     # use to carry out work.
@@ -1008,7 +1038,8 @@ DEFAULT_CONFIG = {
     # means no automatic shutdown.
     "AgentInactivityTimeoutSeconds"  : 4 * 60 * 60,
 
-    # These two aren't relative to ConfigRoot:
+    # These aren't relative to ConfigRoot:
+    "ImportConfig": "", # Config to read first and merge
     "Includes": [], # Other plists to parse after this one
     "WritableConfigFile" : "", # which config file calendarserver_config should
         # write to for changes; empty string means the main config file.
@@ -1040,18 +1071,44 @@ class PListConfigProvider(ConfigProvider):
         if self._configFileName:
             configDict = self._parseConfigFromFile(self._configFileName)
         configDict = ConfigDict(configDict)
-        # Now check for Includes and parse and add each of those
-        if "Includes" in configDict:
-            for include in configDict.Includes:
-                # Includes are not relative to ConfigRoot
-                path = _expandPath(include)
-                if os.path.exists(path):
-                    additionalDict = ConfigDict(self._parseConfigFromFile(path))
-                    if additionalDict:
-                        log.info("Adding configuration from file: '%s'" % (path,))
-                        mergeData(configDict, additionalDict)
+
+        def _loadImport(childDict):
+            # Look for an import and read that one as the main config and merge the current one into that
+            if "ImportConfig" in childDict and childDict.ImportConfig:
+                if childDict.ImportConfig[0] != ".":
+                    configRoot = os.path.join(childDict.ServerRoot, childDict.ConfigRoot)
+                    path = _expandPath(fullServerPath(configRoot, childDict.ImportConfig))
                 else:
-                    log.debug("Missing configuration file: '%s'" % (path,))
+                    path = childDict.ImportConfig
+                if os.path.exists(path):
+                    importDict = ConfigDict(self._parseConfigFromFile(path))
+                    if importDict:
+                        self.importedFiles.append(path)
+                        importDict = _loadImport(importDict)
+                        mergeData(importDict, childDict)
+                        return importDict
+                raise ConfigurationError("Import configuration file '{path}' must exist and be valid.".format(path=path))
+            else:
+                return childDict
+
+        def _loadIncludes(parentDict):
+            # Now check for Includes and parse and add each of those
+            if "Includes" in parentDict:
+                configRoot = os.path.join(parentDict.ServerRoot, parentDict.ConfigRoot)
+                for include in parentDict.Includes:
+                    # Includes are not relative to ConfigRoot
+                    path = _expandPath(fullServerPath(configRoot, include))
+                    if os.path.exists(path):
+                        additionalDict = ConfigDict(self._parseConfigFromFile(path))
+                        if additionalDict:
+                            self.includedFiles.append(path)
+                            _loadIncludes(additionalDict)
+                            mergeData(parentDict, additionalDict)
+                    else:
+                        self.missingFiles.append(path)
+
+        configDict = _loadImport(configDict)
+        _loadIncludes(configDict)
         return configDict
 
 
@@ -1476,6 +1533,14 @@ def _updateNotifications(configDict, reloading=False):
 
 
 
+def _updateICalendar(configDict, reloading=False):
+    """
+    Updated support iCalendar components.
+    """
+    ical._updateAllowedComponents(tuple(configDict.SupportedComponents))
+
+
+
 def _updateScheduling(configDict, reloading=False):
     #
     # Scheduling
@@ -1511,12 +1576,22 @@ def _updateScheduling(configDict, reloading=False):
 
 
 
+def _updateSharing(configDict, reloading=False):
+    #
+    # Sharing
+    #
+
+    # Transfer configured non-per-user property names to PerUserDataFilter
+    for propertyName in configDict.Sharing.Calendars.IgnorePerUserProperties:
+        PerUserDataFilter.IGNORE_X_PROPERTIES.append(propertyName)
+
+
+
 def _updateServers(configDict, reloading=False):
     from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers
     if configDict.Servers.Enabled:
         Servers.load()
-        Servers.getThisServer().installReverseProxies(
-            configDict.ServerPartitionID,
+        Servers.installReverseProxies(
             configDict.Servers.MaxClients,
         )
     else:
@@ -1551,6 +1626,7 @@ def _updateCompliance(configDict, reloading=False):
             compliance += customxml.calendarserver_partstat_changes_compliance
         if configDict.EnableTimezonesByReference:
             compliance += caldavxml.caldav_timezones_by_reference_compliance
+        compliance += customxml.calendarserver_recurrence_split
     else:
         compliance = ()
 
@@ -1587,7 +1663,9 @@ POST_UPDATE_HOOKS = (
     _updateRejectClients,
     _updateLogLevels,
     _updateNotifications,
+    _updateICalendar,
     _updateScheduling,
+    _updateSharing,
     _updateServers,
     _updateCompliance,
     )

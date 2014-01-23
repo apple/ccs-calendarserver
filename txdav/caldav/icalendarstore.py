@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.caldav.datastore -*-
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -363,9 +363,9 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
         instances that occur within the time range that begins at
         C{start} and ends at C{end}.
 
-        @param start: a L{PyCalendarDateTime}.
-        @param end: a L{PyCalendarDateTime}.
-        @param timeZone: a L{PyCalendarTimezone}.
+        @param start: a L{DateTime}.
+        @param end: a L{DateTime}.
+        @param timeZone: a L{Timezone}.
         @return: an iterable of L{ICalendarObject}s.
         """
 
@@ -658,7 +658,7 @@ class IAttachment(IDataStoreObject):
 
         @param contentType: The content type of the data which will be stored.
 
-        @type contentType: L{twext.web2.http_headers.MimeType}
+        @type contentType: L{txweb2.http_headers.MimeType}
 
         @return: A transport which stores the contents written to it.
 
@@ -736,6 +736,13 @@ class AttendeeAllowedError(CommonStoreError):
 class ShareeAllowedError(CommonStoreError):
     """
     Sharee is not allowed to make an implicit scheduling change.
+    """
+
+
+
+class DuplicatePrivateCommentsError(CommonStoreError):
+    """
+    Calendar data cannot contain duplicate private comment properties.
     """
 
 
@@ -836,6 +843,13 @@ class QueryMaxResources(CommonStoreError):
 
 
 
+class InvalidSplit(CommonStoreError):
+    """
+    A user triggered split operation is invalid.
+    """
+
+
+
 #
 # FIXME: These may belong elsewhere.
 #
@@ -900,7 +914,7 @@ class ComponentRemoveState(Names):
     NORMAL_NO_IMPLICIT -    this is an application layer (user) generated remove that deliberately turns
                             off implicit scheduling operations.
 
-    INTERNAL -              remove the resource without implicit scheduling.
+    INTERNAL -              remove the resource without implicit scheduling or attachment processing.
     """
 
     NORMAL = NamedConstant()

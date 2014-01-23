@@ -1,6 +1,6 @@
 # -*- test-case-name: calendarserver -*-
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,13 +19,10 @@
 CalendarServer application code.
 """
 
-# Make sure we have twext's required Twisted patches loaded before we do
-# anything at all.
-__import__("twext")
-
 #
 # setuptools is annoying
 #
+
 from warnings import filterwarnings
 filterwarnings("ignore", "Module (.*) was already imported (.*)")
 del filterwarnings
@@ -38,3 +35,11 @@ try:
     from calendarserver.version import version as __version__
 except ImportError:
     __version__ = None
+
+
+#
+# Get imap4 module to STFU
+#
+
+# from twisted.mail.imap4 import Command
+# Command._1_RESPONSES += tuple(['BYE'])

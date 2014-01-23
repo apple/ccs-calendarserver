@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.caldav.datastore.test.test_util -*-
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,11 +32,12 @@ from twisted.internet.protocol import Protocol
 
 from twext.python.log import Logger
 
-from twext.web2 import http_headers
+from txweb2 import http_headers
 
-from twext.python.vcomponent import InvalidICalendarDataError
-from twext.python.vcomponent import VComponent
+from twistedcaldav.ical import InvalidICalendarDataError
+from twistedcaldav.ical import Component as VComponent
 
+from twistedcaldav import ical
 from twistedcaldav.datafilters.hiddeninstance import HiddenInstanceFilter
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
 from twistedcaldav.ical import PERUSER_UID
@@ -282,7 +283,7 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent, merge=False):
 
 
 
-# MIME helpers - mostly copied from twext.web2.static
+# MIME helpers - mostly copied from txweb2.static
 
 def loadMimeTypes(mimetype_locations=['/etc/mime.types']):
     """
@@ -380,9 +381,11 @@ def migrateHome(inHome, outHome, getComponent=lambda x: x.component(), merge=Fal
     """
     from twistedcaldav.config import config
     if not merge:
-        yield outHome.removeCalendarWithName("calendar")
         if config.RestrictCalendarsToOneComponentType:
-            yield outHome.removeCalendarWithName("tasks")
+            for name in ical.allowedStoreComponents:
+                yield outHome.removeCalendarWithName(outHome._componentCalendarName[name])
+        else:
+            yield outHome.removeCalendarWithName("calendar")
         yield outHome.removeCalendarWithName("inbox")
 
     outHome.properties().update(inHome.properties())
@@ -504,7 +507,7 @@ class StorageTransportBase(object):
     def __init__(self, attachment, contentType, dispositionName):
         """
         Create a storage transport with a reference to an L{IAttachment} and a
-        L{twext.web2.http_headers.MimeType}.
+        L{txweb2.http_headers.MimeType}.
         """
         from twisted.internet import reactor
         self._clock = reactor

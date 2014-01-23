@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_extensions -*-
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,23 +40,23 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web.template import Element, XMLFile, renderer, tags, flattenString
 from twisted.python.modules import getModule
 
-from twext.web2 import responsecode, server
-from twext.web2.http import HTTPError, Response, RedirectResponse
-from twext.web2.http import StatusResponse
-from twext.web2.http_headers import MimeType
-from twext.web2.stream import FileStream
-from twext.web2.static import MetaDataMixin, StaticRenderMixin
+from txweb2 import responsecode, server
+from txweb2.http import HTTPError, Response, RedirectResponse
+from txweb2.http import StatusResponse
+from txweb2.http_headers import MimeType
+from txweb2.stream import FileStream
+from txweb2.static import MetaDataMixin, StaticRenderMixin
 from txdav.xml import element
 from txdav.xml.base import encodeXMLName
 from txdav.xml.element import dav_namespace
-from twext.web2.dav.http import MultiStatusResponse
-from twext.web2.dav.static import DAVFile as SuperDAVFile
-from twext.web2.dav.resource import DAVResource as SuperDAVResource
-from twext.web2.dav.resource import (
+from txweb2.dav.http import MultiStatusResponse
+from txweb2.dav.static import DAVFile as SuperDAVFile
+from txweb2.dav.resource import DAVResource as SuperDAVResource
+from txweb2.dav.resource import (
     DAVPrincipalResource as SuperDAVPrincipalResource
 )
 from twisted.internet.defer import gatherResults
-from twext.web2.dav.method import prop_common
+from txweb2.dav.method import prop_common
 
 from twext.python.log import Logger
 
@@ -494,13 +494,13 @@ class DirectoryRenderingMixIn(object):
             size = child.contentLength()
             lastModified = child.lastModified()
             rtypes = []
-            fullrtype = child.resourceType()
+            fullrtype = child.resourceType() if hasattr(child, "resourceType") else None
             if fullrtype is not None:
                 for rtype in fullrtype.children:
                     rtypes.append(rtype.name)
             if rtypes:
                 rtypes = "(%s)" % (", ".join(rtypes),)
-            if child.isCollection():
+            if child.isCollection() if hasattr(child, "isCollection") else False:
                 contentType = rtypes
             else:
                 mimeType = child.contentType()
@@ -541,7 +541,7 @@ class DAVResource (DirectoryPrincipalPropertySearchMixIn,
                    SuperDAVResource,
                    DirectoryRenderingMixIn, StaticRenderMixin):
     """
-    Extended L{twext.web2.dav.resource.DAVResource} implementation.
+    Extended L{txweb2.dav.resource.DAVResource} implementation.
 
     Note we add StaticRenderMixin as a base class because we need all the etag etc behavior
     that is currently in static.py but is actually applicable to any type of resource.
@@ -577,7 +577,7 @@ class DAVResource (DirectoryPrincipalPropertySearchMixIn,
 
 class DAVResourceWithChildrenMixin (object):
     """
-    Bits needed from twext.web2.static
+    Bits needed from txweb2.static
     """
 
     def __init__(self, principalCollections=None):
@@ -646,7 +646,7 @@ class DAVResourceWithChildrenMixin (object):
 
 class DAVResourceWithoutChildrenMixin (object):
     """
-    Bits needed from twext.web2.static
+    Bits needed from txweb2.static
     """
 
     def __init__(self, principalCollections=None):
@@ -670,7 +670,7 @@ class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn,
                             SuperDAVPrincipalResource,
                             DirectoryRenderingMixIn):
     """
-    Extended L{twext.web2.dav.static.DAVFile} implementation.
+    Extended L{txweb2.dav.static.DAVFile} implementation.
     """
     log = Logger()
 
@@ -761,7 +761,7 @@ class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn,
 
 class DAVFile (SuperDAVFile, DirectoryRenderingMixIn):
     """
-    Extended L{twext.web2.dav.static.DAVFile} implementation.
+    Extended L{txweb2.dav.static.DAVFile} implementation.
     """
     log = Logger()
 
@@ -1002,6 +1002,7 @@ def extractCalendarServerPrincipalSearchData(doc):
                 raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, msg))
 
     return tokens, context, applyTo, clientLimit, propElement
+
 
 
 def validateTokens(tokens):

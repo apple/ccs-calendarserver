@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,13 +18,14 @@ import json
 import struct
 import time
 from calendarserver.push.applepush import (
-    ApplePushNotifierService, APNProviderProtocol
+    ApplePushNotifierService, APNProviderProtocol, ApplePushPriority
 )
-from calendarserver.push.util import validToken, TokenHistory
+from calendarserver.push.util import validToken, TokenHistory, PushPriority
 from twistedcaldav.test.util import StoreTestCase
 from twisted.internet.defer import inlineCallbacks, succeed
 from twisted.internet.task import Clock
 from txdav.common.icommondatastore import InvalidSubscriptionValues
+
 
 class ApplePushNotifierServiceTests(StoreTestCase):
 
@@ -120,12 +121,14 @@ class ApplePushNotifierServiceTests(StoreTestCase):
         dataChangedTimestamp = 1354815999
         txn = self._sqlCalendarStore.newTransaction()
         yield service.enqueue(txn, "/CalDAV/calendars.example.com/user01/calendar/",
-            dataChangedTimestamp=dataChangedTimestamp)
+            dataChangedTimestamp=dataChangedTimestamp, priority=PushPriority.high)
         yield txn.commit()
 
         # The notifications should be in the queue
-        self.assertTrue(((token, key1), dataChangedTimestamp) in service.providers["CalDAV"].queue)
-        self.assertTrue(((token2, key1), dataChangedTimestamp) in service.providers["CalDAV"].queue)
+        self.assertTrue(((token, key1), dataChangedTimestamp, PushPriority.high)
+            in service.providers["CalDAV"].queue)
+        self.assertTrue(((token2, key1), dataChangedTimestamp, PushPriority.high)
+            in service.providers["CalDAV"].queue)
 
         # Start the service, making the connection which should service the
         # queue
@@ -137,17 +140,40 @@ class ApplePushNotifierServiceTests(StoreTestCase):
         # Verify data sent to APN
         providerConnector = service.providers["CalDAV"].testConnector
         rawData = providerConnector.transport.data
-        self.assertEquals(len(rawData), 183)
-        data = struct.unpack("!BIIH32sH", rawData[:45])
-        self.assertEquals(data[0], 1) # command
-        self.assertEquals(data[4].encode("hex"), token.replace(" ", "")) # token
-        payloadLength = data[5]
-        payload = struct.unpack("%ds" % (payloadLength,),
-            rawData[45:])
+        self.assertEquals(len(rawData), 199)
+        data = struct.unpack("!BI", rawData[:5])
+        self.assertEquals(data[0], 2) # command
+        self.assertEquals(data[1], 194) # frame length
+        # Item 1 (device token)
+        data = struct.unpack("!BH32s", rawData[5:40])
+        self.assertEquals(data[0], 1)
+        self.assertEquals(data[1], 32)
+        self.assertEquals(data[2].encode("hex"), token.replace(" ", "")) # token
+        # Item 2 (payload)
+        data = struct.unpack("!BH", rawData[40:43])
+        self.assertEquals(data[0], 2)
+        payloadLength = data[1]
+        self.assertEquals(payloadLength, 138)
+        payload = struct.unpack("!%ds" % (payloadLength,), rawData[43:181])
         payload = json.loads(payload[0])
         self.assertEquals(payload["key"], u"/CalDAV/calendars.example.com/user01/calendar/")
         self.assertEquals(payload["dataChangedTimestamp"], dataChangedTimestamp)
         self.assertTrue("pushRequestSubmittedTimestamp" in payload)
+        # Item 3 (notification id)
+        data = struct.unpack("!BHI", rawData[181:188])
+        self.assertEquals(data[0], 3)
+        self.assertEquals(data[1], 4)
+        self.assertEquals(data[2], 2)
+        # Item 4 (expiration)
+        data = struct.unpack("!BHI", rawData[188:195])
+        self.assertEquals(data[0], 4)
+        self.assertEquals(data[1], 4)
+        # Item 5 (priority)
+        data = struct.unpack("!BHB", rawData[195:199])
+        self.assertEquals(data[0], 5)
+        self.assertEquals(data[1], 1)
+        self.assertEquals(data[2], ApplePushPriority.high.value)
+
         # Verify token history is updated
         self.assertTrue(token in [t for (_ignore_i, t) in providerConnector.service.protocol.history.history])
         self.assertTrue(token2 in [t for (_ignore_i, t) in providerConnector.service.protocol.history.history])
@@ -160,14 +186,21 @@ class ApplePushNotifierServiceTests(StoreTestCase):
         providerConnector.transport.data = None
         # Send notification while service is connected
         txn = self._sqlCalendarStore.newTransaction()
-        yield service.enqueue(txn, "/CalDAV/calendars.example.com/user01/calendar/")
+        yield service.enqueue(txn, "/CalDAV/calendars.example.com/user01/calendar/",
+            priority=PushPriority.low)
         yield txn.commit()
         clock.advance(1) # so that first push is sent
-        self.assertEquals(len(providerConnector.transport.data), 183)
+        self.assertEquals(len(providerConnector.transport.data), 199)
+        # Ensure that the priority is "low"
+        data = struct.unpack("!BHB", providerConnector.transport.data[195:199])
+        self.assertEquals(data[0], 5)
+        self.assertEquals(data[1], 1)
+        self.assertEquals(data[2], ApplePushPriority.low.value)
+
         # Reset sent data
         providerConnector.transport.data = None
         clock.advance(3) # so that second push is sent
-        self.assertEquals(len(providerConnector.transport.data), 183)
+        self.assertEquals(len(providerConnector.transport.data), 199)
 
         history = []
 

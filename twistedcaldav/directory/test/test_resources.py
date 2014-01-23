@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,6 +41,7 @@ class ResourcesTestCase(TestCase):
 #    def test_loadConfig(self):
 #        directory = getDirectory()
 
+
     def test_recordInPrimaryDirectory(self):
         directory = getDirectory()
 
@@ -48,12 +49,14 @@ class ResourcesTestCase(TestCase):
         record = directory.recordWithUID("user01")
         self.assertNotEquals(record, None)
 
+
     def test_recordInSupplementalDirectory(self):
         directory = getDirectory()
 
         # Look up a resource, which comes out of locations/resources service
         record = directory.recordWithUID("resource01")
         self.assertNotEquals(record, None)
+
 
     def test_augments(self):
         directory = getDirectory()

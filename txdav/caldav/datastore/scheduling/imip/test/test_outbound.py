@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2008-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2008-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import print_function
 
 from cStringIO import StringIO
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
 from twisted.internet.defer import inlineCallbacks, succeed
 from twisted.trial import unittest
@@ -275,7 +275,7 @@ END:VCALENDAR
                 inputOriginator,
                 inputRecipient,
                 Component.fromString(inputCalendar.replace("\n", "\r\n")),
-                onlyAfter=PyCalendarDateTime(2010, 1, 1, 0, 0, 0)
+                onlyAfter=DateTime(2010, 1, 1, 0, 0, 0)
             )
             yield txn.commit()
 
@@ -319,7 +319,7 @@ END:VCALENDAR
                 inputOriginator,
                 inputRecipient,
                 Component.fromString(inputCalendar.replace("\n", "\r\n")),
-                onlyAfter=PyCalendarDateTime(2021, 1, 1, 0, 0, 0)
+                onlyAfter=DateTime(2021, 1, 1, 0, 0, 0)
             )
             yield txn.commit()
             self.assertFalse(self.sender.smtpSender.sendMessageCalled)
@@ -381,7 +381,7 @@ END:VCALENDAR
         txn = self.store.newTransaction()
         yield self.sender.outbound(txn, inputOriginator, inputRecipient,
             Component.fromString(inputCalendar.replace("\n", "\r\n")),
-            onlyAfter=PyCalendarDateTime(2010, 1, 1, 0, 0, 0))
+            onlyAfter=DateTime(2010, 1, 1, 0, 0, 0))
 
         # Verify we didn't create a new token...
         txn = self.store.newTransaction()

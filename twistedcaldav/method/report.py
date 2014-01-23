@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -29,15 +29,15 @@ __all__ = ["http_REPORT"]
 import string
 
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twext.web2 import responsecode
-from twext.web2.http import HTTPError, StatusResponse
-from twext.web2.dav.util import davXMLFromStream
+from txweb2 import responsecode
+from txweb2.http import HTTPError, StatusResponse
+from txweb2.dav.util import davXMLFromStream
 from txdav.xml import element as davxml
 from txdav.xml.base import encodeXMLName
 from txdav.xml.element import lookupElement
 
 from twext.python.log import Logger
-from twext.web2.dav.http import ErrorResponse
+from txweb2.dav.http import ErrorResponse
 
 from twistedcaldav import caldavxml
 

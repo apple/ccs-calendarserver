@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_wrapping -*-
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,40 +15,48 @@
 # limitations under the License.
 ##
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
+from twext.enterprise.locking import LockTimeout
 from twext.python.log import Logger
-from twext.web2.dav.http import ErrorResponse, ResponseQueue, MultiStatusResponse
-from twext.web2.dav.noneprops import NonePropertyStore
-from twext.web2.dav.resource import TwistedACLInheritable, AccessDeniedError, \
+from txweb2 import responsecode, http_headers, http
+from txweb2.dav.http import ErrorResponse, ResponseQueue, MultiStatusResponse
+from txweb2.dav.noneprops import NonePropertyStore
+from txweb2.dav.resource import TwistedACLInheritable, AccessDeniedError, \
     davPrivilegeSet
-from twext.web2.dav.util import parentForURL, allDataFromStream, joinURL, davXMLFromStream
-from twext.web2.filter.location import addLocation
-from twext.web2.http import HTTPError, StatusResponse, Response
-from twext.web2.http_headers import ETag, MimeType, MimeDisposition
-from twext.web2.responsecode import \
+from txweb2.dav.util import parentForURL, allDataFromStream, joinURL, davXMLFromStream
+from txweb2.filter.location import addLocation
+from txweb2.http import HTTPError, StatusResponse, Response
+from txweb2.http_headers import ETag, MimeType, MimeDisposition
+from txweb2.iweb import IResponse
+from txweb2.responsecode import \
     FORBIDDEN, NO_CONTENT, NOT_FOUND, CREATED, CONFLICT, PRECONDITION_FAILED, \
     BAD_REQUEST, OK, INSUFFICIENT_STORAGE_SPACE, SERVICE_UNAVAILABLE
-from twext.web2.stream import ProducerStream, readStream, MemoryStream
+from txweb2.stream import ProducerStream, readStream, MemoryStream
 
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue, maybeDeferred
 from twisted.internet.protocol import Protocol
 from twisted.python.hashlib import md5
 from twisted.python.util import FancyEqMixin
 
-from twistedcaldav import customxml, carddavxml, caldavxml
+from twistedcaldav import customxml, carddavxml, caldavxml, ical
 from twistedcaldav.caldavxml import caldav_namespace, MaxAttendeesPerInstance, \
     MaxInstances, NoUIDConflict
 from twistedcaldav.carddavxml import carddav_namespace, NoUIDConflict as NovCardUIDConflict
 from twistedcaldav.config import config
+from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.directory.wiki import WikiDirectoryService, getWikiAccess
 from twistedcaldav.ical import Component as VCalendar, Property as VProperty, \
-    InvalidICalendarDataError, iCalendarProductID, allowedComponents, Component
+    InvalidICalendarDataError, iCalendarProductID, Component
+from twistedcaldav.instance import InvalidOverriddenInstanceError, \
+    TooManyInstancesError
 from twistedcaldav.memcachelock import MemcacheLockTimeoutError
 from twistedcaldav.notifications import NotificationCollectionResource, NotificationResource
-from twistedcaldav.resource import CalDAVResource, GlobalAddressBookResource, \
-    DefaultAlarmPropertyMixin
+from twistedcaldav.resource import CalDAVResource, DefaultAlarmPropertyMixin
 from twistedcaldav.scheduling_store.caldav.resource import ScheduleInboxResource
+from twistedcaldav.sharing import invitationBindStatusToXMLMap, \
+    invitationBindModeToXMLMap
+from twistedcaldav.util import bestAcceptType
 from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
 
 from txdav.base.propertystore.base import PropertyName
@@ -58,7 +66,7 @@ from txdav.caldav.icalendarstore import QuotaExceeded, AttachmentStoreFailed, \
     TooManyAttendeesError, InvalidCalendarAccessError, ValidOrganizerError, \
     InvalidPerUserDataMerge, \
     AttendeeAllowedError, ResourceDeletedError, InvalidAttachmentOperation, \
-    ShareeAllowedError
+    ShareeAllowedError, DuplicatePrivateCommentsError, InvalidSplit
 from txdav.carddav.iaddressbookstore import KindChangeNotAllowedError, \
     GroupWithUnsharedAddressNotAllowedError
 from txdav.common.datastore.sql_tables import _BIND_MODE_READ, _BIND_MODE_WRITE, \
@@ -70,20 +78,14 @@ from txdav.common.icommondatastore import NoSuchObjectResourceError, \
     UIDExistsElsewhereError, InvalidUIDError, InvalidResourceMove, \
     InvalidComponentForStoreError
 from txdav.idav import PropertyChangeNotAllowedError
-from txdav.xml import element as davxml
+from txdav.xml import element as davxml, element
 from txdav.xml.base import dav_namespace, WebDAVUnknownElement, encodeXMLName
 
-from urlparse import urlsplit
+from urlparse import urlsplit, urljoin
+import collections
 import hashlib
 import time
 import uuid
-from twext.web2 import responsecode, http_headers, http
-from twext.web2.iweb import IResponse
-from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.instance import InvalidOverriddenInstanceError, \
-    TooManyInstancesError
-import collections
-
 """
 Wrappers to translate between the APIs in L{txdav.caldav.icalendarstore} and
 L{txdav.carddav.iaddressbookstore} and those in L{twistedcaldav}.
@@ -274,20 +276,13 @@ class _CommonHomeChildCollectionMixin(object):
 
     def owner_url(self):
         if self.isShareeResource():
-            return joinURL(self._share.url(), "/")
+            return joinURL(self._share_url, "/")
         else:
             return self.url()
 
 
     def parentResource(self):
         return self._parentResource
-
-
-    def index(self):
-        """
-        Retrieve the new-style index wrapper.
-        """
-        return self._newStoreObject.retrieveOldIndex()
 
 
     def exists(self):
@@ -300,7 +295,6 @@ class _CommonHomeChildCollectionMixin(object):
         # The newstore implementation supports this directly
         returnValue(
             (yield self._newStoreObject.resourceNamesSinceToken(revision))
-            + ([],)
         )
 
 
@@ -342,6 +336,18 @@ class _CommonHomeChildCollectionMixin(object):
         @return: L{Deferred} with the count of all known children of this resource.
         """
         return self._newStoreObject.countObjectResources()
+
+
+    @inlineCallbacks
+    def resourceExists(self, name):
+        """
+        Indicate whether a resource with the specified name exists.
+
+        @return: C{True} if it exists
+        @rtype: C{bool}
+        """
+        allNames = yield self._newStoreObject.listObjectResources()
+        returnValue(name in allNames)
 
 
     def name(self):
@@ -447,18 +453,20 @@ class _CommonHomeChildCollectionMixin(object):
             this is the request which I{triggered} the C{DELETE}, but which may
             not actually be a C{DELETE} request itself.
 
-        @type request: L{twext.web2.iweb.IRequest}
+        @type request: L{txweb2.iweb.IRequest}
 
         @return: an HTTP response suitable for sending to a client (or
             including in a multi-status).
 
-        @rtype: something adaptable to L{twext.web2.iweb.IResponse}
+        @rtype: something adaptable to L{txweb2.iweb.IResponse}
         """
 
         # Check sharee collection first
         if self.isShareeResource():
             log.debug("Removing shared collection %s" % (self,))
             yield self.removeShareeResource(request)
+            # Re-initialize to get stuff setup again now we have no object
+            self._initializeWithHomeChild(None, self._parentResource)
             returnValue(NO_CONTENT)
 
         log.debug("Deleting collection %s" % (self,))
@@ -484,11 +492,6 @@ class _CommonHomeChildCollectionMixin(object):
                 errors.add(childurl, BAD_REQUEST)
 
         # Now do normal delete
-
-        # Handle sharing
-        wasShared = self.isShared()
-        if wasShared:
-            yield self.downgradeFromShare(request)
 
         # Actually delete it.
         yield self._newStoreObject.remove()
@@ -626,14 +629,17 @@ class _CommonHomeChildCollectionMixin(object):
         # Read in all data
         data = (yield allDataFromStream(request.stream))
 
-        components = self.componentsFromData(data)
+        format = request.headers.getHeader("content-type")
+        if format:
+            format = "%s/%s" % (format.mediaType, format.mediaSubtype,)
+        components = self.componentsFromData(data, format)
         if components is None:
             raise HTTPError(StatusResponse(BAD_REQUEST, "Could not parse valid data from request body"))
 
         # Build response
         xmlresponses = [None] * len(components)
         indexedComponents = [idxComponent for idxComponent in enumerate(components)]
-        yield self.bulkCreate(indexedComponents, request, return_changed, xmlresponses)
+        yield self.bulkCreate(indexedComponents, request, return_changed, xmlresponses, format)
 
         result = MultiStatusResponse(xmlresponses)
 
@@ -650,7 +656,7 @@ class _CommonHomeChildCollectionMixin(object):
 
 
     @inlineCallbacks
-    def bulkCreate(self, indexedComponents, request, return_changed, xmlresponses):
+    def bulkCreate(self, indexedComponents, request, return_changed, xmlresponses, format):
         """
         Do create from simpleBatchPOST or crudCreate()
         Subclasses may override
@@ -664,7 +670,7 @@ class _CommonHomeChildCollectionMixin(object):
                 # Get a resource for the new item
                 newchildURL = joinURL(request.path, name)
                 newchild = (yield request.locateResource(newchildURL))
-                changedData = (yield self.storeResourceData(newchild, component, returnChangedData=return_changed))
+                changedComponent = (yield self.storeResourceData(newchild, component, returnChangedData=return_changed))
 
             except HTTPError, e:
                 # Extract the pre-condition
@@ -674,30 +680,30 @@ class _CommonHomeChildCollectionMixin(object):
                     error = (error.namespace, error.name,)
 
                 xmlresponses[index] = (
-                    yield self.bulkCreateResponse(component, newchildURL, newchild, None, code, error)
+                    yield self.bulkCreateResponse(component, newchildURL, newchild, None, code, error, format)
                 )
 
             except Exception:
                 xmlresponses[index] = (
-                    yield self.bulkCreateResponse(component, newchildURL, newchild, None, code=BAD_REQUEST, error=None)
+                    yield self.bulkCreateResponse(component, newchildURL, newchild, None, BAD_REQUEST, None, format)
                 )
 
             else:
                 if not return_changed:
-                    changedData = None
+                    changedComponent = None
                 xmlresponses[index] = (
-                    yield self.bulkCreateResponse(component, newchildURL, newchild, changedData, code=None, error=None)
+                    yield self.bulkCreateResponse(component, newchildURL, newchild, changedComponent, None, None, format)
                 )
 
 
     @inlineCallbacks
-    def bulkCreateResponse(self, component, newchildURL, newchild, changedData, code, error):
+    def bulkCreateResponse(self, component, newchildURL, newchild, changedComponent, code, error, format):
         """
         generate one xmlresponse for bulk create
         """
         if code is None:
             etag = (yield newchild.etag())
-            if changedData is None:
+            if changedComponent is None:
                 returnValue(
                     davxml.PropertyStatusResponse(
                         davxml.HRef.fromString(newchildURL),
@@ -717,7 +723,7 @@ class _CommonHomeChildCollectionMixin(object):
                         davxml.PropertyStatus(
                             davxml.PropertyContainer(
                                 davxml.GETETag.fromString(etag.generate()),
-                                self.xmlDataElementType().fromTextData(changedData),
+                                self.xmlDataElementType().fromComponent(changedComponent, format),
                             ),
                             davxml.Status.fromResponseCode(OK),
                         )
@@ -822,6 +828,7 @@ class _CommonHomeChildCollectionMixin(object):
             for index, xmldata in crudCreateInfo:
 
                 component = xmldata.generateComponent()
+                format = xmldata.content_type
 
                 if hasPrivilege is not True:
                     e = hasPrivilege # use same code pattern as exception
@@ -830,13 +837,13 @@ class _CommonHomeChildCollectionMixin(object):
                         error = e.response.error
                         error = (error.namespace, error.name,)
 
-                    xmlresponse = yield self.bulkCreateResponse(component, None, None, None, code, error)
+                    xmlresponse = yield self.bulkCreateResponse(component, None, None, None, code, error, format)
                     xmlresponses[index] = xmlresponse
 
                 else:
                     indexedComponents.append((index, component,))
 
-            yield self.bulkCreate(indexedComponents, request, return_changed, xmlresponses)
+            yield self.bulkCreate(indexedComponents, request, return_changed, xmlresponses, format)
 
 
     @inlineCallbacks
@@ -847,8 +854,8 @@ class _CommonHomeChildCollectionMixin(object):
             code = None
             error = None
             try:
-                componentdata = xmldata.textData()
                 component = xmldata.generateComponent()
+                format = xmldata.content_type
 
                 updateResource = (yield request.locateResource(href))
                 if not updateResource.exists():
@@ -862,7 +869,7 @@ class _CommonHomeChildCollectionMixin(object):
                 if ifmatch and ifmatch != etag.generate():
                     raise HTTPError(PRECONDITION_FAILED)
 
-                changedData = yield self.storeResourceData(updateResource, component, componentdata)
+                changedComponent = yield self.storeResourceData(updateResource, component, returnChangedData=return_changed)
 
             except HTTPError, e:
                 # Extract the pre-condition
@@ -875,7 +882,7 @@ class _CommonHomeChildCollectionMixin(object):
                 code = BAD_REQUEST
 
             if code is None:
-                if not return_changed or changedData is None:
+                if changedComponent is None:
                     xmlresponses[index] = davxml.PropertyStatusResponse(
                         davxml.HRef.fromString(href),
                         davxml.PropertyStatus(
@@ -891,7 +898,7 @@ class _CommonHomeChildCollectionMixin(object):
                         davxml.PropertyStatus(
                             davxml.PropertyContainer(
                                 davxml.GETETag.fromString(etag.generate()),
-                                self.xmlDataElementType().fromTextData(changedData),
+                                self.xmlDataElementType().fromComponentData(changedComponent, format),
                             ),
                             davxml.Status.fromResponseCode(OK),
                         )
@@ -961,6 +968,10 @@ class _CommonHomeChildCollectionMixin(object):
                     )
 
 
+    def search(self, filter, **kwargs):
+        return self._newStoreObject.search(filter, **kwargs)
+
+
     def notifierID(self):
         return "%s/%s" % self._newStoreObject.notifierID()
 
@@ -989,7 +1000,7 @@ class _CalendarCollectionBehaviorMixin():
         if comps:
             comps = comps.split(",")
         else:
-            comps = allowedComponents
+            comps = ical.allowedStoreComponents
         return caldavxml.SupportedCalendarComponentSet(
             *[caldavxml.CalendarComponent(name=item) for item in comps]
         )
@@ -1016,7 +1027,7 @@ class _CalendarCollectionBehaviorMixin():
         if comps:
             comps = comps.split(",")
         else:
-            comps = allowedComponents
+            comps = ical.allowedStoreComponents
         return comps
 
 
@@ -1053,6 +1064,8 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
 
         if config.EnableBatchUpload:
             self._postHandlers[("text", "calendar")] = _CommonHomeChildCollectionMixin.simpleBatchPOST
+            if config.EnableJSONData:
+                self._postHandlers[("application", "calendar+json")] = _CommonHomeChildCollectionMixin.simpleBatchPOST
             self.xmlDocHandlers[customxml.Multiput] = _CommonHomeChildCollectionMixin.crudBatchPOST
 
 
@@ -1088,6 +1101,11 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
     def iCalendarRolledup(self, request):
         # FIXME: uncached: implement cache in the storage layer
 
+        # Accept header handling
+        accepted_type = bestAcceptType(request.headers.getHeader("accept"), Component.allowedTypes())
+        if accepted_type is None:
+            raise HTTPError(StatusResponse(responsecode.NOT_ACCEPTABLE, "Cannot generate requested data type"))
+
         # Generate a monolithic calendar
         calendar = VCalendar("VCALENDAR")
         calendar.addProperty(VProperty("VERSION", "2.0"))
@@ -1107,7 +1125,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         isowner = (yield self.isOwner(request))
         accessPrincipal = (yield self.resourceOwnerPrincipal(request))
 
-        for name, _ignore_uid, _ignore_type in (yield maybeDeferred(self.index().bruteForceSearch)):
+        for name in (yield self._newStoreObject.listObjectResources()):
             try:
                 child = yield request.locateChildResource(self, name)
             except TypeError:
@@ -1138,17 +1156,13 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
 
                     calendar.addComponent(component)
 
-        # Cache the data
-        data = str(calendar)
-        data = (yield self.getInternalSyncToken()) + "\r\n" + data
-
-        returnValue(calendar)
+        returnValue((calendar, accepted_type,))
 
     createCalendarCollection = _CommonHomeChildCollectionMixin.createCollection
 
 
     @classmethod
-    def componentsFromData(cls, data):
+    def componentsFromData(cls, data, format):
         """
         Need to split a single VCALENDAR into separate ones based on UID with the
         appropriate VTIEMZONES included.
@@ -1158,7 +1172,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
 
         # Split into components by UID and TZID
         try:
-            vcal = VCalendar.fromString(data)
+            vcal = VCalendar.fromString(data, format)
         except InvalidICalendarDataError:
             return None
 
@@ -1242,7 +1256,8 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
 
         elif qname == caldavxml.CalendarTimeZone.qname():
             timezone = self._newStoreObject.getTimezone()
-            returnValue(caldavxml.CalendarTimeZone.fromString(str(timezone)) if timezone else None)
+            format = property.content_type if isinstance(property, caldavxml.CalendarTimeZone) else None
+            returnValue(caldavxml.CalendarTimeZone.fromCalendar(timezone, format=format) if timezone else None)
 
         result = (yield super(CalendarCollectionResource, self).readProperty(property, request))
         returnValue(result)
@@ -1288,7 +1303,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         yield newchild.storeComponent(component)
         if returnChangedData and newchild._newStoreObject._componentChanged:
             result = (yield newchild.componentForUser())
-            returnValue(str(result))
+            returnValue(result)
         else:
             returnValue(None)
 
@@ -1631,23 +1646,23 @@ class CalendarObjectDropbox(_GetChildHelper):
         for invite in invites:
 
             # Only want accepted invites
-            if invite.status() != _BIND_STATUS_ACCEPTED:
+            if invite.status != _BIND_STATUS_ACCEPTED:
                 continue
 
             userprivs = [
             ]
-            if invite.mode() in (_BIND_MODE_READ, _BIND_MODE_WRITE,):
+            if invite.mode in (_BIND_MODE_READ, _BIND_MODE_WRITE,):
                 userprivs.append(davxml.Privilege(davxml.Read()))
                 userprivs.append(davxml.Privilege(davxml.ReadACL()))
                 userprivs.append(davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()))
-            if invite.mode() in (_BIND_MODE_READ,):
+            if invite.mode in (_BIND_MODE_READ,):
                 userprivs.append(davxml.Privilege(davxml.WriteProperties()))
-            if invite.mode() in (_BIND_MODE_WRITE,):
+            if invite.mode in (_BIND_MODE_WRITE,):
                 userprivs.append(davxml.Privilege(davxml.Write()))
             proxyprivs = list(userprivs)
             proxyprivs.remove(davxml.Privilege(davxml.ReadACL()))
 
-            principal = self.principalForUID(invite.shareeUID())
+            principal = self.principalForUID(invite.shareeUID)
             aces += (
                 # Inheritable specific access for the resource's associated principal.
                 davxml.ACE(
@@ -1942,10 +1957,10 @@ class AttachmentsChildCollection(_GetChildHelper):
             access control mechanism has dictate the home should no longer have
             any access at all.
         """
-        if invite.mode() in (_BIND_MODE_DIRECT,):
-            ownerUID = invite.ownerUID()
+        if invite.mode in (_BIND_MODE_DIRECT,):
+            ownerUID = invite.ownerUID
             owner = self.principalForUID(ownerUID)
-            shareeUID = invite.shareeUID()
+            shareeUID = invite.shareeUID
             if owner.record.recordType == WikiDirectoryService.recordType_wikis:
                 # Access level comes from what the wiki has granted to the
                 # sharee
@@ -1961,9 +1976,9 @@ class AttachmentsChildCollection(_GetChildHelper):
                     returnValue(None)
             else:
                 returnValue("original")
-        elif invite.mode() in (_BIND_MODE_READ,):
+        elif invite.mode in (_BIND_MODE_READ,):
             returnValue("read-only")
-        elif invite.mode() in (_BIND_MODE_WRITE,):
+        elif invite.mode in (_BIND_MODE_WRITE,):
             returnValue("read-write")
         returnValue("original")
 
@@ -1976,7 +1991,7 @@ class AttachmentsChildCollection(_GetChildHelper):
         for invite in invites:
 
             # Only want accepted invites
-            if invite.status() != _BIND_STATUS_ACCEPTED:
+            if invite.status != _BIND_STATUS_ACCEPTED:
                 continue
 
             privileges = [
@@ -1988,7 +2003,7 @@ class AttachmentsChildCollection(_GetChildHelper):
             if access in ("read-only", "read-write",):
                 userprivs.extend(privileges)
 
-            principal = self.principalForUID(invite.shareeUID())
+            principal = self.principalForUID(invite.shareeUID)
             aces += (
                 # Inheritable specific access for the resource's associated principal.
                 davxml.ACE(
@@ -2210,16 +2225,38 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         return self._newStoreObject.component()
 
 
+    def allowedTypes(self):
+        """
+        Return a dict of allowed MIME types for storing, mapped to equivalent PyCalendar types.
+        """
+        raise NotImplementedError
+
+
+    def determineType(self, content_type):
+        """
+        Determine if the supplied content-type is valid for storing and return the matching PyCalendar type.
+        """
+        format = None
+        if content_type is not None:
+            format = "%s/%s" % (content_type.mediaType, content_type.mediaSubtype,)
+        return format if format in self.allowedTypes() else None
+
+
     @inlineCallbacks
     def render(self, request):
         if not self.exists():
             log.debug("Resource not found: %s" % (self,))
             raise HTTPError(NOT_FOUND)
 
+        # Accept header handling
+        accepted_type = bestAcceptType(request.headers.getHeader("accept"), self.allowedTypes())
+        if accepted_type is None:
+            raise HTTPError(StatusResponse(responsecode.NOT_ACCEPTABLE, "Cannot generate requested data type"))
+
         output = yield self.component()
 
-        response = Response(OK, {}, str(output))
-        response.headers.setHeader("content-type", self.contentType())
+        response = Response(OK, {}, output.getText(accepted_type))
+        response.headers.setHeader("content-type", MimeType.fromString("%s; charset=utf-8" % (accepted_type,)))
         returnValue(response)
 
 
@@ -2258,10 +2295,52 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         returnValue(response)
 
     # The following are used to map store exceptions into HTTP error responses
-    StoreExceptionsStatusErrors = set()
     StoreExceptionsErrors = {}
-    StoreMoveExceptionsStatusErrors = set()
     StoreMoveExceptionsErrors = {}
+    StoreRemoveExceptionsErrors = {}
+
+    @classmethod
+    def _storeExceptionStatus(cls, err, arg):
+        """
+        Raise a status error.
+
+        @param err: the actual exception that caused the error
+        @type err: L{Exception}
+        @param arg: description of error or C{None}
+        @type arg: C{str} or C{None}
+        """
+        raise HTTPError(StatusResponse(responsecode.FORBIDDEN, arg if arg is not None else str(err)))
+
+
+    @classmethod
+    def _storeExceptionError(cls, err, arg):
+        """
+        Raise a DAV:error error with the supplied error element.
+
+        @param err: the actual exception that caused the error
+        @type err: L{Exception}
+        @param arg: the error element
+        @type arg: C{tuple}
+        """
+        raise HTTPError(ErrorResponse(
+            responsecode.FORBIDDEN,
+            arg,
+            str(err),
+        ))
+
+
+    @classmethod
+    def _storeExceptionUnavailable(cls, err, arg):
+        """
+        Raise a service unavailable error.
+
+        @param err: the actual exception that caused the error
+        @type err: L{Exception}
+        @param arg: description of error or C{None}
+        @type arg: C{str} or C{None}
+        """
+        raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE, arg if arg is not None else str(err)))
+
 
     @requiresPermissions(fromParent=[davxml.Unbind()])
     def http_DELETE(self, request):
@@ -2346,6 +2425,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
 
         try:
             response = (yield self.storeMove(request, destinationparent, destination.name()))
+            self._newStoreObject = None
             returnValue(response)
 
         # Handle the various store errors
@@ -2354,15 +2434,9 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
             # Grab the current exception state here so we can use it in a re-raise - we need this because
             # an inlineCallback might be called and that raises an exception when it returns, wiping out the
             # original exception "context".
-            if type(err) in self.StoreMoveExceptionsStatusErrors:
-                raise HTTPError(StatusResponse(responsecode.FORBIDDEN, str(err)))
-
-            elif type(err) in self.StoreMoveExceptionsErrors:
-                raise HTTPError(ErrorResponse(
-                    responsecode.FORBIDDEN,
-                    self.StoreMoveExceptionsErrors[type(err)],
-                    str(err),
-                ))
+            if type(err) in self.StoreMoveExceptionsErrors:
+                error, arg = self.StoreMoveExceptionsErrors[type(err)]
+                error(err, arg)
             else:
                 # Return the original failure (exception) state
                 raise
@@ -2379,10 +2453,10 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
 
 
     @inlineCallbacks
-    def storeStream(self, stream):
+    def storeStream(self, stream, format):
 
         # FIXME: direct tests
-        component = self._componentFromStream((yield allDataFromStream(stream)))
+        component = self._componentFromStream((yield allDataFromStream(stream)), format)
         result = (yield self.storeComponent(component))
         returnValue(result)
 
@@ -2405,15 +2479,9 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
 
         # Map store exception to HTTP errors
         except Exception as err:
-            if type(err) in self.StoreExceptionsStatusErrors:
-                raise HTTPError(StatusResponse(responsecode.FORBIDDEN, str(err)))
-
-            elif type(err) in self.StoreExceptionsErrors:
-                raise HTTPError(ErrorResponse(
-                    responsecode.FORBIDDEN,
-                    self.StoreExceptionsErrors[type(err)],
-                    str(err),
-                ))
+            if type(err) in self.StoreExceptionsErrors:
+                error, arg = self.StoreExceptionsErrors[type(err)]
+                error(err, arg)
             else:
                 raise
 
@@ -2424,7 +2492,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         Move this object to a different parent.
 
         @param request:
-        @type request: L{twext.web2.iweb.IRequest}
+        @type request: L{txweb2.iweb.IRequest}
         @param destinationparent: Parent to move to
         @type destinationparent: L{CommonHomeChild}
         @param destination_name: name of new resource
@@ -2443,12 +2511,12 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         @param request: Unused by this implementation; present for signature
             compatibility with L{CalendarCollectionResource.storeRemove}.
 
-        @type request: L{twext.web2.iweb.IRequest}
+        @type request: L{txweb2.iweb.IRequest}
 
         @return: an HTTP response suitable for sending to a client (or
             including in a multi-status).
 
-         @rtype: something adaptable to L{twext.web2.iweb.IResponse}
+         @rtype: something adaptable to L{txweb2.iweb.IResponse}
         """
 
         # Do delete
@@ -2457,6 +2525,14 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
             yield self._newStoreObject.remove()
         except NoSuchObjectResourceError:
             raise HTTPError(NOT_FOUND)
+
+        # Map store exception to HTTP errors
+        except Exception as err:
+            if type(err) in self.StoreExceptionsErrors:
+                error, arg = self.StoreExceptionsErrors[type(err)]
+                error(err, arg)
+            else:
+                raise
 
         # Re-initialize to get stuff setup again now we have no object
         self._initializeWithObject(None, self._newStoreParent)
@@ -2514,6 +2590,13 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
 
     _componentFromStream = VCalendar.fromString
 
+    def allowedTypes(self):
+        """
+        Return a tuple of allowed MIME types for storing.
+        """
+        return Component.allowedTypes()
+
+
     @inlineCallbacks
     def inNewTransaction(self, request, label=""):
         """
@@ -2540,12 +2623,6 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         request._urlsByResource.clear()
         self._initializeWithObject(newObject, newParent)
         returnValue(txn)
-
-
-    @inlineCallbacks
-    def iCalendarText(self):
-        data = yield self.iCalendar()
-        returnValue(str(data))
 
     iCalendar = _CommonObjectResource.component
 
@@ -2590,40 +2667,41 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         else:
             return False
 
-    StoreExceptionsStatusErrors = set((
-        ObjectResourceNameNotAllowedError,
-        ObjectResourceNameAlreadyExistsError,
-    ))
-
     StoreExceptionsErrors = {
-        TooManyObjectResourcesError: customxml.MaxResources(),
-        ObjectResourceTooBigError: (caldav_namespace, "max-resource-size"),
-        InvalidObjectResourceError: (caldav_namespace, "valid-calendar-data"),
-        InvalidComponentForStoreError: (caldav_namespace, "valid-calendar-object-resource"),
-        InvalidComponentTypeError: (caldav_namespace, "supported-component"),
-        TooManyAttendeesError: MaxAttendeesPerInstance.fromString(str(config.MaxAttendeesPerInstance)),
-        InvalidCalendarAccessError: (calendarserver_namespace, "valid-access-restriction"),
-        ValidOrganizerError: (calendarserver_namespace, "valid-organizer"),
-        UIDExistsError: NoUIDConflict(),
-        UIDExistsElsewhereError: (caldav_namespace, "unique-scheduling-object-resource"),
-        InvalidUIDError: NoUIDConflict(),
-        InvalidPerUserDataMerge: (caldav_namespace, "valid-calendar-data"),
-        AttendeeAllowedError: (caldav_namespace, "attendee-allowed"),
-        InvalidOverriddenInstanceError: (caldav_namespace, "valid-calendar-data"),
-        TooManyInstancesError: MaxInstances.fromString(str(config.MaxAllowedInstances)),
-        AttachmentStoreValidManagedID: (caldav_namespace, "valid-managed-id"),
-        ShareeAllowedError: (calendarserver_namespace, "sharee-privilege-needed",),
+        ObjectResourceNameNotAllowedError: (_CommonObjectResource._storeExceptionStatus, None,),
+        ObjectResourceNameAlreadyExistsError: (_CommonObjectResource._storeExceptionStatus, None,),
+        TooManyObjectResourcesError: (_CommonObjectResource._storeExceptionError, customxml.MaxResources(),),
+        ObjectResourceTooBigError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "max-resource-size"),),
+        InvalidObjectResourceError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "valid-calendar-data"),),
+        InvalidComponentForStoreError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "valid-calendar-object-resource"),),
+        InvalidComponentTypeError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "supported-component"),),
+        TooManyAttendeesError: (_CommonObjectResource._storeExceptionError, MaxAttendeesPerInstance.fromString(str(config.MaxAttendeesPerInstance)),),
+        InvalidCalendarAccessError: (_CommonObjectResource._storeExceptionError, (calendarserver_namespace, "valid-access-restriction"),),
+        ValidOrganizerError: (_CommonObjectResource._storeExceptionError, (calendarserver_namespace, "valid-organizer"),),
+        UIDExistsError: (_CommonObjectResource._storeExceptionError, NoUIDConflict(),),
+        UIDExistsElsewhereError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "unique-scheduling-object-resource"),),
+        InvalidUIDError: (_CommonObjectResource._storeExceptionError, NoUIDConflict(),),
+        InvalidPerUserDataMerge: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "valid-calendar-data"),),
+        AttendeeAllowedError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "attendee-allowed"),),
+        InvalidOverriddenInstanceError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "valid-calendar-data"),),
+        TooManyInstancesError: (_CommonObjectResource._storeExceptionError, MaxInstances.fromString(str(config.MaxAllowedInstances)),),
+        AttachmentStoreValidManagedID: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "valid-managed-id"),),
+        ShareeAllowedError: (_CommonObjectResource._storeExceptionError, (calendarserver_namespace, "sharee-privilege-needed",),),
+        DuplicatePrivateCommentsError: (_CommonObjectResource._storeExceptionError, (calendarserver_namespace, "no-duplicate-private-comments",),),
+        LockTimeout: (_CommonObjectResource._storeExceptionUnavailable, "Lock timed out.",),
     }
 
-    StoreMoveExceptionsStatusErrors = set((
-        ObjectResourceNameNotAllowedError,
-        ObjectResourceNameAlreadyExistsError,
-    ))
-
     StoreMoveExceptionsErrors = {
-        TooManyObjectResourcesError: customxml.MaxResources(),
-        InvalidResourceMove: (calendarserver_namespace, "valid-move"),
-        InvalidComponentTypeError: (caldav_namespace, "supported-component"),
+        ObjectResourceNameNotAllowedError: (_CommonObjectResource._storeExceptionStatus, None,),
+        ObjectResourceNameAlreadyExistsError: (_CommonObjectResource._storeExceptionStatus, None,),
+        TooManyObjectResourcesError: (_CommonObjectResource._storeExceptionError, customxml.MaxResources(),),
+        InvalidResourceMove: (_CommonObjectResource._storeExceptionError, (calendarserver_namespace, "valid-move"),),
+        InvalidComponentTypeError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "supported-component"),),
+        LockTimeout: (_CommonObjectResource._storeExceptionUnavailable, "Lock timed out.",),
+    }
+
+    StoreRemoveExceptionsErrors = {
+        LockTimeout: (_CommonObjectResource._storeExceptionUnavailable, "Lock timed out.",),
     }
 
     StoreAttachmentValidErrors = set((
@@ -2632,8 +2710,8 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
     ))
 
     StoreAttachmentExceptionsErrors = {
-        AttachmentStoreValidManagedID: (caldav_namespace, "valid-managed-id-parameter",),
-        AttachmentRemoveFailed: (caldav_namespace, "valid-attachment-remove",),
+        AttachmentStoreValidManagedID: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "valid-managed-id-parameter",),),
+        AttachmentRemoveFailed: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "valid-attachment-remove",),),
     }
 
 
@@ -2649,7 +2727,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
             if self.exists():
                 etags = self.scheduleEtags
                 if len(etags) > 1:
-                    # This is almost verbatim from twext.web2.static.checkPreconditions
+                    # This is almost verbatim from txweb2.static.checkPreconditions
                     if request.method not in ("GET", "HEAD"):
 
                         # Always test against the current etag first just in case schedule-etags is out of sync
@@ -2710,8 +2788,9 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
 
         # Content-type check
         content_type = request.headers.getHeader("content-type")
-        if content_type is not None and (content_type.mediaType, content_type.mediaSubtype) != ("text", "calendar"):
-            log.error("MIME type %s not allowed in calendar collection" % (content_type,))
+        format = self.determineType(content_type)
+        if format is None:
+            log.error("MIME type {content_type} not allowed in calendar collection", content_type=content_type)
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (caldav_namespace, "supported-calendar-data"),
@@ -2745,13 +2824,13 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                 ))
 
             try:
-                component = Component.fromString(calendardata)
+                component = Component.fromString(calendardata, format)
             except ValueError, e:
                 log.error(str(e))
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
                     (caldav_namespace, "valid-calendar-data"),
-                    "Can't parse calendar data"
+                    "Can't parse calendar data: %s" % (str(e),)
                 ))
 
             # storeComponent needs to know who the auth'd user is for access control
@@ -2841,6 +2920,128 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         returnValue(result)
 
 
+    @inlineCallbacks
+    def POST_handler_action(self, request, action):
+        """
+        Handle a POST request with an action= query parameter
+
+        @param request: the request to process
+        @type request: L{Request}
+        @param action: the action to execute
+        @type action: C{str}
+        """
+        if action.startswith("attachment-"):
+            result = (yield self.POST_handler_attachment(request, action))
+            returnValue(result)
+        else:
+            actioner = {
+                "split": self.POST_handler_split,
+            }
+            if action in actioner:
+                result = (yield actioner[action](request, action))
+                returnValue(result)
+            else:
+                raise HTTPError(ErrorResponse(
+                    FORBIDDEN,
+                    (caldav_namespace, "valid-action-parameter",),
+                    "The action parameter in the request-URI is not valid",
+                ))
+
+
+    @requiresPermissions(davxml.WriteContent())
+    @inlineCallbacks
+    def POST_handler_split(self, request, action):
+        """
+        Handle a split of a calendar object resource.
+
+        @param request: HTTP request object
+        @type request: L{Request}
+        @param action: The request-URI 'action' argument
+        @type action: C{str}
+
+        @return: an HTTP response
+        """
+
+        # Resource must exist
+        if not self.exists():
+            raise HTTPError(NOT_FOUND)
+
+        # Split point is in the rid query parameter
+        rid = request.args.get("rid")
+        if rid is None:
+            raise HTTPError(ErrorResponse(
+                FORBIDDEN,
+                (caldav_namespace, "valid-rid-parameter",),
+                "The rid parameter in the request-URI contains an invalid value",
+            ))
+
+        try:
+            rid = DateTime.parseText(rid[0])
+        except ValueError:
+            raise HTTPError(ErrorResponse(
+                FORBIDDEN,
+                (caldav_namespace, "valid-rid-parameter",),
+                "The rid parameter in the request-URI contains an invalid value",
+            ))
+        try:
+            otherStoreObject = yield self._newStoreObject.splitAt(rid)
+        except InvalidSplit:
+            raise HTTPError(ErrorResponse(
+                FORBIDDEN,
+                (calendarserver_namespace, "invalid-split",),
+                "The rid parameter in the request-URI contains an invalid value",
+            ))
+
+        other = yield request.locateChildResource(self._parentResource, otherStoreObject.name())
+        if other is None:
+            raise responsecode.INTERNAL_SERVER_ERROR
+
+        # Look for Prefer header
+        prefer = request.headers.getHeader("prefer", {})
+        returnRepresentation = any([key == "return" and value == "representation" for key, value, _ignore_args in prefer])
+
+        if returnRepresentation:
+            # Accept header handling
+            accepted_type = bestAcceptType(request.headers.getHeader("accept"), Component.allowedTypes())
+            if accepted_type is None:
+                raise HTTPError(StatusResponse(responsecode.NOT_ACCEPTABLE, "Cannot generate requested data type"))
+            etag1 = yield self.etag()
+            etag2 = yield other.etag()
+            cal1 = yield self.component()
+            cal2 = yield other.component()
+
+            xml_responses = [
+                davxml.PropertyStatusResponse(
+                    davxml.HRef.fromString(self.url()),
+                    davxml.PropertyStatus(
+                        davxml.PropertyContainer(
+                            davxml.GETETag.fromString(etag1.generate()),
+                            caldavxml.CalendarData.fromComponent(cal1, accepted_type),
+                        ),
+                        davxml.Status.fromResponseCode(OK),
+                    )
+                ),
+                davxml.PropertyStatusResponse(
+                    davxml.HRef.fromString(other.url()),
+                    davxml.PropertyStatus(
+                        davxml.PropertyContainer(
+                            davxml.GETETag.fromString(etag2.generate()),
+                            caldavxml.CalendarData.fromComponent(cal2, accepted_type),
+                        ),
+                        davxml.Status.fromResponseCode(OK),
+                    )
+                ),
+            ]
+
+            # Return multistatus with calendar data for this resource and the new one
+            result = MultiStatusResponse(xml_responses)
+        else:
+            result = Response(responsecode.NO_CONTENT)
+            result.headers.addRawHeader("Split-Component-URL", other.url())
+
+        returnValue(result)
+
+
     @requiresPermissions(davxml.WriteContent())
     @inlineCallbacks
     def POST_handler_attachment(self, request, action):
@@ -2855,6 +3056,9 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         @return: an HTTP response
         """
 
+        if not config.EnableManagedAttachments:
+            returnValue(StatusResponse(responsecode.FORBIDDEN, "Managed Attachments not supported."))
+
         # Resource must exist to allow attachment operations
         if not self.exists():
             raise HTTPError(NOT_FOUND)
@@ -2864,7 +3068,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
             if rids is not None:
                 rids = rids[0].split(",")
                 try:
-                    rids = [PyCalendarDateTime.parseText(rid) if rid != "M" else None for rid in rids]
+                    rids = [DateTime.parseText(rid) if rid != "M" else None for rid in rids]
                 except ValueError:
                     raise HTTPError(ErrorResponse(
                         FORBIDDEN,
@@ -2946,28 +3150,15 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         except Exception as err:
 
             if type(err) in self.StoreAttachmentValidErrors:
-                raise HTTPError(ErrorResponse(
-                    responsecode.FORBIDDEN,
-                    (caldav_namespace, valid_preconditions[action],),
-                    str(err),
-                ))
+                self._storeExceptionError(err, (caldav_namespace, valid_preconditions[action],))
 
             elif type(err) in self.StoreAttachmentExceptionsErrors:
-                raise HTTPError(ErrorResponse(
-                    responsecode.FORBIDDEN,
-                    self.StoreAttachmentExceptionsErrors[type(err)],
-                    str(err),
-                ))
-
-            elif type(err) in self.StoreExceptionsStatusErrors:
-                raise HTTPError(StatusResponse(responsecode.FORBIDDEN, str(err)))
+                error, arg = self.StoreAttachmentExceptionsErrors[type(err)]
+                error(err, arg)
 
             elif type(err) in self.StoreExceptionsErrors:
-                raise HTTPError(ErrorResponse(
-                    responsecode.FORBIDDEN,
-                    self.StoreExceptionsErrors[type(err)],
-                    str(err),
-                ))
+                error, arg = self.StoreExceptionsErrors[type(err)]
+                error(err, arg)
 
             else:
                 raise
@@ -3001,6 +3192,8 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
 
         if config.EnableBatchUpload:
             self._postHandlers[("text", "vcard")] = AddressBookCollectionResource.simpleBatchPOST
+            if config.EnableJSONData:
+                self._postHandlers[("application", "vcard+json")] = _CommonHomeChildCollectionMixin.simpleBatchPOST
             self.xmlDocHandlers[customxml.Multiput] = AddressBookCollectionResource.crudBatchPOST
 
 
@@ -3032,9 +3225,9 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
 
 
     @classmethod
-    def componentsFromData(cls, data):
+    def componentsFromData(cls, data, format):
         try:
-            return VCard.allFromString(data)
+            return VCard.allFromString(data, format)
         except InvalidVCardDataError:
             return None
 
@@ -3055,7 +3248,7 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         yield newchild.storeComponent(component)
         if returnChangedData and newchild._newStoreObject._componentChanged:
             result = (yield newchild.component())
-            returnValue(str(result))
+            returnValue(result)
         else:
             returnValue(None)
 
@@ -3073,30 +3266,13 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         call super and provision group share
         """
         abObjectResource = yield super(AddressBookCollectionResource, self).makeChild(name)
-        if abObjectResource.exists() and abObjectResource._newStoreObject.shareUID() is not None:
-            abObjectResource = yield self.parentResource().provisionShare(abObjectResource)
+        #if abObjectResource.exists() and abObjectResource._newStoreObject.shareUID() is not None:
+        #    abObjectResource = yield self.parentResource().provisionShare(abObjectResource)
         returnValue(abObjectResource)
 
 
     @inlineCallbacks
-    def storeRemove(self, request):
-        """
-        handle remove of partially shared addressbook, else call super
-        """
-        if self.isShareeResource() and self._newStoreObject.shareUID() is None:
-            log.debug("Removing shared collection %s" % (self,))
-            for childname in (yield self.listChildren()):
-                child = (yield request.locateChildResource(self, childname))
-                if child.isShareeResource():
-                    yield child.storeRemove(request)
-
-            returnValue(NO_CONTENT)
-
-        returnValue((yield super(AddressBookCollectionResource, self).storeRemove(request)))
-
-
-    @inlineCallbacks
-    def bulkCreate(self, indexedComponents, request, return_changed, xmlresponses):
+    def bulkCreate(self, indexedComponents, request, return_changed, xmlresponses, format):
         """
         bulk create allowing groups to contain member UIDs added during the same bulk create
         """
@@ -3111,7 +3287,7 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
                 # Get a resource for the new item
                 newchildURL = joinURL(request.path, name)
                 newchild = (yield request.locateResource(newchildURL))
-                changedData = (yield self.storeResourceData(newchild, component, returnChangedData=return_changed))
+                changedComponent = (yield self.storeResourceData(newchild, component, returnChangedData=return_changed))
 
             except GroupWithUnsharedAddressNotAllowedError, e:
                 # save off info and try again below
@@ -3126,20 +3302,20 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
                     error = (error.namespace, error.name,)
 
                 xmlresponses[index] = (
-                    yield self.bulkCreateResponse(component, newchildURL, newchild, None, code, error)
+                    yield self.bulkCreateResponse(component, newchildURL, newchild, None, code, error, format)
                 )
 
             except Exception:
                 xmlresponses[index] = (
-                    yield self.bulkCreateResponse(component, newchildURL, newchild, None, code=BAD_REQUEST, error=None)
+                    yield self.bulkCreateResponse(component, newchildURL, newchild, None, BAD_REQUEST, None, format)
                 )
 
             else:
                 if not return_changed:
-                    changedData = None
+                    changedComponent = None
                 coaddedUIDs |= set([component.resourceUID()])
                 xmlresponses[index] = (
-                    yield self.bulkCreateResponse(component, newchildURL, newchild, changedData, code=None, error=None)
+                    yield self.bulkCreateResponse(component, newchildURL, newchild, changedComponent, None, None, format)
                 )
 
         if groupRetries:
@@ -3157,7 +3333,7 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
                 # give FORBIDDEN response
                 index, component, newchildURL, newchild, missingUIDs = groupRetry
                 xmlresponses[index] = (
-                    yield self.bulkCreateResponse(component, newchildURL, newchild, changedData=None, code=FORBIDDEN, error=None)
+                    yield self.bulkCreateResponse(component, newchildURL, newchild, None, FORBIDDEN, None, format)
                 )
                 coaddedUIDs -= set([component.resourceUID()]) # group uid not added
                 groupRetries.remove(groupRetry) # remove this retry
@@ -3167,11 +3343,11 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
                 newchild._metadata["coaddedUIDs"] = coaddedUIDs
 
                 # don't catch errors, abort the whole transaction
-                changedData = yield self.storeResourceData(newchild, component, returnChangedData=return_changed)
+                changedComponent = yield self.storeResourceData(newchild, component, returnChangedData=return_changed)
                 if not return_changed:
-                    changedData = None
+                    changedComponent = None
                 xmlresponses[index] = (
-                    yield self.bulkCreateResponse(component, newchildURL, newchild, changedData, code=None, error=None)
+                    yield self.bulkCreateResponse(component, newchildURL, newchild, changedComponent, None, None, format)
                 )
 
 
@@ -3247,14 +3423,6 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
 
 
 
-class GlobalAddressBookCollectionResource(GlobalAddressBookResource, AddressBookCollectionResource):
-    """
-    Wrapper around a L{txdav.carddav.iaddressbook.IAddressBook}.
-    """
-    pass
-
-
-
 class AddressBookObjectResource(_CommonObjectResource):
     """
     A resource wrapping a addressbook object.
@@ -3266,6 +3434,13 @@ class AddressBookObjectResource(_CommonObjectResource):
 
     _componentFromStream = VCard.fromString
 
+    def allowedTypes(self):
+        """
+        Return a tuple of allowed MIME types for storing.
+        """
+        return VCard.allowedTypes()
+
+
     @inlineCallbacks
     def vCardText(self):
         data = yield self.vCard()
@@ -3273,29 +3448,29 @@ class AddressBookObjectResource(_CommonObjectResource):
 
     vCard = _CommonObjectResource.component
 
-    StoreExceptionsStatusErrors = set((
-        ObjectResourceNameNotAllowedError,
-        ObjectResourceNameAlreadyExistsError,
-    ))
-
     StoreExceptionsErrors = {
-        TooManyObjectResourcesError: customxml.MaxResources(),
-        ObjectResourceTooBigError: (carddav_namespace, "max-resource-size"),
-        InvalidObjectResourceError: (carddav_namespace, "valid-address-data"),
-        InvalidComponentForStoreError: (carddav_namespace, "valid-addressbook-object-resource"),
-        UIDExistsError: NovCardUIDConflict(),
-        InvalidUIDError: NovCardUIDConflict(),
-        InvalidPerUserDataMerge: (carddav_namespace, "valid-address-data"),
+        ObjectResourceNameNotAllowedError: (_CommonObjectResource._storeExceptionStatus, None,),
+        ObjectResourceNameAlreadyExistsError: (_CommonObjectResource._storeExceptionStatus, None,),
+        TooManyObjectResourcesError: (_CommonObjectResource._storeExceptionError, customxml.MaxResources(),),
+        ObjectResourceTooBigError: (_CommonObjectResource._storeExceptionError, (carddav_namespace, "max-resource-size"),),
+        InvalidObjectResourceError: (_CommonObjectResource._storeExceptionError, (carddav_namespace, "valid-address-data"),),
+        InvalidComponentForStoreError: (_CommonObjectResource._storeExceptionError, (carddav_namespace, "valid-addressbook-object-resource"),),
+        UIDExistsError: (_CommonObjectResource._storeExceptionError, NovCardUIDConflict(),),
+        InvalidUIDError: (_CommonObjectResource._storeExceptionError, NovCardUIDConflict(),),
+        InvalidPerUserDataMerge: (_CommonObjectResource._storeExceptionError, (carddav_namespace, "valid-address-data"),),
+        LockTimeout: (_CommonObjectResource._storeExceptionUnavailable, "Lock timed out.",),
     }
 
-    StoreMoveExceptionsStatusErrors = set((
-        ObjectResourceNameNotAllowedError,
-        ObjectResourceNameAlreadyExistsError,
-    ))
-
     StoreMoveExceptionsErrors = {
-        TooManyObjectResourcesError: customxml.MaxResources(),
-        InvalidResourceMove: (calendarserver_namespace, "valid-move"),
+        ObjectResourceNameNotAllowedError: (_CommonObjectResource._storeExceptionStatus, None,),
+        ObjectResourceNameAlreadyExistsError: (_CommonObjectResource._storeExceptionStatus, None,),
+        TooManyObjectResourcesError: (_CommonObjectResource._storeExceptionError, customxml.MaxResources(),),
+        InvalidResourceMove: (_CommonObjectResource._storeExceptionError, (calendarserver_namespace, "valid-move"),),
+        LockTimeout: (_CommonObjectResource._storeExceptionUnavailable, "Lock timed out.",),
+    }
+
+    StoreRemoveExceptionsErrors = {
+        LockTimeout: (_CommonObjectResource._storeExceptionUnavailable, "Lock timed out.",),
     }
 
 
@@ -3318,6 +3493,8 @@ class AddressBookObjectResource(_CommonObjectResource):
         if self.isShareeResource():
             log.debug("Removing shared resource %s" % (self,))
             yield self.removeShareeResource(request)
+            # Re-initialize to get stuff setup again now we have no object
+            self._initializeWithObject(None, self._newStoreParent)
             returnValue(NO_CONTENT)
         elif self._newStoreObject.isGroupForSharedAddressBook():
             abCollectionResource = (yield request.locateResource(parentForURL(request.uri)))
@@ -3340,8 +3517,9 @@ class AddressBookObjectResource(_CommonObjectResource):
 
         # Content-type check
         content_type = request.headers.getHeader("content-type")
-        if content_type is not None and (content_type.mediaType, content_type.mediaSubtype) != ("text", "vcard"):
-            log.error("MIME type %s not allowed in vcard collection" % (content_type,))
+        format = self.determineType(content_type)
+        if format is None:
+            log.error("MIME type {content_type} not allowed in vcard collection", content_type=content_type)
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (carddav_namespace, "supported-address-data"),
@@ -3365,7 +3543,7 @@ class AddressBookObjectResource(_CommonObjectResource):
                 ))
 
             try:
-                component = VCard.fromString(vcarddata)
+                component = VCard.fromString(vcarddata, format)
             except ValueError, e:
                 log.error(str(e))
                 raise HTTPError(ErrorResponse(
@@ -3460,13 +3638,13 @@ class AddressBookObjectResource(_CommonObjectResource):
         "direct" shares are not supported.
 
         @param request: the request used to locate the owner resource.
-        @type request: L{twext.web2.iweb.IRequest}
+        @type request: L{txweb2.iweb.IRequest}
 
         @param args: The arguments for
-            L{twext.web2.dav.idav.IDAVResource.accessControlList}
+            L{txweb2.dav.idav.IDAVResource.accessControlList}
 
         @param kwargs: The keyword arguments for
-            L{twext.web2.dav.idav.IDAVResource.accessControlList}, plus
+            L{txweb2.dav.idav.IDAVResource.accessControlList}, plus
             keyword-only arguments.
 
         @return: the appropriate WebDAV ACL for the sharee
@@ -3619,14 +3797,6 @@ class StoreNotificationCollectionResource(_NotificationChildHelper, Notification
         # The newstore implementation supports this directly
         returnValue(
             (yield self._newStoreNotifications.resourceNamesSinceToken(revision))
-            + ([],)
-        )
-
-
-    def addNotification(self, request, uid, xmltype, xmldata):
-        return maybeDeferred(
-            self._newStoreNotifications.writeNotificationObject,
-            uid, xmltype, xmldata
         )
 
 
@@ -3674,7 +3844,15 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
             qname = prop.qname()
 
         if qname == customxml.NotificationType.qname():
-            returnValue(self._newStoreObject.xmlType())
+            jsontype = self._newStoreObject.notificationType()
+            if jsontype["notification-type"] == "invite-notification":
+                typeAttr = {"shared-type": jsontype["shared-type"]}
+                xmltype = customxml.InviteNotification(**typeAttr)
+            elif jsontype["notification-type"] == "invite-reply":
+                xmltype = customxml.InviteReply()
+            else:
+                raise HTTPError(responsecode.INTERNAL_SERVER_ERROR)
+            returnValue(customxml.NotificationType(xmltype))
 
         returnValue((yield super(StoreNotificationObjectFile, self).readProperty(prop, request)))
 
@@ -3687,9 +3865,95 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
         return succeed(self._newStoreObject.size())
 
 
+    @inlineCallbacks
     def text(self, ignored=None):
         assert ignored is None, "This is a notification object, not a notification"
-        return self._newStoreObject.xmldata()
+        jsondata = (yield self._newStoreObject.notificationData())
+        if jsondata["notification-type"] == "invite-notification":
+            ownerPrincipal = self.principalForUID(jsondata["owner"])
+            ownerCN = ownerPrincipal.displayName()
+            ownerHomeURL = ownerPrincipal.calendarHomeURLs()[0] if jsondata["shared-type"] == "calendar" else ownerPrincipal.addressBookHomeURLs()[0]
+
+            # FIXME:  use urn:uuid always?
+            if jsondata["shared-type"] == "calendar":
+                owner = ownerPrincipal.principalURL()
+            else:
+                owner = "urn:uuid:" + ownerPrincipal.principalUID()
+
+            shareePrincipal = self.principalForUID(jsondata["sharee"])
+
+            if "supported-components" in jsondata:
+                comps = jsondata["supported-components"]
+                if comps:
+                    comps = comps.split(",")
+                else:
+                    comps = ical.allowedStoreComponents
+                supported = caldavxml.SupportedCalendarComponentSet(
+                    *[caldavxml.CalendarComponent(name=item) for item in comps]
+                )
+            else:
+                supported = None
+
+            typeAttr = {"shared-type": jsondata["shared-type"]}
+            xmldata = customxml.Notification(
+                customxml.DTStamp.fromString(jsondata["dtstamp"]),
+                customxml.InviteNotification(
+                    customxml.UID.fromString(jsondata["uid"]),
+                    element.HRef.fromString("urn:uuid:" + jsondata["sharee"]),
+                    invitationBindStatusToXMLMap[jsondata["status"]](),
+                    customxml.InviteAccess(invitationBindModeToXMLMap[jsondata["access"]]()),
+                    customxml.HostURL(
+                        element.HRef.fromString(urljoin(ownerHomeURL, jsondata["ownerName"])),
+                    ),
+                    customxml.Organizer(
+                        element.HRef.fromString(owner),
+                        customxml.CommonName.fromString(ownerCN),
+                    ),
+                    customxml.InviteSummary.fromString(jsondata["summary"]),
+                    supported,
+                    **typeAttr
+                ),
+            )
+        elif jsondata["notification-type"] == "invite-reply":
+            ownerPrincipal = self.principalForUID(jsondata["owner"])
+            ownerHomeURL = ownerPrincipal.calendarHomeURLs()[0] if jsondata["shared-type"] == "calendar" else ownerPrincipal.addressBookHomeURLs()[0]
+
+            shareePrincipal = self.principalForUID(jsondata["sharee"])
+
+            # FIXME:  use urn:uuid always?
+            if jsondata["shared-type"] == "calendar":
+                # Prefer mailto:, otherwise use principal URL
+                for cua in shareePrincipal.calendarUserAddresses():
+                    if cua.startswith("mailto:"):
+                        break
+                else:
+                    cua = shareePrincipal.principalURL()
+            else:
+                cua = "urn:uuid:" + shareePrincipal.principalUID()
+
+            commonName = shareePrincipal.displayName()
+            record = shareePrincipal.record
+
+            typeAttr = {"shared-type": jsondata["shared-type"]}
+            xmldata = customxml.Notification(
+                customxml.DTStamp.fromString(jsondata["dtstamp"]),
+                customxml.InviteReply(
+                    element.HRef.fromString(cua),
+                    invitationBindStatusToXMLMap[jsondata["status"]](),
+                    customxml.HostURL(
+                        element.HRef.fromString(urljoin(ownerHomeURL, jsondata["ownerName"])),
+                    ),
+                    customxml.InReplyTo.fromString(jsondata["in-reply-to"]),
+                    customxml.InviteSummary.fromString(jsondata["summary"]) if jsondata["summary"] else None,
+                    customxml.CommonName.fromString(commonName) if commonName else None,
+                    customxml.FirstNameProperty(record.firstName) if record.firstName else None,
+                    customxml.LastNameProperty(record.lastName) if record.lastName else None,
+                    #**typeAttr
+                ),
+            )
+        else:
+            raise HTTPError(responsecode.INTERNAL_SERVER_ERROR)
+        returnValue(xmldata.toxml())
 
 
     @requiresPermissions(davxml.Read())

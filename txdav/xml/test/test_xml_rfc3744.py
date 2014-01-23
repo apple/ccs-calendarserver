@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,7 +23,7 @@
 from twisted.trial import unittest
 
 from txdav.xml import element as davxml
-from twext.web2.dav.resource import davPrivilegeSet
+from txweb2.dav.resource import davPrivilegeSet
 
 
 class XML_3744(unittest.TestCase):

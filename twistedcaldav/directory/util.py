@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.directory.test.test_util -*-
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,10 +27,10 @@ __all__ = [
 
 from twext.enterprise.ienterprise import AlreadyFinishedError
 from twext.python.log import Logger
-from twext.web2 import responsecode
-from twext.web2.auth.wrapper import UnauthorizedResponse
-from twext.web2.dav.resource import DAVResource
-from twext.web2.http import StatusResponse
+from txweb2 import responsecode
+from txweb2.auth.wrapper import UnauthorizedResponse
+from txweb2.dav.resource import DAVResource
+from txweb2.http import StatusResponse
 from twisted.internet.defer import inlineCallbacks, returnValue
 from txdav.xml import element as davxml
 from uuid import UUID, uuid5
@@ -49,6 +49,7 @@ def uuidFromName(namespace, name):
         name = name.encode("utf-8")
 
     return normalizeUUID(str(uuid5(UUID(namespace), name)))
+
 
 
 def normalizeUUID(value):
@@ -106,6 +107,7 @@ def transactionFromRequest(request, newStore):
     return transaction
 
 
+
 def splitIntoBatches(data, size):
     """
     Return a generator of sets consisting of the contents of the data set
@@ -117,6 +119,7 @@ def splitIntoBatches(data, size):
     while data:
         yield set(data[:size])
         del data[:size]
+
 
 
 class NotFoundResource(DAVResource):
@@ -131,7 +134,7 @@ class NotFoundResource(DAVResource):
     def renderHTTP(self, request):
 
         try:
-            authnUser, authzUser = yield self.authenticate(request)
+            _ignore_authnUser, authzUser = yield self.authenticate(request)
         except Exception:
             authzUser = davxml.Principal(davxml.Unauthenticated())
 
@@ -145,4 +148,3 @@ class NotFoundResource(DAVResource):
         else:
             response = StatusResponse(responsecode.NOT_FOUND, "Resource not found")
             returnValue(response)
-

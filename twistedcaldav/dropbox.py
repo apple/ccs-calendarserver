@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,11 +24,11 @@ __all__ = [
 ]
 
 from twext.python.log import Logger
-from twext.web2 import responsecode
+from txweb2 import responsecode
 from txdav.xml import element as davxml
-from twext.web2.dav.http import ErrorResponse
-from twext.web2.dav.resource import DAVResource, TwistedACLInheritable
-from twext.web2.dav.util import joinURL
+from txweb2.dav.http import ErrorResponse
+from txweb2.dav.resource import DAVResource, TwistedACLInheritable
+from txweb2.dav.util import joinURL
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 
@@ -44,11 +44,14 @@ class DropBoxHomeResource (DAVResource):
     def resourceType(self):
         return davxml.ResourceType.dropboxhome #@UndefinedVariable
 
+
     def isCollection(self):
         return True
 
+
     def http_PUT(self, request):
         return responsecode.FORBIDDEN
+
 
     @inlineCallbacks
     def accessControlList(self, request, *args, **kwargs):
@@ -57,7 +60,7 @@ class DropBoxHomeResource (DAVResource):
         """
 
         acl = (yield super(DropBoxHomeResource, self).accessControlList(request, *args, **kwargs))
-        
+
         if config.EnableProxyPrincipals:
             owner = (yield self.ownerPrincipal(request))
 
@@ -75,9 +78,11 @@ class DropBoxHomeResource (DAVResource):
             )
 
             returnValue(davxml.ACL(*newaces))
-        
+
         else:
             returnValue(acl)
+
+
 
 class DropBoxCollectionResource (DAVResource):
     """
@@ -99,7 +104,7 @@ class DropBoxCollectionResource (DAVResource):
         calendar collection have the same privileges unless explicitly overridden. The same applies
         to drop box collections as we want all resources (attachments) to have the same privileges as
         the drop box collection.
-        
+
         @param newaces: C{list} of L{ACE} for ACL being set.
         """
         # Add inheritable option to each ACE in the list

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ import signal
 import sys
 import xml
 
-from twext.python.plistlib import readPlistFromString, writePlistToString
+from plistlib import readPlistFromString, writePlistToString
 from twistedcaldav.config import config, ConfigDict, ConfigurationError, mergeData
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 WRITABLE_CONFIG_KEYS = [
@@ -94,6 +94,8 @@ def usage(e=None):
     else:
         sys.exit(0)
 
+
+
 def main():
     try:
         (optargs, args) = getopt(
@@ -140,6 +142,7 @@ def main():
     processArgs(writable, args)
 
 
+
 def processArgs(writable, args, restart=True):
     """
     Perform the read/write operations requested in the command line args.
@@ -159,7 +162,7 @@ def processArgs(writable, args, restart=True):
                 # This is an assignment
                 configKey, stringValue = configKey.split("=")
                 value = writable.convertToValue(stringValue)
-                writable.set({configKey:value})
+                writable.set({configKey: value})
             else:
                 # This is a read
                 c = config
@@ -208,6 +211,7 @@ class Runner(object):
         """
         self.commands = commands
 
+
     def validate(self):
         """
         Validate all the commands by making sure this class implements
@@ -226,6 +230,7 @@ class Runner(object):
                 return False
         return True
 
+
     def run(self):
         """
         Find the appropriate method for each command and call them.
@@ -242,6 +247,7 @@ class Runner(object):
         except Exception, e:
             respondWithError("Command failed: '%s'" % (str(e),))
             raise
+
 
     def command_readConfig(self, command):
         """
@@ -260,6 +266,7 @@ class Runner(object):
                     value = value.decode("utf-8")
                 setKeyPath(result, keyPath, value)
         respond(command, result)
+
 
     def command_writeConfig(self, command):
         """
@@ -282,6 +289,7 @@ class Runner(object):
         else:
             config.reload()
             self.command_readConfig(command)
+
 
 
 def setKeyPath(parent, keyPath, value):
@@ -311,6 +319,8 @@ def setKeyPath(parent, keyPath, value):
     parent[parts[-1]] = value
     return original
 
+
+
 def getKeyPath(parent, keyPath):
     """
     Allows the getting of arbitrary nested dictionary keys via a single
@@ -333,6 +343,8 @@ def getKeyPath(parent, keyPath):
         parent = child
     return parent.get(parts[-1], None)
 
+
+
 def flattenDictionary(dictionary, current=""):
     """
     Returns a generator of (keyPath, value) tuples for the given dictionary,
@@ -351,6 +363,7 @@ def flattenDictionary(dictionary, current=""):
                 yield result
         else:
             yield (current + key, value)
+
 
 
 def restartService(pidFilename):
@@ -375,6 +388,7 @@ def restartService(pidFilename):
             pass
 
 
+
 class WritableConfig(object):
     """
     A wrapper around a Config object which allows writing of values.  The idea
@@ -396,6 +410,7 @@ class WritableConfig(object):
         self.currentConfigSubset = ConfigDict()
         self.dirty = False
 
+
     def set(self, data):
         """
         Merges data into a ConfigDict of changes intended to be saved to disk
@@ -409,6 +424,7 @@ class WritableConfig(object):
         mergeData(self.currentConfigSubset, data)
         self.dirty = True
 
+
     def read(self):
         """
         Reads in the data contained in the writable plist file.
@@ -420,8 +436,10 @@ class WritableConfig(object):
         else:
             self.currentConfigSubset = ConfigDict()
 
+
     def toString(self):
         return plistlib.writePlistToString(self.currentConfigSubset)
+
 
     def save(self, restart=False):
         """
@@ -436,6 +454,7 @@ class WritableConfig(object):
             self.dirty = False
             if restart:
                 restartService(self.config.PIDFile)
+
 
     @classmethod
     def convertToValue(cls, string):
@@ -461,8 +480,11 @@ class WritableConfig(object):
         return value
 
 
+
 def respond(command, result):
     sys.stdout.write(writePlistToString({'command' : command['command'], 'result' : result}))
+
+
 
 def respondWithError(msg, status=1):
     sys.stdout.write(writePlistToString({'error' : msg, }))

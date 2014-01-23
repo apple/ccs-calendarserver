@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -33,7 +33,7 @@ from txdav.xml.parser_base import AbstractWebDAVDocument
 from txdav.xml.xmlext import Print as xmlPrint
 
 
-class WebDAVContentHandler (xml.sax.handler.ContentHandler):
+class WebDAVContentHandler(xml.sax.handler.ContentHandler):
 
     def setDocumentLocator(self, locator):
         self.locator = locator

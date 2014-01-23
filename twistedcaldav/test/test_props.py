@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@
 # limitations under the License.
 ##
 
-from twext.web2 import responsecode, http_headers
-from twext.web2.dav.util import davXMLFromStream
-from twext.web2.iweb import IResponse
-from twext.web2.stream import MemoryStream
+from txweb2 import responsecode, http_headers
+from txweb2.dav.util import davXMLFromStream
+from txweb2.iweb import IResponse
+from txweb2.stream import MemoryStream
 
 from twistedcaldav import caldavxml
 from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest
@@ -88,7 +88,7 @@ class Properties(StoreTestCase):
                         self.fail("Expected CalDAV:supported-calendar-data element; but got none.")
 
                     for calendar in supported_calendar.children:
-                        if calendar.content_type != "text/calendar":
+                        if calendar.content_type not in ("text/calendar", "application/calendar+json"):
                             self.fail("Expected a text/calendar calendar-data type restriction")
                         if calendar.version != "2.0":
                             self.fail("Expected a version 2.0 calendar-data restriction")

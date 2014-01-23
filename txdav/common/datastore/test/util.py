@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.carddav.datastore.test -*-
 ##
-# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,16 +32,16 @@ from calendarserver.push.notifier import Notifier
 
 from hashlib import md5
 
-from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.datetime import DateTime
 
 from random import Random
 
 from twext.python.log import Logger
 from twext.python.filepath import CachingFilePath
-from twext.python.vcomponent import VComponent
+from twistedcaldav.ical import Component as VComponent
 from twext.enterprise.adbapi2 import ConnectionPool
 from twext.enterprise.ienterprise import AlreadyFinishedError
-from twext.web2.dav.resource import TwistedGETContentMD5
+from txweb2.dav.resource import TwistedGETContentMD5
 
 from twisted.application.service import Service
 from twisted.internet import reactor
@@ -50,6 +50,7 @@ from twisted.internet.defer import returnValue
 from twisted.internet.task import deferLater
 from twisted.trial.unittest import TestCase
 
+from twistedcaldav import ical
 from twistedcaldav.config import config
 from twistedcaldav.stdconfig import DEFAULT_CONFIG
 from twistedcaldav.vcard import Component as ABComponent
@@ -112,6 +113,13 @@ class TestStoreDirectoryService(object):
         return self.records.get(uid)
 
 
+    def recordWithGUID(self, guid):
+        for record in self.records.itervalues():
+            if record.guid == guid:
+                return record
+        return None
+
+
     def addRecord(self, record):
         self.records[record.uid] = record
 
@@ -121,11 +129,52 @@ class TestStoreDirectoryRecord(object):
 
     implements(IStoreDirectoryRecord)
 
-    def __init__(self, uid, shortNames, fullName):
+    def __init__(self, uid, shortNames, fullName, thisServer=True, server=None, extras={}):
         self.uid = uid
+        self.guid = uid
         self.shortNames = shortNames
         self.fullName = fullName
         self.displayName = self.fullName if self.fullName else self.shortNames[0]
+        self._thisServer = thisServer
+        self._server = server
+        self.extras = extras
+
+
+    def thisServer(self):
+        return self._thisServer
+
+
+    def server(self):
+        return self._server
+
+
+
+def buildDirectory(homes=None):
+
+    directory = TestStoreDirectoryService()
+
+    # User accounts
+    for ctr in range(1, 100):
+        directory.addRecord(TestStoreDirectoryRecord(
+            "user%02d" % (ctr,),
+            ("user%02d" % (ctr,),),
+            "User %02d" % (ctr,),
+        ))
+
+    homes = set(homes) if homes is not None else set()
+    for uid in homes:
+        directory.addRecord(buildDirectoryRecord(uid))
+
+    return directory
+
+
+
+def buildDirectoryRecord(uid):
+    return TestStoreDirectoryRecord(
+        uid,
+        (uid,),
+        uid.capitalize(),
+    )
 
 
 
@@ -133,18 +182,17 @@ class SQLStoreBuilder(object):
     """
     Test-fixture-builder which can construct a PostgresStore.
     """
-    sharedService = None
-    currentTestID = None
+    def __init__(self, secondary=False):
+        self.sharedService = None
+        self.currentTestID = None
+        self.sharedDBPath = "_test_sql_db" + str(os.getpid()) + ("-2" if secondary else "")
 
-    SHARED_DB_PATH = "_test_sql_db" + str(os.getpid())
 
-
-    @classmethod
-    def createService(cls, serviceFactory):
+    def createService(self, serviceFactory):
         """
         Create a L{PostgresService} to use for building a store.
         """
-        dbRoot = CachingFilePath(cls.SHARED_DB_PATH)
+        dbRoot = CachingFilePath(self.sharedDBPath)
         return PostgresService(
             dbRoot, serviceFactory, current_sql_schema, resetSchema=True,
             databaseName="caldav",
@@ -160,17 +208,15 @@ class SQLStoreBuilder(object):
         )
 
 
-    @classmethod
-    def childStore(cls):
+    def childStore(self):
         """
         Create a store suitable for use in a child process, that is hooked up
         to the store that a parent test process is managing.
         """
         disableMemcacheForTest(TestCase())
         staticQuota = 3000
-        attachmentRoot = (CachingFilePath(cls.SHARED_DB_PATH)
-                          .child("attachments"))
-        stubsvc = cls.createService(lambda cf: Service())
+        attachmentRoot = (CachingFilePath(self.sharedDBPath).child("attachments"))
+        stubsvc = self.createService(lambda cf: Service())
 
         cp = ConnectionPool(stubsvc.produceConnection, maxConnections=1)
         # Attach the service to the running reactor.
@@ -186,17 +232,17 @@ class SQLStoreBuilder(object):
         return cds
 
 
-    def buildStore(self, testCase, notifierFactory, directoryService=None):
+    def buildStore(self, testCase, notifierFactory, directoryService=None, homes=None):
         """
         Do the necessary work to build a store for a particular test case.
 
         @return: a L{Deferred} which fires with an L{IDataStore}.
         """
         disableMemcacheForTest(testCase)
-        dbRoot = CachingFilePath(self.SHARED_DB_PATH)
+        dbRoot = CachingFilePath(self.sharedDBPath)
         attachmentRoot = dbRoot.child("attachments")
         if directoryService is None:
-            directoryService = TestStoreDirectoryService()
+            directoryService = buildDirectory(homes=homes)
         if self.sharedService is None:
             ready = Deferred()
             def getReady(connectionFactory, storageService):
@@ -243,8 +289,7 @@ class SQLStoreBuilder(object):
         attachmentRoot.createDirectory()
 
         currentTestID = testCase.id()
-        cp = ConnectionPool(self.sharedService.produceConnection,
-                            maxConnections=5)
+        cp = ConnectionPool(self.sharedService.produceConnection, maxConnections=5)
         quota = deriveQuota(testCase)
         store = CommonDataStore(
             cp.connection,
@@ -306,6 +351,7 @@ class SQLStoreBuilder(object):
 
 theStoreBuilder = SQLStoreBuilder()
 buildStore = theStoreBuilder.buildStore
+cleanStore = theStoreBuilder.cleanStore
 
 
 _notSet = object()
@@ -447,12 +493,11 @@ def populateCalendarsFrom(requirements, store, migrating=False):
             # We don't want the default calendar or inbox to appear unless it's
             # explicitly listed.
             try:
-                yield home.removeCalendarWithName("calendar")
-                # FIXME: this should be an argument to the function, not a
-                # global configuration variable.  Related: this needs
-                # independent tests.
                 if config.RestrictCalendarsToOneComponentType:
-                    yield home.removeCalendarWithName("tasks")
+                    for name in ical.allowedStoreComponents:
+                        yield home.removeCalendarWithName(home._componentCalendarName[name])
+                else:
+                    yield home.removeCalendarWithName("calendar")
                 yield home.removeCalendarWithName("inbox")
             except NoSuchHomeChildError:
                 pass
@@ -480,7 +525,7 @@ def updateToCurrentYear(data):
     Update the supplied iCalendar data so that all dates are updated to the current year.
     """
 
-    nowYear = PyCalendarDateTime.getToday().getYear()
+    nowYear = DateTime.getToday().getYear()
     return data % {"now": nowYear}
 
 
@@ -678,13 +723,13 @@ class CommonCommonTests(object):
 
 
     @inlineCallbacks
-    def homeUnderTest(self, txn=None, name="home1"):
+    def homeUnderTest(self, txn=None, name="home1", create=False):
         """
         Get the calendar home detailed by C{requirements['home1']}.
         """
         if txn is None:
             txn = self.transactionUnderTest()
-        returnValue((yield txn.calendarHomeWithUID(name)))
+        returnValue((yield txn.calendarHomeWithUID(name, create=create)))
 
 
     @inlineCallbacks
@@ -707,6 +752,35 @@ class CommonCommonTests(object):
                      .calendarObjectWithName(name)))
 
 
+    def addressbookHomeUnderTest(self, txn=None, name="home1"):
+        """
+        Get the addressbook home detailed by C{requirements['home1']}.
+        """
+        if txn is None:
+            txn = self.transactionUnderTest()
+        return txn.addressbookHomeWithUID(name)
+
+
+    @inlineCallbacks
+    def addressbookUnderTest(self, txn=None, name="addressbook", home="home1"):
+        """
+        Get the addressbook detailed by C{requirements['home1']['addressbook']}.
+        """
+        returnValue((yield
+            (yield self.addressbookHomeUnderTest(txn=txn, name=home)).addressbookWithName(name))
+        )
+
+
+    @inlineCallbacks
+    def addressbookObjectUnderTest(self, txn=None, name="1.vcf", addressbook_name="addressbook", home="home1"):
+        """
+        Get the addressbook detailed by
+        C{requirements['home1']['addressbook']['1.vcf']}.
+        """
+        returnValue((yield (yield self.addressbookUnderTest(txn=txn, name=addressbook_name, home=home))
+                    .addressbookObjectWithName(name)))
+
+
 
 class StubNotifierFactory(object):
     """
@@ -726,8 +800,8 @@ class StubNotifierFactory(object):
         return "/%s/%s/%s/" % (prefix, self.hostname, id)
 
 
-    def send(self, prefix, id):
-        self.history.append(self.pushKeyForId(prefix, id))
+    def send(self, prefix, id, txn, priority):
+        self.history.append((self.pushKeyForId(prefix, id), priority))
 
 
     def reset(self):

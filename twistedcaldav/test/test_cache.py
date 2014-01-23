@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2008-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2008-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,9 +20,9 @@ import cPickle
 
 from twisted.internet.defer import succeed, maybeDeferred, inlineCallbacks
 
-from twext.web2.dav.util import allDataFromStream
-from twext.web2.stream import MemoryStream
-from twext.web2.http_headers import Headers
+from txweb2.dav.util import allDataFromStream
+from txweb2.stream import MemoryStream
+from txweb2.http_headers import Headers
 
 from txdav.xml import element as davxml
 

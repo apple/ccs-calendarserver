@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_upgrade -*-
 ##
-# Copyright (c) 2008-2013 Apple Inc. All rights reserved.
+# Copyright (c) 2008-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ from cPickle import loads as unpickle, UnpicklingError
 
 from twext.python.log import Logger
 from txdav.xml import element
-from twext.web2.dav.fileop import rmdir
+from txweb2.dav.fileop import rmdir
 
 from twistedcaldav import caldavxml
 from twistedcaldav.directory import calendaruserproxy
@@ -1065,7 +1065,6 @@ class PostDBImportStep(object):
             # Migrate mail tokens from sqlite to store
             yield migrateTokensToStore(self.config.DataRoot, self.store)
 
-            
 
     @inlineCallbacks
     def processInboxItems(self):
