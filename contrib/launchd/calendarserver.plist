@@ -64,10 +64,10 @@ limitations under the License.
   <true/>
   
   <key>StandardOutPath</key>
-  <string>/var/log/caldavd/error.log</string>
+  <string>/Library/Server/Logs/caldavd.log</string>
 
   <key>StandardErrorPath</key>
-  <string>/var/log/caldavd/error.log</string>
+  <string>/Library/Server/Logs/caldavd.log</string>
 
 </dict>
 </plist>

@@ -1035,11 +1035,21 @@ DEFAULT_CONFIG = {
     # means no automatic shutdown.
     "AgentInactivityTimeoutSeconds"  : 4 * 60 * 60,
 
-    # These aren't relative to ConfigRoot:
-    "ImportConfig": "", # Config to read first and merge
-    "Includes": [], # Other plists to parse after this one
-    "WritableConfigFile" : "", # which config file calendarserver_config should
-        # write to for changes; empty string means the main config file.
+
+    # These three keys are relative to ConfigRoot:
+
+    # Config to read first and merge
+    "ImportConfig": "",
+
+    # Other plists to parse after this one; note that an Include can change
+    # the ServerRoot and/or ConfigRoot, thereby affecting the locations of
+    # the following Includes in the list. (Useful for service directory
+    # relocation)
+    "Includes": [],
+
+    # Which config file calendarserver_config should  write to for changes;
+    # empty string means the main config file
+    "WritableConfigFile": "",
 }
 
 
@@ -1091,9 +1101,11 @@ class PListConfigProvider(ConfigProvider):
         def _loadIncludes(parentDict):
             # Now check for Includes and parse and add each of those
             if "Includes" in parentDict:
-                configRoot = os.path.join(parentDict.ServerRoot, parentDict.ConfigRoot)
                 for include in parentDict.Includes:
-                    # Includes are not relative to ConfigRoot
+                    # Recompute this because ServerRoot and ConfigRoot
+                    # could change when including another file
+                    configRoot = os.path.join(parentDict.ServerRoot,
+                                              parentDict.ConfigRoot)
                     path = _expandPath(fullServerPath(configRoot, include))
                     if os.path.exists(path):
                         additionalDict = ConfigDict(self._parseConfigFromFile(path))
@@ -1145,6 +1157,7 @@ RELATIVE_PATHS = [
     ("ConfigRoot", ("Scheduling", "iSchedule", "DKIM", "PrivateKeyFile",)),
     ("ConfigRoot", ("Scheduling", "iSchedule", "DKIM", "PublicKeyFile",)),
     ("ConfigRoot", ("Scheduling", "iSchedule", "DKIM", "PrivateExchanges",)),
+    ("ConfigRoot", "WritableConfigFile"),
     ("LogRoot", "AccessLogFile"),
     ("LogRoot", "ErrorLogFile"),
     ("LogRoot", "AgentLogFile"),

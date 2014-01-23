@@ -39,7 +39,6 @@ WRITABLE_CONFIG_KEYS = [
     "Authentication.Kerberos.AllowedOverWireUnencrypted",
     "Authentication.Kerberos.Enabled",
     "Authentication.Wiki.Enabled",
-    "DataRoot",
     "DefaultLogLevel",
     "DirectoryAddressBook.params.queryPeopleRecords",
     "DirectoryAddressBook.params.queryUserRecords",
@@ -74,6 +73,7 @@ WRITABLE_CONFIG_KEYS = [
     "SSLPort",
     "SSLPrivateKey",
 ]
+
 
 def usage(e=None):
     if e:
@@ -482,9 +482,9 @@ class WritableConfig(object):
 
 
 def respond(command, result):
-    sys.stdout.write(writePlistToString({'command' : command['command'], 'result' : result}))
+    sys.stdout.write(writePlistToString({'command': command['command'], 'result': result}))
 
 
 
 def respondWithError(msg, status=1):
-    sys.stdout.write(writePlistToString({'error' : msg, }))
+    sys.stdout.write(writePlistToString({'error': msg, }))

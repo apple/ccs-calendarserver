@@ -369,8 +369,8 @@ class GatewayTestCase(RunCommandTestCase):
         self.assertEquals(results["result"]["EnableSSL"], True)
         self.assertEquals(results["result"]["Notifications"]["Services"]["APNS"]["Enabled"], True)
         self.assertEquals(results["result"]["Notifications"]["Services"]["APNS"]["CalDAV"]["CertificatePath"], "/example/changed.cer")
-        dataRoot = "Data/%s/%s" % (unichr(208), u"\ud83d\udca3")
-        self.assertTrue(results["result"]["DataRoot"].endswith(dataRoot))
+        hostName = "hostname_%s_%s" % (unichr(208), u"\ud83d\udca3")
+        self.assertTrue(results["result"]["ServerHostName"].endswith(hostName))
 
         # The static plist should still have EnableCalDAV = True
         staticPlist = plistlib.readPlist(self.configFileName)
@@ -807,8 +807,8 @@ command_writeConfig = """<?xml version="1.0" encoding="UTF-8"?>
             <true/>
             <key>Notifications.Services.APNS.CalDAV.CertificatePath</key>
             <string>/example/changed.cer</string>
-            <key>DataRoot</key>
-            <string>Data/%s/%s</string>
+            <key>ServerHostName</key>
+            <string>hostname_%s_%s</string>
         </dict>
 </dict>
 </plist>

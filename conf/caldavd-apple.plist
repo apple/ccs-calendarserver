@@ -311,7 +311,7 @@
 
     <!-- Log root -->
     <key>LogRoot</key>
-    <string>/var/log/caldavd</string>
+    <string>Logs</string>
 
     <!-- Apache-style access log -->
     <key>AccessLogFile</key>
@@ -542,11 +542,13 @@
 
     <key>Includes</key>
     <array>
-        <string>/Library/Server/Calendar and Contacts/Config/caldavd-system.plist</string>
-        <string>/Library/Server/Calendar and Contacts/Config/caldavd-user.plist</string>
+        <string>/Library/Preferences/com.apple.servermgr_calendar.plist</string>
+        <string>caldavd-system.plist</string>
+        <string>caldavd-user.plist</string>
     </array>
+
     <key>WritableConfigFile</key>
-    <string>/Library/Server/Calendar and Contacts/Config/caldavd-system.plist</string>
+    <string>caldavd-system.plist</string>
 
   </dict>
 </plist>
