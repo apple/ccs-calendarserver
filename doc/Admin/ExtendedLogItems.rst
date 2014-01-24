@@ -1,7 +1,8 @@
 Apache-style Access Log Extensions
 ==================================
 
-If the administrator enables the EnableExtendedAccessLog config option, Calendar Server extends the Apache log file format it uses by:
+If the administrator enables the EnableExtendedAccessLog config option,
+Calendar Server extends the Apache log file format it uses by:
 
  * Adding a "sub-method" to the HTTP method field.
  * Adding key-value pairs at the end of log lines.
@@ -21,7 +22,8 @@ These keys are always emitted:
 
   ``i``
 
-    the index number of the server instance emitting the log; corresponds to the slave number shown in process title.
+    the index number of the server instance emitting the log; corresponds
+    to the slave number shown in process title.
 
   ``t``
 
@@ -65,27 +67,69 @@ response include:
 
   ``itip.reply``
 
-    Either ``reply`` or ``cancel`` depending on...???
+    either ``reply`` or ``cancel`` depending on what action the attendee took
+
+  ``itip.ischedule``
+
+    the number of iTIP iSchedule messages sent
 
   ``fwd``
 
     the value of the X-Forwarded-For header, if present
 
+  ``cached``
+
+    indicates that the PROPFIND cache was used for the response.
+
   ``fb-cached``
 
-    When doing free-busy queries, this is the number of calendars queried for which free-busy info was already cached
+    when doing free-busy queries, this is the number of calendars queried for
+    which free-busy info was already cached
 
   ``fb-uncached``
 
-    When doing free-busy queries, this is the number of calendars queried for which free-busy info was NOT already cached
+    when doing free-busy queries, this is the number of calendars queried for
+    which free-busy info was NOT already cached
 
   ``cl``
 
-    Content length, in bytes
+    content length, in bytes
+
+  ``create``
+
+    the number of resources to be created in a CRUD POST request
+
+  ``update``
+
+    the number of resources to be updated in a CRUD POST request
+
+  ``delete``
+
+    the number of resources to be deleted in a CRUD POST request
+
+  ``xpod``
+
+    the number of requests between server pods
+
+  ``sql-s``
+
+    the number of SQL statements executed during the request
+
+  ``sql-r``
+
+    the number of SQL rows returned during the request
+
+  ``sql-t``
+
+    the amount of time spent waiting for SQL statements to complete
+
 
 In the following example, we see a free-busy ``POST``
 requesting availability for two users, which was handled by
-instance ``1`` in 782.6i ms. This instance was only processing one request at the time this was logged (or=1). Of the two calendars targeted by the free-busy query, one already had free-busy info cached, while the other was not cached. (fb-cached=1, fb-uncached=1)
+instance ``1`` in 782.6i ms. This instance was only processing one request at
+the time this was logged (or=1). Of the two calendars targeted by the free-busy
+query, one already had free-busy info cached, while the other was not cached.
+(fb-cached=1, fb-uncached=1)
 
 ::
 
@@ -94,12 +138,16 @@ instance ``1`` in 782.6i ms. This instance was only processing one request at th
 
 **Fine-grained request time logging**
 
-If the configuration key EnableExtendedTimingAccessLog is set to true, additional key-value pairs will be logged with each request. The overall request time "t" is broken into four phases, and the elapsed time for each phase is logged. The new keys representing the four request phases are:
+If the configuration key EnableExtendedTimingAccessLog is set to true, additional
+key-value pairs will be logged with each request. The overall request time "t" is
+broken into four phases, and the elapsed time for each phase is logged. The new
+keys representing the four request phases are:
 
   ``t-req-proc``
 
-    time elapsed from when a request object is created up until renderHTTP is about to be called.
-    This is the overhead of parsing the request headers and locating the target resource.
+    time elapsed from when a request object is created up until renderHTTP is
+    about to be called. This is the overhead of parsing the request headers and
+    locating the target resource.
 
   ``t-resp-gen``
 
