@@ -458,6 +458,19 @@ ruler () {
 c_dependencies () {
 
   ruler;
+  if find_header ffi.h; then
+    using_system "libffi";
+  elif find_header ffi/ffi.h; then
+    mkdir -p "${dev_root}/include";
+    echo "#include <ffi/ffi.h>" > "${dev_root}/include/ffi.h"
+    using_system "libffi";
+  else
+    c_dependency -m "45f3b6dbc9ee7c7dfbbbc5feba571529" \
+      "libffi" "libffi-3.0.13" \
+      "ftp://sourceware.org/pub/libffi/libffi-3.0.13.tar.gz"
+  fi;
+
+  ruler;
   if find_header ldap.h 20428 LDAP_VENDOR_VERSION; then
     using_system "OpenLDAP";
   else
@@ -471,11 +484,11 @@ c_dependencies () {
   fi;
 
   ruler;
-  if find_header sasl/sasl.h && ! find_header sasl.h; then
+  if find_header sasl.h; then
+    using_system "SASL";
+  elif find_header sasl/sasl.h; then
     mkdir -p "${dev_root}/include";
     echo "#include <sasl/sasl.h>" > "${dev_root}/include/sasl.h"
-    using_system "SASL";
-  elif find_header sasl.h; then
     using_system "SASL";
   else
     local v="2.1.26";
@@ -485,15 +498,6 @@ c_dependencies () {
       "Cyrus SASL" "${p}" \
       "ftp://ftp.cyrusimap.org/cyrus-sasl/${p}.tar.gz" \
       --disable-macos-framework;
-  fi;
-
-  ruler;
-  if find_header ffi/ffi.h; then
-    using_system "libffi";
-  else
-    c_dependency -m "45f3b6dbc9ee7c7dfbbbc5feba571529" \
-      "libffi" "libffi-3.0.13" \
-      "ftp://sourceware.org/pub/libffi/libffi-3.0.13.tar.gz"
   fi;
 
   ruler;
@@ -540,14 +544,12 @@ py_dependencies () {
   # export PYTHONPATH="${dev_libdir}:${PYTHONPATH:-}"
 
   # export              PATH="${dev_root}/bin:${PATH}";
-  # export    C_INCLUDE_PATH="${dev_root}/include:${C_INCLUDE_PATH:-}";
-  # export   LD_LIBRARY_PATH="${dev_root}/lib:${dev_root}/lib64:${LD_LIBRARY_PATH:-}";
-  # export          CPPFLAGS="-I${dev_root}/include ${CPPFLAGS:-} ";
-  # export           LDFLAGS="-L${dev_root}/lib -L${dev_root}/lib64 ${LDFLAGS:-} ";
-  # export DYLD_LIBRARY_PATH="${dev_root}/lib:${dev_root}/lib64:${DYLD_LIBRARY_PATH:-}";
-  # export PKG_CONFIG_PATH="${dev_root}/lib/pkgconfig:${PKG_CONFIG_PATH:-}";
-
-  # cd "${wd}";
+  export    C_INCLUDE_PATH="${dev_root}/include:${C_INCLUDE_PATH:-}";
+  export   LD_LIBRARY_PATH="${dev_root}/lib:${dev_root}/lib64:${LD_LIBRARY_PATH:-}";
+  export          CPPFLAGS="-I${dev_root}/include ${CPPFLAGS:-} ";
+  export           LDFLAGS="-L${dev_root}/lib -L${dev_root}/lib64 ${LDFLAGS:-} ";
+  export DYLD_LIBRARY_PATH="${dev_root}/lib:${dev_root}/lib64:${DYLD_LIBRARY_PATH:-}";
+  export PKG_CONFIG_PATH="${dev_root}/lib/pkgconfig:${PKG_CONFIG_PATH:-}";
 
   for requirements in "${wd}/requirements/"*; do
 
@@ -565,7 +567,8 @@ py_dependencies () {
         echo "Requirements ${requirements} are optional; continuing.";
       else
         echo "";
-        exit ${err};
+        echo "pip log: ${dev_home}/pip.log";
+        return 1;
       fi;
     fi;
 
