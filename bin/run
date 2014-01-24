@@ -44,6 +44,7 @@ wd="$(cd "$(dirname "$0")/.." && pwd)";
      reactor="";
  plugin_name="caldav";
 service_type="Combined";
+       setup="true";
          run="true";
    daemonize="-X -L";
         kill="false";
@@ -240,11 +241,11 @@ run_main () {
 
   export CALENDARSERVER_DEVELOP="true";
 
-  init_build > /dev/null;
+  init_build;
 
   if "${setup}"; then
-    c_dependencies >> "${dev_home}/setup.log";
-    py_dependencies >> "${dev_home}/setup.log";
+    c_dependencies;
+    py_dependencies;
   fi;
 
   # # Now that all the dependencies are set up, let's see if we're just being
