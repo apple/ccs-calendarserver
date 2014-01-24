@@ -1,7 +1,9 @@
+*.egg-info
 *.pyc
 *.so
 dropin.cache
 
+/.develop/
 /build/
 /data/
 /calendarserver/version.py

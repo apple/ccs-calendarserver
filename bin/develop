@@ -16,16 +16,15 @@
 # limitations under the License.
 ##
 
-set -e
-set -u
+set -e;
+set -u;
 
-wd="$(cd "$(dirname "$0")" && pwd -P)";
+if [ -z "${wd:-}" ]; then
+  wd="$(cd "$(dirname "$0")/.." && pwd)";
+fi;
 
-. "${wd}/support/build.sh";
+export CALENDARSERVER_DEVELOP="true";
 
-do_setup="false";
-  do_get="false";
+. "${wd}/bin/_build.sh";
 
-dependencies;
-
-pydoctor "$@";
+develop;
