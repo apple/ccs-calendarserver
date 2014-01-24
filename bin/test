@@ -1,0 +1,153 @@
+#!/bin/sh
+
+##
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+##
+
+set -e;
+set -u;
+
+wd="$(cd "$(dirname "$0")/.." && pwd -L)";
+
+export CALENDARSERVER_DEVELOP="true";
+
+. "${wd}/bin/_build.sh";
+
+init_build > /dev/null;
+c_dependencies >> "${dev_home}/setup.log";
+py_dependencies >> "${dev_home}/setup.log";
+
+##
+# Options
+##
+
+do_setup="false";
+do_get="false";
+
+random="--random=$(date "+%s")";
+no_color="";
+until_fail="";
+coverage="";
+numjobs="";
+reactor="";
+
+if [ "$(uname -s)" == "Darwin" ]; then
+  reactor="--reactor=kqueue";
+fi;
+
+usage ()
+{
+  program="$(basename "$0")";
+
+  if [ "${1--}" != "-" ]; then echo "$@"; echo; fi;
+
+  echo "Usage: ${program} [options]";
+  echo "Options:";
+  echo "        -h  Print this help and exit";
+  echo "        -n  Do not use color";
+  echo "        -o  Do not run tests in random order.";
+  echo "        -r<num>  Use specified seed to determine order.";
+  echo "        -u  Run until the tests fail.";
+  echo "        -c  Generate coverage reports.";
+
+  if [ "${1-}" == "-" ]; then return 0; fi;
+  exit 64;
+}
+
+while getopts "nhoucr:j:" option; do
+  case "${option}" in
+    '?') usage; ;;
+    'h') usage -; exit 0; ;;
+    'o')     random=""; ;;
+    'r')     random="--random=$OPTARG"; ;;
+    'n')  no_color="--reporter=bwverbose"; ;;
+    'u') until_fail="--until-failure"; ;;
+    'c')   coverage="--coverage"; ;;
+    'j')    numjobs="-j $OPTARG"; ;;
+  esac;
+done;
+shift $((${OPTIND} - 1));
+
+if [ $# -gt 0 ]; then
+  test_modules="$@";
+else
+  test_modules="twext";
+fi;
+
+
+##
+# Clean up
+##
+
+find "${wd}" -name \*.pyc -print0 | xargs -0 rm;
+
+
+##
+# Unit tests
+##
+
+cd "${wd}" && "${wd}/bin/trial"    \
+  --temp-directory="${wd}/.trial"  \
+  --rterrors                       \
+  ${reactor}                       \
+  ${random}                        \
+  ${until_fail}                    \
+  ${no_color}                      \
+  ${coverage}                      \
+  ${numjobs}                       \
+  ${test_modules}                  \
+  ;
+
+
+##
+# Linting
+##
+
+echo "";
+echo "Running pyflakes...";
+
+pip install pyflakes --target="${dev_libdir}" > "${dev_root}/pip_pyflakes.log";
+tmp="$(mktemp -t "twext_flakes.XXXXX")";
+cd "${wd}" && "${python}" -m pyflakes ${test_modules} | tee "${tmp}" 2>&1;
+if [ -s "${tmp}" ]; then
+  echo "**** Pyflakes says you have some code to clean up. ****";
+  exit 1;
+fi;
+rm -f "${tmp}";
+
+
+##
+# Empty files
+##
+
+echo "";
+echo "Checking for empty files...";
+tmp="$(mktemp -t "twext_test_empty.XXXXX")";
+
+find "${wd}"                                             \
+  '!' '('                                                \
+    -type d                                              \
+    '(' -path '*/.*' -or -name data -or -name build ')'  \
+    -prune                                               \
+  ')'                                                    \
+  -type f -size 0                                        \
+  > "${tmp}";
+
+if [ -s "${tmp}" ]; then
+    echo "**** Empty files: ****";
+    cat "${tmp}";
+    exit 1;
+fi;
+rm -f "${tmp}";
