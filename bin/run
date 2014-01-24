@@ -40,6 +40,17 @@ wd="$(cd "$(dirname "$0")/.." && pwd)";
 # Usage
 #
 
+      config="${wd}/conf/caldavd-dev.plist";
+     reactor="";
+ plugin_name="caldav";
+service_type="Combined";
+         run="true";
+   daemonize="-X -L";
+        kill="false";
+     restart="false";
+     profile="";
+
+
 usage () {
   program="$(basename "$0")";
 
@@ -78,42 +89,39 @@ usage () {
 # Parse command-line options to set up state which controls the behavior of the
 # functions in build.sh.
 parse_options () {
-     kill="false";
-  restart="false";
-
   OPTIND=1;
   while getopts "ahsfnpedkrK:i:I:b:t:S:P:R:" option; do
     case "${option}" in
       '?') usage; ;;
       'h') usage -; exit 0; ;;
-      # 'f')   force_setup="true"; ;;
-      'k')          kill="true"; ;;
-      'r')       restart="true"; ;;
-      'd')     daemonize=""; ;;
-      'P')   plugin_name="${OPTARG}"; ;;
-      'R')       reactor="-R ${OPTARG}"; ;;
-      't')  service_type="${OPTARG}"; ;;
-      'K')      read_key="${OPTARG}"; ;;
-      'S')       profile="-p ${OPTARG}"; ;;
-      's') do_get="true" ; do_setup="true" ; do_run="false"; ;;
+      # 'f')  force_setup="true"; ;;
+      'k')         kill="true"; ;;
+      'r')      restart="true"; ;;
+      'd')    daemonize=""; ;;
+      'P')  plugin_name="${OPTARG}"; ;;
+      'R')      reactor="-R ${OPTARG}"; ;;
+      't') service_type="${OPTARG}"; ;;
+      'K')     read_key="${OPTARG}"; ;;
+      'S')      profile="-p ${OPTARG}"; ;;
+      's') setup="true" ; run="false"; ;;
       # 'p')
-      #   do_get="false"; do_setup="false"; do_run="false"; print_path="true";
+      #   do_get="false"; setup="false"; run="false"; print_path="true";
       #   ;;
       # 'e')
-      #   do_get="false"; do_setup="false"; do_run="false"; print_path="true";
+      #   do_get="false"; setup="false"; run="false"; print_path="true";
       #   print_environment="true";
       #   ;;
       # 'i')
       #   do_get="true";
-      #   do_setup="true";
-      #   do_run="false";
+      #   setup="true";
+      #   run="false";
       #   install="${OPTARG}";
       #   install_flag="--root=";
       #   ;;
       # 'I')
       #   do_get="true";
-      #   do_setup="true";
-      #   do_run="false";
+      #   setup="true";
+      #   run="false";
       #   install="${wd}/build/dst";
       #   install_flag="--root=";
       #   install_home="${OPTARG}";
@@ -121,12 +129,12 @@ parse_options () {
       # 'b')
       #   do_bundle="true";
       #   do_get="true";
-      #   do_setup="true";
-      #   do_run="false";
+      #   setup="true";
+      #   run="false";
       #   install="${OPTARG}";
       #   install_flag="--root=";
       #   ;;
-      'n') do_get="false" ; do_setup="false"; ;;
+      'n') setup="false"; ;;
     esac;
   done;
   shift $((${OPTIND} - 1));
@@ -141,7 +149,7 @@ parse_options () {
 run () {
   echo "Using ${python} as Python";
 
-  if "${do_run}"; then
+  if "${run}"; then
     if [ ! -f "${config}" ]; then
       echo "";
       echo "Missing config file: ${config}";
@@ -172,8 +180,15 @@ run () {
       mkdir "${wd}/data";
     fi;
 
+    if [ "$(uname -s)" == "Darwin" ] && [ "$(uname -r | cut -d . -f 1)" -ge 9 ]; then
+      caldavd_wrapper_command="launchctl bsexec /";
+    else
+      caldavd_wrapper_command="";
+    fi;
+
     echo "";
     echo "Starting server...";
+    export PYTHON="${python}";
     exec ${caldavd_wrapper_command}       \
         "${wd}/bin/caldavd" ${daemonize}  \
         -f "${config}"                    \
@@ -227,7 +242,7 @@ run_main () {
 
   init_build > /dev/null;
 
-  if "${do_setup}"; then
+  if "${setup}"; then
     c_dependencies >> "${dev_home}/setup.log";
     py_dependencies >> "${dev_home}/setup.log";
   fi;
