@@ -1,0 +1,263 @@
+#!/usr/bin/env bash
+# -*- sh-basic-offset: 2 -*-
+
+##
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+##
+
+##
+# WARNING: This script is intended for use by developers working on
+# the Calendar Server code base.  It is not intended for use in a
+# deployment configuration.
+#
+# DO NOT use this script as a system startup tool (eg. in /etc/init.d,
+# /Library/StartupItems, launchd plists, etc.)
+#
+# For those uses, install the server properly (eg. with "./run -i
+# /tmp/foo && cd /tmp/foo && pax -pe -rvw . /") and use the caldavd
+# executable to start the server.
+##
+
+set -e;
+set -u;
+
+wd="$(cd "$(dirname "$0")/.." && pwd)";
+
+
+#
+# Usage
+#
+
+usage () {
+  program="$(basename "$0")";
+
+  if [ "${1--}" != "-" ]; then
+    echo "$@";
+    echo;
+  fi;
+
+  echo "Usage: ${program} [-hvgsfnpdkrR] [-K key] [-iIb dst] [-t type] [-S statsdirectory] [-P plugin]";
+  echo "Options:";
+  echo "	-h  Print this help and exit";
+  echo "	-s  Run setup only; don't run server";
+  # echo "	-f  Force setup to run";
+  echo "	-n  Do not run setup";
+  # echo "	-p  Print PYTHONPATH value for server and exit";
+  # echo "	-e  Print =-separated environment variables required to run and exit";
+  echo "	-d  Run caldavd as a daemon";
+  echo "	-k  Stop caldavd";
+  echo "	-r  Restart caldavd";
+  echo "	-K  Print value of configuration key and exit";
+  # echo "	-i  Perform a system install into dst; implies -s";
+  # echo "	-I  Perform a home install into dst; implies -s";
+  # echo "	-b  Perform a bundled install (include all dependencies) into dst; implies -s";
+  echo "	-t  Select the server process type (Master, Slave or Combined) [${service_type}]";
+  echo "	-S  Write a pstats object for each process to the given directory when the server is stopped.";
+  echo "	-P  Select the twistd plugin name [${plugin_name}]";
+  echo "	-R  Twisted Reactor plugin to execute [${reactor}]";
+
+  if [ "${1-}" == "-" ]; then
+    return 0;
+  fi;
+  exit 64;
+}
+
+
+# Parse command-line options to set up state which controls the behavior of the
+# functions in build.sh.
+parse_options () {
+     kill="false";
+  restart="false";
+
+  OPTIND=1;
+  while getopts "ahsfnpedkrK:i:I:b:t:S:P:R:" option; do
+    case "${option}" in
+      '?') usage; ;;
+      'h') usage -; exit 0; ;;
+      # 'f')   force_setup="true"; ;;
+      'k')          kill="true"; ;;
+      'r')       restart="true"; ;;
+      'd')     daemonize=""; ;;
+      'P')   plugin_name="${OPTARG}"; ;;
+      'R')       reactor="-R ${OPTARG}"; ;;
+      't')  service_type="${OPTARG}"; ;;
+      'K')      read_key="${OPTARG}"; ;;
+      'S')       profile="-p ${OPTARG}"; ;;
+      's') do_get="true" ; do_setup="true" ; do_run="false"; ;;
+      # 'p')
+      #   do_get="false"; do_setup="false"; do_run="false"; print_path="true";
+      #   ;;
+      # 'e')
+      #   do_get="false"; do_setup="false"; do_run="false"; print_path="true";
+      #   print_environment="true";
+      #   ;;
+      # 'i')
+      #   do_get="true";
+      #   do_setup="true";
+      #   do_run="false";
+      #   install="${OPTARG}";
+      #   install_flag="--root=";
+      #   ;;
+      # 'I')
+      #   do_get="true";
+      #   do_setup="true";
+      #   do_run="false";
+      #   install="${wd}/build/dst";
+      #   install_flag="--root=";
+      #   install_home="${OPTARG}";
+      #   ;;
+      # 'b')
+      #   do_bundle="true";
+      #   do_get="true";
+      #   do_setup="true";
+      #   do_run="false";
+      #   install="${OPTARG}";
+      #   install_flag="--root=";
+      #   ;;
+      'n') do_get="false" ; do_setup="false"; ;;
+    esac;
+  done;
+  shift $((${OPTIND} - 1));
+  if [ $# != 0 ]; then
+    usage "Unrecognized arguments:" "$@";
+  fi;
+}
+
+
+# Actually run the server.  (Or, exit, if things aren't sufficiently set up in
+# order to do that.)
+run () {
+  echo "Using ${python} as Python";
+
+  if "${do_run}"; then
+    if [ ! -f "${config}" ]; then
+      echo "";
+      echo "Missing config file: ${config}";
+      echo "You might want to start by copying the test configuration:";
+      echo "";
+      echo "  cp conf/caldavd-test.plist conf/caldavd-dev.plist";
+      echo "";
+      if [ -t 0 ]; then
+        # Interactive shell
+        echo -n "Would you like to copy the test configuration now? [y/n]";
+        read answer;
+        case "${answer}" in
+          y|yes|Y|YES|Yes)
+            echo "Copying test cofiguration...";
+            cp "${wd}/conf/caldavd-test.plist" "${wd}/conf/caldavd-dev.plist";
+            ;;
+          *)
+            exit 1;
+            ;;
+        esac;
+      else
+        exit 1;
+      fi;
+    fi;
+
+    cd "${wd}";
+    if [ ! -d "${wd}/data" ]; then
+      mkdir "${wd}/data";
+    fi;
+
+    echo "";
+    echo "Starting server...";
+    exec ${caldavd_wrapper_command}       \
+        "${wd}/bin/caldavd" ${daemonize}  \
+        -f "${config}"                    \
+        -P "${plugin_name}"               \
+        -t "${service_type}"              \
+        ${reactor}                        \
+        ${profile};
+    cd /;
+  fi;
+}
+
+
+# The main-point of the 'run' script: parse all options, decide what to do,
+# then do it.
+run_main () {
+  . "${wd}/bin/_build.sh";
+
+  parse_options "$@";
+
+  # If we've been asked to read a configuration key, just read it and exit.
+  if [ -n "${read_key:-}" ]; then
+    value="$("${wd}/bin/calendarserver_config" "${read_key}")";
+    IFS="="; set ${value}; echo "$2"; unset IFS;
+    exit $?;
+  fi;
+
+  if "${kill}" || "${restart}"; then
+    pidfile="$("${wd}/bin/calendarserver_config" "PIDFile")";
+    # Split key and value on "=" and just grab the value
+    IFS="="; set ${pidfile}; pidfile="$2"; unset IFS;
+    if [ ! -r "${pidfile}" ]; then
+      echo "Unreadable PID file: ${pidfile}";
+      exit 1
+    fi;
+    pid="$(cat "${pidfile}" | head -1)";
+    if [ -z "${pid}" ]; then
+      echo "No PID in PID file: ${pidfile}";
+      exit 1;
+    fi;
+    echo "Killing process ${pid}";
+    kill -TERM "${pid}";
+    if ! "${restart}"; then
+      exit 0;
+    fi;
+  fi;
+
+  # About to do something for real; let's enumerate (and depending on options,
+  # possibly download and/or install) the dependencies.
+
+  export CALENDARSERVER_DEVELOP="true";
+
+  init_build > /dev/null;
+
+  if "${do_setup}"; then
+    c_dependencies >> "${dev_home}/setup.log";
+    py_dependencies >> "${dev_home}/setup.log";
+  fi;
+
+  # # Now that all the dependencies are set up, let's see if we're just being
+  # # asked to print the path.
+  # if "${print_path}"; then
+  #   if "${print_environment}"; then
+  #     "${PYTHON}" -c "import os; print repr(dict(os.environ))"
+  #   else
+  #     echo "${PYTHONPATH}";
+  #   fi;
+  #   exit 0;
+  # fi;
+
+  # # If we're installing, install the calendar server itself.
+  # py_install "Calendar Server" "${wd}";
+
+  # if [ -n "${install_home:-}" ]; then
+  #   do_home_install;
+  # fi;
+
+  # if "${do_bundle}"; then
+  #   write_environment;
+  # fi;
+
+  # Finally, run the server.
+  run;
+}
+
+
+run_main "$@";
+
