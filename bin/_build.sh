@@ -95,7 +95,17 @@ init_build () {
   dep_packages="${dev_home}/pkg";
    dep_sources="${dev_home}/src";
 
+    py_root="${dev_roots}/py_modules";
+  py_libdir="${py_root}/lib/python";
+  py_bindir="${py_root}/bin";
+
   mkdir -p "${dep_sources}";
+
+  # Set up virtual environment
+
+  "${bootstrap_python}" -m virtualenv "${py_root}";
+
+  python="${py_bindir}/python";
 
   # These variables are defaults for things which might be configured by
   # environment; only set them if they're un-set.
@@ -537,19 +547,9 @@ c_dependencies () {
 # Build Python dependencies
 #
 py_dependencies () {
-    py_root="${dev_roots}/py_modules";
-  py_libdir="${py_root}/lib/python";
-  py_bindir="${py_root}/bin";
-
-  # Set up virtual environment
-
-  "${bootstrap_python}" -m virtualenv "${py_root}";
+  # export PYTHONPATH="${py_libdir}:${PYTHONPATH:-}"
 
   export PATH="${py_root}/bin:${PATH}";
-
-  python="${py_bindir}/python";
-
-  # Install requirements into virtual environment
 
   for requirements in "${wd}/requirements/"*; do
 
