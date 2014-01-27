@@ -91,19 +91,11 @@ init_build () {
   force_setup="false";
 
       dev_home="${wd}/.develop";
-      dev_root="${dev_home}/root";
-    dev_libdir="${dev_root}/lib/python";
-    dev_bindir="${dev_root}/bin";
+     dev_roots="${dev_home}/roots";
   dep_packages="${dev_home}/pkg";
    dep_sources="${dev_home}/src";
 
   mkdir -p "${dep_sources}";
-
-  # Set up virtual environment
-
-  "${bootstrap_python}" -m virtualenv "${dev_root}";
-
-  python="${dev_bindir}/python";
 
   # These variables are defaults for things which might be configured by
   # environment; only set them if they're un-set.
@@ -414,7 +406,7 @@ c_dependency () {
 
   srcdir="${dep_sources}/${path}";
   # local dstroot="${srcdir}/_root";
-  local dstroot="${dev_root}";
+  local dstroot="${dev_roots}/${name}";
 
   www_get ${f_hash} "${name}" "${srcdir}" "${uri}";
 
@@ -456,13 +448,17 @@ ruler () {
 # Build C dependencies
 #
 c_dependencies () {
+     c_glue_root="${dev_roots}/c_glue";
+  c_glue_include="${c_glue_root}/include";
+
+  export C_INCLUDE_PATH="${c_glue_include}:${C_INCLUDE_PATH:-}";
 
   ruler;
   if find_header ffi.h; then
     using_system "libffi";
   elif find_header ffi/ffi.h; then
-    mkdir -p "${dev_root}/include";
-    echo "#include <ffi/ffi.h>" > "${dev_root}/include/ffi.h"
+    mkdir -p "${c_glue_include}";
+    echo "#include <ffi/ffi.h>" > "${c_glue_include}/ffi.h"
     using_system "libffi";
   else
     c_dependency -m "45f3b6dbc9ee7c7dfbbbc5feba571529" \
@@ -487,8 +483,8 @@ c_dependencies () {
   if find_header sasl.h; then
     using_system "SASL";
   elif find_header sasl/sasl.h; then
-    mkdir -p "${dev_root}/include";
-    echo "#include <sasl/sasl.h>" > "${dev_root}/include/sasl.h"
+    mkdir -p "${c_glue_include}";
+    echo "#include <sasl/sasl.h>" > "${c_glue_include}/sasl.h"
     using_system "SASL";
   else
     local v="2.1.26";
@@ -541,15 +537,19 @@ c_dependencies () {
 # Build Python dependencies
 #
 py_dependencies () {
-  # export PYTHONPATH="${dev_libdir}:${PYTHONPATH:-}"
+    py_root="${dev_roots}/py_modules";
+  py_libdir="${py_root}/lib/python";
+  py_bindir="${py_root}/bin";
 
-  # export              PATH="${dev_root}/bin:${PATH}";
-  export    C_INCLUDE_PATH="${dev_root}/include:${C_INCLUDE_PATH:-}";
-  export   LD_LIBRARY_PATH="${dev_root}/lib:${dev_root}/lib64:${LD_LIBRARY_PATH:-}";
-  export          CPPFLAGS="-I${dev_root}/include ${CPPFLAGS:-} ";
-  export           LDFLAGS="-L${dev_root}/lib -L${dev_root}/lib64 ${LDFLAGS:-} ";
-  export DYLD_LIBRARY_PATH="${dev_root}/lib:${dev_root}/lib64:${DYLD_LIBRARY_PATH:-}";
-  export PKG_CONFIG_PATH="${dev_root}/lib/pkgconfig:${PKG_CONFIG_PATH:-}";
+  # Set up virtual environment
+
+  "${bootstrap_python}" -m virtualenv "${py_root}";
+
+  export PATH="${py_root}/bin:${PATH}";
+
+  python="${py_bindir}/python";
+
+  # Install requirements into virtual environment
 
   for requirements in "${wd}/requirements/"*; do
 
