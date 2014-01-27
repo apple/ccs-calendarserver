@@ -107,6 +107,8 @@ init_build () {
 
   python="${py_bindir}/python";
 
+  export PATH="${py_root}/bin:${PATH}";
+
   # These variables are defaults for things which might be configured by
   # environment; only set them if they're un-set.
 
@@ -547,10 +549,6 @@ c_dependencies () {
 # Build Python dependencies
 #
 py_dependencies () {
-  # export PYTHONPATH="${py_libdir}:${PYTHONPATH:-}"
-
-  export PATH="${py_root}/bin:${PATH}";
-
   for requirements in "${wd}/requirements/"*; do
 
     ruler "Preparing Python requirements: ${requirements}";
