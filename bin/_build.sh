@@ -107,9 +107,6 @@ init_build () {
 
   python="${py_bindir}/python";
 
-  export PATH="${py_root}/bin:${PATH}";
-  export PYTHONPATH="${py_libdir}:${PYTHONPATH:-}"
-
   # These variables are defaults for things which might be configured by
   # environment; only set them if they're un-set.
 
@@ -550,7 +547,9 @@ c_dependencies () {
 # Build Python dependencies
 #
 py_dependencies () {
-  for requirements in "${wd}/requirements/"*; do
+  export PATH="${py_root}/bin:${PATH}";
+
+  for requirements in "${wd}/requirements/py_"*".txt"; do
 
     ruler "Preparing Python requirements: ${requirements}";
     echo "";
@@ -562,7 +561,7 @@ py_dependencies () {
     ; then
       err=$?;
       echo "Unable to set up Python requirements: ${requirements}";
-      if [ "${requirements#${wd}/requirements/opt_}" != "${requirements}" ]; then
+      if [ "${requirements#${wd}/requirements/py_opt_}" != "${requirements}" ]; then
         echo "Requirements ${requirements} are optional; continuing.";
       else
         echo "";
