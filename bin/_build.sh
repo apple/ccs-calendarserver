@@ -108,6 +108,7 @@ init_build () {
   python="${py_bindir}/python";
 
   export PATH="${py_root}/bin:${PATH}";
+  export PYTHONPATH="${py_libdir}:${PYTHONPATH:-}"
 
   # These variables are defaults for things which might be configured by
   # environment; only set them if they're un-set.
