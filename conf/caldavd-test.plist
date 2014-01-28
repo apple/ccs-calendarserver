@@ -792,6 +792,22 @@
 	        <key>DefaultMode</key>
 	        <string>automatic</string>
 		</dict>
+		
+		<key>WorkQueues</key>
+		<dict>
+			<key>Enabled</key>
+			<false/>
+            <key>RequestDelaySeconds</key>
+            <integer>1</integer>
+            <key>ReplyDelaySeconds</key>
+            <integer>2</integer>
+            <key>AutoReplyDelaySeconds</key>
+            <integer>1</integer>
+            <key>AttendeeRefreshBatchDelaySeconds</key>
+            <integer>2</integer>
+            <key>AttendeeRefreshBatchIntervalSeconds</key>
+            <integer>2</integer>
+		</dict>
       </dict>
     </dict>
 

@@ -596,7 +596,7 @@ class ImplicitScheduler(object):
     @inlineCallbacks
     def doImplicitOrganizer(self, queued=False):
 
-        if not queued:
+        if not queued or not config.Scheduling.Options.WorkQueues.Enabled:
             self.oldcalendar = None
         self.changed_rids = None
         self.cancelledAttendees = ()
@@ -615,21 +615,21 @@ class ImplicitScheduler(object):
             self.cancelledAttendees = [(attendee, None) for attendee in self.attendees]
 
             # CANCEL always bumps sequence
-            if not queued:
+            if not queued or not config.Scheduling.Options.WorkQueues.Enabled:
                 self.needs_sequence_change = True
 
         # Check for a new resource or an update
         elif self.action == "modify":
 
             # Read in existing data
-            if not queued:
+            if not queued or not config.Scheduling.Options.WorkQueues.Enabled:
                 self.oldcalendar = (yield self.resource.componentForUser())
             self.oldAttendeesByInstance = self.oldcalendar.getAttendeesByInstance(True, onlyScheduleAgentServer=True)
             self.oldInstances = set(self.oldcalendar.getComponentInstances())
             self.coerceAttendeesPartstatOnModify()
 
             # Don't allow any SEQUENCE to decrease
-            if self.oldcalendar and not queued:
+            if self.oldcalendar and (not queued or not config.Scheduling.Options.WorkQueues.Enabled):
                 self.calendar.sequenceInSync(self.oldcalendar)
 
             # Significant change
@@ -678,7 +678,7 @@ class ImplicitScheduler(object):
 
                 # For now we always bump the sequence number on modifications because we cannot track DTSTAMP on
                 # the Attendee side. But we check the old and the new and only bump if the client did not already do it.
-                if not queued:
+                if not queued or not config.Scheduling.Options.WorkQueues.Enabled:
                     self.needs_sequence_change = self.calendar.needsiTIPSequenceChange(self.oldcalendar)
 
         elif self.action == "create":
@@ -699,7 +699,7 @@ class ImplicitScheduler(object):
 
         # If processing a queue item, actually execute the scheduling operations, else queue it.
         # Note a split is always queued, so we do not need to re-queue
-        if queued or self.split_details is not None:
+        if queued or not config.Scheduling.Options.WorkQueues.Enabled or self.split_details is not None:
             yield self.scheduleWithAttendees()
         else:
             yield self.queuedScheduleWithAttendees()
@@ -1550,20 +1550,22 @@ class ImplicitScheduler(object):
         if self.logItems is not None:
             self.logItems["itip.reply"] = "reply"
 
-#        itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee, changedRids=changedRids)
-#
-#        # Send scheduling message
-#        return self.sendToOrganizer("REPLY", itipmsg)
+        if config.Scheduling.Options.WorkQueues.Enabled:
+            # Always make it look like scheduling succeeded when queuing
+            self.calendar.setParameterToValueForPropertyWithValue(
+                "SCHEDULE-STATUS",
+                iTIPRequestStatus.MESSAGE_DELIVERED_CODE,
+                "ORGANIZER",
+                self.organizer,
+            )
 
-        # Always make it look like scheduling succeeded when queuing
-        self.calendar.setParameterToValueForPropertyWithValue(
-            "SCHEDULE-STATUS",
-            iTIPRequestStatus.MESSAGE_DELIVERED_CODE,
-            "ORGANIZER",
-            self.organizer,
-        )
+            return ScheduleReplyWork.reply(self.txn, self.calendar_home, self.resource, changedRids, self.attendee)
 
-        return ScheduleReplyWork.reply(self.txn, self.calendar_home, self.resource, changedRids, self.attendee)
+        else:
+            itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee, changedRids=changedRids)
+
+            # Send scheduling message
+            return self.sendToOrganizer("REPLY", itipmsg)
 
 
     def scheduleCancelWithOrganizer(self):
@@ -1574,12 +1576,14 @@ class ImplicitScheduler(object):
         if self.logItems is not None:
             self.logItems["itip.reply"] = "cancel"
 
-#        itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee, force_decline=True)
-#
-#        # Send scheduling message
-#        return self.sendToOrganizer("CANCEL", itipmsg)
+        if config.Scheduling.Options.WorkQueues.Enabled:
+            return ScheduleReplyCancelWork.replyCancel(self.txn, self.calendar_home, self.calendar, self.attendee)
 
-        return ScheduleReplyCancelWork.replyCancel(self.txn, self.calendar_home, self.calendar, self.attendee)
+        else:
+            itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee, force_decline=True)
+
+            # Send scheduling message
+            return self.sendToOrganizer("CANCEL", itipmsg)
 
 
     @inlineCallbacks

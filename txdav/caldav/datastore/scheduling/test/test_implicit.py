@@ -1467,7 +1467,7 @@ END:VCALENDAR
 
         # Need refreshes to occur immediately, not via reactor.callLater
         self.patch(config.Scheduling.Options, "AttendeeRefreshBatch", 5)
-        self.patch(config.Scheduling.Options, "AttendeeRefreshBatchDelaySeconds", 1)
+        self.patch(config.Scheduling.Options.WorkQueues, "AttendeeRefreshBatchDelaySeconds", 1)
 
         yield self._createCalendarObject(data1, "user01", "test.ics")
 

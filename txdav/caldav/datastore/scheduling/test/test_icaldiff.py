@@ -4292,6 +4292,576 @@ END:VCALENDAR
             self.assertEqual(got_rids, rids, msg="%s expected R-IDs: '%s', got: '%s'" % (description, rids, got_rids,))
 
 
+    def test_attendee_needs_action(self):
+
+        data = (
+            (
+                "#1.1 Simple component, no change",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                set(),
+                False,
+            ),
+            (
+                "#1.2 Simple component, one property change",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test1
+END:VEVENT
+END:VCALENDAR
+""",
+                set(),
+                False,
+            ),
+            (
+                "#1.3 Simple component, date property change",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T130000Z
+DTEND:20080601T140000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                set((None,)),
+                False,
+            ),
+            (
+                "#1.4 Simple component, duration property change",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DURATION:PT1H
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DURATION:PT2H
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                set((None,)),
+                False,
+            ),
+            (
+                "#2.1 Recurring component, no change",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                set(),
+                False,
+            ),
+            (
+                "#2.2 Recurring component, change property",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test1
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                set(),
+                False,
+            ),
+            (
+                "#2.3 Recurring component, change date",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T130000Z
+DTEND:20080601T140000Z
+SUMMARY:Test1
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                set((None,)),
+                True,
+            ),
+            (
+                "#2.4 Recurring component, change rule",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=WEEKLY
+END:VEVENT
+END:VCALENDAR
+""",
+                set(),
+                True,
+            ),
+            (
+                "#2.5 Recurring component, truncate rule",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=DAILY;COUNT=10
+END:VEVENT
+END:VCALENDAR
+""",
+                set(),
+                False,
+            ),
+            (
+                "#2.6 Recurring component, expand rule",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=DAILY;COUNT=5
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=DAILY;COUNT=10
+END:VEVENT
+END:VCALENDAR
+""",
+                set(),
+                False,
+            ),
+            (
+                "#3.1 Recurring component with override, no change",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T120000Z
+DTEND:20080602T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T120000Z
+DTEND:20080602T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                set(),
+                False,
+            ),
+            (
+                "#3.2 Recurring component with override, property change",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T120000Z
+DTEND:20080602T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test1
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T120000Z
+DTEND:20080602T130000Z
+SUMMARY:Test2
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                set(),
+                False,
+            ),
+            (
+                "#3.3 Recurring component with override, date change in override",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T120000Z
+DTEND:20080602T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test1
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T130000Z
+DTEND:20080602T140000Z
+SUMMARY:Test2
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                set(("20080602T120000Z",)),
+                False,
+            ),
+            (
+                "#3.4 Recurring component with override, date change in override and master",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T120000Z
+DTEND:20080602T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T130000Z
+DTEND:20080601T140000Z
+SUMMARY:Test1
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T130000Z
+DTSTART:20080602T130000Z
+DTEND:20080602T140000Z
+SUMMARY:Test2
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                set((None,)),
+                True,
+            ),
+        )
+
+        for description, calendar1, calendar2, rids, rescheduled in data:
+            differ = iCalDiff(Component.fromString(calendar1), Component.fromString(calendar2), False)
+            diffs = differ.whatIsDifferent()
+            got_rids, got_rescheduled = differ.attendeeNeedsAction(diffs)
+            rids = set([DateTime.parseText(k) if k else None for k in rids])
+            self.assertEqual(got_rids, rids, msg="%s expected R-IDs: '%s', got: '%s'" % (description, rids, got_rids,))
+            self.assertEqual(got_rescheduled, rescheduled, msg="%s expected rescheduled: '%s', got: '%s'" % (description, rescheduled, got_rescheduled,))
+
+
     def test_organizer_smart_merge(self):
 
         data1 = (

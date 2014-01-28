@@ -20,7 +20,7 @@ from twext.enterprise.locking import NamedLock
 from twext.enterprise.queue import WorkItem
 from twext.python.log import Logger
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, Deferred
 
 from twistedcaldav import caldavxml
 from twistedcaldav.config import config
@@ -102,6 +102,8 @@ class ScheduleOrganizerWork(WorkItem, fromTable(schema.SCHEDULE_ORGANIZER_WORK),
     their calendar object resource.
     """
 
+    _allDoneCallback = None
+
     @classmethod
     @inlineCallbacks
     def schedule(cls, txn, uid, action, home, resource, calendar, organizer, smart_merge):
@@ -116,7 +118,7 @@ class ScheduleOrganizerWork(WorkItem, fromTable(schema.SCHEDULE_ORGANIZER_WORK),
         Note that for (3), when work executes the resource will have been removed.
         """
         # Always queue up new work - coalescing happens when work is executed
-        notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.QueuedRequestDelaySeconds)
+        notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.WorkQueues.RequestDelaySeconds)
         proposal = (yield txn.enqueue(
             cls,
             notBefore=notBefore,
@@ -142,6 +144,13 @@ class ScheduleOrganizerWork(WorkItem, fromTable(schema.SCHEDULE_ORGANIZER_WORK),
         returnValue(len(rows) > 0)
 
 
+    @classmethod
+    def allDone(cls):
+        d = Deferred()
+        cls._allDoneCallback = d.callback
+        return d
+
+
     @inlineCallbacks
     def doWork(self):
 
@@ -160,6 +169,9 @@ class ScheduleOrganizerWork(WorkItem, fromTable(schema.SCHEDULE_ORGANIZER_WORK),
             from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
             scheduler = ImplicitScheduler()
             yield scheduler.queuedOrganizerProcessing(self.transaction, scheduleActionFromSQL[self.scheduleAction], home, resource, self.icalendarUid, calendar, self.smartMerge)
+
+            if self._allDoneCallback:
+                self._allDoneCallback(None)
 
         except Exception, e:
             log.debug("ScheduleOrganizerWork - exception ID: {id}, UID: '{uid}', {err}", id=self.workID, uid=self.icalendarUid, err=str(e))
@@ -210,7 +222,7 @@ class ScheduleReplyWork(WorkItem, fromTable(schema.SCHEDULE_REPLY_WORK), Schedul
     @inlineCallbacks
     def reply(cls, txn, home, resource, changedRids, attendee):
         # Always queue up new work - coalescing happens when work is executed
-        notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.QueuedReplyDelaySeconds)
+        notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.WorkQueues.ReplyDelaySeconds)
         proposal = (yield txn.enqueue(
             cls,
             notBefore=notBefore,
@@ -286,7 +298,7 @@ class ScheduleReplyCancelWork(WorkItem, fromTable(schema.SCHEDULE_REPLY_CANCEL_W
     @inlineCallbacks
     def replyCancel(cls, txn, home, calendar, attendee):
         # Always queue up new work - coalescing happens when work is executed
-        notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.QueuedReplyDelaySeconds)
+        notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.WorkQueues.ReplyDelaySeconds)
         proposal = (yield txn.enqueue(
             cls,
             notBefore=notBefore,
@@ -348,7 +360,11 @@ class ScheduleRefreshWork(WorkItem, fromTable(schema.SCHEDULE_REFRESH_WORK), Sch
     not unique wrt to attendees - this means that two simultaneous refreshes can happily insert the
     same set of attendees without running into unique constraints and thus without having to use
     savepoints to cope with that. This will mean duplicate attendees listed in the table, but we take
-    care of that when executing the work item, as per the next point.
+    care of that when executing the work item, as per the next point. We also always schedule a new work
+    item for the refresh - even if others are present. The work items are coalesced when executed, with
+    the actual refresh only running at the time of the latest enqueued item. That ensures there is always
+    a pause between a change that causes a refresh and then next actual refresh batch being done, giving
+    some breathing space in case rapid changes are happening to the iCalendar data.
 
     2) When a work item is triggered we get the set of unique attendees needing a refresh from the
     SCHEDULE_REFRESH_ATTENDEES table. We split out a batch of those to actually refresh - with the
@@ -385,7 +401,7 @@ class ScheduleRefreshWork(WorkItem, fromTable(schema.SCHEDULE_REFRESH_WORK), Sch
             ).on(txn)
 
         # Always queue up new work - coalescing happens when work is executed
-        notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.AttendeeRefreshBatchDelaySeconds)
+        notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.WorkQueues.AttendeeRefreshBatchDelaySeconds)
         proposal = (yield txn.enqueue(
             cls,
             icalendarUid=organizer_resource.uid(),
@@ -440,7 +456,7 @@ class ScheduleRefreshWork(WorkItem, fromTable(schema.SCHEDULE_REFRESH_WORK), Sch
 
         # Reschedule work item if pending attendees remain.
         if len(pendingAttendees) != 0:
-            notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.AttendeeRefreshBatchIntervalSeconds)
+            notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.WorkQueues.AttendeeRefreshBatchIntervalSeconds)
             yield self.transaction.enqueue(
                 self.__class__,
                 homeResourceID=self.homeResourceID,
@@ -517,7 +533,7 @@ class ScheduleAutoReplyWork(WorkItem, fromTable(schema.SCHEDULE_AUTO_REPLY_WORK)
     @inlineCallbacks
     def autoReply(cls, txn, resource, partstat):
         # Always queue up new work - coalescing happens when work is executed
-        notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.AutoReplyDelaySeconds)
+        notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.WorkQueues.AutoReplyDelaySeconds)
         proposal = (yield txn.enqueue(
             cls,
             icalendarUid=resource.uid(),

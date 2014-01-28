@@ -77,12 +77,12 @@ class ImplicitProcessor(object):
         Do implicit processing of a scheduling message, and possibly also auto-process it
         if the recipient has auto-accept on.
 
-        @param message:
-        @type message:
-        @param originator:
-        @type originator:
-        @param recipient:
-        @type recipient:
+        @param message: the iTIP message
+        @type message: L{twistedcaldav.ical.Component}
+        @param originator: calendar user sending the message
+        @type originator: C{str}
+        @param recipient: calendar user receiving the message
+        @type recipient: C{str}
 
         @return: a C{tuple} of (C{bool}, C{bool}) indicating whether the message was processed, and if it was whether
             auto-processing has taken place.
@@ -164,6 +164,9 @@ class ImplicitProcessor(object):
 
     @inlineCallbacks
     def doImplicitOrganizer(self):
+        """
+        Process an iTIP message sent to the organizer.
+        """
 
         # Locate the organizer's copy of the event.
         yield self.getRecipientsCopy()
@@ -184,8 +187,12 @@ class ImplicitProcessor(object):
 
     @inlineCallbacks
     def doImplicitOrganizerUpdate(self):
+        """
+        An iTIP REPLY has been sent by an attendee to an organizer and the attendee state needs to be sync'd
+        to the organizer's copy of the event.
+        """
 
-        # Check to see if this is a valid reply
+        # Check to see if this is a valid reply - this will also merge the changes to the organizer's copy
         result, processed = iTipProcessing.processReply(self.message, self.recipient_calendar)
         if result:
 
@@ -247,7 +254,7 @@ class ImplicitProcessor(object):
     @inlineCallbacks
     def queueAttendeeUpdate(self, exclude_attendees):
         """
-        Queue up an update to attendees and use a memcache lock to ensure we don't update too frequently.
+        Queue up a background update to attendees.
 
         @param exclude_attendees: list of attendees who should not be refreshed (e.g., the one that triggered the refresh)
         @type exclude_attendees: C{list}
@@ -307,12 +314,16 @@ class ImplicitProcessor(object):
 
     @inlineCallbacks
     def doImplicitAttendee(self):
+        """
+        Process an iTIP message sent to an attendee.
+        """
 
         # Locate the attendee's copy of the event if it exists.
         yield self.getRecipientsCopy()
         self.new_resource = self.recipient_calendar is None
 
-        # Handle new items differently than existing ones.
+        # If we get a CANCEL and we don't have a matching resource already stored, simply
+        # ignore the CANCEL.
         if self.new_resource and self.method == "CANCEL":
             result = (True, True, False, None)
         else:
@@ -323,6 +334,10 @@ class ImplicitProcessor(object):
 
     @inlineCallbacks
     def doImplicitAttendeeUpdate(self):
+        """
+        An iTIP message has been sent by to an attendee by the organizer. We need to update the attendee state
+        based on the nature of the iTIP message.
+        """
 
         # Do security check: ORGANZIER in iTIP MUST match existing resource value
         if self.recipient_calendar:
@@ -388,6 +403,10 @@ class ImplicitProcessor(object):
     @inlineCallbacks
     def doImplicitAttendeeRequest(self):
         """
+        An iTIP REQUEST message has been sent to an attendee. If there is no existing resource, we will simply
+        create a new one. If there is an existing resource we need to reconcile the changes between it and the
+        iTIP message.
+
         @return: C{tuple} of (processed, auto-processed, store inbox item, changes)
         """
 
@@ -508,11 +527,18 @@ class ImplicitProcessor(object):
 
     @inlineCallbacks
     def doImplicitAttendeeCancel(self):
+        """
+        An iTIP CANCEL message has been sent to an attendee. If there is no existing resource, we will simply
+        ignore the message. If there is an existing resource we need to reconcile the changes between it and the
+        iTIP message.
+
+        @return: C{tuple} of (processed, auto-processed, store inbox item, changes)
+        """
 
         # If there is no existing copy, then ignore
         if self.recipient_calendar is None:
             log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring METHOD:CANCEL, UID: '%s' - attendee has no copy" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-            result = (True, True, None)
+            result = (True, True, True, None)
         else:
             # Need to check for auto-respond attendees. These need to suppress the inbox message
             # if the cancel is processed. However, if the principal is a user we always force the
