@@ -29,4 +29,4 @@ init_build > /dev/null;
 c_dependencies >> "${dev_home}/setup.log";
 py_dependencies >> "${dev_home}/setup.log";
 
-exec "${dev_bindir}/trial" "$@";
+exec "${py_bindir}/trial" "$@";
