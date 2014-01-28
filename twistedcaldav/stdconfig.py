@@ -761,7 +761,7 @@ DEFAULT_CONFIG = {
             },
 
             "WorkQueues" : {
-                "Enabled"                             : False,       # Work queues for scheduling enabled
+                "Enabled"                             : True,       # Work queues for scheduling enabled
                 "RequestDelaySeconds"                 : 5,          # Number of seconds delay for a queued scheduling request/cancel
                 "ReplyDelaySeconds"                   : 1,          # Number of seconds delay for a queued scheduling reply
                 "AutoReplyDelaySeconds"               : 5,          # Time delay for sending an auto reply iTIP message
