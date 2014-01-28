@@ -80,12 +80,12 @@ while getopts "nhoucr:j:" option; do
 done;
 shift $((${OPTIND} - 1));
 
-if [ $# -gt 0 ]; then
-  test_modules="$@";
+if [ $# -eq 0 ]; then
+  lint="true";
+  set - calendarserver contrib twisted twistedcaldav txdav txweb2;
 else
-  test_modules="twext";
+  lint="false";
 fi;
-
 
 ##
 # Clean up
@@ -107,9 +107,12 @@ cd "${wd}" && "${wd}/bin/trial"    \
   ${no_color}                      \
   ${coverage}                      \
   ${numjobs}                       \
-  ${test_modules}                  \
-  ;
+  "$@";
 
+
+if ! "${lint}"; then
+  exit 0;
+fi;
 
 ##
 # Linting
@@ -118,9 +121,9 @@ cd "${wd}" && "${wd}/bin/trial"    \
 echo "";
 echo "Running pyflakes...";
 
-pip install pyflakes --target="${dev_libdir}" > "${dev_root}/pip_pyflakes.log";
+"${python}" -m pip install pyflakes --upgrade >> "${dev_home}/setup.log";
 tmp="$(mktemp -t "twext_flakes.XXXXX")";
-cd "${wd}" && "${python}" -m pyflakes ${test_modules} | tee "${tmp}" 2>&1;
+cd "${wd}" && "${python}" -m pyflakes "$@" | tee "${tmp}" 2>&1;
 if [ -s "${tmp}" ]; then
   echo "**** Pyflakes says you have some code to clean up. ****";
   exit 1;
