@@ -101,6 +101,10 @@ init_build () {
 
   mkdir -p "${dep_sources}";
 
+  if "${force_setup}"; then
+    rm -rf "${py_root}";
+  fi;
+
   # Set up virtual environment
 
   "${bootstrap_python}" -m virtualenv "${py_root}";
@@ -176,7 +180,10 @@ www_get () {
   local path="$1"; shift;
   local  url="$1"; shift;
 
-  if "${force_setup}" || [ ! -d "${path}" ]; then
+  if "${force_setup}"; then
+    rm -rf "${path}";
+  fi;
+  if [ ! -d "${path}" ]; then
     local ext="$(echo "${url}" | sed 's|^.*\.\([^.]*\)$|\1|')";
 
     untar () { tar -xvf -; }
@@ -429,7 +436,10 @@ c_dependency () {
   export PKG_CONFIG_PATH="${dstroot}/lib/pkgconfig:${PKG_CONFIG_PATH:-}";
 
   if "${do_setup}"; then
-    if "${force_setup}" || [ ! -d "${dstroot}" ]; then
+    if "${force_setup}"; then
+        rm -rf "${dstroot}";
+    fi;
+    if [ ! -d "${dstroot}" ]; then
       echo "Building ${name}...";
       cd "${srcdir}";
       ./configure --prefix="${dstroot}" "$@";
@@ -554,19 +564,21 @@ py_dependencies () {
     ruler "Preparing Python requirements: ${requirements}";
     echo "";
 
-    if ! "${python}" -m pip install               \
-        --requirement "${requirements}"           \
-        --download-cache "${dev_home}/pip_cache"  \
-        --log "${dev_home}/pip.log"               \
-    ; then
-      err=$?;
-      echo "Unable to set up Python requirements: ${requirements}";
-      if [ "${requirements#${wd}/requirements/py_opt_}" != "${requirements}" ]; then
-        echo "Requirements ${requirements} are optional; continuing.";
-      else
-        echo "";
-        echo "pip log: ${dev_home}/pip.log";
-        return 1;
+    if "${do_setup}"; then
+      if ! "${python}" -m pip install               \
+          --requirement "${requirements}"           \
+          --download-cache "${dev_home}/pip_cache"  \
+          --log "${dev_home}/pip.log"               \
+      ; then
+        err=$?;
+        echo "Unable to set up Python requirements: ${requirements}";
+        if [ "${requirements#${wd}/requirements/py_opt_}" != "${requirements}" ]; then
+          echo "Requirements ${requirements} are optional; continuing.";
+        else
+          echo "";
+          echo "pip log: ${dev_home}/pip.log";
+          return 1;
+        fi;
       fi;
     fi;
 
