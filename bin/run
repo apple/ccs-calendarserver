@@ -44,7 +44,7 @@ wd="$(cd "$(dirname "$0")/.." && pwd)";
      reactor="";
  plugin_name="caldav";
 service_type="Combined";
-       setup="true";
+    do_setup="true";
          run="true";
    daemonize="-X -L";
         kill="false";
@@ -64,7 +64,7 @@ usage () {
   echo "Options:";
   echo "	-h  Print this help and exit";
   echo "	-s  Run setup only; don't run server";
-  # echo "	-f  Force setup to run";
+  echo "	-f  Force setup to run";
   echo "	-n  Do not run setup";
   # echo "	-p  Print PYTHONPATH value for server and exit";
   # echo "	-e  Print =-separated environment variables required to run and exit";
@@ -95,7 +95,7 @@ parse_options () {
     case "${option}" in
       '?') usage; ;;
       'h') usage -; exit 0; ;;
-      # 'f')  force_setup="true"; ;;
+      'f')  force_setup="true"; do_setup="true"; ;;
       'k')         kill="true"; ;;
       'r')      restart="true"; ;;
       'd')    daemonize=""; ;;
@@ -104,24 +104,24 @@ parse_options () {
       't') service_type="${OPTARG}"; ;;
       'K')     read_key="${OPTARG}"; ;;
       'S')      profile="-p ${OPTARG}"; ;;
-      's') setup="true" ; run="false"; ;;
+      's') do_setup="true"; run="false"; ;;
       # 'p')
-      #   do_get="false"; setup="false"; run="false"; print_path="true";
+      #   do_get="false"; do_setup="false"; run="false"; print_path="true";
       #   ;;
       # 'e')
-      #   do_get="false"; setup="false"; run="false"; print_path="true";
+      #   do_get="false"; do_setup="false"; run="false"; print_path="true";
       #   print_environment="true";
       #   ;;
       # 'i')
       #   do_get="true";
-      #   setup="true";
+      #   do_setup="true";
       #   run="false";
       #   install="${OPTARG}";
       #   install_flag="--root=";
       #   ;;
       # 'I')
       #   do_get="true";
-      #   setup="true";
+      #   do_setup="true";
       #   run="false";
       #   install="${wd}/build/dst";
       #   install_flag="--root=";
@@ -130,12 +130,12 @@ parse_options () {
       # 'b')
       #   do_bundle="true";
       #   do_get="true";
-      #   setup="true";
+      #   do_setup="true";
       #   run="false";
       #   install="${OPTARG}";
       #   install_flag="--root=";
       #   ;;
-      'n') setup="false"; ;;
+      'n') do_setup="false"; force_setup="false"; ;;
     esac;
   done;
   shift $((${OPTIND} - 1));
@@ -241,12 +241,7 @@ run_main () {
 
   export CALENDARSERVER_DEVELOP="true";
 
-  init_build;
-
-  if "${setup}"; then
-    c_dependencies;
-    py_dependencies;
-  fi;
+  develop;
 
   # # Now that all the dependencies are set up, let's see if we're just being
   # # asked to print the path.
