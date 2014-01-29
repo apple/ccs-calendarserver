@@ -22,7 +22,6 @@ from twext.python.log import Logger
 
 from twisted.internet.defer import inlineCallbacks, returnValue, Deferred
 
-from twistedcaldav import caldavxml
 from twistedcaldav.config import config
 from twistedcaldav.ical import Component
 
@@ -33,6 +32,7 @@ from txdav.common.datastore.sql_tables import schema, \
 
 import datetime
 import hashlib
+from pycalendar.datetime import DateTime
 
 __all__ = [
     "ScheduleOrganizerWork",
@@ -49,8 +49,42 @@ class ScheduleWorkMixin(object):
     Base class for common schedule work item behavior.
     """
 
+    # Track when all work is complete (needed for unit tests)
+    _allDoneCallback = None
+    _queued = 0
+
     # Schedule work is grouped based on calendar object UID
     group = property(lambda self: "ScheduleWork:%s" % (self.icalendarUid,))
+
+
+    @classmethod
+    def allDone(cls):
+        d = Deferred()
+        cls._allDoneCallback = d.callback
+        cls._queued = 0
+        return d
+
+
+    @classmethod
+    def _enqueued(cls):
+        """
+        Called when a new item is enqueued - using for tracking purposes.
+        """
+        ScheduleWorkMixin._queued += 1
+
+
+    def _dequeued(self):
+        """
+        Called when an item is dequeued - using for tracking purposes. We call
+        the callback when the last item is dequeued.
+        """
+        ScheduleWorkMixin._queued -= 1
+        if ScheduleWorkMixin._queued == 0:
+            if ScheduleWorkMixin._allDoneCallback:
+                def _post():
+                    ScheduleWorkMixin._allDoneCallback(None)
+                    ScheduleWorkMixin._allDoneCallback = None
+                self.transaction.postCommit(_post)
 
 
     @inlineCallbacks
@@ -73,10 +107,10 @@ class ScheduleWorkMixin(object):
 
         # Map each recipient in the response to a status code
         changed = False
+        propname = calendar.mainComponent().recipientPropertyName() if is_organizer else "ORGANIZER"
         for item in response.responses:
-            assert isinstance(item, caldavxml.Response), "Wrong element in response"
-            recipient = str(item.children[0].children[0])
-            status = str(item.children[1])
+            recipient = str(item.recipient.children[0])
+            status = str(item.reqstatus)
             statusCode = status.split(";")[0]
 
             # Now apply to each ATTENDEE/ORGANIZER in the original data only if not 1.2
@@ -84,7 +118,7 @@ class ScheduleWorkMixin(object):
                 calendar.setParameterToValueForPropertyWithValue(
                     "SCHEDULE-STATUS",
                     statusCode,
-                    "ATTENDEE" if is_organizer else "ORGANIZER",
+                    propname,
                     recipient,
                 )
                 changed = True
@@ -101,8 +135,6 @@ class ScheduleOrganizerWork(WorkItem, fromTable(schema.SCHEDULE_ORGANIZER_WORK),
     This work item is used to send a iTIP request and cancel messages when an organizer changes
     their calendar object resource.
     """
-
-    _allDoneCallback = None
 
     @classmethod
     @inlineCallbacks
@@ -129,6 +161,7 @@ class ScheduleOrganizerWork(WorkItem, fromTable(schema.SCHEDULE_ORGANIZER_WORK),
             icalendarText=calendar.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference) if calendar else None,
             smartMerge=smart_merge
         ))
+        cls._enqueued()
         yield proposal.whenProposed()
         log.debug("ScheduleOrganizerWork - enqueued for ID: {id}, UID: {uid}, organizer: {org}", id=proposal.workItem.workID, uid=uid, org=organizer)
 
@@ -142,13 +175,6 @@ class ScheduleOrganizerWork(WorkItem, fromTable(schema.SCHEDULE_ORGANIZER_WORK),
             From=srw,
         ).on(txn))
         returnValue(len(rows) > 0)
-
-
-    @classmethod
-    def allDone(cls):
-        d = Deferred()
-        cls._allDoneCallback = d.callback
-        return d
 
 
     @inlineCallbacks
@@ -170,8 +196,7 @@ class ScheduleOrganizerWork(WorkItem, fromTable(schema.SCHEDULE_ORGANIZER_WORK),
             scheduler = ImplicitScheduler()
             yield scheduler.queuedOrganizerProcessing(self.transaction, scheduleActionFromSQL[self.scheduleAction], home, resource, self.icalendarUid, calendar, self.smartMerge)
 
-            if self._allDoneCallback:
-                self._allDoneCallback(None)
+            self._dequeued()
 
         except Exception, e:
             log.debug("ScheduleOrganizerWork - exception ID: {id}, UID: '{uid}', {err}", id=self.workID, uid=self.icalendarUid, err=str(e))
@@ -229,8 +254,11 @@ class ScheduleReplyWork(WorkItem, fromTable(schema.SCHEDULE_REPLY_WORK), Schedul
             icalendarUid=resource.uid(),
             homeResourceID=home.id(),
             resourceID=resource.id(),
-            changedRids=",".join(changedRids) if changedRids else None,
+
+            # Serialize None as ""
+            changedRids=",".join(map(lambda x: "" if x is None else str(x), changedRids)) if changedRids else None,
         ))
+        cls._enqueued()
         yield proposal.whenProposed()
         log.debug("ScheduleReplyWork - enqueued for ID: {id}, UID: {uid}, attendee: {att}", id=proposal.workItem.workID, uid=resource.uid(), att=attendee)
 
@@ -257,7 +285,8 @@ class ScheduleReplyWork(WorkItem, fromTable(schema.SCHEDULE_REPLY_WORK), Schedul
             calendar = (yield resource.componentForUser())
             organizer = calendar.validOrganizerForScheduling()
 
-            changedRids = self.changedRids.split(",") if self.changedRids else None
+            # Deserialize "" as None
+            changedRids = map(lambda x: DateTime.parseText(x) if x else None, self.changedRids.split(",")) if self.changedRids else None
 
             log.debug("ScheduleReplyWork - running for ID: {id}, UID: {uid}, attendee: {att}", id=self.workID, uid=calendar.resourceUID(), att=attendee)
 
@@ -269,6 +298,8 @@ class ScheduleReplyWork(WorkItem, fromTable(schema.SCHEDULE_REPLY_WORK), Schedul
             # Send scheduling message and process response
             response = (yield self.sendToOrganizer(home, "REPLY", itipmsg, attendee, organizer))
             yield self.handleSchedulingResponse(response, calendar, resource, False)
+
+            self._dequeued()
 
         except Exception, e:
             log.debug("ScheduleReplyWork - exception ID: {id}, UID: '{uid}', {err}", id=self.workID, uid=calendar.resourceUID(), err=str(e))
@@ -306,6 +337,7 @@ class ScheduleReplyCancelWork(WorkItem, fromTable(schema.SCHEDULE_REPLY_CANCEL_W
             homeResourceID=home.id(),
             icalendarText=calendar.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference),
         ))
+        cls._enqueued()
         yield proposal.whenProposed()
         log.debug("ScheduleReplyCancelWork - enqueued for ID: {id}, UID: {uid}, attendee: {att}", id=proposal.workItem.workID, uid=calendar.resourceUID(), att=attendee)
 
@@ -329,6 +361,8 @@ class ScheduleReplyCancelWork(WorkItem, fromTable(schema.SCHEDULE_REPLY_CANCEL_W
 
             # Send scheduling message - no need to process response as original resource is gone
             yield self.sendToOrganizer(home, "CANCEL", itipmsg, attendee, organizer)
+
+            self._dequeued()
 
         except Exception, e:
             log.debug("ScheduleReplyCancelWork - exception ID: {id}, UID: '{uid}', {err}", id=self.workID, uid=calendar.resourceUID(), err=str(e))
@@ -409,6 +443,7 @@ class ScheduleRefreshWork(WorkItem, fromTable(schema.SCHEDULE_REFRESH_WORK), Sch
             resourceID=organizer_resource.id(),
             notBefore=notBefore
         ))
+        cls._enqueued()
         yield proposal.whenProposed()
         log.debug("ScheduleRefreshWork - enqueued for ID: {id}, UID: {uid}, attendees: {att}", id=proposal.workItem.workID, uid=organizer_resource.uid(), att=",".join(attendeesToRefresh))
 
@@ -464,8 +499,12 @@ class ScheduleRefreshWork(WorkItem, fromTable(schema.SCHEDULE_REFRESH_WORK), Sch
                 notBefore=notBefore
             )
 
+            self._enqueued()
+
         # Do refresh
         yield self._doDelayedRefresh(attendeesToProcess)
+
+        self._dequeued()
 
         log.debug("ScheduleRefreshWork - done for ID: {id}, UID: {uid}", id=self.workID, uid=self.icalendarUid)
 
@@ -542,6 +581,7 @@ class ScheduleAutoReplyWork(WorkItem, fromTable(schema.SCHEDULE_AUTO_REPLY_WORK)
             partstat=partstat,
             notBefore=notBefore,
         ))
+        cls._enqueued()
         yield proposal.whenProposed()
         log.debug("ScheduleAutoReplyWork - enqueued for ID: {id}, UID: {uid}", id=proposal.workItem.workID, uid=resource.uid())
 
@@ -558,6 +598,8 @@ class ScheduleAutoReplyWork(WorkItem, fromTable(schema.SCHEDULE_AUTO_REPLY_WORK)
 
         # Do reply
         yield self._sendAttendeeAutoReply()
+
+        self._dequeued()
 
         log.debug("ScheduleAutoReplyWork - done for ID: {id}, UID: {uid}", id=self.workID, uid=self.icalendarUid)
 

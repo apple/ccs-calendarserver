@@ -529,7 +529,7 @@ def updateToCurrentYear(data):
     return data % {"now": nowYear}
 
 
-dateSubstitutions = {}
+relativeDateSubstitutions = {}
 
 
 def componentUpdate(data):
@@ -537,24 +537,24 @@ def componentUpdate(data):
     Update the supplied iCalendar data so that all dates are updated to the current year.
     """
 
-    if len(dateSubstitutions) == 0:
+    if len(relativeDateSubstitutions) == 0:
         now = DateTime.getToday()
 
-        dateSubstitutions["now"] = now
+        relativeDateSubstitutions["now"] = now
 
         for i in range(30):
             attrname = "now_back%s" % (i + 1,)
-            setattr(self, attrname, now.duplicate())
-            getattr(self, attrname).offsetDay(-(i + 1))
-            dateSubstitutions[attrname] = getattr(self, attrname)
+            dt = now.duplicate()
+            dt.offsetDay(-(i + 1))
+            relativeDateSubstitutions[attrname] = dt
 
         for i in range(30):
             attrname = "now_fwd%s" % (i + 1,)
-            setattr(self, attrname, now.duplicate())
-            getattr(self, attrname).offsetDay(i + 1)
-            dateSubstitutions[attrname] = getattr(self, attrname)
+            dt = now.duplicate()
+            dt.offsetDay(i + 1)
+            relativeDateSubstitutions[attrname] = dt
 
-    return Component.fromString(data.format(dateSubstitutions))
+    return Component.fromString(data.format(**relativeDateSubstitutions))
 
 
 
