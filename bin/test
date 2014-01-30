@@ -98,21 +98,22 @@ find "${wd}" -name \*.pyc -print0 | xargs -0 rm;
 # Unit tests
 ##
 
-cd "${wd}" && "${wd}/bin/trial"    \
-  --temp-directory="${wd}/.trial"  \
-  --rterrors                       \
-  ${reactor}                       \
-  ${random}                        \
-  ${until_fail}                    \
-  ${no_color}                      \
-  ${coverage}                      \
-  ${numjobs}                       \
+cd "${wd}" && "${wd}/bin/trial"         \
+  --temp-directory="${dev_home}/trial"  \
+  --rterrors                            \
+  ${reactor}                            \
+  ${random}                             \
+  ${until_fail}                         \
+  ${no_color}                           \
+  ${coverage}                           \
+  ${numjobs}                            \
   "$@";
 
 
 if ! "${lint}"; then
   exit 0;
 fi;
+
 
 ##
 # Linting
