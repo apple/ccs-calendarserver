@@ -111,6 +111,10 @@ init_build () {
 
   python="${py_bindir}/python";
 
+  # Make sure setup got called enough to write the version file.
+
+  "${python}" "${wd}/setup.py" check > /dev/null;
+
   # These variables are defaults for things which might be configured by
   # environment; only set them if they're un-set.
 
