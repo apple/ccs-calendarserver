@@ -105,16 +105,6 @@ init_build () {
     rm -rf "${py_root}";
   fi;
 
-  # Set up virtual environment
-
-  "${bootstrap_python}" -m virtualenv "${py_root}";
-
-  python="${py_bindir}/python";
-
-  # Make sure setup got called enough to write the version file.
-
-  "${python}" "${wd}/setup.py" check > /dev/null;
-
   # These variables are defaults for things which might be configured by
   # environment; only set them if they're un-set.
 
@@ -472,8 +462,6 @@ ruler () {
 # Build C dependencies
 #
 c_dependencies () {
-  if ! "${do_setup}"; then return 0; fi;
-
      c_glue_root="${dev_roots}/c_glue";
   c_glue_include="${c_glue_root}/include";
 
@@ -566,6 +554,16 @@ py_dependencies () {
   export PATH="${py_root}/bin:${PATH}";
 
   if ! "${do_setup}"; then return 0; fi;
+
+  # Set up virtual environment
+
+  "${bootstrap_python}" -m virtualenv "${py_root}";
+
+  python="${py_bindir}/python";
+
+  # Make sure setup got called enough to write the version file.
+
+  "${python}" "${wd}/setup.py" check > /dev/null;
 
   for requirements in "${wd}/requirements/py_"*".txt"; do
 
