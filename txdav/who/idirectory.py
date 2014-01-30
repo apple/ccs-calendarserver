@@ -1,0 +1,145 @@
+# -*- test-case-name: txdav.who.test -*-
+##
+# Copyright (c) 2014 Apple Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+##
+
+"""
+Calendar and contacts directory extentions to L{twext.who.idirectory}.
+"""
+
+__all__ = [
+]
+
+from twisted.python.constants import Names, NamedConstant
+
+from twext.who.idirectory import FieldName as BaseFieldName
+
+
+
+#
+# Data types
+#
+
+class RecordType(Names):
+    """
+    Constants for calendar and contacts directory record types.
+
+    @cvar location: Location record.
+        Represents a schedulable location (eg. a meeting room).
+
+    @cvar resource: Resource record.
+        Represents a schedulable resource (eg. a projector, conference line,
+        etc.).
+
+    @cvar address: Address record.
+        Represents a physical address (street address and/or geolocation).
+    """
+
+    location = NamedConstant()
+    location.description  = u"location"
+
+    resource = NamedConstant()
+    resource.description = u"resource"
+
+    address = NamedConstant()
+    address.description = u"physical address"
+
+
+
+class FieldName(Names):
+    """
+    Constants for calendar and contacts directory record field names.
+
+    Fields as associated with either a single value or an iterable of values.
+
+    @cvar serviceNodeUID: For a calendar and contacts service with multiple
+        nodes, this denotes the node that the user's data resides on.
+        The associated value must be a L{unicode}.
+
+    @cvar loginAllowed: Determines whether a record can log in.
+        The associated value must be a L{bool}.
+
+    @cvar hasCalendars: Determines whether a record has calendar data.
+        The associated value must be a L{bool}.
+
+    @cvar hasContacts: Determines whether a record has contact data.
+        The associated value must be a L{bool}.
+
+    @cvar autoScheduleMode: Determines the auto-schedule mode for a record.
+        The associated value must be a L{NamedConstant}.
+
+    @cvar autoAcceptGroup: Contains the UID for a group record which contains
+        members for whom auto-accept will behave as "accept if free", even if
+        auto-accept is set to "manual".
+        The associated value must be a L{NamedConstant}.
+    """
+
+    serviceNodeUID = NamedConstant()
+    serviceNodeUID.description = u"service node UID"
+
+    loginAllowed = NamedConstant()
+    loginAllowed.description = u"login permitted"
+    loginAllowed.valueType = bool
+
+    hasCalendars = NamedConstant()
+    hasCalendars.description = u"has calendars"
+    hasCalendars.valueType = bool
+
+    hasContacts = NamedConstant()
+    hasContacts.description = u"has contacts"
+    hasCalendars.valueType = bool
+
+    autoScheduleMode = NamedConstant()
+    autoScheduleMode.description = u"auto-schedule mode"
+    autoScheduleMode.valueType = NamedConstant
+
+    autoAcceptGroup = NamedConstant()
+    autoAcceptGroup.description = u"auto-accept group"
+    autoAcceptGroup.valueType = BaseFieldName.valueType(BaseFieldName.uid)
+
+
+
+class AutoScheduleMode(Names):
+    """
+    Constants for automatic scheduling modes.
+
+    @cvar accept: Accept all invitations.
+
+    @cvar decline: Decline all invitations.
+
+    @cvar acceptIfFree: Accept invitations that do not conflict with a busy
+        time slot.  Other invitations are left to be handled manually.
+
+    @cvar declineIfBusy: Decline invitations that conflict with a busy time
+        slot.  Other invitations are left to be handled manually.
+    """
+
+    # default -> ?
+
+    # none -> ?
+
+    accept = NamedConstant()
+    accept.description = u"accept"
+
+    decline = NamedConstant()
+    decline.description = u"decline"
+
+    acceptIfFree = NamedConstant()
+    acceptIfFree.description = u"accept if free"
+
+    declineIfBusy = NamedConstant()
+    declineIfBusy.description = u"decline if busy"
+
+    # automatic -> ?

@@ -1,6 +1,6 @@
-# -*- test-case-name: txdav -*-
+# -*- test-case-name: txdav.who -*-
 ##
-# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
+# Copyright (c) 2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,13 +16,5 @@
 ##
 
 """
-Calendar & contacts data store.
+Calendar and contacts directory extentions to L{twext.who}.
 """
-
-#
-# FIXME: 'txdav' should be renamed to 'datastore' and shoul not be
-# WebDAV-specific.
-#
-# (That means txdav.xml should be pulled out, for example, as that is
-# WebDAV-specific.)
-#
