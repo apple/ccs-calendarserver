@@ -472,6 +472,8 @@ ruler () {
 # Build C dependencies
 #
 c_dependencies () {
+  if ! "${do_setup}"; then return 0; fi;
+
      c_glue_root="${dev_roots}/c_glue";
   c_glue_include="${c_glue_root}/include";
 
@@ -563,26 +565,26 @@ c_dependencies () {
 py_dependencies () {
   export PATH="${py_root}/bin:${PATH}";
 
+  if ! "${do_setup}"; then return 0; fi;
+
   for requirements in "${wd}/requirements/py_"*".txt"; do
 
     ruler "Preparing Python requirements: ${requirements}";
     echo "";
 
-    if "${do_setup}"; then
-      if ! "${python}" -m pip install               \
-          --requirement "${requirements}"           \
-          --download-cache "${dev_home}/pip_cache"  \
-          --log "${dev_home}/pip.log"               \
-      ; then
-        err=$?;
-        echo "Unable to set up Python requirements: ${requirements}";
-        if [ "${requirements#${wd}/requirements/py_opt_}" != "${requirements}" ]; then
-          echo "Requirements ${requirements} are optional; continuing.";
-        else
-          echo "";
-          echo "pip log: ${dev_home}/pip.log";
-          return 1;
-        fi;
+    if ! "${python}" -m pip install               \
+        --requirement "${requirements}"           \
+        --download-cache "${dev_home}/pip_cache"  \
+        --log "${dev_home}/pip.log"               \
+    ; then
+      err=$?;
+      echo "Unable to set up Python requirements: ${requirements}";
+      if [ "${requirements#${wd}/requirements/py_opt_}" != "${requirements}" ]; then
+        echo "Requirements ${requirements} are optional; continuing.";
+      else
+        echo "";
+        echo "pip log: ${dev_home}/pip.log";
+        return 1;
       fi;
     fi;
 
