@@ -520,6 +520,27 @@ class SlaveSpawnerService(Service):
             )
             self.monitor.addProcessObject(process, PARENT_ENVIRONMENT)
 
+        if (
+             config.DirectoryProxy.Enabled and
+             config.DirectoryProxy.SocketPath != ""
+         ):
+             log.info("Adding directory proxy service")
+ 
+             dpsArgv = [
+                 sys.executable,
+                 sys.argv[0],
+             ]
+             if config.UserName:
+                 dpsArgv.extend(("-u", config.UserName))
+             if config.GroupName:
+                 dpsArgv.extend(("-g", config.GroupName))
+             dpsArgv.extend((
+                 "--reactor=%s" % (config.Twisted.reactor,),
+                 "-n", "caldav_directoryproxy",
+                 "-f", self.configPath,
+             ))
+             self.monitor.addProcess("directoryproxy", dpsArgv,
+                 env=PARENT_ENVIRONMENT)
 
 
 class WorkSchedulingService(Service):

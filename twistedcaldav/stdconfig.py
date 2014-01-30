@@ -22,7 +22,7 @@ from socket import getfqdn, gethostbyname
 
 from twisted.python.runtime import platform
 
-from plistlib import PlistParser #@UnresolvedImport
+from plistlib import PlistParser  # @UnresolvedImport
 from twext.python.log import Logger, InvalidLogLevelError, LogLevel
 from txweb2.dav.resource import TwistedACLInheritable
 
@@ -52,25 +52,25 @@ DEFAULT_SERVICE_PARAMS = {
     "twistedcaldav.directory.xmlfile.XMLDirectoryService": {
         "xmlFile": "accounts.xml",
         "recordTypes": ("users", "groups"),
-        "statSeconds" : 15,
+        "statSeconds": 15,
     },
     "twistedcaldav.directory.appleopendirectory.OpenDirectoryService": {
         "node": "/Search",
-        "cacheTimeout": 1, # Minutes
-        "batchSize": 100, # for splitting up large queries
+        "cacheTimeout": 1,  # Minutes
+        "batchSize": 100,  # for splitting up large queries
         "negativeCaching": False,
         "restrictEnabledRecords": False,
         "restrictToGroup": "",
         "recordTypes": ("users", "groups"),
     },
     "twistedcaldav.directory.ldapdirectory.LdapDirectoryService": {
-        "cacheTimeout": 1, # Minutes
+        "cacheTimeout": 1,  # Minutes
         "negativeCaching": False,
         "warningThresholdSeconds": 3,
-        "batchSize": 500, # for splitting up large queries
-        "requestTimeoutSeconds" : 10,
-        "requestResultsLimit" : 200,
-        "optimizeMultiName" : False,
+        "batchSize": 500,  # for splitting up large queries
+        "requestTimeoutSeconds": 10,
+        "requestResultsLimit": 200,
+        "optimizeMultiName": False,
         "queryLocationsImplicitly": True,
         "restrictEnabledRecords": False,
         "restrictToGroup": "",
@@ -79,7 +79,7 @@ DEFAULT_SERVICE_PARAMS = {
         "tls": False,
         "tlsCACertFile": None,
         "tlsCACertDir": None,
-        "tlsRequireCert": None, # never, allow, try, demand, hard
+        "tlsRequireCert": None,  # never, allow, try, demand, hard
         "credentials": {
             "dn": None,
             "password": None,
@@ -90,76 +90,76 @@ DEFAULT_SERVICE_PARAMS = {
             "guidAttr": "entryUUID",
             "users": {
                 "rdn": "ou=People",
-                "attr": "uid", # used only to synthesize email address
-                "emailSuffix": None, # used only to synthesize email address
-                "filter": None, # additional filter for this type
-                "loginEnabledAttr" : "", # attribute controlling login
-                "loginEnabledValue" : "yes", # "True" value of above attribute
-                "calendarEnabledAttr" : "", # attribute controlling enabledForCalendaring
-                "calendarEnabledValue" : "yes", # "True" value of above attribute
-                "mapping" : { # maps internal record names to LDAP
+                "attr": "uid",  # used only to synthesize email address
+                "emailSuffix": None,  # used only to synthesize email address
+                "filter": None,  # additional filter for this type
+                "loginEnabledAttr": "",  # attribute controlling login
+                "loginEnabledValue": "yes",  # "True" value of above attribute
+                "calendarEnabledAttr": "",  # attribute controlling enabledForCalendaring
+                "calendarEnabledValue": "yes",  # "True" value of above attribute
+                "mapping": {  # maps internal record names to LDAP
                     "recordName": "uid",
-                    "fullName" : "cn",
-                    "emailAddresses" : ["mail"],
-                    "firstName" : "givenName",
-                    "lastName" : "sn",
+                    "fullName": "cn",
+                    "emailAddresses": ["mail"],
+                    "firstName": "givenName",
+                    "lastName": "sn",
                 },
             },
             "groups": {
                 "rdn": "ou=Group",
-                "attr": "cn", # used only to synthesize email address
-                "emailSuffix": None, # used only to synthesize email address
-                "filter": None, # additional filter for this type
-                "mapping" : { # maps internal record names to LDAP
+                "attr": "cn",  # used only to synthesize email address
+                "emailSuffix": None,  # used only to synthesize email address
+                "filter": None,  # additional filter for this type
+                "mapping": {  # maps internal record names to LDAP
                     "recordName": "cn",
-                    "fullName" : "cn",
-                    "emailAddresses" : ["mail"],
-                    "firstName" : "givenName",
-                    "lastName" : "sn",
+                    "fullName": "cn",
+                    "emailAddresses": ["mail"],
+                    "firstName": "givenName",
+                    "lastName": "sn",
                 },
             },
             "locations": {
                 "rdn": "ou=Places",
-                "attr": "cn", # used only to synthesize email address
-                "emailSuffix": None, # used only to synthesize email address
-                "filter": None, # additional filter for this type
-                "calendarEnabledAttr" : "", # attribute controlling enabledForCalendaring
-                "calendarEnabledValue" : "yes", # "True" value of above attribute
-                "mapping" : { # maps internal record names to LDAP
+                "attr": "cn",  # used only to synthesize email address
+                "emailSuffix": None,  # used only to synthesize email address
+                "filter": None,  # additional filter for this type
+                "calendarEnabledAttr": "",  # attribute controlling enabledForCalendaring
+                "calendarEnabledValue": "yes",  # "True" value of above attribute
+                "mapping": {  # maps internal record names to LDAP
                     "recordName": "cn",
-                    "fullName" : "cn",
-                    "emailAddresses" : ["mail"],
-                    "firstName" : "givenName",
-                    "lastName" : "sn",
+                    "fullName": "cn",
+                    "emailAddresses": ["mail"],
+                    "firstName": "givenName",
+                    "lastName": "sn",
                 },
             },
             "resources": {
                 "rdn": "ou=Resources",
-                "attr": "cn", # used only to synthesize email address
-                "emailSuffix": None, # used only to synthesize email address
-                "filter": None, # additional filter for this type
-                "calendarEnabledAttr" : "", # attribute controlling enabledForCalendaring
-                "calendarEnabledValue" : "yes", # "True" value of above attribute
-                "mapping" : { # maps internal record names to LDAP
+                "attr": "cn",  # used only to synthesize email address
+                "emailSuffix": None,  # used only to synthesize email address
+                "filter": None,  # additional filter for this type
+                "calendarEnabledAttr": "",  # attribute controlling enabledForCalendaring
+                "calendarEnabledValue": "yes",  # "True" value of above attribute
+                "mapping": {  # maps internal record names to LDAP
                     "recordName": "cn",
-                    "fullName" : "cn",
-                    "emailAddresses" : ["mail"],
-                    "firstName" : "givenName",
-                    "lastName" : "sn",
+                    "fullName": "cn",
+                    "emailAddresses": ["mail"],
+                    "firstName": "givenName",
+                    "lastName": "sn",
                 },
             },
         },
         "groupSchema": {
-            "membersAttr": "member", # how members are specified
-            "nestedGroupsAttr": None, # how nested groups are specified
-            "memberIdAttr": None, # which attribute the above refer to
+            "membersAttr": "member",  # how members are specified
+            "nestedGroupsAttr": None,  # how nested groups are specified
+            "memberIdAttr": None,  # which attribute the above refer to
         },
         "resourceSchema": {
-            "resourceInfoAttr": None, # contains location/resource info
-            "autoAcceptGroupAttr": None, # auto accept group
+            "resourceInfoAttr": None,  # contains location/resource info
+            "autoAcceptGroupAttr": None,  # auto accept group
         },
         "poddingSchema": {
-            "serverIdAttr": None, # maps to augments server-id
+            "serverIdAttr": None,  # maps to augments server-id
         },
     },
 }
@@ -167,22 +167,22 @@ DEFAULT_SERVICE_PARAMS = {
 DEFAULT_RESOURCE_PARAMS = {
     "twistedcaldav.directory.xmlfile.XMLDirectoryService": {
         "xmlFile": "resources.xml",
-        "recordTypes" : ("locations", "resources", "addresses"),
+        "recordTypes": ("locations", "resources", "addresses"),
     },
     "twistedcaldav.directory.appleopendirectory.OpenDirectoryService": {
         "node": "/Search",
-        "cacheTimeout": 1, # Minutes
+        "cacheTimeout": 1,  # Minutes
         "negativeCaching": False,
         "restrictEnabledRecords": False,
         "restrictToGroup": "",
-        "recordTypes" : ("locations", "resources"),
+        "recordTypes": ("locations", "resources"),
     },
 }
 
 DEFAULT_AUGMENT_PARAMS = {
     "twistedcaldav.directory.augment.AugmentXMLDB": {
         "xmlFiles": ["augments.xml", ],
-        "statSeconds" : 15,
+        "statSeconds": 15,
     },
     "twistedcaldav.directory.augment.AugmentSqliteDB": {
         "dbpath": "augments.sqlite",
@@ -229,8 +229,8 @@ directoryAddressBookBackingServiceDefaultParams = {
         "standardizeSyntheticUIDs": False,
         "addDSAttrXProperties": False,
         "appleInternalServer": False,
-        "additionalAttributes" : [],
-        "allowedAttributes" : [],
+        "additionalAttributes": [],
+        "allowedAttributes": [],
     },
 }
 
@@ -248,13 +248,15 @@ DEFAULT_CONFIG = {
     #
     "ServerHostName": "", # Network host name.
     "HTTPPort": 0, # HTTP port (0 to disable HTTP)
-    "SSLPort" : 0, # SSL port (0 to disable HTTPS)
-    "EnableSSL" : False, # Whether to listen on SSL port(s)
-    "RedirectHTTPToHTTPS" : False, # If True, all nonSSL requests redirected to an SSL Port
-    "SSLMethod" : "SSLv3_METHOD", # SSLv2_METHOD, SSLv3_METHOD, SSLv23_METHOD, TLSv1_METHOD
-    "SSLCiphers" : "ALL:!aNULL:!ADH:!eNULL:!LOW:!EXP:RC4+RSA:+HIGH:+MEDIUM",
-    "StrictTransportSecuritySeconds" : 7 * 24 * 60 * 60, # max-age value for
-        # Strict-Transport-Security header; set to 0 to disable header.
+    "SSLPort": 0, # SSL port (0 to disable HTTPS)
+    "EnableSSL": False, # Whether to listen on SSL port(s)
+    "RedirectHTTPToHTTPS": False, # If True, all nonSSL requests redirected to an SSL Port
+    "SSLMethod": "SSLv3_METHOD", # SSLv2_METHOD, SSLv3_METHOD, SSLv23_METHOD, TLSv1_METHOD
+    "SSLCiphers": "ALL:!aNULL:!ADH:!eNULL:!LOW:!EXP:RC4+RSA:+HIGH:+MEDIUM",
+
+    # Max-age value for Strict-Transport-Security header; set to 0 to
+    # disable header.
+    "StrictTransportSecuritySeconds": 7 * 24 * 60 * 60,
 
     #
     # Network address configuration information
@@ -264,54 +266,54 @@ DEFAULT_CONFIG = {
     "BindAddresses": [], # List of IP addresses to bind to [empty = all]
     "BindHTTPPorts": [], # List of port numbers to bind to for HTTP
                            # [empty = same as "Port"]
-    "BindSSLPorts" : [], # List of port numbers to bind to for SSL
+    "BindSSLPorts": [], # List of port numbers to bind to for SSL
                            # [empty = same as "SSLPort"]
-    "InheritFDs"   : [], # File descriptors to inherit for HTTP requests
+    "InheritFDs": [], # File descriptors to inherit for HTTP requests
                            # (empty = don't inherit)
     "InheritSSLFDs": [], # File descriptors to inherit for HTTPS requests
                            # (empty = don't inherit)
-    "MetaFD"       : 0, # Inherited file descriptor to call recvmsg() on to
+    "MetaFD": 0, # Inherited file descriptor to call recvmsg() on to
                            # receive sockets (none = don't inherit)
 
-    "UseMetaFD"    : True, # Use a 'meta' FD, i.e. an FD to transmit other FDs
+    "UseMetaFD": True, # Use a 'meta' FD, i.e. an FD to transmit other FDs
                            # to slave processes.
 
-    "UseDatabase"  : True, # True: database; False: files
+    "UseDatabase": True, # True: database; False: files
 
-    "TransactionTimeoutSeconds" : 0, # Timeout transactions that take longer than
+    "TransactionTimeoutSeconds": 0, # Timeout transactions that take longer than
                               # the specified number of seconds. Zero means
                               # no timeouts
 
-    "DBType"       : "", # 2 possible values: empty, meaning 'spawn postgres
+    "DBType": "", # 2 possible values: empty, meaning 'spawn postgres
                            # yourself', or 'postgres', meaning 'connect to a
                            # postgres database as specified by the 'DSN'
                            # configuration key.  Will support more values in
                            # the future.
 
-    "SpawnedDBUser" : "caldav", # The username to use when DBType is empty
+    "SpawnedDBUser": "caldav", # The username to use when DBType is empty
 
-    "DBImportFile" : "", # File path to SQL file to import at startup (includes schema)
+    "DBImportFile": "", # File path to SQL file to import at startup (includes schema)
 
-    "DSN"          : "", # Data Source Name.  Used to connect to an external
+    "DSN": "", # Data Source Name.  Used to connect to an external
                            # database if DBType is non-empty.  Format varies
                            # depending on database type.
 
-    "DBAMPFD"      : 0, # Internally used by database to tell slave
+    "DBAMPFD": 0, # Internally used by database to tell slave
                            # processes to inherit a file descriptor and use it
                            # as an AMP connection over a UNIX socket; see
                            # twext.enterprise.adbapi2.ConnectionPoolConnection
 
-    "SharedConnectionPool" : False, # Use a shared database connection pool in
+    "SharedConnectionPool": False, # Use a shared database connection pool in
                                     # the master process, rather than having
                                     # each client make its connections directly.
 
-    "FailIfUpgradeNeeded"  : True, # Set to True to prevent the server or utility
+    "FailIfUpgradeNeeded": True, # Set to True to prevent the server or utility
                                    # tools from running if the database needs a schema
                                    # upgrade.
-    "StopAfterUpgradeTriggerFile" : "stop_after_upgrade",   # if this file exists in ConfigRoot, stop
+    "StopAfterUpgradeTriggerFile": "stop_after_upgrade",   # if this file exists in ConfigRoot, stop
                                                             # the service after finishing upgrade phase
 
-    "UpgradeHomePrefix"    : "",    # When upgrading, only upgrade homes where the owner UID starts with
+    "UpgradeHomePrefix": "",    # When upgrading, only upgrade homes where the owner UID starts with
                                     # with the specified prefix. The upgrade will only be partial and only
                                     # apply to upgrade pieces that affect entire homes. The upgrade will
                                     # need to be run again without this prefix set to complete the overall
@@ -320,42 +322,42 @@ DEFAULT_CONFIG = {
     #
     # Work queue configuration information
     #
-    "WorkQueue" : {
+    "WorkQueue": {
         "ampPort": 7654,            # Port used for hosts in a cluster to take to each other
     },
 
     #
     # Types of service provided
     #
-    "EnableCalDAV"  : True, # Enable CalDAV service
-    "EnableCardDAV" : True, # Enable CardDAV service
+    "EnableCalDAV": True, # Enable CalDAV service
+    "EnableCardDAV": True, # Enable CardDAV service
 
     #
     # Data store
     #
-    "ServerRoot"              : "/var/db/caldavd",
-    "DataRoot"                : "Data",
-    "DatabaseRoot"            : "Database",
-    "AttachmentsRoot"         : "Attachments",
-    "DocumentRoot"            : "Documents",
-    "ConfigRoot"              : "Config",
-    "LogRoot"                 : "/var/log/caldavd",
-    "RunRoot"                 : "/var/run/caldavd",
-    "WebCalendarRoot"         : "/Applications/Server.app/Contents/ServerRoot/usr/share/collabd/webcal/public",
+    "ServerRoot": "/var/db/caldavd",
+    "DataRoot": "Data",
+    "DatabaseRoot": "Database",
+    "AttachmentsRoot": "Attachments",
+    "DocumentRoot": "Documents",
+    "ConfigRoot": "Config",
+    "LogRoot": "/var/log/caldavd",
+    "RunRoot": "/var/run/caldavd",
+    "WebCalendarRoot": "/Applications/Server.app/Contents/ServerRoot/usr/share/collabd/webcal/public",
 
     #
     # Quotas
     #
 
     # Attachments
-    "UserQuota"                 : 104857600, # User attachment quota (in bytes)
+    "UserQuota": 104857600, # User attachment quota (in bytes)
 
     # Resource data
-    "MaxCollectionsPerHome"     : 50, # Maximum number of calendars/address books allowed in a home
-    "MaxResourcesPerCollection" : 10000, # Maximum number of resources in a calendar/address book
-    "MaxResourceSize"           : 1048576, # Maximum resource size (in bytes)
-    "MaxAttendeesPerInstance"   : 100, # Maximum number of unique attendees
-    "MaxAllowedInstances"       : 3000, # Maximum number of instances the server will index
+    "MaxCollectionsPerHome": 50, # Maximum number of calendars/address books allowed in a home
+    "MaxResourcesPerCollection": 10000, # Maximum number of resources in a calendar/address book
+    "MaxResourceSize": 1048576, # Maximum resource size (in bytes)
+    "MaxAttendeesPerInstance": 100, # Maximum number of unique attendees
+    "MaxAllowedInstances": 3000, # Maximum number of instances the server will index
 
     # Set to URL path of wiki authentication service, e.g. "/auth", in order
     # to use javascript authentication dialog.  Empty string indicates standard
@@ -823,6 +825,11 @@ DEFAULT_CONFIG = {
         }
     },
 
+    "DirectoryProxy": {
+        "Enabled": False,
+        "SocketPath": "directory-proxy.sock"
+    },
+
     #
     # Support multiple hosts within a domain
     #
@@ -899,7 +906,6 @@ DEFAULT_CONFIG = {
     # A unix socket used for communication between the child and master
     # processes. If blank, then an AF_INET socket is used instead.
     "ControlSocket": "caldavd.sock",
-
 
     # Support for Content-Encoding compression options as specified in
     # RFC2616 Section 3.5
@@ -1167,6 +1173,7 @@ RELATIVE_PATHS = [
     ("RunRoot", "PIDFile"),
     ("RunRoot", ("Stats", "UnixStatsSocket",)),
     ("RunRoot", "ControlSocket"),
+    ("RunRoot", ("DirectoryProxy", "SocketPath",)),
 ]
 
 
