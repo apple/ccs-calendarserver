@@ -16,18 +16,11 @@
 
 from twext.who.idirectory import RecordType
 from twisted.protocols import amp
-from twisted.internet.defer import succeed, inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.python.log import Logger
 
 log = Logger()
 
-
-class DirectoryProxyAMPCommand(amp.Command):
-    """
-    A DirectoryProxy command
-    """
-    arguments = [('command', amp.String())]
-    response = [('result', amp.String())]
 
 
 class RecordWithShortNameCommand(amp.Command):
@@ -54,23 +47,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         self._directory = directory
 
 
-    @DirectoryProxyAMPCommand.responder
-    # @inlineCallbacks
-    def testCommandReceived(self, command):
-        """
-        Process a command
-
-        @param command: DirectoryProxyAMPCommand
-        @returns: a deferred returning a dict
-        """
-        # command = readPlistFromString(command)
-        log.debug("Command arrived: {cmd}", cmd=command)
-        response = {"result": "plugh", "command": command}
-        log.debug("Responding with: {response}", response=response)
-        # returnValue(dict(result=result))
-        return succeed(response)
-
-
     @RecordWithShortNameCommand.responder
     @inlineCallbacks
     def recordWithShortName(self, recordType, shortName):
@@ -90,9 +66,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
 #
 # A test AMP client
 #
-
-command = "xyzzy"
-
 
 def makeRequest():
     from twisted.internet import reactor
@@ -115,6 +88,7 @@ def makeRequest():
         reactor.stop()
     d.addCallback(gotResults)
     reactor.run()
+
 
 if __name__ == '__main__':
     makeRequest()

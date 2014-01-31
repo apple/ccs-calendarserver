@@ -14,11 +14,12 @@
 # limitations under the License.
 ##
 
-from twext.who.xml import DirectoryService
+from twext.who.xml import DirectoryService as XMLDirectoryService
+from twext.who.index import DirectoryService as BaseDirectoryService
 from twisted.python.usage import Options, UsageError
 from twisted.plugin import IPlugin
 from twisted.application import service
-from zope.interface import implements
+from zope.interface import implementer
 from twistedcaldav.config import config
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twisted.application.strports import service as strPortsService
@@ -26,9 +27,36 @@ from twisted.internet.protocol import Factory
 from twext.python.log import Logger
 from twisted.python.filepath import FilePath
 
-from .protocol import DirectoryProxyAMPProtocol
+from .protocol import DirectoryProxyAMPProtocol, RecordWithShortNameCommand
+
+from twisted.internet import reactor
+from twisted.internet.protocol import ClientCreator
+from twisted.protocols import amp
+import cPickle as pickle
 
 log = Logger()
+
+
+class DirectoryService(BaseDirectoryService):
+
+    def _getConnection(self):
+        path = config.DirectoryProxy.SocketPath
+        return ClientCreator(reactor, amp.AMP).connectUnix(path)
+
+    def recordWithShortName(self, recordType, shortName):
+
+        def serialize(result):
+            return pickle.dumps(result)
+
+        def call(ampProto):
+            return ampProto.callRemote(
+                RecordWithShortNameCommand,
+                recordType=recordType.description.encode("utf-8"),
+                shortName=shortName.encode("utf-8")
+            )
+
+        return self._getConnection().addCallback(call).addCallback(serialize)
+
 
 
 class DirectoryProxyAMPFactory(Factory):
@@ -134,8 +162,8 @@ class DirectoryProxyOptions(Options):
         self.parent['pidfile'] = None
 
 
+@implementer(IPlugin, service.IServiceMaker)
 class DirectoryProxyServiceMaker(object):
-    implements(IPlugin, service.IServiceMaker)
 
     tapname = "caldav_directoryproxy"
     description = "Directory Proxy Service"
@@ -152,7 +180,7 @@ class DirectoryProxyServiceMaker(object):
         else:
             setproctitle("CalendarServer Directory Proxy Service")
 
-        directory = DirectoryService(FilePath("foo.xml"))
+        directory = XMLDirectoryService(FilePath("foo.xml"))
 
         desc = "unix:{path}:mode=660".format(
             path=config.DirectoryProxy.SocketPath
