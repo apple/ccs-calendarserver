@@ -40,13 +40,14 @@ log = Logger()
 class DirectoryService(BaseDirectoryService):
 
     def _getConnection(self):
-        path = config.DirectoryProxy.SocketPath
-        return ClientCreator(reactor, amp.AMP).connectUnix(path)
+        # path = config.DirectoryProxy.SocketPath
+        path = "data/Logs/state/directory-proxy.sock"
+        return ClientCreator(reactor, amp.AMP).connectUNIX(path)
 
     def recordWithShortName(self, recordType, shortName):
 
-        def serialize(result):
-            return pickle.dumps(result)
+        def deserialize(result):
+            return pickle.loads(result['record'])
 
         def call(ampProto):
             return ampProto.callRemote(
@@ -55,7 +56,7 @@ class DirectoryService(BaseDirectoryService):
                 shortName=shortName.encode("utf-8")
             )
 
-        return self._getConnection().addCallback(call).addCallback(serialize)
+        return self._getConnection().addCallback(call).addCallback(deserialize)
 
 
 

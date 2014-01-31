@@ -18,6 +18,7 @@ from twext.who.idirectory import RecordType
 from twisted.protocols import amp
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.python.log import Logger
+import cPickle as pickle
 
 log = Logger()
 
@@ -29,9 +30,7 @@ class RecordWithShortNameCommand(amp.Command):
         ('shortName', amp.String()),
     ]
     response = [
-        ('fullNames', amp.ListOf(amp.String())),
-        ('shortNames', amp.ListOf(amp.String())),
-        ('emailAddresses', amp.ListOf(amp.String())),
+        ('record', amp.String()),
     ]
 
 
@@ -54,10 +53,9 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         record = (yield self._directory.recordWithShortName(
             RecordType.lookupByName(recordType), shortName)
         )
+        record.service = None
         response = {
-            "fullNames": [i.encode("utf-8") for i in record.fullNames],
-            "shortNames": [i.encode("utf-8") for i in record.shortNames],
-            "emailAddresses": [i.encode("utf-8") for i in record.emailAddresses],
+            "record": pickle.dumps(record),
         }
         log.debug("Responding with: {response}", response=response)
         returnValue(response)

@@ -14,28 +14,25 @@
 # limitations under the License.
 ##
 
+from txdav.dps.service import DirectoryService
 from twext.who.idirectory import RecordType
 from twext.python.log import Logger
 from twisted.internet import reactor
-import cPickle as pickle
 import sys
 
 log = Logger()
 
-print sys.path
-from txdav.dps.service import DirectoryService
 
 
 def makeBetterRequest():
 
     shortName = sys.argv[1]
 
-    ds = DirectoryService()
+    ds = DirectoryService(None)
     d = ds.recordWithShortName(RecordType.user, shortName)
 
-    def gotResults(result):
-        result = pickle.loads(result)
-        print('Done: %s' % (result,))
+    def gotResults(record):
+        print('Done: %s' % (record,))
         reactor.stop()
     d.addCallback(gotResults)
     reactor.run()
