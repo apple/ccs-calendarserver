@@ -1,4 +1,4 @@
-# -*- test-case-name: txdav.who -*-
+# -*- test-case-name: txdav.who.test.test_xml -*-
 ##
 # Copyright (c) 2014 Apple Inc. All rights reserved.
 #
@@ -31,26 +31,7 @@ from twisted.python.constants import Values, ValueConstant
 from twext.who.xml import DirectoryService as BaseDirectoryService
 from twext.who.util import ConstantsContainer
 
-from .idirectory import RecordType, FieldName
-
-
-
-#
-# Directory Service
-#
-
-class DirectoryService(BaseDirectoryService):
-    """
-    XML directory service with calendar and contacts attributes.
-    """
-
-    recordType = ConstantsContainer(
-        (BaseDirectoryService.recordType, RecordType)
-    )
-
-    fieldName = ConstantsContainer(
-        (BaseDirectoryService.fieldName, FieldName)
-    )
+from .idirectory import RecordType, FieldName, AutoScheduleMode
 
 
 
@@ -98,30 +79,70 @@ class RecordTypeValue(Values):
     """
 
     location = ValueConstant(u"location")
-    location.fieldName = FieldName.location
+    location.recordType = RecordType.location
 
     resource = ValueConstant(u"resource")
-    resource.fieldName = FieldName.resource
+    resource.recordType = RecordType.resource
 
     address = ValueConstant(u"address")
-    address.fieldName = FieldName.address
+    address.recordType = RecordType.address
 
 
 
 class AutoScheduleValue(Values):
     """
-    XML attribute values for auto-schedule modes.
+    XML element values for auto-schedule modes.
     """
-    # default -> ?
 
-    # none -> ?
+    none = ValueConstant(u"none")
+    none.mode = AutoScheduleMode.none
 
     accept = ValueConstant(u"accept")
+    accept.mode = AutoScheduleMode.accept
 
     decline = ValueConstant(u"decline")
+    decline.mode = AutoScheduleMode.decline
 
     acceptIfFree = ValueConstant(u"accept-if-free")
+    acceptIfFree.mode = AutoScheduleMode.acceptIfFree
 
     declineIfBusy = ValueConstant(u"decline-if-busy")
+    declineIfBusy.mode = AutoScheduleMode.declineIfBusy
 
-    # automatic -> ?
+    acceptIfFreeDeclineIfBusy = ValueConstant(
+        u"accept-if-free-decline-if-busy"
+    )
+    acceptIfFreeDeclineIfBusy.mode = AutoScheduleMode.acceptIfFreeDeclineIfBusy
+
+
+
+#
+# Directory Service
+#
+
+class DirectoryService(BaseDirectoryService):
+    """
+    XML directory service with calendar and contacts data.
+    """
+
+    recordType = ConstantsContainer(
+        (BaseDirectoryService.recordType, RecordType)
+    )
+
+    fieldName = ConstantsContainer(
+        (BaseDirectoryService.fieldName, FieldName)
+    )
+
+    # XML schema constants
+
+    element = ConstantsContainer(
+        (BaseDirectoryService.element, Element)
+    )
+
+    attribute = ConstantsContainer(
+        (BaseDirectoryService.attribute, Attribute)
+    )
+
+    recordTypeValue = ConstantsContainer(
+        (BaseDirectoryService.recordTypeValue, RecordTypeValue)
+    )

@@ -15,6 +15,9 @@
 # limitations under the License.
 ##
 
+from __future__ import print_function
+from __future__ import absolute_import
+
 """
 Calendar and contacts directory extentions to L{twext.who.idirectory}.
 """
@@ -115,20 +118,25 @@ class AutoScheduleMode(Names):
     """
     Constants for automatic scheduling modes.
 
+    @cvar none: Invitations are not automatically handled.
+
     @cvar accept: Accept all invitations.
 
     @cvar decline: Decline all invitations.
 
     @cvar acceptIfFree: Accept invitations that do not conflict with a busy
-        time slot.  Other invitations are left to be handled manually.
+        time slot.  Other invitations are not automatically handled.
 
     @cvar declineIfBusy: Decline invitations that conflict with a busy time
-        slot.  Other invitations are left to be handled manually.
+        slot.  Other invitations are not automatically handled.
+
+    @cvar acceptIfFreeDeclineIfBusy: Accept invitations that do not conflict
+        with a busy time slot.  Decline invitations that conflict with a busy
+        time slot.  Other invitations are not automatically handled.
     """
 
-    # default -> ?
-
-    # none -> ?
+    none = NamedConstant()
+    none.description = u"no action"
 
     accept = NamedConstant()
     accept.description = u"accept"
@@ -142,4 +150,5 @@ class AutoScheduleMode(Names):
     declineIfBusy = NamedConstant()
     declineIfBusy.description = u"decline if busy"
 
-    # automatic -> ?
+    acceptIfFreeDeclineIfBusy = NamedConstant()
+    acceptIfFreeDeclineIfBusy.description = u"accept if free, decline if busy"
