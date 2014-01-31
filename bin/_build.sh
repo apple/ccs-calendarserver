@@ -99,6 +99,12 @@ init_build () {
   py_libdir="${py_root}/lib/python";
   py_bindir="${py_root}/bin";
 
+  if [ -z "${TWEXT_PKG_CACHE-}" ]; then
+    dep_packages="${dev_home}/pkg";
+  else
+    dep_packages="${TWEXT_PKG_CACHE}";
+  fi;
+
   mkdir -p "${dep_sources}";
 
   if "${force_setup}"; then
