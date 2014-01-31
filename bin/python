@@ -23,6 +23,8 @@ wd="$(cd "$(dirname "$0")/.." && pwd)";
 
 export CALENDARSERVER_DEVELOP="true";
 
+export PYTHONPATH="${wd}:${PYTHONPATH:-}";
+
 . "${wd}/bin/_build.sh";
 
 init_build > /dev/null;
