@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-import twext.who
+from twext.who.xml import DirectoryService
 from twisted.python.usage import Options, UsageError
 from twisted.plugin import IPlugin
 from twisted.application import service
@@ -24,6 +24,7 @@ from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twisted.application.strports import service as strPortsService
 from twisted.internet.protocol import Factory
 from twext.python.log import Logger
+from twisted.python.filepath import FilePath
 
 from .protocol import DirectoryProxyAMPProtocol
 
@@ -36,8 +37,11 @@ class DirectoryProxyAMPFactory(Factory):
     protocol = DirectoryProxyAMPProtocol
 
 
+    def __init__(self, directory):
+        self._directory = directory
+
     def buildProtocol(self, addr):
-        return DirectoryProxyAMPProtocol()
+        return DirectoryProxyAMPProtocol(self._directory)
 
 
 
@@ -148,7 +152,9 @@ class DirectoryProxyServiceMaker(object):
         else:
             setproctitle("CalendarServer Directory Proxy Service")
 
+        directory = DirectoryService(FilePath("foo.xml"))
+
         desc = "unix:{path}:mode=660".format(
             path=config.DirectoryProxy.SocketPath
         )
-        return strPortsService(desc, DirectoryProxyAMPFactory())
+        return strPortsService(desc, DirectoryProxyAMPFactory(directory))

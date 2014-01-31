@@ -77,6 +77,7 @@ from txdav.common.datastore.upgrade.sql.upgrade import (
     UpgradeDatabaseSchemaStep, UpgradeDatabaseAddressBookDataStep,
     UpgradeAcquireLockStep, UpgradeReleaseLockStep, UpgradeDatabaseNotificationDataStep)
 from txdav.common.datastore.work.revision_cleanup import scheduleFirstFindMinRevision
+from txdav.dps.service import DirectoryProxyServiceMaker
 
 from twistedcaldav import memcachepool
 from twistedcaldav.config import config, ConfigurationError
@@ -1263,6 +1264,11 @@ class CalDAVServiceMaker (object):
                     print("Manhole access enabled: %s" % (portString,))
                 except ImportError:
                     print("Manhole access could not enabled because manhole_tap could not be imported")
+
+            # Optionally enable Directory Proxy
+            if config.DirectoryProxy.Enabled:
+                dps = DirectoryProxyServiceMaker().makeService(None)
+                dps.setServiceParent(result)
 
             def decorateTransaction(txn):
                 txn._pushDistributor = pushDistributor

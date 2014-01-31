@@ -14,9 +14,9 @@
 # limitations under the License.
 ##
 
-# import twext.who
+from twext.who.idirectory import RecordType
 from twisted.protocols import amp
-from twisted.internet.defer import succeed
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twext.python.log import Logger
 
 log = Logger()
@@ -30,15 +30,28 @@ class DirectoryProxyAMPCommand(amp.Command):
     response = [('result', amp.String())]
 
 
+class RecordWithShortNameCommand(amp.Command):
+    arguments = [
+        ('recordType', amp.String()),
+        ('shortName', amp.String()),
+    ]
+    response = [
+        ('fullNames', amp.ListOf(amp.String())),
+        ('shortNames', amp.ListOf(amp.String())),
+        ('emailAddresses', amp.ListOf(amp.String())),
+    ]
+
+
 
 class DirectoryProxyAMPProtocol(amp.AMP):
     """
     """
 
-    def __init__(self):
+    def __init__(self, directory):
         """
         """
         amp.AMP.__init__(self)
+        self._directory = directory
 
 
     @DirectoryProxyAMPCommand.responder
@@ -58,6 +71,22 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         return succeed(response)
 
 
+    @RecordWithShortNameCommand.responder
+    @inlineCallbacks
+    def recordWithShortName(self, recordType, shortName):
+        log.debug("RecordWithShortName: {r} {n}", r=recordType, n=shortName)
+        record = (yield self._directory.recordWithShortName(
+            RecordType.lookupByName(recordType), shortName)
+        )
+        response = {
+            "fullNames": [i.encode("utf-8") for i in record.fullNames],
+            "shortNames": [i.encode("utf-8") for i in record.shortNames],
+            "emailAddresses": [i.encode("utf-8") for i in record.emailAddresses],
+        }
+        log.debug("Responding with: {response}", response=response)
+        returnValue(response)
+
+
 #
 # A test AMP client
 #
@@ -73,19 +102,19 @@ def makeRequest():
     d = creator.connectUNIX("data/Logs/state/directory-proxy.sock")
 
     def connected(ampProto):
-        return ampProto.callRemote(DirectoryProxyAMPCommand, command=command)
+        import sys
+        shortName = sys.argv[1]
+        return ampProto.callRemote(
+            RecordWithShortNameCommand,
+            shortName=shortName,
+            recordType=RecordType.user.description.encode("utf-8"))
     d.addCallback(connected)
 
-    def resulted(result):
-        return result['result']
-    d.addCallback(resulted)
-
-    def done(result):
+    def gotResults(result):
         print('Done: %s' % (result,))
         reactor.stop()
-    d.addCallback(done)
+    d.addCallback(gotResults)
     reactor.run()
 
 if __name__ == '__main__':
     makeRequest()
-
