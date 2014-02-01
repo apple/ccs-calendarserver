@@ -40,8 +40,8 @@ class ExtendedSchemaTest(unittest.TestCase):
     Tests for calendar and contacts schema extensions.
     """
 
-    def makeRecord(self, fieldName, elementName, value):
-        uid = u"THE ONLY RECORD"
+    def makeRecord(self, elementName, value):
+        uid = u"id"
 
         xmlData = dedent(
             b"""
@@ -50,7 +50,7 @@ class ExtendedSchemaTest(unittest.TestCase):
             <directory realm="Test Realm">
               <record type="user">
                 <uid>{uid}</uid>
-                <short-name>wsanchez</short-name>
+                <short-name>{uid}</short-name>
                 <{element}>{value}</{element}>
               </record>
             </directory>
@@ -82,7 +82,7 @@ class ExtendedSchemaTest(unittest.TestCase):
             (FieldName.serviceNodeUID, u"service-node"),
             (FieldName.autoAcceptGroup, u"auto-accept-group"),
         ):
-            record = yield self.makeRecord(field, element, u"xyzzy")
+            record = yield self.makeRecord(element, u"xyzzy")
             self.assertEquals(record.fields[field], u"xyzzy")
 
 
@@ -93,14 +93,14 @@ class ExtendedSchemaTest(unittest.TestCase):
             (FieldName.hasCalendars, u"has-calendars"),
             (FieldName.hasContacts, u"has-contacts"),
         ):
-            record = yield self.makeRecord(field, element, u"<true />")
+            record = yield self.makeRecord(element, u"<true />")
             self.assertIdentical(record.fields[field], True, field)
 
 
     @inlineCallbacks
     def test_autoScheduleMode(self):
         for mode, value in (
-            (AutoScheduleMode.none, u"asm-none"),
+            (AutoScheduleMode.none, u"none"),
             (AutoScheduleMode.accept, u"accept"),
             (AutoScheduleMode.decline, u"decline"),
             (AutoScheduleMode.acceptIfFree, u"accept-if-free"),
@@ -112,7 +112,7 @@ class ExtendedSchemaTest(unittest.TestCase):
         ):
             field = FieldName.autoScheduleMode
             record = yield self.makeRecord(
-                field, u"auto-schedule-mode", u"<{0} />".format(value)
+                u"auto-schedule-mode", u"<{0} />".format(value)
             )
             self.assertIdentical(record.fields[field], mode)
 
