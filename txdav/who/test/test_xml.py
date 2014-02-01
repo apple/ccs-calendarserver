@@ -92,8 +92,6 @@ class ExtendedSchemaTest(unittest.TestCase):
             record = yield self.makeRecord(field, element, u"<true />")
             self.assertIdentical(record.fields[field], True, field)
 
-    test_booleanElements.todo = "WTF?"
-
 
     @inlineCallbacks
     def test_autoScheduleMode(self):

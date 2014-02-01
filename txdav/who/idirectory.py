@@ -102,7 +102,7 @@ class FieldName(Names):
 
     hasContacts = NamedConstant()
     hasContacts.description = u"has contacts"
-    hasCalendars.valueType = bool
+    hasContacts.valueType = bool
 
     autoScheduleMode = NamedConstant()
     autoScheduleMode.description = u"auto-schedule mode"
