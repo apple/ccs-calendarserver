@@ -34,7 +34,12 @@ def makeBetterRequest():
     def gotResults(record):
         print('Done: %s' % (record,))
         reactor.stop()
-    d.addCallback(gotResults)
+
+    def gotError(failure):
+        print("Failure: %s" % (failure,))
+        reactor.stop()
+
+    d.addCallbacks(gotResults, gotError)
     reactor.run()
 
 if __name__ == '__main__':

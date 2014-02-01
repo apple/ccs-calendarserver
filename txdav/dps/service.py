@@ -16,6 +16,10 @@
 
 from twext.who.xml import DirectoryService as XMLDirectoryService
 from twext.who.index import DirectoryService as BaseDirectoryService
+from twext.who.directory import DirectoryRecord as BaseDirectoryRecord
+from twext.who.util import ConstantsContainer
+from twext.who.idirectory import RecordType
+
 from twisted.python.usage import Options, UsageError
 from twisted.plugin import IPlugin
 from twisted.application import service
@@ -39,6 +43,10 @@ log = Logger()
 
 class DirectoryService(BaseDirectoryService):
 
+    recordType = ConstantsContainer(
+        (RecordType.user, RecordType.group)
+    )
+
     def _getConnection(self):
         # path = config.DirectoryProxy.SocketPath
         path = "data/Logs/state/directory-proxy.sock"
@@ -47,7 +55,13 @@ class DirectoryService(BaseDirectoryService):
     def recordWithShortName(self, recordType, shortName):
 
         def deserialize(result):
-            return pickle.loads(result['record'])
+            rawFields = pickle.loads(result['fields'])
+            fields = {}
+            for fieldName, value in rawFields.iteritems():
+                field = self.fieldName.lookupByName(fieldName)
+                fields[field] = value
+            fields[self.fieldName.recordType] = recordType
+            return DirectoryRecord(self, fields)
 
         def call(ampProto):
             return ampProto.callRemote(
@@ -58,6 +72,10 @@ class DirectoryService(BaseDirectoryService):
 
         return self._getConnection().addCallback(call).addCallback(deserialize)
 
+
+
+class DirectoryRecord(BaseDirectoryRecord):
+    pass
 
 
 class DirectoryProxyAMPFactory(Factory):

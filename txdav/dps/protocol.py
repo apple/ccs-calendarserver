@@ -30,9 +30,8 @@ class RecordWithShortNameCommand(amp.Command):
         ('shortName', amp.String()),
     ]
     response = [
-        ('record', amp.String()),
+        ('fields', amp.String()),
     ]
-
 
 
 class DirectoryProxyAMPProtocol(amp.AMP):
@@ -49,44 +48,22 @@ class DirectoryProxyAMPProtocol(amp.AMP):
     @RecordWithShortNameCommand.responder
     @inlineCallbacks
     def recordWithShortName(self, recordType, shortName):
+        recordType = recordType.decode("utf-8")
+        shortName = shortName.decode("utf-8")
         log.debug("RecordWithShortName: {r} {n}", r=recordType, n=shortName)
         record = (yield self._directory.recordWithShortName(
             RecordType.lookupByName(recordType), shortName)
         )
-        record.service = None
+        fields = {}
+        for field, value in record.fields.iteritems():
+            # print("%s: %s" % (field.name, value))
+            valueType = self._directory.fieldName.valueType(field)
+            # TODO: handle other value types like NamedConstants
+            if valueType is unicode:
+                fields[field.name] = value
+
         response = {
-            "record": pickle.dumps(record),
+            "fields": pickle.dumps(fields),
         }
         log.debug("Responding with: {response}", response=response)
         returnValue(response)
-
-
-#
-# A test AMP client
-#
-
-def makeRequest():
-    from twisted.internet import reactor
-    from twisted.internet.protocol import ClientCreator
-
-    creator = ClientCreator(reactor, amp.AMP)
-    d = creator.connectUNIX("data/Logs/state/directory-proxy.sock")
-
-    def connected(ampProto):
-        import sys
-        shortName = sys.argv[1]
-        return ampProto.callRemote(
-            RecordWithShortNameCommand,
-            shortName=shortName,
-            recordType=RecordType.user.description.encode("utf-8"))
-    d.addCallback(connected)
-
-    def gotResults(result):
-        print('Done: %s' % (result,))
-        reactor.stop()
-    d.addCallback(gotResults)
-    reactor.run()
-
-
-if __name__ == '__main__':
-    makeRequest()
