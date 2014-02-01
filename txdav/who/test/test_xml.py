@@ -40,7 +40,9 @@ class ExtendedSchemaTest(unittest.TestCase):
     Tests for calendar and contacts schema extensions.
     """
 
-    def makeRecord(self, elementName, value):
+    def makeRecord(
+        self, typeValue=u"user", elementName=u"password", elementValue=u"123"
+    ):
         uid = u"id"
 
         xmlData = dedent(
@@ -48,7 +50,7 @@ class ExtendedSchemaTest(unittest.TestCase):
             <?xml version="1.0" encoding="utf-8"?>
 
             <directory realm="Test Realm">
-              <record type="user">
+              <record type="{type}">
                 <uid>{uid}</uid>
                 <short-name>{uid}</short-name>
                 <{element}>{value}</{element}>
@@ -56,9 +58,10 @@ class ExtendedSchemaTest(unittest.TestCase):
             </directory>
             """[1:]
             .format(
+                type=typeValue.encode("utf-8"),
                 uid=uid.encode("utf-8"),
                 element=elementName.encode("utf-8"),
-                value=value.encode("utf-8"),
+                value=elementValue.encode("utf-8"),
             )
         )
 
@@ -82,7 +85,9 @@ class ExtendedSchemaTest(unittest.TestCase):
             (FieldName.serviceNodeUID, u"service-node"),
             (FieldName.autoAcceptGroup, u"auto-accept-group"),
         ):
-            record = yield self.makeRecord(element, u"xyzzy")
+            record = yield self.makeRecord(
+                elementName=element, elementValue=u"xyzzy"
+            )
             self.assertEquals(record.fields[field], u"xyzzy")
 
 
@@ -93,7 +98,9 @@ class ExtendedSchemaTest(unittest.TestCase):
             (FieldName.hasCalendars, u"has-calendars"),
             (FieldName.hasContacts, u"has-contacts"),
         ):
-            record = yield self.makeRecord(element, u"<true />")
+            record = yield self.makeRecord(
+                elementName=element, elementValue=u"<true />"
+            )
             self.assertIdentical(record.fields[field], True, field)
 
 
@@ -112,12 +119,18 @@ class ExtendedSchemaTest(unittest.TestCase):
         ):
             field = FieldName.autoScheduleMode
             record = yield self.makeRecord(
-                u"auto-schedule-mode", u"<{0} />".format(value)
+                elementName=u"auto-schedule-mode",
+                elementValue=u"<{0} />".format(value),
             )
             self.assertIdentical(record.fields[field], mode)
 
 
+    @inlineCallbacks
     def test_recordTypes(self):
-        raise NotImplementedError(RecordType)
-
-    test_recordTypes.todo = "unimplemented"
+        for recordType, value in (
+            (RecordType.location, u"location"),
+            (RecordType.resource, u"resource"),
+            (RecordType.address, u"address"),
+        ):
+            record = yield self.makeRecord(typeValue=value)
+            self.assertIdentical(record.recordType, recordType)
