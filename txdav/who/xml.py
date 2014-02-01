@@ -20,6 +20,21 @@ from __future__ import absolute_import
 
 """
 Calendar and contacts directory extentions to L{twext.who.xml}.
+
+Example:
+
+    <directory realm="Test Realm">
+      <record type="location">
+        <uid>__wsanchez_office__</uid>
+        <short-name>Wilfredo Sanchez' Office</short-name>
+        <service-node>Node B</service-node> <!-- unicode -->
+        <auto-accept-group>__wsanchez_staff__</auto-accept-group> <!-- UID of group -->
+        <login-allowed><true /></login-allowed>
+        <has-calendars><true /></has-calendars>
+        <has-contacts><true /></has-contacts>
+        <auto-schedule-mode><accept-if-free-decline-if-busy /></auto-schedule-mode>
+      </record>
+    </directory>
 """
 
 __all__ = [
