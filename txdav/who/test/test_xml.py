@@ -62,6 +62,10 @@ class ExtendedSchemaTest(unittest.TestCase):
             )
         )
 
+        # print("-" * 80)
+        # print(xmlData)
+        # print("-" * 80)
+
         service = xmlService(
             self.mktemp(), xmlData=xmlData, serviceClass=DirectoryService
         )
@@ -96,7 +100,7 @@ class ExtendedSchemaTest(unittest.TestCase):
     @inlineCallbacks
     def test_autoScheduleMode(self):
         for mode, value in (
-            (AutoScheduleMode.none, u"none"),
+            (AutoScheduleMode.none, u"asm-none"),
             (AutoScheduleMode.accept, u"accept"),
             (AutoScheduleMode.decline, u"decline"),
             (AutoScheduleMode.acceptIfFree, u"accept-if-free"),
@@ -107,10 +111,10 @@ class ExtendedSchemaTest(unittest.TestCase):
             ),
         ):
             field = FieldName.autoScheduleMode
-            record = yield self.makeRecord(field, u"auto-schedule-mode", value)
+            record = yield self.makeRecord(
+                field, u"auto-schedule-mode", u"<{0} />".format(value)
+            )
             self.assertIdentical(record.fields[field], mode)
-
-    test_autoScheduleMode.todo = "constants unhandled"
 
 
     def test_recordTypes(self):

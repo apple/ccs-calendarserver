@@ -44,7 +44,7 @@ class Element(Values):
     XML calendar and contacts element names.
     """
 
-    # Field names
+    # Provisioning fields
 
     serviceNodeUID = ValueConstant(u"service-node")
     serviceNodeUID.fieldName = FieldName.serviceNodeUID
@@ -58,11 +58,37 @@ class Element(Values):
     hasContacts = ValueConstant(u"has-contacts")
     hasContacts.fieldName = FieldName.hasContacts
 
+    # Auto-schedule fields
+
     autoScheduleMode = ValueConstant(u"auto-schedule-mode")
     autoScheduleMode.fieldName = FieldName.autoScheduleMode
 
     autoAcceptGroup = ValueConstant(u"auto-accept-group")
     autoAcceptGroup.fieldName = FieldName.autoAcceptGroup
+
+    # Auto-schedule modes
+
+    none = ValueConstant(u"none")
+    none.constantValue = AutoScheduleMode.none
+
+    accept = ValueConstant(u"accept")
+    accept.constantValue = AutoScheduleMode.accept
+
+    decline = ValueConstant(u"decline")
+    decline.constantValue = AutoScheduleMode.decline
+
+    acceptIfFree = ValueConstant(u"accept-if-free")
+    acceptIfFree.constantValue = AutoScheduleMode.acceptIfFree
+
+    declineIfBusy = ValueConstant(u"decline-if-busy")
+    declineIfBusy.constantValue = AutoScheduleMode.declineIfBusy
+
+    acceptIfFreeDeclineIfBusy = ValueConstant(
+        u"accept-if-free-decline-if-busy"
+    )
+    acceptIfFreeDeclineIfBusy.constantValue = (
+        AutoScheduleMode.acceptIfFreeDeclineIfBusy
+    )
 
 
 
@@ -86,33 +112,6 @@ class RecordTypeValue(Values):
 
     address = ValueConstant(u"address")
     address.recordType = RecordType.address
-
-
-
-class AutoScheduleValue(Values):
-    """
-    XML element values for auto-schedule modes.
-    """
-
-    none = ValueConstant(u"none")
-    none.mode = AutoScheduleMode.none
-
-    accept = ValueConstant(u"accept")
-    accept.mode = AutoScheduleMode.accept
-
-    decline = ValueConstant(u"decline")
-    decline.mode = AutoScheduleMode.decline
-
-    acceptIfFree = ValueConstant(u"accept-if-free")
-    acceptIfFree.mode = AutoScheduleMode.acceptIfFree
-
-    declineIfBusy = ValueConstant(u"decline-if-busy")
-    declineIfBusy.mode = AutoScheduleMode.declineIfBusy
-
-    acceptIfFreeDeclineIfBusy = ValueConstant(
-        u"accept-if-free-decline-if-busy"
-    )
-    acceptIfFreeDeclineIfBusy.mode = AutoScheduleMode.acceptIfFreeDeclineIfBusy
 
 
 
