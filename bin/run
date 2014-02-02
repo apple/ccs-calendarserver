@@ -239,7 +239,7 @@ run_main () {
   # About to do something for real; let's enumerate (and depending on options,
   # possibly download and/or install) the dependencies.
 
-  export CALENDARSERVER_DEVELOP="true";
+  export _DEVELOP="true";
 
   develop;
 

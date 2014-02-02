@@ -25,7 +25,7 @@ set -u;
 
 wd="$(cd "$(dirname "$0")/.." && pwd -L)";
 
-export CALENDARSERVER_DEVELOP="true";
+export _DEVELOP="true";
 
 . "${wd}/bin/_build.sh";
 

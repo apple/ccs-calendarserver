@@ -23,7 +23,7 @@ if [ -z "${wd:-}" ]; then
   wd="$(cd "$(dirname "$0")/.." && pwd)";
 fi;
 
-export CALENDARSERVER_DEVELOP="true";
+export _DEVELOP="true";
 
 . "${wd}/bin/_build.sh";
 

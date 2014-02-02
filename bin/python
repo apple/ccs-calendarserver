@@ -21,7 +21,7 @@ set -u
 
 wd="$(cd "$(dirname "$0")/.." && pwd)";
 
-export CALENDARSERVER_DEVELOP="true";
+export _DEVELOP="true";
 
 export PYTHONPATH="${wd}:${PYTHONPATH:-}";
 

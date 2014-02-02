@@ -148,7 +148,7 @@ extras_requirements = dict(
 # Requirements for development and testing
 develop_requirements = read_requirements("py_develop.txt")
 
-if environment.get("CALENDARSERVER_DEVELOP", "false") == "true":
+if environment.get("_DEVELOP", "false") == "true":
     install_requirements.extend(develop_requirements)
     install_requirements.extend(chain(*extras_requirements.values()))
 
