@@ -2872,6 +2872,8 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                 request.addResponseFilter(_removeEtag, atEnd=True)
 
             # Handle Prefer header
+            if request.headers.getHeader("accept") is None:
+                request.headers.setHeader("accept", dict(((MimeType.fromString(format), 1.0,),)))
             response = yield self._processPrefer(request, response)
 
             returnValue(response)
@@ -3587,6 +3589,8 @@ class AddressBookObjectResource(_CommonObjectResource):
                 request.addResponseFilter(_removeEtag, atEnd=True)
 
             # Look for Prefer header
+            if request.headers.getHeader("accept") is None:
+                request.headers.setHeader("accept", dict(((MimeType.fromString(format), 1.0,),)))
             response = yield self._processPrefer(request, response)
 
             returnValue(response)
