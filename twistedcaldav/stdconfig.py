@@ -739,8 +739,6 @@ DEFAULT_CONFIG = {
             "TrackUnscheduledResourceData"        : True, # Track who the last modifier of an unscheduled resource event is
             "LimitFreeBusyAttendees"              : 30, # Maximum number of attendees to request freebusy for
             "AttendeeRefreshBatch"                : 5, # Number of attendees to do batched refreshes: 0 - no batching
-            "AttendeeRefreshBatchDelaySeconds"    : 5, # Time after an iTIP REPLY for first batched attendee refresh
-            "AttendeeRefreshBatchIntervalSeconds" : 5, # Time between attendee batch refreshes
             "AttendeeRefreshCountLimit"           : 50, # Number of attendees above which attendee refreshes are suppressed: 0 - no limit
             "UIDLockTimeoutSeconds"               : 60, # Time for implicit UID lock timeout
             "UIDLockExpirySeconds"                : 300, # Expiration time for UID lock,
@@ -762,6 +760,15 @@ DEFAULT_CONFIG = {
                                                                    # "decline-if-busy" - decline if busy, do nothing if free
                                                                    # "automatic"       - accept if free, decline if busy
                 "FutureFreeBusyDays"              : 3 * 365,       # How far into the future to check for booking conflicts
+            },
+
+            "WorkQueues" : {
+                "Enabled"                             : True,       # Work queues for scheduling enabled
+                "RequestDelaySeconds"                 : 5,          # Number of seconds delay for a queued scheduling request/cancel
+                "ReplyDelaySeconds"                   : 1,          # Number of seconds delay for a queued scheduling reply
+                "AutoReplyDelaySeconds"               : 5,          # Time delay for sending an auto reply iTIP message
+                "AttendeeRefreshBatchDelaySeconds"    : 5,          # Time after an iTIP REPLY for first batched attendee refresh
+                "AttendeeRefreshBatchIntervalSeconds" : 5,          # Time between attendee batch refreshes
             },
 
             "Splitting": {

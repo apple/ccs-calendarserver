@@ -33,6 +33,8 @@ from txdav.caldav.datastore.scheduling.cuaddress import InvalidCalendarUser, \
 from txdav.caldav.datastore.scheduling.icaldiff import iCalDiff
 from txdav.caldav.datastore.scheduling.itip import iTipGenerator, iTIPRequestStatus
 from txdav.caldav.datastore.scheduling.utils import getCalendarObjectForRecord
+from txdav.caldav.datastore.scheduling.work import ScheduleReplyWork, \
+    ScheduleReplyCancelWork, ScheduleOrganizerWork
 
 import collections
 
@@ -41,6 +43,12 @@ __all__ = [
 ]
 
 log = Logger()
+
+
+class ImplicitSchedulingWorkError(Exception):
+    pass
+
+
 
 # TODO:
 #
@@ -387,14 +395,81 @@ class ImplicitScheduler(object):
 
 
     @inlineCallbacks
-    def sendAttendeeReply(self, txn, resource, calendar, attendee):
+    def queuedOrganizerProcessing(self, txn, action, home, resource, uid, calendar_old, calendar_new, smart_merge):
+        """
+        Process an organizer scheduling work queue item. The basic goal here is to setup the ImplicitScheduler as if
+        this operation were the equivalent of the PUT that enqueued the work, and then do the actual work.
+        """
+
+        self.txn = txn
+        self.action = action
+        self.state = "organizer"
+        self.calendar_home = home
+        self.resource = resource
+        self.do_smart_merge = smart_merge
+        self.queuedResponses = []
+
+        cal_uid = calendar_old.resourceUID() if calendar_old is not None else (calendar_new.resourceUID() if calendar_new is not None else "unknown")
+
+        # Handle different action scenarios
+        if action == "create":
+            # resource is None, calendar_old is None
+            # Find the newly created resource
+            resources = (yield self.calendar_home.objectResourcesWithUID(uid, ignore_children=["inbox"], allowShared=False))
+            if len(resources) != 1:
+                # Ughh - what has happened? It is possible the resource was created then deleted before we could start work processing,
+                # so simply ignore this
+                log.debug("ImplicitScheduler - queuedOrganizerProcessing 'create' cannot find organizer resource for UID: {uid}", uid=cal_uid)
+                returnValue(None)
+            self.resource = resources[0]
+            self.calendar = calendar_new
+
+        elif action in ("modify", "modify-cancelled"):
+            # Check that the resource still exists - it may have been deleted after this work item was queued, in which
+            # case we have to ignore this (on the assumption that the "remove" action will have queued some work that will
+            # execute soon).
+            if self.resource is None:
+                log.debug("ImplicitScheduler - queuedOrganizerProcessing 'modify' cannot find organizer resource for UID: {uid}", uid=cal_uid)
+                returnValue(None)
+
+            # The new calendar_old data is what is currently stored - other modifications may have causes coalescing.
+            # Old calendar_old data is what was stored int he work item
+            self.calendar = calendar_new
+            self.oldcalendar = calendar_old
+
+        elif action == "remove":
+            # A remove can happen when the underlying resource is deleted, or when all scheduling properties
+            # (organizer and attendees) are removed from its content. So sometimes the resource will not exist, other
+            # times it might. Thus we cannot make any assumptions about resource existence.
+
+            # The "new" calendar_old data is in fact the calendar_old data at the time of the remove - which is the data stored
+            # in the work item.
+            self.calendar = calendar_old
+
+        yield self.extractCalendarData()
+        self.organizerPrincipal = self.calendar_home.directoryService().recordWithCalendarUserAddress(self.organizer)
+        self.organizerAddress = (yield addressmapping.mapper.getCalendarUser(self.organizer, self.organizerPrincipal))
+
+        # Originator is the organizer in this case
+        self.originatorPrincipal = self.organizerPrincipal
+        self.originator = self.organizer
+
+        self.except_attendees = ()
+        self.only_refresh_attendees = None
+        self.split_details = None
+
+        yield self.doImplicitOrganizer(queued=True)
+
+
+    @inlineCallbacks
+    def sendAttendeeReply(self, txn, resource):
 
         self.txn = txn
         self.resource = resource
 
         self.calendar_home = self.resource.parentCollection().ownerHome()
 
-        self.calendar = calendar
+        self.calendar = (yield self.resource.componentForUser())
         self.action = "modify"
         self.state = "attendee"
 
@@ -404,8 +479,8 @@ class ImplicitScheduler(object):
         # Get some useful information from the calendar
         yield self.extractCalendarData()
 
-        self.originator = self.attendee = attendee.principal.canonicalCalendarUserAddress()
-        self.attendeePrincipal = attendee.principal
+        self.attendeePrincipal = self.calendar_home.directoryService().recordWithUID(self.calendar_home.uid())
+        self.originator = self.attendee = self.attendeePrincipal.canonicalCalendarUserAddress()
 
         result = (yield self.scheduleWithOrganizer())
 
@@ -517,9 +592,10 @@ class ImplicitScheduler(object):
 
 
     @inlineCallbacks
-    def doImplicitOrganizer(self):
+    def doImplicitOrganizer(self, queued=False):
 
-        self.oldcalendar = None
+        if not queued or not config.Scheduling.Options.WorkQueues.Enabled:
+            self.oldcalendar = None
         self.changed_rids = None
         self.cancelledAttendees = ()
         self.reinvites = None
@@ -540,16 +616,17 @@ class ImplicitScheduler(object):
             self.needs_sequence_change = True
 
         # Check for a new resource or an update
-        elif self.action == "modify":
+        elif self.action in ("modify", "modify-cancelled"):
 
             # Read in existing data
-            self.oldcalendar = (yield self.resource.componentForUser())
+            if not queued or not config.Scheduling.Options.WorkQueues.Enabled:
+                self.oldcalendar = (yield self.resource.componentForUser())
             self.oldAttendeesByInstance = self.oldcalendar.getAttendeesByInstance(True, onlyScheduleAgentServer=True)
             self.oldInstances = set(self.oldcalendar.getComponentInstances())
             self.coerceAttendeesPartstatOnModify()
 
             # Don't allow any SEQUENCE to decrease
-            if self.oldcalendar:
+            if self.oldcalendar and (not queued or not config.Scheduling.Options.WorkQueues.Enabled):
                 self.calendar.sequenceInSync(self.oldcalendar)
 
             # Significant change
@@ -613,10 +690,15 @@ class ImplicitScheduler(object):
             if attendee.parameterValue("PARTSTAT", "NEEDS-ACTION").upper() == "NEEDS-ACTION":
                 attendee.setParameter("RSVP", "TRUE")
 
-        if self.needs_sequence_change:
-            self.calendar.bumpiTIPInfo(oldcalendar=self.oldcalendar, doSequence=True)
+        # If processing a queue item, actually execute the scheduling operations, else queue it.
+        # Note a split is always queued, so we do not need to re-queue
+        if queued or not config.Scheduling.Options.WorkQueues.Enabled or self.split_details is not None:
+            if self.needs_sequence_change:
+                self.calendar.bumpiTIPInfo(oldcalendar=self.oldcalendar, doSequence=True)
 
-        yield self.scheduleWithAttendees()
+            yield self.scheduleWithAttendees()
+        else:
+            yield self.queuedScheduleWithAttendees()
 
         # Always clear SCHEDULE-FORCE-SEND from all attendees after scheduling
         for attendee in self.calendar.getAllAttendeeProperties():
@@ -942,6 +1024,141 @@ class ImplicitScheduler(object):
 
 
     @inlineCallbacks
+    def queuedScheduleWithAttendees(self):
+
+        # First make sure we are allowed to schedule
+        self.testSchedulingAllowed()
+
+        yield ScheduleOrganizerWork.schedule(
+            self.txn,
+            self.oldcalendar.resourceUID() if self.oldcalendar else self.calendar.resourceUID(),
+            self.action,
+            self.calendar_home,
+            self.resource,
+            self.oldcalendar,
+            self.calendar,
+            self.organizerPrincipal.canonicalCalendarUserAddress(),
+            len(self.calendar.getAllUniqueAttendees()) - 1,
+            self.do_smart_merge,
+        )
+
+        # We bump the sequence AFTER storing the work item data to make sure that the sequence
+        # change does not cause unchanged components to be treated as changed when the work
+        # item executes.
+        if self.needs_sequence_change:
+            self.calendar.bumpiTIPInfo(oldcalendar=self.oldcalendar, doSequence=True)
+
+        # First process cancelled attendees
+        total = (yield self.processQueuedCancels())
+
+        # Process regular requests next
+        if self.action in ("create", "modify",):
+            total += (yield self.processQueuedRequests())
+
+        self.logItems["itip.requests"] = total
+
+
+    @inlineCallbacks
+    def processQueuedCancels(self):
+        """
+        Set each ATTENDEE who would be scheduled to status to 1.2.
+        """
+
+        # Do one per attendee
+        aggregated = {}
+        for attendee, rid in self.cancelledAttendees:
+            aggregated.setdefault(attendee, []).append(rid)
+
+        count = 0
+        for attendee, rids in aggregated.iteritems():
+
+            # Don't send message back to the ORGANIZER
+            if attendee in self.organizerPrincipal.calendarUserAddresses:
+                continue
+
+            # Handle split by not scheduling local attendees
+            if self.split_details is not None:
+                attendeePrincipal = self.calendar_home.directoryService().recordWithCalendarUserAddress(attendee)
+                attendeeAddress = (yield addressmapping.mapper.getCalendarUser(attendee, attendeePrincipal))
+                if type(attendeeAddress) is LocalCalendarUser:
+                    continue
+
+            # Test whether an iTIP CANCEL message for this attendee would be generated
+            if None in rids:
+                # One big CANCEL will do
+                itipmsg = iTipGenerator.generateCancel(self.oldcalendar, (attendee,), None, self.action == "remove", test_only=True)
+            else:
+                # Multiple CANCELs
+                itipmsg = iTipGenerator.generateCancel(self.oldcalendar, (attendee,), rids, test_only=True)
+
+            # Send scheduling message
+            if itipmsg:
+
+                # Always make it look like scheduling succeeded when queuing
+                self.calendar.setParameterToValueForPropertyWithValue(
+                    "SCHEDULE-STATUS",
+                    iTIPRequestStatus.MESSAGE_DELIVERED_CODE,
+                    "ATTENDEE",
+                    attendee,
+                )
+
+                count += 1
+
+        returnValue(count)
+
+
+    @inlineCallbacks
+    def processQueuedRequests(self):
+        """
+        Set each ATTENDEE who would be scheduled to status to 1.2.
+        """
+
+        # Do one per attendee
+        count = 0
+        for attendee in self.attendees:
+
+            # Don't send message back to the ORGANIZER
+            if attendee in self.organizerPrincipal.calendarUserAddresses:
+                continue
+
+            # Don't send message to specified attendees
+            if attendee in self.except_attendees:
+                continue
+
+            # Only send to specified attendees
+            if self.only_refresh_attendees is not None and attendee not in self.only_refresh_attendees:
+                continue
+
+            # If SCHEDULE-FORCE-SEND only change, only send message to those Attendees
+            if self.reinvites and attendee not in self.reinvites:
+                continue
+
+            # Handle split by not scheduling local attendees
+            if self.split_details is not None:
+                attendeePrincipal = self.calendar_home.directoryService().recordWithCalendarUserAddress(attendee)
+                attendeeAddress = (yield addressmapping.mapper.getCalendarUser(attendee, attendeePrincipal))
+                if type(attendeeAddress) is LocalCalendarUser:
+                    continue
+
+            itipmsg = iTipGenerator.generateAttendeeRequest(self.calendar, (attendee,), self.changed_rids, test_only=True)
+
+            # Send scheduling message
+            if itipmsg is not None:
+
+                # Always make it look like scheduling succeeded when queuing
+                self.calendar.setParameterToValueForPropertyWithValue(
+                    "SCHEDULE-STATUS",
+                    iTIPRequestStatus.MESSAGE_DELIVERED_CODE,
+                    "ATTENDEE",
+                    attendee,
+                )
+
+                count += 1
+
+        returnValue(count)
+
+
+    @inlineCallbacks
     def scheduleWithAttendees(self):
 
         # First make sure we are allowed to schedule
@@ -1074,20 +1291,24 @@ class ImplicitScheduler(object):
 
     def handleSchedulingResponse(self, response, is_organizer):
 
-        # Map each recipient in the response to a status code
-        responses = {}
-        propname = self.calendar.mainComponent().recipientPropertyName() if is_organizer else "ORGANIZER"
-        for item in response.responses:
-            recipient = str(item.recipient.children[0])
-            status = str(item.reqstatus)
-            responses[recipient] = status
+        # For a queued operation we stash the response away for the work item to deal with
+        if hasattr(self, "queuedResponses"):
+            self.queuedResponses.append(response)
+        else:
+            # Map each recipient in the response to a status code
+            responses = {}
+            propname = self.calendar.mainComponent().recipientPropertyName() if is_organizer else "ORGANIZER"
+            for item in response.responses:
+                recipient = str(item.recipient.children[0])
+                status = str(item.reqstatus)
+                responses[recipient] = status
 
-            # Now apply to each ATTENDEE/ORGANIZER in the original data
-            self.calendar.setParameterToValueForPropertyWithValue(
-                "SCHEDULE-STATUS",
-                status.split(";")[0],
-                propname,
-                recipient)
+                # Now apply to each ATTENDEE/ORGANIZER in the original data
+                self.calendar.setParameterToValueForPropertyWithValue(
+                    "SCHEDULE-STATUS",
+                    status.split(";")[0],
+                    propname,
+                    recipient)
 
 
     @inlineCallbacks
@@ -1337,10 +1558,22 @@ class ImplicitScheduler(object):
         if self.logItems is not None:
             self.logItems["itip.reply"] = "reply"
 
-        itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee, changedRids=changedRids)
+        if config.Scheduling.Options.WorkQueues.Enabled:
+            # Always make it look like scheduling succeeded when queuing
+            self.calendar.setParameterToValueForPropertyWithValue(
+                "SCHEDULE-STATUS",
+                iTIPRequestStatus.MESSAGE_DELIVERED_CODE,
+                "ORGANIZER",
+                self.organizer,
+            )
 
-        # Send scheduling message
-        return self.sendToOrganizer("REPLY", itipmsg)
+            return ScheduleReplyWork.reply(self.txn, self.calendar_home, self.resource, changedRids, self.attendee)
+
+        else:
+            itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee, changedRids=changedRids)
+
+            # Send scheduling message
+            return self.sendToOrganizer("REPLY", itipmsg)
 
 
     def scheduleCancelWithOrganizer(self):
@@ -1351,12 +1584,17 @@ class ImplicitScheduler(object):
         if self.logItems is not None:
             self.logItems["itip.reply"] = "cancel"
 
-        itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee, force_decline=True)
+        if config.Scheduling.Options.WorkQueues.Enabled:
+            return ScheduleReplyCancelWork.replyCancel(self.txn, self.calendar_home, self.calendar, self.attendee)
 
-        # Send scheduling message
-        return self.sendToOrganizer("CANCEL", itipmsg)
+        else:
+            itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee, force_decline=True)
+
+            # Send scheduling message
+            return self.sendToOrganizer("CANCEL", itipmsg)
 
 
+    @inlineCallbacks
     def sendToOrganizer(self, action, itipmsg):
 
         # Send scheduling message
@@ -1365,10 +1603,6 @@ class ImplicitScheduler(object):
         scheduler = self.makeScheduler()
 
         # Do the PUT processing
-        def _gotResponse(response):
-            self.handleSchedulingResponse(response, False)
-
         log.info("Implicit {action} - attendee: '{attendee}' to organizer: '{organizer}', UID: '{uid}'", action=action, attendee=self.attendee, organizer=self.organizer, uid=self.uid)
-        d = scheduler.doSchedulingViaPUT(self.originator, (self.organizer,), itipmsg, internal_request=True)
-        d.addCallback(_gotResponse)
-        return d
+        response = (yield scheduler.doSchedulingViaPUT(self.originator, (self.organizer,), itipmsg, internal_request=True))
+        self.handleSchedulingResponse(response, False)

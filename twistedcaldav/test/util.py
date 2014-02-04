@@ -231,6 +231,7 @@ class StoreTestCase(CommonCommonTests, txweb2.dav.test.util.TestCase):
         os.mkdir(self.serverRoot)
 
         config.reset()
+        self.configInit()
 
         config.ServerRoot = os.path.abspath(self.serverRoot)
         config.ConfigRoot = "config"

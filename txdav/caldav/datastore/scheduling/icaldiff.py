@@ -774,6 +774,75 @@ class iCalDiff(object):
         return rids
 
 
+    def attendeeNeedsAction(self, diffs):
+        """
+        Given a set of results from L{whatIsDifferent}, determine which recurrence-id's
+        have changed in such a way that we need to force the attendee to NEEDS-ACTION
+        state. We need this because with async processing of iTIP messages, it is possible
+        that the incoming iTIP message does not gave the most recent partstat change an
+        attendee made, but we need to preserve the attendee partstat whenever possible.
+
+        @param diffs: mapping of rid to property changes
+        @type diffs: C{dict}
+        """
+
+        date_changed_rids = set()
+        recurrence_reschedule = False
+
+        for rid, props in diffs.iteritems():
+            if any([testprop in props for testprop in (
+                "DTSTART",
+                "DTEND",
+                "DURATION",
+                "DUE",
+                "RECURRENCE-ID",
+            )]):
+                date_changed_rids.add(rid)
+
+            # Check to see whether a change to R-ID's happened
+            if rid is None:
+
+                if "DTSTART" in props and self.newcalendar.masterComponent().hasProperty("RRULE"):
+                    # DTSTART change with RRULE present is always a reschedule
+                    recurrence_reschedule = True
+
+                elif "RRULE" in props:
+
+                    # Need to see if the RRULE change is a simple truncation or expansion - i.e. a change to
+                    # COUNT or UNTIL only. If so we don't need to treat this as a complete re-schedule.
+
+                    # Start off assuming they are different
+                    recurrence_reschedule = True
+
+                    # Get each RRULE (can be only one in the master)
+                    oldrrule = tuple(self.oldcalendar.masterComponent().properties("RRULE"))
+                    oldrrule = oldrrule[0].value() if len(oldrrule) else None
+                    newrrule = tuple(self.newcalendar.masterComponent().properties("RRULE"))
+                    newrrule = newrrule[0].value() if len(newrrule) else None
+
+                    if newrrule is not None and oldrrule is not None:
+
+                        # Normalize the rrules by removing COUNT/UNTIL and then compare
+                        oldrrule = oldrrule.duplicate()
+                        newrrule = newrrule.duplicate()
+
+                        oldrrule.setUseUntil(False)
+                        oldrrule.setUntil(None)
+                        oldrrule.setUseCount(False)
+                        oldrrule.setCount(0)
+
+                        newrrule.setUseUntil(False)
+                        newrrule.setUntil(None)
+                        newrrule.setUseCount(False)
+                        newrrule.setCount(0)
+
+                        # If they are equal we have a simple change - no overall reschedule
+                        if newrrule == oldrrule:
+                            recurrence_reschedule = False
+
+        return (date_changed_rids, recurrence_reschedule,)
+
+
     def _componentDuplicateAndNormalize(self, comp):
         comp = comp.duplicate()
         comp.normalizePropertyValueLists("EXDATE")

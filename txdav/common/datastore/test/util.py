@@ -38,7 +38,7 @@ from random import Random
 
 from twext.python.log import Logger
 from twext.python.filepath import CachingFilePath
-from twistedcaldav.ical import Component as VComponent
+from twistedcaldav.ical import Component as VComponent, Component
 from twext.enterprise.adbapi2 import ConnectionPool
 from twext.enterprise.ienterprise import AlreadyFinishedError
 from txweb2.dav.resource import TwistedGETContentMD5
@@ -529,6 +529,34 @@ def updateToCurrentYear(data):
     return data % {"now": nowYear}
 
 
+relativeDateSubstitutions = {}
+
+
+def componentUpdate(data):
+    """
+    Update the supplied iCalendar data so that all dates are updated to the current year.
+    """
+
+    if len(relativeDateSubstitutions) == 0:
+        now = DateTime.getToday()
+
+        relativeDateSubstitutions["now"] = now
+
+        for i in range(30):
+            attrname = "now_back%s" % (i + 1,)
+            dt = now.duplicate()
+            dt.offsetDay(-(i + 1))
+            relativeDateSubstitutions[attrname] = dt
+
+        for i in range(30):
+            attrname = "now_fwd%s" % (i + 1,)
+            dt = now.duplicate()
+            dt.offsetDay(i + 1)
+            relativeDateSubstitutions[attrname] = dt
+
+    return Component.fromString(data.format(**relativeDateSubstitutions))
+
+
 
 @inlineCallbacks
 def resetCalendarMD5s(md5s, store):
@@ -713,6 +741,19 @@ class CommonCommonTests(object):
     def setUp(self):
         self.counter = 0
         self.notifierFactory = StubNotifierFactory()
+        self.configInit()
+
+
+    def configInit(self):
+        """
+        Hard code some config options
+        """
+
+        # Work queues for implicit scheduling slow down tests a lot and require them all to add
+        # "waits" for work to complete. Rewriting all the current tests to do that is not practical
+        # right now, so we will turn this off by default. Instead we will have a set of tests dedicated
+        # to work queue-based scheduling which will patch this option to True.
+        config.Scheduling.Options.WorkQueues.Enabled = False
 
 
     def storeUnderTest(self):

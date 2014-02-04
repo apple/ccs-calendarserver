@@ -3652,7 +3652,12 @@ def normalize_iCalStr(icalstr):
 
     icalstr = str(icalstr).replace("\r\n ", "")
     icalstr = icalstr.replace("\n ", "")
-    icalstr = "\r\n".join([line for line in icalstr.splitlines() if not line.startswith("DTSTAMP")])
+    lines = [line for line in icalstr.splitlines() if not line.startswith("DTSTAMP")]
+    for ctr, line in enumerate(lines[:]):
+        pos = line.find(";X-CALENDARSERVER-DTSTAMP=")
+        if pos != -1:
+            lines[ctr] = line[:pos] + line[pos + len(";X-CALENDARSERVER-DTSTAMP=") + 16:]
+    icalstr = "\r\n".join(lines)
     return icalstr + "\r\n"
 
 

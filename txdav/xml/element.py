@@ -104,3 +104,17 @@ def lookupElement(qname):
     Return the element class for the element with the given qname.
     """
     return _elements_by_qname[qname]
+
+# Shhh unused imports
+WebDAVDocument
+dav_namespace
+twisted_dav_namespace
+twisted_private_namespace
+WebDAVElement
+PCDATAElement
+WebDAVOneShotElement
+WebDAVUnknownElement
+WebDAVEmptyElement
+WebDAVTextElement
+WebDAVDateTimeElement
+DateTimeHeaderElement

@@ -257,6 +257,7 @@ class Write (WebDAVEmptyElement):
 LockType.write = LockType(Write())
 
 
+
 @registerElement
 @registerElementClass
 class MultiStatus (WebDAVElement):
@@ -386,7 +387,7 @@ class Status (WebDAVTextElement):
     name = "status"
 
     @classmethod
-    def fromResponseCode(clazz, code):
+    def fromResponseCode(cls, code):
         """
         code must be an integer response code in
         txweb2.responsecode.RESPONSES.keys()
@@ -394,7 +395,7 @@ class Status (WebDAVTextElement):
         if code not in responsecode.RESPONSES:
             raise ValueError("Invalid response code: %r" % (code,))
 
-        return clazz(PCDATAElement("HTTP/1.1 %d %s" % (code, responsecode.RESPONSES[code])))
+        return cls(PCDATAElement("HTTP/1.1 %d %s" % (code, responsecode.RESPONSES[code])))
 
 
     def __init__(self, *children, **attributes):
@@ -468,6 +469,7 @@ class PropertyBehavior (WebDAVElement):
         (dav_namespace, "keepalive"): (0, 1),
     }
 
+
     def __init__(self, *children, **attributes):
         super(PropertyBehavior, self).__init__(*children, **attributes)
 
@@ -494,6 +496,7 @@ class KeepAlive (WebDAVElement):
         (dav_namespace, "href"): (0, None),
         PCDATAElement: (0, 1),
     }
+
 
     def validate(self):
         super(KeepAlive, self).validate()
@@ -582,6 +585,7 @@ class PropertyFind (WebDAVElement):
         (dav_namespace, "propname"): (0, 1),
         (dav_namespace, "prop"): (0, 1),
     }
+
 
     def validate(self):
         super(PropertyFind, self).validate()

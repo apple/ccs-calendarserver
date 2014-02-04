@@ -33,3 +33,6 @@ __all__ = [
 ]
 
 from txdav.xml.parser_etree import WebDAVDocument
+
+# Shh unused import
+WebDAVDocument

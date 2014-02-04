@@ -56,6 +56,7 @@ class Read (WebDAVEmptyElement):
 # rfc2518.py.
 
 
+
 @registerElement
 @registerElementClass
 class WriteProperties (WebDAVEmptyElement):
@@ -260,6 +261,7 @@ class GroupMembership (WebDAVElement):
 # rfc2518.py.
 
 
+
 @registerElement
 @registerElementClass
 class Group (WebDAVElement):
@@ -445,6 +447,7 @@ class CurrentUserPrivilegeSet (WebDAVElement):
 # For DAV:privilege element (RFC 3744, section 5.4) see Privilege class above.
 
 
+
 @registerElement
 @registerElementClass
 class ACL (WebDAVElement):
@@ -553,6 +556,7 @@ class ACE (WebDAVElement):
 # For DAV:all element (RFC 3744, section 5.5.1) see All class above.
 
 
+
 @registerElement
 @registerElementClass
 class Authenticated (WebDAVEmptyElement):
@@ -575,6 +579,7 @@ class Unauthenticated (WebDAVEmptyElement):
 
 # For DAV:property element (RFC 3744, section 5.5.1) see Property
 # class above.
+
 
 
 @registerElement
@@ -627,6 +632,7 @@ class Deny (WebDAVElement):
 
 # For DAV:privilege element (RFC 3744, section 5.5.2) see Privilege
 # class above.
+
 
 
 @registerElement
@@ -893,6 +899,7 @@ class PrincipalProperty (WebDAVElement):
 
 
 # For DAV:self element (RFC 3744, section 9.3) see Self class above.
+
 
 
 @registerElement

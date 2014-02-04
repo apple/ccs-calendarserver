@@ -609,6 +609,7 @@ class WebDAVEmptyElement (WebDAVElement):
     allowed_children = {}
     children = ()
 
+
     def __hash__(self):
         """
         Define a hash method, so that an empty element can serve as dictionary

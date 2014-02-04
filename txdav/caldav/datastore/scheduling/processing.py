@@ -22,27 +22,24 @@ from twext.python.log import Logger
 from txweb2.dav.method.report import NumberOfMatchesWithinLimits
 from txweb2.http import HTTPError
 
-from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twistedcaldav import customxml, caldavxml
 from twistedcaldav.config import config
 from twistedcaldav.ical import Property
 from twistedcaldav.instance import InvalidOverriddenInstanceError
-from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
-from twistedcaldav.memcacher import Memcacher
 
 from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
+from txdav.caldav.datastore.scheduling.freebusy import generateFreeBusyInfo
 from txdav.caldav.datastore.scheduling.itip import iTipProcessing, iTIPRequestStatus
 from txdav.caldav.datastore.scheduling.utils import getCalendarObjectForRecord
+from txdav.caldav.datastore.scheduling.work import ScheduleRefreshWork, \
+    ScheduleAutoReplyWork
+from txdav.caldav.icalendarstore import ComponentUpdateState, ComponentRemoveState
 
 import collections
 import hashlib
 import uuid
-from txdav.caldav.icalendarstore import ComponentUpdateState, \
-    ComponentRemoveState
-from twext.enterprise.locking import NamedLock
-from txdav.caldav.datastore.scheduling.freebusy import generateFreeBusyInfo
 
 """
 CalDAV implicit processing.
@@ -80,12 +77,12 @@ class ImplicitProcessor(object):
         Do implicit processing of a scheduling message, and possibly also auto-process it
         if the recipient has auto-accept on.
 
-        @param message:
-        @type message:
-        @param originator:
-        @type originator:
-        @param recipient:
-        @type recipient:
+        @param message: the iTIP message
+        @type message: L{twistedcaldav.ical.Component}
+        @param originator: calendar user sending the message
+        @type originator: C{str}
+        @param recipient: calendar user receiving the message
+        @type recipient: C{str}
 
         @return: a C{tuple} of (C{bool}, C{bool}) indicating whether the message was processed, and if it was whether
             auto-processing has taken place.
@@ -167,6 +164,9 @@ class ImplicitProcessor(object):
 
     @inlineCallbacks
     def doImplicitOrganizer(self):
+        """
+        Process an iTIP message sent to the organizer.
+        """
 
         # Locate the organizer's copy of the event.
         yield self.getRecipientsCopy()
@@ -187,8 +187,12 @@ class ImplicitProcessor(object):
 
     @inlineCallbacks
     def doImplicitOrganizerUpdate(self):
+        """
+        An iTIP REPLY has been sent by an attendee to an organizer and the attendee state needs to be sync'd
+        to the organizer's copy of the event.
+        """
 
-        # Check to see if this is a valid reply
+        # Check to see if this is a valid reply - this will also merge the changes to the organizer's copy
         result, processed = iTipProcessing.processReply(self.message, self.recipient_calendar)
         if result:
 
@@ -250,70 +254,39 @@ class ImplicitProcessor(object):
     @inlineCallbacks
     def queueAttendeeUpdate(self, exclude_attendees):
         """
-        Queue up an update to attendees and use a memcache lock to ensure we don't update too frequently.
+        Queue up a background update to attendees.
 
         @param exclude_attendees: list of attendees who should not be refreshed (e.g., the one that triggered the refresh)
         @type exclude_attendees: C{list}
         """
 
-        # When doing auto-processing of replies, only refresh attendees when the last auto-accept is done.
-        # Note that when we do this we also need to refresh the attendee that is generating the reply because they
-        # are no longer up to date with changes of other auto-accept attendees. See docstr for sendAttendeeAutoReply
-        # below for more details of what is going on here.
-        if getattr(self.txn, "auto_reply_processing_count", 0) > 1:
-            log.debug("ImplicitProcessing - refreshing UID: '%s', Suppressed: %s" % (self.uid, self.txn.auto_reply_processing_count,))
-            self.txn.auto_reply_suppressed = True
-            returnValue(None)
-        if getattr(self.txn, "auto_reply_suppressed", False):
-            log.debug("ImplicitProcessing - refreshing UID: '%s', Suppression lifted" % (self.uid,))
-            exclude_attendees = ()
-
         self.uid = self.recipient_calendar.resourceUID()
 
         # Check for batched refreshes
         if config.Scheduling.Options.AttendeeRefreshBatch:
-
-            # Need to lock whilst manipulating the batch list
-            lock = MemcacheLock(
-                "BatchRefreshUIDLock",
-                self.uid,
-                timeout=config.Scheduling.Options.UIDLockTimeoutSeconds,
-                expire_time=config.Scheduling.Options.UIDLockExpirySeconds,
-            )
-            try:
-                yield lock.acquire()
-            except MemcacheLockTimeoutError:
-                # If we could not lock then just fail the refresh - not sure what else to do
-                returnValue(None)
-
-            try:
-                # Get all attendees to refresh
-                allAttendees = sorted(list(self.recipient_calendar.getAllUniqueAttendees()))
-                allAttendees = filter(lambda x: x not in exclude_attendees, allAttendees)
-
-                if allAttendees:
-                    # See if there is already a pending refresh and merge current attendees into that list,
-                    # otherwise just mark all attendees as pending
-                    cache = Memcacher("BatchRefreshAttendees", pickle=True)
-                    pendingAttendees = yield cache.get(self.uid)
-                    firstTime = False
-                    if pendingAttendees:
-                        for attendee in allAttendees:
-                            if attendee not in pendingAttendees:
-                                pendingAttendees.append(attendee)
-                    else:
-                        firstTime = True
-                        pendingAttendees = allAttendees
-                    yield cache.set(self.uid, pendingAttendees)
-
-                    # Now start the first batch off
-                    if firstTime:
-                        self._enqueueBatchRefresh()
-            finally:
-                yield lock.clean()
-
+            # Batch refresh those attendees that need it.
+            allAttendees = sorted(list(self.recipient_calendar.getAllUniqueAttendees()))
+            allAttendees = filter(lambda x: x not in exclude_attendees, allAttendees)
+            if allAttendees:
+                yield self._enqueueBatchRefresh(allAttendees)
         else:
             yield self._doRefresh(self.organizer_calendar_resource, exclude_attendees)
+
+
+    def _enqueueBatchRefresh(self, attendees):
+        """
+        Create a batch refresh work item. Do this in a separate method to allow for easy
+        unit testing.
+
+        @param attendees: the list of attendees to refresh
+        @type attendees: C{list}
+        """
+        return ScheduleRefreshWork.refreshAttendees(
+            self.txn,
+            self.recipient_calendar_resource,
+            self.recipient_calendar,
+            attendees,
+        )
 
 
     @inlineCallbacks
@@ -340,107 +313,17 @@ class ImplicitProcessor(object):
 
 
     @inlineCallbacks
-    def _doDelayedRefresh(self, attendeesToProcess):
-        """
-        Do an attendee refresh that has been delayed until after processing of the request that called it. That
-        requires that we create a new transaction to work with.
-
-        @param attendeesToProcess: list of attendees to refresh.
-        @type attendeesToProcess: C{list}
-        """
-
-        # The original transaction is still around but likely committed at this point, so we need a brand new
-        # transaction to do this work.
-        txn = yield self.txn.store().newTransaction("Delayed attendee refresh for UID: %s" % (self.uid,))
-
-        try:
-            # We need to get the UID lock for implicit processing whilst we send the auto-reply
-            # as the Organizer processing will attempt to write out data to other attendees to
-            # refresh them. To prevent a race we need a lock.
-            yield NamedLock.acquire(txn, "ImplicitUIDLock:%s" % (hashlib.md5(self.uid).hexdigest(),))
-
-            organizer_home = (yield txn.calendarHomeWithUID(self.organizer_uid))
-            organizer_resource = (yield organizer_home.objectResourceWithID(self.organizer_calendar_resource_id))
-            if organizer_resource is not None:
-                yield self._doRefresh(organizer_resource, only_attendees=attendeesToProcess)
-            else:
-                log.debug("ImplicitProcessing - skipping refresh of missing UID: '%s'" % (self.uid,))
-        except Exception, e:
-            log.debug("ImplicitProcessing - refresh exception UID: '%s', %s" % (self.uid, str(e)))
-            yield txn.abort()
-        except:
-            log.debug("ImplicitProcessing - refresh bare exception UID: '%s'" % (self.uid,))
-            yield txn.abort()
-        else:
-            yield txn.commit()
-
-
-    def _enqueueBatchRefresh(self):
-        """
-        Mostly here to help unit test by being able to stub this out.
-        """
-        reactor.callLater(config.Scheduling.Options.AttendeeRefreshBatchDelaySeconds, self._doBatchRefresh)
-
-
-    @inlineCallbacks
-    def _doBatchRefresh(self):
-        """
-        Do refresh of attendees in batches until the batch list is empty.
-        """
-
-        # Need to lock whilst manipulating the batch list
-        log.debug("ImplicitProcessing - batch refresh for UID: '%s'" % (self.uid,))
-        lock = MemcacheLock(
-            "BatchRefreshUIDLock",
-            self.uid,
-            timeout=config.Scheduling.Options.UIDLockTimeoutSeconds,
-            expire_time=config.Scheduling.Options.UIDLockExpirySeconds,
-        )
-        try:
-            yield lock.acquire()
-        except MemcacheLockTimeoutError:
-            # If we could not lock then just fail the refresh - not sure what else to do
-            returnValue(None)
-
-        try:
-            # Get the batch list
-            cache = Memcacher("BatchRefreshAttendees", pickle=True)
-            pendingAttendees = yield cache.get(self.uid)
-            if pendingAttendees:
-
-                # Get the next batch of attendees to process and update the cache value or remove it if
-                # no more processing is needed
-                attendeesToProcess = pendingAttendees[:config.Scheduling.Options.AttendeeRefreshBatch]
-                pendingAttendees = pendingAttendees[config.Scheduling.Options.AttendeeRefreshBatch:]
-                if pendingAttendees:
-                    yield cache.set(self.uid, pendingAttendees)
-                else:
-                    yield cache.delete(self.uid)
-
-                # Make sure we release this here to avoid potential deadlock when grabbing the ImplicitUIDLock in the next call
-                yield lock.release()
-
-                # Now do the batch refresh
-                yield self._doDelayedRefresh(attendeesToProcess)
-
-                # Queue the next refresh if needed
-                if pendingAttendees:
-                    self._enqueueBatchRefresh()
-            else:
-                yield cache.delete(self.uid)
-                yield lock.release()
-        finally:
-            yield lock.clean()
-
-
-    @inlineCallbacks
     def doImplicitAttendee(self):
+        """
+        Process an iTIP message sent to an attendee.
+        """
 
         # Locate the attendee's copy of the event if it exists.
         yield self.getRecipientsCopy()
         self.new_resource = self.recipient_calendar is None
 
-        # Handle new items differently than existing ones.
+        # If we get a CANCEL and we don't have a matching resource already stored, simply
+        # ignore the CANCEL.
         if self.new_resource and self.method == "CANCEL":
             result = (True, True, False, None)
         else:
@@ -451,6 +334,10 @@ class ImplicitProcessor(object):
 
     @inlineCallbacks
     def doImplicitAttendeeUpdate(self):
+        """
+        An iTIP message has been sent by to an attendee by the organizer. We need to update the attendee state
+        based on the nature of the iTIP message.
+        """
 
         # Do security check: ORGANZIER in iTIP MUST match existing resource value
         if self.recipient_calendar:
@@ -516,6 +403,10 @@ class ImplicitProcessor(object):
     @inlineCallbacks
     def doImplicitAttendeeRequest(self):
         """
+        An iTIP REQUEST message has been sent to an attendee. If there is no existing resource, we will simply
+        create a new one. If there is an existing resource we need to reconcile the changes between it and the
+        iTIP message.
+
         @return: C{tuple} of (processed, auto-processed, store inbox item, changes)
         """
 
@@ -555,9 +446,8 @@ class ImplicitProcessor(object):
 
             if send_reply:
                 # Track outstanding auto-reply processing
-                self.txn.auto_reply_processing_count = getattr(self.txn, "auto_reply_processing_count", 0) + 1
-                log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - auto-reply queued: %s" % (self.recipient.cuaddr, self.uid, self.txn.auto_reply_processing_count,))
-                reactor.callLater(2.0, self.sendAttendeeAutoReply, *(new_calendar, new_resource, partstat))
+                log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - auto-reply queued" % (self.recipient.cuaddr, self.uid,))
+                ScheduleAutoReplyWork.autoReply(self.txn, new_resource, partstat)
 
             # Build the schedule-changes XML element
             changes = customxml.ScheduleChanges(
@@ -596,9 +486,8 @@ class ImplicitProcessor(object):
 
                 if send_reply:
                     # Track outstanding auto-reply processing
-                    self.txn.auto_reply_processing_count = getattr(self.txn, "auto_reply_processing_count", 0) + 1
-                    log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - auto-reply queued: %s" % (self.recipient.cuaddr, self.uid, self.txn.auto_reply_processing_count,))
-                    reactor.callLater(2.0, self.sendAttendeeAutoReply, *(new_calendar, new_resource, partstat))
+                    log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - auto-reply queued" % (self.recipient.cuaddr, self.uid,))
+                    ScheduleAutoReplyWork.autoReply(self.txn, new_resource, partstat)
 
                 # Build the schedule-changes XML element
                 update_details = []
@@ -638,11 +527,18 @@ class ImplicitProcessor(object):
 
     @inlineCallbacks
     def doImplicitAttendeeCancel(self):
+        """
+        An iTIP CANCEL message has been sent to an attendee. If there is no existing resource, we will simply
+        ignore the message. If there is an existing resource we need to reconcile the changes between it and the
+        iTIP message.
+
+        @return: C{tuple} of (processed, auto-processed, store inbox item, changes)
+        """
 
         # If there is no existing copy, then ignore
         if self.recipient_calendar is None:
             log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring METHOD:CANCEL, UID: '%s' - attendee has no copy" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-            result = (True, True, None)
+            result = (True, True, True, None)
         else:
             # Need to check for auto-respond attendees. These need to suppress the inbox message
             # if the cancel is processed. However, if the principal is a user we always force the
@@ -693,66 +589,6 @@ class ImplicitProcessor(object):
                 result = (True, True, False, None)
 
         returnValue(result)
-
-
-    @inlineCallbacks
-    def sendAttendeeAutoReply(self, calendar, resource, partstat):
-        """
-        Auto-process the calendar option to generate automatic accept/decline status and
-        send a reply if needed.
-
-        There is some tricky behavior here: when multiple auto-accept attendees are present in a
-        calendar object, we want to suppress the processing of other attendee refreshes until all
-        auto-accepts have replied, to avoid a flood of refreshes. We do that by tracking the pending
-        auto-replies via a "auto_reply_processing_count" attribute on the original txn objection (even
-        though that has been committed). We also use a "auto_reply_suppressed" attribute on that txn
-        to indicate when suppression has occurred, to ensure that when the refresh is finally sent, we
-        send it to everyone to make sure all are in sync. In order for the actual refreshes to be
-        suppressed we have to "transfer" those two attributes from the original txn to the new one
-        used to send the reply. Then we transfer "auto_reply_suppressed" back when done, and decrement
-        "auto_reply_processing_count" (all done under a UID lock to prevent race conditions).
-
-        @param calendar: calendar data to examine
-        @type calendar: L{Component}
-
-        @return: L{Component} for the new calendar data to write
-        """
-
-        # The original transaction is still around but likely committed at this point, so we need a brand new
-        # transaction to do this work.
-        txn = yield self.txn.store().newTransaction("Attendee (%s) auto-reply for UID: %s" % (self.recipient.cuaddr, self.uid,))
-
-        aborted = False
-        try:
-            # We need to get the UID lock for implicit processing whilst we send the auto-reply
-            # as the Organizer processing will attempt to write out data to other attendees to
-            # refresh them. To prevent a race we need a lock.
-            yield NamedLock.acquire(txn, "ImplicitUIDLock:%s" % (hashlib.md5(calendar.resourceUID()).hexdigest(),))
-
-            # Must be done after acquiring the lock to avoid a race-condition
-            txn.auto_reply_processing_count = getattr(self.txn, "auto_reply_processing_count", 0)
-            txn.auto_reply_suppressed = getattr(self.txn, "auto_reply_suppressed", False)
-
-            # Send out a reply
-            log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - auto-reply: %s" % (self.recipient.cuaddr, self.uid, partstat))
-            from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
-            scheduler = ImplicitScheduler()
-            yield scheduler.sendAttendeeReply(txn, resource, calendar, self.recipient)
-        except Exception, e:
-            log.debug("ImplicitProcessing - auto-reply exception UID: '%s', %s" % (self.uid, str(e)))
-            aborted = True
-        except:
-            log.debug("ImplicitProcessing - auto-reply bare exception UID: '%s'" % (self.uid,))
-            aborted = True
-
-        # Track outstanding auto-reply processing - must be done before commit/abort which releases the lock
-        self.txn.auto_reply_processing_count = getattr(self.txn, "auto_reply_processing_count", 0) - 1
-        self.txn.auto_reply_suppressed = txn.auto_reply_suppressed
-
-        if aborted:
-            yield txn.abort()
-        else:
-            yield txn.commit()
 
 
     @inlineCallbacks
