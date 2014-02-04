@@ -18,6 +18,7 @@ from twext.who.idirectory import RecordType
 from twisted.protocols import amp
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.python.log import Logger
+
 import cPickle as pickle
 
 log = Logger()
@@ -36,6 +37,7 @@ class RecordWithShortNameCommand(amp.Command):
 
 class DirectoryProxyAMPProtocol(amp.AMP):
     """
+    Server side of directory proxy
     """
 
     def __init__(self, directory):

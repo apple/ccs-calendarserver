@@ -14,11 +14,15 @@
 # limitations under the License.
 ##
 
-from twext.who.xml import DirectoryService as XMLDirectoryService
-from twext.who.index import DirectoryService as BaseDirectoryService
+# Temporary:
+from txdav.who.xml import DirectoryService as XMLDirectoryService
+
+
+from twext.who.directory import DirectoryService as BaseDirectoryService
 from twext.who.directory import DirectoryRecord as BaseDirectoryRecord
 from twext.who.util import ConstantsContainer
-from twext.who.idirectory import RecordType
+import twext.who.idirectory
+import txdav.who.idirectory
 
 from twisted.python.usage import Options, UsageError
 from twisted.plugin import IPlugin
@@ -34,6 +38,7 @@ from twisted.python.filepath import FilePath
 from .protocol import DirectoryProxyAMPProtocol, RecordWithShortNameCommand
 
 from twisted.internet import reactor
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.protocol import ClientCreator
 from twisted.protocols import amp
 import cPickle as pickle
@@ -42,15 +47,28 @@ log = Logger()
 
 
 class DirectoryService(BaseDirectoryService):
+    """
+    Client side of directory proxy
+    """
 
     recordType = ConstantsContainer(
-        (RecordType.user, RecordType.group)
+        (twext.who.idirectory.RecordType,
+         txdav.who.idirectory.RecordType)
     )
 
+
+    @inlineCallbacks
     def _getConnection(self):
         # path = config.DirectoryProxy.SocketPath
         path = "data/Logs/state/directory-proxy.sock"
-        return ClientCreator(reactor, amp.AMP).connectUNIX(path)
+        if getattr(self, "_connection", None) is None:
+            log.debug("Creating connection")
+            connection = (yield ClientCreator(reactor, amp.AMP).connectUNIX(path))
+            self._connection = connection
+        else:
+            log.debug("Already have connection")
+        returnValue(self._connection)
+
 
     def recordWithShortName(self, recordType, shortName):
 
@@ -78,6 +96,8 @@ class DirectoryRecord(BaseDirectoryRecord):
     pass
 
 
+
+
 class DirectoryProxyAMPFactory(Factory):
     """
     """
@@ -89,6 +109,8 @@ class DirectoryProxyAMPFactory(Factory):
 
     def buildProtocol(self, addr):
         return DirectoryProxyAMPProtocol(self._directory)
+
+
 
 
 

@@ -18,29 +18,34 @@ from txdav.dps.service import DirectoryService
 from twext.who.idirectory import RecordType
 from twext.python.log import Logger
 from twisted.internet import reactor
+from twisted.internet.defer import inlineCallbacks
+
 import sys
 
 log = Logger()
 
 
-
-def makeBetterRequest():
-
+@inlineCallbacks
+def makeEvenBetterRequest():
     shortName = sys.argv[1]
 
     ds = DirectoryService(None)
-    d = ds.recordWithShortName(RecordType.user, shortName)
+    record = (yield ds.recordWithShortName(RecordType.user, shortName))
+    print("A: {r}".format(r=record))
+    record = (yield ds.recordWithShortName(RecordType.user, shortName))
+    print("B: {r}".format(r=record))
 
-    def gotResults(record):
-        print('Done: %s' % (record,))
-        reactor.stop()
 
-    def gotError(failure):
-        print("Failure: %s" % (failure,))
-        reactor.stop()
+def succeeded(result):
+    print("yay")
+    reactor.stop()
 
-    d.addCallbacks(gotResults, gotError)
-    reactor.run()
+
+def failed(failure):
+    print("boo: {f}".format(f=failure))
+    reactor.stop()
 
 if __name__ == '__main__':
-    makeBetterRequest()
+    d = makeEvenBetterRequest()
+    d.addCallbacks(succeeded, failed)
+    reactor.run()
