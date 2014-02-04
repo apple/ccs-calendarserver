@@ -369,7 +369,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
             raise HTTPError(JSONResponse(
                 responsecode.NOT_FOUND,
                 {
-                    "error": "missing-tzid",
+                    "error": "tzid-not-found",
                     "description": "Tzid could not be found",
                 }
             ))
@@ -402,7 +402,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
             if len(start) > 1:
                 raise ValueError()
             elif len(start) == 1:
-                start = DateTime.parseText(start[0])
+                start = DateTime.parseText("{}0101".format(int(start[0])))
             else:
                 start = DateTime.getToday()
                 start.setDay(1)
@@ -421,7 +421,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
             if len(end) > 1:
                 raise ValueError()
             elif len(end) == 1:
-                end = DateTime.parseText(end[0])
+                end = DateTime.parseText("{}0101".format(int(end[0])))
             else:
                 end = DateTime.getToday()
                 end.setDay(1)
@@ -444,7 +444,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
             raise HTTPError(JSONResponse(
                 responsecode.NOT_FOUND,
                 {
-                    "error": "missing-tzid",
+                    "error": "tzid-not-found",
                     "description": "Tzid could not be found",
                 }
             ))
