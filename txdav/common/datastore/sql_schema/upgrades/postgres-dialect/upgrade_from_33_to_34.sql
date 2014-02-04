@@ -29,7 +29,8 @@ create table SCHEDULE_REFRESH_WORK (
   NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   ICALENDAR_UID        			varchar(255) not null,
   HOME_RESOURCE_ID              integer      not null references CALENDAR_HOME on delete cascade,
-  RESOURCE_ID                   integer      not null references CALENDAR_OBJECT on delete cascade
+  RESOURCE_ID                   integer      not null references CALENDAR_OBJECT on delete cascade,
+  ATTENDEE_COUNT				integer
 );
 
 create index SCHEDULE_REFRESH_WORK_HOME_RESOURCE_ID on
@@ -74,7 +75,9 @@ create table SCHEDULE_ORGANIZER_WORK (
   SCHEDULE_ACTION				integer		 not null, -- Enum SCHEDULE_ACTION
   HOME_RESOURCE_ID              integer      not null references CALENDAR_HOME on delete cascade,
   RESOURCE_ID                   integer,	 -- this references a possibly non-existent CALENDR_OBJECT
-  ICALENDAR_TEXT				text,
+  ICALENDAR_TEXT_OLD			text,
+  ICALENDAR_TEXT_NEW			text,
+  ATTENDEE_COUNT				integer,
   SMART_MERGE					boolean
 );
 
@@ -92,7 +95,8 @@ create table SCHEDULE_ACTION (
 
 insert into SCHEDULE_ACTION values (0, 'create');
 insert into SCHEDULE_ACTION values (1, 'modify');
-insert into SCHEDULE_ACTION values (2, 'remove');
+insert into SCHEDULE_ACTION values (2, 'modify-cancelled');
+insert into SCHEDULE_ACTION values (3, 'remove');
 
 -------------------------
 -- Schedule Reply Work --

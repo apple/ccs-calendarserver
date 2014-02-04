@@ -796,7 +796,7 @@
 		<key>WorkQueues</key>
 		<dict>
 			<key>Enabled</key>
-			<false/>
+			<true/>
             <key>RequestDelaySeconds</key>
             <integer>1</integer>
             <key>ReplyDelaySeconds</key>

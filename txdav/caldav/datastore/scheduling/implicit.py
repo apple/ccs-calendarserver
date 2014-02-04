@@ -395,7 +395,7 @@ class ImplicitScheduler(object):
 
 
     @inlineCallbacks
-    def queuedOrganizerProcessing(self, txn, action, home, resource, uid, calendar, smart_merge):
+    def queuedOrganizerProcessing(self, txn, action, home, resource, uid, calendar_old, calendar_new, smart_merge):
         """
         Process an organizer scheduling work queue item. The basic goal here is to setup the ImplicitScheduler as if
         this operation were the equivalent of the PUT that enqueued the work, and then do the actual work.
@@ -407,46 +407,44 @@ class ImplicitScheduler(object):
         self.calendar_home = home
         self.resource = resource
         self.do_smart_merge = smart_merge
+        self.queuedResponses = []
+
+        cal_uid = calendar_old.resourceUID() if calendar_old is not None else (calendar_new.resourceUID() if calendar_new is not None else "unknown")
 
         # Handle different action scenarios
         if action == "create":
-            # resource is None, calendar is None
+            # resource is None, calendar_old is None
             # Find the newly created resource
             resources = (yield self.calendar_home.objectResourcesWithUID(uid, ignore_children=["inbox"], allowShared=False))
             if len(resources) != 1:
                 # Ughh - what has happened? It is possible the resource was created then deleted before we could start work processing,
                 # so simply ignore this
-                log.debug("ImplicitScheduler - queuedOrganizerProcessing 'create' cannot find organizer resource for UID: {uid}", uid=calendar.resourceUID())
+                log.debug("ImplicitScheduler - queuedOrganizerProcessing 'create' cannot find organizer resource for UID: {uid}", uid=cal_uid)
                 returnValue(None)
             self.resource = resources[0]
+            self.calendar = calendar_new
 
-            # The calendar data to use is the current calendar data, not what was stored in the work item, since it might have been
-            # updated a few times after the create, but those modifications are effectively coalesced into the create
-            self.calendar = (yield self.resource.componentForUser())
-
-        elif action == "modify":
+        elif action in ("modify", "modify-cancelled"):
             # Check that the resource still exists - it may have been deleted after this work item was queued, in which
             # case we have to ignore this (on the assumption that the "remove" action will have queued some work that will
             # execute soon).
             if self.resource is None:
-                log.debug("ImplicitScheduler - queuedOrganizerProcessing 'modify' cannot find organizer resource for UID: {uid}", uid=calendar.resourceUID())
+                log.debug("ImplicitScheduler - queuedOrganizerProcessing 'modify' cannot find organizer resource for UID: {uid}", uid=cal_uid)
                 returnValue(None)
 
-            # The new calendar data is what is currently stored - other modifications may have causes coalescing.
-            # Old calendar data is what was stored int he work item
-            self.calendar = (yield self.resource.componentForUser())
-            self.oldcalendar = calendar
+            # The new calendar_old data is what is currently stored - other modifications may have causes coalescing.
+            # Old calendar_old data is what was stored int he work item
+            self.calendar = calendar_new
+            self.oldcalendar = calendar_old
 
         elif action == "remove":
-            # Check whether the resource still exists - it cannot be in existence as once it is deleted, its resource-id
-            # should never be used again.
-            if self.resource is not None:
-                log.debug("ImplicitScheduler - queuedOrganizerProcessing 'remove' found an organizer resource for UID: {uid}", uid=calendar.resourceUID())
-                raise ImplicitSchedulingWorkError("Resource exists for queued 'remove' scheduling work")
+            # A remove can happen when the underlying resource is deleted, or when all scheduling properties
+            # (organizer and attendees) are removed from its content. So sometimes the resource will not exist, other
+            # times it might. Thus we cannot make any assumptions about resource existence.
 
-            # The "new" calendar data is in fact the calendar data at the time of the remove - which is the data stored
+            # The "new" calendar_old data is in fact the calendar_old data at the time of the remove - which is the data stored
             # in the work item.
-            self.calendar = calendar
+            self.calendar = calendar_old
 
         yield self.extractCalendarData()
         self.organizerPrincipal = self.calendar_home.directoryService().recordWithCalendarUserAddress(self.organizer)
@@ -615,11 +613,10 @@ class ImplicitScheduler(object):
             self.cancelledAttendees = [(attendee, None) for attendee in self.attendees]
 
             # CANCEL always bumps sequence
-            if not queued or not config.Scheduling.Options.WorkQueues.Enabled:
-                self.needs_sequence_change = True
+            self.needs_sequence_change = True
 
         # Check for a new resource or an update
-        elif self.action == "modify":
+        elif self.action in ("modify", "modify-cancelled"):
 
             # Read in existing data
             if not queued or not config.Scheduling.Options.WorkQueues.Enabled:
@@ -678,8 +675,7 @@ class ImplicitScheduler(object):
 
                 # For now we always bump the sequence number on modifications because we cannot track DTSTAMP on
                 # the Attendee side. But we check the old and the new and only bump if the client did not already do it.
-                if not queued or not config.Scheduling.Options.WorkQueues.Enabled:
-                    self.needs_sequence_change = self.calendar.needsiTIPSequenceChange(self.oldcalendar)
+                self.needs_sequence_change = self.calendar.needsiTIPSequenceChange(self.oldcalendar)
 
         elif self.action == "create":
             if self.split_details is None:
@@ -694,12 +690,12 @@ class ImplicitScheduler(object):
             if attendee.parameterValue("PARTSTAT", "NEEDS-ACTION").upper() == "NEEDS-ACTION":
                 attendee.setParameter("RSVP", "TRUE")
 
-        if self.needs_sequence_change:
-            self.calendar.bumpiTIPInfo(oldcalendar=self.oldcalendar, doSequence=True)
-
         # If processing a queue item, actually execute the scheduling operations, else queue it.
         # Note a split is always queued, so we do not need to re-queue
         if queued or not config.Scheduling.Options.WorkQueues.Enabled or self.split_details is not None:
+            if self.needs_sequence_change:
+                self.calendar.bumpiTIPInfo(oldcalendar=self.oldcalendar, doSequence=True)
+
             yield self.scheduleWithAttendees()
         else:
             yield self.queuedScheduleWithAttendees()
@@ -1040,9 +1036,17 @@ class ImplicitScheduler(object):
             self.calendar_home,
             self.resource,
             self.oldcalendar,
+            self.calendar,
             self.organizerPrincipal.canonicalCalendarUserAddress(),
+            len(self.calendar.getAllUniqueAttendees()) - 1,
             self.do_smart_merge,
         )
+
+        # We bump the sequence AFTER storing the work item data to make sure that the sequence
+        # change does not cause unchanged components to be treated as changed when the work
+        # item executes.
+        if self.needs_sequence_change:
+            self.calendar.bumpiTIPInfo(oldcalendar=self.oldcalendar, doSequence=True)
 
         # First process cancelled attendees
         total = (yield self.processQueuedCancels())
@@ -1287,20 +1291,24 @@ class ImplicitScheduler(object):
 
     def handleSchedulingResponse(self, response, is_organizer):
 
-        # Map each recipient in the response to a status code
-        responses = {}
-        propname = self.calendar.mainComponent().recipientPropertyName() if is_organizer else "ORGANIZER"
-        for item in response.responses:
-            recipient = str(item.recipient.children[0])
-            status = str(item.reqstatus)
-            responses[recipient] = status
+        # For a queued operation we stash the response away for the work item to deal with
+        if hasattr(self, "queuedResponses"):
+            self.queuedResponses.append(response)
+        else:
+            # Map each recipient in the response to a status code
+            responses = {}
+            propname = self.calendar.mainComponent().recipientPropertyName() if is_organizer else "ORGANIZER"
+            for item in response.responses:
+                recipient = str(item.recipient.children[0])
+                status = str(item.reqstatus)
+                responses[recipient] = status
 
-            # Now apply to each ATTENDEE/ORGANIZER in the original data
-            self.calendar.setParameterToValueForPropertyWithValue(
-                "SCHEDULE-STATUS",
-                status.split(";")[0],
-                propname,
-                recipient)
+                # Now apply to each ATTENDEE/ORGANIZER in the original data
+                self.calendar.setParameterToValueForPropertyWithValue(
+                    "SCHEDULE-STATUS",
+                    status.split(";")[0],
+                    propname,
+                    recipient)
 
 
     @inlineCallbacks

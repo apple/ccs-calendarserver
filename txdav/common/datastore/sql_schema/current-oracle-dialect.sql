@@ -400,7 +400,8 @@ create table SCHEDULE_REFRESH_WORK (
     "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "ICALENDAR_UID" nvarchar2(255),
     "HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade,
-    "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade
+    "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade,
+    "ATTENDEE_COUNT" integer
 );
 
 create table SCHEDULE_REFRESH_ATTENDEES (
@@ -424,7 +425,9 @@ create table SCHEDULE_ORGANIZER_WORK (
     "SCHEDULE_ACTION" integer not null,
     "HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade,
     "RESOURCE_ID" integer,
-    "ICALENDAR_TEXT" nclob,
+    "ICALENDAR_TEXT_OLD" nclob,
+    "ICALENDAR_TEXT_NEW" nclob,
+    "ATTENDEE_COUNT" integer,
     "SMART_MERGE" integer
 );
 
@@ -435,7 +438,8 @@ create table SCHEDULE_ACTION (
 
 insert into SCHEDULE_ACTION (DESCRIPTION, ID) values ('create', 0);
 insert into SCHEDULE_ACTION (DESCRIPTION, ID) values ('modify', 1);
-insert into SCHEDULE_ACTION (DESCRIPTION, ID) values ('remove', 2);
+insert into SCHEDULE_ACTION (DESCRIPTION, ID) values ('modify-cancelled', 2);
+insert into SCHEDULE_ACTION (DESCRIPTION, ID) values ('remove', 3);
 create table SCHEDULE_REPLY_WORK (
     "WORK_ID" integer primary key not null,
     "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',

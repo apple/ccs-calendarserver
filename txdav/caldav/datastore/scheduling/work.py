@@ -33,6 +33,7 @@ from txdav.common.datastore.sql_tables import schema, \
 import datetime
 import hashlib
 from pycalendar.datetime import DateTime
+import traceback
 
 __all__ = [
     "ScheduleOrganizerWork",
@@ -87,8 +88,7 @@ class ScheduleWorkMixin(object):
                 self.transaction.postCommit(_post)
 
 
-    @inlineCallbacks
-    def handleSchedulingResponse(self, response, calendar, resource, is_organizer):
+    def handleSchedulingResponse(self, response, calendar, is_organizer):
         """
         Update a user's calendar object resource based on the results of a queued scheduling
         message response. Note we only need to update in the case where there is an error response
@@ -99,8 +99,6 @@ class ScheduleWorkMixin(object):
         @type response: L{caldavxml.ScheduleResponse}
         @param calendar: original calendar component
         @type calendar: L{Component}
-        @param resource: calendar object resource to update
-        @type resource: L{CalendarObject}
         @param is_organizer: whether or not iTIP message was sent by the organizer
         @type is_organizer: C{bool}
         """
@@ -123,8 +121,7 @@ class ScheduleWorkMixin(object):
                 )
                 changed = True
 
-        if changed:
-            yield resource._setComponentInternal(calendar, internal_state=ComponentUpdateState.ATTENDEE_ITIP_UPDATE)
+        return changed
 
 
 
@@ -138,16 +135,23 @@ class ScheduleOrganizerWork(WorkItem, fromTable(schema.SCHEDULE_ORGANIZER_WORK),
 
     @classmethod
     @inlineCallbacks
-    def schedule(cls, txn, uid, action, home, resource, calendar, organizer, smart_merge):
+    def schedule(cls, txn, uid, action, home, resource, calendar_old, calendar_new, organizer, attendee_count, smart_merge):
         """
         The actual arguments depend on the action:
 
-        1) If action is "create", resource is None, calendar is None
-        2) If action is "modify", resource is existing resource, calendar is the old calendar data
-        3) If action is "remove", resource is the existing resource, calendar is the old calendar data
+        1) If action is "create", resource is None, calendar_old is None, calendar_new is the new data
+        2) If action is "modify", resource is existing resource, calendar_old is the old calendar_old data, and
+            calendar_new is the new data
+        3) If action is "remove", resource is the existing resource, calendar_old is the old calendar_old data,
+            and calendar_new is None
 
-        Note that for (1), when the work executes the resource will be in existence so we need to load it.
-        Note that for (3), when work executes the resource will have been removed.
+        Right now we will also create the iTIP message based on the diff of calendar_old and calendar_new rather than
+        looking at the current state of the orgnaizer's resource (which may have changed since this work item was
+        filed). That means that we are basically NOT doing any coalescing of changes - instead every change results
+        in its own iTIP message (pretty much as it would without the queue). Ultimately we need to support coalescing
+        for performance benefit, but the logic involved in doing that is tricky (e.g., certain properties like
+        SCHEDULE-FORCE-SEND are not preserved in the saved data, yet need to be accounted for because they change the
+        nature of the iTIP processing).
         """
         # Always queue up new work - coalescing happens when work is executed
         notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.WorkQueues.RequestDelaySeconds)
@@ -158,7 +162,9 @@ class ScheduleOrganizerWork(WorkItem, fromTable(schema.SCHEDULE_ORGANIZER_WORK),
             scheduleAction=scheduleActionToSQL[action],
             homeResourceID=home.id(),
             resourceID=resource.id() if resource else None,
-            icalendarText=calendar.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference) if calendar else None,
+            icalendarTextOld=calendar_old.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference) if calendar_old else None,
+            icalendarTextNew=calendar_new.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference) if calendar_new else None,
+            attendeeCount=attendee_count,
             smartMerge=smart_merge
         ))
         cls._enqueued()
@@ -185,7 +191,8 @@ class ScheduleOrganizerWork(WorkItem, fromTable(schema.SCHEDULE_ORGANIZER_WORK),
             resource = (yield home.objectResourceWithID(self.resourceID))
             organizerPrincipal = home.directoryService().recordWithUID(home.uid())
             organizer = organizerPrincipal.canonicalCalendarUserAddress()
-            calendar = Component.fromString(self.icalendarText) if self.icalendarText else None
+            calendar_old = Component.fromString(self.icalendarTextOld) if self.icalendarTextOld else None
+            calendar_new = Component.fromString(self.icalendarTextNew) if self.icalendarTextNew else None
 
             log.debug("ScheduleOrganizerWork - running for ID: {id}, UID: {uid}, organizer: {org}", id=self.workID, uid=self.icalendarUid, org=organizer)
 
@@ -194,15 +201,39 @@ class ScheduleOrganizerWork(WorkItem, fromTable(schema.SCHEDULE_ORGANIZER_WORK),
 
             from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
             scheduler = ImplicitScheduler()
-            yield scheduler.queuedOrganizerProcessing(self.transaction, scheduleActionFromSQL[self.scheduleAction], home, resource, self.icalendarUid, calendar, self.smartMerge)
+            yield scheduler.queuedOrganizerProcessing(
+                self.transaction,
+                scheduleActionFromSQL[self.scheduleAction],
+                home,
+                resource,
+                self.icalendarUid,
+                calendar_old,
+                calendar_new,
+                self.smartMerge
+            )
+
+            # Handle responses - update the actual resource in the store. Note that for a create the resource did not previously
+            # exist and is stored as None for the work item, but the scheduler will attempt to find the new resources and use
+            # that. We need to grab the scheduler's resource for further processing.
+            resource = scheduler.resource
+            if resource is not None:
+                changed = False
+                calendar = (yield resource.componentForUser())
+                for response in scheduler.queuedResponses:
+                    changed |= yield self.handleSchedulingResponse(response, calendar, True)
+
+                if changed:
+                    yield resource._setComponentInternal(calendar, internal_state=ComponentUpdateState.ORGANIZER_ITIP_UPDATE)
 
             self._dequeued()
 
         except Exception, e:
             log.debug("ScheduleOrganizerWork - exception ID: {id}, UID: '{uid}', {err}", id=self.workID, uid=self.icalendarUid, err=str(e))
+            log.debug(traceback.format_exc())
             raise
         except:
             log.debug("ScheduleOrganizerWork - bare exception ID: {id}, UID: '{uid}'", id=self.workID, uid=self.icalendarUid)
+            log.debug(traceback.format_exc())
             raise
 
         log.debug("ScheduleOrganizerWork - done for ID: {id}, UID: {uid}, organizer: {org}", id=self.workID, uid=self.icalendarUid, org=organizer)
@@ -297,7 +328,10 @@ class ScheduleReplyWork(WorkItem, fromTable(schema.SCHEDULE_REPLY_WORK), Schedul
 
             # Send scheduling message and process response
             response = (yield self.sendToOrganizer(home, "REPLY", itipmsg, attendee, organizer))
-            yield self.handleSchedulingResponse(response, calendar, resource, False)
+            changed = yield self.handleSchedulingResponse(response, calendar, False)
+
+            if changed:
+                yield resource._setComponentInternal(calendar, internal_state=ComponentUpdateState.ATTENDEE_ITIP_UPDATE)
 
             self._dequeued()
 
@@ -441,7 +475,8 @@ class ScheduleRefreshWork(WorkItem, fromTable(schema.SCHEDULE_REFRESH_WORK), Sch
             icalendarUid=organizer_resource.uid(),
             homeResourceID=organizer_resource._home.id(),
             resourceID=organizer_resource.id(),
-            notBefore=notBefore
+            attendeeCount=len(attendees),
+            notBefore=notBefore,
         ))
         cls._enqueued()
         yield proposal.whenProposed()
@@ -494,8 +529,10 @@ class ScheduleRefreshWork(WorkItem, fromTable(schema.SCHEDULE_REFRESH_WORK), Sch
             notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.WorkQueues.AttendeeRefreshBatchIntervalSeconds)
             yield self.transaction.enqueue(
                 self.__class__,
+                icalendarUid=self.icalendarUid,
                 homeResourceID=self.homeResourceID,
                 resourceID=self.resourceID,
+                attendeeCount=len(pendingAttendees),
                 notBefore=notBefore
             )
 
