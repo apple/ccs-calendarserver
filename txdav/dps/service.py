@@ -35,7 +35,10 @@ from twisted.internet.protocol import Factory
 from twext.python.log import Logger
 from twisted.python.filepath import FilePath
 
-from .protocol import DirectoryProxyAMPProtocol, RecordWithShortNameCommand
+from .protocol import (
+    DirectoryProxyAMPProtocol, RecordWithShortNameCommand, RecordWithUIDCommand,
+    RecordWithGUIDCommand, RecordsWithRecordTypeCommand
+)
 
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -57,6 +60,36 @@ class DirectoryService(BaseDirectoryService):
     )
 
 
+    def _dictToRecord(self, serializedFields):
+        """
+        This to be replaced by something awesome
+        """
+        if not serializedFields:
+            return None
+
+        fields = {}
+        for fieldName, value in serializedFields.iteritems():
+            field = self.fieldName.lookupByName(fieldName)
+            fields[field] = value
+        fields[self.fieldName.recordType] = self.recordType.user
+        return DirectoryRecord(self, fields)
+
+
+    def _processSingleRecord(self, result):
+        serializedFields = pickle.loads(result['fields'])
+        return self._dictToRecord(serializedFields)
+
+
+    def _processMultipleRecords(self, result):
+        serializedFieldsList = pickle.loads(result['fieldsList'])
+        results = []
+        for serializedFields in serializedFieldsList:
+            record = self._dictToRecord(serializedFields)
+            if record is not None:
+                results.append(record)
+        return results
+
+
     @inlineCallbacks
     def _getConnection(self):
         # path = config.DirectoryProxy.SocketPath
@@ -72,24 +105,59 @@ class DirectoryService(BaseDirectoryService):
 
     def recordWithShortName(self, recordType, shortName):
 
-        def deserialize(result):
-            rawFields = pickle.loads(result['fields'])
-            fields = {}
-            for fieldName, value in rawFields.iteritems():
-                field = self.fieldName.lookupByName(fieldName)
-                fields[field] = value
-            fields[self.fieldName.recordType] = recordType
-            return DirectoryRecord(self, fields)
-
-        def call(ampProto):
+        def _call(ampProto):
             return ampProto.callRemote(
                 RecordWithShortNameCommand,
                 recordType=recordType.description.encode("utf-8"),
                 shortName=shortName.encode("utf-8")
             )
 
-        return self._getConnection().addCallback(call).addCallback(deserialize)
+        d = self._getConnection()
+        d.addCallback(_call)
+        d.addCallback(self._processSingleRecord)
+        return d
 
+
+    def recordWithUID(self, uid):
+
+        def _call(ampProto):
+            return ampProto.callRemote(
+                RecordWithUIDCommand,
+                uid=uid.encode("utf-8")
+            )
+
+        d = self._getConnection()
+        d.addCallback(_call)
+        d.addCallback(self._processSingleRecord)
+        return d
+
+
+    def recordWithGUID(self, guid):
+
+        def _call(ampProto):
+            return ampProto.callRemote(
+                RecordWithGUIDCommand,
+                guid=guid.encode("utf-8")
+            )
+
+        d = self._getConnection()
+        d.addCallback(_call)
+        d.addCallback(self._processSingleRecord)
+        return d
+
+
+    def recordsWithRecordType(self, recordType):
+
+        def _call(ampProto):
+            return ampProto.callRemote(
+                RecordsWithRecordTypeCommand,
+                recordType=recordType.description.encode("utf-8")
+            )
+
+        d = self._getConnection()
+        d.addCallback(_call)
+        d.addCallback(self._processMultipleRecords)
+        return d
 
 
 class DirectoryRecord(BaseDirectoryRecord):

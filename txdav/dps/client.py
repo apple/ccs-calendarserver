@@ -20,20 +20,20 @@ from twext.python.log import Logger
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
 
-import sys
-
 log = Logger()
 
 
 @inlineCallbacks
 def makeEvenBetterRequest():
-    shortName = sys.argv[1]
-
     ds = DirectoryService(None)
-    record = (yield ds.recordWithShortName(RecordType.user, shortName))
-    print("A: {r}".format(r=record))
-    record = (yield ds.recordWithShortName(RecordType.user, shortName))
-    print("B: {r}".format(r=record))
+    record = (yield ds.recordWithShortName(RecordType.user, "sagen"))
+    print("short name: {r}".format(r=record))
+    record = (yield ds.recordWithUID("__dre__"))
+    print("uid: {r}".format(r=record))
+    record = (yield ds.recordWithGUID("A3B1158F-0564-4F5B-81E4-A89EA5FF81B0"))
+    print("guid: {r}".format(r=record))
+    records = (yield ds.recordsWithRecordType(RecordType.user))
+    print("recordType: {r}".format(r=records))
 
 
 def succeeded(result):
@@ -44,6 +44,7 @@ def succeeded(result):
 def failed(failure):
     print("boo: {f}".format(f=failure))
     reactor.stop()
+
 
 if __name__ == '__main__':
     d = makeEvenBetterRequest()
