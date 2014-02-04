@@ -34,6 +34,8 @@ def makeEvenBetterRequest():
     print("guid: {r}".format(r=record))
     records = (yield ds.recordsWithRecordType(RecordType.user))
     print("recordType: {r}".format(r=records))
+    records = (yield ds.recordsWithEmailAddress("cdaboo@bitbucket.calendarserver.org"))
+    print("emailAddress: {r}".format(r=records))
 
 
 def succeeded(result):

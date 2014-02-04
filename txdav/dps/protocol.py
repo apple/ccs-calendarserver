@@ -119,7 +119,7 @@ class DirectoryProxyAMPProtocol(amp.AMP):
     @RecordWithShortNameCommand.responder
     @inlineCallbacks
     def recordWithShortName(self, recordType, shortName):
-        recordType = recordType.decode("utf-8")
+        recordType = recordType  # keep as bytes
         shortName = shortName.decode("utf-8")
         log.debug("RecordWithShortName: {r} {n}", r=recordType, n=shortName)
         record = (yield self._directory.recordWithShortName(
@@ -164,11 +164,27 @@ class DirectoryProxyAMPProtocol(amp.AMP):
     @RecordsWithRecordTypeCommand.responder
     @inlineCallbacks
     def recordsWithRecordType(self, recordType):
-        recordType = recordType.decode("utf-8")
+        recordType = recordType  # as bytes
         log.debug("RecordsWithRecordType: {r}", r=recordType)
         records = (yield self._directory.recordsWithRecordType(
             RecordType.lookupByName(recordType))
         )
+        fieldsList = []
+        for record in records:
+            fieldsList.append(self.recordToDict(record))
+        response = {
+            "fieldsList": pickle.dumps(fieldsList),
+        }
+        log.debug("Responding with: {response}", response=response)
+        returnValue(response)
+
+
+    @RecordsWithEmailAddressCommand.responder
+    @inlineCallbacks
+    def recordsWithEmailAddress(self, emailAddress):
+        emailAddress = emailAddress.decode("utf-8")
+        log.debug("RecordsWithEmailAddress: {e}", e=emailAddress)
+        records = (yield self._directory.recordsWithEmailAddress(emailAddress))
         fieldsList = []
         for record in records:
             fieldsList.append(self.recordToDict(record))

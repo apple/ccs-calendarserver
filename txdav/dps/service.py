@@ -37,7 +37,8 @@ from twisted.python.filepath import FilePath
 
 from .protocol import (
     DirectoryProxyAMPProtocol, RecordWithShortNameCommand, RecordWithUIDCommand,
-    RecordWithGUIDCommand, RecordsWithRecordTypeCommand
+    RecordWithGUIDCommand, RecordsWithRecordTypeCommand,
+    RecordsWithEmailAddressCommand
 )
 
 from twisted.internet import reactor
@@ -152,6 +153,20 @@ class DirectoryService(BaseDirectoryService):
             return ampProto.callRemote(
                 RecordsWithRecordTypeCommand,
                 recordType=recordType.description.encode("utf-8")
+            )
+
+        d = self._getConnection()
+        d.addCallback(_call)
+        d.addCallback(self._processMultipleRecords)
+        return d
+
+
+    def recordsWithEmailAddress(self, emailAddress):
+
+        def _call(ampProto):
+            return ampProto.callRemote(
+                RecordsWithEmailAddressCommand,
+                emailAddress=emailAddress
             )
 
         d = self._getConnection()
