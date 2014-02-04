@@ -160,6 +160,17 @@ init_build () {
 }
 
 
+setup_print () {
+  what="$1"; shift;
+
+  PYTHONPATH="${wd}" "${python}" - << EOF
+from __future__ import print_function
+import setup
+print(setup.${what})
+EOF
+}
+
+
 # If do_get is turned on, get an archive file containing a dependency via HTTP.
 www_get () {
   if ! "${do_get}"; then return 0; fi;
