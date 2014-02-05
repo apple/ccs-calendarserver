@@ -14,27 +14,26 @@
 # limitations under the License.
 ##
 
-from twext.who.idirectory import RecordType
+import cPickle as pickle
+
 from twext.python.log import Logger
-from twisted.internet import reactor
-from twext.who.directory import DirectoryService as BaseDirectoryService
 from twext.who.directory import DirectoryRecord as BaseDirectoryRecord
-from twext.who.util import ConstantsContainer
+from twext.who.directory import DirectoryService as BaseDirectoryService
+from twext.who.idirectory import RecordType
 import twext.who.idirectory
-import txdav.who.idirectory
-
-from zope.interface import implementer
-
+from twext.who.util import ConstantsContainer
+from twisted.internet import reactor
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.protocol import ClientCreator
+from twisted.protocols import amp
 from txdav.dps.commands import (
     RecordWithShortNameCommand, RecordWithUIDCommand,
     RecordWithGUIDCommand, RecordsWithRecordTypeCommand,
     RecordsWithEmailAddressCommand
 )
+import txdav.who.idirectory
+from zope.interface import implementer
 
-from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.internet.protocol import ClientCreator
-from twisted.protocols import amp
-import cPickle as pickle
 
 log = Logger()
 
@@ -93,6 +92,9 @@ class DirectoryService(BaseDirectoryService):
 
     @inlineCallbacks
     def _getConnection(self):
+        # TODO: make socket patch configurable
+        # TODO: reconnect if needed
+
         # path = config.DirectoryProxy.SocketPath
         path = "data/Logs/state/directory-proxy.sock"
         if getattr(self, "_connection", None) is None:
@@ -104,75 +106,53 @@ class DirectoryService(BaseDirectoryService):
         returnValue(self._connection)
 
 
+    @inlineCallbacks
+    def _call(self, command, postProcess, **kwds):
+        ampProto = (yield self._getConnection())
+        results = (yield ampProto.callRemote(command, **kwds))
+        returnValue(postProcess(results))
+
+
     def recordWithShortName(self, recordType, shortName):
-
-        def _call(ampProto):
-            return ampProto.callRemote(
-                RecordWithShortNameCommand,
-                recordType=recordType.description.encode("utf-8"),
-                shortName=shortName.encode("utf-8")
-            )
-
-        d = self._getConnection()
-        d.addCallback(_call)
-        d.addCallback(self._processSingleRecord)
-        return d
+        return self._call(
+            RecordWithShortNameCommand,
+            self._processSingleRecord,
+            recordType=recordType.description.encode("utf-8"),
+            shortName=shortName.encode("utf-8")
+        )
 
 
     def recordWithUID(self, uid):
-
-        def _call(ampProto):
-            return ampProto.callRemote(
-                RecordWithUIDCommand,
-                uid=uid.encode("utf-8")
-            )
-
-        d = self._getConnection()
-        d.addCallback(_call)
-        d.addCallback(self._processSingleRecord)
-        return d
+        return self._call(
+            RecordWithUIDCommand,
+            self._processSingleRecord,
+            uid=uid.encode("utf-8")
+        )
 
 
     def recordWithGUID(self, guid):
-
-        def _call(ampProto):
-            return ampProto.callRemote(
-                RecordWithGUIDCommand,
-                guid=guid.encode("utf-8")
-            )
-
-        d = self._getConnection()
-        d.addCallback(_call)
-        d.addCallback(self._processSingleRecord)
-        return d
+        return self._call(
+            RecordWithGUIDCommand,
+            self._processSingleRecord,
+            guid=guid.encode("utf-8")
+        )
 
 
     def recordsWithRecordType(self, recordType):
-
-        def _call(ampProto):
-            return ampProto.callRemote(
-                RecordsWithRecordTypeCommand,
-                recordType=recordType.description.encode("utf-8")
-            )
-
-        d = self._getConnection()
-        d.addCallback(_call)
-        d.addCallback(self._processMultipleRecords)
-        return d
+        return self._call(
+            RecordsWithRecordTypeCommand,
+            self._processMultipleRecords,
+            recordType=recordType.description.encode("utf-8")
+        )
 
 
     def recordsWithEmailAddress(self, emailAddress):
+        return self._call(
+            RecordsWithEmailAddressCommand,
+            self._processMultipleRecords,
+            emailAddress=emailAddress
+        )
 
-        def _call(ampProto):
-            return ampProto.callRemote(
-                RecordsWithEmailAddressCommand,
-                emailAddress=emailAddress
-            )
-
-        d = self._getConnection()
-        d.addCallback(_call)
-        d.addCallback(self._processMultipleRecords)
-        return d
 
 
 class DirectoryRecord(BaseDirectoryRecord):

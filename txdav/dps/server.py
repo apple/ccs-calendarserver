@@ -14,28 +14,29 @@
 # limitations under the License.
 ##
 
-from twext.who.idirectory import RecordType
-from twisted.protocols import amp
-from twisted.internet.defer import inlineCallbacks, returnValue
-from twext.python.log import Logger
-import uuid
 import cPickle as pickle
+import uuid
+
+from twext.python.log import Logger
+from twext.who.idirectory import RecordType
+from twext.who.opendirectory import DirectoryService as ODDirectoryService
+from twisted.application import service
+from twisted.application.strports import service as strPortsService
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.protocol import Factory
+from twisted.plugin import IPlugin
+from twisted.protocols import amp
+from twisted.python.filepath import FilePath
+from twisted.python.usage import Options, UsageError
+from twistedcaldav.config import config
+from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from txdav.dps.commands import (
     RecordWithShortNameCommand, RecordWithUIDCommand, RecordWithGUIDCommand,
     RecordsWithRecordTypeCommand, RecordsWithEmailAddressCommand,
     # UpdateRecordsCommand, RemoveRecordsCommand
 )
-from twisted.internet.protocol import Factory
-from twisted.python.usage import Options, UsageError
-from twistedcaldav.config import config
-from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
-from zope.interface import implementer
-from twisted.plugin import IPlugin
-from twisted.application import service
-from twext.who.opendirectory import DirectoryService as ODDirectoryService
 from txdav.who.xml import DirectoryService as XMLDirectoryService
-from twisted.python.filepath import FilePath
-from twisted.application.strports import service as strPortsService
+from zope.interface import implementer
 
 log = Logger()
 
@@ -285,7 +286,8 @@ class DirectoryProxyServiceMaker(object):
         elif directoryType == "LDAP":
             pass
         elif directoryType == "XML":
-            directory = XMLDirectoryService(FilePath("foo.xml"))
+            path = "txdav/dps/test/test.xml"
+            directory = XMLDirectoryService(FilePath(path))
         else:
             log.error("Invalid DirectoryType: {dt}", dt=directoryType)
 
