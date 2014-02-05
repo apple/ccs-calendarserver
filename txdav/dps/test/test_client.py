@@ -39,8 +39,12 @@ class DPSClientTest(unittest.TestCase):
         pump = returnConnected(server, client)
         self.directory = DirectoryService(None)
 
+        # Replace the normal _getConnection method with one that bypasses any
+        # actual networking
         self.patch(self.directory, "_getConnection", lambda: succeed(client))
 
+        # Wrap the normal _call method with one that flushes the IOPump
+        # afterwards
         origCall = self.directory._call
 
         def newCall(*args, **kwds):

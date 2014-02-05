@@ -108,6 +108,19 @@ class DirectoryService(BaseDirectoryService):
 
     @inlineCallbacks
     def _call(self, command, postProcess, **kwds):
+        """
+        Execute a remote AMP command, first making the connection to the peer,
+        then making the call, then running the results through the postProcess
+        callback.  Any kwds are passed on to the AMP command.
+
+        @param command: the AMP command to call
+        @type command: L{twisted.protocols.amp.Command}
+
+        @param postProcess: a callable which takes the AMP response dictionary
+            and peforms any required massaging of the results, returning a
+            L{Deferred} which fires with the post-processed results
+        @type postProcess: callable
+        """
         ampProto = (yield self._getConnection())
         results = (yield ampProto.callRemote(command, **kwds))
         returnValue(postProcess(results))
