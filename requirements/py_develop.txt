@@ -1,1 +1,5 @@
 docutils>=0.11
+
+# Simulator
+
+-e svn+http://svn.calendarserver.org/repository/calendarserver/CalDAVClientLibrary/trunk#egg=caldavclientlibrary

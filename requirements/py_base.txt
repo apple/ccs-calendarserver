@@ -28,7 +28,3 @@ psutil==1.2.0
 setproctitle==1.1.8
 
 # pycparser==2.10
-
-# Simulator
-
--e svn+http://svn.calendarserver.org/repository/calendarserver/CalDAVClientLibrary/trunk#egg=caldavclientlibrary
