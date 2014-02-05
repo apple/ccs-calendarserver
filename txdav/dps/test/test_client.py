@@ -32,12 +32,18 @@ from txdav.who.xml import DirectoryService as XMLDirectoryService
 class DPSClientTest(unittest.TestCase):
 
     def setUp(self):
+
+        # The "local" directory service
+        self.directory = DirectoryService(None)
+
+        # The "remote" directory service
         path = os.path.join(os.path.dirname(__file__), "test.xml")
         remoteDirectory = XMLDirectoryService(FilePath(path))
+
+        # Connect the two services directly via an IOPump
         client = AMP()
         server = DirectoryProxyAMPProtocol(remoteDirectory)
         pump = returnConnected(server, client)
-        self.directory = DirectoryService(None)
 
         # Replace the normal _getConnection method with one that bypasses any
         # actual networking
