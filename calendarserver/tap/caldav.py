@@ -77,7 +77,7 @@ from txdav.common.datastore.upgrade.sql.upgrade import (
     UpgradeDatabaseSchemaStep, UpgradeDatabaseAddressBookDataStep,
     UpgradeAcquireLockStep, UpgradeReleaseLockStep, UpgradeDatabaseNotificationDataStep)
 from txdav.common.datastore.work.revision_cleanup import scheduleFirstFindMinRevision
-from txdav.dps.service import DirectoryProxyServiceMaker
+from txdav.dps.server import DirectoryProxyServiceMaker
 
 from twistedcaldav import memcachepool
 from twistedcaldav.config import config, ConfigurationError
@@ -526,7 +526,7 @@ class SlaveSpawnerService(Service):
              config.DirectoryProxy.SocketPath != ""
          ):
              log.info("Adding directory proxy service")
- 
+
              dpsArgv = [
                  sys.executable,
                  sys.argv[0],

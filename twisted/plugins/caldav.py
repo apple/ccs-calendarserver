@@ -51,4 +51,4 @@ class TAP(object):
 
 
 TwistedCalDAV = TAP("calendarserver.tap.caldav.CalDAVServiceMaker")
-DirectoryProxy = TAP("txdav.dps.service.DirectoryProxyServiceMaker")
+DirectoryProxy = TAP("txdav.dps.server.DirectoryProxyServiceMaker")
