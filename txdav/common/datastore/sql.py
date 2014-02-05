@@ -103,8 +103,8 @@ ENOTIFICATIONTYPE = 2
 # Labels used to identify the class of resource being modified, so that
 # notification systems can target the correct application
 NotifierPrefixes = {
-    ECALENDARTYPE : "CalDAV",
-    EADDRESSBOOKTYPE : "CardDAV",
+    ECALENDARTYPE: "CalDAV",
+    EADDRESSBOOKTYPE: "CardDAV",
 }
 
 class CommonDataStore(Service, object):
@@ -144,7 +144,8 @@ class CommonDataStore(Service, object):
 
     implements(ICalendarStore)
 
-    def __init__(self,
+    def __init__(
+        self,
         sqlTxnFactory,
         notifierFactories,
         directoryService,
@@ -189,8 +190,10 @@ class CommonDataStore(Service, object):
         self._newTransactionCallbacks = set()
 
         if cacheQueries:
-            self.queryCacher = QueryCacher(cachePool=cachePool,
-                cacheExpireSeconds=cacheExpireSeconds)
+            self.queryCacher = QueryCacher(
+                cachePool=cachePool,
+                cacheExpireSeconds=cacheExpireSeconds
+            )
         else:
             self.queryCacher = None
 
@@ -439,17 +442,33 @@ class CommonStoreTransactionMonitor(object):
     def _installLogTimer(self):
         def _logTransactionWait():
             if self.txn is not None:
-                log.error("Transaction wait: %r, Statements: %d, IUDs: %d, Statement: %s" % (self.txn, self.txn.statementCount, self.txn.iudCount, self.txn.currentStatement if self.txn.currentStatement else "None",))
-                self.delayedLog = self.callLater(self.logTimerSeconds, _logTransactionWait)
+                log.error(
+                    "Transaction wait: {self.txn}, "
+                    "Statements: {self.txn.statementCount!d}, "
+                    "IUDs: {self.txn.iudCount!d}, "
+                    "Statement: {self.txn.currentStatement}",
+                    self=self
+                )
+                self.delayedLog = self.callLater(
+                    self.logTimerSeconds, _logTransactionWait
+                )
 
         if self.logTimerSeconds:
-            self.delayedLog = self.callLater(self.logTimerSeconds, _logTransactionWait)
+            self.delayedLog = self.callLater(
+                self.logTimerSeconds, _logTransactionWait
+            )
 
 
     def _installTimeout(self):
         def _forceAbort():
             if self.txn is not None:
-                log.error("Transaction abort too long: %r, Statements: %d, IUDs: %d, Statement: %s" % (self.txn, self.txn.statementCount, self.txn.iudCount, self.txn.currentStatement if self.txn.currentStatement else "None",))
+                log.error(
+                    "Transaction abort too long: {self.txn}, "
+                    "Statements: {self.txn.statementCount!d}, "
+                    "IUDs: {self.txn.iudCount!d}, "
+                    "Statement: {self.txn.currentStatement}",
+                    self=self
+                )
                 self.delayedTimeout = None
                 if self.delayedLog:
                     self.delayedLog.cancel()
@@ -457,7 +476,9 @@ class CommonStoreTransactionMonitor(object):
                 self.txn.timeout()
 
         if self.timeoutSeconds:
-            self.delayedTimeout = self.callLater(self.timeoutSeconds, _forceAbort)
+            self.delayedTimeout = self.callLater(
+                self.timeoutSeconds, _forceAbort
+            )
 
 
 
@@ -469,9 +490,11 @@ class CommonStoreTransaction(object):
 
     id = 0
 
-    def __init__(self, store, sqlTxn,
-                 enableCalendars, enableAddressBooks,
-                 notifierFactories, label, migrating=False, disableCache=False):
+    def __init__(
+        self, store, sqlTxn,
+        enableCalendars, enableAddressBooks,
+        notifierFactories, label, migrating=False, disableCache=False
+    ):
         self._store = store
         self._calendarHomes = {}
         self._addressbookHomes = {}
@@ -546,7 +569,7 @@ class CommonStoreTransaction(object):
 
 
     @classproperty
-    def _calendarserver(cls): #@NoSelf
+    def _calendarserver(cls):
         cs = schema.CALENDARSERVER
         return Select(
             [cs.VALUE, ],
@@ -583,7 +606,7 @@ class CommonStoreTransaction(object):
         ).on(self)
 
 
-    def _determineMemo(self, storeType, uid, create=False): #@UnusedVariable
+    def _determineMemo(self, storeType, uid, create=False):
         """
         Determine the memo dictionary to use for homeWithUID.
         """
@@ -663,7 +686,7 @@ class CommonStoreTransaction(object):
 
 
     @classproperty
-    def _insertAPNSubscriptionQuery(cls): #@NoSelf
+    def _insertAPNSubscriptionQuery(cls):
         apn = schema.APN_SUBSCRIPTIONS
         return Insert({apn.TOKEN: Parameter("token"),
                        apn.RESOURCE_KEY: Parameter("resourceKey"),
@@ -674,7 +697,7 @@ class CommonStoreTransaction(object):
 
 
     @classproperty
-    def _updateAPNSubscriptionQuery(cls): #@NoSelf
+    def _updateAPNSubscriptionQuery(cls):
         apn = schema.APN_SUBSCRIPTIONS
         return Update({apn.MODIFIED: Parameter("modified"),
                        apn.SUBSCRIBER_GUID: Parameter("subscriber"),
@@ -685,7 +708,7 @@ class CommonStoreTransaction(object):
 
 
     @classproperty
-    def _selectAPNSubscriptionQuery(cls): #@NoSelf
+    def _selectAPNSubscriptionQuery(cls):
         apn = schema.APN_SUBSCRIPTIONS
         return Select([apn.MODIFIED, apn.SUBSCRIBER_GUID], From=apn,
                 Where=(
@@ -729,7 +752,7 @@ class CommonStoreTransaction(object):
 
 
     @classproperty
-    def _removeAPNSubscriptionQuery(cls): #@NoSelf
+    def _removeAPNSubscriptionQuery(cls):
         apn = schema.APN_SUBSCRIPTIONS
         return Delete(From=apn,
                       Where=(apn.TOKEN == Parameter("token")).And(
@@ -742,7 +765,7 @@ class CommonStoreTransaction(object):
 
 
     @classproperty
-    def _purgeOldAPNSubscriptionQuery(cls): #@NoSelf
+    def _purgeOldAPNSubscriptionQuery(cls):
         apn = schema.APN_SUBSCRIPTIONS
         return Delete(From=apn,
                       Where=(apn.MODIFIED < Parameter("olderThan")))
@@ -754,7 +777,7 @@ class CommonStoreTransaction(object):
 
 
     @classproperty
-    def _apnSubscriptionsByTokenQuery(cls): #@NoSelf
+    def _apnSubscriptionsByTokenQuery(cls):
         apn = schema.APN_SUBSCRIPTIONS
         return Select([apn.RESOURCE_KEY, apn.MODIFIED, apn.SUBSCRIBER_GUID],
                       From=apn, Where=apn.TOKEN == Parameter("token"))
@@ -765,7 +788,7 @@ class CommonStoreTransaction(object):
 
 
     @classproperty
-    def _apnSubscriptionsByKeyQuery(cls): #@NoSelf
+    def _apnSubscriptionsByKeyQuery(cls):
         apn = schema.APN_SUBSCRIPTIONS
         return Select([apn.TOKEN, apn.SUBSCRIBER_GUID],
                       From=apn, Where=apn.RESOURCE_KEY == Parameter("resourceKey"))
@@ -776,7 +799,7 @@ class CommonStoreTransaction(object):
 
 
     @classproperty
-    def _apnSubscriptionsBySubscriberQuery(cls): #@NoSelf
+    def _apnSubscriptionsBySubscriberQuery(cls):
         apn = schema.APN_SUBSCRIPTIONS
         return Select([apn.TOKEN, apn.RESOURCE_KEY, apn.MODIFIED, apn.USER_AGENT, apn.IP_ADDR],
                       From=apn, Where=apn.SUBSCRIBER_GUID == Parameter("subscriberGUID"))
@@ -789,7 +812,7 @@ class CommonStoreTransaction(object):
     # Create IMIP token
 
     @classproperty
-    def _insertIMIPTokenQuery(cls): #@NoSelf
+    def _insertIMIPTokenQuery(cls):
         imip = schema.IMIP_TOKENS
         return Insert({imip.TOKEN: Parameter("token"),
                        imip.ORGANIZER: Parameter("organizer"),
@@ -819,7 +842,7 @@ class CommonStoreTransaction(object):
 
 
     @classproperty
-    def _selectIMIPTokenByTokenQuery(cls): #@NoSelf
+    def _selectIMIPTokenByTokenQuery(cls):
         imip = schema.IMIP_TOKENS
         return Select([imip.ORGANIZER, imip.ATTENDEE, imip.ICALUID], From=imip,
                       Where=(imip.TOKEN == Parameter("token")))
@@ -832,7 +855,7 @@ class CommonStoreTransaction(object):
 
 
     @classproperty
-    def _selectIMIPTokenQuery(cls): #@NoSelf
+    def _selectIMIPTokenQuery(cls):
         imip = schema.IMIP_TOKENS
         return Select([imip.TOKEN], From=imip,
                       Where=(imip.ORGANIZER == Parameter("organizer")).And(
@@ -841,7 +864,7 @@ class CommonStoreTransaction(object):
 
 
     @classproperty
-    def _updateIMIPTokenQuery(cls): #@NoSelf
+    def _updateIMIPTokenQuery(cls):
         imip = schema.IMIP_TOKENS
         return Update({imip.ACCESSED: utcNowSQL, },
                       Where=(imip.ORGANIZER == Parameter("organizer")).And(
@@ -865,7 +888,7 @@ class CommonStoreTransaction(object):
 
     # Remove IMIP token
     @classproperty
-    def _removeIMIPTokenQuery(cls): #@NoSelf
+    def _removeIMIPTokenQuery(cls):
         imip = schema.IMIP_TOKENS
         return Delete(From=imip,
                       Where=(imip.TOKEN == Parameter("token")))
@@ -877,7 +900,7 @@ class CommonStoreTransaction(object):
 
     # Purge old IMIP tokens
     @classproperty
-    def _purgeOldIMIPTokensQuery(cls): #@NoSelf
+    def _purgeOldIMIPTokensQuery(cls):
         imip = schema.IMIP_TOKENS
         return Delete(From=imip,
                       Where=(imip.ACCESSED < Parameter("olderThan")))
@@ -977,18 +1000,20 @@ class CommonStoreTransaction(object):
         # tests.  It should have more direct test coverage.
 
         # TODO: we should really have a list of acceptable exceptions for
-        # failure and not blanket catch, but that involves more knowledge of the
-        # database driver in use than we currently possess at this layer.
+        # failure and not blanket catch, but that involves more knowledge of
+        # the database driver in use than we currently possess at this layer.
         block = self._sqlTxn.commandBlock()
         sp = self._savepoint()
         failuresToMaybeLog = []
+
         def end():
             block.end()
             for f in failuresToMaybeLog:
                 # TODO: direct tests, to make sure error logging
                 # happens correctly in all cases.
-                log.error(f)
+                log.error("in subTransaction()", failure=f)
             raise AllRetriesFailed()
+
         triesLeft = retries
         try:
             while True:
@@ -1024,9 +1049,9 @@ class CommonStoreTransaction(object):
             # and only that case - acquire() or release() or commandBlock() may
             # raise an AlreadyFinishedError (either synchronously, or in the
             # case of the first two, possibly asynchronously as well).  We can
-            # safely ignore this error, because it can't have any effect on what
-            # gets written; our caller will just get told that it failed in a
-            # way they have to be prepared for anyway.
+            # safely ignore this error, because it can't have any effect on
+            # what gets written; our caller will just get told that it failed
+            # in a way they have to be prepared for anyway.
             end()
 
 
@@ -1044,7 +1069,7 @@ class CommonStoreTransaction(object):
         if self._store.logLabels:
             a = ("-- Label: %s\n" % (self._label.replace("%", "%%"),) + a[0],) + a[1:]
         if self._store.logSQL:
-            log.error("SQL: %r %r" % (a, kw,))
+            log.error("SQL: {a!r} {kw!r}", a=a, kw=kw)
         results = None
         try:
             results = (yield self._sqlTxn.execSQL(*a, **kw))
@@ -1563,13 +1588,18 @@ class SharingHomeMixIn(object):
     # External (cross-pod) sharing - entry point is the sharee's home collection.
     #
     @inlineCallbacks
-    def processExternalInvite(self, ownerUID, ownerRID, ownerName, shareUID, bindMode, summary, copy_invite_properties, supported_components=None):
+    def processExternalInvite(
+        self, ownerUID, ownerRID, ownerName, shareUID, bindMode, summary,
+        copy_invite_properties, supported_components=None
+    ):
         """
         External invite received.
         """
 
         # Get the owner home - create external one if not present
-        ownerHome = yield self._txn.homeWithUID(self._homeType, ownerUID, create=True)
+        ownerHome = yield self._txn.homeWithUID(
+            self._homeType, ownerUID, create=True
+        )
         if ownerHome is None or not ownerHome.external():
             raise ExternalShareFailed("Invalid owner UID: {}".format(ownerUID))
 
@@ -1577,29 +1607,48 @@ class SharingHomeMixIn(object):
         ownerView = yield ownerHome.childWithExternalID(ownerRID)
         if ownerView is None:
             try:
-                ownerView = yield ownerHome.createChildWithName(ownerName, externalID=ownerRID)
+                ownerView = yield ownerHome.createChildWithName(
+                    ownerName, externalID=ownerRID
+                )
             except HomeChildNameAlreadyExistsError:
-                # This is odd - it means we possibly have a left over sharer collection which the sharer likely removed
-                # and re-created with the same name but now it has a different externalID and is not found by the initial
-                # query. What we do is check to see whether any shares still reference the old ID - if they do we are hosed.
-                # If not, we can remove the old item and create a new one.
+                # This is odd - it means we possibly have a left over sharer
+                # collection which the sharer likely removed and re-created
+                # with the same name but now it has a different externalID and
+                # is not found by the initial query. What we do is check to see
+                # whether any shares still reference the old ID - if they do we
+                # are hosed. If not, we can remove the old item and create a new one.
                 oldOwnerView = yield ownerHome.childWithName(ownerName)
                 invites = yield oldOwnerView.sharingInvites()
                 if len(invites) != 0:
-                    log.error("External invite collection name is present with a different externalID and still has shares")
+                    log.error(
+                        "External invite collection name is present with a "
+                        "different externalID and still has shares"
+                    )
                     raise
-                log.error("External invite collection name is present with a different externalID - trying to fix")
+                log.error(
+                    "External invite collection name is present with a "
+                    "different externalID - trying to fix"
+                )
                 yield ownerHome.removeExternalChild(oldOwnerView)
-                ownerView = yield ownerHome.createChildWithName(ownerName, externalID=ownerRID)
+                ownerView = yield ownerHome.createChildWithName(
+                    ownerName, externalID=ownerRID
+                )
 
-            if supported_components is not None and hasattr(ownerView, "setSupportedComponents"):
+            if (
+                supported_components is not None and
+                hasattr(ownerView, "setSupportedComponents")
+            ):
                 yield ownerView.setSupportedComponents(supported_components)
 
         # Now carry out the share operation
         if bindMode == _BIND_MODE_DIRECT:
-            shareeView = yield ownerView.directShareWithUser(self.uid(), shareName=shareUID)
+            shareeView = yield ownerView.directShareWithUser(
+                self.uid(), shareName=shareUID
+            )
         else:
-            shareeView = yield ownerView.inviteUserToShare(self.uid(), bindMode, summary, shareName=shareUID)
+            shareeView = yield ownerView.inviteUserToShare(
+                self.uid(), bindMode, summary, shareName=shareUID
+            )
 
         shareeView.setInviteCopyProperties(copy_invite_properties)
 
@@ -1623,14 +1672,17 @@ class SharingHomeMixIn(object):
         # Now carry out the share operation
         yield ownerView.uninviteUserFromShare(self.uid())
 
-        # See if there are any references to the external share - if not remove it
+        # See if there are any references to the external share. If not,
+        # remove it
         invites = yield ownerView.sharingInvites()
         if len(invites) == 0:
             yield ownerHome.removeExternalChild(ownerView)
 
 
     @inlineCallbacks
-    def processExternalReply(self, ownerUID, shareeUID, shareUID, bindStatus, summary=None):
+    def processExternalReply(
+        self, ownerUID, shareeUID, shareUID, bindStatus, summary=None
+    ):
         """
         External invite received.
         """
@@ -1640,7 +1692,9 @@ class SharingHomeMixIn(object):
         # Get the owner home - create external one if not present
         shareeHome = yield self._txn.homeWithUID(self._homeType, shareeUID)
         if shareeHome is None or not shareeHome.external():
-            raise ExternalShareFailed("Invalid sharee UID: {}".format(shareeUID))
+            raise ExternalShareFailed(
+                "Invalid sharee UID: {}".format(shareeUID)
+            )
 
         # Try to find owner calendar via its external id
         shareeView = yield shareeHome.anyObjectWithShareUID(shareUID)
@@ -1726,7 +1780,7 @@ class CommonHome(SharingHomeMixIn):
 
 
     @classproperty
-    def _homeColumnsFromOwnerQuery(cls): #@NoSelf
+    def _homeColumnsFromOwnerQuery(cls):
         home = cls._homeSchema
         return Select(
             cls.homeColumns(),
@@ -1736,7 +1790,7 @@ class CommonHome(SharingHomeMixIn):
 
 
     @classproperty
-    def _ownerFromResourceID(cls): #@NoSelf
+    def _ownerFromResourceID(cls):
         home = cls._homeSchema
         return Select([home.OWNER_UID],
                       From=home,
@@ -1744,7 +1798,7 @@ class CommonHome(SharingHomeMixIn):
 
 
     @classproperty
-    def _metaDataQuery(cls): #@NoSelf
+    def _metaDataQuery(cls):
         metadata = cls._homeMetaDataSchema
         return Select(cls.metadataColumns(),
                       From=metadata,
@@ -2006,7 +2060,7 @@ class CommonHome(SharingHomeMixIn):
 
 
     @classproperty
-    def _dataVersionQuery(cls): #@NoSelf
+    def _dataVersionQuery(cls):
         ch = cls._homeSchema
         return Select(
             [ch.DATAVERSION], From=ch,
@@ -2146,7 +2200,7 @@ class CommonHome(SharingHomeMixIn):
 
 
     @classproperty
-    def _syncTokenQuery(cls): #@NoSelf
+    def _syncTokenQuery(cls):
         """
         DAL Select statement to find the sync token.
 
@@ -2212,7 +2266,7 @@ class CommonHome(SharingHomeMixIn):
 
 
     @classproperty
-    def _changesQuery(cls): #@NoSelf
+    def _changesQuery(cls):
         bind = cls._bindSchema
         rev = cls._revisionsSchema
         return Select(
@@ -2406,12 +2460,12 @@ class CommonHome(SharingHomeMixIn):
 
 
     @classproperty
-    def _resourceByUIDQuery(cls): #@NoSelf
+    def _resourceByUIDQuery(cls):
         return cls._objectResourceQuery(checkBindMode=False)
 
 
     @classproperty
-    def _resourceByUIDBindQuery(cls): #@NoSelf
+    def _resourceByUIDBindQuery(cls):
         return cls._objectResourceQuery(checkBindMode=True)
 
 
@@ -2472,7 +2526,7 @@ class CommonHome(SharingHomeMixIn):
 
 
     @classproperty
-    def _quotaQuery(cls): #@NoSelf
+    def _quotaQuery(cls):
         meta = cls._homeMetaDataSchema
         return Select(
             [meta.QUOTA_USED_BYTES], From=meta,
@@ -2489,7 +2543,7 @@ class CommonHome(SharingHomeMixIn):
 
 
     @classproperty
-    def _preLockResourceIDQuery(cls): #@NoSelf
+    def _preLockResourceIDQuery(cls):
         meta = cls._homeMetaDataSchema
         return Select(From=meta,
                       Where=meta.RESOURCE_ID == Parameter("resourceID"),
@@ -2497,7 +2551,7 @@ class CommonHome(SharingHomeMixIn):
 
 
     @classproperty
-    def _increaseQuotaQuery(cls): #@NoSelf
+    def _increaseQuotaQuery(cls):
         meta = cls._homeMetaDataSchema
         return Update({meta.QUOTA_USED_BYTES: meta.QUOTA_USED_BYTES +
                        Parameter("delta")},
@@ -2506,7 +2560,7 @@ class CommonHome(SharingHomeMixIn):
 
 
     @classproperty
-    def _resetQuotaQuery(cls): #@NoSelf
+    def _resetQuotaQuery(cls):
         meta = cls._homeMetaDataSchema
         return Update({meta.QUOTA_USED_BYTES: 0},
                       Where=meta.RESOURCE_ID == Parameter("resourceID"))
@@ -2517,8 +2571,8 @@ class CommonHome(SharingHomeMixIn):
         """
         Adjust quota used. We need to get a lock on the row first so that the
         adjustment is done atomically. It is import to do the 'select ... for
-        update' because a race also exists in the 'update ... x = x + 1' case as
-        seen via unit tests.
+        update' because a race also exists in the 'update ... x = x + 1' case
+        as seen via unit tests.
         """
         yield self._preLockResourceIDQuery.on(self._txn,
                                               resourceID=self._resourceID)
@@ -2529,8 +2583,10 @@ class CommonHome(SharingHomeMixIn):
         # Double check integrity
         if self._quotaUsedBytes < 0:
             log.error(
-                "Fixing quota adjusted below zero to %s by change amount %s" %
-                (self._quotaUsedBytes, delta,))
+                "Fixing quota adjusted below zero to {used} by change amount "
+                "{delta}",
+                used=self._quotaUsedBytes, delta=delta
+            )
             yield self._resetQuotaQuery.on(self._txn,
                                            resourceID=self._resourceID)
             self._quotaUsedBytes = 0
@@ -2579,7 +2635,7 @@ class CommonHome(SharingHomeMixIn):
 
 
     @classproperty
-    def _lockLastModifiedQuery(cls): #@NoSelf
+    def _lockLastModifiedQuery(cls):
         meta = cls._homeMetaDataSchema
         return Select(
             From=meta,
@@ -2590,7 +2646,7 @@ class CommonHome(SharingHomeMixIn):
 
 
     @classproperty
-    def _changeLastModifiedQuery(cls): #@NoSelf
+    def _changeLastModifiedQuery(cls):
         meta = cls._homeMetaDataSchema
         return Update({meta.MODIFIED: utcNowSQL},
                       Where=meta.RESOURCE_ID == Parameter("resourceID"),
@@ -2600,24 +2656,32 @@ class CommonHome(SharingHomeMixIn):
     @inlineCallbacks
     def bumpModified(self):
         """
-        Bump the MODIFIED value. A possible deadlock could happen here if two or more
-        simultaneous changes are happening. In that case it is OK for the MODIFIED change
-        to fail so long as at least one works. We will use SAVEPOINT logic to handle
-        ignoring the deadlock error. We use SELECT FOR UPDATE NOWAIT to ensure we do not
-        delay the transaction whilst waiting for deadlock detection to kick in.
+        Bump the MODIFIED value. A possible deadlock could happen here if two
+        or more simultaneous changes are happening. In that case it is OK for
+        the MODIFIED change to fail so long as at least one works. We will use
+        SAVEPOINT logic to handle ignoring the deadlock error. We use SELECT
+        FOR UPDATE NOWAIT to ensure we do not delay the transaction whilst
+        waiting for deadlock detection to kick in.
         """
 
-        # NB if modified is bumped we know that sync token will have changed too, so invalidate the cached value
+        # NB if modified is bumped we know that sync token will have changed
+        # too, so invalidate the cached value
         self._syncTokenRevision = None
 
         @inlineCallbacks
         def _bumpModified(subtxn):
-            yield self._lockLastModifiedQuery.on(subtxn, resourceID=self._resourceID)
-            result = (yield self._changeLastModifiedQuery.on(subtxn, resourceID=self._resourceID))
+            yield self._lockLastModifiedQuery.on(
+                subtxn, resourceID=self._resourceID
+            )
+            result = yield self._changeLastModifiedQuery.on(
+                subtxn, resourceID=self._resourceID
+            )
             returnValue(result)
 
         try:
-            self._modified = (yield self._txn.subtransaction(_bumpModified, retries=0, failureOK=True))[0][0]
+            self._modified = (
+                yield self._txn.subtransaction(_bumpModified, retries=0, failureOK=True)
+            )[0][0]
             yield self.invalidateQueryCache()
 
         except AllRetriesFailed:
@@ -2657,7 +2721,7 @@ class _SharedSyncLogic(object):
     """
 
     @classproperty
-    def _childSyncTokenQuery(cls): #@NoSelf
+    def _childSyncTokenQuery(cls):
         """
         DAL query for retrieving the sync token of a L{CommonHomeChild} based on
         its resource ID.
@@ -2692,7 +2756,7 @@ class _SharedSyncLogic(object):
 
 
     @classmethod
-    def _objectNamesSinceRevisionQuery(cls, deleted=True): #@NoSelf
+    def _objectNamesSinceRevisionQuery(cls, deleted=True):
         """
         DAL query for (resource, deleted-flag)
         """
@@ -2756,7 +2820,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _removeDeletedRevision(cls): #@NoSelf
+    def _removeDeletedRevision(cls):
         rev = cls._revisionsSchema
         return Delete(From=rev,
                       Where=(rev.HOME_RESOURCE_ID == Parameter("homeID")).And(
@@ -2764,7 +2828,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _addNewRevision(cls): #@NoSelf
+    def _addNewRevision(cls):
         rev = cls._revisionsSchema
         return Insert({rev.HOME_RESOURCE_ID: Parameter("homeID"),
                        rev.RESOURCE_ID: Parameter("resourceID"),
@@ -2789,7 +2853,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _renameSyncTokenQuery(cls): #@NoSelf
+    def _renameSyncTokenQuery(cls):
         """
         DAL query to change sync token for a rename (increment and adjust
         resource name).
@@ -2814,7 +2878,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _bumpSyncTokenQuery(cls): #@NoSelf
+    def _bumpSyncTokenQuery(cls):
         """
         DAL query to change collection sync token. Note this can impact multiple rows if the
         collection is shared.
@@ -2840,7 +2904,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _deleteSyncTokenQuery(cls): #@NoSelf
+    def _deleteSyncTokenQuery(cls):
         """
         DAL query to update a sync revision to be a tombstone instead.
         """
@@ -2854,7 +2918,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _sharedRemovalQuery(cls): #@NoSelf
+    def _sharedRemovalQuery(cls):
         """
         DAL query to update the sync token for a shared collection.
         """
@@ -2869,7 +2933,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _unsharedRemovalQuery(cls): #@NoSelf
+    def _unsharedRemovalQuery(cls):
         """
         DAL query to update the sync token for an owned collection.
         """
@@ -2916,7 +2980,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _deleteBumpTokenQuery(cls): #@NoSelf
+    def _deleteBumpTokenQuery(cls):
         rev = cls._revisionsSchema
         return Update({rev.REVISION: schema.REVISION_SEQ,
                        rev.DELETED: True},
@@ -2926,7 +2990,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _updateBumpTokenQuery(cls): #@NoSelf
+    def _updateBumpTokenQuery(cls):
         rev = cls._revisionsSchema
         return Update({rev.REVISION: schema.REVISION_SEQ},
                       Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
@@ -2935,7 +2999,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _insertFindPreviouslyNamedQuery(cls): #@NoSelf
+    def _insertFindPreviouslyNamedQuery(cls):
         rev = cls._revisionsSchema
         return Select([rev.RESOURCE_ID], From=rev,
                       Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
@@ -2943,7 +3007,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _updatePreviouslyNamedQuery(cls): #@NoSelf
+    def _updatePreviouslyNamedQuery(cls):
         rev = cls._revisionsSchema
         return Update({rev.REVISION: schema.REVISION_SEQ,
                        rev.DELETED: False},
@@ -2953,7 +3017,7 @@ class _SharedSyncLogic(object):
 
 
     @classproperty
-    def _completelyNewRevisionQuery(cls): #@NoSelf
+    def _completelyNewRevisionQuery(cls):
         rev = cls._revisionsSchema
         return Insert({rev.HOME_RESOURCE_ID: Parameter("homeID"),
                        rev.RESOURCE_ID: Parameter("resourceID"),
@@ -3028,7 +3092,7 @@ class SharingMixIn(object):
     """
 
     @classproperty
-    def _bindInsertQuery(cls, **kw): #@NoSelf #@UnusedVariable
+    def _bindInsertQuery(cls, **kw):
         """
         DAL statement to create a bind entry that connects a collection to its
         home.
@@ -3046,7 +3110,7 @@ class SharingMixIn(object):
 
 
     @classmethod
-    def _updateBindColumnsQuery(cls, columnMap): #@NoSelf
+    def _updateBindColumnsQuery(cls, columnMap):
         bind = cls._bindSchema
         return Update(
             columnMap,
@@ -3056,7 +3120,7 @@ class SharingMixIn(object):
 
 
     @classproperty
-    def _deleteBindForResourceIDAndHomeID(cls): #@NoSelf
+    def _deleteBindForResourceIDAndHomeID(cls):
         bind = cls._bindSchema
         return Delete(
             From=bind,
@@ -3066,7 +3130,7 @@ class SharingMixIn(object):
 
 
     @classmethod
-    def _bindFor(cls, condition): #@NoSelf
+    def _bindFor(cls, condition):
         bind = cls._bindSchema
         columns = cls.bindColumns() + cls.additionalBindColumns()
         return Select(
@@ -3077,7 +3141,7 @@ class SharingMixIn(object):
 
 
     @classmethod
-    def _bindInviteFor(cls, condition): #@NoSelf
+    def _bindInviteFor(cls, condition):
         home = cls._homeSchema
         bind = cls._bindSchema
         return Select(
@@ -3096,7 +3160,7 @@ class SharingMixIn(object):
 
 
     @classproperty
-    def _sharedInvitationBindForResourceID(cls): #@NoSelf
+    def _sharedInvitationBindForResourceID(cls):
         bind = cls._bindSchema
         return cls._bindInviteFor(
             (bind.RESOURCE_ID == Parameter("resourceID")).And
@@ -3105,14 +3169,14 @@ class SharingMixIn(object):
 
 
     @classproperty
-    def _acceptedBindForHomeID(cls): #@NoSelf
+    def _acceptedBindForHomeID(cls):
         bind = cls._bindSchema
         return cls._bindFor((bind.HOME_RESOURCE_ID == Parameter("homeID"))
                             .And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED))
 
 
     @classproperty
-    def _bindForResourceIDAndHomeID(cls): #@NoSelf
+    def _bindForResourceIDAndHomeID(cls):
         """
         DAL query that looks up home bind rows by home child
         resource ID and home resource ID.
@@ -3123,7 +3187,7 @@ class SharingMixIn(object):
 
 
     @classproperty
-    def _bindForExternalIDAndHomeID(cls): #@NoSelf
+    def _bindForExternalIDAndHomeID(cls):
         """
         DAL query that looks up home bind rows by home child
         resource ID and home resource ID.
@@ -3134,7 +3198,7 @@ class SharingMixIn(object):
 
 
     @classproperty
-    def _bindForNameAndHomeID(cls): #@NoSelf
+    def _bindForNameAndHomeID(cls):
         """
         DAL query that looks up any bind rows by home child
         resource ID and home resource ID.
@@ -3951,7 +4015,7 @@ class SharingMixIn(object):
 
 
     @classproperty
-    def _childrenAndMetadataForHomeID(cls): #@NoSelf
+    def _childrenAndMetadataForHomeID(cls):
         bind = cls._bindSchema
         child = cls._homeChildSchema
         childMetaData = cls._homeChildMetaDataSchema
@@ -4299,7 +4363,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @classproperty
-    def _insertHomeChild(cls): #@NoSelf
+    def _insertHomeChild(cls):
         """
         DAL statement to create a home child with all default values.
         """
@@ -4311,7 +4375,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @classproperty
-    def _insertHomeChildMetaData(cls): #@NoSelf
+    def _insertHomeChildMetaData(cls):
         """
         DAL statement to create a home child with all default values.
         """
@@ -4354,7 +4418,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @classproperty
-    def _metadataByIDQuery(cls): #@NoSelf
+    def _metadataByIDQuery(cls):
         """
         DAL query to retrieve created/modified dates based on a resource ID.
         """
@@ -4417,7 +4481,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @classproperty
-    def _renameQuery(cls): #@NoSelf
+    def _renameQuery(cls):
         """
         DAL statement to rename a L{CommonHomeChild}
         """
@@ -4457,7 +4521,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @classproperty
-    def _deleteQuery(cls): #@NoSelf
+    def _deleteQuery(cls):
         """
         DAL statement to delete a L{CommonHomeChild} by its resource ID.
         """
@@ -4506,7 +4570,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @classproperty
-    def _ownerHomeWithResourceID(cls): #@NoSelf
+    def _ownerHomeWithResourceID(cls):
         """
         DAL query to retrieve the home resource ID and resource name of the owner from the bound
         home-child ID.
@@ -4549,7 +4613,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @classproperty
-    def _objectResourceNamesQuery(cls): #@NoSelf
+    def _objectResourceNamesQuery(cls):
         """
         DAL query to load all object resource names for a home child.
         """
@@ -4568,7 +4632,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @classproperty
-    def _objectCountQuery(cls): #@NoSelf
+    def _objectCountQuery(cls):
         """
         DAL query to count all object resources for a home child.
         """
@@ -4628,7 +4692,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @classproperty
-    def _resourceNameForUIDQuery(cls): #@NoSelf
+    def _resourceNameForUIDQuery(cls):
         """
         DAL query to retrieve the resource name for an object resource based on
         its UID column.
@@ -4657,7 +4721,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @classproperty
-    def _resourceUIDForNameQuery(cls): #@NoSelf
+    def _resourceUIDForNameQuery(cls):
         """
         DAL query to retrieve the UID for an object resource based on its
         resource name column.
@@ -4727,7 +4791,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @classproperty
-    def _moveParentUpdateQuery(cls, adjustName=False): #@NoSelf
+    def _moveParentUpdateQuery(cls, adjustName=False):
         """
         DAL query to update a child to be in a new parent.
         """
@@ -5127,7 +5191,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @classproperty
-    def _lockLastModifiedQuery(cls): #@NoSelf
+    def _lockLastModifiedQuery(cls):
         schema = cls._homeChildMetaDataSchema
         return Select(
             From=schema,
@@ -5138,7 +5202,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @classproperty
-    def _changeLastModifiedQuery(cls): #@NoSelf
+    def _changeLastModifiedQuery(cls):
         schema = cls._homeChildMetaDataSchema
         return Update({schema.MODIFIED: utcNowSQL},
                       Where=schema.RESOURCE_ID == Parameter("resourceID"),
@@ -5148,25 +5212,36 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
     @inlineCallbacks
     def bumpModified(self):
         """
-        Bump the MODIFIED value. A possible deadlock could happen here if two or more
-        simultaneous changes are happening. In that case it is OK for the MODIFIED change
-        to fail so long as at least one works. We will use SAVEPOINT logic to handle
-        ignoring the deadlock error. We use SELECT FOR UPDATE NOWAIT to ensure we do not
-        delay the transaction whilst waiting for deadlock detection to kick in.
+        Bump the MODIFIED value. A possible deadlock could happen here if two
+        or more simultaneous changes are happening. In that case it is OK for
+        the MODIFIED change to fail so long as at least one works. We will use
+        SAVEPOINT logic to handle ignoring the deadlock error. We use SELECT
+        FOR UPDATE NOWAIT to ensure we do not delay the transaction whilst
+        waiting for deadlock detection to kick in.
         """
 
         @inlineCallbacks
         def _bumpModified(subtxn):
-            yield self._lockLastModifiedQuery.on(subtxn, resourceID=self._resourceID)
-            result = (yield self._changeLastModifiedQuery.on(subtxn, resourceID=self._resourceID))
+            yield self._lockLastModifiedQuery.on(
+                subtxn, resourceID=self._resourceID
+            )
+            result = yield self._changeLastModifiedQuery.on(
+                subtxn, resourceID=self._resourceID
+            )
             returnValue(result)
 
         try:
-            self._modified = (yield self._txn.subtransaction(_bumpModified, retries=0, failureOK=True))[0][0]
+            self._modified = (
+                yield self._txn.subtransaction(
+                    _bumpModified, retries=0, failureOK=True
+                )
+            )[0][0]
 
             queryCacher = self._txn._queryCacher
             if queryCacher is not None:
-                cacheKey = queryCacher.keyForHomeChildMetaData(self._resourceID)
+                cacheKey = queryCacher.keyForHomeChildMetaData(
+                    self._resourceID
+                )
                 yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
         except AllRetriesFailed:
             log.debug("CommonHomeChild.bumpModified failed")
@@ -5199,9 +5274,12 @@ class CommonObjectResource(FancyEqMixin, object):
 
         @param parent: the parent collection object
         @type parent: L{CommonHomeChild}
+
         @param objectData: the standard set of object columns
         @type objectData: C{list}
-        @param propstore: a property store to use, or C{None} to load it automatically
+
+        @param propstore: a property store to use, or C{None} to load it
+            automatically
         @type propstore: L{PropertyStore}
 
         @return: the constructed child class
@@ -5279,7 +5357,7 @@ class CommonObjectResource(FancyEqMixin, object):
 
 
     @classproperty
-    def _allColumnsWithParentQuery(cls): #@NoSelf
+    def _allColumnsWithParentQuery(cls):
         obj = cls._objectSchema
         return Select(cls._allColumns(), From=obj,
                       Where=obj.PARENT_RESOURCE_ID == Parameter("parentID"))
@@ -5485,22 +5563,22 @@ class CommonObjectResource(FancyEqMixin, object):
 
 
     @classproperty
-    def _allColumnsWithParentAndName(cls): #@NoSelf
+    def _allColumnsWithParentAndName(cls):
         return cls._allColumnsWithParentAnd(cls._objectSchema.RESOURCE_NAME, "name")
 
 
     @classproperty
-    def _allColumnsWithParentAndUID(cls): #@NoSelf
+    def _allColumnsWithParentAndUID(cls):
         return cls._allColumnsWithParentAnd(cls._objectSchema.UID, "uid")
 
 
     @classproperty
-    def _allColumnsWithParentAndID(cls): #@NoSelf
+    def _allColumnsWithParentAndID(cls):
         return cls._allColumnsWithParentAnd(cls._objectSchema.RESOURCE_ID, "resourceID")
 
 
     @classmethod
-    def _allColumns(cls): #@NoSelf
+    def _allColumns(cls):
         """
         Full set of columns in the object table that need to be loaded to
         initialize the object resource state.
@@ -5518,7 +5596,7 @@ class CommonObjectResource(FancyEqMixin, object):
 
 
     @classmethod
-    def _rowAttributes(cls): #@NoSelf
+    def _rowAttributes(cls):
         return (
             "_resourceID",
             "_name",
@@ -5531,7 +5609,7 @@ class CommonObjectResource(FancyEqMixin, object):
 
 
     @classmethod
-    def _otherSerializedAttributes(cls): #@NoSelf
+    def _otherSerializedAttributes(cls):
         return (
             "_componentChanged",
         )
@@ -5642,7 +5720,7 @@ class CommonObjectResource(FancyEqMixin, object):
 
 
     @classmethod
-    def _selectForUpdateQuery(cls, nowait): #@NoSelf
+    def _selectForUpdateQuery(cls, nowait):
         """
         DAL statement to lock a L{CommonObjectResource} by its resource ID.
         """
@@ -5686,7 +5764,7 @@ class CommonObjectResource(FancyEqMixin, object):
 
 
     @classproperty
-    def _deleteQuery(cls): #@NoSelf
+    def _deleteQuery(cls):
         """
         DAL statement to delete a L{CommonObjectResource} by its resource ID.
         """
@@ -5780,7 +5858,7 @@ class CommonObjectResource(FancyEqMixin, object):
 
 
     @classproperty
-    def _textByIDQuery(cls): #@NoSelf
+    def _textByIDQuery(cls):
         """
         DAL query to load iCalendar/vCard text via an object's resource ID.
         """
@@ -5949,7 +6027,7 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
 
 
     @classproperty
-    def _dataVersionQuery(cls): #@NoSelf
+    def _dataVersionQuery(cls):
         nh = cls._homeSchema
         return Select(
             [nh.DATAVERSION], From=nh,
@@ -6156,7 +6234,7 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
 
 
     @classproperty
-    def _completelyNewRevisionQuery(cls): #@NoSelf
+    def _completelyNewRevisionQuery(cls):
         rev = cls._revisionsSchema
         return Insert({rev.HOME_RESOURCE_ID: Parameter("homeID"),
                        # rev.RESOURCE_ID: Parameter("resourceID"),
@@ -6233,7 +6311,7 @@ class NotificationObject(FancyEqMixin, object):
 
 
     @classproperty
-    def _allColumnsByHomeIDQuery(cls): #@NoSelf
+    def _allColumnsByHomeIDQuery(cls):
         """
         DAL query to load all columns by home ID.
         """
@@ -6298,7 +6376,7 @@ class NotificationObject(FancyEqMixin, object):
 
 
     @classproperty
-    def _oneNotificationQuery(cls): #@NoSelf
+    def _oneNotificationQuery(cls):
         no = cls._objectSchema
         return Select(
             [
@@ -6383,7 +6461,7 @@ class NotificationObject(FancyEqMixin, object):
 
 
     @classproperty
-    def _newNotificationQuery(cls): #@NoSelf
+    def _newNotificationQuery(cls):
         no = cls._objectSchema
         return Insert(
             {
@@ -6398,7 +6476,7 @@ class NotificationObject(FancyEqMixin, object):
 
 
     @classproperty
-    def _updateNotificationQuery(cls): #@NoSelf
+    def _updateNotificationQuery(cls):
         no = cls._objectSchema
         return Update(
             {
@@ -6657,8 +6735,8 @@ def _normalizeHomeUUIDsIn(t, homeType):
         else:
             estimate = "unknown"
         log.info(
-            format="Scanning UID %(uid)s [%(homeType)s] "
-            "(%(pct)0.2d%%, %(estimate)s seconds remaining)...",
+            "Scanning UID {uid} [{homeType}] "
+            "({pct!0.2d}%, {estimate} seconds remaining)...",
             uid=UID, pct=(n / float(total)) * 100, estimate=estimate,
             homeType=homeTypeName
         )
@@ -6670,8 +6748,9 @@ def _normalizeHomeUUIDsIn(t, homeType):
             fixedThisHome = 0
         fixedOtherHome = 0
         if this is None:
-            log.info(format="%(uid)r appears to be missing, already processed",
-                     uid=UID)
+            log.info(
+                "{uid!r} appears to be missing, already processed", uid=UID
+            )
         try:
             uuidobj = UUID(UID)
         except ValueError:
@@ -6679,9 +6758,10 @@ def _normalizeHomeUUIDsIn(t, homeType):
         else:
             newname = str(uuidobj).upper()
             if UID != newname:
-                log.info(format="Detected case variance: %(uid)s %(newuid)s"
-                         "[%(homeType)s]",
-                         uid=UID, newuid=newname, homeType=homeTypeName)
+                log.info(
+                    "Detected case variance: {uid} {newuid}[{homeType}]",
+                    uid=UID, newuid=newname, homeType=homeTypeName
+                )
                 other = yield _getHome(t, homeType, newname)
                 if other is None:
                     # No duplicate: just fix the name.
@@ -6696,10 +6776,12 @@ def _normalizeHomeUUIDsIn(t, homeType):
         end = time.time()
         elapsed = end - start
         allElapsed.append(elapsed)
-        log.info(format="Scanned UID %(uid)s; %(elapsed)s seconds elapsed,"
-                 " %(fixes)s properties fixed (%(duplicate)s fixes in "
-                 "duplicate).", uid=UID, elapsed=elapsed, fixes=fixedThisHome,
-                 duplicate=fixedOtherHome)
+        log.info(
+            "Scanned UID {uid}; {elapsed} seconds elapsed,"
+            " {fixes} properties fixed ({duplicate} fixes in duplicate).",
+            uid=UID, elapsed=elapsed, fixes=fixedThisHome,
+            duplicate=fixedOtherHome
+        )
     returnValue(None)
 
 
