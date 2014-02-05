@@ -97,8 +97,8 @@ fi;
 # Dependencies
 #
 
-c_dependencies >> "${dev_home}/setup.log";
-py_dependencies >> "${dev_home}/setup.log";
+#c_dependencies >> "${dev_home}/setup.log";
+#py_dependencies >> "${dev_home}/setup.log";
 
 
 

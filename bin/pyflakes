@@ -31,7 +31,5 @@ if [ $# -eq 0 ]; then
   set - calendarserver contrib twisted twistedcaldav txdav txweb2;
 fi;
 
-"${python}" -m pip install pyflakes --upgrade >> "${dev_home}/setup.log";
-
 echo "Checking modules:" "$@";
 exec "${python}" -m pyflakes "$@";

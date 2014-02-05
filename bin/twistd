@@ -26,7 +26,5 @@ export _DEVELOP="true";
 . "${wd}/bin/_build.sh";
 
 init_build > /dev/null;
-c_dependencies >> "${dev_home}/setup.log";
-py_dependencies >> "${dev_home}/setup.log";
 
 exec "${py_bindir}/twistd" "$@";

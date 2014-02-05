@@ -99,6 +99,8 @@ init_build () {
   py_libdir="${py_root}/lib/python";
   py_bindir="${py_root}/bin";
 
+  python="${py_bindir}/python";
+
   if [ -z "${TWEXT_PKG_CACHE-}" ]; then
     dep_packages="${dev_home}/pkg";
   else
@@ -110,6 +112,8 @@ init_build () {
   if "${force_setup}"; then
     rm -rf "${py_root}";
   fi;
+
+  export PYTHONPATH="${wd}:${PYTHONPATH:-}";
 
   # These variables are defaults for things which might be configured by
   # environment; only set them if they're un-set.
@@ -575,8 +579,6 @@ py_dependencies () {
   # Set up virtual environment
 
   "${bootstrap_python}" -m virtualenv "${py_root}";
-
-  python="${py_bindir}/python";
 
   # Make sure setup got called enough to write the version file.
 

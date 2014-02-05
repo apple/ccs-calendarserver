@@ -19,10 +19,12 @@
 set -e;
 set -u;
 
-wd="$(cd "$(dirname "$0")" && pwd -L)";
+wd="$(cd "$(dirname "$0")/.." && pwd -L)";
 
-source "${wd}/support/shell.sh";
+export _DEVELOP="true";
 
-export PYTHONPATH="$("${wd}/run" -p)";
+. "${wd}/bin/_build.sh";
 
-exec "${wd}/contrib/performance/sim" "$@";
+init_build > /dev/null;
+
+exec "${python}" "${wd}/contrib/performance/sim" "$@";

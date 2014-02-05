@@ -19,17 +19,21 @@
 set -e;
 set -u;
 
-wd="$(cd "$(dirname "$0")" && pwd -L)";
+wd="$(cd "$(dirname "$0")/.." && pwd -L)";
 
-export PYTHONPATH="$("${wd}/run" -p):${wd}/../CalDAVClientLibrary/src";
+export _DEVELOP="true";
+
+. "${wd}/bin/_build.sh";
+
+init_build > /dev/null;
 
 args="$@"
 
 echo "Parameter: 1";
-"${wd}/contrib/performance/report" ${args} 1 HTTP summarize;
+"${python}" "${wd}/contrib/performance/report" ${args} 1 HTTP summarize;
 echo;
 echo "Parameter: 9";
-"${wd}/contrib/performance/report" ${args} 9 HTTP summarize;
+"${python}" "${wd}/contrib/performance/report" ${args} 9 HTTP summarize;
 echo;
 echo "Parameter: 81";
-"${wd}/contrib/performance/report" ${args} 81 HTTP summarize;
+"${python}" "${wd}/contrib/performance/report" ${args} 81 HTTP summarize;

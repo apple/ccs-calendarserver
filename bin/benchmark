@@ -19,8 +19,12 @@
 set -e;
 set -u;
 
-wd="$(cd "$(dirname "$0")" && pwd -L)";
+wd="$(cd "$(dirname "$0")/.." && pwd -L)";
 
-export PYTHONPATH="$("${wd}/run" -p)";
+export _DEVELOP="true";
 
-exec "${wd}/contrib/performance/benchmark" "$@";
+. "${wd}/bin/_build.sh";
+
+init_build > /dev/null;
+
+exec "${python}" "${wd}/contrib/performance/benchmark" "$@";

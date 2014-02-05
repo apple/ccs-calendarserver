@@ -16,20 +16,30 @@
 # limitations under the License.
 ##
 
-wd="$(cd "$(dirname "$0")/.." && pwd)";
-cdt="${wd}/../CalDAVTester";
+set -e;
+set -u;
+
+wd="$(cd "$(dirname "$0")/.." && pwd -L)";
+
+export _DEVELOP="true";
+
+. "${wd}/bin/_build.sh";
+
+init_build > /dev/null;
+
+cdt="${py_root}/src/caldavtester";
 
 ##
 # Command line handling
 ##
 
-verbose="";
+   verbose="";
 serverinfo="${cdt}/scripts/server/serverinfo.xml";
-printres="";
-subdir="";
-random="--random";
-seed="";
-ssl="";
+  printres="";
+    subdir="";
+    random="--random";
+      seed="";
+       ssl="";
 
 usage ()
 {
@@ -74,8 +84,6 @@ fi;
 ##
 # Do The Right Thing
 ##
-
-source "${wd}/support/shell.sh";
 
 cd "${cdt}" && "${python}" testcaldav.py ${random} ${seed} ${ssl} --print-details-onfail ${printres} -s "${serverinfo}" ${subdir} "$@";
 
