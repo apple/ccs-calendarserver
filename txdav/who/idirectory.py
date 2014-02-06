@@ -35,6 +35,47 @@ from twext.who.idirectory import FieldName as BaseFieldName
 # Data types
 #
 
+class AutoScheduleMode(Names):
+    """
+    Constants for automatic scheduling modes.
+
+    @cvar none: Invitations are not automatically handled.
+
+    @cvar accept: Accept all invitations.
+
+    @cvar decline: Decline all invitations.
+
+    @cvar acceptIfFree: Accept invitations that do not conflict with a busy
+        time slot.  Other invitations are not automatically handled.
+
+    @cvar declineIfBusy: Decline invitations that conflict with a busy time
+        slot.  Other invitations are not automatically handled.
+
+    @cvar acceptIfFreeDeclineIfBusy: Accept invitations that do not conflict
+        with a busy time slot.  Decline invitations that conflict with a busy
+        time slot.  Other invitations are not automatically handled.
+    """
+
+    none = NamedConstant()
+    none.description = u"no action"
+
+    accept = NamedConstant()
+    accept.description = u"accept"
+
+    decline = NamedConstant()
+    decline.description = u"decline"
+
+    acceptIfFree = NamedConstant()
+    acceptIfFree.description = u"accept if free"
+
+    declineIfBusy = NamedConstant()
+    declineIfBusy.description = u"decline if busy"
+
+    acceptIfFreeDeclineIfBusy = NamedConstant()
+    acceptIfFreeDeclineIfBusy.description = u"accept if free, decline if busy"
+
+
+
 class RecordType(Names):
     """
     Constants for calendar and contacts directory record types.
@@ -111,44 +152,3 @@ class FieldName(Names):
     autoAcceptGroup = NamedConstant()
     autoAcceptGroup.description = u"auto-accept group"
     autoAcceptGroup.valueType = BaseFieldName.valueType(BaseFieldName.uid)
-
-
-
-class AutoScheduleMode(Names):
-    """
-    Constants for automatic scheduling modes.
-
-    @cvar none: Invitations are not automatically handled.
-
-    @cvar accept: Accept all invitations.
-
-    @cvar decline: Decline all invitations.
-
-    @cvar acceptIfFree: Accept invitations that do not conflict with a busy
-        time slot.  Other invitations are not automatically handled.
-
-    @cvar declineIfBusy: Decline invitations that conflict with a busy time
-        slot.  Other invitations are not automatically handled.
-
-    @cvar acceptIfFreeDeclineIfBusy: Accept invitations that do not conflict
-        with a busy time slot.  Decline invitations that conflict with a busy
-        time slot.  Other invitations are not automatically handled.
-    """
-
-    none = NamedConstant()
-    none.description = u"no action"
-
-    accept = NamedConstant()
-    accept.description = u"accept"
-
-    decline = NamedConstant()
-    decline.description = u"decline"
-
-    acceptIfFree = NamedConstant()
-    acceptIfFree.description = u"accept if free"
-
-    declineIfBusy = NamedConstant()
-    declineIfBusy.description = u"decline if busy"
-
-    acceptIfFreeDeclineIfBusy = NamedConstant()
-    acceptIfFreeDeclineIfBusy.description = u"accept if free, decline if busy"
