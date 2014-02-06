@@ -147,7 +147,7 @@ class FieldName(Names):
 
     autoScheduleMode = NamedConstant()
     autoScheduleMode.description = u"auto-schedule mode"
-    autoScheduleMode.valueType = NamedConstant
+    autoScheduleMode.valueType = AutoScheduleMode
 
     autoAcceptGroup = NamedConstant()
     autoAcceptGroup.description = u"auto-accept group"
