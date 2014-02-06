@@ -7,10 +7,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-# 
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -51,6 +51,7 @@ from txdav.xml import element
 log = Logger()
 
 
+
 class ErrorResponse(Response):
     """
     A L{Response} object which contains a status code and a L{element.Error}
@@ -79,7 +80,9 @@ class ErrorResponse(Response):
 
         self.description = description
         if self.description:
-            output = element.Error(error, element.ErrorDescription(self.description)).toxml()
+            output = element.Error(
+                error, element.ErrorDescription(self.description)
+            ).toxml()
         else:
             output = element.Error(error).toxml()
 
@@ -91,9 +94,14 @@ class ErrorResponse(Response):
 
 
     def __repr__(self):
-        return "<%s %s %s>" % (self.__class__.__name__, self.code, self.error.sname())
+        return (
+            "<%s %s %s>"
+            % (self.__class__.__name__, self.code, self.error.sname())
+        )
 
-class NeedPrivilegesResponse (ErrorResponse):
+
+
+class NeedPrivilegesResponse(ErrorResponse):
     def __init__(self, base_uri, errors):
         """
         An error response which is due to unsufficient privileges, as
@@ -112,12 +120,17 @@ class NeedPrivilegesResponse (ErrorResponse):
                 uri = joinURL(base_uri, subpath)
 
             for p in privileges:
-                denials.append(element.Resource(element.HRef(uri), 
-                                               element.Privilege(p)))
+                denials.append(
+                    element.Resource(element.HRef(uri), element.Privilege(p))
+                )
 
-        super(NeedPrivilegesResponse, self).__init__(responsecode.FORBIDDEN, element.NeedPrivileges(*denials))
+        super(NeedPrivilegesResponse, self).__init__(
+            responsecode.FORBIDDEN, element.NeedPrivileges(*denials)
+        )
 
-class MultiStatusResponse (Response):
+
+
+class MultiStatusResponse(Response):
     """
     Multi-status L{Response} object.
     Renders itself as a DAV:multi-status XML document.
@@ -131,15 +144,17 @@ class MultiStatusResponse (Response):
 
         self.headers.setHeader("content-type", MimeType("text", "xml"))
 
-class ResponseQueue (object):
+
+
+class ResponseQueue(object):
     """
     Stores a list of (typically error) responses for use in a
     L{MultiStatusResponse}.
     """
     def __init__(self, path_basename, method, success_response):
         """
-        @param path_basename: the base path for all responses to be added to the 
-            queue.
+        @param path_basename: the base path for all responses to be added to
+            the queue.
             All paths for responses added to the queue must start with
             C{path_basename}, which will be stripped from the beginning of each
             path to determine the response's URI.
@@ -173,8 +188,11 @@ class ResponseQueue (object):
         else:
             raise AssertionError("Unknown data type: %r" % (what,))
 
-        if code > 400: # Error codes only
-            log.error("Error during %s for %s: %s" % (self.method, path, message))
+        if code > 400:  # Error codes only
+            log.error(
+                "Error during {method} for {path}: {message}",
+                method=self.method, path=path, message=message
+            )
 
         uri = path[self.path_basename_len:]
 
@@ -199,7 +217,9 @@ class ResponseQueue (object):
         else:
             return self.success_response
 
-class PropertyStatusResponseQueue (object):
+
+
+class PropertyStatusResponseQueue(object):
     """
     Stores a list of propstat elements for use in a L{Response}
     in a L{MultiStatusResponse}.
@@ -235,10 +255,15 @@ class PropertyStatusResponseQueue (object):
 
         if len(property.children) > 0:
             # Re-instantiate as empty element.
-            property = element.WebDAVUnknownElement.withName(property.namespace, property.name)
+            property = element.WebDAVUnknownElement.withName(
+                property.namespace, property.name
+            )
 
-        if code > 400: # Error codes only
-            log.error("Error during %s for %s: %s" % (self.method, property, message))
+        if code > 400:  # Error codes only
+            log.error(
+                "Error during {method} for {property}: {message}",
+                method=self.method, property=property, message=message
+            )
 
         children = []
         children.append(element.PropertyContainer(property))
@@ -251,7 +276,8 @@ class PropertyStatusResponseQueue (object):
 
     def error(self):
         """
-        Convert any 2xx codes in the propstat responses to 424 Failed Dependency.
+        Convert any 2xx codes in the propstat responses to 424 Failed
+        Dependency.
         """
         for index, propstat in enumerate(self.propstats):
             # Check the status
@@ -286,6 +312,7 @@ class PropertyStatusResponseQueue (object):
                 element.Status.fromResponseCode(self.success_response)
             )
 
+
 ##
 # Exceptions and response codes
 ##
@@ -299,7 +326,7 @@ def statusForFailure(failure, what=None):
     """
     def msg(err):
         if what is not None:
-            log.debug("%s while %s" % (err, what))
+            log.debug("{err} while {what}", err=err, what=what)
 
     if failure.check(IOError, OSError):
         e = failure.value[0]
@@ -327,11 +354,13 @@ def statusForFailure(failure, what=None):
     else:
         failure.raiseException()
 
+
 def errorForFailure(failure):
     if failure.check(HTTPError) and isinstance(failure.value.response, ErrorResponse):
         return element.Error(failure.value.response.error)
     else:
         return None
+
 
 def messageForFailure(failure):
     if failure.check(HTTPError):
