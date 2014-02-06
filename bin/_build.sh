@@ -86,10 +86,6 @@ find_header () {
 init_build () {
   init_py;
 
-       do_get="true";
-     do_setup="true";
-  force_setup="false";
-
       dev_home="${wd}/.develop";
      dev_roots="${dev_home}/roots";
   dep_packages="${dev_home}/pkg";
@@ -119,6 +115,9 @@ init_build () {
   # environment; only set them if they're un-set.
 
   conditional_set wd "$(pwd)";
+  conditional_set do_get "true";
+  conditional_set do_setup "true";
+  conditional_set force_setup "false";
 
   # Find some hashing commands
   # sha1() = sha1 hash, if available
