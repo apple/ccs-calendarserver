@@ -103,12 +103,6 @@ init_build () {
     dep_packages="${TWEXT_PKG_CACHE}";
   fi;
 
-  mkdir -p "${dep_sources}";
-
-  if "${force_setup}"; then
-    rm -rf "${py_root}";
-  fi;
-
   export PYTHONPATH="${wd}:${PYTHONPATH:-}";
 
   # These variables are defaults for things which might be configured by
@@ -435,6 +429,8 @@ c_dependency () {
 
   # Extra arguments are processed below, as arguments to './configure'.
 
+  mkdir -p "${dep_sources}";
+
   srcdir="${dep_sources}/${path}";
   # local dstroot="${srcdir}/_root";
   local dstroot="${dev_roots}/${name}";
@@ -576,6 +572,11 @@ py_dependencies () {
   if ! "${do_setup}"; then return 0; fi;
 
   # Set up virtual environment
+
+  if "${force_setup}"; then
+    # Nuke the virtual environment first
+    rm -rf "${py_root}";
+  fi;
 
   "${bootstrap_python}" -m virtualenv "${py_root}";
 
