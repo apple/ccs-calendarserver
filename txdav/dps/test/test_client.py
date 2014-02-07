@@ -17,6 +17,7 @@
 import os
 
 from twext.who.idirectory import RecordType
+from twisted.cred.credentials import calcResponse, calcHA1, calcHA2
 from twisted.internet.defer import inlineCallbacks, succeed
 from twisted.protocols.amp import AMP
 from twisted.python.filepath import FilePath
@@ -25,8 +26,6 @@ from twisted.trial import unittest
 from txdav.dps.client import DirectoryService
 from txdav.dps.server import DirectoryProxyAMPProtocol
 from txdav.who.xml import DirectoryService as XMLDirectoryService
-
-
 
 
 class DPSClientTest(unittest.TestCase):
@@ -111,4 +110,49 @@ class DPSClientTest(unittest.TestCase):
 
         # Incorrect password
         authenticated = (yield record.verifyPlaintextPassword("wrong"))
+        self.assertFalse(authenticated)
+
+
+    @inlineCallbacks
+    def test_verifyHTTPDigest(self):
+        username = "dre"
+        record = (yield self.directory.recordWithShortName(
+            RecordType.user, username))
+        realm = u"xyzzy"
+        nonce = "128446648710842461101646794502"
+        nc = "00000001"
+        cnonce = "/rrD6TqPA3lHRmg+fw/vyU6oWoQgzK7h9yWrsCmv/lE="
+        algo = "md5"
+        uri = "http://host.example.com"
+        method = "GET"
+        qop = ""
+
+        # Correct password
+        password = "erd"
+        expected = calcResponse(
+            calcHA1(algo, username, realm, password, nonce, cnonce),
+            calcHA2(algo, method, uri, qop, None),
+            algo, nonce, nc, cnonce, qop)
+
+        authenticated = (
+            yield record.verifyHTTPDigest(
+                username, realm, uri, nonce, cnonce, algo, nc, qop,
+                expected, method
+            )
+        )
+        self.assertTrue(authenticated)
+
+        # Incorrect password
+        password = "wrong"
+        expected = calcResponse(
+            calcHA1(algo, username, realm, password, nonce, cnonce),
+            calcHA2(algo, method, uri, qop, None),
+            algo, nonce, nc, cnonce, qop)
+
+        authenticated = (
+            yield record.verifyHTTPDigest(
+                username, realm, uri, nonce, cnonce, algo, nc, qop,
+                expected, method
+            )
+        )
         self.assertFalse(authenticated)

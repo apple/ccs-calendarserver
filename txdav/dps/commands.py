@@ -90,3 +90,21 @@ class VerifyPlaintextPasswordCommand(amp.Command):
     response = [
         ('authenticated', amp.Boolean()),
     ]
+
+
+class VerifyHTTPDigestCommand(amp.Command):
+    arguments = [
+        ('username', amp.String()),
+        ('realm', amp.String()),
+        ('uri', amp.String()),
+        ('nonce', amp.String()),
+        ('cnonce', amp.String()),
+        ('algorithm', amp.String()),
+        ('nc', amp.String()),
+        ('qop', amp.String()),
+        ('response', amp.String()),
+        ('method', amp.String()),
+    ]
+    response = [
+        ('authenticated', amp.Boolean()),
+    ]

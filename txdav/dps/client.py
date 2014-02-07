@@ -29,7 +29,7 @@ from twisted.protocols import amp
 from txdav.dps.commands import (
     RecordWithShortNameCommand, RecordWithUIDCommand, RecordWithGUIDCommand,
     RecordsWithRecordTypeCommand, RecordsWithEmailAddressCommand,
-    VerifyPlaintextPasswordCommand
+    VerifyPlaintextPasswordCommand, VerifyHTTPDigestCommand
 )
 import txdav.who.idirectory
 from zope.interface import implementer
@@ -178,6 +178,28 @@ class DirectoryRecord(BaseDirectoryRecord):
             password=password.encode("utf-8")
         )
 
+
+    def verifyHTTPDigest(
+        self, username, realm, uri, nonce, cnonce,
+        algorithm, nc, qop, response, method,
+    ):
+        return self.service._call(
+            VerifyHTTPDigestCommand,
+            lambda x: x['authenticated'],
+            username=username.encode("utf-8"),
+            realm=realm.encode("utf-8"),
+            uri=uri.encode("utf-8"),
+            nonce=nonce.encode("utf-8"),
+            cnonce=cnonce.encode("utf-8"),
+            algorithm=algorithm.encode("utf-8"),
+            nc=nc.encode("utf-8"),
+            qop=qop.encode("utf-8"),
+            response=response.encode("utf-8"),
+            method=method.encode("utf-8"),
+        )
+
+
+
 # Test client:
 
 
@@ -186,8 +208,11 @@ def makeEvenBetterRequest():
     ds = DirectoryService(None)
     record = (yield ds.recordWithShortName(RecordType.user, "wsanchez"))
     print("short name: {r}".format(r=record))
-    record = (yield ds.recordWithUID("sagen"))
+    record = (yield ds.recordWithUID("__dre__"))
     print("uid: {r}".format(r=record))
+    if record:
+        authenticated = (yield record.verifyPlaintextPassword("erd"))
+        print("authenticated: {a}".format(a=authenticated))
     """
     record = (yield ds.recordWithGUID("A3B1158F-0564-4F5B-81E4-A89EA5FF81B0"))
     print("guid: {r}".format(r=record))
