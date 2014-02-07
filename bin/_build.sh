@@ -97,6 +97,8 @@ init_build () {
 
   python="${py_bindir}/python";
 
+  project="$(setup_print name)";
+
   if [ -z "${TWEXT_PKG_CACHE-}" ]; then
     dep_packages="${dev_home}/pkg";
   else
@@ -104,6 +106,7 @@ init_build () {
   fi;
 
   export PYTHONPATH="${wd}:${PYTHONPATH:-}";
+  export _DEVELOP_PROJECT_="${project}";
 
   # These variables are defaults for things which might be configured by
   # environment; only set them if they're un-set.

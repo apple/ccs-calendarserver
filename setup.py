@@ -101,6 +101,8 @@ def version():
 # Options
 #
 
+name = "CalendarServer"
+
 description = "Calendar and Contacts Server"
 
 long_description = file(joinpath(dirname(__file__), "README.rst")).read()
@@ -148,7 +150,7 @@ extras_requirements = dict(
 # Requirements for development and testing
 develop_requirements = read_requirements("py_develop.txt")
 
-if environment.get("_DEVELOP", "false") == "true":
+if environment.get("_DEVELOP_PROJECT_", None) == name:
     install_requirements.extend(develop_requirements)
     install_requirements.extend(chain(*extras_requirements.values()))
 
@@ -191,7 +193,7 @@ def doSetup():
         version_file.close()
 
     dist = setup(
-        name="CalendarServer",
+        name=name,
         version=version_string,
         description=description,
         long_description=long_description,

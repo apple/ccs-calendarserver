@@ -21,10 +21,6 @@ set -u
 
 wd="$(cd "$(dirname "$0")/.." && pwd)";
 
-export _DEVELOP="true";
-
-export PYTHONPATH="${wd}:${PYTHONPATH:-}";
-
 . "${wd}/bin/_build.sh";
 
 init_build > /dev/null;
