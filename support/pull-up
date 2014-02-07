@@ -5,6 +5,8 @@ set -u
 
 merged="";
 
+repo="$(svn info . | sed -n 's|^Repository Root: ||p')";
+
 for revision; do
     revision="${revision#r}"; # Remove leading 'r'
 
@@ -16,7 +18,7 @@ for revision; do
     previous=$((${revision} - 1));
 
     echo "Pulling up r${revision}...";
-    svn merge "-r${previous}:${revision}" http://svn.calendarserver.org/repository/calendarserver/CalendarServer/trunk;
+    svn merge "-r${previous}:${revision}" "${repo}/CalendarServer/trunk";
 
     merged="${merged} r${revision}";
 done;
