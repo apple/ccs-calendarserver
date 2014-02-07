@@ -26,3 +26,15 @@ fi;
 . "${wd}/bin/_build.sh";
 
 develop;
+
+find .develop/roots/py_modules/src -type d -depth 1 | {
+  while read source; do
+    target="$(basename ${source} | sed 's|twextpy|twext|')";
+
+    if [ -L "${target}" ]; then
+      rm "${target}";
+    fi;
+
+    ln -s "${source}" "${target}";
+  done;
+}
