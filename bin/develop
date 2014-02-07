@@ -38,6 +38,6 @@ find .develop/roots/py_modules/src -type d -depth 1 | {
       rm "${target}";
     fi;
 
-    ln -s "${source}" "${target}";
+    ln -s "../${source}" "${target}";
   done;
 }
