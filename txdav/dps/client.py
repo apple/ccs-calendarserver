@@ -186,6 +186,7 @@ class DirectoryRecord(BaseDirectoryRecord):
         return self.service._call(
             VerifyHTTPDigestCommand,
             lambda x: x['authenticated'],
+            uid=self.uid.encode("utf-8"),
             username=username.encode("utf-8"),
             realm=realm.encode("utf-8"),
             uri=uri.encode("utf-8"),
@@ -212,7 +213,7 @@ def makeEvenBetterRequest():
     print("uid: {r}".format(r=record))
     if record:
         authenticated = (yield record.verifyPlaintextPassword("erd"))
-        print("authenticated: {a}".format(a=authenticated))
+        print("plain auth: {a}".format(a=authenticated))
     """
     record = (yield ds.recordWithGUID("A3B1158F-0564-4F5B-81E4-A89EA5FF81B0"))
     print("guid: {r}".format(r=record))

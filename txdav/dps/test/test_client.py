@@ -25,7 +25,15 @@ from twisted.test.testutils import returnConnected
 from twisted.trial import unittest
 from txdav.dps.client import DirectoryService
 from txdav.dps.server import DirectoryProxyAMPProtocol
-from txdav.who.xml import DirectoryService as XMLDirectoryService
+
+
+testMode = "xml"  # "xml" or "od"
+if testMode == "xml":
+    from txdav.who.xml import DirectoryService as XMLDirectoryService
+elif testMode == "od":
+    odpw = "__secret__"
+    from twext.who.opendirectory import DirectoryService as OpenDirectoryService
+
 
 
 class DPSClientTest(unittest.TestCase):
@@ -36,8 +44,11 @@ class DPSClientTest(unittest.TestCase):
         self.directory = DirectoryService(None)
 
         # The "remote" directory service
-        path = os.path.join(os.path.dirname(__file__), "test.xml")
-        remoteDirectory = XMLDirectoryService(FilePath(path))
+        if testMode == "xml":
+            path = os.path.join(os.path.dirname(__file__), "test.xml")
+            remoteDirectory = XMLDirectoryService(FilePath(path))
+        elif testMode == "od":
+            remoteDirectory = OpenDirectoryService()
 
         # Connect the two services directly via an IOPump
         client = AMP()
@@ -102,57 +113,61 @@ class DPSClientTest(unittest.TestCase):
 
     @inlineCallbacks
     def test_verifyPlaintextPassword(self):
-        record = (yield self.directory.recordWithUID("__dre__"))
+        if testMode == "xml":
+            expectations = (
+                ("erd", True),    # Correct
+                ("wrong", False)  # Incorrect
+            )
+            record = (yield self.directory.recordWithShortName(RecordType.user, "dre"))
+        elif testMode == "od":
+            expectations = (
+                (odpw, True),     # Correct
+                ("wrong", False)  # Incorrect
+            )
+            record = (yield self.directory.recordWithGUID("D0B38B00-4166-11DD-B22C-A07C87F02F6A"))
 
-        # Correct password
-        authenticated = (yield record.verifyPlaintextPassword("erd"))
-        self.assertTrue(authenticated)
-
-        # Incorrect password
-        authenticated = (yield record.verifyPlaintextPassword("wrong"))
-        self.assertFalse(authenticated)
+        for password, answer in expectations:
+            authenticated = (yield record.verifyPlaintextPassword(password))
+            self.assertEquals(authenticated, answer)
 
 
     @inlineCallbacks
     def test_verifyHTTPDigest(self):
-        username = "dre"
-        record = (yield self.directory.recordWithShortName(
-            RecordType.user, username))
-        realm = u"xyzzy"
+        if testMode == "xml":
+            username = "dre"
+            expectations = (
+                ("erd", True),    # Correct
+                ("wrong", False)  # Incorrect
+            )
+            record = (yield self.directory.recordWithShortName(RecordType.user, "dre"))
+        elif testMode == "od":
+            username = "sagen"
+            expectations = (
+                (odpw, True),     # Correct
+                ("wrong", False)  # Incorrect
+            )
+            record = (yield self.directory.recordWithGUID("D0B38B00-4166-11DD-B22C-A07C87F02F6A"))
+
+        realm = "host.example.com"
         nonce = "128446648710842461101646794502"
-        nc = "00000001"
-        cnonce = "/rrD6TqPA3lHRmg+fw/vyU6oWoQgzK7h9yWrsCmv/lE="
-        algo = "md5"
+        algorithm = "md5"
         uri = "http://host.example.com"
         method = "GET"
-        qop = ""
 
-        # Correct password
-        password = "erd"
-        expected = calcResponse(
-            calcHA1(algo, username, realm, password, nonce, cnonce),
-            calcHA2(algo, method, uri, qop, None),
-            algo, nonce, nc, cnonce, qop)
+        for password, answer in expectations:
+            for qop, nc, cnonce in (
+                ("", "", ""),
+                ("auth", "00000001", "/rrD6TqPA3lHRmg+fw/vyU6oWoQgzK7h9yWrsCmv/lE="),
+            ):
+                response = calcResponse(
+                    calcHA1(algorithm, username, realm, password, nonce, cnonce),
+                    calcHA2(algorithm, method, uri, qop, None),
+                    algorithm, nonce, nc, cnonce, qop)
 
-        authenticated = (
-            yield record.verifyHTTPDigest(
-                username, realm, uri, nonce, cnonce, algo, nc, qop,
-                expected, method
-            )
-        )
-        self.assertTrue(authenticated)
-
-        # Incorrect password
-        password = "wrong"
-        expected = calcResponse(
-            calcHA1(algo, username, realm, password, nonce, cnonce),
-            calcHA2(algo, method, uri, qop, None),
-            algo, nonce, nc, cnonce, qop)
-
-        authenticated = (
-            yield record.verifyHTTPDigest(
-                username, realm, uri, nonce, cnonce, algo, nc, qop,
-                expected, method
-            )
-        )
-        self.assertFalse(authenticated)
+                authenticated = (
+                    yield record.verifyHTTPDigest(
+                        username, realm, uri, nonce, cnonce, algorithm, nc, qop,
+                        response, method
+                    )
+                )
+                self.assertEquals(authenticated, answer)

@@ -175,9 +175,10 @@ class DirectoryProxyAMPProtocol(amp.AMP):
     @VerifyHTTPDigestCommand.responder
     @inlineCallbacks
     def verifyHTTPDigest(
-        self, username, realm, uri, nonce, cnonce,
+        self, uid, username, realm, uri, nonce, cnonce,
         algorithm, nc, qop, response, method,
     ):
+        uid = uid.decode("utf-8")
         username = username.decode("utf-8")
         realm = realm.decode("utf-8")
         uri = uri.decode("utf-8")
@@ -189,8 +190,7 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         response = response.decode("utf-8")
         method = method.decode("utf-8")
         log.debug("VerifyHTTPDigest: {u}", u=username)
-        record = (yield self._directory.recordWithShortName(
-            self._directory.recordType.user, username))
+        record = (yield self._directory.recordWithUID(uid))
         authenticated = False
         if record is not None:
             authenticated = (

@@ -94,6 +94,7 @@ class VerifyPlaintextPasswordCommand(amp.Command):
 
 class VerifyHTTPDigestCommand(amp.Command):
     arguments = [
+        ('uid', amp.String()),
         ('username', amp.String()),
         ('realm', amp.String()),
         ('uri', amp.String()),
