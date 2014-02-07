@@ -29,7 +29,10 @@ develop;
 
 find .develop/roots/py_modules/src -type d -depth 1 | {
   while read source; do
-    target="$(basename ${source} | sed 's|twextpy|twext|')";
+    deps="${wd}/subprojects";
+    mkdir -p "${deps}";
+
+    target="${deps}/$(basename ${source} | sed 's|twextpy|twext|')";
 
     if [ -L "${target}" ]; then
       rm "${target}";
