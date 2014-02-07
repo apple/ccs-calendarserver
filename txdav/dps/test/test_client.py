@@ -99,3 +99,16 @@ class DPSClientTest(unittest.TestCase):
         ))
         self.assertEquals(len(records), 1)
         self.assertEquals(records[0].shortNames, [u"cdaboo"])
+
+
+    @inlineCallbacks
+    def test_verifyPlaintextPassword(self):
+        record = (yield self.directory.recordWithUID("__dre__"))
+
+        # Correct password
+        authenticated = (yield record.verifyPlaintextPassword("erd"))
+        self.assertTrue(authenticated)
+
+        # Incorrect password
+        authenticated = (yield record.verifyPlaintextPassword("wrong"))
+        self.assertFalse(authenticated)

@@ -33,6 +33,7 @@ from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from txdav.dps.commands import (
     RecordWithShortNameCommand, RecordWithUIDCommand, RecordWithGUIDCommand,
     RecordsWithRecordTypeCommand, RecordsWithEmailAddressCommand,
+    VerifyPlaintextPasswordCommand
     # UpdateRecordsCommand, RemoveRecordsCommand
 )
 from txdav.who.xml import DirectoryService as XMLDirectoryService
@@ -150,6 +151,22 @@ class DirectoryProxyAMPProtocol(amp.AMP):
             fieldsList.append(self.recordToDict(record))
         response = {
             "fieldsList": pickle.dumps(fieldsList),
+        }
+        log.debug("Responding with: {response}", response=response)
+        returnValue(response)
+
+
+    @VerifyPlaintextPasswordCommand.responder
+    @inlineCallbacks
+    def verifyPlaintextPassword(self, uid, password):
+        uid = uid.decode("utf-8")
+        log.debug("VerifyPlaintextPassword: {u}", u=uid)
+        record = (yield self._directory.recordWithUID(uid))
+        authenticated = False
+        if record is not None:
+            authenticated = (yield record.verifyPlaintextPassword(password))
+        response = {
+            "authenticated": authenticated,
         }
         log.debug("Responding with: {response}", response=response)
         returnValue(response)

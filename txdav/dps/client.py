@@ -27,9 +27,9 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.protocol import ClientCreator
 from twisted.protocols import amp
 from txdav.dps.commands import (
-    RecordWithShortNameCommand, RecordWithUIDCommand,
-    RecordWithGUIDCommand, RecordsWithRecordTypeCommand,
-    RecordsWithEmailAddressCommand
+    RecordWithShortNameCommand, RecordWithUIDCommand, RecordWithGUIDCommand,
+    RecordsWithRecordTypeCommand, RecordsWithEmailAddressCommand,
+    VerifyPlaintextPasswordCommand
 )
 import txdav.who.idirectory
 from zope.interface import implementer
@@ -169,9 +169,14 @@ class DirectoryService(BaseDirectoryService):
 
 
 class DirectoryRecord(BaseDirectoryRecord):
-    pass
 
-
+    def verifyPlaintextPassword(self, password):
+        return self.service._call(
+            VerifyPlaintextPasswordCommand,
+            lambda x: x['authenticated'],
+            uid=self.uid.encode("utf-8"),
+            password=password.encode("utf-8")
+        )
 
 # Test client:
 
@@ -181,14 +186,16 @@ def makeEvenBetterRequest():
     ds = DirectoryService(None)
     record = (yield ds.recordWithShortName(RecordType.user, "wsanchez"))
     print("short name: {r}".format(r=record))
-    record = (yield ds.recordWithUID("__dre__"))
+    record = (yield ds.recordWithUID("sagen"))
     print("uid: {r}".format(r=record))
+    """
     record = (yield ds.recordWithGUID("A3B1158F-0564-4F5B-81E4-A89EA5FF81B0"))
     print("guid: {r}".format(r=record))
     records = (yield ds.recordsWithRecordType(RecordType.user))
     print("recordType: {r}".format(r=records))
     records = (yield ds.recordsWithEmailAddress("cdaboo@bitbucket.calendarserver.org"))
     print("emailAddress: {r}".format(r=records))
+    """
 
 
 def succeeded(result):

@@ -80,3 +80,13 @@ class RemoveRecordsCommand(amp.Command):
     response = [
         ('success', amp.Boolean()),
     ]
+
+
+class VerifyPlaintextPasswordCommand(amp.Command):
+    arguments = [
+        ('uid', amp.String()),
+        ('password', amp.String()),
+    ]
+    response = [
+        ('authenticated', amp.Boolean()),
+    ]
