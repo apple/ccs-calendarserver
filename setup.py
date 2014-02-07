@@ -107,6 +107,8 @@ description = "Calendar and Contacts Server"
 
 long_description = file(joinpath(dirname(__file__), "README.rst")).read()
 
+url = "http://www.calendarserver.org/"
+
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Framework :: Twisted",
@@ -120,6 +122,14 @@ classifiers = [
     "Topic :: Office/Business :: Groupware",
     "Topic :: Office/Business :: Scheduling",
 ]
+
+author = "Apple Inc."
+
+author_email = "calendarserver-dev@lists.macosforge.org"
+
+license = "Apache License, Version 2.0"
+
+platforms = ["all"]
 
 
 
@@ -197,12 +207,12 @@ def doSetup():
         version=version_string,
         description=description,
         long_description=long_description,
-        url="http://www.calendarserver.org/",
+        url=url,
         classifiers=classifiers,
-        author="Apple Inc.",
-        author_email="calendarserver-dev@lists.macosforge.org",
-        license="Apache License, Version 2.0",
-        platforms=["all"],
+        author=author,
+        author_email=author_email,
+        license=license,
+        platforms=platforms,
         packages=find_packages(),
         package_data={
             "twistedcaldav": [
