@@ -1,2 +1,6 @@
+#
+# Requirements for LDAP support
+#
+
 # -e svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk#egg=twextpy [LDAP]
 python-ldap>=2.4.13

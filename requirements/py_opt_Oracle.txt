@@ -1,2 +1,6 @@
+#
+# Requirements for Oracle database support
+#
+
 # -e svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk#egg=twextpy [Oracle]
 cx_Oracle==5.1.2

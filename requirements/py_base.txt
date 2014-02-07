@@ -1,3 +1,7 @@
+#
+# Requirements for basic server functionality
+#
+
 zope.interface==4.0.5
 twisted==13.2.0
 -e svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk#egg=twextpy

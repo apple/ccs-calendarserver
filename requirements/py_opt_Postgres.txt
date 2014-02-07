@@ -1,2 +1,6 @@
+#
+# Requirements for Postgres database support
+#
+
 # -e svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk#egg=twextpy [Postgres]
 PyGreSQL==4.1.1
