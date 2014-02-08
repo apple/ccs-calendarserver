@@ -323,13 +323,6 @@ class DirectoryProxyServiceMaker(object):
     description = "Directory Proxy Service"
     options = DirectoryProxyOptions
 
-    def _extractKeyword(self, key, kwds):
-        result = ""
-        if key in kwds:
-            result = kwds[key]
-            del kwds[key]
-        return result
-
 
     def makeService(self, options):
         """
@@ -350,18 +343,18 @@ class DirectoryProxyServiceMaker(object):
             directory = ODDirectoryService(*args, **kwds)
 
         elif directoryType == "LDAP":
-            authDN = self._extractKeyword("authDN", kwds)
-            password = self._extractKeyword("password", kwds)
+            authDN = kwds.pop("authDN", "")
+            password = kwds.pop("password", "")
             if authDN and password:
                 creds = UsernamePassword(authDN, password)
             else:
                 creds = None
             kwds["credentials"] = creds
-            debug = self._extractKeyword("debug", kwds)
+            debug = kwds.pop("debug", "")
             directory = LDAPDirectoryService(*args, _debug=debug, **kwds)
 
         elif directoryType == "XML":
-            path = self._extractKeyword("path", kwds)
+            path = kwds.pop("path", "")
             if not path or not os.path.exists(path):
                 log.error("Path not found for XML directory: {p}", p=path)
             fp = FilePath(path)

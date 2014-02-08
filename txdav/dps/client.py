@@ -210,7 +210,7 @@ def makeEvenBetterRequest():
     record = (yield ds.recordWithShortName(RecordType.user, "sagen"))
     print("short name: {r}".format(r=record))
     if record:
-        authenticated = (yield record.verifyPlaintextPassword("secret"))
+        authenticated = (yield record.verifyPlaintextPassword("negas"))
         print("plain auth: {a}".format(a=authenticated))
     """
     record = (yield ds.recordWithUID("__dre__"))
