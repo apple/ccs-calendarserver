@@ -32,6 +32,7 @@ from zope.interface.declarations import implements
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python.modules import getModule
 from txweb2.stream import MemoryStream
+from txweb2.resource import Resource
 from txweb2.http import Response
 from txweb2.http_headers import MimeType
 from txweb2.http import HTTPError
@@ -720,3 +721,33 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
             )
         ))
         returnValue(records)
+
+
+
+
+class TemplateResource(Resource):
+    """
+    Resource that renders a template.
+    """
+
+    def __init__(self):
+        Resource.__init__(self)
+
+
+    @inlineCallbacks
+    def render(self, request):
+        """
+        Create a L{WebAdminPage} to render HTML content for this request, and
+        return a response.
+        """
+        htmlContent = yield flattenString(request, WebAdminPage(self))
+
+        response = Response()
+        response.stream = MemoryStream(htmlContent)
+
+        for (header, value) in (
+            ("content-type", MimeType.fromString("text/html; charset=utf-8")),
+        ):
+            response.headers.setHeader(header, value)
+
+        returnValue(response)
