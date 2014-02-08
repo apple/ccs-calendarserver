@@ -97,13 +97,17 @@ init_build () {
 
   python="${py_bindir}/python";
 
-  project="$(setup_print name)";
-
   if [ -z "${TWEXT_PKG_CACHE-}" ]; then
     dep_packages="${dev_home}/pkg";
   else
     dep_packages="${TWEXT_PKG_CACHE}";
   fi;
+
+  if [ ! -d "${py_root}" ]; then
+    "${bootstrap_python}" -m virtualenv "${py_root}";
+  fi;
+
+  project="$(setup_print name)";
 
   export PYTHONPATH="${wd}:${PYTHONPATH:-}";
   export _DEVELOP_PROJECT_="${project}";
