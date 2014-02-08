@@ -27,26 +27,27 @@ __all__ = [
 import operator
 import urlparse
 
-from calendarserver.tools.util import (
-    principalForPrincipalID, proxySubprincipal, action_addProxyPrincipal,
-    action_removeProxyPrincipal
-)
-
-from twistedcaldav.config import config
-from twistedcaldav.extensions import DAVFile, ReadOnlyResourceMixIn
+from zope.interface.declarations import implements
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
-from txweb2.http import Response
 from twisted.python.modules import getModule
-from txweb2.http_headers import MimeType
-from zope.interface.declarations import implements
 from txweb2.stream import MemoryStream
+from txweb2.http import Response
+from txweb2.http_headers import MimeType
 from txweb2.http import HTTPError
 from txdav.xml import element as davxml
 
 from twisted.web.iweb import ITemplateLoader
 from twisted.web.template import (
     Element, renderer, XMLFile, flattenString
+)
+
+from twistedcaldav.config import config
+from twistedcaldav.extensions import DAVFile, ReadOnlyResourceMixIn
+
+from calendarserver.tools.util import (
+    principalForPrincipalID, proxySubprincipal, action_addProxyPrincipal,
+    action_removeProxyPrincipal
 )
 
 
@@ -111,9 +112,9 @@ class WebAdminPage(Element):
     @inlineCallbacks
     def performSearch(self, request):
         """
-        Perform a directory search for users, groups, and resources based on the
-        resourceSearch query parameter.  Cache the results of that search so
-        that it will only be done once per request.
+        Perform a directory search for users, groups, and resources based on
+        the resourceSearch query parameter.  Cache the results of that search
+        so that it will only be done once per request.
         """
         if self._searchResults is not None:
             returnValue(self._searchResults)
@@ -168,10 +169,10 @@ def searchToSlots(results, tag):
             shortName=record.shortNames[0],
             name=record.fullName,
             typeStr={
-                "users"     : "User",
-                "groups"    : "Group",
-                "locations" : "Place",
-                "resources" : "Resource",
+                "users": "User",
+                "groups": "Group",
+                "locations": "Place",
+                "resources": "Resource",
             }.get(record.recordType, repr(record.recordType)),
             shortNames=str(", ".join(record.shortNames)),
             authIds=str(", ".join(record.authIDs)),
@@ -227,8 +228,8 @@ class DetailsElement(Element):
     @renderer
     def propertyParseError(self, request, tag):
         """
-        Renderer to display an error when the user specifies an invalid property
-        name.
+        Renderer to display an error when the user specifies an invalid
+        property name.
         """
         if self.error is None:
             return ""
@@ -240,8 +241,8 @@ class DetailsElement(Element):
     @inlineCallbacks
     def davProperty(self, request, tag):
         """
-        Renderer to display an error when the user specifies an invalid property
-        name.
+        Renderer to display an error when the user specifies an invalid
+        property name.
         """
         if self.name is not None:
             try:
@@ -263,10 +264,12 @@ class DetailsElement(Element):
         """
         Renderer which elides its tag for non-resource-type principals.
         """
-        if (self.principalResource.record.recordType != "users" and
+        if (
+            self.principalResource.record.recordType != "users" and
             self.principalResource.record.recordType != "groups" or
             self.principalResource.record.recordType == "users" and
-            config.Scheduling.Options.AutoSchedule.AllowUsers):
+            config.Scheduling.Options.AutoSchedule.AllowUsers
+        ):
             return tag
         return ""
 
@@ -296,8 +299,8 @@ class DetailsElement(Element):
     @renderer
     def autoScheduleModeDefault(self, request, tag):
         """
-        Renderer which sets the 'selected' attribute on its tag based on the resource
-        auto-schedule-mode.
+        Renderer which sets the 'selected' attribute on its tag based on the
+        resource auto-schedule-mode.
         """
         if self.principalResource.getAutoScheduleMode() == "default":
             tag(selected='selected')
@@ -307,8 +310,8 @@ class DetailsElement(Element):
     @renderer
     def autoScheduleModeNone(self, request, tag):
         """
-        Renderer which sets the 'selected' attribute on its tag based on the resource
-        auto-schedule-mode.
+        Renderer which sets the 'selected' attribute on its tag based on the
+        resource auto-schedule-mode.
         """
         if self.principalResource.getAutoScheduleMode() == "none":
             tag(selected='selected')
@@ -318,8 +321,8 @@ class DetailsElement(Element):
     @renderer
     def autoScheduleModeAcceptAlways(self, request, tag):
         """
-        Renderer which sets the 'selected' attribute on its tag based on the resource
-        auto-schedule-mode.
+        Renderer which sets the 'selected' attribute on its tag based on the
+        resource auto-schedule-mode.
         """
         if self.principalResource.getAutoScheduleMode() == "accept-always":
             tag(selected='selected')
@@ -329,8 +332,8 @@ class DetailsElement(Element):
     @renderer
     def autoScheduleModeDeclineAlways(self, request, tag):
         """
-        Renderer which sets the 'selected' attribute on its tag based on the resource
-        auto-schedule-mode.
+        Renderer which sets the 'selected' attribute on its tag based on the
+        resource auto-schedule-mode.
         """
         if self.principalResource.getAutoScheduleMode() == "decline-always":
             tag(selected='selected')
@@ -340,8 +343,8 @@ class DetailsElement(Element):
     @renderer
     def autoScheduleModeAcceptIfFree(self, request, tag):
         """
-        Renderer which sets the 'selected' attribute on its tag based on the resource
-        auto-schedule-mode.
+        Renderer which sets the 'selected' attribute on its tag based on the
+        resource auto-schedule-mode.
         """
         if self.principalResource.getAutoScheduleMode() == "accept-if-free":
             tag(selected='selected')
@@ -351,8 +354,8 @@ class DetailsElement(Element):
     @renderer
     def autoScheduleModeDeclineIfBusy(self, request, tag):
         """
-        Renderer which sets the 'selected' attribute on its tag based on the resource
-        auto-schedule-mode.
+        Renderer which sets the 'selected' attribute on its tag based on the
+        resource auto-schedule-mode.
         """
         if self.principalResource.getAutoScheduleMode() == "decline-if-busy":
             tag(selected='selected')
@@ -362,10 +365,13 @@ class DetailsElement(Element):
     @renderer
     def autoScheduleModeAutomatic(self, request, tag):
         """
-        Renderer which sets the 'selected' attribute on its tag based on the resource
-        auto-schedule-mode.
+        Renderer which sets the 'selected' attribute on its tag based on the
+        resource auto-schedule-mode.
         """
-        if self.principalResource.getAutoScheduleMode() == "automatic" or not self.principalResource.getAutoScheduleMode():
+        if (
+            self.principalResource.getAutoScheduleMode() == "automatic" or
+            not self.principalResource.getAutoScheduleMode()
+        ):
             tag(selected='selected')
         return tag
 
@@ -402,6 +408,7 @@ class DetailsElement(Element):
                 # FIXME: 'else' case needs to be handled by separate renderer
                 readProxies = []
                 writeProxies = []
+
                 def getres(ref):
                     return self.adminResource.getResourceById(request,
                                                               str(proxyHRef))
@@ -438,7 +445,8 @@ class DetailsElement(Element):
     @inlineCallbacks
     def hasProxies(self, request, tag):
         """
-        Renderer which shows its tag if there are any proxies for this resource.
+        Renderer which shows its tag if there are any proxies for this
+        resource.
         """
         mtx = yield self.proxyMatrix(request)
         if mtx:
@@ -570,8 +578,9 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
         self.root = root
         self.directory = directory
         self.store = store
-        super(WebAdminResource, self).__init__(path,
-            principalCollections=principalCollections)
+        super(WebAdminResource, self).__init__(
+            path, principalCollections=principalCollections
+        )
 
 
     # Only allow administrators to access
@@ -640,28 +649,36 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
         # Update the auto-schedule value if specified.
         if autoSchedule is not None and (autoSchedule == "true" or
                                          autoSchedule == "false"):
-            if (principal.record.recordType != "users" and
-                 principal.record.recordType != "groups" or
-                 principal.record.recordType == "users" and
-                 config.Scheduling.Options.AutoSchedule.AllowUsers):
-                (yield principal.setAutoSchedule(autoSchedule == "true"))
-                (yield principal.setAutoScheduleMode(autoScheduleMode))
+            if (
+                principal.record.recordType != "users" and
+                principal.record.recordType != "groups" or
+                principal.record.recordType == "users" and
+                config.Scheduling.Options.AutoSchedule.AllowUsers
+            ):
+                yield principal.setAutoSchedule(autoSchedule == "true")
+                yield principal.setAutoScheduleMode(autoScheduleMode)
 
         # Update the proxies if specified.
         for proxyId in removeProxies:
             proxy = self.getResourceById(request, proxyId)
-            (yield action_removeProxyPrincipal(self.root, self.directory, self.store,
-                principal, proxy, proxyTypes=["read", "write"]))
+            yield action_removeProxyPrincipal(
+                self.root, self.directory, self.store,
+                principal, proxy, proxyTypes=["read", "write"]
+            )
 
         for proxyId in makeReadProxies:
             proxy = self.getResourceById(request, proxyId)
-            (yield action_addProxyPrincipal(self.root, self.directory, self.store,
-                principal, "read", proxy))
+            yield action_addProxyPrincipal(
+                self.root, self.directory, self.store, principal, "read", proxy
+            )
 
         for proxyId in makeWriteProxies:
             proxy = self.getResourceById(request, proxyId)
-            (yield action_addProxyPrincipal(self.root, self.directory, self.store,
-                principal, "write", proxy))
+            yield action_addProxyPrincipal(
+                self.root, self.directory, self.store, principal,
+                "write", proxy
+            )
+
 
 
     @inlineCallbacks
@@ -678,9 +695,9 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
         response = Response()
         response.stream = MemoryStream(htmlContent)
         for (header, value) in (
-                ("content-type", self.contentType()),
-                ("content-encoding", self.contentEncoding()),
-            ):
+            ("content-type", self.contentType()),
+            ("content-encoding", self.contentEncoding()),
+        ):
             if value is not None:
                 response.headers.setHeader(header, value)
         returnValue(response)
@@ -690,10 +707,16 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
         if resourceId.startswith("/"):
             return request.locateResource(resourceId)
         else:
-            return principalForPrincipalID(resourceId, directory=self.directory)
+            return principalForPrincipalID(
+                resourceId, directory=self.directory
+            )
 
 
     @inlineCallbacks
     def search(self, searchStr):
-        records = list((yield self.directory.recordsMatchingTokens(searchStr.strip().split())))
+        records = list((
+            yield self.directory.recordsMatchingTokens(
+                searchStr.strip().split()
+            )
+        ))
         returnValue(records)
