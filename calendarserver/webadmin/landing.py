@@ -23,48 +23,25 @@ __all__ = [
     "WebAdminLandingResource",
 ]
 
-from twisted.python.modules import getModule
-from twisted.web.template import Element, renderer, XMLFile, tags
+# from twisted.web.template import renderer
 
-from .resource import TemplateResource
-
+from .resource import PageElement, TemplateResource
 
 
-class WebAdminLandingPageElement(Element):
+
+class WebAdminLandingPageElement(PageElement):
     """
     Web administration langing page element.
     """
 
-    loader = XMLFile(
-        getModule(__name__).filePath.sibling("landing.xhtml")
-    )
-
-    pageSlots = {
-        u"title": u"Calendar & Contacts Server Administration",
-    }
-
-
     def __init__(self):
-        Element.__init__(self)
+        PageElement.__init__(self, "landing")
 
 
-    @renderer
-    def main(self, request, tag):
-        """
-        Main renderer, which fills page-global slots like 'title'.
-        """
-        tag.fillSlots(**self.pageSlots)
-        return tag
-
-
-    @renderer
-    def stylesheet(self, request, tag):
-        return tags.link(
-            rel="stylesheet",
-            media="screen",
-            href="style.css",
-            type="text/css",
-        )
+    def pageSlots(self):
+        return {
+            u"title": u"Calendar & Contacts Server Administration",
+        }
 
 
 

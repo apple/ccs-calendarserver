@@ -41,7 +41,7 @@ from txdav.xml import element as davxml
 
 from twisted.web.iweb import ITemplateLoader
 from twisted.web.template import (
-    Element, renderer, XMLFile, flattenString
+    Element, renderer, XMLFile, flattenString, tags
 )
 
 from twistedcaldav.config import config
@@ -723,6 +723,45 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
         ))
         returnValue(records)
 
+
+
+
+class PageElement(Element):
+    """
+    Page element.
+    """
+
+    def __init__(self, templateName):
+        Element.__init__(self)
+
+        self.loader = XMLFile(
+            getModule(__name__).filePath.sibling(
+                "{name}.xhtml".format(name=templateName)
+            )
+        )
+
+
+    def pageSlots(self):
+        return {}
+
+
+    @renderer
+    def main(self, request, tag):
+        """
+        Main renderer, which fills page-global slots like 'title'.
+        """
+        tag.fillSlots(**self.pageSlots())
+        return tag
+
+
+    @renderer
+    def stylesheet(self, request, tag):
+        return tags.link(
+            rel="stylesheet",
+            media="screen",
+            href="/style.css",
+            type="text/css",
+        )
 
 
 
