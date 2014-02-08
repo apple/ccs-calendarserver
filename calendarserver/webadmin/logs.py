@@ -1,4 +1,4 @@
-# -*- test-case-name: calendarserver.webadmin.test.test_landing -*-
+# -*- test-case-name: calendarserver.webadmin.test.test_log -*-
 ##
 # Copyright (c) 2009-2014 Apple Inc. All rights reserved.
 #
@@ -20,46 +20,37 @@ Calendar Server Web Admin UI.
 """
 
 __all__ = [
-    "WebAdminLandingResource",
+    "LogsResource",
 ]
 
 # from twisted.web.template import renderer
 
 from .resource import PageElement, TemplateResource
-from .logs import LogsResource
 
 
 
-class WebAdminLandingPageElement(PageElement):
+class LogsPageElement(PageElement):
     """
-    Web administration langing page element.
+    Logs page element.
     """
 
     def __init__(self):
-        PageElement.__init__(self, "landing")
+        PageElement.__init__(self, "logs")
 
 
     def pageSlots(self):
         return {
-            u"title": u"Calendar & Contacts Server Administration",
+            u"title": u"Calendar & Contacts Server Logs",
         }
 
 
 
-class WebAdminLandingResource(TemplateResource):
+class LogsResource(TemplateResource):
     """
     Web administration landing page resource.
     """
 
-    addSlash = True
+    addSlash = False
 
-    def __init__(self, path, root, directory, store, principalCollections=()):
-        TemplateResource.__init__(self, WebAdminLandingPageElement())
-
-        self._path = path
-        self._root = root
-        self.directory = directory
-        self.store = store
-        self._principalCollections = principalCollections
-
-        self.putChild("logs", LogsResource())
+    def __init__(self):
+        TemplateResource.__init__(self, LogsPageElement())
