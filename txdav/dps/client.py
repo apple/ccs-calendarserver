@@ -207,14 +207,17 @@ class DirectoryRecord(BaseDirectoryRecord):
 @inlineCallbacks
 def makeEvenBetterRequest():
     ds = DirectoryService(None)
-    record = (yield ds.recordWithShortName(RecordType.user, "wsanchez"))
+    record = (yield ds.recordWithShortName(RecordType.user, "sagen"))
     print("short name: {r}".format(r=record))
+    if record:
+        authenticated = (yield record.verifyPlaintextPassword("secret"))
+        print("plain auth: {a}".format(a=authenticated))
+    """
     record = (yield ds.recordWithUID("__dre__"))
     print("uid: {r}".format(r=record))
     if record:
         authenticated = (yield record.verifyPlaintextPassword("erd"))
         print("plain auth: {a}".format(a=authenticated))
-    """
     record = (yield ds.recordWithGUID("A3B1158F-0564-4F5B-81E4-A89EA5FF81B0"))
     print("guid: {r}".format(r=record))
     records = (yield ds.recordsWithRecordType(RecordType.user))

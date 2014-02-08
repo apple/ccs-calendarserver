@@ -836,6 +836,8 @@ DEFAULT_CONFIG = {
         "Enabled": False,
         "SocketPath": "directory-proxy.sock",
         "DirectoryType": "XML",  # "LDAP", "OD", "XML"
+        "Arguments": [],
+        "Keywords": {},
     },
 
     #

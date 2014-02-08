@@ -15,6 +15,7 @@
 ##
 
 import cPickle as pickle
+import os
 import uuid
 
 from twext.python.log import Logger
@@ -36,8 +37,10 @@ from txdav.dps.commands import (
     VerifyPlaintextPasswordCommand, VerifyHTTPDigestCommand,
     # UpdateRecordsCommand, RemoveRecordsCommand
 )
+from twext.who.ldap import DirectoryService as LDAPDirectoryService
 from txdav.who.xml import DirectoryService as XMLDirectoryService
 from zope.interface import implementer
+from twisted.cred.credentials import UsernamePassword
 
 log = Logger()
 
@@ -320,6 +323,14 @@ class DirectoryProxyServiceMaker(object):
     description = "Directory Proxy Service"
     options = DirectoryProxyOptions
 
+    def _extractKeyword(self, key, kwds):
+        result = ""
+        if key in kwds:
+            result = kwds[key]
+            del kwds[key]
+        return result
+
+
     def makeService(self, options):
         """
         Return a service
@@ -332,16 +343,32 @@ class DirectoryProxyServiceMaker(object):
             setproctitle("CalendarServer Directory Proxy Service")
 
         directoryType = config.DirectoryProxy.DirectoryType
+        args = config.DirectoryProxy.Arguments
+        kwds = config.DirectoryProxy.Keywords
+
         if directoryType == "OD":
-            directory = ODDirectoryService()
+            directory = ODDirectoryService(*args, **kwds)
+
         elif directoryType == "LDAP":
-            pass
+            authDN = self._extractKeyword("authDN", kwds)
+            password = self._extractKeyword("password", kwds)
+            if authDN and password:
+                creds = UsernamePassword(authDN, password)
+            else:
+                creds = None
+            kwds["credentials"] = creds
+            debug = self._extractKeyword("debug", kwds)
+            directory = LDAPDirectoryService(*args, _debug=debug, **kwds)
+
         elif directoryType == "XML":
-            path = "txdav/dps/test/test.xml"
-            directory = XMLDirectoryService(FilePath(path))
+            path = self._extractKeyword("path", kwds)
+            if not path or not os.path.exists(path):
+                log.error("Path not found for XML directory: {p}", p=path)
+            fp = FilePath(path)
+            directory = XMLDirectoryService(fp, *args, **kwds)
+
         else:
             log.error("Invalid DirectoryType: {dt}", dt=directoryType)
-
 
         desc = "unix:{path}:mode=660".format(
             path=config.DirectoryProxy.SocketPath

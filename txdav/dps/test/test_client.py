@@ -31,7 +31,7 @@ testMode = "xml"  # "xml" or "od"
 if testMode == "xml":
     from txdav.who.xml import DirectoryService as XMLDirectoryService
 elif testMode == "od":
-    odpw = "__secret__"
+    odpw = "secret"
     from twext.who.opendirectory import DirectoryService as OpenDirectoryService
 
 
@@ -118,13 +118,19 @@ class DPSClientTest(unittest.TestCase):
                 ("erd", True),    # Correct
                 ("wrong", False)  # Incorrect
             )
-            record = (yield self.directory.recordWithShortName(RecordType.user, "dre"))
+            record = (
+                yield self.directory.recordWithShortName(RecordType.user, "dre")
+            )
         elif testMode == "od":
             expectations = (
                 (odpw, True),     # Correct
                 ("wrong", False)  # Incorrect
             )
-            record = (yield self.directory.recordWithGUID("D0B38B00-4166-11DD-B22C-A07C87F02F6A"))
+            record = (
+                yield self.directory.recordWithGUID(
+                    "D0B38B00-4166-11DD-B22C-A07C87F02F6A"
+                )
+            )
 
         for password, answer in expectations:
             authenticated = (yield record.verifyPlaintextPassword(password))
@@ -139,14 +145,20 @@ class DPSClientTest(unittest.TestCase):
                 ("erd", True),    # Correct
                 ("wrong", False)  # Incorrect
             )
-            record = (yield self.directory.recordWithShortName(RecordType.user, "dre"))
+            record = (
+                yield self.directory.recordWithShortName(RecordType.user, "dre")
+            )
         elif testMode == "od":
             username = "sagen"
             expectations = (
                 (odpw, True),     # Correct
                 ("wrong", False)  # Incorrect
             )
-            record = (yield self.directory.recordWithGUID("D0B38B00-4166-11DD-B22C-A07C87F02F6A"))
+            record = (
+                yield self.directory.recordWithGUID(
+                    "D0B38B00-4166-11DD-B22C-A07C87F02F6A"
+                )
+            )
 
         realm = "host.example.com"
         nonce = "128446648710842461101646794502"
