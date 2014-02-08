@@ -88,7 +88,7 @@ from txdav.base.datastore.subpostgres import PostgresService
 from calendarserver.accesslog import DirectoryLogWrapperResource
 from calendarserver.provision.root import RootResource
 from calendarserver.tools.util import checkDirectory
-from calendarserver.webadmin.resource import WebAdminResource
+from calendarserver.webadmin.landing import WebAdminLandingResource
 from calendarserver.webcal.resource import WebCalendarResource
 
 from txdav.common.datastore.podding.resource import ConduitResource
@@ -403,7 +403,7 @@ def getRootResource(config, newStore, resources=None):
     timezoneServiceResourceClass = TimezoneServiceResource
     timezoneStdServiceResourceClass = TimezoneStdServiceResource
     webCalendarResourceClass = WebCalendarResource
-    webAdminResourceClass = WebAdminResource
+    webAdminResourceClass = WebAdminLandingResource
     addressBookResourceClass = DirectoryAddressBookHomeProvisioningResource
     directoryBackedAddressBookResourceClass = DirectoryBackedAddressBookResource
     apnSubscriptionResourceClass = APNSubscriptionResource

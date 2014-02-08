@@ -22,6 +22,7 @@ Calendar Server Web Admin UI.
 __all__ = [
     "WebAdminResource",
     "WebAdminPage",
+    "TemplateResource",
 ]
 
 import operator
@@ -730,8 +731,27 @@ class TemplateResource(Resource):
     Resource that renders a template.
     """
 
-    def __init__(self):
+    # @staticmethod
+    # def queryValue(request, argument):
+    #     for value in request.args.get(argument, []):
+    #         return value
+
+    #     return u""
+
+
+    # @staticmethod
+    # def queryValues(request, arguments):
+    #     return request.args.get(arguments, [])
+
+
+    def __init__(self, element):
         Resource.__init__(self)
+
+        self.element = element
+
+
+    # def handleQueryArguments(self, request):
+    #     return succeed(None)
 
 
     @inlineCallbacks
@@ -740,7 +760,9 @@ class TemplateResource(Resource):
         Create a L{WebAdminPage} to render HTML content for this request, and
         return a response.
         """
-        htmlContent = yield flattenString(request, WebAdminPage(self))
+        # yield self.handleQueryArguments(request)
+
+        htmlContent = yield flattenString(request, self.element)
 
         response = Response()
         response.stream = MemoryStream(htmlContent)
