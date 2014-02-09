@@ -4,13 +4,46 @@
   <head>
     <title><t:slot name="title" /></title>
     <link t:render="stylesheet" />
+
+    <script type="text/javascript">
+
+      window.onload = function() {
+          var eventSource = new EventSource("log_events");
+
+          var accessStatusElement = document.getElementById("access-log-status");
+          var accessLogElement = document.getElementById("access-log");
+
+          accessStatusElement.innerHTML = "Connecting...";
+
+          eventSource.onerror = function() {
+              accessStatusElement.innerHTML = "Connection error.";
+          };
+
+          eventSource.onopen = function() {
+              accessStatusElement.innerHTML = "Connected.";
+          };
+
+          eventSource.onmessage = function(event) {
+              accessLogElement.innerHTML += event.data + "<br />";
+          };
+      }
+
+    </script>
   </head>
 
   <body>
 
     <h1><t:slot name="title" /></h1>
 
-    <p>...</p>
+    <h2>Access Log</h2>
+
+    <div id="access-log-status" />
+    <div id="access-log" />
+
+    <h2>Server Log</h2>
+
+    <div id="server-log-status" />
+    <div id="server-log" />
 
   </body>
 
