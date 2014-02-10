@@ -805,10 +805,8 @@ class TemplateResource(Resource):
 
         response = Response()
         response.stream = MemoryStream(htmlContent)
-
-        for (header, value) in (
-            ("content-type", MimeType.fromString("text/html; charset=utf-8")),
-        ):
-            response.headers.setHeader(header, value)
+        response.headers.setHeader(
+            "content-type", MimeType.fromString("text/html; charset=utf-8")
+        )
 
         returnValue(response)

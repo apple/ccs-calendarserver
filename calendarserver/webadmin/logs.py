@@ -21,9 +21,13 @@ Calendar Server Web Admin UI.
 
 __all__ = [
     "LogsResource",
+    "LogEventsResource",
 ]
 
-# from twisted.web.template import renderer
+from txweb2.stream import MemoryStream
+from txweb2.resource import Resource
+from txweb2.http_headers import MimeType
+from txweb2.http import Response
 
 from .resource import PageElement, TemplateResource
 
@@ -47,10 +51,35 @@ class LogsPageElement(PageElement):
 
 class LogsResource(TemplateResource):
     """
-    Web administration landing page resource.
+    Logs page resource.
+    """
+
+    addSlash = True
+
+
+    def __init__(self):
+        TemplateResource.__init__(self, LogsPageElement())
+
+        self.putChild("events", LogEventsResource())
+
+
+
+class LogEventsResource(Resource):
+    """
+    Log event vending resource.
     """
 
     addSlash = False
 
+
     def __init__(self):
-        TemplateResource.__init__(self, LogsPageElement())
+        Resource.__init__(self)
+
+
+    def render(self, request):
+        response = Response()
+        response.stream = MemoryStream("")
+        response.headers.setHeader(
+            "content-type", MimeType.fromString("text/event-stream")
+        )
+        return response
