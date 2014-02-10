@@ -24,6 +24,8 @@ __all__ = [
     "LogEventsResource",
 ]
 
+from collections import deque
+
 from zope.interface import implementer
 
 from twisted.internet.defer import succeed
@@ -32,6 +34,8 @@ from txweb2.stream import IByteStream, fallbackSplit
 from txweb2.resource import Resource
 from txweb2.http_headers import MimeType
 from txweb2.http import Response
+
+from calendarserver.accesslog import CommonAccessLoggingObserverExtensions
 
 from .resource import PageElement, TemplateResource
 
@@ -79,10 +83,12 @@ class LogEventsResource(Resource):
     def __init__(self):
         Resource.__init__(self)
 
+        self._observer = AccessLoggingObserver()
+
 
     def render(self, request):
         response = Response()
-        response.stream = LogObservingEventStream()
+        response.stream = LogObservingEventStream(self._observer)
         response.headers.setHeader(
             "content-type", MimeType.fromString("text/event-stream")
         )
@@ -100,7 +106,11 @@ class LogObservingEventStream(object):
     length = None
 
 
-    def __init__(self):
+    def __init__(self, observer, start=None):
+        object.__init__(self)
+
+        self._observer = observer
+        self._start = start
         self._closed = False
 
 
@@ -108,7 +118,34 @@ class LogObservingEventStream(object):
         if self._closed:
             return None
 
-        return succeed(textAsEvent(u"Hello!"))
+        start = self._start
+
+        events = []
+
+        for message in self._observer.messages():
+            # If we have a start point, skip messages up to and including the
+            # one at the start point.
+            if start is not None:
+                if id(message) == start:
+                    start = None
+                continue
+
+            events.append(textAsEvent(message))
+
+        if events:
+            # Remember the ID of the last event read at our start point
+            self._start = id(events[-1])
+
+            return succeed("".join(events))
+
+        if self._start is not None:
+            # We have a start point and no data... maybe if fell off of the
+            # buffer; remove the start point and try again.
+            self._start = None
+            return self.read()
+
+        # No start point and no events == EOF
+        return succeed(None)
 
 
     def split(self, point):
@@ -120,5 +157,30 @@ class LogObservingEventStream(object):
 
 
 
+class AccessLoggingObserver(CommonAccessLoggingObserverExtensions):
+    """
+    Log observer that captures apache-style access log text entries in a
+    buffer.
+    """
+    def __init__(self):
+        CommonAccessLoggingObserverExtensions.__init__(self)
+
+        self._buffer = deque(maxlen=400)
+
+
+    def logMessage(self, message):
+        self._buffer.append(message)
+
+
+    def messages(self):
+        return iter(self._buffer)
+
+
+
 def textAsEvent(text):
-    return u"data: {text}\n\n".format(text=text).encode("utf-8")
+    return (
+        u"id: {id}\n"
+        u"data: {text}\n"
+        u"\n"
+        .format(id=id(text), text=text).encode("utf-8")
+    )
