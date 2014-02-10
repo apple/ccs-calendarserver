@@ -418,6 +418,36 @@ class PeerConnectionPoolUnitTests(TestCase):
         self.assertEquals(performResult, [None])
 
 
+    def test_choosePerformerSorted(self):
+        """
+        If L{PeerConnectionPool.choosePerformer} is invoked make it
+        return the peer with the least load.
+        """
+        peer = PeerConnectionPool(None, None, 4322, schema)
+
+        class DummyPeer(object):
+            def __init__(self, name, load):
+                self.name = name
+                self.load = load
+
+            def currentLoadEstimate(self):
+                return self.load
+
+        apeer = DummyPeer("A", 1)
+        bpeer = DummyPeer("B", 0)
+        cpeer = DummyPeer("C", 2)
+        peer.addPeerConnection(apeer)
+        peer.addPeerConnection(bpeer)
+        peer.addPeerConnection(cpeer)
+
+        performer = peer.choosePerformer(onlyLocally=False)
+        self.assertEqual(performer, bpeer)
+
+        bpeer.load = 2
+        performer = peer.choosePerformer(onlyLocally=False)
+        self.assertEqual(performer, apeer)
+
+
     @inlineCallbacks
     def test_notBeforeWhenCheckingForLostWork(self):
         """
@@ -563,8 +593,8 @@ class PeerConnectionPoolUnitTests(TestCase):
             t = StringTransport()
             p.makeConnection(t)
             return p, t
-        worker1, trans1 = peer()
-        worker2, trans2 = peer()
+        worker1, _ignore_trans1 = peer()
+        worker2, _ignore_trans2 = peer()
         # Ask the worker to do something.
         worker1.performWork(schema.DUMMY_WORK_ITEM, 1)
         self.assertEquals(worker1.currentLoad, 1)
@@ -678,7 +708,7 @@ class Connection(object):
         """
         Keep relaying data until there's no more.
         """
-        for x in range(turns):
+        for _ignore_x in range(turns):
             if not (self.pump() or self.pump()):
                 return
 
