@@ -24,7 +24,11 @@ __all__ = [
     "LogEventsResource",
 ]
 
-from txweb2.stream import MemoryStream
+from zope.interface import implementer
+
+from twisted.internet.defer import succeed
+
+from txweb2.stream import IByteStream, fallbackSplit
 from txweb2.resource import Resource
 from txweb2.http_headers import MimeType
 from txweb2.http import Response
@@ -78,11 +82,41 @@ class LogEventsResource(Resource):
 
     def render(self, request):
         response = Response()
-        response.stream = MemoryStream(textAsEvent(u"Hello!"))
+        response.stream = LogObservingEventStream()
         response.headers.setHeader(
             "content-type", MimeType.fromString("text/event-stream")
         )
         return response
+
+
+
+@implementer(IByteStream)
+class LogObservingEventStream(object):
+    """
+    L{IStream} that observes log events and streams them out as HTML5
+    EventSource events.
+    """
+
+    length = None
+
+
+    def __init__(self):
+        self._closed = False
+
+
+    def read(self):
+        if self._closed:
+            return None
+
+        return succeed(textAsEvent(u"Hello!"))
+
+
+    def split(self, point):
+        return fallbackSplit(self, point)
+
+
+    def close(self):
+        self._closed = True
 
 
 
