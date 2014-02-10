@@ -2674,7 +2674,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         ObjectResourceTooBigError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "max-resource-size"),),
         InvalidObjectResourceError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "valid-calendar-data"),),
         InvalidComponentForStoreError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "valid-calendar-object-resource"),),
-        InvalidComponentTypeError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "supported-component"),),
+        InvalidComponentTypeError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "supported-calendar-component"),),
         TooManyAttendeesError: (_CommonObjectResource._storeExceptionError, MaxAttendeesPerInstance.fromString(str(config.MaxAttendeesPerInstance)),),
         InvalidCalendarAccessError: (_CommonObjectResource._storeExceptionError, (calendarserver_namespace, "valid-access-restriction"),),
         ValidOrganizerError: (_CommonObjectResource._storeExceptionError, (calendarserver_namespace, "valid-organizer"),),
@@ -2696,7 +2696,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         ObjectResourceNameAlreadyExistsError: (_CommonObjectResource._storeExceptionStatus, None,),
         TooManyObjectResourcesError: (_CommonObjectResource._storeExceptionError, customxml.MaxResources(),),
         InvalidResourceMove: (_CommonObjectResource._storeExceptionError, (calendarserver_namespace, "valid-move"),),
-        InvalidComponentTypeError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "supported-component"),),
+        InvalidComponentTypeError: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "supported-calendar-component"),),
         LockTimeout: (_CommonObjectResource._storeExceptionUnavailable, "Lock timed out.",),
     }
 
