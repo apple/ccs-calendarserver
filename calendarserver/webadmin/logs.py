@@ -78,7 +78,12 @@ class LogEventsResource(Resource):
 
     def render(self, request):
         response = Response()
-        response.stream = MemoryStream("")
+        response.stream = MemoryStream(
+"""
+data: foo
+
+"""
+        )
         response.headers.setHeader(
             "content-type", MimeType.fromString("text/event-stream")
         )
