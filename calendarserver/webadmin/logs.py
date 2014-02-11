@@ -150,8 +150,6 @@ class LogObservingEventStream(object):
             # If we have a start point, skip messages up to and including the
             # one at the start point.
             if start is not None:
-                print("*** Skipping event # {0}".format(messageID))
-
                 if messageID == start:
                     messageID = None
                     start = None
@@ -165,9 +163,6 @@ class LogObservingEventStream(object):
             eventText = textAsEvent(
                 message, eventID=messageID, eventClass=u"access"
             )
-
-            print("--> Sending event # {0}".format(messageID))
-            print(eventText)
 
             return succeed(eventText)
 
