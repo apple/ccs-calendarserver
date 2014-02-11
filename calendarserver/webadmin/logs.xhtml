@@ -8,27 +8,53 @@
     <script type="text/javascript">
 
       window.onload = function() {
-          var eventSource = new EventSource("./events");
+        var eventSource = new EventSource("./events");
 
-          var accessStatusElement = document.getElementById("access-log-status");
-          var accessLogElement = document.getElementById("access-log");
+        var accessStatusElement = document.getElementById("access-log-status");
+        var accessLogElement = document.getElementById("access-log");
 
-          accessStatusElement.innerHTML = "Connecting...";
+        accessStatusElement.innerHTML = "Connecting...";
 
-          eventSource.onerror = function() {
-              accessStatusElement.innerHTML = "Connection error.";
-          };
+        eventSource.addEventListener(
+          "open",
+          function(e) {
+            accessStatusElement.innerHTML = "Connected.";
+          },
+          false
+        );
 
-          eventSource.onopen = function() {
-              accessStatusElement.innerHTML = "Connected.";
-          };
+        eventSource.addEventListener(
+          "error",
+          function(e) {
+            if (e.readyState == EventSource.CLOSED) {
+              accessStatusElement.innerHTML = "Conneciton closed.";
+            }
+            else {
+              accessStatusElement.innerHTML = "Polling...";
+            }
+          },
+          false
+        );
 
-          eventSource.onmessage = function(event) {
-              accessLogElement.innerHTML += event.data + "<br />";
-          };
+        eventSource.addEventListener(
+          "access",
+          function(e) {
+            accessLogElement.innerHTML += event.data + "<br />";
+          },
+          false
+        );
       }
 
     </script>
+
+    <style>
+      .log {
+        width: 100%;
+        height: 150pt;
+        overflow-y: scroll;
+        border: 1px solid;
+      }
+    </style>
   </head>
 
   <body>
@@ -38,12 +64,12 @@
     <h2>Access Log</h2>
 
     <div id="access-log-status" />
-    <div id="access-log" />
+    <div id="access-log" class="log" />
 
     <h2>Server Log</h2>
 
     <div id="server-log-status" />
-    <div id="server-log" />
+    <div id="server-log" class="log" />
 
   </body>
 
