@@ -36,7 +36,14 @@
             eventClass,
             function(e) {
               // Append text
-              logViewElement.innerHTML += event.data + "<br />";
+
+              if (e.lastEventId == 0) {
+                logViewElement.appendChild(document.createElement("hr"))
+              } else {
+                logViewElement.appendChild(document.createTextNode(e.data))
+                logViewElement.appendChild(document.createElement("br"))
+              }
+
 
               // Scroll to bottom
               logViewElement.scrollTop = logViewElement.scrollHeight;
