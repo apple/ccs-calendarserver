@@ -443,11 +443,11 @@ class CommonStoreTransactionMonitor(object):
         def _logTransactionWait():
             if self.txn is not None:
                 log.error(
-                    "Transaction wait: {self.txn}, "
-                    "Statements: {self.txn.statementCount!d}, "
-                    "IUDs: {self.txn.iudCount!d}, "
-                    "Statement: {self.txn.currentStatement}",
-                    self=self
+                    "Transaction wait: {me.txn}, "
+                    "Statements: {me.txn.statementCount!d}, "
+                    "IUDs: {me.txn.iudCount!d}, "
+                    "Statement: {me.txn.currentStatement}",
+                    me=self
                 )
                 self.delayedLog = self.callLater(
                     self.logTimerSeconds, _logTransactionWait
@@ -463,11 +463,11 @@ class CommonStoreTransactionMonitor(object):
         def _forceAbort():
             if self.txn is not None:
                 log.error(
-                    "Transaction abort too long: {self.txn}, "
-                    "Statements: {self.txn.statementCount!d}, "
-                    "IUDs: {self.txn.iudCount!d}, "
-                    "Statement: {self.txn.currentStatement}",
-                    self=self
+                    "Transaction abort too long: {me.txn}, "
+                    "Statements: {me.txn.statementCount!d}, "
+                    "IUDs: {me.txn.iudCount!d}, "
+                    "Statement: {me.txn.currentStatement}",
+                    me=self
                 )
                 self.delayedTimeout = None
                 if self.delayedLog:

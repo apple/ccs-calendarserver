@@ -100,7 +100,7 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         self.patch(self._sqlStore, "logTransactionWaits", 1)
 
         ctr = [0]
-        def counter(_ignore):
+        def counter(*args, **kwargs):
             ctr[0] += 1
         self.patch(log, "error", counter)
 
@@ -123,7 +123,7 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         self.patch(self._sqlStore, "timeoutTransactions", 1)
 
         ctr = [0]
-        def counter(_ignore):
+        def counter(*args, **kwargs):
             ctr[0] += 1
         self.patch(log, "error", counter)
 
@@ -149,7 +149,7 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         self.patch(self._sqlStore, "timeoutTransactions", 2)
 
         ctr = [0, 0]
-        def counter(logStr):
+        def counter(logStr, *args, **kwargs):
             if "wait" in logStr:
                 ctr[0] += 1
             elif "abort" in logStr:
