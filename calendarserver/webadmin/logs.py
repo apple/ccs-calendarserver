@@ -30,6 +30,7 @@ from collections import deque
 
 from zope.interface import implementer
 
+from twisted.python.log import FileLogObserver
 from twisted.internet.defer import succeed
 
 from txweb2.stream import IByteStream, fallbackSplit
@@ -90,15 +91,18 @@ class LogEventsResource(Resource):
     def __init__(self):
         Resource.__init__(self)
 
-        logObserver = AccessLoggingObserver()
-        logObserver.start()
 
-        self._observer = logObserver
+    @property
+    def events(self):
+        if not hasattr(self, "_buffer"):
+            buffer = deque(maxlen=100)
 
-        # self._observer.logMessage(u"Hello")
-        # self._observer.logMessage(u"Yo")
-        # self._observer.logMessage(u"Bonjour")
-        # self._observer.logMessage(u"Hola")
+            AccessLogObserver(buffer).start()
+            BufferingLogObserver(buffer).start()
+
+            self._buffer = buffer
+
+        return self._buffer
 
 
     def render(self, request):
@@ -111,7 +115,7 @@ class LogEventsResource(Resource):
                 start = None
 
         response = Response()
-        response.stream = LogObservingEventStream(self._observer, start)
+        response.stream = LogEventStream(self, start)
         response.headers.setHeader(
             "content-type", MimeType.fromString("text/event-stream")
         )
@@ -120,19 +124,18 @@ class LogEventsResource(Resource):
 
 
 @implementer(IByteStream)
-class LogObservingEventStream(object):
+class LogEventStream(object):
     """
-    L{IStream} that observes log events and streams them out as HTML5
-    EventSource events.
+    L{IByteStream} that streams log events out as HTML5 EventSource events.
     """
 
     length = None
 
 
-    def __init__(self, observer, start):
+    def __init__(self, source, start):
         object.__init__(self)
 
-        self._observer = observer
+        self._source = source
         self._start = start
         self._closed = False
 
@@ -144,7 +147,7 @@ class LogObservingEventStream(object):
         start = self._start
         messageID = None
 
-        for event in self._observer.events():
+        for eventClass, event in self._source.events:
             messageID = id(event)
 
             # If we have a start point, skip messages up to and including the
@@ -158,7 +161,10 @@ class LogObservingEventStream(object):
 
             self._start = messageID
 
-            message = event["log-format"] % event
+            if eventClass == "access":
+                message = event["log-format"] % event
+            else:
+                message = unicode(event)
 
             eventText = textAsEvent(
                 message, eventID=messageID, eventClass=u"access"
@@ -170,6 +176,7 @@ class LogObservingEventStream(object):
             # We just scanned all the messages, and none are the last one the
             # client saw.
             self._start = None
+            return succeed("-" * 80)
             return self.read()
 
         return succeed(None)
@@ -184,21 +191,41 @@ class LogObservingEventStream(object):
 
 
 
-# Note: CommonAccessLoggingObserverExtensions is an old-style log observer, as
-# it inherits from BaseCommonAccessLoggingObserver in txweb2.
+class BufferingLogObserver(FileLogObserver):
+    """
+    Log observer that captures events in a buffer instead of writing to a file.
 
-class AccessLoggingObserver(CommonAccessLoggingObserverExtensions):
+    @note: L{BufferingLogObserver} is an old-style log observer, as it
+        inherits from L{FileLogObserver}.
+    """
+
+    def __init__(self, buffer):
+        class IO(object):
+            @staticmethod
+            def write(s):
+                buffer.append((u"server", s))
+
+            @staticmethod
+            def flush():
+                pass
+
+        FileLogObserver.__init__(self, IO)
+
+
+
+class AccessLogObserver(CommonAccessLoggingObserverExtensions):
     """
     Log observer that captures apache-style access log text entries in a
     buffer.
 
-    @note: L{AccessLoggingObserver} is an old-style log observer, as it
+    @note: L{AccessLogObserver} is an old-style log observer, as it
         ultimately inherits from L{txweb2.log.BaseCommonAccessLoggingObserver}.
     """
-    def __init__(self):
+
+    def __init__(self, buffer):
         CommonAccessLoggingObserverExtensions.__init__(self)
 
-        self._buffer = deque(maxlen=100)
+        self._buffer = buffer
 
 
     def logStats(self, event):
@@ -206,15 +233,7 @@ class AccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         if event["type"] != "access-log":
             return
 
-        # # Omit events for the log event stream
-        # if event["uri"] == "/admin/logs/events":
-        #     return
-
-        self._buffer.append(event)
-
-
-    def events(self):
-        return iter(self._buffer)
+        self._buffer.append((u"access", event))
 
 
 
