@@ -8,44 +8,55 @@
     <script type="text/javascript">
 
       window.onload = function() {
+        var registerForEvents = function(eventSource, eventClass, statusElement, logViewElement) {
+          statusElement.innerHTML = "Connecting...";
+
+          eventSource.addEventListener(
+            "open",
+            function(e) {
+              statusElement.innerHTML = "Connected.";
+            },
+            false
+          );
+
+          eventSource.addEventListener(
+            "error",
+            function(e) {
+              if (e.readyState == EventSource.CLOSED) {
+                statusElement.innerHTML = "Conneciton closed.";
+              }
+              else {
+                statusElement.innerHTML = "Polling...";
+              }
+            },
+            false
+          );
+
+          eventSource.addEventListener(
+            eventClass,
+            function(e) {
+              // Append text
+              logViewElement.innerHTML += event.data + "<br />";
+
+              // Scroll to bottom
+              logViewElement.scrollTop = logViewElement.scrollHeight;
+            },
+            false
+          );
+        }
+
         var eventSource = new EventSource("./events");
 
-        var accessStatusElement = document.getElementById("access-log-status");
-        var accessLogElement = document.getElementById("access-log");
-
-        accessStatusElement.innerHTML = "Connecting...";
-
-        eventSource.addEventListener(
-          "open",
-          function(e) {
-            accessStatusElement.innerHTML = "Connected.";
-          },
-          false
+        registerForEvents(
+          eventSource, "access",
+          document.getElementById("access-log-status"),
+          document.getElementById("access-log")
         );
 
-        eventSource.addEventListener(
-          "error",
-          function(e) {
-            if (e.readyState == EventSource.CLOSED) {
-              accessStatusElement.innerHTML = "Conneciton closed.";
-            }
-            else {
-              accessStatusElement.innerHTML = "Polling...";
-            }
-          },
-          false
-        );
-
-        eventSource.addEventListener(
-          "access",
-          function(e) {
-            // Append text
-            accessLogElement.innerHTML += event.data + "<br />";
-
-            // Scroll to bottom
-            accessLogElement.scrollTop = accessLogElement.scrollHeight;
-          },
-          false
+        registerForEvents(
+          eventSource, "server",
+          document.getElementById("server-log-status"),
+          document.getElementById("server-log")
         );
       }
 
@@ -54,7 +65,7 @@
     <style>
       .log {
         width: 100%;
-        height: 150pt;
+        height: 200pt;
 
         overflow: scroll;
         white-space: nowrap;
