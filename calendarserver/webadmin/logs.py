@@ -92,10 +92,10 @@ class LogEventsResource(Resource):
 
         self._observer = AccessLoggingObserver()
 
-        self._observer.logMessage("Hello")
-        self._observer.logMessage("Yo")
-        self._observer.logMessage("Bonjour")
-        self._observer.logMessage("Hola")
+        self._observer.logMessage(u"Hello")
+        self._observer.logMessage(u"Yo")
+        self._observer.logMessage(u"Bonjour")
+        self._observer.logMessage(u"Hola")
 
 
     def render(self, request):
@@ -139,9 +139,6 @@ class LogObservingEventStream(object):
             return None
 
         start = self._start
-
-        print("Last seen message #: {0}".format(start))
-
         messageID = None
 
         for message in self._observer.messages():
@@ -150,24 +147,19 @@ class LogObservingEventStream(object):
             # If we have a start point, skip messages up to and including the
             # one at the start point.
             if start is not None:
-                print("Skipping message #{0}".format(messageID))
-
                 if messageID == start:
                     messageID = None
                     start = None
 
                 continue
 
-            print("Sending message #{0}".format(messageID))
-
             self._start = messageID
 
-            from datetime import datetime
-            return succeed(textAsEvent(
-                u"{0}@{1}#{2}: {3}"
-                .format(id(self), datetime.now(), messageID, message),
-                messageID
-            ))
+            eventText = textAsEvent(
+                message, eventID=id(message), eventClass=u"access"
+            )
+
+            return succeed(eventText)
 
         if messageID is not None:
             # We just scanned all the messages, and none are the last one the
@@ -195,7 +187,7 @@ class AccessLoggingObserver(CommonAccessLoggingObserverExtensions):
     def __init__(self):
         CommonAccessLoggingObserverExtensions.__init__(self)
 
-        self._buffer = deque(maxlen=400)
+        self._buffer = deque(maxlen=100)
 
 
     def logMessage(self, message):
@@ -209,10 +201,17 @@ class AccessLoggingObserver(CommonAccessLoggingObserverExtensions):
 
 
 
-def textAsEvent(text, eventID):
-    return (
-        u"id: {id}\n"
-        u"data: {text}\n"
-        u"\n"
-        .format(id=eventID, text=text).encode("utf-8")
+def textAsEvent(text, eventID=None, eventClass=None):
+    event = []
+
+    if eventID is not None:
+        event.append(u"id: {0}".format(eventID))
+
+    if eventClass is not None:
+        event.append(u"event: {0}".format(eventClass))
+
+    event.extend(
+        u"data: {0}".format(l) for l in text.split("\n")
     )
+
+    return u"\n".join(event).encode("utf-8") + "\n\n"
