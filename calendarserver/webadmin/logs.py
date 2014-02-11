@@ -15,6 +15,8 @@
 # limitations under the License.
 ##
 
+from __future__ import print_function
+
 """
 Calendar Server Web Admin UI.
 """
@@ -71,6 +73,11 @@ class LogsResource(TemplateResource):
         self.putChild("events", LogEventsResource())
 
 
+    def render(self, request):
+        self.element = LogsPageElement()
+        return TemplateResource.render(self, request)
+
+
 
 class LogEventsResource(Resource):
     """
@@ -85,10 +92,23 @@ class LogEventsResource(Resource):
 
         self._observer = AccessLoggingObserver()
 
+        self._observer.logMessage("Hello")
+        self._observer.logMessage("Yo")
+        self._observer.logMessage("Bonjour")
+        self._observer.logMessage("Hola")
+
 
     def render(self, request):
+        start = request.headers.getRawHeaders("last-event-id")
+
+        if start is not None:
+            try:
+                start = int(start[0])
+            except ValueError:
+                start = None
+
         response = Response()
-        response.stream = LogObservingEventStream(self._observer)
+        response.stream = LogObservingEventStream(self._observer, start)
         response.headers.setHeader(
             "content-type", MimeType.fromString("text/event-stream")
         )
@@ -106,7 +126,7 @@ class LogObservingEventStream(object):
     length = None
 
 
-    def __init__(self, observer, start=None):
+    def __init__(self, observer, start):
         object.__init__(self)
 
         self._observer = observer
@@ -120,31 +140,41 @@ class LogObservingEventStream(object):
 
         start = self._start
 
-        events = []
+        print("Last seen message #: {0}".format(start))
+
+        messageID = None
 
         for message in self._observer.messages():
+            messageID = id(message)
+
             # If we have a start point, skip messages up to and including the
             # one at the start point.
             if start is not None:
-                if id(message) == start:
+                print("Skipping message #{0}".format(messageID))
+
+                if messageID == start:
+                    messageID = None
                     start = None
+
                 continue
 
-            events.append(textAsEvent(message))
+            print("Sending message #{0}".format(messageID))
 
-        if events:
-            # Remember the ID of the last event read at our start point
-            self._start = id(events[-1])
+            self._start = messageID
 
-            return succeed("".join(events))
+            from datetime import datetime
+            return succeed(textAsEvent(
+                u"{0}@{1}#{2}: {3}"
+                .format(id(self), datetime.now(), messageID, message),
+                messageID
+            ))
 
-        if self._start is not None:
-            # We have a start point and no data... maybe if fell off of the
-            # buffer; remove the start point and try again.
+        if messageID is not None:
+            # We just scanned all the messages, and none are the last one the
+            # client saw.
             self._start = None
             return self.read()
 
-        # No start point and no events == EOF
         return succeed(None)
 
 
@@ -169,6 +199,8 @@ class AccessLoggingObserver(CommonAccessLoggingObserverExtensions):
 
 
     def logMessage(self, message):
+        print("LOG: {0}".format(message))
+
         self._buffer.append(message)
 
 
@@ -177,10 +209,10 @@ class AccessLoggingObserver(CommonAccessLoggingObserverExtensions):
 
 
 
-def textAsEvent(text):
+def textAsEvent(text, eventID):
     return (
         u"id: {id}\n"
         u"data: {text}\n"
         u"\n"
-        .format(id=id(text), text=text).encode("utf-8")
+        .format(id=eventID, text=text).encode("utf-8")
     )
