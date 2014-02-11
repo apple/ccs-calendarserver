@@ -201,6 +201,8 @@ class BufferingLogObserver(FileLogObserver):
         inherits from L{FileLogObserver}.
     """
 
+    timeFormat = None
+
     def __init__(self, buffer):
         class FooIO(object):
             def write(_, s):
@@ -223,6 +225,7 @@ class BufferingLogObserver(FileLogObserver):
         self._lastMessage = None
         FileLogObserver.emit(self, event)
         return self._lastMessage
+
 
 
 class AccessLogObserver(CommonAccessLoggingObserverExtensions):
