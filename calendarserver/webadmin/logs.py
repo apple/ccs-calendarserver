@@ -147,7 +147,7 @@ class LogEventStream(object):
         start = self._start
         messageID = None
 
-        for eventClass, event in self._source.events:
+        for observer, eventClass, event in tuple(self._source.events):
             messageID = id(event)
 
             # If we have a start point, skip messages up to and including the
@@ -165,6 +165,7 @@ class LogEventStream(object):
                 message = event["log-format"] % event
             else:
                 message = textFromEventDict(event)
+                # message = observer.formatEvent(event)
                 if message is None:
                     continue
 
@@ -202,23 +203,29 @@ class BufferingLogObserver(FileLogObserver):
     """
 
     def __init__(self, buffer):
-        class DeadIO(object):
+        class FooIO(object):
             @staticmethod
             def write(s):
-                pass
+                self._lastMessage = s
 
             @staticmethod
             def flush():
                 pass
 
-        FileLogObserver.__init__(self, DeadIO)
+        FileLogObserver.__init__(self, FooIO)
 
+        self.lastMessage = None
         self._buffer = buffer
 
 
     def emit(self, event):
-        self._buffer.append((u"server", event))
+        self._buffer.append((self, u"server", event))
 
+
+    def formatEvent(self, event):
+        self._lastMessage = None
+        BufferingLogObserver.emit(self, event)
+        return self._lastMessage
 
 
 class AccessLogObserver(CommonAccessLoggingObserverExtensions):
@@ -241,7 +248,7 @@ class AccessLogObserver(CommonAccessLoggingObserverExtensions):
         if event["type"] != "access-log":
             return
 
-        self._buffer.append((u"access", event))
+        self._buffer.append((self, u"access", event))
 
 
 
