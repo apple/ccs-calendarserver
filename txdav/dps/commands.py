@@ -27,6 +27,7 @@ class RecordWithShortNameCommand(amp.Command):
     ]
 
 
+
 class RecordWithUIDCommand(amp.Command):
     arguments = [
         ('uid', amp.String()),
@@ -34,6 +35,7 @@ class RecordWithUIDCommand(amp.Command):
     response = [
         ('fields', amp.String()),
     ]
+
 
 
 class RecordWithGUIDCommand(amp.Command):
@@ -45,6 +47,7 @@ class RecordWithGUIDCommand(amp.Command):
     ]
 
 
+
 class RecordsWithRecordTypeCommand(amp.Command):
     arguments = [
         ('recordType', amp.String()),
@@ -54,6 +57,7 @@ class RecordsWithRecordTypeCommand(amp.Command):
     ]
 
 
+
 class RecordsWithEmailAddressCommand(amp.Command):
     arguments = [
         ('emailAddress', amp.String()),
@@ -61,6 +65,7 @@ class RecordsWithEmailAddressCommand(amp.Command):
     response = [
         ('fieldsList', amp.String()),
     ]
+
 
 
 class UpdateRecordsCommand(amp.Command):
@@ -73,6 +78,7 @@ class UpdateRecordsCommand(amp.Command):
     ]
 
 
+
 class RemoveRecordsCommand(amp.Command):
     arguments = [
         ('uids', amp.ListOf(amp.String())),
@@ -80,6 +86,7 @@ class RemoveRecordsCommand(amp.Command):
     response = [
         ('success', amp.Boolean()),
     ]
+
 
 
 class VerifyPlaintextPasswordCommand(amp.Command):
@@ -90,6 +97,7 @@ class VerifyPlaintextPasswordCommand(amp.Command):
     response = [
         ('authenticated', amp.Boolean()),
     ]
+
 
 
 class VerifyHTTPDigestCommand(amp.Command):

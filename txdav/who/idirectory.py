@@ -19,7 +19,7 @@ from __future__ import print_function
 from __future__ import absolute_import
 
 """
-Calendar and contacts directory extentions to L{twext.who.idirectory}.
+Calendar and contacts directory extensions to L{twext.who.idirectory}.
 """
 
 __all__ = [
@@ -92,7 +92,7 @@ class RecordType(Names):
     """
 
     location = NamedConstant()
-    location.description  = u"location"
+    location.description = u"location"
 
     resource = NamedConstant()
     resource.description = u"resource"

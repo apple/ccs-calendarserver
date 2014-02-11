@@ -210,7 +210,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
 
 
 
-
 class DirectoryProxyAMPFactory(Factory):
     """
     """
@@ -220,10 +219,9 @@ class DirectoryProxyAMPFactory(Factory):
     def __init__(self, directory):
         self._directory = directory
 
+
     def buildProtocol(self, addr):
         return DirectoryProxyAMPProtocol(self._directory)
-
-
 
 
 
@@ -292,7 +290,7 @@ class DirectoryProxyOptions(Options):
     def opt_option(self, option):
         """
         Set an option to override a value in the config file. True, False, int,
-        and float options are supported, as well as comma seperated lists. Only
+        and float options are supported, as well as comma separated lists. Only
         one option may be given for each --option flag, however multiple
         --option flags may be specified.
         """
@@ -314,6 +312,7 @@ class DirectoryProxyOptions(Options):
         config.load(self['config'])
         config.updateDefaults(self.overrides)
         self.parent['pidfile'] = None
+
 
 
 @implementer(IPlugin, service.IServiceMaker)

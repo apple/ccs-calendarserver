@@ -117,7 +117,7 @@ class DirectoryService(BaseDirectoryService):
         @type command: L{twisted.protocols.amp.Command}
 
         @param postProcess: a callable which takes the AMP response dictionary
-            and peforms any required massaging of the results, returning a
+            and performs any required massaging of the results, returning a
             L{Deferred} which fires with the post-processed results
         @type postProcess: callable
         """
@@ -227,9 +227,11 @@ def makeEvenBetterRequest():
     """
 
 
+
 def succeeded(result):
     print("yay")
     reactor.stop()
+
 
 
 def failed(failure):
