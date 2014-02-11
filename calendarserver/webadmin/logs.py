@@ -178,8 +178,13 @@ class LogEventStream(object):
             # We just scanned all the messages, and none are the last one the
             # client saw.
             self._start = None
-            return succeed("-" * 80)
-            return self.read()
+
+            marker = "-"
+
+            return succeed(
+                textAsEvent(marker, eventID=0, eventClass=u"access") +
+                textAsEvent(marker, eventID=0, eventClass=u"server")
+            )
 
         return succeed(None)
 
@@ -202,6 +207,7 @@ class BufferingLogObserver(FileLogObserver):
     """
 
     timeFormat = None
+
 
     def __init__(self, buffer):
         class FooIO(object):
