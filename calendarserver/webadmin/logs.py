@@ -30,7 +30,7 @@ from collections import deque
 
 from zope.interface import implementer
 
-from twisted.python.log import FileLogObserver, textFromEventDict
+from twisted.python.log import FileLogObserver
 from twisted.internet.defer import succeed
 
 from txweb2.stream import IByteStream, fallbackSplit
@@ -164,8 +164,7 @@ class LogEventStream(object):
             if eventClass == u"access":
                 message = event["log-format"] % event
             else:
-                message = textFromEventDict(event)
-                # message = observer.formatEvent(event)
+                message = observer.formatEvent(event)
                 if message is None:
                     continue
 
@@ -204,15 +203,13 @@ class BufferingLogObserver(FileLogObserver):
 
     def __init__(self, buffer):
         class FooIO(object):
-            @staticmethod
-            def write(s):
+            def write(_, s):
                 self._lastMessage = s
 
-            @staticmethod
-            def flush():
+            def flush(_):
                 pass
 
-        FileLogObserver.__init__(self, FooIO)
+        FileLogObserver.__init__(self, FooIO())
 
         self.lastMessage = None
         self._buffer = buffer
@@ -224,7 +221,7 @@ class BufferingLogObserver(FileLogObserver):
 
     def formatEvent(self, event):
         self._lastMessage = None
-        BufferingLogObserver.emit(self, event)
+        FileLogObserver.emit(self, event)
         return self._lastMessage
 
 
