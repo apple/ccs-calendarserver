@@ -39,7 +39,11 @@
         eventSource.addEventListener(
           "access",
           function(e) {
+            // Append text
             accessLogElement.innerHTML += event.data + "<br />";
+
+            // Scroll to bottom
+            accessLogElement.scrollTop = accessLogElement.scrollHeight;
           },
           false
         );
@@ -51,8 +55,10 @@
       .log {
         width: 100%;
         height: 150pt;
-        overflow-y: scroll;
+        overflow: scroll;
         border: 1px solid;
+        font-family: monospace;
+        font-size: 0.75em;
       }
     </style>
   </head>

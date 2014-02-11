@@ -90,12 +90,15 @@ class LogEventsResource(Resource):
     def __init__(self):
         Resource.__init__(self)
 
-        self._observer = AccessLoggingObserver()
+        logObserver = AccessLoggingObserver()
+        logObserver.start()
 
-        self._observer.logMessage(u"Hello")
-        self._observer.logMessage(u"Yo")
-        self._observer.logMessage(u"Bonjour")
-        self._observer.logMessage(u"Hola")
+        self._observer = logObserver
+
+        # self._observer.logMessage(u"Hello")
+        # self._observer.logMessage(u"Yo")
+        # self._observer.logMessage(u"Bonjour")
+        # self._observer.logMessage(u"Hola")
 
 
     def render(self, request):
@@ -141,12 +144,14 @@ class LogObservingEventStream(object):
         start = self._start
         messageID = None
 
-        for message in self._observer.messages():
-            messageID = id(message)
+        for event in self._observer.events():
+            messageID = id(event)
 
             # If we have a start point, skip messages up to and including the
             # one at the start point.
             if start is not None:
+                print("*** Skipping event # {0}".format(messageID))
+
                 if messageID == start:
                     messageID = None
                     start = None
@@ -155,9 +160,14 @@ class LogObservingEventStream(object):
 
             self._start = messageID
 
+            message = event["log-format"] % event
+
             eventText = textAsEvent(
-                message, eventID=id(message), eventClass=u"access"
+                message, eventID=messageID, eventClass=u"access"
             )
+
+            print("--> Sending event # {0}".format(messageID))
+            print(eventText)
 
             return succeed(eventText)
 
@@ -179,10 +189,16 @@ class LogObservingEventStream(object):
 
 
 
+# Note: CommonAccessLoggingObserverExtensions is an old-style log observer, as
+# it inherits from BaseCommonAccessLoggingObserver in txweb2.
+
 class AccessLoggingObserver(CommonAccessLoggingObserverExtensions):
     """
     Log observer that captures apache-style access log text entries in a
     buffer.
+
+    @note: L{AccessLoggingObserver} is an old-style log observer, as it
+        ultimately inherits from L{txweb2.log.BaseCommonAccessLoggingObserver}.
     """
     def __init__(self):
         CommonAccessLoggingObserverExtensions.__init__(self)
@@ -190,13 +206,19 @@ class AccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         self._buffer = deque(maxlen=100)
 
 
-    def logMessage(self, message):
-        print("LOG: {0}".format(message))
+    def logStats(self, event):
+        # Only look at access log events
+        if event["type"] != "access-log":
+            return
 
-        self._buffer.append(message)
+        # # Omit events for the log event stream
+        # if event["uri"] == "/admin/logs/events":
+        #     return
+
+        self._buffer.append(event)
 
 
-    def messages(self):
+    def events(self):
         return iter(self._buffer)
 
 
