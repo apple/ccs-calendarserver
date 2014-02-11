@@ -29,7 +29,7 @@ class SimpleStreamTests:
     def test_split(self):
         for point in range(10):
             s = self.makeStream(0)
-            a,b = s.split(point)
+            a, b = s.split(point)
             if point > 0:
                 self.assertEquals(bufstr(a.read()), self.text[:point])
             self.assertEquals(a.read(), None)
@@ -40,12 +40,12 @@ class SimpleStreamTests:
         for point in range(7):
             s = self.makeStream(2, 6)
             self.assertEquals(s.length, 6)
-            a,b = s.split(point)
+            a, b = s.split(point)
             if point > 0:
-                self.assertEquals(bufstr(a.read()), self.text[2:point+2])
+                self.assertEquals(bufstr(a.read()), self.text[2:point + 2])
             self.assertEquals(a.read(), None)
             if point < 6:
-                self.assertEquals(bufstr(b.read()), self.text[point+2:8])
+                self.assertEquals(bufstr(b.read()), self.text[point + 2:8])
             self.assertEquals(b.read(), None)
 
     def test_read(self):
@@ -127,8 +127,8 @@ class MMapFileStreamTest(SimpleStreamTests, unittest.TestCase):
 
     def test_mmapwrapper(self):
         self.assertRaises(TypeError, stream.mmapwrapper)
-        self.assertRaises(TypeError, stream.mmapwrapper, offset = 0)
-        self.assertRaises(TypeError, stream.mmapwrapper, offset = None)
+        self.assertRaises(TypeError, stream.mmapwrapper, offset=0)
+        self.assertRaises(TypeError, stream.mmapwrapper, offset=None)
 
     if not stream.mmap:
         test_mmapwrapper.skip = 'mmap not supported here'
@@ -185,19 +185,19 @@ class TestBufferedStream(unittest.TestCase):
 
     def test_readlineWithSize(self):
         """Test the size argument to readline"""
-        d = self.s.readline(size = 5)
+        d = self.s.readline(size=5)
         d.addCallback(self._cbGotData, 'I was')
         return d
 
     def test_readlineWithBigSize(self):
         """Test the size argument when it's bigger than the length of the line."""
-        d = self.s.readline(size = 40)
+        d = self.s.readline(size=40)
         d.addCallback(self._cbGotData, 'I was angry with my friend:\r\n')
         return d
 
     def test_readlineWithZero(self):
         """Test readline with size = 0."""
-        d = self.s.readline(size = 0)
+        d = self.s.readline(size=0)
         d.addCallback(self._cbGotData, '')
         return d
 
@@ -212,7 +212,7 @@ class TestBufferedStream(unittest.TestCase):
 
     def test_readlineNegSize(self):
         """Ensure that readline with a negative size raises an exception."""
-        self.assertRaises(ValueError, self.s.readline, size = -1)
+        self.assertRaises(ValueError, self.s.readline, size=-1)
 
     def test_readlineSizeInDelimiter(self):
         """
@@ -260,26 +260,26 @@ class TestStreamer:
 
     length = None
 
-    readCalled=0
-    closeCalled=0
+    readCalled = 0
+    closeCalled = 0
 
     def __init__(self, list):
         self.list = list
 
     def read(self):
-        self.readCalled+=1
+        self.readCalled += 1
         if self.list:
             return self.list.pop(0)
         return None
 
     def close(self):
-        self.closeCalled+=1
+        self.closeCalled += 1
         self.list = []
 
 class FallbackSplitTest(unittest.TestCase):
     def test_split(self):
         s = TestStreamer(['abcd', defer.succeed('efgh'), 'ijkl'])
-        left,right = stream.fallbackSplit(s, 5)
+        left, right = stream.fallbackSplit(s, 5)
         self.assertEquals(left.length, 5)
         self.assertEquals(right.length, None)
         self.assertEquals(bufstr(left.read()), 'abcd')
@@ -297,7 +297,7 @@ class FallbackSplitTest(unittest.TestCase):
 
     def test_split2(self):
         s = TestStreamer(['abcd', defer.succeed('efgh'), 'ijkl'])
-        left,right = stream.fallbackSplit(s, 4)
+        left, right = stream.fallbackSplit(s, 4)
 
         self.assertEquals(left.length, 4)
         self.assertEquals(right.length, None)
@@ -311,8 +311,8 @@ class FallbackSplitTest(unittest.TestCase):
 
     def test_splitsplit(self):
         s = TestStreamer(['abcd', defer.succeed('efgh'), 'ijkl'])
-        left,right = stream.fallbackSplit(s, 5)
-        left,middle = left.split(3)
+        left, right = stream.fallbackSplit(s, 5)
+        left, middle = left.split(3)
 
         self.assertEquals(left.length, 3)
         self.assertEquals(middle.length, 2)
@@ -331,7 +331,7 @@ class FallbackSplitTest(unittest.TestCase):
 
     def test_closeboth(self):
         s = TestStreamer(['abcd', defer.succeed('efgh'), 'ijkl'])
-        left,right = stream.fallbackSplit(s, 5)
+        left, right = stream.fallbackSplit(s, 5)
         left.close()
         self.assertEquals(s.closeCalled, 0)
         right.close()
@@ -342,7 +342,7 @@ class FallbackSplitTest(unittest.TestCase):
 
     def test_closeboth_rev(self):
         s = TestStreamer(['abcd', defer.succeed('efgh'), 'ijkl'])
-        left,right = stream.fallbackSplit(s, 5)
+        left, right = stream.fallbackSplit(s, 5)
         right.close()
         self.assertEquals(s.closeCalled, 0)
         left.close()
@@ -353,7 +353,7 @@ class FallbackSplitTest(unittest.TestCase):
 
     def test_closeleft(self):
         s = TestStreamer(['abcd', defer.succeed('efgh'), 'ijkl'])
-        left,right = stream.fallbackSplit(s, 5)
+        left, right = stream.fallbackSplit(s, 5)
         left.close()
         d = right.read()
         d.addCallback(self._cbCloseleft, right)
@@ -366,7 +366,7 @@ class FallbackSplitTest(unittest.TestCase):
 
     def test_closeright(self):
         s = TestStreamer(['abcd', defer.succeed('efgh'), 'ijkl'])
-        left,right = stream.fallbackSplit(s, 3)
+        left, right = stream.fallbackSplit(s, 3)
         right.close()
 
         self.assertEquals(bufstr(left.read()), 'abc')
@@ -489,7 +489,7 @@ class ReadStreamTestCase(unittest.TestCase):
 
     def test_processingException(self):
         s = TestStreamer(['abcd', defer.succeed('efgh'), 'ijkl'])
-        return stream.readStream(s, lambda x: 1/0).addErrback(
+        return stream.readStream(s, lambda x: 1 / 0).addErrback(
             lambda _: _.trap(ZeroDivisionError))
 
 
@@ -676,7 +676,7 @@ class MD5StreamTest(unittest.TestCase):
 
 
 
-__doctests__ = ['txweb2.test.test_stream', 'twext.web2.stream']
+__doctests__ = ['txweb2.test.test_stream']
 # TODO:
 # CompoundStreamTest
 # more tests for ProducerStreamTest
