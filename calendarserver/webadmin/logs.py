@@ -32,6 +32,7 @@ from zope.interface import implementer
 
 from twisted.python.log import FileLogObserver
 from twisted.internet.defer import succeed
+from twisted.internet.task import deferLater
 
 from txweb2.stream import IByteStream, fallbackSplit
 from txweb2.resource import Resource
@@ -139,6 +140,9 @@ class LogEventStream(object):
         self._start = start
         self._closed = False
 
+        from twisted.internet import reactor
+        self._reactor = reactor
+
 
     def read(self):
         if self._closed:
@@ -186,7 +190,7 @@ class LogEventStream(object):
                 textAsEvent(marker, eventID=0, eventClass=u"server")
             )
 
-        return succeed(None)
+        return deferLater(self._reactor, 1, self.read, _retrying=True)
 
 
     def split(self, point):
