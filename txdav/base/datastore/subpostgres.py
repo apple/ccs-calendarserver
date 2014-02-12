@@ -218,21 +218,24 @@ class PostgresService(MultiService):
         # Make logFile absolute in case the working directory of postgres is
         # elsewhere:
         self.logFile = os.path.abspath(logFile)
+
+        # Always use our own configured socket dir in case the built-in postgres tries to use
+        # a directory we don't have permissions for
+        if not socketDir:
+            # Socket directory was not specified, so come up with one
+            # in /tmp and based on a hash of the data store directory
+            digest = md5(dataStoreDirectory.path).hexdigest()
+            socketDir = "/tmp/ccs_postgres_" + digest
+        self.socketDir = CachingFilePath(socketDir)
+
         if listenAddresses:
-            self.socketDir = None
             self.host, self.port = listenAddresses[0].split(":") if ":" in listenAddresses[0] else (listenAddresses[0], None,)
             self.listenAddresses = [addr.split(":")[0] for addr in listenAddresses]
         else:
-            if not socketDir:
-                # Socket directory was not specified, so come up with one
-                # in /tmp and based on a hash of the data store directory
-                digest = md5(dataStoreDirectory.path).hexdigest()
-                socketDir = "/tmp/ccs_postgres_" + digest
-
-            self.socketDir = CachingFilePath(socketDir)
             self.host = self.socketDir.path
             self.port = None
             self.listenAddresses = []
+
         self.sharedBuffers = sharedBuffers if not testMode else 16
         self.maxConnections = maxConnections if not testMode else 4
         self.options = options
