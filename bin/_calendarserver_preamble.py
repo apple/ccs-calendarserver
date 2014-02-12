@@ -34,7 +34,7 @@ def bootstrapFromRun():
     """
 
     home = dirname(dirname(abspath(__file__)))
-    run = join(home, "run")
+    run = join(home, join("bin", "run"))
 
     if not exists(run) or not exists(join(home, "setup.py")):
         # This doesn't look enough like a development checkout; let's not

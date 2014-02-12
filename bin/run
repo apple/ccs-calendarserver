@@ -66,8 +66,8 @@ usage () {
   echo "	-s  Run setup only; don't run server";
   echo "	-f  Force setup to run";
   echo "	-n  Do not run setup";
-  # echo "	-p  Print PYTHONPATH value for server and exit";
-  # echo "	-e  Print =-separated environment variables required to run and exit";
+  echo "	-p  Print PYTHONPATH value for server and exit";
+  echo "	-e  Print =-separated environment variables required to run and exit";
   echo "	-d  Run caldavd as a daemon";
   echo "	-k  Stop caldavd";
   echo "	-r  Restart caldavd";
@@ -91,6 +91,8 @@ usage () {
 # functions in build.sh.
 parse_options () {
   OPTIND=1;
+  print_path="false";
+  print_environment="false";
   while getopts "ahsfnpedkrK:i:I:b:t:S:P:R:" option; do
     case "${option}" in
       '?') usage; ;;
@@ -105,13 +107,13 @@ parse_options () {
       'K')     read_key="${OPTARG}"; ;;
       'S')      profile="-p ${OPTARG}"; ;;
       's') do_setup="true"; run="false"; ;;
-      # 'p')
-      #   do_get="false"; do_setup="false"; run="false"; print_path="true";
-      #   ;;
-      # 'e')
-      #   do_get="false"; do_setup="false"; run="false"; print_path="true";
-      #   print_environment="true";
-      #   ;;
+      'p')
+        do_get="false"; do_setup="false"; run="false"; print_path="true";
+        ;;
+      'e')
+        do_get="false"; do_setup="false"; run="false"; print_path="true";
+        print_environment="true";
+        ;;
       # 'i')
       #   do_get="true";
       #   do_setup="true";
@@ -216,6 +218,13 @@ run_main () {
     exit $?;
   fi;
 
+  # About to do something for real; let's enumerate (and depending on options,
+  # possibly download and/or install) the dependencies.
+
+  export _DEVELOP="true";
+
+  develop;
+
   if "${kill}" || "${restart}"; then
     pidfile="$("${wd}/bin/calendarserver_config" "PIDFile")";
     # Split key and value on "=" and just grab the value
@@ -236,23 +245,16 @@ run_main () {
     fi;
   fi;
 
-  # About to do something for real; let's enumerate (and depending on options,
-  # possibly download and/or install) the dependencies.
-
-  export _DEVELOP="true";
-
-  develop;
-
-  # # Now that all the dependencies are set up, let's see if we're just being
-  # # asked to print the path.
-  # if "${print_path}"; then
-  #   if "${print_environment}"; then
-  #     "${PYTHON}" -c "import os; print repr(dict(os.environ))"
-  #   else
-  #     echo "${PYTHONPATH}";
-  #   fi;
-  #   exit 0;
-  # fi;
+  # Now that all the dependencies are set up, let's see if we're just being
+  # asked to print the path.
+  if "${print_path}"; then
+    if "${print_environment}"; then
+      ${python} -c "import os; print repr(dict(os.environ))"
+    else
+      echo "${PYTHONPATH}";
+    fi;
+    exit 0;
+  fi;
 
   # # If we're installing, install the calendar server itself.
   # py_install "Calendar Server" "${wd}";

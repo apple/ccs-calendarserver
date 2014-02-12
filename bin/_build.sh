@@ -25,8 +25,10 @@ echo_header () {
 
 
 using_system () {
-  local name="$1"; shift;
-  echo_header "Using system version of ${name}.";
+  if "${do_setup}"; then
+    local name="$1"; shift;
+    echo_header "Using system version of ${name}.";
+  fi;
 }
 
 
@@ -471,11 +473,13 @@ c_dependency () {
 
 
 ruler () {
-  echo "____________________________________________________________";
-  echo "";
+  if "${do_setup}"; then
+    echo "____________________________________________________________";
+    echo "";
 
-  if [ $# -gt 0 ]; then
-    echo "$@";
+    if [ $# -gt 0 ]; then
+      echo "$@";
+    fi;
   fi;
 }
 
