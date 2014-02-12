@@ -736,7 +736,7 @@ class PageElement(Element):
 
         self.loader = XMLFile(
             getModule(__name__).filePath.sibling(
-                "{name}.xhtml".format(name=templateName)
+                u"{name}.xhtml".format(name=templateName)
             )
         )
 
@@ -757,10 +757,10 @@ class PageElement(Element):
     @renderer
     def stylesheet(self, request, tag):
         return tags.link(
-            rel="stylesheet",
-            media="screen",
-            href="/style.css",
-            type="text/css",
+            rel=u"stylesheet",
+            media=u"screen",
+            href=u"/style.css",
+            type=u"text/css",
         )
 
 
@@ -802,7 +802,7 @@ class TemplateResource(Resource):
         response = Response()
         response.stream = MemoryStream(htmlContent)
         response.headers.setHeader(
-            "content-type", MimeType.fromString("text/html; charset=utf-8")
+            b"content-type", MimeType.fromString(b"text/html; charset=utf-8")
         )
 
         returnValue(response)

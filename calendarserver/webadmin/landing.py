@@ -38,7 +38,7 @@ class WebAdminLandingPageElement(PageElement):
     """
 
     def __init__(self):
-        PageElement.__init__(self, "landing")
+        PageElement.__init__(self, u"landing")
 
 
     def pageSlots(self):
@@ -64,11 +64,11 @@ class WebAdminLandingResource(TemplateResource):
         self.store = store
         self._principalCollections = principalCollections
 
-        self.putChild("logs", LogsResource())
-        self.putChild("principals", PrincipalsResource(directory))
+        self.putChild(u"logs", LogsResource())
+        self.putChild(u"principals", PrincipalsResource(directory))
 
         self.putChild(
-            "old",
+            u"old",
             WebAdminResource(
                 path, root, directory, store, principalCollections
             )

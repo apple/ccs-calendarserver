@@ -50,7 +50,7 @@ class LogsPageElement(PageElement):
     """
 
     def __init__(self):
-        PageElement.__init__(self, "logs")
+        PageElement.__init__(self, u"logs")
 
 
     def pageSlots(self):
@@ -71,7 +71,7 @@ class LogsResource(TemplateResource):
     def __init__(self):
         TemplateResource.__init__(self, LogsPageElement)
 
-        self.putChild("events", LogEventsResource())
+        self.putChild(u"events", LogEventsResource())
 
 
 
@@ -101,7 +101,7 @@ class LogEventsResource(Resource):
 
 
     def render(self, request):
-        start = request.headers.getRawHeaders("last-event-id")
+        start = request.headers.getRawHeaders(u"last-event-id")
 
         if start is not None:
             try:
@@ -112,7 +112,7 @@ class LogEventsResource(Resource):
         response = Response()
         response.stream = LogEventStream(self, start=start)
         response.headers.setHeader(
-            "content-type", MimeType.fromString("text/event-stream")
+            b"content-type", MimeType.fromString(b"text/event-stream")
         )
         return response
 
@@ -157,7 +157,7 @@ class LogEventStream(object):
             self._start = messageID
 
             if eventClass == u"access":
-                message = event["log-format"] % event
+                message = event[u"log-format"] % event
             else:
                 message = observer.formatEvent(event)
                 if message is None:
@@ -256,7 +256,7 @@ class AccessLogObserver(CommonAccessLoggingObserverExtensions):
 
     def logStats(self, event):
         # Only look at access log events
-        if event["type"] != "access-log":
+        if event[u"type"] != u"access-log":
             return
 
         self._buffer.append((self, u"access", event))
@@ -276,4 +276,4 @@ def textAsEvent(text, eventID=None, eventClass=None):
         u"data: {0}".format(l) for l in text.split("\n")
     )
 
-    return u"\n".join(event).encode("utf-8") + "\n\n"
+    return u"\n".join(event).encode(u"utf-8") + "\n\n"
