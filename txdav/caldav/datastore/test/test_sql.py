@@ -1898,6 +1898,38 @@ END:VCALENDAR
         self.assertNotEqual(caldata4, None)
 
 
+    @inlineCallbacks
+    def test_calendarMissingRevision(self):
+        """
+        Test that two concurrent attempts to add resources in two separate
+        calendar homes does not deadlock on the revision table update.
+        """
+
+        # Get details
+        home = yield self.homeUnderTest(name="user01", create=True)
+        self.assertNotEqual(home, None)
+        calendar = yield home.childWithName("calendar")
+        self.assertNotEqual(calendar, None)
+
+        rev = calendar._revisionsSchema
+        yield Delete(
+            From=rev,
+            Where=(rev.HOME_RESOURCE_ID == Parameter("homeID")).And(
+                   rev.COLLECTION_NAME == Parameter("collectionName"))
+        ).on(self.transactionUnderTest(), homeID=home.id(), collectionName="calendar")
+
+        yield self.commit()
+
+        home = yield self.homeUnderTest(name="user01")
+        children = yield home.loadChildren()
+        self.assertEqual(len(children), 3)
+        yield self.commit()
+
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        token = yield calendar.syncToken()
+        self.assertTrue(token is not None)
+
+
 
 class SchedulingTests(CommonCommonTests, unittest.TestCase):
     """

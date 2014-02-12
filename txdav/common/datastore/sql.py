@@ -1417,7 +1417,6 @@ class CommonStoreTransaction(object):
         """
         delegates = set()
 
-
         # First get the direct delegates
         results = (
             yield self._selectDelegatesQuery.on(
@@ -2213,15 +2212,15 @@ class CommonStoreTransaction(object):
 
 class _EmptyCacher(object):
 
-    def set(self, key, value): #@UnusedVariable
+    def set(self, key, value):
         return succeed(True)
 
 
-    def get(self, key, withIdentifier=False): #@UnusedVariable
+    def get(self, key, withIdentifier=False):
         return succeed(None)
 
 
-    def delete(self, key): #@UnusedVariable
+    def delete(self, key):
         return succeed(True)
 
 
@@ -3579,7 +3578,8 @@ class _SharedSyncLogic(object):
     @classproperty
     def _deleteSyncTokenQuery(cls):
         """
-        DAL query to update a sync revision to be a tombstone instead.
+        DAL query to remove all child revision information. The revision for the collection
+        itself is not touched.
         """
         rev = cls._revisionsSchema
         return Delete(
@@ -3593,7 +3593,7 @@ class _SharedSyncLogic(object):
     @classproperty
     def _sharedRemovalQuery(cls):
         """
-        DAL query to update the sync token for a shared collection.
+        DAL query to indicate a shared collection has been deleted.
         """
         rev = cls._revisionsSchema
         return Update({rev.RESOURCE_ID: None,
@@ -3608,7 +3608,7 @@ class _SharedSyncLogic(object):
     @classproperty
     def _unsharedRemovalQuery(cls):
         """
-        DAL query to update the sync token for an owned collection.
+        DAL query to indicate an owned collection has been deleted.
         """
         rev = cls._revisionsSchema
         return Update({rev.RESOURCE_ID: None,
@@ -3621,6 +3621,14 @@ class _SharedSyncLogic(object):
 
     @inlineCallbacks
     def _deletedSyncToken(self, sharedRemoval=False):
+        """
+        When a collection is deleted we remove all the revision information for its child resources.
+        We update the collection's sync token to indicate it has been deleted - that way a sync on
+        the home collection can report the deletion of the collection.
+
+        @param sharedRemoval: indicates whether the collection being removed is shared
+        @type sharedRemoval: L{bool}
+        """
         # Remove all child entries
         yield self._deleteSyncTokenQuery.on(self._txn,
                                             homeID=self._home._resourceID,
@@ -4431,7 +4439,7 @@ class SharingMixIn(object):
         )
 
         result = []
-        for homeUID, homeRID, resourceID, resourceName, bindMode, bindStatus, bindMessage in acceptedRows: #@UnusedVariable
+        for homeUID, homeRID, _ignore_resourceID, resourceName, bindMode, bindStatus, bindMessage in acceptedRows:
             invite = SharingInvitation(
                 resourceName,
                 self.ownerHome().name(),
@@ -4914,7 +4922,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             self._notifiers = None
 
 
-    def memoMe(self, key, memo): #@UnusedVariable
+    def memoMe(self, key, memo):
         """
         Add this object to the memo dictionary in whatever fashion is appropriate.
 
@@ -4972,14 +4980,14 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
         # Create the actual objects merging in properties
         for dataRow in dataRows:
-            bindData = dataRow[:cls.bindColumnCount] #@UnusedVariable
+            bindData = dataRow[:cls.bindColumnCount]
             resourceID = bindData[cls.bindColumns().index(cls._bindSchema.RESOURCE_ID)]
             additionalBindData = dataRow[cls.bindColumnCount:cls.bindColumnCount + len(cls.additionalBindColumns())]
             metadataData = dataRow[cls.bindColumnCount + len(cls.additionalBindColumns()):]
             propstore = propertyStores.get(resourceID, None)
 
             child = yield cls.makeClass(home, bindData, additionalBindData, metadataData, propstore)
-            child._syncTokenRevision = revisions.get(resourceID)
+            child._syncTokenRevision = revisions.get(resourceID, 0)
             results.append(child)
 
         returnValue(results)
@@ -5480,7 +5488,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         )
 
 
-    def _movedObjectResource(self, child, newparent): #@UnusedVariable
+    def _movedObjectResource(self, child, newparent):
         """
         Method that subclasses can override to do an extra DB adjustments when a resource
         is moved.
@@ -6014,7 +6022,7 @@ class CommonObjectResource(FancyEqMixin, object):
         returnValue(rows[0] if rows else None)
 
 
-    def __init__(self, parent, name, uid, resourceID=None, options=None): #@UnusedVariable
+    def __init__(self, parent, name, uid, resourceID=None, options=None):
         self._parentCollection = parent
         self._resourceID = resourceID
         self._name = name
@@ -7096,7 +7104,7 @@ class NotificationObject(FancyEqMixin, object):
             returnValue(None)
 
 
-    def _loadPropertyStore(self, props=None, created=False): #@UnusedVariable
+    def _loadPropertyStore(self, props=None, created=False):
         if props is None:
             props = NonePropertyStore(self._home.uid())
         self._propertyStore = props
