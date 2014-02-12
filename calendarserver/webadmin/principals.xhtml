@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html xmlns:t="http://twistedmatrix.com/ns/twisted.web.template/0.1" t:render="main">
+
+  <head>
+    <title><t:slot name="title" /></title>
+    <link t:render="stylesheet" />
+  </head>
+
+  <body>
+
+    <h1><t:slot name="title" /></h1>
+
+    <form id="search_form" action="" method="get">
+      Search:
+      <input id="search_field" type="search" name="search" placeholder="Search..." size="40" autofocus="true" t:render="search_value" />
+    </form>
+
+    <div t:render="search_results" />
+
+  </body>
+
+</html>
