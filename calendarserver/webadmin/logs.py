@@ -31,8 +31,7 @@ from collections import deque
 from zope.interface import implementer
 
 from twisted.python.log import FileLogObserver
-from twisted.internet.defer import succeed
-from twisted.internet.task import deferLater
+from twisted.internet.defer import Deferred, succeed
 
 from txweb2.stream import IByteStream, fallbackSplit
 from txweb2.resource import Resource
@@ -92,18 +91,18 @@ class LogEventsResource(Resource):
     def __init__(self):
         Resource.__init__(self)
 
+        events = deque(maxlen=400)
 
-    @property
-    def events(self):
-        if not hasattr(self, "_buffer"):
-            buffer = deque(maxlen=400)
+        observers = (
+            AccessLogObserver(events),
+            BufferingLogObserver(events),
+        )
 
-            AccessLogObserver(buffer).start()
-            BufferingLogObserver(buffer).start()
+        for observer in observers:
+            observer.start()
 
-            self._buffer = buffer
-
-        return self._buffer
+        self.events = events
+        self.observers = observers
 
 
     def render(self, request):
@@ -116,7 +115,7 @@ class LogEventsResource(Resource):
                 start = None
 
         response = Response()
-        response.stream = LogEventStream(self, start)
+        response.stream = LogEventStream(self, start=start)
         response.headers.setHeader(
             "content-type", MimeType.fromString("text/event-stream")
         )
@@ -190,7 +189,18 @@ class LogEventStream(object):
                 textAsEvent(marker, eventID=0, eventClass=u"server")
             )
 
-        return deferLater(self._reactor, 1, self.read, _retrying=True)
+        return succeed(None)
+
+        # def readAgain(_):
+        #     return self.read()
+
+        # d = Deferred()
+        # d.addCallback(readAgain)
+
+        # for observer in self._source.observers:
+        #     observer.registerDeferred(d)
+
+        # return d
 
 
     def split(self, point):
@@ -214,6 +224,8 @@ class BufferingLogObserver(FileLogObserver):
 
 
     def __init__(self, buffer):
+        self._junk = file("/tmp/junk", "a")
+
         class FooIO(object):
             def write(_, s):
                 self._lastMessage = s
@@ -225,16 +237,34 @@ class BufferingLogObserver(FileLogObserver):
 
         self.lastMessage = None
         self._buffer = buffer
+        self._waiting = []
 
 
     def emit(self, event):
         self._buffer.append((self, u"server", event))
+
+        self._junk.write("emit: {0!r} on {1}\n".format(self._waiting, self))
+        self._junk.flush()
+
+        while self._waiting:
+            d = self._waiting.pop(0)
+            self._junk.write("calling: {0}\n".format(d))
+            self._junk.flush()
+            d.callback(None)
+            self._junk.write("called: {0}\n".format(d))
+            self._junk.flush()
 
 
     def formatEvent(self, event):
         self._lastMessage = None
         FileLogObserver.emit(self, event)
         return self._lastMessage
+
+
+    def registerDeferred(self, d):
+        self._waiting.append(d)
+        self._junk.write("Registered: {0} on {1}\n".format(self._waiting, self))
+        self._junk.flush()
 
 
 
@@ -259,6 +289,10 @@ class AccessLogObserver(CommonAccessLoggingObserverExtensions):
             return
 
         self._buffer.append((self, u"access", event))
+
+
+    def registerDeferred(self, d):
+        pass
 
 
 
