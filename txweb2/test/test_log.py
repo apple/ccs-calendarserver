@@ -1,7 +1,7 @@
 # Copyright (c) 2001-2007 Twisted Matrix Laboratories.
 # See LICENSE for details.
 
-from twisted.python.log import addObserver, removeObserver, theLogPublisher
+from twisted.python.log import addObserver, theLogPublisher
 
 from txweb2.log import BaseCommonAccessLoggingObserver, LogWrapperResource
 from txweb2.http import Response
