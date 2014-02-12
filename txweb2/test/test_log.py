@@ -1,7 +1,7 @@
 # Copyright (c) 2001-2007 Twisted Matrix Laboratories.
 # See LICENSE for details.
 
-from twisted.python.log import addObserver, removeObserver
+from twisted.python.log import addObserver, removeObserver, theLogPublisher
 
 from txweb2.log import BaseCommonAccessLoggingObserver, LogWrapperResource
 from txweb2.http import Response
@@ -37,6 +37,7 @@ class NoneStreamResource(Resource):
 
 class TestLogging(BaseCase):
     def setUp(self):
+        self.patch(theLogPublisher, "observers", [])
         self.blo = BufferingLogObserver()
         addObserver(self.blo.emit)
 
@@ -45,9 +46,6 @@ class TestLogging(BaseCase):
         self.resrc.child_emptystream = NoneStreamResource()
 
         self.root = SetDateWrapperResource(LogWrapperResource(self.resrc))
-
-    def tearDown(self):
-        removeObserver(self.blo.emit)
 
     def assertLogged(self, **expected):
         """
