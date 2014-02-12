@@ -1,6 +1,6 @@
-# -*- test-case-name: calendarserver.webadmin.test.test_log -*-
+# -*- test-case-name: calendarserver.webadmin.test.test_logs -*-
 ##
-# Copyright (c) 2009-2014 Apple Inc. All rights reserved.
+# Copyright (c) 2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 from __future__ import print_function
 
 """
-Calendar Server Web Admin UI.
+Calendar Server log viewing web UI.
 """
 
 __all__ = [
@@ -69,13 +69,9 @@ class LogsResource(TemplateResource):
 
 
     def __init__(self):
-        TemplateResource.__init__(self, LogsPageElement())
+        TemplateResource.__init__(self, LogsPageElement)
 
         self.putChild("events", LogEventsResource())
-
-
-    def render(self, request):
-        return TemplateResource.render(self, request)
 
 
 

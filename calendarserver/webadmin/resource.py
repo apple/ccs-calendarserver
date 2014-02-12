@@ -783,10 +783,10 @@ class TemplateResource(Resource):
     #     return request.args.get(arguments, [])
 
 
-    def __init__(self, element):
+    def __init__(self, elementClass):
         Resource.__init__(self)
 
-        self.element = element
+        self.elementClass = elementClass
 
 
     # def handleQueryArguments(self, request):
@@ -795,13 +795,9 @@ class TemplateResource(Resource):
 
     @inlineCallbacks
     def render(self, request):
-        """
-        Create a L{WebAdminPage} to render HTML content for this request, and
-        return a response.
-        """
         # yield self.handleQueryArguments(request)
 
-        htmlContent = yield flattenString(request, self.element)
+        htmlContent = yield flattenString(request, self.elementClass())
 
         response = Response()
         response.stream = MemoryStream(htmlContent)

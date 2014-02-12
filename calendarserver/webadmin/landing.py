@@ -26,7 +26,9 @@ __all__ = [
 # from twisted.web.template import renderer
 
 from .resource import PageElement, TemplateResource
+from .resource import WebAdminResource
 from .logs import LogsResource
+from .principals import PrincipalsResource
 
 
 
@@ -54,7 +56,7 @@ class WebAdminLandingResource(TemplateResource):
     addSlash = True
 
     def __init__(self, path, root, directory, store, principalCollections=()):
-        TemplateResource.__init__(self, WebAdminLandingPageElement())
+        TemplateResource.__init__(self, WebAdminLandingPageElement)
 
         self._path = path
         self._root = root
@@ -63,3 +65,11 @@ class WebAdminLandingResource(TemplateResource):
         self._principalCollections = principalCollections
 
         self.putChild("logs", LogsResource())
+        self.putChild("principals", PrincipalsResource())
+
+        self.putChild(
+            "old",
+            WebAdminResource(
+                path, root, directory, store, principalCollections
+            )
+        )
