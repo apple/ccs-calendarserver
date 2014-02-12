@@ -212,14 +212,14 @@ def parseDateTime(dateString):
         day = parts[1]
         month = parts[2]
         year = parts[3]
-        time = parts[4]
+        time_part = parts[4]
     elif (partlen == 3 or partlen == 4) and parts[1].find('-') != -1:
         # 2nd date format: Sunday, 06-Nov-94 08:49:37 GMT
         # (Note: "GMT" is literal, not a variable timezone)
         # (also handles without without "GMT")
         # Two digit year, yucko.
         day, month, year = parts[1].split('-')
-        time = parts[2]
+        time_part = parts[2]
         year = int(year)
         if year < 69:
             year = year + 2000
@@ -231,14 +231,14 @@ def parseDateTime(dateString):
         day = parts[2]
         month = parts[1]
         year = parts[4]
-        time = parts[3]
+        time_part = parts[3]
     else:
         raise ValueError("Unknown datetime format %r" % dateString)
 
     day = int(day)
     month = int(monthname_lower.index(month.lower()))
     year = int(year)
-    hour, min, sec = map(int, time.split(':'))
+    hour, min, sec = map(int, time_part.split(':'))
     return int(timegm((year, month, day, hour, min, sec)))
 
 
