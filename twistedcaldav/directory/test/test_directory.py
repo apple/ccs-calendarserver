@@ -20,13 +20,12 @@ from twisted.python.filepath import FilePath
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.test.util import xmlFile, augmentsFile, proxiesFile, dirTest
 from twistedcaldav.config import config
-from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, GroupMembershipCache, GroupMembershipCacheUpdater, diffAssignments, schedulePolledGroupCachingUpdate
+from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, GroupMembershipCache, GroupMembershipCacheUpdater, diffAssignments
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
 from twistedcaldav.directory import augment, calendaruserproxy
 from twistedcaldav.directory.util import normalizeUUID
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
-from txdav.common.datastore.test.util import buildStore
 
 import cPickle as pickle
 import uuid
@@ -926,25 +925,25 @@ class GroupMembershipTests (TestCase):
         )
 
 
-    @inlineCallbacks
-    def testScheduling(self):
-        """
-        Exercise schedulePolledGroupCachingUpdate
-        """
+    # @inlineCallbacks
+    # def testScheduling(self):
+    #     """
+    #     Exercise schedulePolledGroupCachingUpdate
+    #     """
 
-        groupCacher = StubGroupCacher()
+    #     groupCacher = StubGroupCacher()
 
 
-        def decorateTransaction(txn):
-            txn._groupCacher = groupCacher
+    #     def decorateTransaction(txn):
+    #         txn._groupCacher = groupCacher
 
-        store = yield buildStore(self, None)
-        store.callWithNewTransactions(decorateTransaction)
-        wp = (yield schedulePolledGroupCachingUpdate(store))
-        yield wp.whenExecuted()
-        self.assertTrue(groupCacher.called)
+    #     store = yield buildStore(self, None)
+    #     store.callWithNewTransactions(decorateTransaction)
+    #     wp = (yield schedulePolledGroupCachingUpdate(store))
+    #     yield wp.whenExecuted()
+    #     self.assertTrue(groupCacher.called)
 
-    testScheduling.skip = "Fix WorkProposal to track delayed calls and cancel them"
+    # testScheduling.skip = "Fix WorkProposal to track delayed calls and cancel them"
 
 
 

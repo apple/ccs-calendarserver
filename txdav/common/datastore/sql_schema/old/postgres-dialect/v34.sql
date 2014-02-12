@@ -522,7 +522,7 @@ create index ABO_FOREIGN_MEMBERS_ADDRESSBOOK_ID on
 
 -- Joins ADDRESSBOOK_HOME and ADDRESSBOOK_OBJECT (kind == group)
 
-create table SHARED_GROUP_BIND (
+create table SHARED_GROUP_BIND (	
   ADDRESSBOOK_HOME_RESOURCE_ID 		integer      not null references ADDRESSBOOK_HOME,
   GROUP_RESOURCE_ID      			integer      not null references ADDRESSBOOK_OBJECT on delete cascade,
   EXTERNAL_ID			            integer      default null,
@@ -632,7 +632,7 @@ create table APN_SUBSCRIPTIONS (
 create index APN_SUBSCRIPTIONS_RESOURCE_KEY
    on APN_SUBSCRIPTIONS(RESOURCE_KEY);
 
-
+   
 -----------------
 -- IMIP Tokens --
 -----------------
@@ -650,7 +650,7 @@ create table IMIP_TOKENS (
 create index IMIP_TOKENS_TOKEN
    on IMIP_TOKENS(TOKEN);
 
-
+   
 ----------------
 -- Work Items --
 ----------------
@@ -714,66 +714,6 @@ create table GROUP_CACHER_POLLING_WORK (
   NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
 );
 
-create table GROUP_REFRESH_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
-  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  GROUP_GUID                    varchar(255) not null
-);
-
-create table GROUP_ATTENDEE_RECONCILIATION_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
-  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  RESOURCE_ID                   integer,
-  GROUP_ID                      integer
-);
-
-
-create table GROUPS (
-  GROUP_ID                      integer      primary key default nextval('RESOURCE_ID_SEQ'),    -- implicit index
-  NAME                          varchar(255) not null,
-  GROUP_GUID                    varchar(255) not null,
-  MEMBERSHIP_HASH               varchar(255) not null,
-  EXTANT                        integer default 1,
-  CREATED                       timestamp default timezone('UTC', CURRENT_TIMESTAMP),
-  MODIFIED                      timestamp default timezone('UTC', CURRENT_TIMESTAMP)
-);
-create index GROUPS_GROUP_GUID on GROUPS(GROUP_GUID);
-
-create table GROUP_MEMBERSHIP (
-  GROUP_ID                      integer,
-  MEMBER_GUID                   varchar(255) not null
-);
-create index GROUP_MEMBERSHIP_GROUP on GROUP_MEMBERSHIP(GROUP_ID);
-create index GROUP_MEMBERSHIP_MEMBER on GROUP_MEMBERSHIP(MEMBER_GUID);
-
-create table GROUP_ATTENDEE (
-  GROUP_ID                      integer,
-  RESOURCE_ID                   integer,
-  MEMBERSHIP_HASH               varchar(255) not null
-);
-
----------------
--- Delegates --
----------------
-
-create table DELEGATES (
-  DELEGATOR                     varchar(255) not null,
-  DELEGATE                      varchar(255) not null,
-  READ_WRITE                    integer      not null -- 1 = ReadWrite, 0 = ReadOnly
-);
-
-create table DELEGATE_GROUPS (
-  DELEGATOR                     varchar(255) not null,
-  GROUP_ID                      integer      not null,
-  READ_WRITE                    integer      not null, -- 1 = ReadWrite, 0 = ReadOnly
-  IS_EXTERNAL                   integer      not null -- 1 = ReadWrite, 0 = ReadOnly
-);
-
-create table EXTERNAL_DELEGATE_GROUPS (
-  DELEGATOR                     varchar(255) not null,
-  GROUP_GUID_READ               varchar(255),
-  GROUP_GUID_WRITE              varchar(255)
-);
 
 --------------------------
 -- Object Splitter Work --
@@ -922,7 +862,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '35');
+insert into CALENDARSERVER values ('VERSION', '34');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');

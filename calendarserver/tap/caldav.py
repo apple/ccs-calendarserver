@@ -78,12 +78,14 @@ from txdav.common.datastore.upgrade.sql.upgrade import (
     UpgradeAcquireLockStep, UpgradeReleaseLockStep, UpgradeDatabaseNotificationDataStep)
 from txdav.common.datastore.work.revision_cleanup import scheduleFirstFindMinRevision
 from txdav.dps.server import DirectoryProxyServiceMaker
+from txdav.dps.client import DirectoryService as DirectoryProxyClientService
+from txdav.who.groups import GroupCacher as NewGroupCacher
 
 from twistedcaldav import memcachepool
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.directory import GroupMembershipCacheUpdater
-from twistedcaldav.directory.directory import scheduleNextGroupCachingUpdate
+from txdav.who.groups import scheduleNextGroupCachingUpdate
 from twistedcaldav.localization import processLocalizationFiles
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.upgrade import UpgradeFileSystemFormatStep, PostDBImportStep
@@ -1239,9 +1241,11 @@ class CalDAVServiceMaker (object):
                     config.GroupCaching.LockSeconds,
                     namespace=config.GroupCaching.MemcachedPool,
                     useExternalProxies=config.GroupCaching.UseExternalProxies
-                    )
+                )
+                newGroupCacher = NewGroupCacher(DirectoryProxyClientService(None))
             else:
                 groupCacher = None
+                newGroupCacher = None
 
             # Optionally enable Manhole access
             if config.Manhole.Enabled:
@@ -1275,6 +1279,7 @@ class CalDAVServiceMaker (object):
                 txn._rootResource = result.rootResource
                 txn._mailRetriever = mailRetriever
                 txn._groupCacher = groupCacher
+                txn._newGroupCacher = newGroupCacher
 
             store.callWithNewTransactions(decorateTransaction)
 
