@@ -3,7 +3,25 @@
 
   <head>
     <title><t:slot name="title" /></title>
+
     <link t:render="stylesheet" />
+    <style>
+
+      .log {
+        width: 100%;
+        height: 200pt;
+
+        overflow: scroll;
+        white-space: nowrap;
+
+        border: 1px solid gray;
+        padding: 2pt;
+
+        font-family: monospace;
+        /*font-size: 0.75em;*/
+      }
+
+    </style>
 
     <script type="text/javascript">
 
@@ -69,21 +87,6 @@
 
     </script>
 
-    <style>
-      .log {
-        width: 100%;
-        height: 200pt;
-
-        overflow: scroll;
-        white-space: nowrap;
-
-        border: 1px solid gray;
-        padding: 2pt;
-
-        font-family: monospace;
-        /*font-size: 0.75em;*/
-      }
-    </style>
   </head>
 
   <body>
