@@ -31,7 +31,7 @@ from collections import deque
 from zope.interface import implementer
 
 from twisted.python.log import FileLogObserver
-from twisted.internet.defer import Deferred, succeed
+from twisted.internet.defer import succeed
 
 from txweb2.stream import IByteStream, fallbackSplit
 from txweb2.resource import Resource
@@ -75,7 +75,6 @@ class LogsResource(TemplateResource):
 
 
     def render(self, request):
-        self.element = LogsPageElement()
         return TemplateResource.render(self, request)
 
 
@@ -139,9 +138,6 @@ class LogEventStream(object):
         self._start = start
         self._closed = False
 
-        from twisted.internet import reactor
-        self._reactor = reactor
-
 
     def read(self):
         if self._closed:
@@ -191,16 +187,10 @@ class LogEventStream(object):
 
         return succeed(None)
 
-        # def readAgain(_):
-        #     return self.read()
+        # from twisted.internet.task import deferLater
+        # from twisted.internet import reactor
 
-        # d = Deferred()
-        # d.addCallback(readAgain)
-
-        # for observer in self._source.observers:
-        #     observer.registerDeferred(d)
-
-        # return d
+        # return deferLater(reactor, 1.0, self.read)
 
 
     def split(self, point):
@@ -224,8 +214,6 @@ class BufferingLogObserver(FileLogObserver):
 
 
     def __init__(self, buffer):
-        self._junk = file("/tmp/junk", "a")
-
         class FooIO(object):
             def write(_, s):
                 self._lastMessage = s
@@ -243,28 +231,15 @@ class BufferingLogObserver(FileLogObserver):
     def emit(self, event):
         self._buffer.append((self, u"server", event))
 
-        self._junk.write("emit: {0!r} on {1}\n".format(self._waiting, self))
-        self._junk.flush()
-
         while self._waiting:
             d = self._waiting.pop(0)
-            self._junk.write("calling: {0}\n".format(d))
-            self._junk.flush()
             d.callback(None)
-            self._junk.write("called: {0}\n".format(d))
-            self._junk.flush()
 
 
     def formatEvent(self, event):
         self._lastMessage = None
         FileLogObserver.emit(self, event)
         return self._lastMessage
-
-
-    def registerDeferred(self, d):
-        self._waiting.append(d)
-        self._junk.write("Registered: {0} on {1}\n".format(self._waiting, self))
-        self._junk.flush()
 
 
 
@@ -289,10 +264,6 @@ class AccessLogObserver(CommonAccessLoggingObserverExtensions):
             return
 
         self._buffer.append((self, u"access", event))
-
-
-    def registerDeferred(self, d):
-        pass
 
 
 
