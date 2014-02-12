@@ -3,13 +3,70 @@
 
   <head>
     <title><t:slot name="title" /></title>
+
     <link t:render="stylesheet" />
+    <style>
+
+      table.record {
+        margin-left: auto;
+        margin-right: auto;
+        width: auto;
+      }
+
+    </style>
   </head>
 
   <body>
 
     <h1><t:slot name="title" /></h1>
 
+    <table class="record">
+      <caption>Record Information</caption>
+      <thead>
+        <tr>
+          <th>Field Name</th>
+          <th>Field Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Directory Service</td>
+          <td><t:slot name="service" /></td>
+        </tr>
+        <tr>
+          <td>UID</td>
+          <td><t:slot name="uid" /></td>
+        </tr>
+        <tr>
+          <td>GUID</td>
+          <td><t:slot name="guid" /></td>
+        </tr>
+        <tr>
+          <td>Record Type</td>
+          <td><t:slot name="record_type" /></td>
+        </tr>
+        <tr>
+          <td>Short Names</td>
+          <td><t:slot name="short_names" /></td>
+        </tr>
+        <tr>
+          <td>Full Names</td>
+          <td><t:slot name="full_names" /></td>
+        </tr>
+        <tr>
+          <td>Email Addresses</td>
+          <td><t:slot name="email_addresses" /></td>
+        </tr>
+        <tr>
+          <td>Calendar User Addresses</td>
+          <td><t:slot name="calendar_user_addresses" /></td>
+        </tr>
+        <tr>
+          <td>Server ID</td>
+          <td><t:slot name="server_id" /></td>
+        </tr>
+      </tbody>
+    </table>
 
   </body>
 
