@@ -38,7 +38,7 @@ class PrincipalsPageElement(PageElement):
     """
 
     def __init__(self, directory):
-        PageElement.__init__(self, "principals")
+        PageElement.__init__(self, u"principals")
 
         self._directory = directory
 
@@ -53,7 +53,7 @@ class PrincipalsPageElement(PageElement):
     def search_value(self, request, tag):
         terms = searchTerms(request)
         if terms:
-            return tag(value=" ".join(terms))
+            return tag(value=u" ".join(terms))
         else:
             return tag
 
@@ -100,11 +100,11 @@ def searchTerms(request):
     if request.args:
         terms = set()
 
-        for query in request.args.get("search", []):
-            for term in query.split(" "):
+        for query in request.args.get(u"search", []):
+            for term in query.split(u" "):
                 terms.add(term)
 
-        for term in request.args.get("term", []):
+        for term in request.args.get(u"term", []):
             terms.add(term)
 
         return terms
@@ -115,6 +115,64 @@ def searchTerms(request):
 
 
 def recordsTable(records):
+    def multiValue(values):
+        return ((s, tags.br()) for s in values)
+
+    def recordRows(records):
+        attrs_record = {"class": "record"}
+        attrs_fullName = {"class": "record_full_name"}
+        attrs_uid = {"class": "record_uid"}
+        attrs_recordType = {"class": "record_type"}
+        attrs_shortName = {"class": "record_short_name"}
+        attrs_email = {"class": "record_email"}
+
+        i0 = u"\n" + (6 * u" ") + (0 * 2 * u" ")
+        i1 = u"\n" + (6 * u" ") + (1 * 2 * u" ")
+        i2 = u"\n" + (6 * u" ") + (2 * 2 * u" ")
+
+        yield (
+            i0,
+            tags.thead(
+                i1,
+                tags.tr(
+                    i2, tags.th(u"Full name", **attrs_fullName),
+                    i2, tags.th(u"UID", **attrs_uid),
+                    i2, tags.th(u"Record Type", **attrs_recordType),
+                    i2, tags.th(u"Short Name", **attrs_shortName),
+                    i2, tags.th(u"Email Address", **attrs_email),
+                    i1,
+                    **attrs_record
+                ),
+                i0,
+            ),
+            i0,
+        )
+
+        yield (
+            tags.tbody(
+                (
+                    i1,
+                    tags.tr(
+                        i2, tags.td(record.fullName, **attrs_fullName),
+                        i2, tags.td(record.uid, **attrs_uid),
+                        i2, tags.td(record.recordType, **attrs_recordType),
+                        i2, tags.td(
+                            multiValue(record.shortNames), **attrs_shortName
+                        ),
+                        i2, tags.td(
+                            multiValue(record.emailAddresses), **attrs_email
+                        ),
+                        i1,
+                        **attrs_record
+                    ),
+                )
+                for record in sorted(records, key=lambda record: record.uid)
+            ),
+            i0
+        )
+
     return tags.table(
         tags.caption(u"Records"),
+        recordRows(records),
+        id="records",
     )
