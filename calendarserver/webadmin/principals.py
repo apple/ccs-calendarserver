@@ -86,12 +86,59 @@ class PrincipalsResource(TemplateResource):
     Principal management page resource.
     """
 
-    addSlash = False
+    addSlash = True
 
 
     def __init__(self, directory):
         TemplateResource.__init__(
             self, lambda: PrincipalsPageElement(directory)
+        )
+
+        self._directory = directory
+
+
+    def getChild(self, name):
+        if name == "":
+            return self
+
+        record = self._directory.recordWithUID(name)
+
+        if record:
+            return PrincipalEditResource(record)
+        else:
+            return None
+
+
+
+class PrincipalEditPageElement(PageElement):
+    """
+    Principal editing page element.
+    """
+
+    def __init__(self, record):
+        PageElement.__init__(self, u"principals_edit")
+
+        self._record = record
+
+
+    def pageSlots(self):
+        return {
+            u"title": u"Calendar & Contacts Server Principal Edit",
+        }
+
+
+
+class PrincipalEditResource(TemplateResource):
+    """
+    Principal editing resource.
+    """
+
+    addSlash = False
+
+
+    def __init__(self, record):
+        TemplateResource.__init__(
+            self, lambda: PrincipalEditPageElement(record)
         )
 
 
@@ -163,6 +210,10 @@ def recordsTable(records):
                             multiValue(record.emailAddresses), **attrs_email
                         ),
                         i1,
+                        onclick=(
+                            'window.open("./{0}");'
+                            .format(record.uid)
+                        ),
                         **attrs_record
                     ),
                 )
