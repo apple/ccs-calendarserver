@@ -65,7 +65,7 @@ class WebAdminLandingResource(TemplateResource):
         self._principalCollections = principalCollections
 
         self.putChild("logs", LogsResource())
-        self.putChild("principals", PrincipalsResource())
+        self.putChild("principals", PrincipalsResource(directory))
 
         self.putChild(
             "old",
