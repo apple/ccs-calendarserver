@@ -10,8 +10,8 @@
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
 #
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
 #
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -35,6 +35,9 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from txweb2 import iweb, http, server, responsecode
 
 from twisted.internet.defer import maybeDeferred
+
+
+
 class RenderMixin(object):
     """
     Mix-in class for L{iweb.IResource} which provides a dispatch mechanism for
@@ -42,11 +45,14 @@ class RenderMixin(object):
     """
     def allowedMethods(self):
         """
-        @return: A tuple of HTTP methods that are allowed to be invoked on this resource.
+        @return: A tuple of HTTP methods that are allowed to be invoked on this
+            resource.
         """
         if not hasattr(self, "_allowed_methods"):
-            self._allowed_methods = tuple([name[5:] for name in dir(self) 
-                if name.startswith('http_') and getattr(self, name) is not None])
+            self._allowed_methods = tuple(
+                name[5:] for name in dir(self)
+                if name.startswith('http_') and getattr(self, name) is not None
+            )
         return self._allowed_methods
 
     def checkPreconditions(self, request):
@@ -62,7 +68,8 @@ class RenderMixin(object):
         # GET or HEAD request.
         #
         # For other methods, we need to know to bail out before request
-        # processing, especially for methods that modify server state (eg. PUT).
+        # processing, especially for methods that modify server state (eg.
+        # PUT).
         # We also would like to do so even for methods that don't, if those
         # methods might be expensive to process.  We're assuming that GET and
         # HEAD are not expensive.
@@ -81,15 +88,16 @@ class RenderMixin(object):
         """
         See L{iweb.IResource.renderHTTP}.
 
-        This implementation will dispatch the given C{request} to another method
-        of C{self} named C{http_}METHOD, where METHOD is the HTTP method used by
-        C{request} (eg. C{http_GET}, C{http_POST}, etc.).
+        This implementation will dispatch the given C{request} to another
+        method of C{self} named C{http_}METHOD, where METHOD is the HTTP method
+        used by C{request} (eg. C{http_GET}, C{http_POST}, etc.).
 
         Generally, a subclass should implement those methods instead of
         overriding this one.
 
-        C{http_*} methods are expected provide the same interface and return the
-        same results as L{iweb.IResource}C{.renderHTTP} (and therefore this method).
+        C{http_*} methods are expected provide the same interface and return
+        the same results as L{iweb.IResource}C{.renderHTTP} (and therefore this
+        method).
 
         C{etag} and C{last-modified} are added to the response returned by the
         C{http_*} header, if known.
@@ -172,6 +180,8 @@ class RenderMixin(object):
         """
         raise NotImplementedError("Subclass must implement render method.")
 
+
+
 class Resource(RenderMixin):
     """
     An L{iweb.IResource} implementation with some convenient mechanisms for
@@ -190,7 +200,7 @@ class Resource(RenderMixin):
         of this resource which matches one or more of the given C{segments} in
         sequence, and a list of remaining segments.
         """
-        w = getattr(self, 'child_%s' % (segments[0],), None)
+        w = self.getChild(segments[0])
 
         if w:
             r = iweb.IResource(w, None)
@@ -246,9 +256,12 @@ class Resource(RenderMixin):
     def http_GET(self, request):
         if self.addSlash and request.prepath[-1] != '':
             # If this is a directory-ish resource...
-            return http.RedirectResponse(request.unparseURL(path=request.path + '/'))
+            return http.RedirectResponse(
+                request.unparseURL(path=request.path + '/')
+            )
 
         return super(Resource, self).http_GET(request)
+
 
 
 class PostableResource(Resource):
@@ -274,9 +287,10 @@ class PostableResource(Resource):
         @param request: the request to process.
         @return: an object adaptable to L{iweb.IResponse}.
         """
-        return server.parsePOSTData(request,
-            self.maxMem, self.maxFields, self.maxSize
-            ).addCallback(lambda res: self.render(request))
+        return server.parsePOSTData(
+            request, self.maxMem, self.maxFields, self.maxSize
+        ).addCallback(lambda res: self.render(request))
+
 
 
 class LeafResource(RenderMixin):
@@ -287,6 +301,8 @@ class LeafResource(RenderMixin):
 
     def locateChild(self, request, segments):
         return self, server.StopTraversal
+
+
 
 class RedirectResource(LeafResource):
     """
@@ -305,7 +321,11 @@ class RedirectResource(LeafResource):
         self._kwargs = kwargs
 
     def renderHTTP(self, request):
-        return http.RedirectResponse(request.unparseURL(*self._args, **self._kwargs))
+        return http.RedirectResponse(
+            request.unparseURL(*self._args, **self._kwargs)
+        )
+
+
 
 class WrapperResource(object):
     """
@@ -344,4 +364,7 @@ class WrapperResource(object):
         return self.resource.getChild(name)
 
 
-__all__ = ['RenderMixin', 'Resource', 'PostableResource', 'LeafResource', 'WrapperResource']
+__all__ = [
+    'RenderMixin', 'Resource',
+    'PostableResource', 'LeafResource', 'WrapperResource'
+]
