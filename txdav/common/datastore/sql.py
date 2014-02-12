@@ -3548,7 +3548,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
                 setattr(child, attr, value)
             for attr, value in zip(cls.metadataAttributes(), metadata):
                 setattr(child, attr, value)
-            child._syncTokenRevision = revisions[resourceID]
+            child._syncTokenRevision = revisions.get(resourceID, 0)
             propstore = propertyStores.get(resourceID, None)
             # We have to re-adjust the property store object to account for possible shared
             # collections as previously we loaded them all as if they were owned
