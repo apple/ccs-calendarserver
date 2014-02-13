@@ -98,8 +98,8 @@ parse_options () {
       '?') usage; ;;
       'h') usage -; exit 0; ;;
       'f')  force_setup="true"; do_setup="true"; ;;
-      'k')         kill="true"; ;;
-      'r')      restart="true"; ;;
+      'k')         kill="true"; do_setup="false"; ;;
+      'r')      restart="true"; do_setup="false"; ;;
       'd')    daemonize=""; ;;
       'P')  plugin_name="${OPTARG}"; ;;
       'R')      reactor="-R ${OPTARG}"; ;;
