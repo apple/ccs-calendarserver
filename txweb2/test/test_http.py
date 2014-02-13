@@ -1258,6 +1258,7 @@ certPath = util.sibpath(__file__, "server.pem")
 class SSLServerTest(unittest.TestCase, AbstractServerTestMixin):
     type = 'ssl'
     def setUp(self):
+        HTTPChannel.allowPersistentConnections = True
         sCTX = ssl.DefaultOpenSSLContextFactory(certPath, certPath)
         factory=SimpleFactory(requestFactory=SimpleRequest)
 

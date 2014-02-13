@@ -1,6 +1,5 @@
 import socket
 import sys
-import time
 
 test_type = sys.argv[1]
 port = int(sys.argv[2])
@@ -18,25 +17,25 @@ else:
     send = s.send
     recv = s.recv
 
-print >> sys.stderr, "\n>> Making %s request to port %d" % (socket_type, port)
+print >> sys.stderr, ">> Making %s request to port %d" % (socket_type, port)
 
 send("PUT /forbidden HTTP/1.1\r\n")
 send("Host: localhost\r\n")
 
-print >> sys.stderr, ">> Sending lots of data: t={}".format(time.time())
+print >> sys.stderr, ">> Sending lots of data"
 send("Content-Length: 100\r\n\r\n")
 send("X" * 100)
 
 send("PUT /forbidden HTTP/1.1\r\n")
 send("Host: localhost\r\n")
 
-print >> sys.stderr, ">> Sending lots of data: t={}".format(time.time())
+print >> sys.stderr, ">> Sending lots of data"
 send("Content-Length: 100\r\n\r\n")
 send("X" * 100)
 
 #import time
 #time.sleep(5)
-print >> sys.stderr, ">> Getting data: t={}".format(time.time())
+print >> sys.stderr, ">> Getting data"
 data = ''
 while len(data) < 299999:
     try:
@@ -46,5 +45,4 @@ while len(data) < 299999:
     if x == '':
         break
     data += x
-print >> sys.stderr, ">> Done data: t={}".format(time.time())
 sys.stdout.write(data)

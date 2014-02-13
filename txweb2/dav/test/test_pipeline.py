@@ -75,6 +75,5 @@ class SSLPipeline(test_http.SSLServerTest):
                                                            env=os.environ))
         yield d
         out, err, code = d.getResult()
-        print err
         self.assertEquals(code, 0, "Error output:\n%s" % (err,))
         self.assertEquals(out, "HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\n\r\nHTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\n\r\n")
