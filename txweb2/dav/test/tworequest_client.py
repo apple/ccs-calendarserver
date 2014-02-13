@@ -1,4 +1,6 @@
-import socket, sys
+import socket
+import sys
+import time
 
 test_type = sys.argv[1]
 port = int(sys.argv[2])
@@ -10,38 +12,39 @@ s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 40000)
 
 if socket_type == 'ssl':
     s2 = socket.ssl(s)
-    send=s2.write
-    recv=s2.read
+    send = s2.write
+    recv = s2.read
 else:
-    send=s.send
-    recv=s.recv
-    
-print >> sys.stderr, ">> Making %s request to port %d" % (socket_type, port)
+    send = s.send
+    recv = s.recv
+
+print >> sys.stderr, "\n>> Making %s request to port %d" % (socket_type, port)
 
 send("PUT /forbidden HTTP/1.1\r\n")
 send("Host: localhost\r\n")
 
-print >> sys.stderr, ">> Sending lots of data"
+print >> sys.stderr, ">> Sending lots of data: t={}".format(time.time())
 send("Content-Length: 100\r\n\r\n")
-send("X"*100)
+send("X" * 100)
 
 send("PUT /forbidden HTTP/1.1\r\n")
 send("Host: localhost\r\n")
 
-print >> sys.stderr, ">> Sending lots of data"
+print >> sys.stderr, ">> Sending lots of data: t={}".format(time.time())
 send("Content-Length: 100\r\n\r\n")
-send("X"*100)
+send("X" * 100)
 
 #import time
 #time.sleep(5)
-print >> sys.stderr, ">> Getting data"
-data=''
+print >> sys.stderr, ">> Getting data: t={}".format(time.time())
+data = ''
 while len(data) < 299999:
     try:
-        x=recv(10000)
+        x = recv(10000)
     except:
         break
     if x == '':
         break
-    data+=x
+    data += x
+print >> sys.stderr, ">> Done data: t={}".format(time.time())
 sys.stdout.write(data)
