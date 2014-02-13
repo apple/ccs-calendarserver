@@ -58,7 +58,9 @@ class GroupCacherPollingWork(
                 datetime.datetime.utcnow() +
                 datetime.timedelta(seconds=oldGroupCacher.updateSeconds)
             )
-            log.debug("Scheduling next group cacher update: %s" % (notBefore,))
+            log.debug(
+                "Scheduling next group cacher update: {when}", when=notBefore
+            )
             yield self.transaction.enqueue(
                 GroupCacherPollingWork,
                 notBefore=notBefore
@@ -68,20 +70,28 @@ class GroupCacherPollingWork(
             try:
                 newGroupCacher.update(self.transaction)
             except Exception, e:
-                log.error("Failed to update new group membership cache (%s)" % (e,))
+                log.error(
+                    "Failed to update new group membership cache ({error})",
+                    error=e
+                )
 
             # Old implmementation
             try:
                 oldGroupCacher.updateCache()
             except Exception, e:
-                log.error("Failed to update old group membership cache (%s)" % (e,))
+                log.error(
+                    "Failed to update old group membership cache ({error})",
+                    error=e
+                )
 
         else:
             notBefore = (
                 datetime.datetime.utcnow() +
                 datetime.timedelta(seconds=10)
             )
-            log.debug("Rescheduling group cacher update: %s" % (notBefore,))
+            log.debug(
+                "Rescheduling group cacher update: {when}", when=notBefore
+            )
             yield self.transaction.enqueue(
                 GroupCacherPollingWork,
                 notBefore=notBefore
@@ -92,8 +102,12 @@ class GroupCacherPollingWork(
 @inlineCallbacks
 def scheduleNextGroupCachingUpdate(store, seconds):
     txn = store.newTransaction()
-    notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds)
-    log.debug("Scheduling next group cacher update: %s" % (notBefore,))
+    notBefore = (
+        datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds)
+    )
+    log.debug(
+        "Scheduling next group cacher update: {when}", when=notBefore
+    )
     wp = (yield txn.enqueue(GroupCacherPollingWork, notBefore=notBefore))
     yield txn.commit()
     returnValue(wp)
@@ -102,8 +116,8 @@ def scheduleNextGroupCachingUpdate(store, seconds):
 
 def schedulePolledGroupCachingUpdate(store):
     """
-    Schedules a group caching update work item in "the past" so PeerConnectionPool's
-    overdue-item logic picks it up quickly.
+    Schedules a group caching update work item in "the past" so
+    PeerConnectionPool's overdue-item logic picks it up quickly.
     """
     seconds = -PeerConnectionPool.queueProcessTimeout
     return scheduleNextGroupCachingUpdate(store, seconds)
@@ -118,7 +132,9 @@ class GroupRefreshWork(WorkItem, fromTable(schema.GROUP_REFRESH_WORK)):
     def doWork(self):
 
         # Delete all other work items for this group
-        yield Delete(From=self.table, Where=(self.table.GROUP_GUID == self.groupGUID)).on(self.transaction)
+        yield Delete(
+            From=self.table, Where=(self.table.GROUP_GUID == self.groupGUID)
+        ).on(self.transaction)
 
         groupCacher = getattr(self.transaction, "_groupCacher", None)
         if groupCacher is not None:
@@ -147,9 +163,13 @@ class GroupRefreshWork(WorkItem, fromTable(schema.GROUP_REFRESH_WORK)):
 
 
 
-class GroupAttendeeReconciliationWork(WorkItem, fromTable(schema.GROUP_ATTENDEE_RECONCILIATION_WORK)):
+class GroupAttendeeReconciliationWork(
+    WorkItem, fromTable(schema.GROUP_ATTENDEE_RECONCILIATION_WORK)
+):
 
-    group = property(lambda self: "%s, %s" % (self.groupID, self.eventID))
+    group = property(
+        lambda self: "{0}, {1}".format(self.groupID, self.eventID)
+    )
 
     @inlineCallbacks
     def doWork(self):
@@ -168,8 +188,8 @@ class GroupAttendeeReconciliationWork(WorkItem, fromTable(schema.GROUP_ATTENDEE_
 @inlineCallbacks
 def expandedMembers(record, members=None, records=None):
     """
-    Return the expanded set of member records.  Intermediate groups are not returned
-    in the results, but their members are.
+    Return the expanded set of member records.  Intermediate groups are not
+    returned in the results, but their members are.
     """
     if members is None:
         members = set()
@@ -181,7 +201,10 @@ def expandedMembers(record, members=None, records=None):
         for member in (yield record.members()):
             if member not in records:
                 #TODO:  HACK for old-style XML. FIX
-                if member.recordType != RecordType.group and str(member.recordType) != "groups":
+                if (
+                    member.recordType != RecordType.group and
+                    str(member.recordType) != "groups"
+                ):
                     members.add(member)
                 yield expandedMembers(member, members, records)
 
@@ -190,12 +213,16 @@ def expandedMembers(record, members=None, records=None):
 
 def diffAssignments(old, new):
     """
-    Compare two proxy assignment lists and return their differences in the form of
-    two lists -- one for added/updated assignments, and one for removed assignments.
+    Compare two proxy assignment lists and return their differences in the form
+    of two lists -- one for added/updated assignments, and one for removed
+    assignments.
+
     @param old: dictionary of delegator: (readGroupGUID, writeGroupGUID)
     @type old: C{dict}
+
     @param new: dictionary of delegator: (readGroupGUID, writeGroupGUID)
     @type new: C{dict}
+
     @return: Tuple of two lists; the first list contains tuples of (delegator,
         (readGroupGUID, writeGroupGUID)), and represents all the new or updated
         assignments.  The second list contains all the delegators which used to
@@ -218,6 +245,7 @@ def diffAssignments(old, new):
 
 class GroupCacher(object):
     log = Logger()
+
 
     def __init__(
         self, directory,
@@ -242,7 +270,7 @@ class GroupCacher(object):
         # Figure out which groups matter
         groupGUIDs = yield self.groupsToRefresh(txn)
         self.log.debug(
-            "Number of groups to refresh: {num}".format(num=len(groupGUIDs))
+            "Number of groups to refresh: {num}", num=len(groupGUIDs)
         )
         # For each of those groups, create a per-group refresh work item
         for groupGUID in groupGUIDs:
@@ -260,15 +288,15 @@ class GroupCacher(object):
 
         oldAssignments = (yield txn.externalDelegates())
 
-        """
-        external assignments is of the form:
-        { delegatorGUID: (readDelegateGroupGUID, writeDelegateGroupGUID),
-        }
-        """
+        # external assignments is of the form:
+        # { delegatorGUID: (readDelegateGroupGUID, writeDelegateGroupGUID),
+        # }
 
         changed, removed = diffAssignments(oldAssignments, newAssignments)
         if changed:
-            for delegatorGUID, (readDelegateGUID, writeDelegateGUID) in changed:
+            for (
+                delegatorGUID, (readDelegateGUID, writeDelegateGUID)
+            ) in changed:
                 readDelegateGroupID = writeDelegateGroupID  = None
                 if readDelegateGUID:
                     readDelegateGroupID, name, hash = (
@@ -309,7 +337,9 @@ class GroupCacher(object):
 
         if cachedMembershipHash != membershipHash:
             membershipChanged = True
-            self.log.debug("Group '{group}' changed", group=record.fullNames[0])
+            self.log.debug(
+                "Group '{group}' changed", group=record.fullNames[0]
+            )
         else:
             membershipChanged = False
 
@@ -384,7 +414,8 @@ class GroupCacher(object):
                 datetime.timedelta(seconds=10)
             )
             log.debug(
-                "scheduling group reconciliation for ({eventID}, {groupID}, {groupGUID}): {when}",
+                "scheduling group reconciliation for "
+                "({eventID}, {groupID}, {groupGUID}): {when}",
                 eventID=eventID,
                 groupID=groupID,
                 groupGUID=groupGUID,
@@ -402,7 +433,9 @@ class GroupCacher(object):
     @inlineCallbacks
     def groupsToRefresh(self, txn):
         delegatedGUIDs = set((yield allGroupDelegates(txn)))
-        self.log.info("There are %d group delegates" % (len(delegatedGUIDs),))
+        self.log.info(
+            "There are {count} group delegates", count=len(delegatedGUIDs)
+        )
 
         attendeeGroupGUIDs = set()
 
