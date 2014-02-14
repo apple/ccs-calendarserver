@@ -2440,6 +2440,12 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         return existing
 
 
+    def dynamicProperties(self):
+        return super(CalendarHomeResource, self).dynamicProperties() + tuple(
+            DefaultAlarmPropertyMixin.ALARM_PROPERTIES.keys()
+        )
+
+
     def _hasGlobalProperty(self, property, request):
         """
         Need to special case schedule-calendar-transp for backwards compatability.
@@ -2934,6 +2940,7 @@ class AuthenticationWrapper(SuperAuthenticationWrapper):
         factories = self.overrides.get(req.path.rstrip("/"),
             req.credentialFactories)
         req.credentialFactories = factories
+
 
 
 ##

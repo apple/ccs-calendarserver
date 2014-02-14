@@ -1223,6 +1223,14 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         return caldavxml.CalendarData
 
 
+    def dynamicProperties(self):
+        return super(CalendarCollectionResource, self).dynamicProperties() + tuple(
+            DefaultAlarmPropertyMixin.ALARM_PROPERTIES.keys()
+        ) + (
+            caldavxml.CalendarTimeZone.qname(),
+        )
+
+
     def _hasGlobalProperty(self, property, request):
         """
         Need to special case schedule-calendar-transp for backwards compatability.
