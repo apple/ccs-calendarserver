@@ -427,15 +427,15 @@ END:VCARD
         # generate 3 revisions per member of group1
         group1Object = yield self.addressbookObjectUnderTest(self.transactionUnderTest(), name="group1.vcf", addressbook_name="addressbook", home="user01")
         yield group1Object.setComponent(VCard.fromString(self.group1Empty))
-        self.commit()
+        yield self.commit()
         group1Object = yield self.addressbookObjectUnderTest(self.transactionUnderTest(), name="group1.vcf", addressbook_name="addressbook", home="user01")
         yield group1Object.setComponent(VCard.fromString(self.group1))
-        self.commit()
+        yield self.commit()
 
         # generate 2 revisions per member of group2, and make max revision of group1 members < max valid revision
         group2Object = yield self.addressbookObjectUnderTest(self.transactionUnderTest(), name="group2.vcf", addressbook_name="addressbook", home="user01")
         yield group2Object.setComponent(VCard.fromString(self.group2Empty))
-        self.commit()
+        yield self.commit()
 
         # Get group1 revisions
         aboMembers = schema.ABO_MEMBERS
