@@ -23,6 +23,8 @@ wd="$(cd "$(dirname "$0")/.." && pwd)";
 
 . "${wd}/bin/_build.sh";
 
-init_build > /dev/null;
+do_setup="false";
+
+develop > /dev/null;
 
 exec "${python}" "$@";
