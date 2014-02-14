@@ -45,7 +45,7 @@ class PrincipalsPageElement(PageElement):
 
     def pageSlots(self):
         return {
-            u"title": u"Calendar & Contacts Server Principal Search",
+            u"title": u"Principal Search",
         }
 
 

@@ -29,6 +29,7 @@ from .resource import PageElement, TemplateResource
 from .resource import WebAdminResource
 from .logs import LogsResource
 from .principals import PrincipalsResource
+from .work import WorkMonitorResource
 
 
 
@@ -43,7 +44,7 @@ class WebAdminLandingPageElement(PageElement):
 
     def pageSlots(self):
         return {
-            u"title": u"Calendar & Contacts Server Administration",
+            u"title": u"Server Administration",
         }
 
 
@@ -66,6 +67,7 @@ class WebAdminLandingResource(TemplateResource):
 
         self.putChild(u"logs", LogsResource())
         self.putChild(u"principals", PrincipalsResource(directory))
+        self.putChild(u"work", WorkMonitorResource(store))
 
         self.putChild(
             u"old",

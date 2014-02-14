@@ -55,7 +55,7 @@ class LogsPageElement(PageElement):
 
     def pageSlots(self):
         return {
-            u"title": u"Calendar & Contacts Server Logs",
+            u"title": u"Server Logs",
         }
 
 
