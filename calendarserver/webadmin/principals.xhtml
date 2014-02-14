@@ -25,7 +25,6 @@
       <thead>
         <tr class="record">
           <th class="record_full_name">Full name</th>
-          <th class="record_uid">UID</th>
           <th class="record_type">Record Type</th>
           <th class="record_short_name">Short Name</th>
           <th class="record_email">Email Address</th>
@@ -33,11 +32,10 @@
       </thead>
       <tbody>
         <tr class="record" t:render="search_results_row"><t:attr name="onclick">window.open("./<t:slot name="uid" />");</t:attr>
-          <td class="record_full_name"><t:slot name="full_names" /></td>
-          <td class="record_uid"><t:slot name="uid" /></td>
-          <td class="record_type"><t:slot name="record_type" /></td>
-          <td class="record_short_name"><t:slot name="short_names" /></td>
-          <td class="record_email"><t:slot name="email_addresses" /></td>
+          <td class="record_full_name"><t:slot name="fullNames" /></td>
+          <td class="record_type"><t:slot name="recordType" /></td>
+          <td class="record_short_name"><t:slot name="shortNames" /></td>
+          <td class="record_email"><t:slot name="emailAddresses" /></td>
         </tr>
       </tbody>
     </table>

@@ -26,7 +26,7 @@ __all__ = [
 ]
 
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.web.template import tags, renderer
+from twisted.web.template import tags as html, renderer
 
 from .resource import PageElement, TemplateResource
 
@@ -150,7 +150,7 @@ class PrincipalEditPageElement(PageElement):
 
             for value in values:
                 if not noValues:
-                    yield tags.br()
+                    yield html.br()
 
                 yield one(value)
 
@@ -212,45 +212,102 @@ def searchTerms(request):
     return request._search_terms
 
 
-
+#
+# This should work when we switch to twext.who
+#
 def slotsForRecord(record):
-    def one(value):
-        if value is None:
+    def asText(obj):
+        if obj is None:
             return u"(no value)"
         else:
             try:
-                return unicode(value)
+                return unicode(obj)
             except UnicodeDecodeError:
                 try:
-                    return unicode(repr(value))
+                    return unicode(repr(obj))
                 except UnicodeDecodeError:
                     return u"(error rendering value)"
 
-    def many(values):
+    def joinWithBR(elements):
         noValues = True
 
-        for value in values:
+        for element in elements:
             if not noValues:
-                yield tags.br()
+                yield html.br()
 
-            yield one(value)
+            yield asText(element)
 
             noValues = False
 
         if noValues:
             yield u"(no values)"
 
+
+    # slots = {}
+
+    # for field, values in record.fields.iteritems():
+    #     if not record.service.fieldName.isMultiValue(field):
+    #         values = (values,)
+
+    #     slots[field.name] = joinWithBR(asText(value) for value in values)
+
+    # return slots
+
     return {
         u"service": (
             u"{record.service.__class__.__name__}: {record.service.realmName}"
             .format(record=record)
         ),
-        u"uid": one(record.uid),
-        u"guid": one(record.guid),
-        u"record_type": one(record.recordType),
-        u"short_names": many(record.shortNames),
-        u"full_names": one(record.fullName),
-        u"email_addresses": many(record.emailAddresses),
-        u"calendar_user_addresses": many(record.calendarUserAddresses),
-        u"server_id": one(record.serverID),
+        u"uid": joinWithBR((record.uid,)),
+        u"guid": joinWithBR((record.guid,)),
+        u"recordType": joinWithBR((record.recordType,)),
+        u"shortNames": joinWithBR(record.shortNames),
+        u"fullNames": joinWithBR((record.fullName,)),
+        u"emailAddresses": joinWithBR(record.emailAddresses),
+        u"calendarUserAddresses": joinWithBR(record.calendarUserAddresses),
+        u"serverID": joinWithBR((record.serverID,)),
     }
+
+
+
+# def slotsForRecord(record):
+#     def one(value):
+#         if value is None:
+#             return u"(no value)"
+#         else:
+#             try:
+#                 return unicode(value)
+#             except UnicodeDecodeError:
+#                 try:
+#                     return unicode(repr(value))
+#                 except UnicodeDecodeError:
+#                     return u"(error rendering value)"
+
+#     def many(values):
+#         noValues = True
+
+#         for value in values:
+#             if not noValues:
+#                 yield html.br()
+
+#             yield one(value)
+
+#             noValues = False
+
+#         if noValues:
+#             yield u"(no values)"
+
+#     return {
+#         u"service": (
+#             u"{record.service.__class__.__name__}: {record.service.realmName}"
+#             .format(record=record)
+#         ),
+#         u"uid": one(record.uid),
+#         u"guid": one(record.guid),
+#         u"record_type": one(record.recordType),
+#         u"short_names": many(record.shortNames),
+#         u"full_names": one(record.fullName),
+#         u"email_addresses": many(record.emailAddresses),
+#         u"calendar_user_addresses": many(record.calendarUserAddresses),
+#         u"server_id": one(record.serverID),
+#     }
