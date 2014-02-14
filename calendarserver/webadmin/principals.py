@@ -50,7 +50,10 @@ class PrincipalsPageElement(PageElement):
 
 
     @renderer
-    def search_value(self, request, tag):
+    def search_terms(self, request, tag):
+        """
+        Inserts search terms as a text child of C{tag}.
+        """
         terms = searchTerms(request)
         if terms:
             return tag(value=u" ".join(terms))
@@ -59,25 +62,37 @@ class PrincipalsPageElement(PageElement):
 
 
     @renderer
-    @inlineCallbacks
-    def search_results(self, request, tag):
-        terms = searchTerms(request)
-
-        if not terms:
-            returnValue(u"")
-
-        records = tuple((
-            yield self.recordsForSearchTerms(terms)
-        ))
-
-        if records:
-            returnValue(tag(recordsTable(records)))
+    def search_results_display(self, request, tag):
+        """
+        Renders C{tag} if there are search results, otherwise removes it.
+        """
+        if searchTerms(request):
+            return tag
         else:
-            returnValue(tag(u"No records found."))
+            return u""
 
 
-    def recordsForSearchTerms(self, terms):
-        return self._directory.recordsMatchingTokens(terms)
+    @renderer
+    def search_results_row(self, request, tag):
+        def rowsForRecords(records):
+            for record in records:
+                yield tag.clone().fillSlots(
+                    **slotsForRecord(record)
+                )
+
+        d = self.recordsForSearchTerms(request)
+        d.addCallback(rowsForRecords)
+        return d
+
+
+    @inlineCallbacks
+    def recordsForSearchTerms(self, request):
+        if not hasattr(request, "_search_result_records"):
+            terms = searchTerms(request)
+            records = yield self._directory.recordsMatchingTokens(terms)
+            request._search_result_records = tuple(records)
+
+        returnValue(request._search_result_records)
 
 
 
@@ -178,86 +193,64 @@ class PrincipalEditResource(TemplateResource):
 
 
 def searchTerms(request):
-    if request.args:
+    if not hasattr(request, "_search_terms"):
         terms = set()
 
-        for query in request.args.get(u"search", []):
-            for term in query.split(u" "):
-                terms.add(term)
+        if request.args:
 
-        for term in request.args.get(u"term", []):
-            terms.add(term)
+            for query in request.args.get(u"search", []):
+                for term in query.split(u" "):
+                    if term:
+                        terms.add(term)
 
-        return terms
+            for term in request.args.get(u"term", []):
+                if term:
+                    terms.add(term)
 
-    else:
-        return set()
+        request._search_terms = terms
+
+    return request._search_terms
 
 
 
-def recordsTable(records):
-    def multiValue(values):
-        return ((s, tags.br()) for s in values)
+def slotsForRecord(record):
+    def one(value):
+        if value is None:
+            return u"(no value)"
+        else:
+            try:
+                return unicode(value)
+            except UnicodeDecodeError:
+                try:
+                    return unicode(repr(value))
+                except UnicodeDecodeError:
+                    return u"(error rendering value)"
 
-    def recordRows(records):
-        attrs_record = {"class": "record"}
-        attrs_fullName = {"class": "record_full_name"}
-        attrs_uid = {"class": "record_uid"}
-        attrs_recordType = {"class": "record_type"}
-        attrs_shortName = {"class": "record_short_name"}
-        attrs_email = {"class": "record_email"}
+    def many(values):
+        noValues = True
 
-        i0 = u"\n" + (6 * u" ") + (0 * 2 * u" ")
-        i1 = u"\n" + (6 * u" ") + (1 * 2 * u" ")
-        i2 = u"\n" + (6 * u" ") + (2 * 2 * u" ")
+        for value in values:
+            if not noValues:
+                yield tags.br()
 
-        yield (
-            i0,
-            tags.thead(
-                i1,
-                tags.tr(
-                    i2, tags.th(u"Full name", **attrs_fullName),
-                    i2, tags.th(u"UID", **attrs_uid),
-                    i2, tags.th(u"Record Type", **attrs_recordType),
-                    i2, tags.th(u"Short Name", **attrs_shortName),
-                    i2, tags.th(u"Email Address", **attrs_email),
-                    i1,
-                    **attrs_record
-                ),
-                i0,
-            ),
-            i0,
-        )
+            yield one(value)
 
-        yield (
-            tags.tbody(
-                (
-                    i1,
-                    tags.tr(
-                        i2, tags.td(record.fullName, **attrs_fullName),
-                        i2, tags.td(record.uid, **attrs_uid),
-                        i2, tags.td(record.recordType, **attrs_recordType),
-                        i2, tags.td(
-                            multiValue(record.shortNames), **attrs_shortName
-                        ),
-                        i2, tags.td(
-                            multiValue(record.emailAddresses), **attrs_email
-                        ),
-                        i1,
-                        onclick=(
-                            'window.open("./{0}");'
-                            .format(record.uid)
-                        ),
-                        **attrs_record
-                    ),
-                )
-                for record in sorted(records, key=lambda record: record.uid)
-            ),
-            i0
-        )
+            noValues = False
 
-    return tags.table(
-        tags.caption(u"Records"),
-        recordRows(records),
-        id="records",
-    )
+        if noValues:
+            yield u"(no values)"
+
+    return {
+        u"service": (
+            u"{record.service.__class__.__name__}: {record.service.realmName}"
+            .format(record=record)
+        ),
+        u"uid": one(record.uid),
+        u"guid": one(record.guid),
+        u"record_type": one(record.recordType),
+        u"short_names": many(record.shortNames),
+        u"full_names": one(record.fullName),
+        u"email_addresses": many(record.emailAddresses),
+        u"calendar_user_addresses": many(record.calendarUserAddresses),
+        u"server_id": one(record.serverID),
+    }

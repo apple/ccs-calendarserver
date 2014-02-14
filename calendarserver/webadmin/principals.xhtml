@@ -17,10 +17,30 @@
 
     <form id="search_form" action="" method="get">
       Search:
-      <input id="search_field" type="search" name="search" placeholder="Search..." size="40" autofocus="true" t:render="search_value" />
+      <input id="search_field" type="search" name="search" placeholder="Search..." size="40" autofocus="true" t:render="search_terms" />
     </form>
 
-    <div t:render="search_results" />
+    <table id="records" t:render="search_results_display">
+      <caption>Records</caption>
+      <thead>
+        <tr class="record">
+          <th class="record_full_name">Full name</th>
+          <th class="record_uid">UID</th>
+          <th class="record_type">Record Type</th>
+          <th class="record_short_name">Short Name</th>
+          <th class="record_email">Email Address</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="record" onclick="window.open(&quot;./0CE0BF31-5F9E-4801-A489-8C70CF287F5F&quot;);" t:render="search_results_row">
+          <td class="record_full_name"><t:slot name="full_names" /></td>
+          <td class="record_uid"><t:slot name="uid" /></td>
+          <td class="record_type"><t:slot name="record_type" /></td>
+          <td class="record_short_name"><t:slot name="short_names" /></td>
+          <td class="record_email"><t:slot name="email_addresses" /></td>
+        </tr>
+      </tbody>
+    </table>
 
   </body>
 
