@@ -32,7 +32,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr class="record" onclick="window.open(&quot;./0CE0BF31-5F9E-4801-A489-8C70CF287F5F&quot;);" t:render="search_results_row">
+        <tr class="record" t:render="search_results_row"><t:attr name="onclick">window.open("./<t:slot name="uid" />");</t:attr>
           <td class="record_full_name"><t:slot name="full_names" /></td>
           <td class="record_uid"><t:slot name="uid" /></td>
           <td class="record_type"><t:slot name="record_type" /></td>
