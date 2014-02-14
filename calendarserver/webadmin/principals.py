@@ -137,43 +137,14 @@ class PrincipalEditPageElement(PageElement):
 
 
     def pageSlots(self):
-        record = self._record
+        slots = slotsForRecord(self._record)
 
-        def one(value):
-            if value is None:
-                return u"(no value)"
-            else:
-                return unicode(value)
-
-        def many(values):
-            noValues = True
-
-            for value in values:
-                if not noValues:
-                    yield html.br()
-
-                yield one(value)
-
-                noValues = False
-
-            if noValues:
-                yield u"(no values)"
-
-        return {
-            u"title": u"Calendar & Contacts Server Principal Information",
-            u"service": (
-                u"{service.__class__.__name__}: {service.realmName}"
-                .format(service=record.service)
-            ),
-            u"uid": one(record.uid),
-            u"guid": one(record.guid),
-            u"record_type": one(record.recordType),
-            u"short_names": many(record.shortNames),
-            u"full_names": one(record.fullName),
-            u"email_addresses": many(record.emailAddresses),
-            u"calendar_user_addresses": many(record.calendarUserAddresses),
-            u"server_id": one(record.serverID),
-        }
+        slots[u"title"] = u"Calendar & Contacts Server Principal Information"
+        slots[u"service"] = (
+            u"{self._record.service.__class__.__name__}: "
+            "{self._record.service.realmName}"
+            .format(self=self)
+        )
 
 
 
