@@ -62,7 +62,7 @@ class PrincipalsPageElement(PageElement):
 
 
     @renderer
-    def search_results_display(self, request, tag):
+    def if_search_results(self, request, tag):
         """
         Renders C{tag} if there are search results, otherwise removes it.
         """
@@ -145,6 +145,8 @@ class PrincipalEditPageElement(PageElement):
             "{self._record.service.realmName}"
             .format(self=self)
         )
+
+        return slots
 
 
 
@@ -238,47 +240,3 @@ def slotsForRecord(record):
         u"calendarUserAddresses": joinWithBR(record.calendarUserAddresses),
         u"serverID": joinWithBR((record.serverID,)),
     }
-
-
-
-# def slotsForRecord(record):
-#     def one(value):
-#         if value is None:
-#             return u"(no value)"
-#         else:
-#             try:
-#                 return unicode(value)
-#             except UnicodeDecodeError:
-#                 try:
-#                     return unicode(repr(value))
-#                 except UnicodeDecodeError:
-#                     return u"(error rendering value)"
-
-#     def many(values):
-#         noValues = True
-
-#         for value in values:
-#             if not noValues:
-#                 yield html.br()
-
-#             yield one(value)
-
-#             noValues = False
-
-#         if noValues:
-#             yield u"(no values)"
-
-#     return {
-#         u"service": (
-#             u"{record.service.__class__.__name__}: {record.service.realmName}"
-#             .format(record=record)
-#         ),
-#         u"uid": one(record.uid),
-#         u"guid": one(record.guid),
-#         u"record_type": one(record.recordType),
-#         u"short_names": many(record.shortNames),
-#         u"full_names": one(record.fullName),
-#         u"email_addresses": many(record.emailAddresses),
-#         u"calendar_user_addresses": many(record.calendarUserAddresses),
-#         u"server_id": one(record.serverID),
-#     }

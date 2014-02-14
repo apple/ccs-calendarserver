@@ -20,7 +20,7 @@
       <input id="search_field" type="search" name="search" placeholder="Search..." size="40" autofocus="true" t:render="search_terms" />
     </form>
 
-    <table id="records" t:render="search_results_display">
+    <table id="records" t:render="if_search_results">
       <caption>Records</caption>
       <thead>
         <tr class="record">
