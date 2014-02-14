@@ -144,7 +144,7 @@ class RenderingTests(TestCase):
             firstRowCells[0], 'a')
         self.assertEquals(
             resourceLink.getAttribute("href"),
-            "/admin/?resourceId=users:bob"
+            "/admin/old/?resourceId=users:bob"
         )
         self.assertEquals(gatherTextNodes(resourceLink), "select")
         self.assertNotIn(
