@@ -408,7 +408,7 @@ Note that repeatedly committing code that breaks units tests presents
 a possible time sink for other developers, and is not looked upon
 favorably.
 
-Units tests can be run rather easily by executing the ``test`` script
+Units tests can be run rather easily by executing the ``./bin/test`` script
 at the top of the Calendar and Contacts Server source tree.  By
 default, it will run all of the Calendar and Contacts Server tests
 followed by all of the Twisted tests.  You can run specific tests by
@@ -416,7 +416,7 @@ specifying them as arguments like this:
 
    ::
 
-    ./test twistedcaldav.static
+    ./bin/test twistedcaldav.static
 
 All non-trivial public callables must have unit tests.  (Note we don't
 don't totally comply with this rule; that's a problem we'd like to
