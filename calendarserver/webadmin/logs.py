@@ -90,7 +90,7 @@ class LogEventsResource(Resource):
 
         observers = (
             AccessLogObserver(events),
-            BufferingLogObserver(events),
+            ServerLogObserver(events),
         )
 
         for observer in observers:
@@ -198,12 +198,12 @@ class LogEventStream(object):
 
 
 
-class BufferingLogObserver(FileLogObserver):
+class ServerLogObserver(FileLogObserver):
     """
     Log observer that captures events in a buffer instead of writing to a file.
 
-    @note: L{BufferingLogObserver} is an old-style log observer, as it
-        inherits from L{FileLogObserver}.
+    @note: L{ServerLogObserver} is an old-style log observer, as it inherits
+        from L{FileLogObserver}.
     """
 
     timeFormat = None
