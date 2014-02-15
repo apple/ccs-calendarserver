@@ -22,16 +22,16 @@
     <script src="http://d3js.org/d3.v3.min.js" charset="utf-8" />
     <script type="text/javascript">
 
-      window.onload = function() {
+      function init() {
 
         var data = [4, 8, 15, 16, 23, 42];
 
         /* scale is a function that normalizes a value in data into the range 0-98 */
         var scale = d3.scale.linear()
-                      .domain([0, d3.max(data)])
+                      .domain([0, 200])
                       .range([0, 98])
 
-        var bars = d3.select(".chart")
+        var bars = d3.select("#work_queues_chart")
                      .selectAll("div")
                        .data(data)
                      .enter().append("div")
@@ -41,6 +41,14 @@
 
       }
 
+      function update() {
+        var data = [0, 0, 0, 0, 0, 0];
+
+        /* http://stackoverflow.com/questions/14958825/dynamically-update-chart-data-in-d3 */
+      }
+
+      window.onload = init;
+
     </script>
 
   </head>
@@ -49,7 +57,9 @@
 
     <h1><t:slot name="title" /></h1>
 
-    <div id="work_queues_chart" class="chart" />
+    <div id="work_queues_chart" />
+
+    <button onclick="update()">Update</button>
 
   </body>
 
