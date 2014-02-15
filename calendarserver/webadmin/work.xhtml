@@ -3,15 +3,53 @@
 
   <head>
     <title><t:slot name="title" /></title>
-    <link t:render="stylesheet" />
+    <!-- <link t:render="stylesheet" /> -->
+
+    <style>
+      #work_queues_chart div {
+        font-size: 0.5em;
+        font-family: sans-serif;
+
+        color: white;
+        background-color: steelblue;
+
+        text-align: right;
+        padding: 0.5em;
+        margin: 0.2em;
+      }
+    </style>
+
+    <script src="http://d3js.org/d3.v3.min.js" charset="utf-8" />
+    <script type="text/javascript">
+
+      window.onload = function() {
+
+        var data = [4, 8, 15, 16, 23, 42];
+
+        /* scale is a function that normalizes a value in data into the range 0-98 */
+        var scale = d3.scale.linear()
+                      .domain([0, d3.max(data)])
+                      .range([0, 98])
+
+        var bars = d3.select(".chart")
+                     .selectAll("div")
+                       .data(data)
+                     .enter().append("div")
+
+        bars.style("width", function(d) { return scale(d) + "%"; })
+        bars.text(function(d) { return d; });
+
+      }
+
+    </script>
+
   </head>
 
   <body>
 
     <h1><t:slot name="title" /></h1>
 
-
-
+    <div id="work_queues_chart" class="chart" />
 
   </body>
 
