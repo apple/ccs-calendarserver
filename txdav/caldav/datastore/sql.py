@@ -4364,7 +4364,12 @@ class DropBoxAttachment(Attachment):
             raise AttachmentMigrationFailed
 
         # Then move the file on disk from the old path to the new one
-        mattach._path.parent().makedirs()
+        try:
+            mattach._path.parent().makedirs()
+        except Exception:
+            # OK to fail if it already exists, otherwise must raise
+            if not mattach._path.parent().exists():
+                raise
         oldpath = self._path
         newpath = mattach._path
         oldpath.moveTo(newpath)
