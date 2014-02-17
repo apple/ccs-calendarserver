@@ -446,8 +446,8 @@ class CommonStoreTransactionMonitor(object):
             if self.txn is not None:
                 log.error(
                     "Transaction wait: {me.txn}, "
-                    "Statements: {me.txn.statementCount!d}, "
-                    "IUDs: {me.txn.iudCount!d}, "
+                    "Statements: {me.txn.statementCount:d}, "
+                    "IUDs: {me.txn.iudCount:d}, "
                     "Statement: {me.txn.currentStatement}",
                     me=self
                 )
@@ -466,8 +466,8 @@ class CommonStoreTransactionMonitor(object):
             if self.txn is not None:
                 log.error(
                     "Transaction abort too long: {me.txn}, "
-                    "Statements: {me.txn.statementCount!d}, "
-                    "IUDs: {me.txn.iudCount!d}, "
+                    "Statements: {me.txn.statementCount:d}, "
+                    "IUDs: {me.txn.iudCount:d}, "
                     "Statement: {me.txn.currentStatement}",
                     me=self
                 )

@@ -566,7 +566,7 @@ class LdapDirectoryService(CachingDirectoryService):
 
         else:
             self.log.error(
-                "Giving up on LDAP authentication after {count!d} tries.  "
+                "Giving up on LDAP authentication after {count:d} tries.  "
                 "Responding with 503.", count=TRIES
             )
             raise HTTPError(StatusResponse(
@@ -609,16 +609,16 @@ class LdapDirectoryService(CachingDirectoryService):
                 return []
             except ldap.SIZELIMIT_EXCEEDED, e:
                 self.log.debug(
-                    "LDAP result limit exceeded: {limit!d}", limit=resultLimit
+                    "LDAP result limit exceeded: {limit:d}", limit=resultLimit
                 )
             except ldap.TIMELIMIT_EXCEEDED, e:
                 self.log.warn(
-                    "LDAP timeout exceeded: {t!d} seconds", t=timeoutSeconds
+                    "LDAP timeout exceeded: {t:d} seconds", t=timeoutSeconds
                 )
             except ldap.SERVER_DOWN:
                 self.ldap = None
                 self.log.error(
-                    "LDAP server unavailable (tried {count!d} times)",
+                    "LDAP server unavailable (tried {count:d} times)",
                     count=(i + 1)
                 )
                 continue
@@ -634,7 +634,7 @@ class LdapDirectoryService(CachingDirectoryService):
                     filterstr = "%s..." % (filterstr[:100],)
                 self.log.error(
                     "LDAP query exceeded threshold: {time!.2f} seconds for "
-                    "{base} {filter} {attrs} (#results={count!d})",
+                    "{base} {filter} {attrs} (#results={count:d})",
                     time=totalTime, base=base, filter=filterstr,
                     attrs=attrlist, count=len(result),
                 )
@@ -1314,7 +1314,7 @@ class LdapDirectoryService(CachingDirectoryService):
             if filterstr is not None:
                 # Query the LDAP server
                 self.log.debug(
-                    "LDAP search {base} {filter} (limit={limit!d})",
+                    "LDAP search {base} {filter} (limit={limit:d})",
                     base=ldap.dn.dn2str(base), filter=filterstr,
                     limit=limitResults,
                 )
@@ -1360,8 +1360,8 @@ class LdapDirectoryService(CachingDirectoryService):
                         numMissingRecordNames += 1
 
                 self.log.debug(
-                    "LDAP search returned {resultCount!d} results, "
-                    "{typeCount!d} usable",
+                    "LDAP search returned {resultCount:d} results, "
+                    "{typeCount:d} usable",
                     resultCount=len(results), typeCount=typeCounts[recordType]
                 )
 
@@ -1370,7 +1370,7 @@ class LdapDirectoryService(CachingDirectoryService):
         )
         totalTime = time.time() - startTime
         self.log.info(
-            "Calendar user search for {tokens} matched {recordCount!d} "
+            "Calendar user search for {tokens} matched {recordCount:d} "
             "records ({typeCount}) in {time!.2f} seconds",
             tokens=tokens, recordCount=len(records),
             typeCount=typeCountsStr, time=totalTime,
@@ -1475,13 +1475,13 @@ class LdapDirectoryService(CachingDirectoryService):
 
                 if numMissingGuids:
                     self.log.warn(
-                        "{count!d} {type} records are missing {attr}",
+                        "{count:d} {type} records are missing {attr}",
                         count=numMissingGuids, type=recordType, attr=guidAttr
                     )
 
                 if numMissingRecordNames:
                     self.log.warn(
-                        "{count!d} {type} records are missing record name",
+                        "{count:d} {type} records are missing record name",
                         count=numMissingRecordNames, type=recordType,
                     )
 
