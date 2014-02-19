@@ -808,9 +808,9 @@ dependencies () {
     "${pypi}/p/${n}/${p}.tar.gz";
 
   # XXX actually PyCalendar should be imported in-place.
-  py_dependency -fe -i "src" -r 11458 \
+  py_dependency -fe -i "src" -r HEAD \
     "PyCalendar" "pycalendar" "pycalendar" \
-    "${svn_uri_base}/PyCalendar/trunk";
+    "${svn_uri_base}/PyCalendar/branches/CalendarServer-5.2";
 
   #
   # Tool dependencies.  The code itself doesn't depend on these, but
