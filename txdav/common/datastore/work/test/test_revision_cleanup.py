@@ -190,21 +190,6 @@ END:VCARD
 """
 
     @classproperty(cache=False)
-    def calRequirements(cls): #@NoSelf
-        return {
-        "user01": {
-            "calendar": {
-                "cal1.ics": (cls.cal1, None,),
-                "cal2.ics": (cls.cal2, None,),
-                "cal3.ics": (cls.cal3, None,),
-            },
-            "inbox": {
-            },
-        },
-    }
-
-
-    @classproperty(cache=False)
     def requirements(cls): #@NoSelf
         return {
             "addressbook": {
