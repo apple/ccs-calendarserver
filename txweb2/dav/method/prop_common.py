@@ -1,6 +1,6 @@
 ##
 # Cyrus Daboo, cdaboo@apple.com
-# Copyright 2006-2012 Apple Computer, Inc.  All Rights Reserved.
+# Copyright 2006-2012 Apple Inc.  All Rights Reserved.
 ##
 
 __all__ = [
