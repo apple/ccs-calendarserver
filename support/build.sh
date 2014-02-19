@@ -891,7 +891,7 @@ dependencies () {
     "Python-LDAP" "ldap" "${p}" \
     "${pypi}/p/${n}/${p}.tar.gz";
 
-  local v="11947";
+  local v="12724";
   local n="PyCalendar";
   local p="${n}-${v}";
   py_dependency -fe -i "src" -r "${v}" \
