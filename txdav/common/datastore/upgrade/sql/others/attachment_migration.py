@@ -15,9 +15,6 @@
 ##
 
 from twisted.internet.defer import inlineCallbacks, returnValue
-from txdav.caldav.datastore.sql import CalendarStoreFeatures
-
-import os
 
 """
 Upgrader that checks for any dropbox attachments, and upgrades them all to managed attachments.
@@ -25,6 +22,10 @@ Upgrader that checks for any dropbox attachments, and upgrades them all to manag
 This makes use of a MANAGED-ATTACHMENTS flag in the CALENDARSERVER table to determine whether the upgrade has been
 done for this store. If it has been done, the store will advertise that to the app layer and that must prevent the
 use of dropbox in the future.
+
+Changed: this no longer upgrades existing dropbox attachments. Instead it just turns on managed attachment support.
+The existing attachments still appear as ATTACH properties that clients can download and remove from the calendar
+data if needed. All new attachments are now managed.
 """
 
 @inlineCallbacks
@@ -39,34 +40,12 @@ def doUpgrade(upgrader):
         returnValue(None)
 
     statusKey = "MANAGED-ATTACHMENTS"
-    storeWrapper = CalendarStoreFeatures(upgrader.sqlStore)
     txn = upgrader.sqlStore.newTransaction("attachment_migration.doUpgrade")
     try:
         managed = (yield txn.calendarserverValue(statusKey, raiseIfMissing=False))
         if managed is None:
-            upgrader.log.warn("Checking for dropbox migration")
-            needUpgrade = (yield storeWrapper.hasDropboxAttachments(txn))
-        else:
-            needUpgrade = False
-        if needUpgrade:
-            upgrader.log.warn("Starting dropbox migration")
-            yield storeWrapper.upgradeToManagedAttachments(batchSize=10)
-            upgrader.log.warn("Finished dropbox migration")
-        else:
-            upgrader.log.warn("No dropbox migration needed")
-        if managed is None:
+            upgrader.log.warn("Managed attachments enabled")
             yield txn.setCalendarserverValue(statusKey, "1")
-
-        # Set attachment directory ownership as upgrade runs as root
-        # but child processes running as something else need to manipulate
-        # the attachment files
-        sqlAttachmentsPath = upgrader.sqlStore.attachmentsPath
-        if (sqlAttachmentsPath and sqlAttachmentsPath.exists() and
-            (upgrader.uid or upgrader.gid)):
-            uid = upgrader.uid or -1
-            gid = upgrader.gid or -1
-            for fp in sqlAttachmentsPath.walk():
-                os.chown(fp.path, uid, gid)
 
     except RuntimeError:
         yield txn.abort()

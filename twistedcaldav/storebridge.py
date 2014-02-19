@@ -1737,7 +1737,9 @@ class AttachmentsCollection(_GetChildHelper):
         if calendarObject:
             l = (yield calendarObject.managedAttachmentList())
             if len(l) == 0:
-                calendarObject = None
+                l = (yield calendarObject.attachments())
+                if len(l) == 0:
+                    calendarObject = None
 
         if calendarObject is None:
             returnValue(NoDropboxHere())
@@ -1840,13 +1842,24 @@ class AttachmentsChildCollection(_GetChildHelper):
     @inlineCallbacks
     def getChild(self, name):
         attachmentObject = yield self._newStoreCalendarObject.managedAttachmentRetrieval(name)
-        result = CalendarAttachment(
-            None,
-            attachmentObject,
-            name,
-            True,
-            principalCollections=self.principalCollections()
-        )
+        if attachmentObject is not None:
+            result = CalendarAttachment(
+                None,
+                attachmentObject,
+                name,
+                True,
+                principalCollections=self.principalCollections()
+            )
+        else:
+            attachment = yield self._newStoreCalendarObject.attachmentWithName(name)
+            result = CalendarAttachment(
+                self._newStoreCalendarObject,
+                attachment,
+                name,
+                False,
+                principalCollections=self.principalCollections()
+            )
+
         self.propagateTransaction(result)
         returnValue(result)
 
@@ -1858,6 +1871,8 @@ class AttachmentsChildCollection(_GetChildHelper):
     @inlineCallbacks
     def listChildren(self):
         l = (yield self._newStoreCalendarObject.managedAttachmentList())
+        for attachment in (yield self._newStoreCalendarObject.attachments()):
+            l.append(attachment.name())
         returnValue(l)
 
 
