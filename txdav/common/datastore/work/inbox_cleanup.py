@@ -34,7 +34,7 @@ log = Logger()
 class InboxCleanupWork(WorkItem,
     fromTable(schema.INBOX_CLEANUP_WORK)):
 
-    group = "clean_inboxes"
+    group = "inbox_cleanup"
 
     @classmethod
     @inlineCallbacks
@@ -63,7 +63,7 @@ class InboxCleanupWork(WorkItem,
             yield CleanupOneInboxWork._schedule(self.transaction, homeID=homeRow[0], seconds=0)
 
         # Schedule next check
-        yield InboxCleanupWork._schedule(
+        yield self._schedule(
             self.transaction,
             float(config.InboxCleanupPeriodDays) * 24 * 60 * 60
         )
@@ -73,7 +73,7 @@ class InboxCleanupWork(WorkItem,
 class CleanupOneInboxWork(WorkItem,
     fromTable(schema.CLEANUP_ONE_INBOX_WORK)):
 
-    group = property(lambda self: "clean_inbox_in_homeid_{}".format(self.homeID))
+    group = property(lambda self: "cleanup_inbox_in_homeid_{}".format(self.homeID))
 
     @classmethod
     @inlineCallbacks
@@ -89,7 +89,9 @@ class CleanupOneInboxWork(WorkItem,
     def doWork(self):
 
         # Delete all other work items for this group (for this home ID)
-        yield Delete(From=self.table, Where=None).on(self.transaction)
+        yield Delete(From=self.table,
+            Where=self.table.HOME_ID == self.homeID
+            ).on(self.transaction)
 
         # get orphan names
         orphanNames = set((
