@@ -113,7 +113,7 @@ class AttachmentMigrationModeTests(CommonStoreTests):
 
         upgrader = UpgradeDatabaseOtherStep(store)
         yield attachment_migration.doUpgrade(upgrader)
-        self.assertTrue(didUpgrade[0])
+        self.assertFalse(didUpgrade[0])
 
         txn = upgrader.sqlStore.newTransaction()
         managed = (yield txn.calendarserverValue("MANAGED-ATTACHMENTS", raiseIfMissing=False))
@@ -248,7 +248,7 @@ class AttachmentMigrationTests(CommonStoreTests):
             From=at,
         ).on(txn))[0][0]
         yield txn.commit()
-        self.assertEqual(count, 0)
+        self.assertEqual(count, 1)
         self.assertNotEqual(managed, None)
 
-        self.assertFalse(os.path.exists(fp.path))
+        self.assertTrue(os.path.exists(fp.path))
