@@ -76,6 +76,7 @@ from txdav.common.datastore.upgrade.sql.upgrade import (
     UpgradeDatabaseCalendarDataStep, UpgradeDatabaseOtherStep,
     UpgradeDatabaseSchemaStep, UpgradeDatabaseAddressBookDataStep,
     UpgradeAcquireLockStep, UpgradeReleaseLockStep, UpgradeDatabaseNotificationDataStep)
+from txdav.common.datastore.work.inbox_cleanup import scheduleFirstInboxCleanup
 from txdav.common.datastore.work.revision_cleanup import scheduleFirstFindMinRevision
 from txdav.dps.server import DirectoryProxyServiceMaker
 from txdav.dps.client import DirectoryService as DirectoryProxyClientService
@@ -576,6 +577,7 @@ class WorkSchedulingService(Service):
         if self.doGroupCaching:
             yield scheduleNextGroupCachingUpdate(self.store, int(config.LogID) if config.LogID else 5)
         yield scheduleFirstFindMinRevision(self.store, int(config.LogID) if config.LogID else 5)
+        yield scheduleFirstInboxCleanup(self.store, int(config.LogID) if config.LogID else 5)
 
 
 

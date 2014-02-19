@@ -448,17 +448,6 @@ create table REVISION_CLEANUP_WORK (
     "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
 );
 
-create table INBOX_CLEANUP_WORK (
-    "WORK_ID" integer primary key not null,
-    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
-);
-
-create table CLEANUP_ONE_INBOX_WORK (
-    "WORK_ID" integer primary key not null,
-    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
-    "HOME_ID" integer not null unique references CALENDAR_HOME on delete cascade
-);
-
 create table SCHEDULE_REFRESH_WORK (
     "WORK_ID" integer primary key not null,
     "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
@@ -526,7 +515,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '36');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '35');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');

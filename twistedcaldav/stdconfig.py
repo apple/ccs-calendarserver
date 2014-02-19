@@ -634,8 +634,12 @@ DEFAULT_CONFIG = {
 
     "RemoveDuplicatePrivateComments": False, # Remove duplicate private comments on PUT
 
-    "SyncTokenLifetimeDays" : 14,       # Number of days that a client sync report token is valid
-    "RevisionCleanupPeriodDays" : 2,    # Number of days between revision cleanups
+    "SyncTokenLifetimeDays" : 14.0,     # Number of days that a client sync report token is valid
+    "RevisionCleanupPeriodDays" : 2.0,  # Number of days between revision cleanups
+
+    "InboxItemLifetimeDays" : 14.0,             # Number of days before deleting a new inbox item
+    "InboxItemLifetimePastEventEndDays" : 14.0, # Number of days to keep an inbox item past the time when its referenced event ends
+    "InboxCleanupPeriodDays" : 2.0,             # Number of days between inbox cleanups
 
     # CardDAV Features
     "DirectoryAddressBook": {

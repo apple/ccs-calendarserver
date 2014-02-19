@@ -789,7 +789,7 @@ create index CALENDAR_OBJECT_SPLITTER_WORK_RESOURCE_ID on
 	CALENDAR_OBJECT_SPLITTER_WORK(RESOURCE_ID);
 
 ---------------------------
--- Revision Cleanup Work --
+-- Revision Cleaner Work --
 ---------------------------
 
 create table FIND_MIN_VALID_REVISION_WORK (
@@ -800,21 +800,6 @@ create table FIND_MIN_VALID_REVISION_WORK (
 create table REVISION_CLEANUP_WORK (
   WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
-);
-
-------------------------
--- Inbox Cleanup Work --
-------------------------
-
-create table INBOX_CLEANUP_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
-  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
-);
-
-create table CLEANUP_ONE_INBOX_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
-  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  HOME_ID              			integer      not null unique references CALENDAR_HOME on delete cascade
 );
 
 ---------------------------
@@ -937,7 +922,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '36');
+insert into CALENDARSERVER values ('VERSION', '35');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');

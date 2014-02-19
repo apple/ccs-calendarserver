@@ -2209,6 +2209,130 @@ class CommonStoreTransaction(object):
                     ).on(self, revisionsToRemove=revisionsToRemove)
 
 
+    @classproperty
+    def _orphanedInboxItemsInHomeIDQuery(cls):
+        """
+        DAL query to select inbox items that refer to nonexistent events in a
+        given home identified by the home resource ID.
+        """
+        co = schema.CALENDAR_OBJECT
+        cb = schema.CALENDAR_BIND
+        return Select(
+            [co.RESOURCE_NAME],
+            From=co.join(cb),
+            Where=(
+                cb.CALENDAR_HOME_RESOURCE_ID == Parameter("homeID")).And(
+                cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
+                cb.BIND_MODE == _BIND_MODE_OWN).And(
+                cb.CALENDAR_RESOURCE_NAME == 'inbox').And(
+                co.ICALENDAR_UID.NotIn(
+                    Select(
+                        [co.ICALENDAR_UID],
+                        From=co.join(cb),
+                        Where=(
+                            cb.CALENDAR_HOME_RESOURCE_ID == Parameter("homeID")).And(
+                            cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
+                            cb.BIND_MODE == _BIND_MODE_OWN).And(
+                            cb.CALENDAR_RESOURCE_NAME != 'inbox')
+                    )
+                )
+            ),
+        )
+
+
+    @inlineCallbacks
+    def orphanedInboxItemsInHomeID(self, homeID):
+        """
+        Find inbox item names that refer to nonexistent events in a given home.
+
+        Returns a deferred to a list of orphaned inbox item names
+        """
+        rows = yield self._orphanedInboxItemsInHomeIDQuery.on(self, homeID=homeID)
+        names = [row[0] for row in rows]
+        returnValue(names)
+
+
+    @classproperty
+    def _inboxItemsInHomeIDForEventsBeforeCutoffQuery(cls):
+        """
+        DAL query to select inbox items that refer to events in a before a
+        given date.
+        """
+        co = schema.CALENDAR_OBJECT
+        cb = schema.CALENDAR_BIND
+        tr = schema.TIME_RANGE
+        return Select(
+            [co.RESOURCE_NAME],
+            From=co.join(cb),
+            Where=(
+                cb.CALENDAR_HOME_RESOURCE_ID == Parameter("homeID")).And(
+                cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
+                cb.BIND_MODE == _BIND_MODE_OWN).And(
+                cb.CALENDAR_RESOURCE_NAME == 'inbox').And(
+                co.ICALENDAR_UID.In(
+                    Select(
+                        [co.ICALENDAR_UID],
+                        From=tr.join(co.join(cb)),
+                        Where=(
+                            cb.CALENDAR_HOME_RESOURCE_ID == Parameter("homeID")).And(
+                            cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
+                            cb.BIND_MODE == _BIND_MODE_OWN).And(
+                            cb.CALENDAR_RESOURCE_NAME != 'inbox').And(
+                            tr.CALENDAR_OBJECT_RESOURCE_ID == co.RESOURCE_ID).And(
+                            tr.END_DATE < Parameter("cutoff"))
+                    )
+                )
+            ),
+        )
+
+
+    @inlineCallbacks
+    def listInboxItemsInHomeForEventsBefore(self, homeID, cutoff):
+        """
+        return a list of inbox item names that refer to events before a given
+        date in a given home.
+
+        Returns a deferred to a list of orphaned inbox item names
+        """
+        rows = yield self._inboxItemsInHomeIDForEventsBeforeCutoffQuery.on(
+            self, homeID=homeID, cutoff=cutoff)
+        names = [row[0] for row in rows]
+        returnValue(names)
+
+
+    @classproperty
+    def _inboxItemsInHomeIDCreatedBeforeCutoffQuery(cls):
+        """
+        DAL query to select inbox items created before a given date.
+        """
+        co = schema.CALENDAR_OBJECT
+        cb = schema.CALENDAR_BIND
+        return Select(
+            [co.RESOURCE_NAME],
+            From=co.join(cb),
+            Where=(
+                cb.CALENDAR_HOME_RESOURCE_ID == Parameter("homeID")).And(
+                cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
+                cb.BIND_MODE == _BIND_MODE_OWN).And(
+                cb.CALENDAR_RESOURCE_NAME == 'inbox').And(
+                co.CREATED < Parameter("cutoff")),
+        )
+
+
+    @inlineCallbacks
+    def listInboxItemsInHomeCreatedBefore(self, homeID, cutoff):
+        """
+        return a list of inbox item names that creaed before a given date in a
+        given home.
+
+        Returns a deferred to a list of orphaned inbox item names
+        """
+        rows = yield self._inboxItemsInHomeIDCreatedBeforeCutoffQuery.on(
+            self, homeID=homeID, cutoff=cutoff)
+        names = [row[0] for row in rows]
+        returnValue(names)
+
+
 
 class _EmptyCacher(object):
 
