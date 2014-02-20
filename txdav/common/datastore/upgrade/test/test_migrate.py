@@ -30,8 +30,11 @@ from twisted.python.modules import getModule
 from twisted.python.reflect import qual, namedAny
 from twisted.trial.unittest import TestCase
 
+from twistedcaldav import customxml, caldavxml
 from twistedcaldav.config import config
+from twistedcaldav.ical import Component
 
+from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.datastore.test.common import CommonTests
 from txdav.carddav.datastore.test.common import CommonTests as ABCommonTests
 from txdav.common.datastore.file import CommonDataStore
@@ -44,6 +47,8 @@ from txdav.common.datastore.test.util import theStoreBuilder, \
     withSpecialValue
 from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseStep, \
     StoreSpawnerService, swapAMP
+from txdav.xml import element
+
 
 import copy
 
@@ -130,6 +135,28 @@ class HomeMigrationTests(TestCase):
     Tests for L{UpgradeToDatabaseStep}.
     """
 
+    av1 = Component.fromString("""BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//calendarserver.org//Zonal//EN
+BEGIN:VAVAILABILITY
+ORGANIZER:mailto:user01@example.com
+UID:1@example.com
+DTSTAMP:20061005T133225Z
+DTEND:20140101T000000Z
+BEGIN:AVAILABLE
+UID:1-1@example.com
+DTSTAMP:20061005T133225Z
+SUMMARY:Monday to Friday from 9:00 to 17:00
+DTSTART:20130101T090000Z
+DTEND:20130101T170000Z
+RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR
+END:AVAILABLE
+END:VAVAILABILITY
+END:VCALENDAR
+""")
+
+
     @inlineCallbacks
     def setUp(self):
         """
@@ -165,6 +192,31 @@ class HomeMigrationTests(TestCase):
         self.filesPath.child("addressbooks").child(
             "__uids__").child("ho").child("me").child("home1").child(
             ".some-extra-data").setContent("some extra data")
+
+        # Add some properties we want to check get migrated over
+        txn = self.fileStore.newTransaction()
+        home = yield txn.calendarHomeWithUID("home_defaults")
+
+        cal = yield home.calendarWithName("calendar_1")
+        props = cal.properties()
+        props[PropertyName.fromElement(caldavxml.SupportedCalendarComponentSet)] = caldavxml.SupportedCalendarComponentSet(
+            caldavxml.CalendarComponent(name="VEVENT"),
+            caldavxml.CalendarComponent(name="VTODO"),
+        )
+        props[PropertyName.fromElement(element.ResourceType)] = element.ResourceType(
+            element.Collection(),
+            caldavxml.Calendar(),
+        )
+        props[PropertyName.fromElement(customxml.GETCTag)] = customxml.GETCTag.fromString("foobar")
+
+        inbox = yield home.calendarWithName("inbox")
+        props = inbox.properties()
+        props[PropertyName.fromElement(customxml.CalendarAvailability)] = customxml.CalendarAvailability.fromString(str(self.av1))
+        props[PropertyName.fromElement(caldavxml.ScheduleDefaultCalendarURL)] = caldavxml.ScheduleDefaultCalendarURL(
+            element.HRef.fromString("/calendars/__uids__/home_defaults/calendar_1"),
+        )
+
+        yield txn.commit()
 
 
     def mergeRequirements(self, a, b):
@@ -368,6 +420,40 @@ class HomeMigrationTests(TestCase):
         ):
             object = (yield adbk.addressbookObjectWithName(name))
             self.assertEquals(object.md5(), md5)
+
+
+    @inlineCallbacks
+    def test_upgradeProperties(self):
+        """
+        L{UpgradeToDatabaseService.startService} will do the upgrade, then
+        start its dependent service by adding it to its service hierarchy.
+        """
+        yield self.upgrader.stepWithResult(None)
+        txn = self.sqlStore.newTransaction()
+        self.addCleanup(txn.commit)
+
+        # Want metadata preserved
+        home = (yield txn.calendarHomeWithUID("home_defaults"))
+        cal = (yield home.calendarWithName("calendar_1"))
+        inbox = (yield home.calendarWithName("inbox"))
+
+        # Supported components
+        self.assertEqual(cal.getSupportedComponents(), "VEVENT")
+        self.assertTrue(cal.properties().get(PropertyName.fromElement(caldavxml.SupportedCalendarComponentSet)) is None)
+
+        # Resource type removed
+        self.assertTrue(cal.properties().get(PropertyName.fromElement(element.ResourceType)) is None)
+
+        # Ctag removed
+        self.assertTrue(cal.properties().get(PropertyName.fromElement(customxml.GETCTag)) is None)
+
+        # Availability
+        self.assertEquals(str(home.getAvailability()), str(self.av1))
+        self.assertTrue(inbox.properties().get(PropertyName.fromElement(customxml.CalendarAvailability)) is None)
+
+        # Default calendar
+        self.assertTrue(home.isDefaultCalendar(cal))
+        self.assertTrue(inbox.properties().get(PropertyName.fromElement(caldavxml.ScheduleDefaultCalendarURL)) is None)
 
 
     def test_fileStoreFromPath(self):
