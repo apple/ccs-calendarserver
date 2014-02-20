@@ -208,7 +208,7 @@ else
   echo "";
   echo "Submitting sources for ${project_version}...";
   rm -rf "${wc}/.dependencies";
-  submitproject "${wc}" ${releases};
+  ~rc/bin/submitproject "${wc}" ${releases};
 fi;
 
 sudo rm -rf "${tmp}";
