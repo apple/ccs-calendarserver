@@ -23,28 +23,32 @@ import os
 import errno
 import xattr
 
-from twisted.python.failure import Failure
+from twext.enterprise.dal.syntax import Update
+from twext.internet.spawnsvc import SpawnerService
+from twext.python.filepath import CachingFilePath
 from twext.python.log import Logger
-
-from twisted.python.runtime import platform
-from twisted.python.reflect import namedAny, qual
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.internet.defer import maybeDeferred
-
-from twext.python.filepath import CachingFilePath
-from twext.internet.spawnsvc import SpawnerService
-
 from twisted.protocols.amp import AMP, Command, String, Boolean
+from twisted.python.failure import Failure
+from twisted.python.reflect import namedAny, qual
+from twisted.python.runtime import platform
 
+from txdav.base.datastore.util import normalizeUUIDOrNot
+from txdav.base.propertystore.appledouble_xattr import PropertyStore as AppleDoubleStore
+from txdav.base.propertystore.xattr import PropertyStore as XattrPropertyStore
+from txdav.caldav.datastore.util import fixOneCalendarObject
 from txdav.caldav.datastore.util import migrateHome as migrateCalendarHome
 from txdav.carddav.datastore.util import migrateHome as migrateAddressbookHome
 from txdav.common.datastore.file import CommonDataStore as FileStore, TOPPATHS
-from txdav.base.propertystore.xattr import PropertyStore as XattrPropertyStore
-from txdav.base.propertystore.appledouble_xattr import (PropertyStore
-                                                        as AppleDoubleStore)
-from txdav.caldav.datastore.util import fixOneCalendarObject
-from txdav.base.datastore.util import normalizeUUIDOrNot
+from txdav.common.datastore.sql import EADDRESSBOOKTYPE, ECALENDARTYPE
+
+from txdav.common.datastore.upgrade.sql.upgrades.calendar_upgrade_from_1_to_2 import doUpgrade as doCalendarUpgrade_1_to_2
+from txdav.common.datastore.upgrade.sql.upgrades.calendar_upgrade_from_2_to_3 import doUpgrade as doCalendarUpgrade_2_to_3
+from txdav.common.datastore.upgrade.sql.upgrades.calendar_upgrade_from_3_to_4 import doUpgrade as doCalendarUpgrade_3_to_4
+from txdav.common.datastore.upgrade.sql.upgrades.calendar_upgrade_from_4_to_5 import doUpgrade as doCalendarUpgrade_4_to_5
+from txdav.common.datastore.upgrade.sql.upgrades.addressbook_upgrade_from_1_to_2 import doUpgrade as doAddressbookUpgrade_1_to_2
 
 
 
@@ -374,6 +378,8 @@ class UpgradeToDatabaseStep(object):
             for fp in sqlAttachmentsPath.walk():
                 os.chown(fp.path, uid, gid)
 
+        yield self.doDataUpgradeSteps()
+
         self.sqlStore.setMigrating(False)
 
         self.log.warn(
@@ -392,3 +398,35 @@ class UpgradeToDatabaseStep(object):
         if self.fileStore is None:
             return succeed(None)
         return self.doMigration()
+
+
+    @inlineCallbacks
+    def doDataUpgradeSteps(self):
+        """
+        Do SQL store data upgrades to make sure properties etc that were moved from the property store
+        into columns also get migrated to the current schema.
+        """
+
+        # First force each home to v1 data format so the upgrades will be triggered
+        self.log.warn("Migration extra steps.")
+        txn = self.sqlStore.newTransaction()
+        for storeType in (ECALENDARTYPE, EADDRESSBOOKTYPE):
+            schema = txn._homeClass[storeType]._homeSchema
+            yield Update(
+                {schema.DATAVERSION: 1},
+                Where=None,
+            ).on(txn)
+        yield txn.commit()
+
+        # Now apply each required data upgrade
+        self.sqlStore.setUpgrading(True)
+        for upgrade, description  in (
+            (doCalendarUpgrade_1_to_2, "Calendar data upgrade from v1 to v2"),
+            (doCalendarUpgrade_2_to_3, "Calendar data upgrade from v2 to v3"),
+            (doCalendarUpgrade_3_to_4, "Calendar data upgrade from v3 to v4"),
+            (doCalendarUpgrade_4_to_5, "Calendar data upgrade from v4 to v5"),
+            (doAddressbookUpgrade_1_to_2, "Addressbook data upgrade from v1 to v2"),
+        ):
+            self.log.warn("Migration extra step: {}".format(description))
+            yield upgrade(self.sqlStore)
+        self.sqlStore.setUpgrading(False)

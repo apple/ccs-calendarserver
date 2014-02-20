@@ -17,7 +17,7 @@
 
 from twext.enterprise.dal.syntax import Update
 
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twistedcaldav import caldavxml
 
@@ -58,22 +58,25 @@ def moveSupportedComponentSetProperties(sqlStore):
 
     sqlTxn = sqlStore.newTransaction()
     try:
-        calendar_rid = None
-        rows = (yield rowsForProperty(sqlTxn, caldavxml.SupportedCalendarComponentSet))
-        total = len(rows)
-        count = 0
-        for calendar_rid, value in rows:
-            prop = WebDAVDocument.fromString(value).root_element
-            supported_components = ",".join(sorted([comp.attributes["name"].upper() for comp in prop.children]))
-            meta = schema.CALENDAR_METADATA
-            yield Update(
-                {
-                    meta.SUPPORTED_COMPONENTS : supported_components
-                },
-                Where=(meta.RESOURCE_ID == calendar_rid)
-            ).on(sqlTxn)
-            count += 1
-            logUpgradeStatus("Move supported-component-set", count, total)
+        # Do not move the properties if migrating, as migration will do a split and set supported-components,
+        # however we still need to remove the old properties.
+        if not sqlStore._migrating:
+            calendar_rid = None
+            rows = (yield rowsForProperty(sqlTxn, caldavxml.SupportedCalendarComponentSet))
+            total = len(rows)
+            count = 0
+            for calendar_rid, value in rows:
+                prop = WebDAVDocument.fromString(value).root_element
+                supported_components = ",".join(sorted([comp.attributes["name"].upper() for comp in prop.children]))
+                meta = schema.CALENDAR_METADATA
+                yield Update(
+                    {
+                        meta.SUPPORTED_COMPONENTS : supported_components
+                    },
+                    Where=(meta.RESOURCE_ID == calendar_rid)
+                ).on(sqlTxn)
+                count += 1
+                logUpgradeStatus("Move supported-component-set", count, total)
 
         yield removeProperty(sqlTxn, caldavxml.SupportedCalendarComponentSet)
         yield sqlTxn.commit()
@@ -94,6 +97,11 @@ def splitCalendars(sqlStore):
     """
     Split all calendars by component type.
     """
+
+    # This is already done when doing file->sql migration
+    if sqlStore._migrating:
+        returnValue(None)
+
 
     @inlineCallbacks
     def doIt(txn, homeResourceID):
