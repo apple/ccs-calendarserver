@@ -20,7 +20,7 @@ Remove orphaned and old inbox items, and inbox items references old events
 """
 
 from twext.enterprise.dal.record import fromTable
-from twext.enterprise.dal.syntax import Delete, Select
+from twext.enterprise.dal.syntax import Delete, Select, Count
 from twext.enterprise.queue import WorkItem
 from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -53,11 +53,14 @@ class InboxCleanupWork(WorkItem,
 
         # exit if not done with last delete:
         coiw = schema.CLEANUP_ONE_INBOX_WORK
-        rows = yield Select([coiw.HOME_ID], From=coiw,).on(self.transaction)
-        if rows:
-            homeIDs = [row[0] for row in rows]
-            log.error("Inbox cleanup work: Can't schedule per-home cleanup because work items still queued for homeIDs: {}".format(
-                homeIDs))
+        queuedCleanupOneInboxWorkItems = (yield Select(
+            [Count(coiw.HOME_ID)],
+            From=coiw,
+        ).on(self.transaction))[0][0]
+
+        if queuedCleanupOneInboxWorkItems:
+            log.error("Inbox cleanup work: Can't schedule per home cleanup because {} work items still queued.".format(
+                queuedCleanupOneInboxWorkItems))
         else:
             # enumerate provisioned normal calendar homes
             ch = schema.CALENDAR_HOME
