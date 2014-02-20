@@ -48,6 +48,7 @@ class IStoreDirectoryService(Interface):
         """
 
 
+
 class IStoreDirectoryRecord(Interface):
     """
     Directory record object
