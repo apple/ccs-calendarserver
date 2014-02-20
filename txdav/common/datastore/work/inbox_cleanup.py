@@ -51,16 +51,24 @@ class InboxCleanupWork(WorkItem,
         # Delete all other work items
         yield Delete(From=self.table, Where=None).on(self.transaction)
 
-        # enumerate provisioned normal calendar homes
-        ch = schema.CALENDAR_HOME
-        homeRows = yield Select(
-            [ch.RESOURCE_ID],
-            From=ch,
-            Where=ch.STATUS == _HOME_STATUS_NORMAL,
-        ).on(self.transaction)
+        # exit if not done with last delete:
+        coiw = schema.CLEANUP_ONE_INBOX_WORK
+        rows = yield Select([coiw.HOME_ID], From=coiw,).on(self.transaction)
+        if rows:
+            homeIDs = [row[0] for row in rows]
+            log.error("Inbox cleanup work: Can't schedule per-home cleanup because work items still queued for homeIDs: {}".format(
+                homeIDs))
+        else:
+            # enumerate provisioned normal calendar homes
+            ch = schema.CALENDAR_HOME
+            homeRows = yield Select(
+                [ch.RESOURCE_ID],
+                From=ch,
+                Where=ch.STATUS == _HOME_STATUS_NORMAL,
+            ).on(self.transaction)
 
-        for homeRow in homeRows:
-            yield CleanupOneInboxWork._schedule(self.transaction, homeID=homeRow[0], seconds=0)
+            for homeRow in homeRows:
+                yield CleanupOneInboxWork._schedule(self.transaction, homeID=homeRow[0], seconds=0)
 
         # Schedule next check
         yield self._schedule(
@@ -88,10 +96,7 @@ class CleanupOneInboxWork(WorkItem,
     @inlineCallbacks
     def doWork(self):
 
-        # Delete all other work items for this group (for this home ID)
-        yield Delete(From=self.table,
-            Where=self.table.HOME_ID == self.homeID
-            ).on(self.transaction)
+        # No need to delete other work items.  They are unique
 
         # get orphan names
         orphanNames = set((
