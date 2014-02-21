@@ -418,6 +418,7 @@ class PostgresService(MultiService):
         options.append("-c shared_buffers=%d" % (self.sharedBuffers,))
         options.append("-c max_connections=%d" % (self.maxConnections,))
         options.append("-c standard_conforming_strings=on")
+        options.append("-c unix_socket_permissions=0770")
         options.extend(self.options)
 
         log.warn("Requesting postgres start via {cmd}", cmd=pgCtl)
