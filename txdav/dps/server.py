@@ -20,7 +20,6 @@ import uuid
 
 from twext.python.log import Logger
 from twext.who.idirectory import RecordType
-from twext.who.opendirectory import DirectoryService as ODDirectoryService
 from twisted.application import service
 from twisted.application.strports import service as strPortsService
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -339,6 +338,7 @@ class DirectoryProxyServiceMaker(object):
         kwds = config.DirectoryProxy.Keywords
 
         if directoryType == "OD":
+            from twext.who.opendirectory import DirectoryService as ODDirectoryService
             directory = ODDirectoryService(*args, **kwds)
 
         elif directoryType == "LDAP":
