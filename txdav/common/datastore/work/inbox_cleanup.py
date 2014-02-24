@@ -76,7 +76,7 @@ class InboxCleanupWork(WorkItem,
         # Schedule next check
         yield self._schedule(
             self.transaction,
-            float(config.InboxCleanupPeriodDays) * 24 * 60 * 60
+            float(config.InboxCleanup.CleanupPeriodDays) * 24 * 60 * 60
         )
 
 
@@ -111,8 +111,8 @@ class CleanupOneInboxWork(WorkItem,
                 homeID=self.uid(), orphanNames=orphanNames))
 
         # get old item names
-        if float(config.InboxItemLifetimeDays) >= 0: # use -1 to disable; 0 is test case
-            cutoff = datetime.datetime.utcnow() - datetime.timedelta(days=float(config.InboxItemLifetimeDays))
+        if float(config.InboxCleanup.ItemLifetimeDays) >= 0: # use -1 to disable; 0 is test case
+            cutoff = datetime.datetime.utcnow() - datetime.timedelta(days=float(config.InboxCleanup.ItemLifetimeDays))
             oldItemNames = set((
                 yield self.transaction.listInboxItemsInHomeCreatedBefore(self.homeID, cutoff)
             ))
@@ -125,8 +125,8 @@ class CleanupOneInboxWork(WorkItem,
             oldItemNames = set()
 
         # get item name for old events
-        if float(config.InboxItemLifetimePastEventEndDays) >= 0: # use -1 to disable; 0 is test case
-            cutoff = datetime.datetime.utcnow() - datetime.timedelta(days=float(config.InboxItemLifetimePastEventEndDays))
+        if float(config.InboxCleanup.ItemLifeBeyondEventEndDays) >= 0: # use -1 to disable; 0 is test case
+            cutoff = datetime.datetime.utcnow() - datetime.timedelta(days=float(config.InboxCleanup.ItemLifeBeyondEventEndDays))
             itemNamesForOldEvents = set((
                 yield self.transaction.listInboxItemsInHomeForEventsBefore(self.homeID, cutoff)
             ))
@@ -148,7 +148,10 @@ class CleanupOneInboxWork(WorkItem,
 
 @inlineCallbacks
 def scheduleFirstInboxCleanup(store, seconds):
-    txn = store.newTransaction()
-    wp = yield InboxCleanupWork._schedule(txn, seconds)
-    yield txn.commit()
-    returnValue(wp)
+    if config.InboxCleanup.Enabled:
+        txn = store.newTransaction()
+        wp = yield InboxCleanupWork._schedule(txn, seconds)
+        yield txn.commit()
+        returnValue(wp)
+    else:
+        log.debug("Inbox cleanup work disabled.")

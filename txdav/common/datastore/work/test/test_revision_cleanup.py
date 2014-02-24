@@ -50,7 +50,7 @@ class RevisionCleanupTests(CommonCommonTests, TestCase):
 
         self.patch(FindMinValidRevisionWork, "_schedule", FakeWork._schedule)
         self.patch(RevisionCleanupWork, "_schedule", FakeWork._schedule)
-        self.patch(config, "SyncTokenLifetimeDays", 0)
+        self.patch(config.RevisionCleanup, "SyncTokenLifetimeDays", 0)
 
 
     @inlineCallbacks

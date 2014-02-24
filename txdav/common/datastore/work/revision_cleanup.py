@@ -56,7 +56,7 @@ class FindMinValidRevisionWork(WorkItem,
 
         # get max revision on table rows before dateLimit
         dateLimit = (datetime.datetime.utcnow() -
-            datetime.timedelta(days=float(config.SyncTokenLifetimeDays)))
+            datetime.timedelta(days=float(config.RevisionCleanup.SyncTokenLifetimeDays)))
         maxRevOlderThanDate = 0
 
         # TODO: Use one Select statement
@@ -88,7 +88,7 @@ class FindMinValidRevisionWork(WorkItem,
             # Schedule next check
             yield FindMinValidRevisionWork._schedule(
                 self.transaction,
-                float(config.RevisionCleanupPeriodDays) * 24 * 60 * 60
+                float(config.RevisionCleanup.CleanupPeriodDays) * 24 * 60 * 60
             )
 
 
@@ -122,14 +122,17 @@ class RevisionCleanupWork(WorkItem,
         # Schedule next update
         yield FindMinValidRevisionWork._schedule(
             self.transaction,
-            float(config.RevisionCleanupPeriodDays) * 24 * 60 * 60
+            float(config.RevisionCleanup.CleanupPeriodDays) * 24 * 60 * 60
         )
 
 
 
 @inlineCallbacks
 def scheduleFirstFindMinRevision(store, seconds):
-    txn = store.newTransaction()
-    wp = yield FindMinValidRevisionWork._schedule(txn, seconds)
-    yield txn.commit()
-    returnValue(wp)
+    if config.RevisionCleanup.Enabled:
+        txn = store.newTransaction()
+        wp = yield FindMinValidRevisionWork._schedule(txn, seconds)
+        yield txn.commit()
+        returnValue(wp)
+    else:
+        log.debug("Revision cleanup work disabled.")

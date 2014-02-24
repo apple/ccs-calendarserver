@@ -170,8 +170,8 @@ END:VCALENDAR
         """
         Verify that orphaned Inbox items are removed
         """
-        self.patch(config, "InboxItemLifetimeDays", -1)
-        self.patch(config, "InboxItemLifetimePastEventEndDays", -1)
+        self.patch(config.InboxCleanup, "ItemLifetimeDays", -1)
+        self.patch(config.InboxCleanup, "ItemLifeBeyondEventEndDays", -1)
 
         #create orphans by deleting events
         inbox = yield self.calendarUnderTest(home="user01", name="inbox")
@@ -195,11 +195,11 @@ END:VCALENDAR
         """
         Verify that old inbox items are removed
         """
-        self.patch(config, "InboxItemLifetimePastEventEndDays", -1)
+        self.patch(config.InboxCleanup, "ItemLifeBeyondEventEndDays", -1)
 
         # Predate some inbox items
         inbox = yield self.calendarUnderTest(home="user01", name="inbox")
-        oldDate = datetime.datetime.utcnow() - datetime.timedelta(days=float(config.InboxItemLifetimeDays), seconds=10)
+        oldDate = datetime.datetime.utcnow() - datetime.timedelta(days=float(config.InboxCleanup.ItemLifetimeDays), seconds=10)
 
         itemsToPredate = ["cal2.ics", "cal3.ics"]
         co = schema.CALENDAR_OBJECT
