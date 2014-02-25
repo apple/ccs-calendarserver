@@ -33,7 +33,7 @@
 
         var chart = d3.select("#work_queues_chart")
                       .selectAll("div")
-                        .data(data)
+                        .data(data);
 
         var bars = chart.enter().append("div");
 
@@ -48,7 +48,10 @@
 
         var chart = d3.select("#work_queues_chart")
                      .selectAll("div")
-                       .data(data)
+                       .data(data);
+
+        chart.enter();
+        chart.exit().remove();
 
         /* http://stackoverflow.com/questions/14958825/dynamically-update-chart-data-in-d3 */
 

@@ -70,7 +70,7 @@ class WebAdminLandingResource(TemplateResource):
 
         self.putChild(u"logs", LogsResource())
         self.putChild(u"principals", PrincipalsResource(directory))
-        self.putChild(u"work", WorkMonitorResource(store))
+        # self.putChild(u"work", WorkMonitorResource(store))
 
         self.putChild(
             u"old",
