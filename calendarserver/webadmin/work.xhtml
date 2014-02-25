@@ -24,17 +24,17 @@
 
       function init() {
 
-        var data = [4, 8, 15, 16, 23, 42];
+        var data = [0, 0, 0, 0, 0, 0];
 
         /* scale is a function that normalizes a value in data into the range 0-98 */
         var scale = d3.scale.linear()
                       .domain([0, 200])
-                      .range([0, 98])
+                      .range([0, 98]);
 
         var bars = d3.select("#work_queues_chart")
                      .selectAll("div")
                        .data(data)
-                     .enter().append("div")
+                     .enter().append("div");
 
         bars.style("width", function(d) { return scale(d) + "%"; })
         bars.text(function(d) { return d; });
@@ -42,7 +42,8 @@
       }
 
       function update() {
-        var data = [0, 0, 0, 0, 0, 0];
+
+        var data = [4, 8, 15, 16, 23, 42];
 
         /* http://stackoverflow.com/questions/14958825/dynamically-update-chart-data-in-d3 */
       }
