@@ -27,9 +27,11 @@ __all__ = [
 
 from .resource import PageElement, TemplateResource
 from .resource import WebAdminResource
-from .logs import LogsResource
-from .principals import PrincipalsResource
-from .work import WorkMonitorResource
+# from .logs import LogsResource
+# from .principals import PrincipalsResource
+# from .work import WorkMonitorResource
+
+from . import logs, principals, work
 
 
 
@@ -59,15 +61,15 @@ class WebAdminLandingResource(TemplateResource):
     def __init__(self, path, root, directory, store, principalCollections=()):
         TemplateResource.__init__(self, WebAdminLandingPageElement)
 
-        self._path = path
-        self._root = root
         self.directory = directory
         self.store = store
-        self._principalCollections = principalCollections
+        # self._path = path
+        # self._root = root
+        # self._principalCollections = principalCollections
 
-        self.putChild(u"logs", LogsResource())
-        self.putChild(u"principals", PrincipalsResource(directory))
-        self.putChild(u"work", WorkMonitorResource(store))
+        # self.putChild(u"logs", LogsResource())
+        # self.putChild(u"principals", PrincipalsResource(directory))
+        # self.putChild(u"work", WorkMonitorResource(store))
 
         self.putChild(
             u"old",
@@ -75,3 +77,19 @@ class WebAdminLandingResource(TemplateResource):
                 path, root, directory, store, principalCollections
             )
         )
+
+
+    def getChild(self, name):
+        if name == u"logs":
+            reload(logs)
+            resource = logs.LogsResource()
+
+        elif name == u"principals":
+            reload(principals)
+            return principals.PrincipalsResource(self.directory)
+
+        elif name == u"work":
+            reload(work)
+            return work.WorkMonitorResource(self.store)
+
+        return super(WebAdminLandingResource, self).getChild(name)
