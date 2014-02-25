@@ -31,10 +31,11 @@
                       .domain([0, 200])
                       .range([0, 98]);
 
-        var bars = d3.select("#work_queues_chart")
-                     .selectAll("div")
-                       .data(data)
-                     .enter().append("div");
+        var chart = d3.select("#work_queues_chart")
+                      .selectAll("div")
+                        .data(data)
+
+        var bars = chart.enter().append("div");
 
         bars.style("width", function(d) { return scale(d) + "%"; })
         bars.text(function(d) { return d; });
@@ -45,7 +46,12 @@
 
         var data = [4, 8, 15, 16, 23, 42];
 
+        var chart = d3.select("#work_queues_chart")
+                     .selectAll("div")
+                       .data(data)
+
         /* http://stackoverflow.com/questions/14958825/dynamically-update-chart-data-in-d3 */
+
       }
 
       window.onload = init;
