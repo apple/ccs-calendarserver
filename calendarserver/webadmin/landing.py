@@ -27,9 +27,9 @@ __all__ = [
 
 from .resource import PageElement, TemplateResource
 from .resource import WebAdminResource
-# from .logs import LogsResource
-# from .principals import PrincipalsResource
-# from .work import WorkMonitorResource
+from .logs import LogsResource
+from .principals import PrincipalsResource
+from .work import WorkMonitorResource
 
 from . import logs, principals, work
 
@@ -58,6 +58,7 @@ class WebAdminLandingResource(TemplateResource):
 
     addSlash = True
 
+
     def __init__(self, path, root, directory, store, principalCollections=()):
         TemplateResource.__init__(self, WebAdminLandingPageElement)
 
@@ -67,9 +68,9 @@ class WebAdminLandingResource(TemplateResource):
         # self._root = root
         # self._principalCollections = principalCollections
 
-        # self.putChild(u"logs", LogsResource())
-        # self.putChild(u"principals", PrincipalsResource(directory))
-        # self.putChild(u"work", WorkMonitorResource(store))
+        self.putChild(u"logs", LogsResource())
+        self.putChild(u"principals", PrincipalsResource(directory))
+        self.putChild(u"work", WorkMonitorResource(store))
 
         self.putChild(
             u"old",
@@ -80,9 +81,21 @@ class WebAdminLandingResource(TemplateResource):
 
 
     def getChild(self, name):
+        bound = super(WebAdminLandingResource, self).getChild(name)
+
+        if bound is not None:
+            return bound
+
+        #
+        # Dynamically load and vend child resources not bound using putChild()
+        # in __init__().  This is useful for development, since it allows one
+        # to comment out the putChild() call above, and then code will be
+        # re-loaded for each request.
+        #
+
         if name == u"logs":
             reload(logs)
-            resource = logs.LogsResource()
+            return logs.LogsResource()
 
         elif name == u"principals":
             reload(principals)
@@ -92,4 +105,4 @@ class WebAdminLandingResource(TemplateResource):
             reload(work)
             return work.WorkMonitorResource(self.store)
 
-        return super(WebAdminLandingResource, self).getChild(name)
+        return None
