@@ -1,59 +1,66 @@
 <!DOCTYPE html>
-<html xmlns:t="http://twistedmatrix.com/ns/twisted.web.template/0.1" t:render="main">
+<html
+ xmlns:t="http://twistedmatrix.com/ns/twisted.web.template/0.1"
+ t:render="main"
+>
 
   <head>
+
     <title><t:slot name="title" /></title>
-    <!-- <link t:render="stylesheet" /> -->
+    <link t:render="stylesheet" />
 
     <style>
-      #work_queues_chart div {
-        font-size: 0.5em;
-        font-family: sans-serif;
 
-        color: white;
-        background-color: steelblue;
+    #work_queues_chart rect {
+      fill: steelblue;
+    }
 
-        text-align: right;
-        padding: 0.5em;
-        margin: 0.2em;
-      }
+    #work_queues_chart text {
+      fill: white;
+      font: 10px sans-serif;
+      text-anchor: end;
+    }
+
     </style>
 
-    <script src="http://d3js.org/d3.v3.min.js" charset="utf-8" />
-    <script type="text/javascript">
+    <script src="http://d3js.org/d3.v3.min.js"></script>
+    <script>
 
       function init() {
 
-        var data = [0, 0, 0, 0, 0, 0];
-
-        /* scale is a function that normalizes a value in data into the range 0-98 */
-        var scale = d3.scale.linear()
-                      .domain([0, 200])
-                      .range([0, 98]);
-
-        var chart = d3.select("#work_queues_chart")
-                      .selectAll("div")
-                        .data(data);
-
-        var bars = chart.enter().append("div");
-
-        bars.style("width", function(d) { return scale(d) + "%"; })
-        bars.text(function(d) { return d; });
-
-      }
-
-      function update() {
-
         var data = [4, 8, 15, 16, 23, 42];
 
-        var chart = d3.select("#work_queues_chart")
-                     .selectAll("div")
-                       .data(data);
+        var width = 600;
+        var barHeight = 20;
 
-        chart.enter();
-        chart.exit().remove();
+        var scaledWidth =
+          d3.scale.linear()
+            .domain([0, d3.max(data)])
+            .range([0, width]);
 
-        /* http://stackoverflow.com/questions/14958825/dynamically-update-chart-data-in-d3 */
+        var chart =
+          d3.select("#work_queues_chart")
+            .attr("width", width)
+            .attr("height", barHeight * data.length);
+
+        var bar =
+          chart.selectAll("g")
+            .data(data)
+          .enter().append("g")
+            .attr(
+              "transform",
+              function(d, i) { return "translate(0," + i * barHeight + ")"; }
+            );
+
+        bar.append("rect")
+          .attr("width", scaledWidth)
+          .attr("height", barHeight - 1);
+
+        bar.append("text")
+          .attr("x", function(d) { return scaledWidth(d) - 3; })
+          .attr("y", barHeight / 2)
+          .attr("dy", "0.35em")
+          .text(function(d) { return d; });
 
       }
 
@@ -67,10 +74,9 @@
 
     <h1><t:slot name="title" /></h1>
 
-    <div id="work_queues_chart" />
-
-    <button onclick="update()">Update</button>
+    <svg id="work_queues_chart" />
 
   </body>
+
 
 </html>
