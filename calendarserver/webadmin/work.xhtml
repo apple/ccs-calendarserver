@@ -26,9 +26,9 @@
     <script src="http://d3js.org/d3.v3.min.js"></script>
     <script>
 
-      function init() {
+      function drawChart(data) {
 
-        var data = [4, 8, 15, 16, 23, 42];
+        // var data = [4, 8, 15, 16, 23, 42];
 
         var width = 600;
         var barHeight = 20;
@@ -43,28 +43,42 @@
             .attr("width", width)
             .attr("height", barHeight * data.length);
 
-        var bar =
+        var bars =
           chart.selectAll("g")
             .data(data)
-          .enter().append("g")
-            .attr(
-              "transform",
-              function(d, i) { return "translate(0," + i * barHeight + ")"; }
-            );
 
-        bar.append("rect")
+        // Enter selection
+        bars.enter().append("g")
+
+        // Update selection
+        bars.attr(
+          "transform",
+          function(d, i) { return "translate(0," + i * barHeight + ")"; }
+        );
+
+        bars.append("rect")
           .attr("width", scaledWidth)
           .attr("height", barHeight - 1);
 
-        bar.append("text")
+        bars.append("text")
           .attr("x", function(d) { return scaledWidth(d) - 3; })
           .attr("y", barHeight / 2)
           .attr("dy", "0.35em")
           .text(function(d) { return d; });
 
+        // Exit selection
+        bars.exit().remove()
       }
 
-      window.onload = init;
+      function update() {
+        drawChart([4, 8, 15, 16, 23, 42]);
+      }
+
+      function initChart() {
+        drawChart([0, 0, 0, 0, 0, 0]);
+      }
+
+      window.onload = initChart;
 
     </script>
 
@@ -75,8 +89,9 @@
     <h1><t:slot name="title" /></h1>
 
     <svg id="work_queues_chart" />
+    <br />
+    <button onclick="update()">Update</button>
 
   </body>
-
 
 </html>
