@@ -1,5 +1,8 @@
 <!DOCTYPE html>
-<html xmlns:t="http://twistedmatrix.com/ns/twisted.web.template/0.1" t:render="main">
+<html
+ xmlns:t="http://twistedmatrix.com/ns/twisted.web.template/0.1"
+ t:render="main"
+>
 
   <head>
     <title><t:slot name="title" /></title>
@@ -15,7 +18,11 @@
 
     <form id="search_form" action="" method="get">
       Search:
-      <input id="search_field" type="search" name="search" placeholder="Search..." size="40" autofocus="true" t:render="search_terms" />
+      <input
+       id="search_field" type="search" name="search"
+       placeholder="Search..." size="40" autofocus="true"
+       t:render="search_terms"
+    />
     </form>
 
     <table id="records" t:render="if_search_results">
@@ -29,7 +36,8 @@
         </tr>
       </thead>
       <tbody>
-        <tr class="record" t:render="search_results_row"><t:attr name="onclick">window.open("./<t:slot name="uid" />");</t:attr>
+        <tr class="record" t:render="search_results_row">
+          <t:attr name="onclick">window.open("./<t:slot name="uid" />");</t:attr>
           <td class="record_full_name"><t:slot name="fullNames" /></td>
           <td class="record_type"><t:slot name="recordType" /></td>
           <td class="record_short_name"><t:slot name="shortNames" /></td>

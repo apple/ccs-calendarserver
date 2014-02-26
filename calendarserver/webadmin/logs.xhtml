@@ -1,5 +1,8 @@
 <!DOCTYPE html>
-<html xmlns:t="http://twistedmatrix.com/ns/twisted.web.template/0.1" t:render="main">
+<html
+ xmlns:t="http://twistedmatrix.com/ns/twisted.web.template/0.1"
+ t:render="main"
+>
 
   <head>
     <title><t:slot name="title" /></title>
@@ -29,7 +32,9 @@
 
       window.onload = function() {
 
-        var registerForEvents = function(eventSource, eventClass, statusElement, logViewElement) {
+        var registerForEvents = function(
+          eventSource, eventClass, statusElement, logViewElement
+        ) {
           statusElement.innerHTML = "Connecting...";
 
           eventSource.addEventListener(
