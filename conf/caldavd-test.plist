@@ -135,6 +135,9 @@
        -->
     </array>
 
+    <!-- Don't exit if the DB needs an upgrade. -->
+    <key>FailIfUpgradeNeeded</key>
+    <false/>
 
     <!--
         Quotas and limits
