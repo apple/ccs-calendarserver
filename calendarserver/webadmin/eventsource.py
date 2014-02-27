@@ -46,6 +46,11 @@ def textAsEvent(text, eventID=None, eventClass=None):
     binary data should be encoded as text if it is to be used in an EventSource
     stream.
 
+    UTF-8 encoded L{bytes} are returned because
+    http://www.w3.org/TR/eventsource/ states that the only allowed encoding
+    for C{text/event-stream} is UTF-8.
+
+
     @param text: The text (ie. the message) to send in the event.
     @type text: L{unicode}
 
@@ -56,8 +61,11 @@ def textAsEvent(text, eventID=None, eventClass=None):
     @type eventClass: L{unicode}
 
     @return: An HTML5 EventSource event as text.
-    @rtype: L{unicode}
+    @rtype: UTF-8 encoded L{bytes}
     """
+    if text is None:
+        raise TypeError("text may not be None")
+
     event = []
 
     if eventID is not None:
@@ -70,7 +78,7 @@ def textAsEvent(text, eventID=None, eventClass=None):
         u"data: {0}".format(l) for l in text.split("\n")
     )
 
-    return u"\n".join(event) + u"\n\n"
+    return (u"\n".join(event) + u"\n\n").encode("utf-8")
 
 
 
@@ -122,7 +130,12 @@ class EventSourceResource(Resource):
         """
         Resource.__init__(self)
 
+        self._eventDecoder = eventDecoder
         self._events = deque(maxlen=bufferSize)
+
+
+    def addEvent(self, event):
+        self._events.append(event)
 
 
     def render(self, request):
@@ -167,10 +180,6 @@ class EventStream(object):
         self._closed = False
 
 
-    def addEvent(self, event):
-        self._events.append(event)
-
-
     def read(self):
         if self._closed:
             return None
@@ -178,9 +187,9 @@ class EventStream(object):
         lastID = self._lastID
         eventID = None
 
-        idForEvent = self.eventDecoder.idForEvent
-        classForEvent = self.eventDecoder.classForEvent
-        textForEvent = self.eventDecoder.textForEvent
+        idForEvent = self._eventDecoder.idForEvent
+        classForEvent = self._eventDecoder.classForEvent
+        textForEvent = self._eventDecoder.textForEvent
 
         for event in self._events:
             eventID = idForEvent(event)
@@ -196,6 +205,8 @@ class EventStream(object):
 
             eventClass = classForEvent(event)
             eventText = textForEvent(event)
+
+            self._lastID = eventID
 
             return succeed(
                 textAsEvent(eventText, eventID, eventClass).encode("utf-8")
