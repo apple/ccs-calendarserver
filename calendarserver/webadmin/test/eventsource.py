@@ -38,6 +38,7 @@ from txweb2.http_headers import MimeType
 from txweb2.http import Response
 
 
+
 def textAsEvent(text, eventID=None, eventClass=None):
     """
     Format some text as an HTML5 EventSource event.  Since the EventSource data
