@@ -262,9 +262,6 @@ class EventSourceResourceTests(TestCase):
 
 
 
-    # Test closed
-
-
 @implementer(IEventDecoder)
 class DictionaryEventDecoder(object):
     """
