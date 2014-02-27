@@ -20,13 +20,15 @@ Tests for L{calendarserver.webadmin.eventsource}.
 
 from __future__ import print_function
 
+from zope.interface import implementer
+
 from twisted.internet.defer import inlineCallbacks
 from twisted.trial.unittest import TestCase
 
 from txweb2.server import Request
 from txweb2.http_headers import Headers
 
-from ..eventsource import textAsEvent, EventSourceResource
+from ..eventsource import textAsEvent, EventSourceResource, IEventDecoder
 
 
 
@@ -263,6 +265,7 @@ class EventSourceResourceTests(TestCase):
     # Test closed
 
 
+@implementer(IEventDecoder)
 class DictionaryEventDecoder(object):
     """
     Decodes events represented as dictionaries.
