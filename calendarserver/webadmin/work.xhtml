@@ -70,15 +70,23 @@
         bars.exit().remove()
       }
 
-      function update() {
+      function updateChart() {
         drawChart([4, 8, 15, 16, 23, 42]);
       }
 
       function initChart() {
-        drawChart([0, 0, 0, 0, 0, 0]);
+        drawChart([1, 2, 3, 4, 8, 15, 16, 23, 42]);
       }
 
-      window.onload = initChart;
+
+      function initEventSource() {
+        var eventSource = new EventSource("./events");
+      }
+
+
+      window.onload = function() {
+        initChart();
+      };
 
     </script>
 
@@ -90,7 +98,7 @@
 
     <svg id="work_queues_chart" />
     <br />
-    <button onclick="update()">Update</button>
+    <button onclick="updateChart()">Update</button>
 
   </body>
 
