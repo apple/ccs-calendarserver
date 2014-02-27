@@ -30,7 +30,7 @@ from collections import deque
 
 from zope.interface import implementer, Interface
 
-from twisted.internet.defer import succeed
+from twisted.internet.defer import Deferred, succeed
 
 from txweb2.stream import IByteStream, fallbackSplit
 from txweb2.resource import Resource
@@ -132,10 +132,15 @@ class EventSourceResource(Resource):
 
         self._eventDecoder = eventDecoder
         self._events = deque(maxlen=bufferSize)
+        self._streams = set()
 
 
-    def addEvent(self, event):
-        self._events.append(event)
+    def addEvents(self, events):
+        self._events.extend(events)
+
+        # Notify outbound streams that there is new data to vend
+        for stream in self._streams:
+            stream.didAddEvents()
 
 
     def render(self, request):
@@ -146,6 +151,13 @@ class EventSourceResource(Resource):
         response.headers.setHeader(
             b"content-type", MimeType.fromString(b"text/event-stream")
         )
+
+        # Keep track of the event streams
+        request.addResponseFilter(
+            lambda r: self._streams.remove(response.stream)
+        )
+        self._streams.add(response.stream)
+
         return response
 
 
@@ -178,11 +190,19 @@ class EventStream(object):
         self._events = events
         self._lastID = lastID
         self._closed = False
+        self._deferredRead = None
+
+
+    def didAddEvents(self):
+        d = self._deferredRead
+        if d is not None:
+            d.addCallback(lambda _: self.read())
+            d.callback(None)
 
 
     def read(self):
         if self._closed:
-            return None
+            return succeed(None)
 
         lastID = self._lastID
         eventID = None
@@ -209,7 +229,7 @@ class EventStream(object):
             self._lastID = eventID
 
             return succeed(
-                textAsEvent(eventText, eventID, eventClass).encode("utf-8")
+                textAsEvent(eventText, eventID, eventClass)
             )
 
 
@@ -218,14 +238,11 @@ class EventStream(object):
             # client saw.
             self._lastID = None
 
-            return succeed("")
+            return succeed(b"")
 
-        return succeed(None)
-
-        # from twisted.internet.task import deferLater
-        # from twisted.internet import reactor
-
-        # return deferLater(reactor, 1.0, self.read)
+        d = Deferred()
+        self._deferredRead = d
+        return d
 
 
     def split(self, point):
@@ -233,4 +250,5 @@ class EventStream(object):
 
 
     def close(self):
+        print("************ CLOSE ************")
         self._closed = True

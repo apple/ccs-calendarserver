@@ -23,7 +23,7 @@ from __future__ import print_function
 from twisted.internet.defer import inlineCallbacks
 from twisted.trial.unittest import TestCase
 
-from txweb2.http import Request
+from txweb2.server import Request
 from txweb2.http_headers import Headers
 
 from ..eventsource import textAsEvent, EventSourceResource
@@ -118,13 +118,8 @@ class EventSourceResourceTests(TestCase):
     Tests for L{EventSourceResource}.
     """
 
-    def eventSourceResource(self, events=()):
-        resource = EventSourceResource(DictionaryEventDecoder)
-
-        for event in events:
-            resource.addEvent(event)
-
-        return resource
+    def eventSourceResource(self):
+        return EventSourceResource(DictionaryEventDecoder)
 
 
     def render(self, resource):
@@ -190,11 +185,13 @@ class EventSourceResourceTests(TestCase):
             dict(eventID=u"4", eventText=u"D"),
         )
 
-        resource = self.eventSourceResource(events)
+        resource = self.eventSourceResource()
+        resource.addEvents(events)
+
         response = self.render(resource)
 
         # Each result from read() is another event
-        for i in range(4):
+        for i in range(len(events)):
             result = yield response.stream.read()
             self.assertEquals(
                 result,
@@ -204,9 +201,66 @@ class EventSourceResourceTests(TestCase):
                 )
             )
 
-        result = yield response.stream.read()
-        self.assertEquals(result, None)
+        # The next read should block on new events.
+        d = response.stream.read()
+        self.assertFalse(d.called)
 
+        d.addErrback(lambda f: None)
+        d.cancel()
+
+
+    @inlineCallbacks
+    def test_streamNewEvents(self):
+        """
+        Events not already buffered are vended after they are posted.
+        """
+        events = (
+            dict(eventID=u"1", eventText=u"A"),
+            dict(eventID=u"2", eventText=u"B"),
+            dict(eventID=u"3", eventText=u"C"),
+            dict(eventID=u"4", eventText=u"D"),
+        )
+
+        resource = self.eventSourceResource()
+
+        response = self.render(resource)
+
+        # The first read should block on new events.
+        d = response.stream.read()
+        self.assertFalse(d.called)
+
+        # Add some events
+        resource.addEvents(events)
+
+        # We should now be unblocked
+        self.assertTrue(d.called)
+
+        # Each result from read() is another event
+        for i in range(len(events)):
+            if d is None:
+                result = yield response.stream.read()
+            else:
+                result = yield d
+                d = None
+
+            self.assertEquals(
+                result,
+                textAsEvent(
+                    text=events[i]["eventText"],
+                    eventID=(events[i]["eventID"])
+                )
+            )
+
+        # The next read should block on new events.
+        d = response.stream.read()
+        self.assertFalse(d.called)
+
+        d.addErrback(lambda f: None)
+        d.cancel()
+
+
+
+    # Test closed
 
 
 class DictionaryEventDecoder(object):
