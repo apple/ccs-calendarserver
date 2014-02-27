@@ -250,5 +250,4 @@ class EventStream(object):
 
 
     def close(self):
-        print("************ CLOSE ************")
         self._closed = True
