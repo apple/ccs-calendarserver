@@ -203,12 +203,23 @@ class EventSourceResourceTests(TestCase):
                 )
             )
 
-        # The next read should block on new events.
+
+    @inlineCallbacks
+    def test_streamWaitForEvents(self):
+        """
+        Stream reading blocks on additional events.
+        """
+        resource = self.eventSourceResource()
+        response = self.render(resource)
+
+        # Read should block on new events.
         d = response.stream.read()
         self.assertFalse(d.called)
 
         d.addErrback(lambda f: None)
         d.cancel()
+
+    test_streamWaitForEvents.todo = "Feature disabled; needs debugging"
 
 
     @inlineCallbacks
@@ -260,6 +271,7 @@ class EventSourceResourceTests(TestCase):
         d.addErrback(lambda f: None)
         d.cancel()
 
+    test_streamNewEvents.todo = "Feature disabled; needs debugging"
 
 
 @implementer(IEventDecoder)

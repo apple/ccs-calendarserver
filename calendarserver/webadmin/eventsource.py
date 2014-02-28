@@ -153,9 +153,11 @@ class EventSourceResource(Resource):
         )
 
         # Keep track of the event streams
-        request.addResponseFilter(
-            lambda r: self._streams.remove(response.stream)
-        )
+        def cleanupFilter(_request, _response):
+            self._streams.remove(response.stream)
+            return _response
+
+        request.addResponseFilter(cleanupFilter)
         self._streams.add(response.stream)
 
         return response
@@ -239,6 +241,10 @@ class EventStream(object):
             self._lastID = None
 
             return succeed(b"")
+
+        # This causes the client to poll, which is undesirable, but the
+        # deferred below doesn't seem to work in real use...
+        return succeed(None)
 
         d = Deferred()
         self._deferredRead = d
