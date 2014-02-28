@@ -68,42 +68,6 @@ class LogsResource(TemplateResource):
 
 
 
-@implementer(IEventDecoder)
-class EventDecoder(object):
-    """
-    Decodes logging events.
-    """
-
-    @staticmethod
-    def idForEvent(event):
-        observer, eventClass, logEvent = event
-        return id(logEvent)
-
-
-    @staticmethod
-    def classForEvent(event):
-        observer, eventClass, logEvent = event
-        return eventClass
-
-
-    @staticmethod
-    def textForEvent(event):
-        observer, eventClass, logEvent = event
-
-        try:
-            if eventClass == u"access":
-                text = logEvent[u"log-format"] % logEvent
-            else:
-                text = observer.formatEvent(logEvent)
-                if text is None:
-                    text = u""
-        except:
-            text = u"*** Error while formatting event ***"
-
-        return text
-
-
-
 class LogEventsResource(EventSourceResource):
     """
     Log event vending resource.
@@ -180,3 +144,39 @@ class AccessLogObserver(CommonAccessLoggingObserverExtensions):
             return
 
         self._resource.addEvents(((self, u"access", event),))
+
+
+
+@implementer(IEventDecoder)
+class EventDecoder(object):
+    """
+    Decodes logging events.
+    """
+
+    @staticmethod
+    def idForEvent(event):
+        observer, eventClass, logEvent = event
+        return id(logEvent)
+
+
+    @staticmethod
+    def classForEvent(event):
+        observer, eventClass, logEvent = event
+        return eventClass
+
+
+    @staticmethod
+    def textForEvent(event):
+        observer, eventClass, logEvent = event
+
+        try:
+            if eventClass == u"access":
+                text = logEvent[u"log-format"] % logEvent
+            else:
+                text = observer.formatEvent(logEvent)
+                if text is None:
+                    text = u""
+        except:
+            text = u"*** Error while formatting event ***"
+
+        return text
