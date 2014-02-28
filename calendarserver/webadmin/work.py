@@ -29,7 +29,7 @@ from json import dumps
 
 from zope.interface import implementer
 
-from twisted.internet.defer import inlineCallbacks  # , returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue
 # from twisted.web.template import tags as html, renderer
 
 # from txdav.caldav.datastore.scheduling.imip.inbound import (
@@ -94,6 +94,12 @@ class WorkEventsResource(EventSourceResource):
 
 
     @inlineCallbacks
+    def render(self, request):
+        yield self.poll()
+        returnValue(super(WorkEventsResource, self).render(request))
+
+
+    @inlineCallbacks
     def poll(self):
         txn = self._store.newTransaction()
 
@@ -140,21 +146,18 @@ class WorkEventsResource(EventSourceResource):
 
             payload[workDescription] = categoryData
 
-
-        print(payload)
-
-        # self._workEventsResource.addEvents((
-        #     dict(
-        #         eventClass=u"work",
-        #         eventText=asJSON(payload),
-        #     ),
-        # ))
+        self.addEvents((
+            dict(
+                eventClass=u"work",
+                eventText=asJSON(payload),
+            ),
+        ))
 
         if not hasattr(self, "_clock"):
             from twisted.internet import reactor
             self._clock = reactor
 
-        self._clock.callLater(5, self.poll)
+        # self._clock.callLater(5, self.poll)
 
 
 
