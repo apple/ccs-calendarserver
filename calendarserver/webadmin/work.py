@@ -25,9 +25,26 @@ __all__ = [
     "WorkMonitorResource",
 ]
 
-# from twisted.internet.defer import inlineCallbacks, returnValue
+from json import dumps
+
+from zope.interface import implementer
+
+from twisted.internet.defer import inlineCallbacks  # , returnValue
 # from twisted.web.template import tags as html, renderer
 
+# from txdav.caldav.datastore.scheduling.imip.inbound import (
+#     IMIPPollingWork, IMIPReplyWork
+# )
+
+# from twistedcaldav.directory.directory import GroupCacherPollingWork
+# from calendarserver.push.notifier import PushNotificationWork
+
+from txdav.caldav.datastore.scheduling.work import (
+    ScheduleOrganizerWork, ScheduleReplyWork, ScheduleRefreshWork
+)
+
+
+from .eventsource import EventSourceResource, IEventDecoder
 from .resource import PageElement, TemplateResource
 
 
@@ -37,10 +54,8 @@ class WorkMonitorPageElement(PageElement):
     Principal management page element.
     """
 
-    def __init__(self, store):
+    def __init__(self):
         PageElement.__init__(self, u"work")
-
-        self._store = store
 
 
     def pageSlots(self):
@@ -60,5 +75,106 @@ class WorkMonitorResource(TemplateResource):
 
     def __init__(self, store):
         TemplateResource.__init__(
-            self, lambda: WorkMonitorPageElement(store)
+            self, lambda: WorkMonitorPageElement()
         )
+
+        self.putChild(u"events", WorkEventsResource(store))
+
+
+
+class WorkEventsResource(EventSourceResource):
+    """
+    Resource that vends work queue information via HTML5 EventSource events.
+    """
+
+    def __init__(self, store):
+        EventSourceResource.__init__(self, EventDecoder, bufferSize=1)
+
+        self._store = store
+
+
+    @inlineCallbacks
+    def poll(self):
+        txn = self._store.newTransaction()
+
+        payload = {}
+
+        for workDescription, workItemClass, itemAttributes in (
+            (
+                u"Organizer Request",
+                ScheduleOrganizerWork,
+                (
+                    ("icalendarUid", "iCalendar UID"),
+                    ("attendeeCount", "Attendee Count"),
+                ),
+            ),
+            (
+                u"Attendee Reply",
+                ScheduleReplyWork,
+                (
+                    ("icalendarUid", "iCalendar UID"),
+                ),
+            ),
+            (
+                u"Attendee Refresh",
+                ScheduleRefreshWork,
+                (
+                    ("icalendarUid", "iCalendar UID"),
+                    ("attendeeCount", "Attendee Count"),
+                ),
+            ),
+        ):
+            workItems = yield workItemClass.all(txn)
+
+            categoryData = []
+
+            for workItem in workItems:
+                itemData = {}
+
+                for itemAttribute, itemDescription in itemAttributes:
+                    itemData[itemDescription] = getattr(
+                        workItem, itemAttribute
+                    )
+
+                categoryData.append(itemData)
+
+            payload[workDescription] = categoryData
+
+
+        print(payload)
+
+        # self._workEventsResource.addEvents((
+        #     dict(
+        #         eventClass=u"work",
+        #         eventText=asJSON(payload),
+        #     ),
+        # ))
+
+        if not hasattr(self, "_clock"):
+            from twisted.internet import reactor
+            self._clock = reactor
+
+        self._clock.callLater(5, self.poll)
+
+
+
+@implementer(IEventDecoder)
+class EventDecoder(object):
+    @staticmethod
+    def idForEvent(event):
+        return event.get("eventID")
+
+
+    @staticmethod
+    def classForEvent(event):
+        return event.get("eventClass")
+
+
+    @staticmethod
+    def textForEvent(event):
+        return event.get("eventText")
+
+
+
+def asJSON(obj):
+    return dumps(obj, separators=(',', ':'))
