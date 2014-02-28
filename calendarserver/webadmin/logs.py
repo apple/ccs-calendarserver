@@ -26,20 +26,13 @@ __all__ = [
     "LogEventsResource",
 ]
 
-from collections import deque
-
 from zope.interface import implementer
 
 from twisted.python.log import FileLogObserver
-from twisted.internet.defer import succeed
-
-from txweb2.stream import IByteStream, fallbackSplit
-from txweb2.resource import Resource
-from txweb2.http_headers import MimeType
-from txweb2.http import Response
 
 from calendarserver.accesslog import CommonAccessLoggingObserverExtensions
 
+from .eventsource import EventSourceResource, IEventDecoder
 from .resource import PageElement, TemplateResource
 
 
@@ -75,132 +68,64 @@ class LogsResource(TemplateResource):
 
 
 
-class LogEventsResource(Resource):
+@implementer(IEventDecoder)
+class EventDecoder(object):
+    """
+    Decodes logging events.
+    """
+
+    @staticmethod
+    def idForEvent(event):
+        observer, eventClass, logEvent = event
+        return id(logEvent)
+
+
+    @staticmethod
+    def classForEvent(event):
+        observer, eventClass, logEvent = event
+        return eventClass
+
+
+    @staticmethod
+    def textForEvent(event):
+        observer, eventClass, logEvent = event
+
+        try:
+            if eventClass == u"access":
+                text = logEvent[u"log-format"] % logEvent
+            else:
+                text = observer.formatEvent(logEvent)
+                if text is None:
+                    text = u""
+        except:
+            text = u"*** Error while formatting event ***"
+
+        return text
+
+
+
+class LogEventsResource(EventSourceResource):
     """
     Log event vending resource.
     """
 
-    addSlash = False
-
-
     def __init__(self):
-        Resource.__init__(self)
+        EventSourceResource.__init__(self, EventDecoder)
 
-        events = deque(maxlen=400)
-
-        observers = (
-            AccessLogObserver(events),
-            ServerLogObserver(events),
+        self.observers = (
+            AccessLogObserver(self),
+            ServerLogObserver(self),
         )
 
-        for observer in observers:
+        for observer in self.observers:
             observer.start()
-
-        self.events = events
-        self.observers = observers
-
-
-    def render(self, request):
-        start = request.headers.getRawHeaders(u"last-event-id")
-
-        if start is not None:
-            try:
-                start = int(start[0])
-            except ValueError:
-                start = None
-
-        response = Response()
-        response.stream = LogEventStream(self, start=start)
-        response.headers.setHeader(
-            b"content-type", MimeType.fromString(b"text/event-stream")
-        )
-        return response
-
-
-
-@implementer(IByteStream)
-class LogEventStream(object):
-    """
-    L{IByteStream} that streams log events out as HTML5 EventSource events.
-    """
-
-    length = None
-
-
-    def __init__(self, source, start):
-        object.__init__(self)
-
-        self._source = source
-        self._start = start
-        self._closed = False
-
-
-    def read(self):
-        if self._closed:
-            return None
-
-        start = self._start
-        messageID = None
-
-        for observer, eventClass, event in tuple(self._source.events):
-            messageID = id(event)
-
-            # If we have a start point, skip messages up to and including the
-            # one at the start point.
-            if start is not None:
-                if messageID == start:
-                    messageID = None
-                    start = None
-
-                continue
-
-            self._start = messageID
-
-            if eventClass == u"access":
-                message = event[u"log-format"] % event
-            else:
-                message = observer.formatEvent(event)
-                if message is None:
-                    continue
-
-            eventText = textAsEvent(
-                message, eventID=messageID, eventClass=eventClass
-            )
-
-            return succeed(eventText)
-
-        if messageID is not None:
-            # We just scanned all the messages, and none are the last one the
-            # client saw.
-            self._start = None
-
-            marker = "-"
-
-            return succeed(
-                textAsEvent(marker, eventID=0, eventClass=u"access") +
-                textAsEvent(marker, eventID=0, eventClass=u"server")
-            )
-
-        return succeed(None)
-
-        # from twisted.internet.task import deferLater
-        # from twisted.internet import reactor
-
-        # return deferLater(reactor, 1.0, self.read)
-
-
-    def split(self, point):
-        return fallbackSplit(self, point)
-
-
-    def close(self):
-        self._closed = True
 
 
 
 class ServerLogObserver(FileLogObserver):
     """
-    Log observer that captures events in a buffer instead of writing to a file.
+    Log observer that sends events to an L{EventSourceResource} instead of
+    writing to a file.
 
     @note: L{ServerLogObserver} is an old-style log observer, as it inherits
         from L{FileLogObserver}.
@@ -209,7 +134,7 @@ class ServerLogObserver(FileLogObserver):
     timeFormat = None
 
 
-    def __init__(self, buffer):
+    def __init__(self, resource):
         class FooIO(object):
             def write(_, s):
                 self._lastMessage = s
@@ -220,16 +145,11 @@ class ServerLogObserver(FileLogObserver):
         FileLogObserver.__init__(self, FooIO())
 
         self.lastMessage = None
-        self._buffer = buffer
-        self._waiting = []
+        self._resource = resource
 
 
     def emit(self, event):
-        self._buffer.append((self, u"server", event))
-
-        while self._waiting:
-            d = self._waiting.pop(0)
-            d.callback(None)
+        self._resource.addEvents(((self, u"server", event),))
 
 
     def formatEvent(self, event):
@@ -248,10 +168,10 @@ class AccessLogObserver(CommonAccessLoggingObserverExtensions):
         ultimately inherits from L{txweb2.log.BaseCommonAccessLoggingObserver}.
     """
 
-    def __init__(self, buffer):
+    def __init__(self, resource):
         CommonAccessLoggingObserverExtensions.__init__(self)
 
-        self._buffer = buffer
+        self._resource = resource
 
 
     def logStats(self, event):
@@ -259,21 +179,4 @@ class AccessLogObserver(CommonAccessLoggingObserverExtensions):
         if event[u"type"] != u"access-log":
             return
 
-        self._buffer.append((self, u"access", event))
-
-
-
-def textAsEvent(text, eventID=None, eventClass=None):
-    event = []
-
-    if eventID is not None:
-        event.append(u"id: {0}".format(eventID))
-
-    if eventClass is not None:
-        event.append(u"event: {0}".format(eventClass))
-
-    event.extend(
-        u"data: {0}".format(l) for l in text.split("\n")
-    )
-
-    return u"\n".join(event).encode(u"utf-8") + "\n\n"
+        self._resource.addEvents(((self, u"access", event),))
