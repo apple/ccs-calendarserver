@@ -379,6 +379,48 @@ class SQLSplitterTests(TestCase):
         self.assertRaises(StopIteration, result.next)
 
 
+    def test_returnOnePlSQLAndOneSQLAndOneFunction(self):
+        """
+        One sql statement and one pl/sql statement yields two separate strings
+        """
+        sql = dedent(
+        '''SELECT EGM.Name, BioEntity.BioEntityId INTO AUX
+            FROM EGM
+            INNER JOIN BioEntity
+                ON EGM.name LIKE BioEntity.Name AND EGM.TypeId = BioEntity.TypeId
+            OPTION (MERGE JOIN);''')
+        sqlfn = dedent(
+        '''CREATE or REPLACE FUNCTION foobar() RETURNS integer as $$
+           DECLARE
+             result integer;
+           BEGIN
+            SELECT ID into result from JOB;
+            RETURN result;
+           END
+           $$ LANGUAGE plpgsql;''')
+        plsql = dedent(
+        '''BEGIN
+           FOR i IN 1..10 LOOP
+               IF MOD(i,2) = 0 THEN
+                   INSERT INTO temp VALUES (i, x, 'i is even');
+               ELSE
+                   INSERT INTO temp VALUES (i, x, 'i is odd');
+               END IF;
+               x := x + 100;
+           END LOOP;
+           COMMIT;
+           END;''')
+        s3 = "BEGIN\nFOR i IN 1..10 LOOP\nIF MOD(i,2) = 0 THEN\nINSERT INTO temp VALUES (i, x, 'i is even');ELSE\nINSERT INTO temp VALUES (i, x, 'i is odd');END IF;x := x + 100;END LOOP;COMMIT;END;"
+        result = splitSQLString(sql + sqlfn + plsql)
+        r1 = result.next()
+        self.assertEquals(r1, sql.rstrip(";"))
+        r2 = result.next()
+        self.assertEquals(r2, sqlfn.rstrip(";"))
+        r3 = result.next()
+        self.assertEquals(r3, s3)
+        self.assertRaises(StopIteration, result.next)
+
+
     def test_actualSchemaUpgrade(self):
         """
         A real-world schema upgrade is split into the expected number of statements,

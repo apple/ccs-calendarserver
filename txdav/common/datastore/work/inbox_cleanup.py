@@ -21,7 +21,7 @@ Remove orphaned and old inbox items, and inbox items references old events
 
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.syntax import Delete, Select, Count
-from twext.enterprise.queue import WorkItem
+from twext.enterprise.jobqueue import WorkItem
 from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twistedcaldav.config import config

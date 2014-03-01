@@ -20,7 +20,7 @@ Notification framework for Calendar Server
 
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.syntax import Delete, Select, Parameter
-from twext.enterprise.queue import WorkItem
+from twext.enterprise.jobqueue import WorkItem
 from twext.python.log import Logger
 
 from twisted.internet.defer import inlineCallbacks
@@ -47,11 +47,11 @@ class PushNotificationWork(WorkItem, fromTable(schema.PUSH_NOTIFICATION_WORK)):
 
         # Find all work items with the same push ID and find the highest
         # priority.  Delete matching work items.
-        results = (yield Select([self.table.WORK_ID, self.table.PRIORITY],
+        results = (yield Select([self.table.WORK_ID, self.table.PUSH_PRIORITY],
             From=self.table, Where=self.table.PUSH_ID == self.pushID).on(
             self.transaction))
 
-        maxPriority = self.priority
+        maxPriority = self.pushPriority
 
         # If there are other enqueued work items for this push ID, find the
         # highest priority one and use that value
@@ -63,17 +63,16 @@ class PushNotificationWork(WorkItem, fromTable(schema.PUSH_NOTIFICATION_WORK)):
                 workIDs.append(workID)
 
             # Delete the work items we selected
-            yield Delete(From=self.table,
-                         Where=self.table.WORK_ID.In(
-                            Parameter("workIDs", len(workIDs)))
-                        ).on(self.transaction, workIDs=workIDs)
+            yield Delete(
+                From=self.table,
+                Where=self.table.WORK_ID.In(Parameter("workIDs", len(workIDs)))
+            ).on(self.transaction, workIDs=workIDs)
 
         pushDistributor = self.transaction._pushDistributor
         if pushDistributor is not None:
             # Convert the integer priority value back into a constant
             priority = PushPriority.lookupByValue(maxPriority)
-            yield pushDistributor.enqueue(self.transaction, self.pushID,
-                priority=priority)
+            yield pushDistributor.enqueue(self.transaction, self.pushID, priority=priority)
 
 
 
@@ -182,10 +181,12 @@ class NotifierFactory(object):
         """
         Enqueue a push notification work item on the provided transaction.
         """
-        notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=self.coalesceSeconds)
-        yield txn.enqueue(PushNotificationWork,
-            pushID=self.pushKeyForId(prefix, id), notBefore=notBefore,
-            priority=priority.value)
+        yield txn.enqueue(
+            PushNotificationWork,
+            pushID=self.pushKeyForId(prefix, id),
+            notBefore=datetime.datetime.utcnow() + datetime.timedelta(seconds=self.coalesceSeconds),
+            pushPriority=priority.value
+        )
 
 
     def newNotifier(self, storeObject):

@@ -115,7 +115,7 @@ class PushNotificationWorkTests(StoreTestCase):
         txn = self._sqlCalendarStore.newTransaction()
         wp = (yield txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/foo/",
-            priority=PushPriority.high.value
+            pushPriority=PushPriority.high.value
         ))
         yield txn.commit()
         yield wp.whenExecuted()
@@ -125,26 +125,26 @@ class PushNotificationWorkTests(StoreTestCase):
         pushDistributor.reset()
         txn = self._sqlCalendarStore.newTransaction()
         proposals = []
-        wp = txn.enqueue(PushNotificationWork,
+        wp = yield txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/bar/",
-            priority=PushPriority.high.value
+            pushPriority=PushPriority.high.value
         )
         proposals.append(wp.whenExecuted())
-        wp = txn.enqueue(PushNotificationWork,
+        wp = yield txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/bar/",
-            priority=PushPriority.high.value
+            pushPriority=PushPriority.high.value
         )
         proposals.append(wp.whenExecuted())
-        wp = txn.enqueue(PushNotificationWork,
+        wp = yield txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/bar/",
-            priority=PushPriority.high.value
+            pushPriority=PushPriority.high.value
         )
         proposals.append(wp.whenExecuted())
         # Enqueue a different pushID to ensure those are not grouped with
         # the others:
-        wp = txn.enqueue(PushNotificationWork,
+        wp = yield txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/baz/",
-            priority=PushPriority.high.value
+            pushPriority=PushPriority.high.value
         )
         proposals.append(wp.whenExecuted())
 
@@ -159,19 +159,19 @@ class PushNotificationWorkTests(StoreTestCase):
         pushDistributor.reset()
         txn = self._sqlCalendarStore.newTransaction()
         proposals = []
-        wp = txn.enqueue(PushNotificationWork,
+        wp = yield txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/bar/",
-            priority=PushPriority.low.value
+            pushPriority=PushPriority.low.value
         )
         proposals.append(wp.whenExecuted())
-        wp = txn.enqueue(PushNotificationWork,
+        wp = yield txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/bar/",
-            priority=PushPriority.high.value
+            pushPriority=PushPriority.high.value
         )
         proposals.append(wp.whenExecuted())
-        wp = txn.enqueue(PushNotificationWork,
+        wp = yield txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/bar/",
-            priority=PushPriority.medium.value
+            pushPriority=PushPriority.medium.value
         )
         proposals.append(wp.whenExecuted())
         yield txn.commit()

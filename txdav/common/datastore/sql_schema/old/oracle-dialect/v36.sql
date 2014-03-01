@@ -1,5 +1,4 @@
 create sequence RESOURCE_ID_SEQ;
-create sequence JOB_SEQ;
 create sequence INSTANCE_ID_SEQ;
 create sequence ATTACHMENT_ID_SEQ;
 create sequence REVISION_SEQ;
@@ -14,15 +13,6 @@ create table NODE_INFO (
 
 create table NAMED_LOCK (
     "LOCK_NAME" nvarchar2(255) primary key
-);
-
-create table JOB (
-    "JOB_ID" integer primary key not null,
-    "WORK_TYPE" nvarchar2(255),
-    "PRIORITY" integer default 0,
-    "WEIGHT" integer default 0,
-    "NOT_BEFORE" timestamp default null,
-    "NOT_AFTER" timestamp default null
 );
 
 create table CALENDAR_HOME (
@@ -358,7 +348,7 @@ create table IMIP_TOKENS (
 
 create table IMIP_INVITATION_WORK (
     "WORK_ID" integer primary key not null,
-    "JOB_ID" integer not null references JOB,
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "FROM_ADDR" nvarchar2(255),
     "TO_ADDR" nvarchar2(255),
     "ICALENDAR_TEXT" nclob
@@ -366,12 +356,12 @@ create table IMIP_INVITATION_WORK (
 
 create table IMIP_POLLING_WORK (
     "WORK_ID" integer primary key not null,
-    "JOB_ID" integer not null references JOB
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
 );
 
 create table IMIP_REPLY_WORK (
     "WORK_ID" integer primary key not null,
-    "JOB_ID" integer not null references JOB,
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "ORGANIZER" nvarchar2(255),
     "ATTENDEE" nvarchar2(255),
     "ICALENDAR_TEXT" nclob
@@ -379,25 +369,25 @@ create table IMIP_REPLY_WORK (
 
 create table PUSH_NOTIFICATION_WORK (
     "WORK_ID" integer primary key not null,
-    "JOB_ID" integer not null references JOB,
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "PUSH_ID" nvarchar2(255),
-    "PUSH_PRIORITY" integer not null
+    "PRIORITY" integer not null
 );
 
 create table GROUP_CACHER_POLLING_WORK (
     "WORK_ID" integer primary key not null,
-    "JOB_ID" integer not null references JOB
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
 );
 
 create table GROUP_REFRESH_WORK (
     "WORK_ID" integer primary key not null,
-    "JOB_ID" integer not null references JOB,
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "GROUP_GUID" nvarchar2(255)
 );
 
 create table GROUP_ATTENDEE_RECONCILIATION_ (
     "WORK_ID" integer primary key not null,
-    "JOB_ID" integer not null references JOB,
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "RESOURCE_ID" integer,
     "GROUP_ID" integer
 );
@@ -444,34 +434,34 @@ create table EXTERNAL_DELEGATE_GROUPS (
 
 create table CALENDAR_OBJECT_SPLITTER_WORK (
     "WORK_ID" integer primary key not null,
-    "JOB_ID" integer not null references JOB,
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade
 );
 
 create table FIND_MIN_VALID_REVISION_WORK (
     "WORK_ID" integer primary key not null,
-    "JOB_ID" integer not null references JOB
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
 );
 
 create table REVISION_CLEANUP_WORK (
     "WORK_ID" integer primary key not null,
-    "JOB_ID" integer not null references JOB
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
 );
 
 create table INBOX_CLEANUP_WORK (
     "WORK_ID" integer primary key not null,
-    "JOB_ID" integer not null references JOB
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
 );
 
 create table CLEANUP_ONE_INBOX_WORK (
     "WORK_ID" integer primary key not null,
-    "JOB_ID" integer not null references JOB,
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "HOME_ID" integer not null unique references CALENDAR_HOME on delete cascade
 );
 
 create table SCHEDULE_REFRESH_WORK (
     "WORK_ID" integer primary key not null,
-    "JOB_ID" integer not null references JOB,
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "ICALENDAR_UID" nvarchar2(255),
     "HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade,
     "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade,
@@ -485,7 +475,7 @@ create table SCHEDULE_REFRESH_ATTENDEES (
 
 create table SCHEDULE_AUTO_REPLY_WORK (
     "WORK_ID" integer primary key not null,
-    "JOB_ID" integer not null references JOB,
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "ICALENDAR_UID" nvarchar2(255),
     "HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade,
     "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade,
@@ -494,7 +484,7 @@ create table SCHEDULE_AUTO_REPLY_WORK (
 
 create table SCHEDULE_ORGANIZER_WORK (
     "WORK_ID" integer primary key not null,
-    "JOB_ID" integer not null references JOB,
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "ICALENDAR_UID" nvarchar2(255),
     "SCHEDULE_ACTION" integer not null,
     "HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade,
@@ -516,7 +506,7 @@ insert into SCHEDULE_ACTION (DESCRIPTION, ID) values ('modify-cancelled', 2);
 insert into SCHEDULE_ACTION (DESCRIPTION, ID) values ('remove', 3);
 create table SCHEDULE_REPLY_WORK (
     "WORK_ID" integer primary key not null,
-    "JOB_ID" integer not null references JOB,
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "ICALENDAR_UID" nvarchar2(255),
     "HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade,
     "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade,
@@ -525,7 +515,7 @@ create table SCHEDULE_REPLY_WORK (
 
 create table SCHEDULE_REPLY_CANCEL_WORK (
     "WORK_ID" integer primary key not null,
-    "JOB_ID" integer not null references JOB,
+    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "ICALENDAR_UID" nvarchar2(255),
     "HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade,
     "ICALENDAR_TEXT" nclob
@@ -536,7 +526,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '37');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '36');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '5');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');
@@ -670,34 +660,6 @@ create index IMIP_TOKENS_TOKEN_e94b918f on IMIP_TOKENS (
     TOKEN
 );
 
-create index IMIP_INVITATION_WORK__586d064c on IMIP_INVITATION_WORK (
-    JOB_ID
-);
-
-create index IMIP_POLLING_WORK_JOB_d5535891 on IMIP_POLLING_WORK (
-    JOB_ID
-);
-
-create index IMIP_REPLY_WORK_JOB_I_bf4ae73e on IMIP_REPLY_WORK (
-    JOB_ID
-);
-
-create index PUSH_NOTIFICATION_WOR_8bbab117 on PUSH_NOTIFICATION_WORK (
-    JOB_ID
-);
-
-create index GROUP_CACHER_POLLING__6eb3151c on GROUP_CACHER_POLLING_WORK (
-    JOB_ID
-);
-
-create index GROUP_REFRESH_WORK_JO_717ede20 on GROUP_REFRESH_WORK (
-    JOB_ID
-);
-
-create index GROUP_ATTENDEE_RECONC_cd2d61b9 on GROUP_ATTENDEE_RECONCILIATION_ (
-    JOB_ID
-);
-
 create index GROUPS_GROUP_GUID_ebf7a1d4 on GROUPS (
     GROUP_GUID
 );
@@ -714,36 +676,12 @@ create index CALENDAR_OBJECT_SPLIT_af71dcda on CALENDAR_OBJECT_SPLITTER_WORK (
     RESOURCE_ID
 );
 
-create index CALENDAR_OBJECT_SPLIT_33603b72 on CALENDAR_OBJECT_SPLITTER_WORK (
-    JOB_ID
-);
-
-create index FIND_MIN_VALID_REVISI_78d17400 on FIND_MIN_VALID_REVISION_WORK (
-    JOB_ID
-);
-
-create index REVISION_CLEANUP_WORK_eb062686 on REVISION_CLEANUP_WORK (
-    JOB_ID
-);
-
-create index INBOX_CLEANUP_WORK_JO_799132bd on INBOX_CLEANUP_WORK (
-    JOB_ID
-);
-
-create index CLEANUP_ONE_INBOX_WOR_375dac36 on CLEANUP_ONE_INBOX_WORK (
-    JOB_ID
-);
-
 create index SCHEDULE_REFRESH_WORK_26084c7b on SCHEDULE_REFRESH_WORK (
     HOME_RESOURCE_ID
 );
 
 create index SCHEDULE_REFRESH_WORK_989efe54 on SCHEDULE_REFRESH_WORK (
     RESOURCE_ID
-);
-
-create index SCHEDULE_REFRESH_WORK_3ffa2718 on SCHEDULE_REFRESH_WORK (
-    JOB_ID
 );
 
 create index SCHEDULE_REFRESH_ATTE_83053b91 on SCHEDULE_REFRESH_ATTENDEES (
@@ -759,20 +697,12 @@ create index SCHEDULE_AUTO_REPLY_W_0755e754 on SCHEDULE_AUTO_REPLY_WORK (
     RESOURCE_ID
 );
 
-create index SCHEDULE_AUTO_REPLY_W_4d7bb5a8 on SCHEDULE_AUTO_REPLY_WORK (
-    JOB_ID
-);
-
 create index SCHEDULE_ORGANIZER_WO_18ce4edd on SCHEDULE_ORGANIZER_WORK (
     HOME_RESOURCE_ID
 );
 
 create index SCHEDULE_ORGANIZER_WO_14702035 on SCHEDULE_ORGANIZER_WORK (
     RESOURCE_ID
-);
-
-create index SCHEDULE_ORGANIZER_WO_1e9f246d on SCHEDULE_ORGANIZER_WORK (
-    JOB_ID
 );
 
 create index SCHEDULE_REPLY_WORK_H_745af8cf on SCHEDULE_REPLY_WORK (
@@ -783,29 +713,7 @@ create index SCHEDULE_REPLY_WORK_R_11bd3fbb on SCHEDULE_REPLY_WORK (
     RESOURCE_ID
 );
 
-create index SCHEDULE_REPLY_WORK_J_5913b4a4 on SCHEDULE_REPLY_WORK (
-    JOB_ID
-);
-
 create index SCHEDULE_REPLY_CANCEL_dab513ef on SCHEDULE_REPLY_CANCEL_WORK (
     HOME_RESOURCE_ID
 );
 
-create index SCHEDULE_REPLY_CANCEL_94a0c766 on SCHEDULE_REPLY_CANCEL_WORK (
-    JOB_ID
-);
-
--- Skipped Function next_job
-
--- Extras
-
-create or replace function next_job return integer is
-  cursor c1 is select ID from JOB for update skip locked;
-  result integer;
-begin
-  open c1;
-  fetch c1 into result;
-  select ID from JOB where ID = result for update;
-  return result;
-end;
-/

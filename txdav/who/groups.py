@@ -21,7 +21,7 @@ Group membership caching
 
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.syntax import Delete, Select
-from twext.enterprise.queue import WorkItem, PeerConnectionPool
+from twext.enterprise.jobqueue import WorkItem, PeerConnectionPool
 from txdav.who.delegates import allGroupDelegates
 from twext.who.idirectory import RecordType
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -185,6 +185,7 @@ class GroupAttendeeReconciliationWork(
     # TODO: Pull this over from groupcacher branch
 
 
+
 @inlineCallbacks
 def expandedMembers(record, members=None, records=None):
     """
@@ -209,6 +210,7 @@ def expandedMembers(record, members=None, records=None):
                 yield expandedMembers(member, members, records)
 
     returnValue(members)
+
 
 
 def diffAssignments(old, new):
@@ -266,7 +268,6 @@ class GroupCacher(object):
         #     externalAssignments = (yield self.externalProxiesSource())
         # yield self.applyExternalAssignments(txn, externalAssignments)
 
-
         # Figure out which groups matter
         groupGUIDs = yield self.groupsToRefresh(txn)
         self.log.debug(
@@ -297,13 +298,13 @@ class GroupCacher(object):
             for (
                 delegatorGUID, (readDelegateGUID, writeDelegateGUID)
             ) in changed:
-                readDelegateGroupID = writeDelegateGroupID  = None
+                readDelegateGroupID = writeDelegateGroupID = None
                 if readDelegateGUID:
-                    readDelegateGroupID, name, hash = (
+                    readDelegateGroupID, _ignore_name, hash = (
                         yield txn.groupByGUID(readDelegateGUID)
                     )
                 if writeDelegateGUID:
-                    writeDelegateGroupID, name, hash = (
+                    writeDelegateGroupID, _ignore_name, hash = (
                         yield txn.groupByGUID(writeDelegateGUID)
                     )
                 yield txn.assignExternalDelegates(
@@ -315,7 +316,6 @@ class GroupCacher(object):
                 yield txn.assignExternalDelegates(
                     delegatorGUID, None, None, None, None
                 )
-
 
 
     @inlineCallbacks
@@ -331,7 +331,7 @@ class GroupCacher(object):
         for member in members:
             membershipHashContent.update(str(member.guid))
         membershipHash = membershipHashContent.hexdigest()
-        groupID, cachedName, cachedMembershipHash = (
+        groupID, _ignore_cachedName, cachedMembershipHash = (
             yield txn.groupByGUID(groupGUID)
         )
 

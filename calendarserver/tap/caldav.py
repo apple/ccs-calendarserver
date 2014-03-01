@@ -55,9 +55,9 @@ from twisted.python.util import uidFromString, gidFromString
 from twext.enterprise.adbapi2 import ConnectionPool
 from twext.enterprise.ienterprise import ORACLE_DIALECT
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
-from twext.enterprise.queue import NonPerformingQueuer
-from twext.enterprise.queue import PeerConnectionPool
-from twext.enterprise.queue import WorkerFactory as QueueWorkerFactory
+from twext.enterprise.jobqueue import NonPerformingQueuer
+from twext.enterprise.jobqueue import PeerConnectionPool
+from twext.enterprise.jobqueue import WorkerFactory as QueueWorkerFactory
 from twext.internet.fswatch import DirectoryChangeListener, IDirectoryChangeListenee
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
@@ -527,24 +527,25 @@ class SlaveSpawnerService(Service):
         if (
              config.DirectoryProxy.Enabled and
              config.DirectoryProxy.SocketPath != ""
-         ):
-             log.info("Adding directory proxy service")
+        ):
+            log.info("Adding directory proxy service")
 
-             dpsArgv = [
-                 sys.executable,
-                 sys.argv[0],
-             ]
-             if config.UserName:
-                 dpsArgv.extend(("-u", config.UserName))
-             if config.GroupName:
-                 dpsArgv.extend(("-g", config.GroupName))
-             dpsArgv.extend((
-                 "--reactor=%s" % (config.Twisted.reactor,),
-                 "-n", "caldav_directoryproxy",
-                 "-f", self.configPath,
-             ))
-             self.monitor.addProcess("directoryproxy", dpsArgv,
-                 env=PARENT_ENVIRONMENT)
+            dpsArgv = [
+                sys.executable,
+                sys.argv[0],
+            ]
+            if config.UserName:
+                dpsArgv.extend(("-u", config.UserName))
+            if config.GroupName:
+                dpsArgv.extend(("-g", config.GroupName))
+            dpsArgv.extend((
+                "--reactor=%s" % (config.Twisted.reactor,),
+                "-n", "caldav_directoryproxy",
+                "-f", self.configPath,
+            ))
+            self.monitor.addProcess("directoryproxy", dpsArgv,
+                env=PARENT_ENVIRONMENT)
+
 
 
 class WorkSchedulingService(Service):
@@ -1727,7 +1728,7 @@ class CalDAVServiceMaker (object):
                 raise StoreNotAvailable()
 
             from twisted.internet import reactor
-            pool = PeerConnectionPool(reactor, store.newTransaction, config.WorkQueue.ampPort, schema)
+            pool = PeerConnectionPool(reactor, store.newTransaction, config.WorkQueue.ampPort)
             store.queuer = store.queuer.transferProposalCallbacks(pool)
             controlSocket.addFactory(_QUEUE_ROUTE, pool.workerListenerFactory())
             # TODO: now that we have the shared control socket, we should get

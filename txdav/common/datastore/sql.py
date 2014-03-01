@@ -34,7 +34,7 @@ from twext.enterprise.dal.syntax import (
     Select, Update, ColumnSyntax, TableSyntax, Upper, Count, ALL_COLUMNS, Sum,
     DatabaseLock, DatabaseUnlock)
 from twext.enterprise.ienterprise import AlreadyFinishedError
-from twext.enterprise.queue import LocalQueuer
+from twext.enterprise.jobqueue import LocalQueuer
 from twext.enterprise.util import parseSQLTimestamp
 from twext.internet.decorate import memoizedKey, Memoizable
 from twext.python.clsprop import classproperty
@@ -138,7 +138,7 @@ class CommonDataStore(Service, object):
     @type quota: C{int} or C{NoneType}
 
     @ivar queuer: An object with an C{enqueueWork} method, from
-        L{twext.enterprise.queue}.  Initially, this is a L{LocalQueuer}, so it
+        L{twext.enterprise.jobqueue}.  Initially, this is a L{LocalQueuer}, so it
         is always usable, but in a properly configured environment it will be
         upgraded to a more capable object that can distribute work throughout a
         cluster.
@@ -544,7 +544,7 @@ class CommonStoreTransaction(object):
 
     def enqueue(self, workItem, **kw):
         """
-        Enqueue a L{twext.enterprise.queue.WorkItem} for later execution.
+        Enqueue a L{twext.enterprise.jobqueue.WorkItem} for later execution.
 
         For example::
 
@@ -553,7 +553,7 @@ class CommonStoreTransaction(object):
 
         @return: a work proposal describing various events in the work's
             life-cycle.
-        @rtype: L{twext.enterprise.queue.WorkProposal}
+        @rtype: L{twext.enterprise.jobqueue.WorkProposal}
         """
         return self._store.queuer.enqueueWork(self, workItem, **kw)
 

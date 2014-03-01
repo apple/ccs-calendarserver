@@ -17,7 +17,7 @@
 
 
 from twext.enterprise.dal.syntax import Select
-from twext.enterprise.queue import WorkItem
+from twext.enterprise.jobqueue import WorkItem
 from twext.python.clsprop import classproperty
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.trial.unittest import TestCase

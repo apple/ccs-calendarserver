@@ -32,17 +32,46 @@ from sqlparse import parse
 from re import compile
 import hashlib
 
+def _schemaFiles(version=None):
+    """
+    Find the set of files to process, either the current set if C{version} is L{None}, otherwise look
+    for the specific version.
 
-def _populateSchema(version=None):
+    @param version: version identifier (e.g., "v1", "v2" etc)
+    @type version: L{str}
+    """
+    if version is None:
+        currentObj = getModule(__name__).filePath.sibling("sql_schema").child("current.sql")
+        extrasObj = getModule(__name__).filePath.sibling("sql_schema").child("current-{}-extras.sql".format(ORACLE_DIALECT))
+        outObj = getModule(__name__).filePath.sibling("sql_schema").child("current-{}.sql".format(ORACLE_DIALECT))
+    else:
+        currentObj = getModule(__name__).filePath.sibling("sql_schema").child("old").child(POSTGRES_DIALECT).child("%s.sql" % (version,))
+        extrasObj = getModule(__name__).filePath.sibling("sql_schema").child("old").child(ORACLE_DIALECT).child("{}-extras.sql" % (version,))
+        outObj = getModule(__name__).filePath.sibling("sql_schema").child("old").child(ORACLE_DIALECT).child("{}.sql" % (version,))
+
+    return currentObj, extrasObj, outObj
+
+
+
+def _populateSchema(pathObj=None):
     """
     Generate the global L{SchemaSyntax}.
     """
 
-    if version is None:
-        pathObj = getModule(__name__).filePath.sibling("sql_schema").child("current.sql")
-    else:
-        pathObj = getModule(__name__).filePath.sibling("sql_schema").child("old").child(POSTGRES_DIALECT).child("%s.sql" % (version,))
+    if pathObj is None:
+        pathObj = _schemaFiles()[0]
     return SchemaSyntax(schemaFromPath(pathObj))
+
+
+
+def _schemaExtras(out, extras):
+    """
+    If an extras file exists, add its entire content to the output stream..
+    """
+
+    if extras.exists():
+        out.write("\n-- Extras\n\n")
+        out.write(extras.getContent())
 
 
 
@@ -397,6 +426,12 @@ def _translateSchema(out, schema=schema):
         out.write(',\n    '.join([column.name for column in index.columns]))
         out.write('\n);\n\n')
 
+    # Functions are skipped as they likely use dialect specific syntax. Instead, functions
+    # for other dialects need to be written in an "extras" file which will be appended to
+    # the output.
+    for function in schema.model.functions:
+        out.write("-- Skipped Function {}\n".format(function.name))
+
 
 
 def splitSQLString(sqlString):
@@ -427,7 +462,7 @@ def splitSQLString(sqlString):
             continue
         if inPlSQL is None:
             #if 'begin'.lower() in str(stmt).split()[0].lower():
-            if 'begin'.lower() in str(stmt).lower():
+            if str(stmt).lower().strip().startswith('begin'):
                 inPlSQL = True
                 aggregated += str(stmt)
                 continue
@@ -438,9 +473,16 @@ def splitSQLString(sqlString):
 
 if __name__ == '__main__':
     import sys
-    if len(sys.argv) == 2:
-        # Argument is the name of a old/postgres-dialect file (without the .sql suffix), e.g. "v4"
-        schema = _populateSchema(sys.argv[1])
-    else:
-        schema = _populateSchema()
-    _translateSchema(sys.stdout, schema=schema)
+    version = sys.argv[1] if len(sys.argv) == 2 else None
+    current, extras, out = _schemaFiles(version)
+
+    print "Reading from {}".format(current.path)
+    print "Extras from  {}".format(extras.path) if extras.exists() else "No extras"
+    print "Writing to   {}".format(out.path)
+
+    with out.open("w") as outfd:
+        schema = _populateSchema(current)
+        _translateSchema(outfd, schema=schema)
+        _schemaExtras(outfd, extras)
+
+    print "Done"

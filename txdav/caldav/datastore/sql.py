@@ -35,7 +35,7 @@ from twext.enterprise.dal.syntax import Select, Count, ColumnSyntax
 from twext.enterprise.dal.syntax import Update
 from twext.enterprise.dal.syntax import utcNowSQL
 from twext.enterprise.locking import NamedLock
-from twext.enterprise.queue import WorkItem
+from twext.enterprise.jobqueue import WorkItem
 from twext.enterprise.util import parseSQLTimestamp
 from twext.python.clsprop import classproperty
 from twext.python.filepath import CachingFilePath

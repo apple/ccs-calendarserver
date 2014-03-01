@@ -297,7 +297,7 @@ test_upgrader = UpgradeDatabaseSchemaStep(None)
 for child in test_upgrader.schemaLocation.child("old").child(POSTGRES_DIALECT).globChildren("*.sql"):
     def f(self, lchild=child):
         return self._dbSchemaUpgrades(lchild)
-    setattr(SchemaUpgradeTests, "test_dbSchemaUpgrades_%s" % (child.basename().split(".", 1)[0],), f)
+        setattr(SchemaUpgradeTests, "test_dbSchemaUpgrades_%s" % (child.basename().split(".", 1)[0],), f)
 
 # Bind test methods for each addressbook data version
 versions = set()

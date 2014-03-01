@@ -16,7 +16,7 @@
 ##
 
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twext.enterprise.dal.model import Schema, Table, Column, Sequence
+from twext.enterprise.dal.model import Schema, Table, Column, Sequence, Function
 from twext.enterprise.dal.parseschema import addSQLToSchema
 
 """
@@ -60,5 +60,11 @@ def dumpSchema(txn, title, schemaname="public"):
     for row in rows:
         name = row[0]
         Sequence(schema, name)
+
+    # Functions
+    rows = yield txn.execSQL("select routine_name from information_schema.routines where routine_schema = '%s';" % (schemaname,))
+    for row in rows:
+        name = row[0]
+        Function(schema, name)
 
     returnValue(schema)

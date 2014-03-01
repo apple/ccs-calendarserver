@@ -64,7 +64,7 @@ from calendarserver.tap.caldav import (
     QuitAfterUpgradeStep, DataStoreMonitor
 )
 from calendarserver.provision.root import RootResource
-from twext.enterprise.queue import PeerConnectionPool, LocalQueuer
+from twext.enterprise.jobqueue import PeerConnectionPool, LocalQueuer
 from StringIO import StringIO
 
 log = Logger()

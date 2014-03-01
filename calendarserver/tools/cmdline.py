@@ -31,7 +31,7 @@ from twisted.application.service import Service
 import sys
 from calendarserver.tap.util import getRootResource
 from errno import ENOENT, EACCES
-from twext.enterprise.queue import NonPerformingQueuer
+from twext.enterprise.jobqueue import NonPerformingQueuer
 
 # TODO: direct unit tests for these functions.
 

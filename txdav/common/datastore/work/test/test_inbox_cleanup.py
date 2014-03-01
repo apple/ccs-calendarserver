@@ -20,7 +20,7 @@ from txdav.common.datastore.test.util import CommonCommonTests, populateCalendar
 
 
 from twext.enterprise.dal.syntax import Select, Update, Parameter
-from twext.enterprise.queue import WorkItem
+from twext.enterprise.jobqueue import WorkItem
 from twext.python.clsprop import classproperty
 from twisted.internet.defer import inlineCallbacks
 from twisted.trial.unittest import TestCase

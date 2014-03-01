@@ -19,7 +19,7 @@
 Handles the sending of scheduling messages via iMIP (mail gateway).
 """
 
-from twext.enterprise.queue import inTransaction
+from twext.enterprise.jobqueue import inTransaction
 from twext.python.log import Logger
 from txweb2 import responsecode
 from txweb2.dav.http import ErrorResponse
