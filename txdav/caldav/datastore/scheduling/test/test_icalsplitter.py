@@ -68,6 +68,10 @@ class ICalSplitter (unittest.TestCase):
             getattr(self, attrname_1).offsetSeconds(-1)
             self.subs[attrname_1] = getattr(self, attrname_1)
 
+        setattr(self, "now_future", self.now.duplicate())
+        getattr(self, "now_future").offsetYear(2)
+        self.subs["now_future"] = getattr(self, "now_future")
+
         self.patch(config, "MaxAllowedInstances", 500)
 
 
@@ -184,6 +188,24 @@ ATTENDEE:mailto:user22@example.com
 ATTENDEE:mailto:user23@example.com
 ATTENDEE:mailto:user24@example.com
 ATTENDEE:mailto:user25@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                False,
+            ),
+            (
+                "#2.3 Small, more than a year in the future, simple recurring component",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:%(now_future)s
+DURATION:PT1H
+ORGANIZER:mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
 RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR

@@ -63,7 +63,7 @@ class iCalSplitter(object):
         now.offsetDay(1)
         instances = ical.cacheExpandedTimeRanges(now)
         instances = sorted(instances.instances.values(), key=lambda x: x.start)
-        if instances[0].start >= self.past or instances[-1].start < self.now or len(instances) <= 1:
+        if len(instances) <= 1 or instances[0].start >= self.past or instances[-1].start < self.now:
             return False
 
         # Make sure there are some overridden components in the past - as splitting only makes sense when
