@@ -39,10 +39,11 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 # from twistedcaldav.directory.directory import GroupCacherPollingWork
 # from calendarserver.push.notifier import PushNotificationWork
 
-from txdav.caldav.datastore.scheduling.work import (
-    ScheduleOrganizerWork, ScheduleReplyWork, ScheduleRefreshWork
-)
+# from txdav.caldav.datastore.scheduling.work import (
+#     ScheduleOrganizerWork, ScheduleReplyWork, ScheduleRefreshWork
+# )
 
+from twext.enterprise.jobqueue import JobItem
 
 from .eventsource import EventSourceResource, IEventDecoder
 from .resource import PageElement, TemplateResource
@@ -105,59 +106,63 @@ class WorkEventsResource(EventSourceResource):
 
         payload = {}
 
-        for workDescription, workItemClass, itemAttributes in (
-            (
-                u"Organizer Request",
-                ScheduleOrganizerWork,
-                (
-                    ("icalendarUid", "iCalendar UID"),
-                    ("attendeeCount", "Attendee Count"),
-                ),
-            ),
-            (
-                u"Attendee Reply",
-                ScheduleReplyWork,
-                (
-                    ("icalendarUid", "iCalendar UID"),
-                ),
-            ),
-            (
-                u"Attendee Refresh",
-                ScheduleRefreshWork,
-                (
-                    ("icalendarUid", "iCalendar UID"),
-                    ("attendeeCount", "Attendee Count"),
-                ),
-            ),
-        ):
-            workItems = yield workItemClass.all(txn)
+        records = yield JobItem.histogram(txn)
 
-            categoryData = []
 
-            for workItem in workItems:
-                itemData = {}
 
-                for itemAttribute, itemDescription in itemAttributes:
-                    itemData[itemDescription] = getattr(
-                        workItem, itemAttribute
-                    )
+        # for workDescription, workItemClass, itemAttributes in (
+        #     (
+        #         u"Organizer Request",
+        #         ScheduleOrganizerWork,
+        #         (
+        #             ("icalendarUid", "iCalendar UID"),
+        #             ("attendeeCount", "Attendee Count"),
+        #         ),
+        #     ),
+        #     (
+        #         u"Attendee Reply",
+        #         ScheduleReplyWork,
+        #         (
+        #             ("icalendarUid", "iCalendar UID"),
+        #         ),
+        #     ),
+        #     (
+        #         u"Attendee Refresh",
+        #         ScheduleRefreshWork,
+        #         (
+        #             ("icalendarUid", "iCalendar UID"),
+        #             ("attendeeCount", "Attendee Count"),
+        #         ),
+        #     ),
+        # ):
+        #     workItems = yield workItemClass.all(txn)
 
-                categoryData.append(itemData)
+        #     categoryData = []
 
-            payload[workDescription] = categoryData
+        #     for workItem in workItems:
+        #         itemData = {}
 
-        self.addEvents((
-            dict(
-                eventClass=u"work",
-                eventText=asJSON(payload),
-            ),
-        ))
+        #         for itemAttribute, itemDescription in itemAttributes:
+        #             itemData[itemDescription] = getattr(
+        #                 workItem, itemAttribute
+        #             )
 
-        if not hasattr(self, "_clock"):
-            from twisted.internet import reactor
-            self._clock = reactor
+        #         categoryData.append(itemData)
 
-        # self._clock.callLater(5, self.poll)
+        #     payload[workDescription] = categoryData
+
+        # self.addEvents((
+        #     dict(
+        #         eventClass=u"work",
+        #         eventText=asJSON(payload),
+        #     ),
+        # ))
+
+        # if not hasattr(self, "_clock"):
+        #     from twisted.internet import reactor
+        #     self._clock = reactor
+
+        # # self._clock.callLater(5, self.poll)
 
 
 
