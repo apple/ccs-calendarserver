@@ -893,7 +893,7 @@ class CalDAVServiceMaker (object):
         if isinstance(store, SQLStore):
             def queueMasterAvailable(connectionFromMaster):
                 store.queuer = store.queuer.transferProposalCallbacks(connectionFromMaster)
-            queueFactory = QueueWorkerFactory(store.newTransaction, schema,
+            queueFactory = QueueWorkerFactory(store.newTransaction,
                                               queueMasterAvailable)
             controlSocketClient.addFactory(_QUEUE_ROUTE, queueFactory)
         controlClient = ControlSocketConnectingService(
