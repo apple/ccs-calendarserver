@@ -210,7 +210,27 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-                False,
+               False,
+            ),
+            (
+                "#2.4 Small, all cancelled, simple recurring component",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:%(now_back30)s
+DURATION:PT1H
+ORGANIZER:mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+EXDATE:%(now_back30)s
+EXDATE:%(now_back29)s
+RRULE:FREQ=DAILY;COUNT=2
+END:VEVENT
+END:VCALENDAR
+""",
+                 False,
             ),
             (
                 "#3.1 Small, old, recurring with future override",
