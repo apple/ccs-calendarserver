@@ -70,7 +70,6 @@ from txweb2.server import Site
 
 from txdav.caldav.datastore.scheduling.imip.inbound import MailRetriever
 from txdav.caldav.datastore.scheduling.imip.inbound import scheduleNextMailPoll
-from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseStep
 from txdav.common.datastore.upgrade.sql.upgrade import (
     UpgradeDatabaseCalendarDataStep, UpgradeDatabaseOtherStep,
