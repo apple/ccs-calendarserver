@@ -198,7 +198,7 @@ def _processDefaultAlarmProperty(home, propname, vevent, timed):
             continue
         prop = calendar.properties().get(PropertyName.fromElement(propname))
         if prop is not None:
-            alarm = str(prop.children[0]) if prop.children else None
+            alarm = str(prop.children[0]) if prop.children and prop.children[0] else "empty"
             yield calendar.setDefaultAlarm(alarm, vevent, timed)
             del calendar.properties()[PropertyName.fromElement(propname)]
 

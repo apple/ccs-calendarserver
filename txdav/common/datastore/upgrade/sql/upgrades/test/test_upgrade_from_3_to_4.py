@@ -318,17 +318,11 @@ TRIGGER;RELATED=START:-PT1M
 END:VALARM
 """
 
-        alarmshared2 = """BEGIN:VALARM
-ACTION:AUDIO
-TRIGGER;RELATED=START:-PT2M
-END:VALARM
-"""
+        alarmshared2 = ""
+        alarmshared2_empty = "empty"
 
-        alarmshared3 = """BEGIN:VALARM
-ACTION:AUDIO
-TRIGGER;RELATED=START:-PT3M
-END:VALARM
-"""
+        alarmshared3 = ""
+        alarmshared3_empty = "empty"
 
         alarmshared4 = """BEGIN:VALARM
 ACTION:AUDIO
@@ -378,6 +372,14 @@ END:VALARM
             ).on(self.transactionUnderTest())
 
         yield self.commit()
+
+        # Re-adjust for empty changes
+        detailsshared = (
+            (True, True, alarmshared1, caldavxml.DefaultAlarmVEventDateTime,),
+            (True, False, alarmshared2_empty, caldavxml.DefaultAlarmVEventDate,),
+            (False, True, alarmshared3_empty, caldavxml.DefaultAlarmVToDoDateTime,),
+            (False, False, alarmshared4, caldavxml.DefaultAlarmVToDoDate,),
+        )
 
         returnValue((detailshome, detailscalendar, detailsshared, shared_name,))
 
