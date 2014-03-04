@@ -188,7 +188,10 @@
         // Update bars selection
         bars
           .attr("class", "bar")
-          .attr("width", function(i) { return xLocation(i.count); })
+          .attr("width", function(i) {
+            if (i.count < 1) { return 0; }
+            return xLocation(i.count);
+          })
           .attr("height", yLocation.rangeBand())
           .attr(
             "transform",
@@ -206,7 +209,7 @@
         data = {};
 
         for (key in workTableDescriptions) {
-          data[key] = 0;
+          data[key] = 0.1;
         }
 
         drawChart(data);
