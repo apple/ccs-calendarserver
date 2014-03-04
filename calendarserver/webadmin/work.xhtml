@@ -123,6 +123,14 @@
             .range([xInset, innerWidth])
           ;
 
+        function xLocationWithZero(value) {
+          if (value < 1) {
+            return 0;
+          } else {
+            return xLocation(value);
+          }
+        }
+
         var yLocation =
           d3.scale.ordinal()
             .domain(items.map(function(i) { return i.description; }))
@@ -194,10 +202,7 @@
         // Update bars selection
         bars
           .attr("class", "bar")
-          .attr("width", function(i) {
-            if (i.count < 1) { return 0; }
-            return xLocation(i.count);
-          })
+          .attr("width", function(i) { return xLocationWithZero(i.count); })
           .attr("height", yLocation.rangeBand())
           .attr(
             "transform",
@@ -206,6 +211,28 @@
 
         // Exit bars selection
         bars.exit().remove();
+
+        // Select labels
+        var labels =
+          inner.selectAll(".label")
+            .data(items);
+
+        // Enter labels selection
+        labels.enter().append("text");
+
+        // Update labels selection
+        labels
+          .attr("class", "label")
+          .attr("x", function(i) { return xLocationWithZero(i.count) + 4; })
+          .attr("y", function(i) { return yLocation(i.description) + (yLocation.rangeBand() / 2); })
+          .attr("dy", "0.32em")
+          .text(function(i) {
+            if (i.count < 1) { return ""; }
+            return i.count;
+          })
+
+        // Exit labels selection
+        labels.exit().remove();
 
         // Exit inner selection
         inner.exit().remove();
