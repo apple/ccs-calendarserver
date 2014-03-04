@@ -63,6 +63,9 @@ class Upgrade_from_5_to_6(CommonStoreTests):
         for vevent, timed, alarm in detailscalendar:
             yield calendar.setDefaultAlarm(alarm, vevent, timed)
 
+        inbox = yield self.calendarUnderTest(name="inbox", home="user01")
+        yield inbox.setUsedForFreeBusy(True)
+
         home2 = yield self.homeUnderTest(name="user02")
         shared_name2 = yield calendar.shareWith(home2, _BIND_MODE_WRITE)
         shared = yield self.calendarUnderTest(name=shared_name2, home="user02")
@@ -98,7 +101,7 @@ class Upgrade_from_5_to_6(CommonStoreTests):
 
 
     @inlineCallbacks
-    def _upgrade_check(self, detailshome, detailscalendar, detailsshared, shared_name2, shared_name3):
+    def _upgrade_alarms_check(self, detailshome, detailscalendar, detailsshared, shared_name2, shared_name3):
 
         # Check each type of collection
         home = yield self.homeUnderTest(name="user01")
@@ -134,7 +137,23 @@ class Upgrade_from_5_to_6(CommonStoreTests):
 
 
     @inlineCallbacks
+    def _upgrade_inbox_check(self, detailshome, detailscalendar, detailsshared, shared_name2, shared_name3):
+
+        calendar = yield self.calendarUnderTest(name="calendar_1", home="user01")
+        self.assertTrue(calendar.isUsedForFreeBusy())
+        inbox = yield self.calendarUnderTest(name="inbox", home="user01")
+        self.assertFalse(inbox.isUsedForFreeBusy())
+
+
+    @inlineCallbacks
     def test_defaultAlarmUpgrade(self):
         detailshome, detailscalendar, detailsshared, shared_name2, shared_name3 = (yield self._upgrade_setup())
         yield doUpgrade(self._sqlCalendarStore)
-        yield self._upgrade_check(detailshome, detailscalendar, detailsshared, shared_name2, shared_name3)
+        yield self._upgrade_alarms_check(detailshome, detailscalendar, detailsshared, shared_name2, shared_name3)
+
+
+    @inlineCallbacks
+    def test_inboxTranspUpgrade(self):
+        detailshome, detailscalendar, detailsshared, shared_name2, shared_name3 = (yield self._upgrade_setup())
+        yield doUpgrade(self._sqlCalendarStore)
+        yield self._upgrade_inbox_check(detailshome, detailscalendar, detailsshared, shared_name2, shared_name3)

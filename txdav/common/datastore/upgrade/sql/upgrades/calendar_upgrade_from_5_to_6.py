@@ -19,7 +19,8 @@ from twext.enterprise.dal.syntax import Update
 
 from twisted.internet.defer import inlineCallbacks
 
-from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
+from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN, \
+    _TRANSP_TRANSPARENT
 from txdav.common.datastore.upgrade.sql.upgrades.util import updateCalendarDataVersion, \
     updateAllCalendarHomeDataVersions
 
@@ -37,6 +38,8 @@ def doUpgrade(sqlStore):
 
     sqlTxn = sqlStore.newTransaction()
     cb = schema.CALENDAR_BIND
+
+    # Fix shared calendar alarms which should default to "empty"
     yield Update(
         {
             cb.ALARM_VEVENT_TIMED: "empty",
@@ -45,6 +48,14 @@ def doUpgrade(sqlStore):
             cb.ALARM_VTODO_ALLDAY: "empty",
         },
         Where=(cb.BIND_MODE != _BIND_MODE_OWN)
+    ).on(sqlTxn)
+
+    # Fix inbox transparency which should always be True
+    yield Update(
+        {
+            cb.TRANSP: _TRANSP_TRANSPARENT,
+        },
+        Where=(cb.CALENDAR_RESOURCE_NAME == "inbox")
     ).on(sqlTxn)
     yield sqlTxn.commit()
 
