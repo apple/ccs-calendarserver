@@ -26,26 +26,82 @@
     <script src="http://d3js.org/d3.v3.min.js"></script>
     <script>
 
+      var workTableDescriptions = {
+        // Scheduling
+        "SCHEDULE_ORGANIZER_WORK": "Schedule Organizer",
+        "SCHEDULE_REPLY_WORK": "Schedule Reply",
+        "SCHEDULE_REPLY_CANCEL_WORK": "Schedule Reply (Cancel)",
+        "SCHEDULE_REFRESH_WORK": "Schedule Refresh",
+        "SCHEDULE_AUTO_REPLY_WORK": "Schedule Auto-reply",
+
+        // iMIP scheduling
+        "IMIP_POLLING_WORK": "iMIP Poll",
+        "IMIP_INVITATION_WORK": "iMIP Invitation",
+        "IMIP_REPLY_WORK": "iMIP Reply",
+
+        // Group cacher
+        "GROUP_CACHER_POLLING_WORK": "Group Cache Poll",
+        "GROUP_REFRESH_WORK": "Group Refresh",
+        "GROUP_ATTENDEE_RECONCILIATION_WORK": "Group Attendee Reconciliation",
+
+        // Push notifications
+        "PUSH_NOTIFICATION_WORK": "Push Notification",
+
+        // Event splitting
+        "CALENDAR_OBJECT_SPLITTER_WORK": "Event Split",
+
+        // Inbox cleanup
+        "INBOX_CLEANUP_WORK": "Inbox Cleanup",
+        "CLEANUP_ONE_INBOX_WORK": "Inbox Cleanup: One",
+
+        // Revision cleanup
+        "REVISION_CLEANUP_WORK": "Revision Cleanup",
+        "FIND_MIN_VALID_REVISION_WORK": "Revision Cleanup: Find Minimum",
+      };
+
       function drawChart(data) {
+        items = [];
+
+        // Add items in the order used by workTableDescriptions
+        for (key in workTableDescriptions) {
+          if (key in data) {
+            items.push({
+              name: key,
+              count: data[key],
+              description: workTableDescriptions[key],
+            });
+          }
+        }
+
+        for (key in data) {
+          if (! key in workTableDescriptions) {
+            items.push({
+              name: key,
+              count: data[key],
+              description: key,
+            });
+          }
+        }
+
         var width = 600;
         var barHeight = 20;
 
         var scaledWidth =
           d3.scale.linear()
-            .domain([0, d3.max(data)])
+            .domain([0, d3.max(items, function(i) { return i.count; })])
             .range([0, width]);
 
         var chart =
           d3.select("#work_queues_chart")
             .attr("width", width)
-            .attr("height", barHeight * data.length);
+            .attr("height", barHeight * items.length);
 
         var bars =
           chart.selectAll("g")
-            .data(data)
+            .data(items);
 
         // Enter selection
-        bars.enter().append("g")
+        bars.enter().append("g");
 
         // Update selection
         bars.attr(
@@ -54,36 +110,44 @@
         );
 
         bars.append("rect")
-          .attr("width", scaledWidth)
+          .attr("width", function(i) { return scaledWidth(i.count); })
           .attr("height", barHeight - 1);
 
         bars.append("text")
-          .attr("x", function(d) { return scaledWidth(d) - 3; })
+          .attr("x", function(i) { return scaledWidth(i.count) - 3; })
           .attr("y", barHeight / 2)
           .attr("dy", "0.35em")
-          .text(function(d) { return d; });
+          .text(function(i) { return i.count; });
 
         // Exit selection
-        bars.exit().remove()
-      }
-
-      function updateChart() {
-        drawChart([4, 8, 15, 16, 23, 42]);
+        bars.exit().remove();
       }
 
       function initChart() {
-        drawChart([1, 2, 3, 4, 8, 15, 16, 23, 42]);
+        data = {};
+
+        for (key in workTableDescriptions) {
+          data[key] = 0;
+        }
+
+        drawChart(data);
       }
 
-
-      function initEventSource() {
+      function registerForEvents() {
         var eventSource = new EventSource("./events");
+
+        eventSource.addEventListener(
+          "work-total",
+          function(e) { drawChart(JSON.parse(e.data)); },
+          false
+        );
+
       }
 
 
       window.onload = function() {
         initChart();
-        initEventSource();
+        registerForEvents();
       };
 
     </script>
@@ -95,8 +159,6 @@
     <h1><t:slot name="title" /></h1>
 
     <svg id="work_queues_chart" />
-    <br />
-    <button onclick="updateChart()">Update</button>
 
   </body>
 

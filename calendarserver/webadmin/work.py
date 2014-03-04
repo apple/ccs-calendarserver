@@ -25,6 +25,7 @@ __all__ = [
     "WorkMonitorResource",
 ]
 
+from time import time
 from json import dumps
 
 from zope.interface import implementer
@@ -93,7 +94,6 @@ class WorkEventsResource(EventSourceResource):
 
         self._store = store
 
-
     @inlineCallbacks
     def render(self, request):
         yield self.poll()
@@ -104,65 +104,21 @@ class WorkEventsResource(EventSourceResource):
     def poll(self):
         txn = self._store.newTransaction()
 
-        payload = {}
+        jobData = yield JobItem.histogram(txn)
 
-        records = yield JobItem.histogram(txn)
+        self.addEvents((
+            dict(
+                eventClass=u"work-total",
+                eventID=time(),
+                eventText=asJSON(jobData),
+            ),
+        ))
 
+        if not hasattr(self, "_clock"):
+            from twisted.internet import reactor
+            self._clock = reactor
 
-
-        # for workDescription, workItemClass, itemAttributes in (
-        #     (
-        #         u"Organizer Request",
-        #         ScheduleOrganizerWork,
-        #         (
-        #             ("icalendarUid", "iCalendar UID"),
-        #             ("attendeeCount", "Attendee Count"),
-        #         ),
-        #     ),
-        #     (
-        #         u"Attendee Reply",
-        #         ScheduleReplyWork,
-        #         (
-        #             ("icalendarUid", "iCalendar UID"),
-        #         ),
-        #     ),
-        #     (
-        #         u"Attendee Refresh",
-        #         ScheduleRefreshWork,
-        #         (
-        #             ("icalendarUid", "iCalendar UID"),
-        #             ("attendeeCount", "Attendee Count"),
-        #         ),
-        #     ),
-        # ):
-        #     workItems = yield workItemClass.all(txn)
-
-        #     categoryData = []
-
-        #     for workItem in workItems:
-        #         itemData = {}
-
-        #         for itemAttribute, itemDescription in itemAttributes:
-        #             itemData[itemDescription] = getattr(
-        #                 workItem, itemAttribute
-        #             )
-
-        #         categoryData.append(itemData)
-
-        #     payload[workDescription] = categoryData
-
-        # self.addEvents((
-        #     dict(
-        #         eventClass=u"work",
-        #         eventText=asJSON(payload),
-        #     ),
-        # ))
-
-        # if not hasattr(self, "_clock"):
-        #     from twisted.internet import reactor
-        #     self._clock = reactor
-
-        # # self._clock.callLater(5, self.poll)
+        self._clock.callLater(1, self.poll)
 
 
 
