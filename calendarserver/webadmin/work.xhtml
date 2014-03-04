@@ -11,27 +11,33 @@
 
     <style>
 
-    .bar {
-      fill: steelblue;
-    }
+      #work_queue_chart {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+      }
 
-    .bar:hover {
-      fill: brown;
-    }
+      .bar {
+        fill: steelblue;
+      }
 
-    .axis text {
-      font: 10px sans-serif;
-    }
+      .bar:hover {
+        fill: brown;
+      }
 
-    .axis path, .axis line {
-      fill: none;
-      stroke: #000;
-      shape-rendering: crispEdges;
-    }
+      .axis text {
+        font: 10px sans-serif;
+      }
 
-    .x.axis path {
-      display: none;
-    }
+      .axis path, .axis line {
+        fill: none;
+        stroke: #000;
+        shape-rendering: crispEdges;
+      }
+
+      .x.axis path {
+        display: none;
+      }
 
     </style>
 
@@ -138,7 +144,7 @@
 
         // Select chart
         var chart =
-          d3.select("#work_queues_chart")
+          d3.select("#work_queue_chart")
             .attr("width", outerWidth)
             .attr("height", outerHeight)
           ;
@@ -240,7 +246,7 @@
 
     <h1><t:slot name="title" /></h1>
 
-    <svg id="work_queues_chart" />
+    <svg id="work_queue_chart" />
 
   </body>
 
