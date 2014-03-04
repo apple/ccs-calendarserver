@@ -37,6 +37,7 @@
 
     <script src="http://d3js.org/d3.v3.min.js"></script>
     <script>
+    //<![CDATA[
 
       var workTableDescriptions = {
         // Scheduling
@@ -71,6 +72,8 @@
         "FIND_MIN_VALID_REVISION_WORK": "Revision Cleanup: Find Minimum",
       };
 
+      var maxSeen = 30;
+
       function drawChart(data) {
         items = [];
 
@@ -104,9 +107,13 @@
 
         var xInset = 1;
 
+        var max = d3.max(items, function(i) { return i.count; });
+
+        if (max > maxSeen) { maxSeen = max; }
+
         var xLocation =
           d3.scale.linear()
-            .domain([0, d3.max(items, function(i) { return i.count; })])
+            .domain([0, maxSeen])
             .range([xInset, innerWidth])
           ;
 
@@ -198,7 +205,7 @@
         data = {};
 
         for (key in workTableDescriptions) {
-          data[key] = 30;
+          data[key] = 0;
         }
 
         drawChart(data);
@@ -220,6 +227,7 @@
         registerForEvents();
       };
 
+    //]]>
     </script>
 
   </head>
