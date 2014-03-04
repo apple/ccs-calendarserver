@@ -666,7 +666,7 @@
         <key>AMP</key>
         <dict>
           <key>Enabled</key>
-          <false/>
+          <true/>
           <key>Port</key>
           <integer>62311</integer>
           <key>EnableStaggering</key>
