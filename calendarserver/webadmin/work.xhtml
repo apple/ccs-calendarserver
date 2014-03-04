@@ -112,8 +112,8 @@
         if (max > maxSeen) { maxSeen = max; }
 
         var xLocation =
-          d3.scale.linear()
-            .domain([0, maxSeen])
+          d3.scale.log()
+            .domain([1, maxSeen])
             .range([xInset, innerWidth])
           ;
 
@@ -127,6 +127,7 @@
           d3.svg.axis()
             .scale(xLocation)
             .orient("bottom")
+            .ticks(20, ",.0f")
           ;
 
         var yAxis =
