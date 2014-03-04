@@ -83,18 +83,25 @@
           }
         }
 
-        var width = 600;
-        var barHeight = 20;
+        var width = 960;
+        var height = 500;
 
-        var scaledWidth =
+        // var barHeight = 20;
+
+        var xLocation =
           d3.scale.linear()
             .domain([0, d3.max(items, function(i) { return i.count; })])
             .range([0, width]);
 
+        var yLocation =
+          d3.scale.ordinal()
+            .domain(items.map(function(i) { return i.name; }))
+            .rangeRoundBands([0, height], 0.1);
+
         var chart =
           d3.select("#work_queues_chart")
             .attr("width", width)
-            .attr("height", barHeight * items.length);
+            .attr("height", height);
 
         var bars =
           chart.selectAll("g")
@@ -106,16 +113,16 @@
         // Update selection
         bars.attr(
           "transform",
-          function(d, i) { return "translate(0," + i * barHeight + ")"; }
+          function(i) { return "translate(0," + yLocation(i.name) + ")"; }
         );
 
         bars.append("rect")
-          .attr("width", function(i) { return scaledWidth(i.count); })
-          .attr("height", barHeight - 1);
+          .attr("width", function(i) { return xLocation(i.count); })
+          .attr("height", yLocation.rangeBand());
 
         bars.append("text")
-          .attr("x", function(i) { return scaledWidth(i.count) - 3; })
-          .attr("y", barHeight / 2)
+          .attr("x", function(i) { return xLocation(i.count) - 3; })
+          .attr("y", yLocation.rangeBand() / 2)
           .attr("dy", "0.35em")
           .text(function(i) { return i.count; });
 
