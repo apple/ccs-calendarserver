@@ -715,6 +715,6 @@ create table CALENDARSERVER (
 );
 
 insert into CALENDARSERVER values ('VERSION', '31');
-insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '5');
+insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');
