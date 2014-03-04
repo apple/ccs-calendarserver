@@ -560,7 +560,7 @@ class LdapDirectoryService(CachingDirectoryService):
                 totalTime = time.time() - startTime
                 if totalTime > self.warningThresholdSeconds:
                     self.log.error(
-                        "LDAP auth exceeded threshold: {time!.2f} seconds for "
+                        "LDAP auth exceeded threshold: {time:.2f} seconds for "
                         "{dn}", time=totalTime, dn=dn
                     )
 
@@ -633,7 +633,7 @@ class LdapDirectoryService(CachingDirectoryService):
                 if filterstr and len(filterstr) > 100:
                     filterstr = "%s..." % (filterstr[:100],)
                 self.log.error(
-                    "LDAP query exceeded threshold: {time!.2f} seconds for "
+                    "LDAP query exceeded threshold: {time:.2f} seconds for "
                     "{base} {filter} {attrs} (#results={count:d})",
                     time=totalTime, base=base, filter=filterstr,
                     attrs=attrlist, count=len(result),
