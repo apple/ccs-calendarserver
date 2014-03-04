@@ -11,14 +11,26 @@
 
     <style>
 
-    #work_queues_chart rect {
+    .bar {
       fill: steelblue;
     }
 
-    #work_queues_chart text {
-      fill: white;
+    .bar:hover {
+      fill: brown;
+    }
+
+    .axis text {
       font: 10px sans-serif;
-      text-anchor: end;
+    }
+
+    .axis path, .axis line {
+      fill: none;
+      stroke: #000;
+      shape-rendering: crispEdges;
+    }
+
+    .x.axis path {
+      display: none;
     }
 
     </style>
@@ -83,58 +95,110 @@
           }
         }
 
-        var width = 960;
-        var height = 500;
+        var outerWidth  = 960;
+        var outerHeight = 500;
+        var margin = { top: 20, right: 30, bottom: 30, left: 160 };
 
-        // var barHeight = 20;
+        var innerWidth  = outerWidth  - margin.left - margin.right;
+        var innerHeight = outerHeight - margin.top  - margin.bottom;
+
+        var xInset = 1;
 
         var xLocation =
           d3.scale.linear()
             .domain([0, d3.max(items, function(i) { return i.count; })])
-            .range([0, width]);
+            .range([xInset, innerWidth])
+          ;
 
         var yLocation =
           d3.scale.ordinal()
-            .domain(items.map(function(i) { return i.name; }))
-            .rangeRoundBands([0, height], 0.1);
+            .domain(items.map(function(i) { return i.description; }))
+            .rangeRoundBands([0, innerHeight], 0.1)
+          ;
 
+        var xAxis =
+          d3.svg.axis()
+            .scale(xLocation)
+            .orient("bottom")
+          ;
+
+        var yAxis =
+          d3.svg.axis()
+            .scale(yLocation)
+            .orient("left")
+          ;
+
+        // Select chart
         var chart =
           d3.select("#work_queues_chart")
-            .attr("width", width)
-            .attr("height", height);
+            .attr("width", outerWidth)
+            .attr("height", outerHeight)
+          ;
 
+        // Select inner
+        var inner =
+          chart.selectAll(".inner")
+            .data([0])
+          ;
+
+        // Enter inner selection
+        inner.enter().append("g");
+
+        // Update inner selection
+        inner
+          .attr("class", "inner")
+          .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+        ;
+
+        // Select, enter, update, exit x-axis
+        var x_axis = inner.selectAll(".x.axis").data([0]);
+        x_axis.enter().append("g");
+        x_axis
+          .attr("class", "x axis")
+          .attr("transform", "translate(" + xInset + "," + innerHeight + ")")
+          .call(xAxis)
+        ;
+        x_axis.exit().remove();
+
+        // Select, enter, update, exit y-axis
+        var y_axis = inner.selectAll(".y.axis").data([0]);
+        y_axis.enter().append("g");
+        y_axis
+          .attr("class", "y axis")
+          .call(yAxis)
+        ;
+        y_axis.exit().remove();
+
+        // Select bars
         var bars =
-          chart.selectAll("g")
+          inner.selectAll(".bar")
             .data(items);
 
-        // Enter selection
-        bars.enter().append("g");
+        // Enter bars selection
+        bars.enter().append("rect");
 
-        // Update selection
-        bars.attr(
-          "transform",
-          function(i) { return "translate(0," + yLocation(i.name) + ")"; }
-        );
-
-        bars.append("rect")
+        // Update bars selection
+        bars
+          .attr("class", "bar")
           .attr("width", function(i) { return xLocation(i.count); })
-          .attr("height", yLocation.rangeBand());
+          .attr("height", yLocation.rangeBand())
+          .attr(
+            "transform",
+            function(i) { return "translate(" + xInset + "," + yLocation(i.description) + ")"; }
+          );
 
-        bars.append("text")
-          .attr("x", function(i) { return xLocation(i.count) - 3; })
-          .attr("y", yLocation.rangeBand() / 2)
-          .attr("dy", "0.35em")
-          .text(function(i) { return i.count; });
-
-        // Exit selection
+        // Exit bars selection
         bars.exit().remove();
+
+        // Exit inner selection
+        inner.exit().remove();
       }
 
-      function initChart() {
+    function initChart() {
         data = {};
 
         for (key in workTableDescriptions) {
-          data[key] = 0;
+          data[key] = 30;
         }
 
         drawChart(data);
@@ -148,7 +212,6 @@
           function(e) { drawChart(JSON.parse(e.data)); },
           false
         );
-
       }
 
 
