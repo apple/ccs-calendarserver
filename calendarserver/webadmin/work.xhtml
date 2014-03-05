@@ -194,7 +194,8 @@
         // Select bars
         var bars =
           inner.selectAll(".bar")
-            .data(items);
+            .data(items)
+          ;
 
         // Enter bars selection
         bars.enter().append("rect");
@@ -207,7 +208,8 @@
           .attr(
             "transform",
             function(i) { return "translate(" + xInset + "," + yLocation(i.description) + ")"; }
-          );
+          )
+        ;
 
         // Exit bars selection
         bars.exit().remove();
@@ -215,7 +217,8 @@
         // Select labels
         var labels =
           inner.selectAll(".label")
-            .data(items);
+            .data(items)
+          ;
 
         // Enter labels selection
         labels.enter().append("text");
@@ -226,10 +229,12 @@
           .attr("x", function(i) { return xLocationWithZero(i.count) + 4; })
           .attr("y", function(i) { return yLocation(i.description) + (yLocation.rangeBand() / 2); })
           .attr("dy", "0.32em")
+          .attr("onclick", function(i) { return "showDetails(" + i.name + ");"; })
           .text(function(i) {
             if (i.count < 1) { return ""; }
             return i.count;
           })
+        ;
 
         // Exit labels selection
         labels.exit().remove();
