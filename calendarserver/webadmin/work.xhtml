@@ -209,6 +209,7 @@
             "transform",
             function(i) { return "translate(" + xInset + "," + yLocation(i.description) + ")"; }
           )
+          .attr("onclick", function(i) { return 'showDetails("' + i.name + '");'; })
         ;
 
         // Exit bars selection
@@ -229,11 +230,12 @@
           .attr("x", function(i) { return xLocationWithZero(i.count) + 4; })
           .attr("y", function(i) { return yLocation(i.description) + (yLocation.rangeBand() / 2); })
           .attr("dy", "0.32em")
-          .attr("onclick", function(i) { return "showDetails(" + i.name + ");"; })
-          .text(function(i) {
-            if (i.count < 1) { return ""; }
-            return i.count;
-          })
+          .text(
+            function(i) {
+              if (i.count < 1) { return ""; }
+              return i.count;
+            }
+          )
         ;
 
         // Exit labels selection
@@ -263,6 +265,11 @@
         );
       }
 
+      function showDetails(workItemType) {
+        container = document.getElementById("work_item_details");
+
+        container.innerHTML = workItemType;
+      }
 
       window.onload = function() {
         initChart();
@@ -279,6 +286,8 @@
     <h1><t:slot name="title" /></h1>
 
     <svg id="work_queue_chart" />
+
+    <div id="work_item_details" />
 
   </body>
 
