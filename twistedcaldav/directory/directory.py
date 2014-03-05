@@ -66,6 +66,7 @@ import os
 import pwd
 import sys
 import types
+from urllib import unquote
 
 log = Logger()
 
@@ -234,7 +235,7 @@ class DirectoryService(object):
             else:
                 return None
         elif address.startswith("/principals/"):
-            parts = address.split("/")
+            parts = map(unquote, address.split("/"))
             if len(parts) == 4:
                 if parts[2] == "__uids__":
                     guid = parts[3]
