@@ -17,14 +17,17 @@
 ##
 from __future__ import print_function
 
+from calendarserver.tools.cmdline import utilityMain, WorkerService
+
 from getopt import getopt, GetoptError
-import os
-import sys
-import curses
+
+from twext.enterprise.jobqueue import JobItem
 
 from twisted.internet.defer import inlineCallbacks, succeed
-from calendarserver.tools.cmdline import utilityMain, WorkerService
-from twext.enterprise.jobqueue import JobItem
+
+import curses
+import os
+import sys
 
 useCurses = True
 
@@ -86,28 +89,35 @@ def main():
         else:
             raise NotImplementedError(opt)
 
-    utilityMain(configFileName, JobItemMonitorService, verbose=debug)
+    if useCurses:
+        def _wrapped(stdscrn):
+            JobItemMonitorService.screen = stdscrn
+            curses.curs_set(0)
+            curses.use_default_colors()
+            utilityMain(configFileName, JobItemMonitorService, verbose=debug)
+        curses.wrapper(_wrapped)
+    else:
+        utilityMain(configFileName, JobItemMonitorService, verbose=debug)
 
 
 
 class JobItemMonitorService(WorkerService, object):
 
+    screen = None
+
     def __init__(self, store):
         super(JobItemMonitorService, self).__init__(store)
         from twisted.internet import reactor
         self.reactor = reactor
+        self.paused = False
+        self.seconds = 0.1
 
 
+    @inlineCallbacks
     def doWork(self):
-        if useCurses:
-            self.screen = curses.initscr()
-            curses.curs_set(0)
-        else:
-            self.screen = None
-        self.windows = []
-        self.updateScreenGeometry()
+        self.window = None
+        yield self.displayJobs()
         self.reactor.callLater(0, self.updateDisplay)
-        return succeed(None)
 
 
     def postStartService(self):
@@ -117,36 +127,118 @@ class JobItemMonitorService(WorkerService, object):
         pass
 
 
-    def updateScreenGeometry(self):
-        for win in self.windows:
-            del win
-        window = WorkWindow(JobItem.numberOfWorkTypes() + 5, BOX_WIDTH, 0, 0, self.store, "Jobs")
-        self.windows.append(window)
+    @inlineCallbacks
+    def displayHelp(self):
+        if self.window is not None:
+            self.window.clear()
+        self.window = HelpWindow(10, BOX_WIDTH, 0, 0, self.store, "Help")
+        yield self.window.update()
+
+
+    @inlineCallbacks
+    def displayJobs(self):
+        if self.window is not None:
+            self.window.clear()
+        self.window = WorkWindow(JobItem.numberOfWorkTypes() + 5, BOX_WIDTH, 0, 0, self.store, "Jobs")
+        yield self.window.update()
 
 
     @inlineCallbacks
     def updateDisplay(self):
-        for window in self.windows:
-            try:
-                yield window.update()
-            except Exception as e:
-                print(str(e))
+        try:
+            if not self.paused and self.window.requiresUpdate():
+                yield self.window.update()
+        except Exception as e:
+            print(str(e))
         if not useCurses:
             print("-------------")
 
-        self.reactor.callLater(0.1, self.updateDisplay)
+        # Check keystrokes
+        try:
+            c = self.window.window.getkey()
+        except:
+            c = -1
+        if c == "q":
+            self.reactor.stop()
+        elif c == " ":
+            self.paused = not self.paused
+        elif c == "t":
+            self.seconds = 1.0 if self.seconds == 0.1 else 1.0
+        elif c == "h":
+            yield self.displayHelp()
+        elif c == "j":
+            yield self.displayJobs()
+
+        self.reactor.callLater(self.seconds, self.updateDisplay)
 
 
 
-class WorkWindow(object):
+class BaseWindow(object):
     def __init__(self, nlines, ncols, begin_y, begin_x, store, title):
         self.window = curses.newwin(nlines, ncols, begin_y, begin_x) if useCurses else None
+        self.window.nodelay(1)
         self.ncols = ncols
         self.store = store
         self.title = title
         self.iter = 0
         self.lastResult = {}
 
+
+    def requiresUpdate(self):
+        return True
+
+
+    def clear(self):
+
+        if useCurses:
+            self.window.erase()
+            self.window.refresh()
+
+
+    def update(self):
+        return succeed(True)
+
+
+
+class HelpWindow(BaseWindow):
+
+    def requiresUpdate(self):
+        return False
+
+
+    def update(self):
+
+        if useCurses:
+            self.window.erase()
+            self.window.border()
+            self.window.addstr(0, 2, "Help for Dashboard")
+
+        x = 1
+        y = 1
+
+        for title in (
+            "j - display server jobs",
+            "h - display dashboard help",
+            "",
+            "  - (space) pause dashboard polling",
+            "t - toggle update between 0.1 and 1.0 seconds",
+            "",
+            "q - exit the dashboard",
+        ):
+            if useCurses:
+                self.window.addstr(y, x, title)
+            else:
+                print(title)
+            y += 1
+
+        if useCurses:
+            self.window.refresh()
+
+        return succeed(True)
+
+
+
+class WorkWindow(BaseWindow):
 
     @inlineCallbacks
     def update(self):
