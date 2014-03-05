@@ -1011,14 +1011,17 @@ class CalDAVServiceMaker (object):
                 namespace=config.GroupCaching.MemcachedPool,
                 useExternalProxies=config.GroupCaching.UseExternalProxies,
             )
+            newGroupCacher = NewGroupCacher(DirectoryProxyClientService(None))
         else:
             groupCacher = None
+            newGroupCacher = None
 
         def decorateTransaction(txn):
             txn._pushDistributor = pushDistributor
             txn._rootResource = result.rootResource
             txn._mailRetriever = mailRetriever
             txn._groupCacher = groupCacher
+            txn._newGroupCacher = newGroupCacher
 
         store.callWithNewTransactions(decorateTransaction)
 
@@ -1392,7 +1395,9 @@ class CalDAVServiceMaker (object):
 
             # Optionally enable Directory Proxy
             if config.DirectoryProxy.Enabled:
-                dps = DirectoryProxyServiceMaker().makeService(None)
+                dps = DirectoryProxyServiceMaker().makeService(
+                    None, store=store
+                )
                 dps.setServiceParent(result)
 
             def decorateTransaction(txn):
@@ -1936,14 +1941,17 @@ class CalDAVServiceMaker (object):
                     namespace=config.GroupCaching.MemcachedPool,
                     useExternalProxies=config.GroupCaching.UseExternalProxies
                 )
+                newGroupCacher = NewGroupCacher(DirectoryProxyClientService(None))
             else:
                 groupCacher = None
+                newGroupCacher = None
 
             def decorateTransaction(txn):
                 txn._pushDistributor = None
                 txn._rootResource = rootResource
                 txn._mailRetriever = mailRetriever
                 txn._groupCacher = groupCacher
+                txn._newGroupCacher = newGroupCacher
 
             store.callWithNewTransactions(decorateTransaction)
 

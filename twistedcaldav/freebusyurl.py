@@ -102,7 +102,7 @@ class FreeBusyURLResource (ReadOnlyNoCopyResourceMixIn, CalDAVResource):
                     davxml.Protected(),
                 ),
             )
-        return davxml.ACL(*aces)
+        return succeed(davxml.ACL(*aces))
 
 
     def resourceType(self):
@@ -243,7 +243,7 @@ class FreeBusyURLResource (ReadOnlyNoCopyResourceMixIn, CalDAVResource):
         # TODO: We should probably verify that the actual time-range is within sensible bounds (e.g. not too far in the past or future and not too long)
 
         # Now lookup the principal details for the targeted user
-        principal = self.parent.principalForRecord()
+        principal = (yield self.parent.principalForRecord())
 
         # Pick the first mailto cu address or the first other type
         cuaddr = None

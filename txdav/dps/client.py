@@ -15,35 +15,50 @@
 ##
 
 import cPickle as pickle
+import uuid
 
 from twext.python.log import Logger
 from twext.who.directory import DirectoryRecord as BaseDirectoryRecord
 from twext.who.directory import DirectoryService as BaseDirectoryService
-from twext.who.idirectory import RecordType
+from twext.who.idirectory import RecordType, IDirectoryService
 import twext.who.idirectory
 from twext.who.util import ConstantsContainer
+from twisted.cred.credentials import UsernamePassword
 from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.internet.protocol import ClientCreator
 from twisted.protocols import amp
+from twisted.python.constants import Names, NamedConstant
+from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
+from txdav.caldav.icalendardirectoryservice import ICalendarStoreDirectoryRecord
+from txdav.common.idirectoryservice import IStoreDirectoryService
 from txdav.dps.commands import (
     RecordWithShortNameCommand, RecordWithUIDCommand, RecordWithGUIDCommand,
     RecordsWithRecordTypeCommand, RecordsWithEmailAddressCommand,
+    MembersCommand, GroupsCommand,
     VerifyPlaintextPasswordCommand, VerifyHTTPDigestCommand
 )
+import txdav.who.delegates
 import txdav.who.idirectory
+from txweb2.auth.digest import DigestedCredentials
 from zope.interface import implementer
 
-
 log = Logger()
-
 
 ##
 ## Client implementation of Directory Proxy Service
 ##
 
 
-@implementer(twext.who.idirectory.IDirectoryService)
+
+## MOVE2WHO TODOs:
+## augmented service
+## configuration of aggregate services
+## hooking up delegates
+## calverify needs deferreds, including:
+##    component.normalizeCalendarUserAddresses
+
+@implementer(IDirectoryService, IStoreDirectoryService)
 class DirectoryService(BaseDirectoryService):
     """
     Client side of directory proxy
@@ -51,16 +66,56 @@ class DirectoryService(BaseDirectoryService):
 
     recordType = ConstantsContainer(
         (twext.who.idirectory.RecordType,
-         txdav.who.idirectory.RecordType)
+         txdav.who.idirectory.RecordType,
+         txdav.who.delegates.RecordType)
     )
+
+    fieldName = ConstantsContainer(
+        (twext.who.idirectory.FieldName,
+         txdav.who.idirectory.FieldName)
+    )
+
+    # def __init__(self, fieldNames, recordTypes):
+    #     self.fieldName = fieldNames
+    #     self.recordType = recordTypes
+
+    # MOVE2WHO
+    def getGroups(self, guids=None):
+        return succeed(set())
+
+    # Must maintain the hack for a bit longer:
+    def setPrincipalCollection(self, principalCollection):
+        """
+        Set the principal service that the directory relies on for doing proxy tests.
+
+        @param principalService: the principal service.
+        @type principalService: L{DirectoryProvisioningResource}
+        """
+        self.principalCollection = principalCollection
+
+    guid = "1332A615-4D3A-41FE-B636-FBE25BFB982E"
+
+    # END MOVE2WHO
+
+
 
 
     def _dictToRecord(self, serializedFields):
         """
-        This to be replaced by something awesome
+        Turn a dictionary of fields sent from the server into a directory
+        record
         """
         if not serializedFields:
             return None
+
+        # print("FIELDS", serializedFields)
+
+        # MOVE2WHO -- existing code assumes record.emailAddresses always exists,
+        # so adding this here, but perhaps we should change the behavior in
+        # twext.who itself:
+        # Add default empty list of email addresses
+        if self.fieldName.emailAddresses.name not in serializedFields:
+            serializedFields[self.fieldName.emailAddresses.name] = []
 
         fields = {}
         for fieldName, value in serializedFields.iteritems():
@@ -70,8 +125,21 @@ class DirectoryService(BaseDirectoryService):
                 # unknown field
                 pass
             else:
-                fields[field] = value
-        fields[self.fieldName.recordType] = self.recordType.user
+                valueType = self.fieldName.valueType(field)
+                if valueType in (unicode, bool):
+                    fields[field] = value
+                elif valueType is uuid.UUID:
+                    fields[field] = uuid.UUID(value)
+                elif issubclass(valueType, Names):
+                    if value is not None:
+                        fields[field] = field.valueType.lookupByName(value)
+                    else:
+                        fields[field] = None
+                elif issubclass(valueType, NamedConstant):
+                    if fieldName == "recordType":  # Is there a better way?
+                        fields[field] = self.recordType.lookupByName(value)
+
+        # print("AFTER:", fields)
         return DirectoryRecord(self, fields)
 
 
@@ -127,10 +195,14 @@ class DirectoryService(BaseDirectoryService):
 
 
     def recordWithShortName(self, recordType, shortName):
+        # MOVE2WHO
+        # temporary hack until we can fix all callers not to pass strings:
+        if isinstance(recordType, (str, unicode)):
+            recordType = self.recordType.lookupByName(recordType)
         return self._call(
             RecordWithShortNameCommand,
             self._processSingleRecord,
-            recordType=recordType.description.encode("utf-8"),
+            recordType=recordType.name.encode("utf-8"),
             shortName=shortName.encode("utf-8")
         )
 
@@ -155,7 +227,7 @@ class DirectoryService(BaseDirectoryService):
         return self._call(
             RecordsWithRecordTypeCommand,
             self._processMultipleRecords,
-            recordType=recordType.description.encode("utf-8")
+            recordType=recordType.name.encode("utf-8")
         )
 
 
@@ -167,8 +239,82 @@ class DirectoryService(BaseDirectoryService):
         )
 
 
+    def listRecords(self, recordType):
+        # MOVE2WHO
+        return []
 
+
+    @inlineCallbacks
+    def recordWithCalendarUserAddress(self, address):
+        address = normalizeCUAddr(address)
+        record = None
+        if address.startswith("urn:uuid:"):
+            guid = address[9:]
+            record = yield self.recordWithGUID(guid)
+        elif address.startswith("mailto:"):
+            records = yield self.recordsWithEmailAddress(address[7:])
+            if records:
+                returnValue(records[0])
+            else:
+                returnValue(None)
+        elif address.startswith("/principals/"):
+            parts = address.split("/")
+            if len(parts) == 4:
+                if parts[2] == "__uids__":
+                    guid = parts[3]
+                    record = yield self.recordWithGUID(guid)
+                else:
+                    recordType = self.fieldName.lookupByName(parts[2])
+                    record = yield self.recordWithShortName(recordType, parts[3])
+
+        returnValue(record if record and record.hasCalendars else None)
+
+
+    @inlineCallbacks
+    def recordsMatchingTokens(self, tokens, context=None, limitResults=50,
+                              timeoutSeconds=10):
+        rec = yield self.recordWithShortName(
+            twext.who.idirectory.RecordType.user,
+            u"wsanchez"
+        )
+        returnValue([rec])
+
+
+
+
+@implementer(ICalendarStoreDirectoryRecord)
 class DirectoryRecord(BaseDirectoryRecord):
+
+
+    @inlineCallbacks
+    def verifyCredentials(self, credentials):
+
+        # XYZZY REMOVE THIS, it bypasses all authentication!:
+        returnValue(True)
+
+        if isinstance(credentials, UsernamePassword):
+            log.debug("UsernamePassword")
+            returnValue(
+                (yield self.verifyPlaintextPassword(credentials.password))
+            )
+
+        elif isinstance(credentials, DigestedCredentials):
+            log.debug("DigestedCredentials")
+            returnValue(
+                (yield self.verifyHTTPDigest(
+                    self.shortNames[0],
+                    self.service.realmName,
+                    credentials.fields["uri"],
+                    credentials.fields["nonce"],
+                    credentials.fields.get("cnonce", ""),
+                    credentials.fields["algorithm"],
+                    credentials.fields.get("nc", ""),
+                    credentials.fields.get("qop", ""),
+                    credentials.fields["response"],
+                    credentials.method
+                ))
+            )
+
 
     def verifyPlaintextPassword(self, password):
         return self.service._call(
@@ -198,6 +344,164 @@ class DirectoryRecord(BaseDirectoryRecord):
             response=response.encode("utf-8"),
             method=method.encode("utf-8"),
         )
+
+
+    def members(self):
+        return self.service._call(
+            MembersCommand,
+            self.service._processMultipleRecords,
+            uid=self.uid.encode("utf-8")
+        )
+
+
+    def groups(self):
+        return self.service._call(
+            GroupsCommand,
+            self.service._processMultipleRecords,
+            uid=self.uid.encode("utf-8")
+        )
+
+
+    @property
+    def calendarUserAddresses(self):
+        if not self.hasCalendars:
+            return frozenset()
+
+        try:
+            cuas = set(
+                ["mailto:%s" % (emailAddress,)
+                 for emailAddress in self.emailAddresses]
+            )
+        except AttributeError:
+            cuas = set()
+
+        try:
+            if self.guid:
+                if isinstance(self.guid, uuid.UUID):
+                    guid = unicode(self.guid).upper()
+                else:
+                    guid = self.guid
+                cuas.add("urn:uuid:{guid}".format(guid=guid))
+        except AttributeError:
+            # No guid
+            pass
+        cuas.add("/principals/__uids__/{uid}/".format(uid=self.uid))
+        for shortName in self.shortNames:
+            cuas.add("/principals/{rt}/{sn}/".format(
+                rt=self.recordType.name + "s", sn=shortName)
+            )
+        return frozenset(cuas)
+
+
+    def getCUType(self):
+        # Mapping from directory record.recordType to RFC2445 CUTYPE values
+        self._cuTypes = {
+            self.service.recordType.user: 'INDIVIDUAL',
+            self.service.recordType.group: 'GROUP',
+            self.service.recordType.resource: 'RESOURCE',
+            self.service.recordType.location: 'ROOM',
+        }
+
+        return self._cuTypes.get(self.recordType, "UNKNOWN")
+
+
+    @property
+    def displayName(self):
+        return self.fullNames[0]
+
+
+    def cacheToken(self):
+        """
+        Generate a token that can be uniquely used to identify the state of this record for use
+        in a cache.
+        """
+        return hash((
+            self.__class__.__name__,
+            self.service.realmName,
+            self.recordType.name,
+            self.shortNames,
+            self.guid,
+            self.hasCalendars,
+        ))
+
+
+    def canonicalCalendarUserAddress(self):
+        """
+            Return a CUA for this record, preferring in this order:
+            urn:uuid: form
+            mailto: form
+            first in calendarUserAddresses list
+        """
+
+        cua = ""
+        for candidate in self.calendarUserAddresses:
+            # Pick the first one, but urn:uuid: and mailto: can override
+            if not cua:
+                cua = candidate
+            # But always immediately choose the urn:uuid: form
+            if candidate.startswith("urn:uuid:"):
+                cua = candidate
+                break
+            # Prefer mailto: if no urn:uuid:
+            elif candidate.startswith("mailto:"):
+                cua = candidate
+        return cua
+
+
+    def enabledAsOrganizer(self):
+        # MOVE2WHO FIXME TO LOOK AT CONFIG
+        if self.recordType == self.service.recordType.user:
+            return True
+        elif self.recordType == DirectoryService.recordType_groups:
+            return False  # config.Scheduling.Options.AllowGroupAsOrganizer
+        elif self.recordType == DirectoryService.recordType_locations:
+            return False  # config.Scheduling.Options.AllowLocationAsOrganizer
+        elif self.recordType == DirectoryService.recordType_resources:
+            return False  # config.Scheduling.Options.AllowResourceAsOrganizer
+        else:
+            return False
+
+
+    #MOVE2WHO
+    def thisServer(self):
+        return True
+
+
+    def isLoginEnabled(self):
+        return self.loginAllowed
+
+
+    #MOVE2WHO
+    def calendarsEnabled(self):
+        # In the old world, this *also* looked at config:
+        # return config.EnableCalDAV and self.enabledForCalendaring
+        return self.hasCalendars
+
+
+    def getAutoScheduleMode(self, organizer):
+        # MOVE2WHO Fix this to take organizer into account:
+        return self.autoScheduleMode
+
+
+    def canAutoSchedule(self, organizer=None):
+        # MOVE2WHO Fix this:
+        return True
+
+
+    # For scheduling/freebusy
+    # FIXME: doesn't this need to happen in the DPS?
+    @inlineCallbacks
+    def isProxyFor(self, other):
+        for recordType in (
+            txdav.who.delegates.RecordType.readDelegatorGroup,
+            txdav.who.delegates.RecordType.writeDelegatorGroup,
+        ):
+            delegatorGroup = yield self.service.recordWithShortName(
+                recordType, self.uid
+            )
+            if delegatorGroup:
+                if other in (yield delegatorGroup.members()):
+                    returnValue(True)
 
 
 

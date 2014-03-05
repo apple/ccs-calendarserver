@@ -112,16 +112,18 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
             # DAV:Read for all authenticated principals (does not include anonymous)
             accessPrincipal = davxml.Authenticated()
 
-        return davxml.ACL(
-            davxml.ACE(
-                davxml.Principal(accessPrincipal),
-                davxml.Grant(
-                    davxml.Privilege(davxml.Read()),
-                    davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet())
-                                ),
-                davxml.Protected(),
-                TwistedACLInheritable(),
-           ),
+        return succeed(
+            davxml.ACL(
+                davxml.ACE(
+                    davxml.Principal(accessPrincipal),
+                    davxml.Grant(
+                        davxml.Privilege(davxml.Read()),
+                        davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet())
+                                    ),
+                    davxml.Protected(),
+                    TwistedACLInheritable(),
+               ),
+            )
         )
 
 
@@ -160,7 +162,7 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
 
     def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
         # Permissions here are fixed, and are not subject to inheritance rules, etc.
-        return succeed(self.defaultAccessControlList())
+        return self.defaultAccessControlList()
 
 
     @inlineCallbacks

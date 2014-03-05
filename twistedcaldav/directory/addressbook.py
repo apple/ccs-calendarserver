@@ -65,7 +65,7 @@ class DirectoryAddressBookProvisioningResource (
     DAVResource,
 ):
     def defaultAccessControlList(self):
-        return config.ProvisioningResourceACL
+        return succeed(config.ProvisioningResourceACL)
 
 
     def etag(self):
@@ -93,7 +93,8 @@ class DirectoryAddressBookHomeProvisioningResource (
 
         super(DirectoryAddressBookHomeProvisioningResource, self).__init__()
 
-        self.directory = IDirectoryService(directory)
+        # MOVE2WHO
+        self.directory = directory  # IDirectoryService(directory)
         self._url = url
         self._newStore = store
 
@@ -103,7 +104,7 @@ class DirectoryAddressBookHomeProvisioningResource (
         #
         # Create children
         #
-        for recordType in self.directory.recordTypes():
+        for recordType in [r.name for r in self.directory.recordTypes()]:
             self.putChild(recordType, DirectoryAddressBookHomeTypeProvisioningResource(self, recordType))
 
         self.putChild(uidsResourceName, DirectoryAddressBookHomeUIDProvisioningResource(self))
@@ -114,7 +115,7 @@ class DirectoryAddressBookHomeProvisioningResource (
 
 
     def listChildren(self):
-        return self.directory.recordTypes()
+        return [r.name for r in self.directory.recordTypes()]
 
 
     def principalCollections(self):
@@ -129,12 +130,13 @@ class DirectoryAddressBookHomeProvisioningResource (
         return self.directory.principalCollection.principalForRecord(record)
 
 
+    @inlineCallbacks
     def homeForDirectoryRecord(self, record, request):
-        uidResource = self.getChild(uidsResourceName)
+        uidResource = yield self.getChild(uidsResourceName)
         if uidResource is None:
-            return None
+            returnValue(None)
         else:
-            return uidResource.homeResourceForRecord(record, request)
+            returnValue((yield uidResource.homeResourceForRecord(record, request)))
 
 
     ##

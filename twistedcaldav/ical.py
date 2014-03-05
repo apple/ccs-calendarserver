@@ -34,6 +34,7 @@ import heapq
 import itertools
 import uuid
 
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.python.log import Logger
 from txweb2.stream import IStream
 from txweb2.dav.util import allDataFromStream
@@ -3239,6 +3240,7 @@ END:VCALENDAR
                         self.removeProperty(attachment)
 
 
+    @inlineCallbacks
     def normalizeCalendarUserAddresses(self, lookupFunction, principalFunction,
         toUUID=True):
         """
@@ -3259,7 +3261,7 @@ END:VCALENDAR
                 # Check that we can lookup this calendar user address - if not
                 # we cannot do anything with it
                 cuaddr = normalizeCUAddr(prop.value())
-                name, guid, cuaddrs = lookupFunction(cuaddr, principalFunction, config)
+                name, guid, cuaddrs = yield lookupFunction(cuaddr, principalFunction, config)
                 if guid is None:
                     continue
 
@@ -3275,7 +3277,9 @@ END:VCALENDAR
 
                 if toUUID:
                     # Always re-write value to urn:uuid
-                    prop.setValue("urn:uuid:%s" % (guid,))
+                    if isinstance(guid, uuid.UUID):
+                        guid = unicode(guid).upper()
+                    prop.setValue("urn:uuid:{guid}".format(guid=guid))
 
                 # If it is already a non-UUID address leave it be
                 elif cuaddr.startswith("urn:uuid:"):
@@ -3353,7 +3357,7 @@ END:VCALENDAR
 
             # For VPOLL also do immediate children
             if component.name() == "VPOLL":
-                component.normalizeCalendarUserAddresses(lookupFunction, principalFunction, toUUID)
+                yield component.normalizeCalendarUserAddresses(lookupFunction, principalFunction, toUUID)
 
 
     def allPerUserUIDs(self):
@@ -3563,15 +3567,16 @@ def tzexpandlocal(tzdata, start, end):
 # Utilities
 # #
 
+@inlineCallbacks
 def normalizeCUAddress(cuaddr, lookupFunction, principalFunction, toUUID=True):
     # Check that we can lookup this calendar user address - if not
     # we cannot do anything with it
-    _ignore_name, guid, cuaddrs = lookupFunction(normalizeCUAddr(cuaddr), principalFunction, config)
+    _ignore_name, guid, cuaddrs = (yield lookupFunction(normalizeCUAddr(cuaddr), principalFunction, config))
 
     if toUUID:
         # Always re-write value to urn:uuid
         if guid:
-            return "urn:uuid:%s" % (guid,)
+            returnValue("urn:uuid:%s" % (guid,))
 
     # If it is already a non-UUID address leave it be
     elif cuaddr.startswith("urn:uuid:"):
@@ -3610,9 +3615,9 @@ def normalizeCUAddress(cuaddr, lookupFunction, principalFunction, toUUID=True):
 
         # Make the change
         if newaddr:
-            return newaddr
+            returnValue(newaddr)
 
-    return cuaddr
+    returnValue(cuaddr)
 
 
 

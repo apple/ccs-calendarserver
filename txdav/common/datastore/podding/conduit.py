@@ -76,7 +76,8 @@ class PoddingConduit(object):
         self.store = store
 
 
-    def validRequst(self, source_guid, destination_guid):
+    @inlineCallbacks
+    def validRequest(self, source_guid, destination_guid):
         """
         Verify that the specified GUIDs are valid for the request and return the
         matching directory records.
@@ -86,22 +87,22 @@ class PoddingConduit(object):
         @param destination_guid: GUID for the user to whom the request is being sent
         @type destination_guid: C{str}
 
-        @return: C{tuple} of L{IStoreDirectoryRecord}
+        @return: L{Deferred} resulting in C{tuple} of L{IStoreDirectoryRecord}
         """
 
-        source = self.store.directoryService().recordWithUID(source_guid)
+        source = yield self.store.directoryService().recordWithUID(source_guid)
         if source is None:
             raise DirectoryRecordNotFoundError("Cross-pod source: {}".format(source_guid))
         if not source.thisServer():
             raise FailedCrossPodRequestError("Cross-pod source not on this server: {}".format(source_guid))
 
-        destination = self.store.directoryService().recordWithUID(destination_guid)
+        destination = yield self.store.directoryService().recordWithUID(destination_guid)
         if destination is None:
             raise DirectoryRecordNotFoundError("Cross-pod destination: {}".format(destination_guid))
         if destination.thisServer():
             raise FailedCrossPodRequestError("Cross-pod destination on this server: {}".format(destination_guid))
 
-        return (source, destination,)
+        returnValue((source, destination,))
 
 
     @inlineCallbacks
@@ -186,7 +187,7 @@ class PoddingConduit(object):
         @type supported_components: C{str}
         """
 
-        _ignore_sender, recipient = self.validRequst(ownerUID, shareeUID)
+        _ignore_sender, recipient = yield self.validRequest(ownerUID, shareeUID)
 
         action = {
             "action": "shareinvite",
@@ -260,7 +261,7 @@ class PoddingConduit(object):
         @type shareUID: C{str}
         """
 
-        _ignore_sender, recipient = self.validRequst(ownerUID, shareeUID)
+        _ignore_sender, recipient = yield self.validRequest(ownerUID, shareeUID)
 
         action = {
             "action": "shareuninvite",
@@ -325,7 +326,7 @@ class PoddingConduit(object):
         @type summary: C{str}
         """
 
-        _ignore_sender, recipient = self.validRequst(shareeUID, ownerUID)
+        _ignore_sender, recipient = yield self.validRequest(shareeUID, ownerUID)
 
         action = {
             "action": "sharereply",
@@ -398,7 +399,7 @@ class PoddingConduit(object):
 
         actionName = "add-attachment"
         shareeView = objectResource._parentCollection
-        action, recipient = self._send(actionName, shareeView, objectResource)
+        action, recipient = yield self._send(actionName, shareeView, objectResource)
         action["rids"] = rids
         action["filename"] = filename
         result = yield self.sendRequest(shareeView._txn, recipient, action, stream, content_type)
@@ -458,7 +459,7 @@ class PoddingConduit(object):
 
         actionName = "update-attachment"
         shareeView = objectResource._parentCollection
-        action, recipient = self._send(actionName, shareeView, objectResource)
+        action, recipient = yield self._send(actionName, shareeView, objectResource)
         action["managedID"] = managed_id
         action["filename"] = filename
         result = yield self.sendRequest(shareeView._txn, recipient, action, stream, content_type)
@@ -514,7 +515,7 @@ class PoddingConduit(object):
 
         actionName = "remove-attachment"
         shareeView = objectResource._parentCollection
-        action, recipient = self._send(actionName, shareeView, objectResource)
+        action, recipient = yield self._send(actionName, shareeView, objectResource)
         action["rids"] = rids
         action["managedID"] = managed_id
         result = yield self.sendRequest(shareeView._txn, recipient, action)
@@ -557,6 +558,7 @@ class PoddingConduit(object):
     # Sharer data access related apis
     #
 
+    @inlineCallbacks
     def _send(self, action, parent, child=None):
         """
         Base behavior for an operation on a L{CommonHomeChild}.
@@ -570,7 +572,7 @@ class PoddingConduit(object):
         ownerID = parent.external_id()
         shareeUID = parent.viewerHome().uid()
 
-        _ignore_sender, recipient = self.validRequst(shareeUID, ownerUID)
+        _ignore_sender, recipient = yield self.validRequest(shareeUID, ownerUID)
 
         result = {
             "action": action,
@@ -581,7 +583,7 @@ class PoddingConduit(object):
         }
         if child is not None:
             result["resource_id"] = child.id()
-        return result, recipient
+        returnValue((result, recipient))
 
 
     @inlineCallbacks
@@ -644,7 +646,7 @@ class PoddingConduit(object):
         @type kwargs: C{dict}
         """
 
-        action, recipient = self._send(actionName, shareeView, objectResource)
+        action, recipient = yield self._send(actionName, shareeView, objectResource)
         if args is not None:
             action["arguments"] = args
         if kwargs is not None:
@@ -710,7 +712,7 @@ class PoddingConduit(object):
         servertoserver,
         event_details,
     ):
-        action, recipient = self._send("freebusy", calresource)
+        action, recipient = yield self._send("freebusy", calresource)
         action["timerange"] = [timerange.start.getText(), timerange.end.getText()]
         action["matchtotal"] = matchtotal
         action["excludeuid"] = excludeuid

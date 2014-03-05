@@ -792,7 +792,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
         Set shared state and check access control.
         """
         if child._newStoreObject is not None and not child._newStoreObject.owned():
-            ownerHomeURL = self._otherPrincipalHomeURL(child._newStoreObject.ownerHome().uid())
+            ownerHomeURL = (yield self._otherPrincipalHomeURL(child._newStoreObject.ownerHome().uid()))
             ownerView = yield child._newStoreObject.ownerView()
             child.setShare(joinURL(ownerHomeURL, ownerView.name()))
             access = yield child._checkAccessControl()
@@ -802,6 +802,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
 
     def _otherPrincipalHomeURL(self, otherUID):
+        # Is this only meant to be overridden?
         pass
 
 

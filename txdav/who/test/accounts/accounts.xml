@@ -43,6 +43,7 @@ limitations under the License.
     <name>Wilfredo Sanchez Vega</name>
     <first-name>Wilfredo</first-name>
     <last-name>Sanchez Vega</last-name>
+    <auto-schedule-mode><accept-if-free-decline-if-busy /></auto-schedule-mode>
   </user>
   <user>
     <uid>cdaboo</uid>

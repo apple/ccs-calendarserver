@@ -36,6 +36,7 @@ from txdav.caldav.datastore.scheduling.utils import getCalendarObjectForRecord
 from txdav.caldav.datastore.scheduling.work import ScheduleRefreshWork, \
     ScheduleAutoReplyWork
 from txdav.caldav.icalendarstore import ComponentUpdateState, ComponentRemoveState
+from txdav.who.idirectory import AutoScheduleMode
 
 import collections
 import hashlib
@@ -57,6 +58,8 @@ __all__ = [
 ]
 
 log = Logger()
+
+
 
 class ImplicitProcessorException(Exception):
 
@@ -604,19 +607,28 @@ class ImplicitProcessor(object):
         @param calendar: the iTIP message to process
         @type calendar: L{Component}
         @param automode: the auto-schedule mode for the recipient
-        @type automode: C{str}
+        @type automode: L{txdav.who.idirectory.AutoScheduleMode}
 
         @return: C{tuple} of C{bool}, C{bool}, C{str} indicating whether changes were made, whether the inbox item
             should be added, and the new PARTSTAT.
         """
-
         # First ignore the none mode
-        if automode == "none":
+        if automode == AutoScheduleMode.none:
             returnValue((False, True, "",))
-        elif not automode or automode == "default":
-            automode = config.Scheduling.Options.AutoSchedule.DefaultMode
+        elif not automode:
+            automode = {
+                "none": AutoScheduleMode.none,
+                "accept-always": AutoScheduleMode.accept,
+                "decline-always": AutoScheduleMode.decline,
+                "accept-if-free": AutoScheduleMode.acceptIfFree,
+                "decline-if-busy": AutoScheduleMode.declineIfBusy,
+                "automatic": AutoScheduleMode.acceptIfFreeDeclineIfBusy,
+            }.get(
+                config.Scheduling.Options.AutoSchedule.DefaultMode,
+                "automatic"
+            )
 
-        log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - checking for auto-reply with mode: %s" % (self.recipient.cuaddr, self.uid, automode,))
+        log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - checking for auto-reply with mode: %s" % (self.recipient.cuaddr, self.uid, automode.name,))
 
         cuas = self.recipient.principal.calendarUserAddresses
 
@@ -704,13 +716,19 @@ class ImplicitProcessor(object):
         partstat_counts = collections.defaultdict(int)
         for instance in instances.instances.itervalues():
             if instance.partstat == "NEEDS-ACTION" and instance.active:
-                if automode == "accept-always":
+                if automode == AutoScheduleMode.accept:
                     freePartstat = busyPartstat = "ACCEPTED"
-                elif automode == "decline-always":
+                elif automode == AutoScheduleMode.decline:
                     freePartstat = busyPartstat = "DECLINED"
                 else:
-                    freePartstat = "ACCEPTED" if automode in ("accept-if-free", "automatic",) else "NEEDS-ACTION"
-                    busyPartstat = "DECLINED" if automode in ("decline-if-busy", "automatic",) else "NEEDS-ACTION"
+                    freePartstat = "ACCEPTED" if automode in (
+                        AutoScheduleMode.acceptIfFree,
+                        AutoScheduleMode.acceptIfFreeDeclineIfBusy,
+                    ) else "NEEDS-ACTION"
+                    busyPartstat = "DECLINED" if automode in (
+                        AutoScheduleMode.declineIfBusy,
+                        AutoScheduleMode.acceptIfFreeDeclineIfBusy,
+                    ) else "NEEDS-ACTION"
                 instance.partstat = freePartstat if instance.free else busyPartstat
             partstat_counts[instance.partstat] += 1
 
@@ -901,7 +919,7 @@ class ImplicitProcessor(object):
 
         # We only need to fix data that already exists
         if recipient_resource is not None:
-            if originator_calendar.mainType() != None:
+            if originator_calendar.mainType() is not None:
                 yield self.writeCalendarResource(None, recipient_resource, originator_calendar)
             else:
                 yield self.deleteCalendarResource(recipient_resource)

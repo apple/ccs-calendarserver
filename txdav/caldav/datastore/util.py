@@ -100,6 +100,7 @@ def validateCalendarComponent(calendarObject, calendar, component, inserting, mi
 
 
 
+@inlineCallbacks
 def normalizationLookup(cuaddr, recordFunction, config):
     """
     Lookup function to be passed to ical.normalizeCalendarUserAddresses.
@@ -108,23 +109,25 @@ def normalizationLookup(cuaddr, recordFunction, config):
     record for the cuaddr.
     """
     try:
-        record = recordFunction(cuaddr)
+        record = yield recordFunction(cuaddr)
     except Exception, e:
         log.debug("Lookup of %s failed: %s" % (cuaddr, e))
         record = None
 
     if record is None:
-        return (None, None, None)
+        returnValue((None, None, None))
     else:
         # RFC5545 syntax does not allow backslash escaping in
         # parameter values. A double-quote is thus not allowed
         # in a parameter value except as the start/end delimiters.
         # Single quotes are allowed, so we convert any double-quotes
         # to single-quotes.
-        return (
-            record.fullName.replace('"', "'"),
-            record.uid,
-            record.calendarUserAddresses,
+        returnValue(
+            (
+                record.displayName.replace('"', "'"),
+                record.uid,
+                record.calendarUserAddresses,
+            )
         )
 
 

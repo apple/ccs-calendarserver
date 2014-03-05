@@ -89,6 +89,25 @@ class RemoveRecordsCommand(amp.Command):
 
 
 
+class MembersCommand(amp.Command):
+    arguments = [
+        ('uid', amp.String()),
+    ]
+    response = [
+        ('fieldsList', amp.String()),
+    ]
+
+
+class GroupsCommand(amp.Command):
+    arguments = [
+        ('uid', amp.String()),
+    ]
+    response = [
+        ('fieldsList', amp.String()),
+    ]
+
+
+
 class VerifyPlaintextPasswordCommand(amp.Command):
     arguments = [
         ('uid', amp.String()),

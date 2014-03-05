@@ -392,16 +392,17 @@ def runListPrincipalTypes(service, rootResource, directory, store):
 
 
 
+@inlineCallbacks
 def runListPrincipals(service, rootResource, directory, store, listPrincipals):
     try:
-        records = list(directory.listRecords(listPrincipals))
+        records = list((yield directory.listRecords(listPrincipals)))
         if records:
             printRecordList(records)
         else:
             print("No records of type %s" % (listPrincipals,))
     except UnknownRecordTypeError, e:
         usage(e)
-    return succeed(None)
+    returnValue(None)
 
 
 
@@ -411,7 +412,7 @@ def runPrincipalActions(service, rootResource, directory, store, principalIDs,
     for principalID in principalIDs:
         # Resolve the given principal IDs to principals
         try:
-            principal = principalForPrincipalID(principalID, directory=directory)
+            principal = yield principalForPrincipalID(principalID, directory=directory)
         except ValueError:
             principal = None
 
@@ -525,7 +526,7 @@ def action_listProxies(rootResource, directory, store, principal, *proxyTypes):
 @inlineCallbacks
 def action_addProxy(rootResource, directory, store, principal, proxyType, *proxyIDs):
     for proxyID in proxyIDs:
-        proxyPrincipal = principalForPrincipalID(proxyID, directory=directory)
+        proxyPrincipal = yield principalForPrincipalID(proxyID, directory=directory)
         if proxyPrincipal is None:
             print("Invalid principal ID: %s" % (proxyID,))
         else:
@@ -556,7 +557,7 @@ def setProxies(store, principal, readProxyPrincipals, writeProxyPrincipals, dire
                 prettyPrincipal(principal)))
         memberURLs = []
         for proxyID in proxyIDs:
-            proxyPrincipal = principalForPrincipalID(proxyID, directory=directory)
+            proxyPrincipal = yield principalForPrincipalID(proxyID, directory=directory)
             proxyURL = proxyPrincipal.url()
             memberURLs.append(davxml.HRef(proxyURL))
         membersProperty = davxml.GroupMemberSet(*memberURLs)
@@ -584,7 +585,7 @@ def getProxies(principal, directory=None):
             membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
             if membersProperty.children:
                 for member in membersProperty.children:
-                    proxyPrincipal = principalForPrincipalID(str(member), directory=directory)
+                    proxyPrincipal = yield principalForPrincipalID(str(member), directory=directory)
                     proxies[proxyType].append(proxyPrincipal.record.guid)
 
     returnValue((proxies['read'], proxies['write']))
@@ -594,7 +595,7 @@ def getProxies(principal, directory=None):
 @inlineCallbacks
 def action_removeProxy(rootResource, directory, store, principal, *proxyIDs, **kwargs):
     for proxyID in proxyIDs:
-        proxyPrincipal = principalForPrincipalID(proxyID, directory=directory)
+        proxyPrincipal = yield principalForPrincipalID(proxyID, directory=directory)
         if proxyPrincipal is None:
             print("Invalid principal ID: %s" % (proxyID,))
         else:
@@ -682,7 +683,7 @@ def action_setAutoAcceptGroup(rootResource, directory, store, principal, autoAcc
         print("Setting auto-accept-group for %s is not allowed." % (principal,))
 
     else:
-        groupPrincipal = principalForPrincipalID(autoAcceptGroup, directory=directory)
+        groupPrincipal = yield principalForPrincipalID(autoAcceptGroup, directory=directory)
         if groupPrincipal is None or groupPrincipal.record.recordType != "groups":
             print("Invalid principal ID: %s" % (autoAcceptGroup,))
         else:
@@ -705,9 +706,9 @@ def action_setAutoAcceptGroup(rootResource, directory, store, principal, autoAcc
 def action_getAutoAcceptGroup(rootResource, directory, store, principal):
     autoAcceptGroup = principal.getAutoAcceptGroup()
     if autoAcceptGroup:
-        record = directory.recordWithGUID(autoAcceptGroup)
+        record = yield directory.recordWithGUID(autoAcceptGroup)
         if record is not None:
-            groupPrincipal = directory.principalCollection.principalForUID(record.uid)
+            groupPrincipal = yield directory.principalCollection.principalForUID(record.uid)
             if groupPrincipal is not None:
                 print("Auto-accept-group for %s is %s" % (
                     prettyPrincipal(principal),
@@ -859,16 +860,16 @@ def updateRecord(create, directory, recordType, **kwargs):
             kwargs[key] = newValue
 
     if create:
-        record = directory.createRecord(recordType, **kwargs)
+        record = yield directory.createRecord(recordType, **kwargs)
         kwargs['guid'] = record.guid
     else:
         try:
-            record = directory.updateRecord(recordType, **kwargs)
+            record = yield directory.updateRecord(recordType, **kwargs)
         except NotImplementedError:
             # Updating of directory information is not supported by underlying
             # directory implementation, but allow augment information to be
             # updated
-            record = directory.recordWithGUID(kwargs["guid"])
+            record = yield directory.recordWithGUID(kwargs["guid"])
             pass
 
     augmentService = directory.serviceForRecordType(recordType).augmentService
@@ -882,7 +883,7 @@ def updateRecord(create, directory, recordType, **kwargs):
         augmentRecord.autoAcceptGroup = autoAcceptGroup
     (yield augmentService.addAugmentRecords([augmentRecord]))
     try:
-        directory.updateRecord(recordType, **kwargs)
+        yield directory.updateRecord(recordType, **kwargs)
     except NotImplementedError:
         # Updating of directory information is not supported by underlying
         # directory implementation, but allow augment information to be

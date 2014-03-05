@@ -1456,6 +1456,8 @@ ResourceType.dropbox = ResourceType(Collection(), DropBox())
 
 ResourceType.calendarproxyread = ResourceType(Principal(), Collection(), CalendarProxyRead())
 ResourceType.calendarproxywrite = ResourceType(Principal(), Collection(), CalendarProxyWrite())
+ResourceType.calendarproxyreadfor = ResourceType(Principal(), Collection(), CalendarProxyReadFor())
+ResourceType.calendarproxywritefor = ResourceType(Principal(), Collection(), CalendarProxyWriteFor())
 
 ResourceType.timezones = ResourceType(Timezones())
 

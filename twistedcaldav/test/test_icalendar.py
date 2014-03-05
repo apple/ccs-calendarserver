@@ -19,6 +19,7 @@ from difflib import unified_diff
 import itertools
 
 from twisted.trial.unittest import SkipTest
+from twisted.internet.defer import inlineCallbacks, succeed
 
 from twistedcaldav.ical import Component, Property, InvalidICalendarDataError, \
     normalizeCUAddress, normalize_iCalStr
@@ -31,6 +32,8 @@ from twistedcaldav.ical import iCalendarProductID
 from pycalendar.duration import Duration
 from twistedcaldav.dateops import normalizeForExpand
 from pycalendar.value import Value
+
+
 
 class iCalendar (twistedcaldav.test.util.TestCase):
     """
@@ -7497,6 +7500,7 @@ END:VCALENDAR
             self.assertEquals(expected, ical.hasInstancesAfter(cutoff))
 
 
+    @inlineCallbacks
     def test_normalizeCalendarUserAddressesFromUUID(self):
         """
         Ensure mailto is preferred, followed by path form, then http form.
@@ -7520,25 +7524,27 @@ END:VCALENDAR
 
 
         def lookupFunction(cuaddr, ignored1, ignored2):
-            return {
-                "urn:uuid:foo" : (
-                    "Foo",
-                    "foo",
-                    ("urn:uuid:foo", "http://example.com/foo", "/foo")
-                ),
-                "urn:uuid:bar" : (
-                    "Bar",
-                    "bar",
-                    ("urn:uuid:bar", "mailto:bar@example.com", "http://example.com/bar", "/bar")
-                ),
-                "urn:uuid:baz" : (
-                    "Baz",
-                    "baz",
-                    ("urn:uuid:baz", "http://example.com/baz")
-                ),
-            }[cuaddr]
+            return succeed(
+                {
+                    "urn:uuid:foo" : (
+                        "Foo",
+                        "foo",
+                        ("urn:uuid:foo", "http://example.com/foo", "/foo")
+                    ),
+                    "urn:uuid:bar" : (
+                        "Bar",
+                        "bar",
+                        ("urn:uuid:bar", "mailto:bar@example.com", "http://example.com/bar", "/bar")
+                    ),
+                    "urn:uuid:baz" : (
+                        "Baz",
+                        "baz",
+                        ("urn:uuid:baz", "http://example.com/baz")
+                    ),
+                }[cuaddr]
+            )
 
-        component.normalizeCalendarUserAddresses(lookupFunction, None, toUUID=False)
+        yield component.normalizeCalendarUserAddresses(lookupFunction, None, toUUID=False)
 
         self.assertEquals("mailto:bar@example.com",
             component.getAttendeeProperty(("mailto:bar@example.com",)).value())
@@ -7548,6 +7554,7 @@ END:VCALENDAR
             component.getAttendeeProperty(("http://example.com/baz",)).value())
 
 
+    @inlineCallbacks
     def test_normalizeCalendarUserAddressesAndLocationChange(self):
         """
         Ensure http(s) and /path CUA values are tucked away into the property
@@ -7573,25 +7580,27 @@ END:VCALENDAR
 
 
         def lookupFunction(cuaddr, ignored1, ignored2):
-            return {
-                "/principals/users/foo" : (
-                    "Foo",
-                    "foo",
-                    ("urn:uuid:foo",)
-                ),
-                "http://example.com/principals/users/bar" : (
-                    "Bar",
-                    "bar",
-                    ("urn:uuid:bar",)
-                ),
-                "http://example.com/principals/locations/buzz" : (
-                    "{Restricted} Buzz",
-                    "buzz",
-                    ("urn:uuid:buzz",)
-                ),
-            }[cuaddr]
+            return succeed(
+                {
+                    "/principals/users/foo" : (
+                        "Foo",
+                        "foo",
+                        ("urn:uuid:foo",)
+                    ),
+                    "http://example.com/principals/users/bar" : (
+                        "Bar",
+                        "bar",
+                        ("urn:uuid:bar",)
+                    ),
+                    "http://example.com/principals/locations/buzz" : (
+                        "{Restricted} Buzz",
+                        "buzz",
+                        ("urn:uuid:buzz",)
+                    ),
+                }[cuaddr]
+            )
 
-        component.normalizeCalendarUserAddresses(lookupFunction, None, toUUID=True)
+        yield component.normalizeCalendarUserAddresses(lookupFunction, None, toUUID=True)
 
         # Location value changed
         prop = component.mainComponent().getProperty("LOCATION")
@@ -7601,6 +7610,7 @@ END:VCALENDAR
         self.assertEquals(prop.parameterValue("CN"), "{Restricted} Buzz")
 
 
+    @inlineCallbacks
     def test_normalizeCalendarUserAddressesAndLocationNoChange(self):
         """
         Ensure http(s) and /path CUA values are tucked away into the property
@@ -7626,25 +7636,27 @@ END:VCALENDAR
 
 
         def lookupFunction(cuaddr, ignored1, ignored2):
-            return {
-                "/principals/users/foo" : (
-                    "Foo",
-                    "foo",
-                    ("urn:uuid:foo",)
-                ),
-                "http://example.com/principals/users/bar" : (
-                    "Bar",
-                    "bar",
-                    ("urn:uuid:bar",)
-                ),
-                "http://example.com/principals/locations/buzz" : (
-                    "{Restricted} Buzz",
-                    "buzz",
-                    ("urn:uuid:buzz",)
-                ),
-            }[cuaddr]
+            return succeed(
+                {
+                    "/principals/users/foo" : (
+                        "Foo",
+                        "foo",
+                        ("urn:uuid:foo",)
+                    ),
+                    "http://example.com/principals/users/bar" : (
+                        "Bar",
+                        "bar",
+                        ("urn:uuid:bar",)
+                    ),
+                    "http://example.com/principals/locations/buzz" : (
+                        "{Restricted} Buzz",
+                        "buzz",
+                        ("urn:uuid:buzz",)
+                    ),
+                }[cuaddr]
+            )
 
-        component.normalizeCalendarUserAddresses(lookupFunction, None, toUUID=True)
+        yield component.normalizeCalendarUserAddresses(lookupFunction, None, toUUID=True)
 
         # Location value changed
         prop = component.mainComponent().getProperty("LOCATION")
@@ -7654,6 +7666,7 @@ END:VCALENDAR
         self.assertEquals(prop.parameterValue("CN"), "{Restricted} Buzz")
 
 
+    @inlineCallbacks
     def test_normalizeCalendarUserAddressesAndLocationNoChangeOtherCUType(self):
         """
         Ensure http(s) and /path CUA values are tucked away into the property
@@ -7679,25 +7692,27 @@ END:VCALENDAR
 
 
         def lookupFunction(cuaddr, ignored1, ignored2):
-            return {
-                "/principals/users/foo" : (
-                    "Foo",
-                    "foo",
-                    ("urn:uuid:foo",)
-                ),
-                "http://example.com/principals/users/bar" : (
-                    "Bar",
-                    "bar",
-                    ("urn:uuid:bar",)
-                ),
-                "http://example.com/principals/locations/buzz" : (
-                    "{Restricted} Buzz",
-                    "buzz",
-                    ("urn:uuid:buzz",)
-                ),
-            }[cuaddr]
+            return succeed(
+                {
+                    "/principals/users/foo" : (
+                        "Foo",
+                        "foo",
+                        ("urn:uuid:foo",)
+                    ),
+                    "http://example.com/principals/users/bar" : (
+                        "Bar",
+                        "bar",
+                        ("urn:uuid:bar",)
+                    ),
+                    "http://example.com/principals/locations/buzz" : (
+                        "{Restricted} Buzz",
+                        "buzz",
+                        ("urn:uuid:buzz",)
+                    ),
+                }[cuaddr]
+            )
 
-        component.normalizeCalendarUserAddresses(lookupFunction, None, toUUID=True)
+        yield component.normalizeCalendarUserAddresses(lookupFunction, None, toUUID=True)
 
         # Location value changed
         prop = component.mainComponent().getProperty("LOCATION")
@@ -8404,6 +8419,7 @@ END:VCALENDAR
             self.assertEqual(changed, result_changed)
 
 
+    @inlineCallbacks
     def test_normalizeCUAddressFromUUID(self):
         """
         Ensure mailto is preferred, followed by path form, then http form.
@@ -8418,34 +8434,37 @@ END:VCALENDAR
         )
 
         def lookupFunction(cuaddr, ignored1, ignored2):
-            return {
-                "urn:uuid:foo" : (
-                    "Foo",
-                    "foo",
-                    ("urn:uuid:foo", "http://example.com/foo", "/foo")
-                ),
-                "urn:uuid:bar" : (
-                    "Bar",
-                    "bar",
-                    ("urn:uuid:bar", "mailto:bar@example.com", "http://example.com/bar", "/bar")
-                ),
-                "urn:uuid:baz" : (
-                    "Baz",
-                    "baz",
-                    ("urn:uuid:baz", "http://example.com/baz")
-                ),
-                "urn:uuid:buz" : (
-                    "Buz",
-                    "buz",
-                    ("urn:uuid:buz",)
-                ),
-            }[cuaddr]
+            return succeed(
+                {
+                    "urn:uuid:foo" : (
+                        "Foo",
+                        "foo",
+                        ("urn:uuid:foo", "http://example.com/foo", "/foo")
+                    ),
+                    "urn:uuid:bar" : (
+                        "Bar",
+                        "bar",
+                        ("urn:uuid:bar", "mailto:bar@example.com", "http://example.com/bar", "/bar")
+                    ),
+                    "urn:uuid:baz" : (
+                        "Baz",
+                        "baz",
+                        ("urn:uuid:baz", "http://example.com/baz")
+                    ),
+                    "urn:uuid:buz" : (
+                        "Buz",
+                        "buz",
+                        ("urn:uuid:buz",)
+                    ),
+                }[cuaddr]
+            )
 
         for cuaddr, result in data:
-            new_cuaddr = normalizeCUAddress(cuaddr, lookupFunction, None, toUUID=False)
+            new_cuaddr = yield normalizeCUAddress(cuaddr, lookupFunction, None, toUUID=False)
             self.assertEquals(new_cuaddr, result)
 
 
+    @inlineCallbacks
     def test_normalizeCUAddressToUUID(self):
         """
         Ensure http(s) and /path CUA values are tucked away into the property
@@ -8459,21 +8478,23 @@ END:VCALENDAR
 
 
         def lookupFunction(cuaddr, ignored1, ignored2):
-            return {
-                "/principals/users/foo" : (
-                    "Foo",
-                    "foo",
-                    ("urn:uuid:foo",)
-                ),
-                "http://example.com/principals/users/buz" : (
-                    "Buz",
-                    "buz",
-                    ("urn:uuid:buz",)
-                ),
-            }[cuaddr]
+            return succeed(
+                {
+                    "/principals/users/foo" : (
+                        "Foo",
+                        "foo",
+                        ("urn:uuid:foo",)
+                    ),
+                    "http://example.com/principals/users/buz" : (
+                        "Buz",
+                        "buz",
+                        ("urn:uuid:buz",)
+                    ),
+                }[cuaddr]
+            )
 
         for cuaddr, result in data:
-            new_cuaddr = normalizeCUAddress(cuaddr, lookupFunction, None, toUUID=True)
+            new_cuaddr = yield normalizeCUAddress(cuaddr, lookupFunction, None, toUUID=True)
             self.assertEquals(new_cuaddr, result)
 
 

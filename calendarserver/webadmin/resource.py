@@ -587,7 +587,7 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
 
     # Only allow administrators to access
     def defaultAccessControlList(self):
-        return davxml.ACL(*config.AdminACEs)
+        return succeed(davxml.ACL(*config.AdminACEs))
 
 
     def etag(self):
