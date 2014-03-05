@@ -90,6 +90,7 @@ def version():
 
         break
     else:
+        full_version = base_version
         full_version += "a.unknown"
         full_version += "-r{revision}".format(revision=svn_revision)
 
