@@ -39,7 +39,7 @@ from txweb2.http import Response
 
 
 
-def textAsEvent(text, eventID=None, eventClass=None):
+def textAsEvent(text, eventID=None, eventClass=None, eventRetry=None):
     """
     Format some text as an HTML5 EventSource event.  Since the EventSource data
     format is text-oriented, this function expects L{unicode}, not L{bytes};
@@ -60,6 +60,10 @@ def textAsEvent(text, eventID=None, eventClass=None):
     @param eventClass: A class name (ie. a categorization) for the event.
     @type eventClass: L{unicode}
 
+    @param eventRetry: The retry interval (in milliseconds) for the client to
+        wait before reconnecting if it gets disconnected.
+    @type eventRetry: L{int}
+
     @return: An HTML5 EventSource event as text.
     @rtype: UTF-8 encoded L{bytes}
     """
@@ -73,6 +77,9 @@ def textAsEvent(text, eventID=None, eventClass=None):
 
     if eventClass is not None:
         event.append(u"event: {0}".format(eventClass))
+
+    if eventRetry is not None:
+        event.append(u"retry: {0:d}".format(eventRetry))
 
     event.extend(
         u"data: {0}".format(l) for l in text.split("\n")
@@ -106,6 +113,12 @@ class IEventDecoder(Interface):
         @rtype: L{unicode}
         """
 
+    def retryForEvent(event):
+        """
+        @return: The retry interval (in milliseconds) for the client to wait
+            before reconnecting if it gets disconnected.
+        @rtype: L{int}
+        """
 
 
 class EventSourceResource(Resource):
@@ -212,6 +225,7 @@ class EventStream(object):
         idForEvent = self._eventDecoder.idForEvent
         classForEvent = self._eventDecoder.classForEvent
         textForEvent = self._eventDecoder.textForEvent
+        retryForEvent = self._eventDecoder.retryForEvent
 
         for event in self._events:
             eventID = idForEvent(event)
@@ -227,11 +241,12 @@ class EventStream(object):
 
             eventClass = classForEvent(event)
             eventText = textForEvent(event)
+            eventRetry = retryForEvent(event)
 
             self._lastID = eventID
 
             return succeed(
-                textAsEvent(eventText, eventID, eventClass)
+                textAsEvent(eventText, eventID, eventClass, eventRetry)
             )
 
 

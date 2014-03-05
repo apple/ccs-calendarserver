@@ -89,10 +89,12 @@ class WorkEventsResource(EventSourceResource):
     Resource that vends work queue information via HTML5 EventSource events.
     """
 
-    def __init__(self, store):
+    def __init__(self, store, pollInterval=1):
         EventSourceResource.__init__(self, EventDecoder, bufferSize=1)
 
         self._store = store
+        self._pollInterval = pollInterval
+
 
     @inlineCallbacks
     def render(self, request):
@@ -111,6 +113,7 @@ class WorkEventsResource(EventSourceResource):
                 eventClass=u"work-total",
                 eventID=time(),
                 eventText=asJSON(jobData),
+                eventRetry=(self._pollInterval * 1000),
             ),
         ))
 
@@ -118,7 +121,7 @@ class WorkEventsResource(EventSourceResource):
             from twisted.internet import reactor
             self._clock = reactor
 
-        self._clock.callLater(1, self.poll)
+        self._clock.callLater(self._pollInterval, self.poll)
 
 
 
@@ -137,6 +140,11 @@ class EventDecoder(object):
     @staticmethod
     def textForEvent(event):
         return event.get("eventText")
+
+
+    @staticmethod
+    def retryForEvent(event):
+        return event.get("eventRetry")
 
 
 
