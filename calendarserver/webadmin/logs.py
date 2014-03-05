@@ -180,3 +180,8 @@ class EventDecoder(object):
             text = u"*** Error while formatting event ***"
 
         return text
+
+
+    @staticmethod
+    def retryForEvent(event):
+        return None
