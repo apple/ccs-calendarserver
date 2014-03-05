@@ -39,6 +39,10 @@
         display: none;
       }
 
+      #work_item_details {
+        display: none;
+      }
+
     </style>
 
     <script src="http://d3js.org/d3.v3.min.js"></script>
@@ -274,18 +278,25 @@
       }
 
       function showDetails(workItemType) {
-        detailsContainer = document.getElementById("work_item_details");
-        detailsContainer.innerHTML = workItemType;
+        detailsDebug = document.getElementById("work_item_debug");
+        detailsDebug.innerHTML = workItemType;
+
+        eventDebug = document.getElementById("event_debug");
+        eventDebug.innerHTML = "";
+
+        detailsTable = document.getElementById("work_item_details");
+        detailsBody = document.getElementById("work_item_details_body");
 
         if (itemTypeEventListener != undefined) {
           eventSource.removeEventListener(itemTypeEventListener)
         }
 
-        eventContainer = document.getElementById("event_debug");
-        eventContainer.innerHTML = "";
+        detailsTable.style.display = "block";
 
         itemTypeEventListener = function(e) {
-            eventContainer.innerHTML = e.data;
+            eventDebug.innerHTML = e.data;
+
+            detailsBody.innerHTML = "";
         }
 
         eventSource.addEventListener(workItemType, itemTypeEventListener)
@@ -307,8 +318,21 @@
 
     <svg id="work_queue_chart" />
 
-    <div id="work_item_details" />
+    <table id="work_item_details">
+      <caption>Work Item Details</caption>
+      <thead>
+        <tr>
+          <th>Job ID</th>
+          <th>Priority</th>
+          <th>Not Before</th>
+          <th>Not After</th>
+        </tr>
+      </thead>
+      <tbody id="work_item_details_body" />
+    </table>
 
+    <hr />
+    <div id="work_item_debug" />
     <div id="event_debug" />
 
   </body>
