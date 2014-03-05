@@ -1092,6 +1092,85 @@ class GUIDTests(TestCase):
 
 
 
+class DirectoryServiceTests(TestCase):
+    """
+    Test L{DirectoryService} apis.
+    """
+
+    class StubDirectoryService(DirectoryService):
+
+        def __init__(self):
+            self._records = {}
+
+
+        def createRecord(self, recordType, guid=None, shortNames=(), authIDs=set(),
+            fullName=None, firstName=None, lastName=None, emailAddresses=set(),
+            uid=None, password=None, **kwargs):
+            """
+            Create/persist a directory record based on the given values
+            """
+
+            record = DirectoryRecord(
+                self,
+                recordType,
+                guid=guid,
+                shortNames=shortNames,
+                authIDs=authIDs,
+                fullName=fullName,
+                firstName=firstName,
+                lastName=lastName,
+                emailAddresses=emailAddresses,
+                uid=uid,
+                password=password,
+                **kwargs
+            )
+            self._records.setdefault(recordType, []).append(record)
+
+
+        def recordTypes(self):
+            return self._records.keys()
+
+
+        def listRecords(self, recordType):
+            return self._records[recordType]
+
+
+    def setUp(self):
+        self.service = self.StubDirectoryService()
+        self.service.setRealm("test")
+        self.service.baseGUID = "0E8E6EC2-8E52-4FF3-8F62-6F398B08A498"
+
+
+    def test_recordWithCalendarUserAddress_principal_uris(self):
+        """
+        Make sure that recordWithCalendarUserAddress handles percent-encoded
+        principal URIs.
+        """
+
+        self.service.createRecord(
+            DirectoryService.recordType_users,
+            guid="user01",
+            shortNames=("user 01", "User 01"),
+            fullName="User 01",
+            enabledForCalendaring=True,
+        )
+        self.service.createRecord(
+            DirectoryService.recordType_users,
+            guid="user02",
+            shortNames=("user02", "User 02"),
+            fullName="User 02",
+            enabledForCalendaring=True,
+        )
+
+        record = self.service.recordWithCalendarUserAddress("/principals/users/user%2001")
+        self.assertTrue(record is not None)
+        record = self.service.recordWithCalendarUserAddress("/principals/users/user02")
+        self.assertTrue(record is not None)
+        record = self.service.recordWithCalendarUserAddress("/principals/users/user%0202")
+        self.assertTrue(record is None)
+
+
+
 class DirectoryRecordTests(TestCase):
     """
     Test L{DirectoryRecord} apis.
