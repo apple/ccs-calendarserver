@@ -49,7 +49,7 @@
     <script>
     //<![CDATA[
 
-      var workTableDescriptions = {
+      var workTypeDescriptions = {
         // Scheduling
         "SCHEDULE_ORGANIZER_WORK": "Schedule Organizer",
         "SCHEDULE_REPLY_WORK": "Schedule Reply",
@@ -82,6 +82,33 @@
         "FIND_MIN_VALID_REVISION_WORK": "Revision Cleanup: Find Minimum",
       };
 
+      var jobItemAttributeDescriptions = {
+        "jobID": "Job ID",
+        "priority": "Priority",
+        "notBefore": "Not Before",
+        "notAfter": "Not After",
+      }
+
+      // Function to return keys from an object in order, followed by keys
+      // from another which were not in the first.
+      // We use this in case we get a JSON dictionary with keys that haven't
+      // been mapped; the mapped keys will be in a known order and the rest
+      // will be in whatever order they came in over the wire.
+      function keysInKindOfKnownOrder(obj1, obj2) {
+        keys = [];
+        for (key in obj1) { keys.push(key); }
+        for (key in obj2) { if (! key in obj1) { keys.push(key); } }
+        return keys;
+      }
+
+      function valueOrKey(obj, key) {
+        if (key in obj) {
+          return obj[key];
+        } else {
+          return key;
+        }
+      }
+
       var maxSeen = 30;
 
       var eventSource = undefined;
@@ -90,23 +117,16 @@
       function drawChart(data) {
         items = [];
 
-        // Add items in the order used by workTableDescriptions
-        for (key in workTableDescriptions) {
+        keys = keysInKindOfKnownOrder(workTypeDescriptions, data);
+
+        for (i in keys) {
+          key = keys[i];  // OMG JavaScript, seriously?
+
           if (key in data) {
             items.push({
               name: key,
               count: data[key],
-              description: workTableDescriptions[key],
-            });
-          }
-        }
-
-        for (key in data) {
-          if (! key in workTableDescriptions) {
-            items.push({
-              name: key,
-              count: data[key],
-              description: key,
+              description: valueOrKey(workTypeDescriptions, key),
             });
           }
         }
@@ -255,7 +275,7 @@
     function initChart() {
         data = {};
 
-        for (key in workTableDescriptions) {
+        for (key in workTypeDescriptions) {
           data[key] = 0.1;
         }
 
@@ -277,29 +297,74 @@
         );
       }
 
-      function showDetails(workItemType) {
+      function showDetails(workType) {
+        // DEBUG
         detailsDebug = document.getElementById("work_item_debug");
-        detailsDebug.innerHTML = workItemType;
-
+        detailsDebug.innerHTML = workType;
         eventDebug = document.getElementById("event_debug");
         eventDebug.innerHTML = "";
 
+        if (workType in workTypeDescriptions) {
+          description = workTypeDescriptions[workType];
+        } else {
+          description = workType;
+        }
+
+        // Look up elements
         detailsTable = document.getElementById("work_item_details");
+        detailsCaption = document.getElementById("work_item_details_caption");
+        detailsHeader = document.getElementById("work_item_details_header");
         detailsBody = document.getElementById("work_item_details_body");
 
+        // Unregister existing details listener
         if (itemTypeEventListener != undefined) {
           eventSource.removeEventListener(itemTypeEventListener)
         }
 
-        detailsTable.style.display = "block";
+        // Reset the details elements
+        detailsTable.style.display = "none";
+        detailsCaption.innerHTML = "Work Item Details: " + description;
+        detailsHeader.innerHTML = "";
+        detailsBody.innerHTML = "";
 
+        // Register requested details listener
         itemTypeEventListener = function(e) {
-            eventDebug.innerHTML = e.data;
+          // DEBUG
+          eventDebug.innerHTML = e.data;
 
-            detailsBody.innerHTML = "";
+          jobItems = JSON.parse(e.data);
+
+          for (i in jobItems) {
+            jobItem = jobItems[i];  // OMG JavaScript is so stupid.
+
+            // Unhide the table
+            detailsTable.style.display = "block";
+    
+            // Add the table headers if they aren't already there
+            if (detailsHeader.innerHTML == "") {
+              row = document.createElement("tr");
+
+              attributes = keysInKindOfKnownOrder(jobItemAttributeDescriptions, jobItem);
+
+              for (i in attributes) {
+                attribute = attributes[i];  // OMG JavaScript, wow you so dumb
+                attributeDescription = valueOrKey(jobItemAttributeDescriptions, attribute)
+
+                header = document.createElement("th");
+                text = document.createTextNode(attributeDescription);
+                header.appendChild(text);
+                row.appendChild(header);
+              }
+
+              detailsHeader.appendChild(row);
+            }
+
+
+
+          }
         }
 
-        eventSource.addEventListener(workItemType, itemTypeEventListener)
+        eventSource.addEventListener(workType, itemTypeEventListener)
       }
 
       window.onload = function() {
@@ -319,8 +384,8 @@
     <svg id="work_queue_chart" />
 
     <table id="work_item_details">
-      <caption>Work Item Details</caption>
-      <thead>
+      <caption id="work_item_details_caption">Work Item Details</caption>
+      <thead id="work_item_details_header">
         <tr>
           <th>Job ID</th>
           <th>Priority</th>
