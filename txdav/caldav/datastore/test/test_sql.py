@@ -62,7 +62,7 @@ from txdav.caldav.icalendarstore import ComponentUpdateState, InvalidDefaultCale
 from txdav.common.datastore.sql import ECALENDARTYPE, CommonObjectResource, \
     CommonStoreTransactionMonitor
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_DIRECT, \
-    _BIND_STATUS_ACCEPTED
+    _BIND_STATUS_ACCEPTED, _TRANSP_OPAQUE
 from txdav.common.datastore.test.util import populateCalendarsFrom, \
     CommonCommonTests
 from txdav.common.icommondatastore import NoSuchObjectResourceError
@@ -1928,6 +1928,36 @@ END:VCALENDAR
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
         token = yield calendar.syncToken()
         self.assertTrue(token is not None)
+
+
+    @inlineCallbacks
+    def test_inboxTransp(self):
+        """
+        Make sure inbox is always transparent no matter what is stored in the DB.
+        """
+
+        home = yield self.homeUnderTest(name="user01", create=True)
+        self.assertNotEqual(home, None)
+        inbox = yield self.calendarUnderTest(home="user01", name="inbox")
+        self.assertFalse(inbox.isUsedForFreeBusy())
+        yield inbox.setUsedForFreeBusy(True)
+        self.assertFalse(inbox.isUsedForFreeBusy())
+        yield self.commit()
+
+        inbox = yield self.calendarUnderTest(home="user01", name="inbox")
+        self.assertFalse(inbox.isUsedForFreeBusy())
+
+        cb = schema.CALENDAR_BIND
+        yield Update(
+            {cb.TRANSP: _TRANSP_OPAQUE},
+            Where=(cb.CALENDAR_RESOURCE_NAME == "inbox").And(
+                cb.CALENDAR_RESOURCE_ID == inbox.id()
+            )
+        ).on(self.transactionUnderTest())
+        yield self.commit()
+
+        inbox = yield self.calendarUnderTest(home="user01", name="inbox")
+        self.assertFalse(inbox.isUsedForFreeBusy())
 
 
 

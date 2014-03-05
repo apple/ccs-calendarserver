@@ -1258,25 +1258,27 @@ class Calendar(CommonHomeChild):
 
     def isUsedForFreeBusy(self):
         """
-        Indicates whether the contents of this calendar contributes to free busy.
+        Indicates whether the contents of this calendar contributes to free busy. Always coerce
+        inbox to be transparent.
 
         @return: C{True} if it does, C{False} otherwise
         @rtype: C{bool}
         """
-        return self._transp == _TRANSP_OPAQUE
+        return (self._transp == _TRANSP_OPAQUE) and not self.isInbox()
 
 
     @inlineCallbacks
     def setUsedForFreeBusy(self, use_it):
         """
         Mark this calendar as being used for free busy request. Note this is a per-user setting so we are setting
-        this on the bind table entry which is related to the user viewing the calendar.
+        this on the bind table entry which is related to the user viewing the calendar. Always coerce inbox to be
+        transparent.
 
         @param use_it: C{True} if used for free busy, C{False} otherwise
         @type use_it: C{bool}
         """
 
-        self._transp = _TRANSP_OPAQUE if use_it else _TRANSP_TRANSPARENT
+        self._transp = _TRANSP_OPAQUE if use_it and not self.isInbox() else _TRANSP_TRANSPARENT
         cal = self._bindSchema
         yield Update(
             {cal.TRANSP : self._transp},
