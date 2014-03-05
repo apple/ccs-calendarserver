@@ -89,7 +89,7 @@ class WorkEventsResource(EventSourceResource):
     Resource that vends work queue information via HTML5 EventSource events.
     """
 
-    def __init__(self, store, pollInterval=1):
+    def __init__(self, store, pollInterval=1000):
         EventSourceResource.__init__(self, EventDecoder, bufferSize=1)
 
         self._store = store
@@ -106,22 +106,40 @@ class WorkEventsResource(EventSourceResource):
     def poll(self):
         txn = self._store.newTransaction()
 
-        jobData = yield JobItem.histogram(txn)
+        # Look up all of the jobs
+
+        itemsByTypeName = {}
+
+        for item in (yield JobItem.all(txn)):
+            itemsByTypeName.setdefault(item.workType, []).append(item)
+
+        totalsByTypeName = dict(
+            (workType, len(items))
+            for (workType, items) in itemsByTypeName.iteritems()
+        )
+
+        for workType in JobItem.workTypes():
+            # If this workType isn't in the totals, there are zero of them.
+            totalsByTypeName.setdefault(workType.table.model.name, "0")
+
+        # Send data
 
         self.addEvents((
             dict(
                 eventClass=u"work-total",
                 eventID=time(),
-                eventText=asJSON(jobData),
-                eventRetry=(self._pollInterval * 1000),
+                eventText=asJSON(totalsByTypeName),
+                eventRetry=(self._pollInterval),
             ),
         ))
+
+        # Schedule the next poll
 
         if not hasattr(self, "_clock"):
             from twisted.internet import reactor
             self._clock = reactor
 
-        self._clock.callLater(self._pollInterval, self.poll)
+        self._clock.callLater(self._pollInterval / 1000, self.poll)
 
 
 
