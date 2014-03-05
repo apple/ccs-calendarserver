@@ -90,7 +90,7 @@ class WorkEventsResource(EventSourceResource):
     """
 
     def __init__(self, store, pollInterval=1000):
-        EventSourceResource.__init__(self, EventDecoder, bufferSize=1)
+        EventSourceResource.__init__(self, EventDecoder, bufferSize=100)
 
         self._store = store
         self._pollInterval = pollInterval
@@ -108,30 +108,46 @@ class WorkEventsResource(EventSourceResource):
 
         # Look up all of the jobs
 
+        events = []
+
         itemsByTypeName = {}
 
         for item in (yield JobItem.all(txn)):
             itemsByTypeName.setdefault(item.workType, []).append(item)
 
-        totalsByTypeName = dict(
-            (workType, len(items))
-            for (workType, items) in itemsByTypeName.iteritems()
-        )
+        totalsByTypeName = {}
 
         for workType in JobItem.workTypes():
-            # If this workType isn't in the totals, there are zero of them.
-            totalsByTypeName.setdefault(workType.table.model.name, "0")
+            typeName = workType.table.model.name
+            items = itemsByTypeName.get(typeName, [])
+            totalsByTypeName[typeName] = len(items)
+            itemData = []
+
+            for item in items:
+                itemData.append(dict(
+                    jobID=item.jobID,
+                    priority=item.priority,
+                    notBefore=item.notBefore.ctime(),  # FIXME: Use HTTP format
+                    notAfter=item.notAfter,
+                ))
+
+            if itemData:
+                events.append(dict(
+                    eventClass=typeName,
+                    eventID=time(),
+                    eventText=asJSON(itemData),
+                ))
+
+        events.append(dict(
+            eventClass=u"work-total",
+            eventID=time(),
+            eventText=asJSON(totalsByTypeName),
+            eventRetry=(self._pollInterval),
+        ))
 
         # Send data
 
-        self.addEvents((
-            dict(
-                eventClass=u"work-total",
-                eventID=time(),
-                eventText=asJSON(totalsByTypeName),
-                eventRetry=(self._pollInterval),
-            ),
-        ))
+        self.addEvents(events)
 
         # Schedule the next poll
 

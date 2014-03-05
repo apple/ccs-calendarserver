@@ -80,6 +80,9 @@
 
       var maxSeen = 30;
 
+      var eventSource = undefined;
+      var itemTypeEventListener = undefined;
+
       function drawChart(data) {
         items = [];
 
@@ -256,19 +259,36 @@
       }
 
       function registerForEvents() {
-        var eventSource = new EventSource("./events");
+        eventSource = new EventSource("./events");
 
         eventSource.addEventListener(
           "work-total",
-          function(e) { drawChart(JSON.parse(e.data)); },
+          function(e) {
+            // container = document.getElementById("event_debug");
+            // container.innerHTML = e.data;
+
+            drawChart(JSON.parse(e.data));
+          },
           false
         );
       }
 
       function showDetails(workItemType) {
-        container = document.getElementById("work_item_details");
+        detailsContainer = document.getElementById("work_item_details");
+        detailsContainer.innerHTML = workItemType;
 
-        container.innerHTML = workItemType;
+        if (itemTypeEventListener != undefined) {
+          eventSource.removeEventListener(itemTypeEventListener)
+        }
+
+        eventContainer = document.getElementById("event_debug");
+        eventContainer.innerHTML = "";
+
+        itemTypeEventListener = function(e) {
+            eventContainer.innerHTML = e.data;
+        }
+
+        eventSource.addEventListener(workItemType, itemTypeEventListener)
       }
 
       window.onload = function() {
@@ -288,6 +308,8 @@
     <svg id="work_queue_chart" />
 
     <div id="work_item_details" />
+
+    <div id="event_debug" />
 
   </body>
 
