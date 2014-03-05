@@ -23,18 +23,19 @@
 ----------------------------------------
 
 begin
-for i in (select constraint_name from user_cons_columns where column_name = 'MEMBER_ID' or column_name = 'GROUP_ID')
-loop
-execute immediate 'alter table abo_members drop constraint' || i.constraint_name;
-end loop;
+    for i in (select constraint_name
+              from   user_cons_columns
+              where  table_name = 'ABO_MEMBERS'
+                     and ( column_name = 'MEMBER_ID'
+                            or column_name = 'GROUP_ID' )) loop
+        execute immediate 'alter table ABO_MEMBERS drop constraint '|| i.constraint_name;
+    end loop;
 end;
 
 alter table ABO_MEMBERS
 	add ("REVISION" integer not null);
 alter table ABO_MEMBERS
 	add ("REMOVED" integer default 0 not null);
-alter table ABO_MEMBERS
-	 drop primary key;
 alter table ABO_MEMBERS
 	 add primary key ("GROUP_ID", "MEMBER_ID", "REVISION");
 
