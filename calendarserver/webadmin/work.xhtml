@@ -39,6 +39,10 @@
         display: none;
       }
 
+      .y.axis text:hover {
+        fill: brown;
+      }
+
       #work_item_details {
         display: none;
       }
@@ -223,6 +227,10 @@
           .attr("class", "y axis")
           .call(yAxis)
         ;
+        // y_axis
+        //   .selectAll(".tick")
+        //   .on("click", function(x) { alert(x); } )
+        // ;
         y_axis.exit().remove();
 
         // Select bars
