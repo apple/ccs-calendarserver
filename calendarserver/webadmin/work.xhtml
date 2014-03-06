@@ -43,6 +43,10 @@
         display: none;
       }
 
+      #debug {
+        display: none;
+      }
+
     </style>
 
     <script src="http://d3js.org/d3.v3.min.js"></script>
@@ -95,9 +99,9 @@
       // been mapped; the mapped keys will be in a known order and the rest
       // will be in whatever order they came in over the wire.
       function keysInKindOfKnownOrder(obj1, obj2) {
-        keys = [];
-        for (key in obj1) { keys.push(key); }
-        for (key in obj2) { if (! key in obj1) { keys.push(key); } }
+        var keys = [];
+        for (var key in obj1) { keys.push(key); }
+        for (var key in obj2) { if (! key in obj1) { keys.push(key); } }
         return keys;
       }
 
@@ -109,18 +113,21 @@
         }
       }
 
+      var debug = false;
+
       var maxSeen = 30;
 
-      var eventSource = undefined;
-      var itemTypeEventListener = undefined;
+      var eventSource;
+      var itemTypeEventListener;
+      var itemTypeEventListenerWorkType;
 
       function drawChart(data) {
-        items = [];
+        var items = [];
 
-        keys = keysInKindOfKnownOrder(workTypeDescriptions, data);
+        var keys = keysInKindOfKnownOrder(workTypeDescriptions, data);
 
-        for (i in keys) {
-          key = keys[i];  // OMG JavaScript, seriously?
+        for (var i in keys) {
+          var key = keys[i];  // OMG JavaScript, seriously?
 
           if (key in data) {
             items.push({
@@ -273,9 +280,9 @@
       }
 
     function initChart() {
-        data = {};
+        var data = {};
 
-        for (key in workTypeDescriptions) {
+        for (var key in workTypeDescriptions) {
           data[key] = 0.1;
         }
 
@@ -298,27 +305,37 @@
       }
 
       function showDetails(workType) {
-        // DEBUG
-        detailsDebug = document.getElementById("work_item_debug");
-        detailsDebug.innerHTML = workType;
-        eventDebug = document.getElementById("event_debug");
-        eventDebug.innerHTML = "";
+        var debuggingContainer = document.getElementById("debug");
 
-        if (workType in workTypeDescriptions) {
-          description = workTypeDescriptions[workType];
+        if (debug) {
+          debuggingContainer.style.display = "block";
+
+          var detailsDebug = document.getElementById("work_item_debug");
+          detailsDebug.innerHTML = workType;
+
+          var eventDebug = document.getElementById("event_debug");
+          eventDebug.innerHTML = "";
+
         } else {
-          description = workType;
+          debuggingContainer.style.display = "none";
+        }
+
+        // Get description
+        if (workType in workTypeDescriptions) {
+          var description = workTypeDescriptions[workType];
+        } else {
+          var description = workType;
         }
 
         // Look up elements
-        detailsTable = document.getElementById("work_item_details");
-        detailsCaption = document.getElementById("work_item_details_caption");
-        detailsHeader = document.getElementById("work_item_details_header");
-        detailsBody = document.getElementById("work_item_details_body");
+        var detailsTable = document.getElementById("work_item_details");
+        var detailsCaption = document.getElementById("work_item_details_caption");
+        var detailsHeader = document.getElementById("work_item_details_header");
+        var detailsBody = document.getElementById("work_item_details_body");
 
         // Unregister existing details listener
-        if (itemTypeEventListener != undefined) {
-          eventSource.removeEventListener(itemTypeEventListener)
+        if (typeof itemTypeEventListener !== "undefined") {
+          eventSource.removeEventListener(itemTypeEventListenerWorkType, itemTypeEventListener)
         }
 
         // Reset the details elements
@@ -328,30 +345,36 @@
         detailsBody.innerHTML = "";
 
         // Register requested details listener
+        itemTypeEventListenerWorkType = workType;
+
         itemTypeEventListener = function(e) {
-          // DEBUG
-          eventDebug.innerHTML = e.data;
+          if (debug) {
+            eventDebug.innerHTML = e.data;
+          }
 
-          jobItems = JSON.parse(e.data);
+          // Reset the rows; we're going to refill the table below
+          detailsBody.innerHTML = "";
 
-          for (i in jobItems) {
-            jobItem = jobItems[i];  // OMG JavaScript is so stupid.
+          var jobItems = JSON.parse(e.data);
+
+          for (var i in jobItems) {
+            var jobItem = jobItems[i];  // OMG JavaScript is so stupid.
 
             // Unhide the table
             detailsTable.style.display = "block";
     
+            var attributes = keysInKindOfKnownOrder(jobItemAttributeDescriptions, jobItem);
+
             // Add the table headers if they aren't already there
             if (detailsHeader.innerHTML == "") {
-              row = document.createElement("tr");
+              var row = document.createElement("tr");
 
-              attributes = keysInKindOfKnownOrder(jobItemAttributeDescriptions, jobItem);
-
-              for (i in attributes) {
-                attribute = attributes[i];  // OMG JavaScript, wow you so dumb
+              for (var i in attributes) {
+                var attribute = attributes[i];  // OMG JavaScript, wow you so dumb
                 attributeDescription = valueOrKey(jobItemAttributeDescriptions, attribute)
 
-                header = document.createElement("th");
-                text = document.createTextNode(attributeDescription);
+                var header = document.createElement("th");
+                var text = document.createTextNode(attributeDescription);
                 header.appendChild(text);
                 row.appendChild(header);
               }
@@ -359,8 +382,19 @@
               detailsHeader.appendChild(row);
             }
 
+            // Add a table row for this job item
+            var row = document.createElement("tr");
 
+            for (var i in attributes) {
+              var attribute = attributes[i];  // OMG JavaScript the lameness
 
+              var cell = document.createElement("td");
+              var text = document.createTextNode(jobItem[attribute]);
+              cell.appendChild(text);
+              row.appendChild(cell);
+            }
+
+            detailsBody.appendChild(row);
           }
         }
 
@@ -396,9 +430,11 @@
       <tbody id="work_item_details_body" />
     </table>
 
-    <hr />
-    <div id="work_item_debug" />
-    <div id="event_debug" />
+    <div id="debug">
+     <hr />
+     <div id="work_item_debug" />
+     <div id="event_debug" />
+   </div>
 
   </body>
 
