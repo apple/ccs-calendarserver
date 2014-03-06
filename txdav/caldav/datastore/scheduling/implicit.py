@@ -1471,14 +1471,25 @@ class ImplicitScheduler(object):
                         "Cannot change organizer",
                     ))
 
-            # Never allow a missing attendee with a locally hosted organizer
+            # Never allow an attendee with a locally hosted organizer to remove their attendee property
             if isinstance(self.organizerAddress, LocalCalendarUser):
-                log.error("Cannot remove ATTENDEE: UID:{uid}", uid=self.uid)
-                raise HTTPError(ErrorResponse(
-                    responsecode.FORBIDDEN,
-                    (caldav_namespace, "valid-attendee-change"),
-                    "Cannot remove attendee",
-                ))
+                # Check that the attendee was listed in the old data
+                if self.resource is not None:
+                    oldattendess = self.oldcalendar.getAllUniqueAttendees()
+                    found_old = False
+                    for attendee in oldattendess:
+                        attendeePrincipal = self.calendar_home.directoryService().recordWithCalendarUserAddress(attendee)
+                        if attendeePrincipal and attendeePrincipal.uid == self.calendar_home.uid():
+                            found_old = True
+                            break
+
+                    if found_old:
+                        log.error("Cannot remove ATTENDEE: UID:%s" % (self.uid,))
+                        raise HTTPError(ErrorResponse(
+                            responsecode.FORBIDDEN,
+                            (caldav_namespace, "valid-attendee-change"),
+                            "Cannot remove attendee",
+                        ))
 
             # We will allow the attendee to do anything in this case, but we will mark the organizer
             # with an schedule-status error and schedule-agent none
