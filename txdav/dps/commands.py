@@ -98,12 +98,24 @@ class MembersCommand(amp.Command):
     ]
 
 
+
 class GroupsCommand(amp.Command):
     arguments = [
         ('uid', amp.String()),
     ]
     response = [
         ('fieldsList', amp.String()),
+    ]
+
+
+
+class SetMembersCommand(amp.Command):
+    arguments = [
+        ('uid', amp.String()),
+        ('memberUIDs', amp.ListOf(amp.String())),
+    ]
+    response = [
+        ('success', amp.Boolean()),
     ]
 
 

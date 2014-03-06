@@ -284,7 +284,7 @@ class CalendarUserProxyPrincipalResource (
         principals = []
         newUIDs = set()
         for uri in members:
-            principal = self.pcollection._principalForURI(uri)
+            principal = yield self.pcollection._principalForURI(uri)
             # Invalid principals MUST result in an error.
             if principal is None or principal.principalURL() != uri:
                 raise HTTPError(StatusResponse(
@@ -298,7 +298,7 @@ class CalendarUserProxyPrincipalResource (
         # Get the old set of UIDs
         # oldUIDs = (yield self._index().getMembers(self.uid))
         oldPrincipals = yield self.groupMembers()
-        oldUIDs = [p.uid for p in oldPrincipals]
+        oldUIDs = [p.principalUID() for p in oldPrincipals]
 
         # Change membership
         yield self.setGroupMemberSetPrincipals(principals)
@@ -309,19 +309,24 @@ class CalendarUserProxyPrincipalResource (
 
         changedUIDs = newUIDs.symmetric_difference(oldUIDs)
         for uid in changedUIDs:
-            principal = self.pcollection.principalForUID(uid)
+            principal = yield self.pcollection.principalForUID(uid)
             if principal:
                 yield principal.cacheNotifier.changed()
 
         returnValue(True)
 
 
+    @inlineCallbacks
     def setGroupMemberSetPrincipals(self, principals):
-        # Map the principals to UIDs.
-        return self._index().setGroupMembers(
-            self.uid,
-            [p.principalUID() for p in principals],
+
+        # Find our pseudo-record
+        record = yield self.parent.record.service.recordWithShortName(
+            self._recordTypeFromProxyType(),
+            self.parent.principalUID()
         )
+        # Set the members
+        memberRecords = [p.record for p in principals]
+        yield record.setMembers(memberRecords)
 
 
     ##

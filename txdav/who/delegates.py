@@ -25,7 +25,9 @@ from twext.who.directory import (
     DirectoryRecord as BaseDirectoryRecord
 )
 from twext.who.expression import MatchExpression, MatchType
-from twext.who.idirectory import RecordType as BaseRecordType, FieldName
+from twext.who.idirectory import (
+    RecordType as BaseRecordType, FieldName, NotAllowedError
+)
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python.constants import Names, NamedConstant
 
@@ -64,19 +66,6 @@ class DirectoryRecord(BaseDirectoryRecord):
         the members will consist of the records who have delegated *to*
         this record.
         """
-        # Here are some delegate assignments to test with:
-        # txn = self.service._store.newTransaction()
-        # yield txn.addDelegate(u"E415DBA7-40B5-49F5-A7CC-ACC81E4DEC79", u"494E462A-B16A-4A90-B77F-B9019DD73DAA", True)
-        # yield txn.addDelegate(u"__wsanchez__", u"__cdaboo__", True)
-        # yield txn.addDelegate(u"__wsanchez__", u"__dre__", False)
-        # groupID, name, membershipHash = (
-        #     yield txn.groupByUID(u"494E462A-B16A-4A90-B77F-B9019DD73DAA")
-        # )
-        # print("XYZZY", groupID, name, membershipHash)
-        # yield txn.addDelegateGroup(u"E415DBA7-40B5-49F5-A7CC-ACC81E4DEC79", groupID, False)
-        # yield txn.commit()
-        ###
-
         parentUID, proxyType = self.uid.split("#")
         txn = self.service._store.newTransaction()
 
@@ -103,6 +92,45 @@ class DirectoryRecord(BaseDirectoryRecord):
         yield txn.commit()
 
         returnValue(records)
+
+
+
+    @inlineCallbacks
+    def setMembers(self, memberRecords):
+        """
+        Replace the members of this group with the new members.
+
+        @param memberRecords: The new members of the group
+        @type memberRecords: iterable of L{iDirectoryRecord}s
+        """
+
+        if self.recordType not in (
+            RecordType.readDelegateGroup, RecordType.writeDelegateGroup
+        ):
+            raise NotAllowedError("Setting members not supported")
+
+        parentUID, proxyType = self.uid.split("#")
+        readWrite = (self.recordType is RecordType.writeDelegateGroup)
+
+        log.debug(
+            "Setting delegate assignments for {u} ({rw}) to {m}".format(
+                u=parentUID, rw=("write" if readWrite else "read"),
+                m=[r.uid for r in memberRecords]
+            )
+        )
+
+        txn = self.service._store.newTransaction()
+
+        yield txn.removeDelegates(parentUID, readWrite)
+        yield txn.removeDelegateGroups(parentUID, readWrite)
+
+        delegator = yield self.service._masterDirectory.recordWithUID(parentUID)
+
+        for delegate in memberRecords:
+            yield addDelegate(txn, delegator, delegate, readWrite)
+
+        yield txn.commit()
+
 
 
 def recordTypeToProxyType(recordType):
@@ -276,11 +304,3 @@ def delegatedTo(txn, delegate, readWrite):
             if record is not None:
                 records.append(record)
     returnValue(records)
-
-
-def allGroupDelegates(txn):
-    """
-    @return: the UIDs of all groups which are currently delegated to
-    @rtype: a Deferred which fires with a set() of UIDs C{unicode}
-    """
-    return txn.allGroupDelegates()

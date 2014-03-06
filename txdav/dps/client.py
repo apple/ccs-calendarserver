@@ -35,7 +35,7 @@ from txdav.common.idirectoryservice import IStoreDirectoryService
 from txdav.dps.commands import (
     RecordWithShortNameCommand, RecordWithUIDCommand, RecordWithGUIDCommand,
     RecordsWithRecordTypeCommand, RecordsWithEmailAddressCommand,
-    MembersCommand, GroupsCommand,
+    MembersCommand, GroupsCommand, SetMembersCommand,
     VerifyPlaintextPasswordCommand, VerifyHTTPDigestCommand
 )
 import txdav.who.delegates
@@ -290,7 +290,7 @@ class DirectoryRecord(BaseDirectoryRecord):
     def verifyCredentials(self, credentials):
 
         # XYZZY REMOVE THIS, it bypasses all authentication!:
-        returnValue(True)
+        # returnValue(True)
 
         if isinstance(credentials, UsernamePassword):
             log.debug("UsernamePassword")
@@ -359,6 +359,17 @@ class DirectoryRecord(BaseDirectoryRecord):
             GroupsCommand,
             self.service._processMultipleRecords,
             uid=self.uid.encode("utf-8")
+        )
+
+
+    def setMembers(self, members):
+        log.debug("DPS Client setMembers")
+        memberUIDs = [m.uid.encode("utf-8") for m in members]
+        return self.service._call(
+            SetMembersCommand,
+            lambda x: x['success'],
+            uid=self.uid.encode("utf-8"),
+            memberUIDs=memberUIDs
         )
 
 

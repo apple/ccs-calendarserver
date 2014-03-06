@@ -22,7 +22,6 @@ Group membership caching
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.syntax import Delete, Select
 from twext.enterprise.jobqueue import WorkItem, PeerConnectionPool
-from txdav.who.delegates import allGroupDelegates
 from twext.who.idirectory import RecordType
 from twisted.internet.defer import inlineCallbacks, returnValue
 from txdav.common.datastore.sql_tables import schema
@@ -447,7 +446,7 @@ class GroupCacher(object):
 
     @inlineCallbacks
     def groupsToRefresh(self, txn):
-        delegatedUIDs = set((yield allGroupDelegates(txn)))
+        delegatedUIDs = set((yield txn.allGroupDelegates()))
         self.log.info(
             "There are {count} group delegates", count=len(delegatedUIDs)
         )

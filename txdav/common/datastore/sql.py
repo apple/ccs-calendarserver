@@ -1244,6 +1244,19 @@ class CommonStoreTransaction(object):
 
 
     @classproperty
+    def _removeDelegatesQuery(cls):
+        de = schema.DELEGATES
+        return Delete(
+            From=de,
+            Where=(
+                de.DELEGATOR == Parameter("delegator")
+            ).And(
+                de.READ_WRITE == Parameter("readWrite")
+            )
+        )
+
+
+    @classproperty
     def _removeDelegateGroupQuery(cls):
         ds = schema.DELEGATE_GROUPS
         return Delete(
@@ -1252,6 +1265,19 @@ class CommonStoreTransaction(object):
                 ds.DELEGATOR == Parameter("delegator")
             ).And(
                 ds.GROUP_ID == Parameter("groupID")
+            ).And(
+                ds.READ_WRITE == Parameter("readWrite")
+            )
+        )
+
+
+    @classproperty
+    def _removeDelegateGroupsQuery(cls):
+        ds = schema.DELEGATE_GROUPS
+        return Delete(
+            From=ds,
+            Where=(
+                ds.DELEGATOR == Parameter("delegator")
             ).And(
                 ds.READ_WRITE == Parameter("readWrite")
             )
@@ -1463,6 +1489,24 @@ class CommonStoreTransaction(object):
         )
 
 
+    def removeDelegates(self, delegator, readWrite):
+        """
+        Removes all rows for this delegator/readWrite combination from the
+        DELEGATES table.
+
+        @param delegator: the UID of the delegator
+        @type delegator: C{unicode}
+        @param readWrite: remove read and write access if True, otherwise
+            read-only access
+        @type readWrite: C{boolean}
+        """
+        return self._removeDelegatesQuery.on(
+            self,
+            delegator=delegator.encode("utf-8"),
+            readWrite=1 if readWrite else 0
+        )
+
+
     def removeDelegateGroup(self, delegator, delegateGroupID, readWrite):
         """
         Removes a row from the DELEGATE_GROUPS table.  The delegate should be a
@@ -1480,6 +1524,24 @@ class CommonStoreTransaction(object):
             self,
             delegator=delegator.encode("utf-8"),
             groupID=delegateGroupID,
+            readWrite=1 if readWrite else 0
+        )
+
+
+    def removeDelegateGroups(self, delegator, readWrite):
+        """
+        Removes all rows for this delegator/readWrite combination from the
+        DELEGATE_GROUPS table.
+
+        @param delegator: the UID of the delegator
+        @type delegator: C{unicode}
+        @param readWrite: remove read and write access if True, otherwise
+            read-only access
+        @type readWrite: C{boolean}
+        """
+        return self._removeDelegateGroupsQuery.on(
+            self,
+            delegator=delegator.encode("utf-8"),
             readWrite=1 if readWrite else 0
         )
 

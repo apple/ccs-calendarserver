@@ -39,7 +39,7 @@ from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from txdav.dps.commands import (
     RecordWithShortNameCommand, RecordWithUIDCommand, RecordWithGUIDCommand,
     RecordsWithRecordTypeCommand, RecordsWithEmailAddressCommand,
-    MembersCommand, GroupsCommand,
+    MembersCommand, GroupsCommand, SetMembersCommand,
     VerifyPlaintextPasswordCommand, VerifyHTTPDigestCommand,
     # UpdateRecordsCommand, RemoveRecordsCommand
 )
@@ -189,6 +189,36 @@ class DirectoryProxyAMPProtocol(amp.AMP):
                 fieldsList.append(self.recordToDict(member))
         response = {
             "fieldsList": pickle.dumps(fieldsList),
+        }
+        log.debug("Responding with: {response}", response=response)
+        returnValue(response)
+
+
+    @SetMembersCommand.responder
+    @inlineCallbacks
+    def setMembers(self, uid, memberUIDs):
+        uid = uid.decode("utf-8")
+        memberUIDs = [m.decode("utf-8") for m in memberUIDs]
+        log.debug("Set Members: {u} -> {m}", u=uid, m=memberUIDs)
+        try:
+            record = (yield self._directory.recordWithUID(uid))
+        except Exception as e:
+            log.error("Failed in setMembers", error=e)
+            record = None
+
+        if record is not None:
+            memberRecords = []
+            for memberUID in memberUIDs:
+                memberRecord = yield self._directory.recordWithUID(memberUID)
+                if memberRecord is not None:
+                    memberRecords.append(memberRecord)
+            yield record.setMembers(memberRecords)
+            success = True
+        else:
+            success = False
+
+        response = {
+            "success": success,
         }
         log.debug("Responding with: {response}", response=response)
         returnValue(response)

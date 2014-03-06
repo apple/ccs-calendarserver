@@ -54,7 +54,6 @@ class AugmentedDirectoryRecord(DirectoryRecord):
         augmented = []
         txn = self.service._store.newTransaction()
         groupUIDs = yield txn.groupsFor(self.uid)
-        print("XYZZY GROU UIDS", groupUIDs)
         for groupUID in groupUIDs:
             groupRecord = yield self.service.recordWithShortName(
                 RecordType.group, groupUID
