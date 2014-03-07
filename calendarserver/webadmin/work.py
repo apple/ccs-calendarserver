@@ -95,6 +95,7 @@ class WorkEventsResource(EventSourceResource):
 
         self._store = store
         self._pollInterval = pollInterval
+        self._polling = False
 
 
     @inlineCallbacks
@@ -105,78 +106,90 @@ class WorkEventsResource(EventSourceResource):
 
     @inlineCallbacks
     def poll(self):
-        txn = self._store.newTransaction()
+        if self._polling:
+            return
 
-        # Look up all of the jobs
+        self._polling = True
 
-        events = []
+        try:
+            txn = self._store.newTransaction()
 
-        jobsByTypeName = {}
+            # Look up all of the jobs
 
-        for job in (yield JobItem.all(txn)):
-            jobsByTypeName.setdefault(job.workType, []).append(job)
+            events = []
 
-        totalsByTypeName = {}
+            jobsByTypeName = {}
 
-        for workType in JobItem.workTypes():
-            typeName = workType.table.model.name
-            jobs = jobsByTypeName.get(typeName, [])
-            totalsByTypeName[typeName] = len(jobs)
+            for job in (yield JobItem.all(txn)):
+                jobsByTypeName.setdefault(job.workType, []).append(job)
 
-            jobDicts = []
+            totalsByTypeName = {}
 
-            for job in jobs:
-                jobDict = dict(
-                    jobID=job.jobID,
-                    priority=job.priority,
-                    notBefore=job.notBefore.ctime(),  # FIXME: Use HTTP format
-                    notAfter=job.notAfter,
-                )
+            for workType in JobItem.workTypes():
+                typeName = workType.table.model.name
+                jobs = jobsByTypeName.get(typeName, [])
+                totalsByTypeName[typeName] = len(jobs)
 
-                work = yield job.workItem()
+                jobDicts = []
 
-                if work is not None:
-                    if workType == PushNotificationWork:
-                        attrs = ("pushID", "priority")
-                    elif workType == ScheduleOrganizerWork:
-                        attrs = ("icalendarUid", "attendeeCount")
-                    elif workType == ScheduleRefreshWork:
-                        attrs = ("icalendarUid", "attendeeCount")
-                    elif workType == ScheduleReplyWork:
-                        attrs = ("icalendarUid",)
-                    elif workType == ScheduleAutoReplyWork:
-                        attrs = ("icalendarUid",)
-                    elif workType == GroupCacherPollingWork:
-                        attrs = ()
-                    elif workType == IMIPPollingWork:
-                        attrs = ()
-                    elif workType == IMIPReplyWork:
-                        attrs = ("organizer", "attendee")
-                    else:
-                        attrs = ()
+                for job in jobs:
+                    jobDict = dict(
+                        jobID=job.jobID,
+                        priority=job.priority,
+                        notBefore=job.notBefore.ctime(),  # FIXME: HTTP format
+                        notAfter=job.notAfter,
+                    )
 
-                    for attr in attrs:
-                        jobDict["work_{}".format(attr)] = getattr(work, attr)
+                    work = yield job.workItem()
 
-                jobDicts.append(jobDict)
+                    if work is not None:
+                        if workType == PushNotificationWork:
+                            attrs = ("pushID", "priority")
+                        elif workType == ScheduleOrganizerWork:
+                            attrs = ("icalendarUid", "attendeeCount")
+                        elif workType == ScheduleRefreshWork:
+                            attrs = ("icalendarUid", "attendeeCount")
+                        elif workType == ScheduleReplyWork:
+                            attrs = ("icalendarUid",)
+                        elif workType == ScheduleAutoReplyWork:
+                            attrs = ("icalendarUid",)
+                        elif workType == GroupCacherPollingWork:
+                            attrs = ()
+                        elif workType == IMIPPollingWork:
+                            attrs = ()
+                        elif workType == IMIPReplyWork:
+                            attrs = ("organizer", "attendee")
+                        else:
+                            attrs = ()
 
-            if jobDicts:
-                events.append(dict(
-                    eventClass=typeName,
-                    eventID=time(),
-                    eventText=asJSON(jobDicts),
-                ))
+                        for attr in attrs:
+                            jobDict["work_{}".format(attr)] = (
+                                getattr(work, attr)
+                            )
 
-        events.append(dict(
-            eventClass=u"work-total",
-            eventID=time(),
-            eventText=asJSON(totalsByTypeName),
-            eventRetry=(self._pollInterval),
-        ))
+                    jobDicts.append(jobDict)
 
-        # Send data
+                if jobDicts:
+                    events.append(dict(
+                        eventClass=typeName,
+                        eventID=time(),
+                        eventText=asJSON(jobDicts),
+                    ))
 
-        self.addEvents(events)
+            events.append(dict(
+                eventClass=u"work-total",
+                eventID=time(),
+                eventText=asJSON(totalsByTypeName),
+                eventRetry=(self._pollInterval),
+            ))
+
+            # Send data
+
+            self.addEvents(events)
+
+        except:
+            self._polling = False
+            raise
 
         # Schedule the next poll
 
