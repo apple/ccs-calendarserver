@@ -375,6 +375,13 @@
 
           var jobItems = JSON.parse(e.data);
 
+          function addCellToRow(row, tag, text) {
+            var cell = document.createElement(tag);
+            var content = document.createTextNode(text);
+            cell.appendChild(content);
+            row.appendChild(cell);
+          }
+
           for (var i in jobItems) {
             var jobItem = jobItems[i];  // OMG JavaScript is so stupid.
 
@@ -391,10 +398,7 @@
                 var attribute = attributes[i];  // OMG JavaScript, wow you so dumb
                 attributeDescription = valueOrKey(jobItemAttributeDescriptions, attribute)
 
-                var header = document.createElement("th");
-                var text = document.createTextNode(attributeDescription);
-                header.appendChild(text);
-                row.appendChild(header);
+                addCellToRow(row, "th", attributeDescription)
               }
 
               detailsHeader.appendChild(row);
@@ -406,14 +410,10 @@
             for (var i in attributes) {
               var attribute = attributes[i];  // OMG JavaScript the lameness
 
-              var content = jobItem[attribute]
-              if (content === null) { content = ""; }
+              var value = jobItem[attribute]
+              if (value === null) { value = ""; }
 
-              var cell = document.createElement("td");
-              var text = document.createTextNode(content);
-
-              cell.appendChild(text);
-              row.appendChild(cell);
+              addCellToRow(row, "td", value)
             }
 
             detailsBody.appendChild(row);
