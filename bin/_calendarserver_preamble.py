@@ -22,40 +22,38 @@ of the code.
 """
 
 import sys
-import os
-
 from os.path import dirname, abspath, join, split, exists
 from subprocess import Popen, PIPE
 
-def bootstrapFromRun():
+
+
+def bootstrap():
     """
     If this is a development checkout, run the 'run' script to discover the
     correct value for sys.path.
     """
 
     home = dirname(dirname(abspath(__file__)))
-    run = join(home, join("bin", "run"))
+    pythonWrapper = join(home, "bin", "python")
 
-    if not exists(run) or not exists(join(home, "setup.py")):
-        # This doesn't look enough like a development checkout; let's not
-        # attempt to run the run script.
+    if not exists(pythonWrapper) or not exists(join(home, "setup.py")):
+        # This doesn't look enough like a development checkout; let's not mess
+        # with anything.
         return
 
-    child = Popen((run, "-e"), stdout=PIPE)
+    child = Popen(
+        (pythonWrapper, "-c", "import sys; print sys.path"),
+        stdout=PIPE
+    )
     stdout, _ignore_stderr = child.communicate()
     stdout = stdout.rstrip("\n")
 
     try:
-        evars = eval(stdout)
+        sysPath = eval(stdout)
     except SyntaxError:
         return
-    os.environ.update(evars)
 
-    # PYTHONPATH needs special treatment, because Python has already processed
-    # its environment variables by now.
-    path = evars['PYTHONPATH']
-    if child.wait() == 0:
-        sys.path[0:0] = path.split(":")
+    sys.path[0:0] = sysPath
 
     noConfigOption = [
         "calendarserver_bootstrap_database",
@@ -71,4 +69,5 @@ def bootstrapFromRun():
         sys.argv[1:1] = ["-f", join(home, "conf", "caldavd-dev.plist")]
 
 
-bootstrapFromRun()
+
+bootstrap()
