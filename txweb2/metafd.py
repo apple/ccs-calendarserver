@@ -21,12 +21,11 @@ L{twext.internet.sendfdport.InheritedSocketDispatcher}.
 """
 from __future__ import print_function
 
-from functools import total_ordering
-
 from zope.interface import implementer
 
 from twext.internet.sendfdport import (
-    InheritedPort, InheritedSocketDispatcher, InheritingProtocolFactory)
+    InheritedPort, InheritedSocketDispatcher, InheritingProtocolFactory,
+    IStatus)
 from twext.internet.tcp import MaxAcceptTCPServer
 from twext.python.log import Logger
 from txweb2.channel.http import HTTPFactory
@@ -164,17 +163,26 @@ class ReportingHTTPFactory(HTTPFactory):
 
 
 
-@total_ordering
+@implementer(IStatus)
 class WorkerStatus(FancyStrMixin, object):
     """
     The status of a worker process.
     """
 
-    showAttributes = ("acknowledged unacknowledged started abandoned unclosed"
+    showAttributes = ("acknowledged unacknowledged total started abandoned unclosed starting stopped"
                       .split())
 
-    def __init__(self, acknowledged=0, unacknowledged=0, started=0,
-                 abandoned=0, unclosed=0):
+    def __init__(
+        self,
+        acknowledged=0,
+        unacknowledged=0,
+        total=0,
+        started=0,
+        abandoned=0,
+        unclosed=0,
+        starting=1,
+        stopped=0
+    ):
         """
         Create a L{ConnectionStatus} with a number of sent connections and a
         number of un-acknowledged connections.
@@ -187,20 +195,32 @@ class WorkerStatus(FancyStrMixin, object):
             the subprocess which have never received a status response (a
             "C{+}" status message).
 
-        @param abandoned: The number of connections which have been sent to
-            this worker, but were not acknowledged at the moment that the
-            worker restarted.
+        @param total: The total number of acknowledged connections over
+            the lifetime of this socket.
 
         @param started: The number of times this worker has been started.
 
+        @param abandoned: The number of connections which have been sent to
+            this worker, but were not acknowledged at the moment that the
+            worker was stopped.
+
         @param unclosed: The number of sockets which have been sent to the
             subprocess but not yet closed.
+
+        @param starting: The process that owns this socket is starting. Do not
+            dispatch to it until we receive the started message.
+
+        @param stopped: The process that owns this socket has stopped. Do not
+            dispatch to it.
         """
         self.acknowledged = acknowledged
         self.unacknowledged = unacknowledged
+        self.total = total
         self.started = started
         self.abandoned = abandoned
         self.unclosed = unclosed
+        self.starting = starting
+        self.stopped = stopped
 
 
     def effective(self):
@@ -210,43 +230,67 @@ class WorkerStatus(FancyStrMixin, object):
         return self.acknowledged + self.unacknowledged
 
 
+    def active(self):
+        """
+        Is the subprocess associated with this socket available to dispatch to.
+        i.e, this socket is neither stopped nor starting
+        """
+        return self.starting == 0 and self.stopped == 0
+
+
+    def start(self):
+        """
+        The child process for this L{WorkerStatus} is about to (re)start. Reset the status to indicate it
+        is starting - that should prevent any new connections being dispatched.
+        """
+        return self.reset(
+            starting=1,
+            stopped=0,
+        )
+
+
     def restarted(self):
         """
-        The L{WorkerStatus} derived from the current status of a process and
-        the fact that it just restarted.
+        The child process for this L{WorkerStatus} has indicated it is now available to accept
+        connections, so reset the starting status so this socket will be available for dispatch.
         """
-        return self.__class__(0, 0, self.started + 1, self.unacknowledged)
+        return self.reset(
+            started=self.started + 1,
+            starting=0,
+        )
 
 
-    def _tuplify(self):
-        return tuple(getattr(self, attr) for attr in self.showAttributes)
+    def stop(self):
+        """
+        The child process for this L{WorkerStatus} has stopped. Stop the socket and clear out
+        existing counters, but track abandoned connections.
+        """
+        return self.reset(
+            acknowledged=0,
+            unacknowledged=0,
+            abandoned=self.abandoned + self.unacknowledged,
+            starting=0,
+            stopped=1,
+        )
 
 
-    def __lt__(self, other):
-        if not isinstance(other, WorkerStatus):
-            return NotImplemented
-        return self.effective() < other.effective()
+    def adjust(self, **kwargs):
+        """
+        Update the L{WorkerStatus} by adding the supplied values to the specified attributes.
+        """
+        for k, v in kwargs.items():
+            newval = getattr(self, k) + v
+            setattr(self, k, max(newval, 0))
+        return self
 
 
-    def __eq__(self, other):
-        if not isinstance(other, WorkerStatus):
-            return NotImplemented
-        return self._tuplify() == other._tuplify()
-
-
-    def __add__(self, other):
-        if not isinstance(other, WorkerStatus):
-            return NotImplemented
-        a = self._tuplify()
-        b = other._tuplify()
-        c = [a1 + b1 for (a1, b1) in zip(a, b)]
-        return self.__class__(*c)
-
-
-    def __sub__(self, other):
-        if not isinstance(other, WorkerStatus):
-            return NotImplemented
-        return self + self.__class__(*[-x for x in other._tuplify()])
+    def reset(self, **kwargs):
+        """
+        Reset the L{WorkerStatus} by setting the supplied values in the specified attributes.
+        """
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+        return self
 
 
 
@@ -272,6 +316,7 @@ class ConnectionLimiter(MultiService, object):
         self.dispatcher = InheritedSocketDispatcher(self)
         self.maxAccepts = maxAccepts
         self.maxRequests = maxRequests
+        self.overloaded = False
 
 
     def startService(self):
@@ -314,20 +359,20 @@ class ConnectionLimiter(MultiService, object):
             # A connection has gone away in a subprocess; we should start
             # accepting connections again if we paused (see
             # newConnectionStatus)
-            return previousStatus - WorkerStatus(acknowledged=1)
+            return previousStatus.adjust(acknowledged=-1)
+
         elif message == '0':
-            # A new process just started accepting new connections.  It might
-            # still have some unacknowledged connections, but any connections
-            # that it acknowledged working on are now completed.  (We have no
-            # way of knowing whether the acknowledged connections were acted
-            # upon or dropped, so we have to treat that number with a healthy
-            # amount of skepticism.)
+            # A new process just started accepting new connections.
             return previousStatus.restarted()
+
         else:
             # '+' acknowledges that the subprocess has taken on the work.
-            return previousStatus + WorkerStatus(acknowledged=1,
-                                                 unacknowledged=-1,
-                                                 unclosed=1)
+            return previousStatus.adjust(
+                acknowledged=1,
+                unacknowledged=-1,
+                total=1,
+                unclosed=1,
+            )
 
 
     def closeCountFromStatus(self, status):
@@ -335,21 +380,22 @@ class ConnectionLimiter(MultiService, object):
         Determine the number of sockets to close from the current status.
         """
         toClose = status.unclosed
-        return (toClose, status - WorkerStatus(unclosed=toClose))
+        return (toClose, status.adjust(unclosed=-toClose))
 
 
     def newConnectionStatus(self, previousStatus):
         """
-        Determine the effect of a new connection being sent on a subprocess
-        socket.
+        A connection was just sent to the process, but not yet acknowledged.
         """
-        return previousStatus + WorkerStatus(unacknowledged=1)
+        return previousStatus.adjust(unacknowledged=1)
 
 
     def statusesChanged(self, statuses):
         """
         The L{InheritedSocketDispatcher} is reporting that the list of
-        connection-statuses have changed.
+        connection-statuses have changed. Check to see if we are overloaded
+        or if there are no active processes left. If so, stop the protocol
+        factory from processing more requests until capacity is back.
 
         (The argument to this function is currently duplicated by the
         C{self.dispatcher.statuses} attribute, which is what
@@ -360,8 +406,10 @@ class ConnectionLimiter(MultiService, object):
         self._outstandingRequests = current # preserve for or= field in log
         maximum = self.maxRequests
         overloaded = (current >= maximum)
+        available = len(filter(lambda x: x.active(), self.dispatcher.statuses))
+        self.overloaded = (overloaded or available == 0)
         for f in self.factories:
-            if overloaded:
+            if self.overloaded:
                 f.loadAboveMaximum()
             else:
                 f.loadNominal()

@@ -536,7 +536,9 @@ class SlaveSpawnerService(Service):
     def startService(self):
         for slaveNumber in xrange(0, config.MultiProcess.ProcessCount):
             if config.UseMetaFD:
-                extraArgs = dict(metaSocket=self.dispatcher.addSocket())
+                extraArgs = dict(
+                    metaSocket=self.dispatcher.addSocket(slaveNumber)
+                )
             else:
                 extraArgs = dict(inheritFDs=self.inheritFDs,
                                  inheritSSLFDs=self.inheritSSLFDs)
@@ -2025,7 +2027,6 @@ class TwistdSlaveProcess(object):
     @ivar metaSocket: an AF_UNIX/SOCK_DGRAM socket (initialized from the
         dispatcher passed to C{__init__}) that is to be inherited by the
         subprocess and used to accept incoming connections.
-
     @type metaSocket: L{socket.socket}
 
     @ivar ampSQLDispenser: a factory for AF_UNIX/SOCK_STREAM sockets that are
@@ -2060,6 +2061,30 @@ class TwistdSlaveProcess(object):
         self.ampDBSocket = None
 
 
+    def starting(self):
+        """
+        Called when the process is being started (or restarted). Allows for various initialization
+        operations to be done. The child process will itself signal back to the master when it is ready
+        to accept sockets - until then the master socket is marked as "starting" which means it is not
+        active and won't be dispatched to.
+        """
+
+        # Always tell any metafd socket that we have started, so it can re-initialize state.
+        if self.metaSocket is not None:
+            self.metaSocket.start()
+
+
+    def stopped(self):
+        """
+        Called when the process has stopped (died). The socket is marked as "stopped" which means it is
+        not active and won't be dispatched to.
+        """
+
+        # Always tell any metafd socket that we have started, so it can re-initialize state.
+        if self.metaSocket is not None:
+            self.metaSocket.stop()
+
+
     def getName(self):
         return "{}-{}".format(self.prefix, self.id)
 
@@ -2088,7 +2113,7 @@ class TwistdSlaveProcess(object):
         fds = {}
         extraFDs = []
         if self.metaSocket is not None:
-            extraFDs.append(self.metaSocket.fileno())
+            extraFDs.append(self.metaSocket.childSocket().fileno())
         if self.ampSQLDispenser is not None:
             self.ampDBSocket = self.ampSQLDispenser.dispense()
             extraFDs.append(self.ampDBSocket.fileno())
@@ -2150,7 +2175,7 @@ class TwistdSlaveProcess(object):
 
         if self.metaSocket is not None:
             args.extend([
-                "-o", "MetaFD={}".format(self.metaSocket.fileno())
+                "-o", "MetaFD={}".format(self.metaSocket.childSocket().fileno())
             ])
         if self.ampDBSocket is not None:
             args.extend([
@@ -2243,6 +2268,13 @@ class DelayedStartupProcessMonitor(Service, object):
             exists
         """
         class SimpleProcessObject(object):
+
+            def starting(self):
+                pass
+
+            def stopped(self):
+                pass
+
             def getName(self):
                 return name
 
@@ -2334,7 +2366,10 @@ class DelayedStartupProcessMonitor(Service, object):
     def processEnded(self, name):
         """
         When a child process has ended it calls me so I can fire the
-        appropriate deferred which was created in stopService
+        appropriate deferred which was created in stopService.
+
+        Also make sure to signal the dispatcher so that the socket is
+        marked as inactive.
         """
         # Cancel the scheduled _forceStopProcess function if the process
         # dies naturally
@@ -2342,6 +2377,8 @@ class DelayedStartupProcessMonitor(Service, object):
             if self.murder[name].active():
                 self.murder[name].cancel()
             del self.murder[name]
+
+        self.processes[name][0].stopped()
 
         del self.protocols[name]
 
@@ -2428,6 +2465,8 @@ class DelayedStartupProcessMonitor(Service, object):
         childFDs = {0: "w", 1: "r", 2: "r"}
 
         childFDs.update(procObj.getFileDescriptors())
+
+        procObj.starting()
 
         args = procObj.getCommandLine()
 

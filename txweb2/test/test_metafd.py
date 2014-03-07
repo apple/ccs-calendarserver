@@ -71,14 +71,11 @@ class InheritedPortForTesting(sendfdport.InheritedPort):
     def startReading(self):
         "Do nothing."
 
-
     def stopReading(self):
         "Do nothing."
 
-
     def startWriting(self):
         "Do nothing."
-
 
     def stopWriting(self):
         "Do nothing."
@@ -93,18 +90,14 @@ class ServerTransportForTesting(Server):
     def startReading(self):
         "Do nothing."
 
-
     def stopReading(self):
         "Do nothing."
-
 
     def startWriting(self):
         "Do nothing."
 
-
     def stopWriting(self):
         "Do nothing."
-
 
     def __init__(self, *a, **kw):
         super(ServerTransportForTesting, self).__init__(*a, **kw)
@@ -225,9 +218,25 @@ class ConnectionLimiterTests(TestCase):
         L{WorkerStatus.__repr__} will show all the values associated with the
         status of the worker.
         """
-        self.assertEquals(repr(WorkerStatus(1, 2, 3, 4, 5)),
-                          "<WorkerStatus acknowledged=1 unacknowledged=2 "
-                          "started=3 abandoned=4 unclosed=5>")
+        self.assertEquals(repr(WorkerStatus(1, 2, 3, 4, 5, 6, 7, 8)),
+                          "<WorkerStatus acknowledged=1 unacknowledged=2 total=3 "
+                          "started=4 abandoned=5 unclosed=6 starting=7 stopped=8>")
+
+
+    def test_workerStatusNonNegative(self):
+        """
+        L{WorkerStatus.__repr__} will show all the values associated with the
+        status of the worker.
+        """
+        w = WorkerStatus()
+        w.adjust(
+            acknowledged=1,
+            unacknowledged=-1,
+            total=1,
+        )
+        self.assertEquals(w.acknowledged, 1)
+        self.assertEquals(w.unacknowledged, 0)
+        self.assertEquals(w.total, 1)
 
 
 
@@ -251,7 +260,9 @@ class LimiterBuilder(object):
         self.limiter.addPortService("TCP", 4321, "127.0.0.1", 5,
                                     self.serverServiceMakerMaker(self.service))
         for ignored in xrange(socketCount):
-            self.dispatcher.addSocket()
+            subskt = self.dispatcher.addSocket()
+            subskt.start()
+            subskt.restarted()
         # Has to be running in order to add stuff.
         self.limiter.startService()
         self.port = self.service.myPort
@@ -296,7 +307,7 @@ class LimiterBuilder(object):
         @param count: Amount of load to add; default to the maximum that the
             limiter.
         """
-        for x in range(count or self.limiter.maxRequests):
+        for _ignore_x in range(count or self.limiter.maxRequests):
             self.dispatcher.sendFileDescriptor(None, "SSL")
             if acknowledged:
                 self.dispatcher.statusMessage(
@@ -305,6 +316,8 @@ class LimiterBuilder(object):
 
 
     def processRestart(self):
+        self.dispatcher._subprocessSockets[0].stop()
+        self.dispatcher._subprocessSockets[0].start()
         self.dispatcher.statusMessage(
             self.dispatcher._subprocessSockets[0], "0"
         )

@@ -954,6 +954,14 @@ class DummyProcessObject(object):
         self.args = args
 
 
+    def starting(self):
+        pass
+
+
+    def stopped(self):
+        pass
+
+
     def getCommandLine(self):
         """
         Simple command line.
@@ -1204,12 +1212,35 @@ class FakeFD(object):
 
 
 
+class FakeSubsocket(object):
+
+    def __init__(self, fakefd):
+        self.fakefd = fakefd
+
+
+    def childSocket(self):
+        return self.fakefd
+
+
+    def start(self):
+        pass
+
+
+    def restarted(self):
+        pass
+
+
+    def stop(self):
+        pass
+
+
+
 class FakeDispatcher(object):
     n = 3
 
     def addSocket(self):
         self.n += 1
-        return FakeFD(self.n)
+        return FakeSubsocket(FakeFD(self.n))
 
 
 
