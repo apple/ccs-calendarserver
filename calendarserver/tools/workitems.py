@@ -26,8 +26,12 @@ import datetime
 from twisted.internet.defer import inlineCallbacks, succeed
 from calendarserver.tools.cmdline import utilityMain, WorkerService
 from calendarserver.push.notifier import PushNotificationWork
-from twistedcaldav.directory.directory import GroupCacherPollingWork
-from txdav.caldav.datastore.scheduling.imip.inbound import IMIPPollingWork, IMIPReplyWork
+from txdav.who.groups import GroupCacherPollingWork
+from txdav.caldav.datastore.scheduling.imip.inbound import (
+    IMIPPollingWork, IMIPReplyWork
+)
+
+
 
 def usage(e=None):
 
@@ -120,13 +124,30 @@ class WorkItemMonitorService(WorkerService, object):
         # Specify height and width of each window as one of:
         #    absolute value (int), e.g.: 42
         #    percentage of window height / width (string), e.g.: "42%"
-        # Specify row and column for each window as though it is a cell in an invisible html table
+        # Specify row and column for each window as though it is a cell in an
+        # invisible html table
         # Itemize windows in ascending order by row, col
         for title, height, width, row, col, workItemClass, fmt, attrs in (
-            ("Group Membership Indexing", "10%", "50%", 1, 1, GroupCacherPollingWork, "", ()),
-            ("IMIP Reply Polling", "10%", "50%", 1, 2, IMIPPollingWork, "", ()),
-            ("IMIP Reply Processing", "20%", "100%", 2, 1, IMIPReplyWork, "%s %s", ("organizer", "attendee")),
-            ("Push Notifications", "69%", "100%", 3, 1, PushNotificationWork, "%s", ("pushID",)),
+            (
+                "Group Membership Indexing",
+                "10%", "50%", 1, 1,
+                GroupCacherPollingWork, "", ()
+            ),
+            (
+                "IMIP Reply Polling",
+                "10%", "50%", 1, 2,
+                IMIPPollingWork, "", ()
+            ),
+            (
+                "IMIP Reply Processing",
+                "20%", "100%", 2, 1,
+                IMIPReplyWork, "%s %s", ("organizer", "attendee")
+            ),
+            (
+                "Push Notifications",
+                "69%", "100%", 3, 1,
+                PushNotificationWork, "%s", ("pushID",)
+            ),
         ):
             if (isinstance(height, basestring)):
                 height = max(int(winY * (float(height.strip("%")) / 100.0)), 3)
@@ -141,8 +162,10 @@ class WorkItemMonitorService(WorkerService, object):
                 begin_x = 0
                 seenrows.append(row)
                 seencolumns = [col]
-            window = WorkWindow(height, width, begin_y, begin_x,
-                self.store, title, workItemClass, fmt, attrs)
+            window = WorkWindow(
+                height, width, begin_y, begin_x,
+                self.store, title, workItemClass, fmt, attrs
+            )
             self.windows.append(window)
             begin_x += width
 
@@ -157,8 +180,10 @@ class WorkItemMonitorService(WorkerService, object):
 
 
 class WorkWindow(object):
-    def __init__(self, nlines, ncols, begin_y, begin_x,
-        store, title, workItemClass, fmt, attrs):
+    def __init__(
+        self, nlines, ncols, begin_y, begin_x,
+        store, title, workItemClass, fmt, attrs
+    ):
         self.window = curses.newwin(nlines, ncols, begin_y, begin_x)
         self.ncols = ncols
         self.store = store
@@ -181,13 +206,18 @@ class WorkWindow(object):
         for record in records:
             seconds = record.notBefore - datetime.datetime.utcnow()
             try:
-                self.window.addstr(y, x, "%d seconds" % int(seconds.total_seconds()))
+                self.window.addstr(
+                    y, x,
+                    "%d seconds" % int(seconds.total_seconds())
+                )
             except curses.error:
                 continue
             y += 1
             if self.attrs:
                 try:
-                    s = self.fmt % tuple([getattr(record, str(a)) for a in self.attrs])
+                    s = self.fmt % tuple(
+                        [getattr(record, str(a)) for a in self.attrs]
+                    )
                 except Exception, e:
                     s = "Error: %s" % (str(e),)
                 try:
