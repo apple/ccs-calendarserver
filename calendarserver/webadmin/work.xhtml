@@ -57,6 +57,8 @@
     <script>
     //<![CDATA[
 
+      var debug = false;
+
       var workTypeDescriptions = {
         // Scheduling
         "SCHEDULE_ORGANIZER_WORK": "Schedule Organizer",
@@ -90,7 +92,7 @@
         "FIND_MIN_VALID_REVISION_WORK": "Revision Cleanup: Find Minimum",
       };
 
-      var jobItemAttributeDescriptions = {
+      var jobAttributeDescriptions = {
         "jobID": "Job ID",
         "priority": "Job Priority",
         "notBefore": "Not Before",
@@ -106,6 +108,7 @@
         "work_organizer": "Organizer",
         "work_attendee": "Attendee",
       }
+
 
       // Function to return keys from an object in order, followed by keys
       // from another which were not in the first.
@@ -127,13 +130,8 @@
         }
       }
 
-      var debug = false;
 
       var maxSeen = 30;
-
-      var eventSource;
-      var itemTypeEventListener;
-      var itemTypeEventListenerWorkType;
 
       function drawChart(data) {
         var items = [];
@@ -261,7 +259,7 @@
             "transform",
             function(i) { return "translate(" + xInset + "," + yLocation(i.description) + ")"; }
           )
-          .attr("onclick", function(i) { return 'showDetails("' + i.name + '");'; })
+          .attr("onclick", function(i) { return 'showJobDetails("' + i.name + '");'; })
         ;
 
         // Exit bars selection
@@ -297,7 +295,8 @@
         inner.exit().remove();
       }
 
-    function initChart() {
+
+      function initChart() {
         var data = {};
 
         for (var key in workTypeDescriptions) {
@@ -306,6 +305,9 @@
 
         drawChart(data);
       }
+
+
+      var eventSource;
 
       function registerForEvents() {
         eventSource = new EventSource("./events");
@@ -322,7 +324,11 @@
         );
       }
 
-      function showDetails(workType) {
+
+      var itemTypeEventListener;
+      var itemTypeEventListenerWorkType;
+
+      function showJobDetails(workType) {
         var debuggingContainer = document.getElementById("debug");
 
         if (debug) {
@@ -370,58 +376,66 @@
             eventDebug.innerHTML = e.data;
           }
 
-          // Reset the rows; we're going to refill the table below
-          detailsBody.innerHTML = "";
-
           var jobItems = JSON.parse(e.data);
 
-          function addCellToRow(row, tag, text) {
-            var cell = document.createElement(tag);
-            var content = document.createTextNode(text);
-            cell.appendChild(content);
-            row.appendChild(cell);
-          }
-
-          for (var i in jobItems) {
-            var jobItem = jobItems[i];  // OMG JavaScript is so stupid.
-
-            // Unhide the table
-            detailsTable.style.display = "block";
-    
-            var attributes = keysInKindOfKnownOrder(jobItemAttributeDescriptions, jobItem);
-
-            // Add the table headers if they aren't already there
-            if (detailsHeader.innerHTML == "") {
-              var row = document.createElement("tr");
-
-              for (var i in attributes) {
-                var attribute = attributes[i];  // OMG JavaScript, wow you so dumb
-                attributeDescription = valueOrKey(jobItemAttributeDescriptions, attribute)
-
-                addCellToRow(row, "th", attributeDescription)
-              }
-
-              detailsHeader.appendChild(row);
-            }
-
-            // Add a table row for this job item
-            var row = document.createElement("tr");
-
-            for (var i in attributes) {
-              var attribute = attributes[i];  // OMG JavaScript the lameness
-
-              var value = jobItem[attribute]
-              if (value === null) { value = ""; }
-
-              addCellToRow(row, "td", value)
-            }
-
-            detailsBody.appendChild(row);
-          }
+          drawJobDetails(jobItems, detailsTable, detailsCaption, detailsHeader, detailsBody);
         }
 
         eventSource.addEventListener(workType, itemTypeEventListener)
       }
+
+
+      function drawJobDetails(jobItems, detailsTable, detailsCaption, detailsHeader, detailsBody) {
+        // Reset the rows; we're going to refill the table below
+        detailsBody.innerHTML = "";
+
+        for (var i in jobItems) {
+          var jobItem = jobItems[i];  // OMG JavaScript is so stupid.
+
+          // Unhide the table
+          detailsTable.style.display = "block";
+  
+          var attributes = keysInKindOfKnownOrder(jobAttributeDescriptions, jobItem);
+
+          // Add the table headers if they aren't already there
+          if (detailsHeader.innerHTML == "") {
+            var row = document.createElement("tr");
+
+            for (var i in attributes) {
+              var attribute = attributes[i];  // OMG JavaScript, wow you so dumb
+              attributeDescription = valueOrKey(jobAttributeDescriptions, attribute)
+
+              addCellToRow(row, "th", attributeDescription)
+            }
+
+            detailsHeader.appendChild(row);
+          }
+
+          // Add a table row for this job item
+          var row = document.createElement("tr");
+
+          for (var i in attributes) {
+            var attribute = attributes[i];  // OMG JavaScript the lameness
+
+            var value = jobItem[attribute]
+            if (value === null) { value = ""; }
+
+            addCellToRow(row, "td", value)
+          }
+
+          detailsBody.appendChild(row);
+        }
+      }
+
+
+      function addCellToRow(row, tag, text) {
+        var cell = document.createElement(tag);
+        var content = document.createTextNode(text);
+
+        cell.appendChild(content);
+        row.appendChild(cell);
+      }
+
 
       window.onload = function() {
         initChart();
