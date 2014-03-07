@@ -119,6 +119,7 @@ class PrincipalService(WorkerService):
         if self.function is not None:
             yield self.function(self.store, *self.params)
 
+
 attrMap = {
     'GeneratedUID': {'attr': 'guid', },
     'RealName': {'attr': 'fullName', },
@@ -142,7 +143,6 @@ attrMap = {
 }
 
 
-@inlineCallbacks
 def main():
     try:
         (optargs, args) = getopt(
@@ -191,6 +191,10 @@ def main():
     verbose = False
 
     for opt, arg in optargs:
+
+        # Args come in as encoded bytes
+        arg = arg.decode("utf-8")
+
         if opt in ("-h", "--help"):
             usage()
 
@@ -234,20 +238,9 @@ def main():
                 proxyType = "write"
             else:
                 raise AssertionError("Unknown proxy type")
-
-            try:
-                yield recordForPrincipalID(arg, checkOnly=True)
-            except ValueError, e:
-                abort(e)
-
             principalActions.append((action_addProxy, proxyType, arg))
 
         elif opt in ("", "--remove-proxy"):
-            try:
-                yield recordForPrincipalID(arg, checkOnly=True)
-            except ValueError, e:
-                abort(e)
-
             principalActions.append((action_removeProxy, arg))
 
         # elif opt in ("", "--set-auto-schedule"):
@@ -359,21 +352,19 @@ def main():
         params = (searchPrincipals,)
 
     else:
-        #
-        # Do a quick sanity check that arguments look like principal
-        # identifiers.
-        #
         if not args:
             usage("No principals specified.")
 
-        for arg in args:
-            try:
-                yield recordForPrincipalID(arg, checkOnly=True)
-            except ValueError, e:
-                abort(e)
+        # We don't have a directory yet
+        # for arg in args:
+        #     try:
+        #         yield recordForPrincipalID(arg, checkOnly=True)
+        #     except ValueError, e:
+        #         abort(e)
 
+        unicodeArgs = [a.decode("utf-8") for a in args]
         function = runPrincipalActions
-        params = (args, principalActions)
+        params = (unicodeArgs, principalActions)
 
     PrincipalService.function = function
     PrincipalService.params = params
@@ -411,9 +402,7 @@ def runPrincipalActions(service, store, principalIDs, actions):
     for principalID in principalIDs:
         # Resolve the given principal IDs to records
         try:
-            record = yield recordForPrincipalID(
-                principalID, directory=directory
-            )
+            record = yield recordForPrincipalID(directory, principalID)
         except ValueError:
             record = None
 
@@ -545,7 +534,7 @@ def _addRemoveProxy(fn, store, record, proxyType, *proxyIDs):
     directory = store.directoryService()
     readWrite = (proxyType == "write")
     for proxyID in proxyIDs:
-        proxyRecord = yield recordForPrincipalID(proxyID, directory=directory)
+        proxyRecord = yield recordForPrincipalID(directory, proxyID)
         if proxyRecord is None:
             print("Invalid principal ID: %s" % (proxyID,))
         else:

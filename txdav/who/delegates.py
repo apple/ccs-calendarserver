@@ -67,6 +67,7 @@ class DirectoryRecord(BaseDirectoryRecord):
         this record.
         """
         parentUID, proxyType = self.uid.split("#")
+
         txn = self.service._store.newTransaction()
 
         if self.recordType in (
@@ -103,7 +104,6 @@ class DirectoryRecord(BaseDirectoryRecord):
         @param memberRecords: The new members of the group
         @type memberRecords: iterable of L{iDirectoryRecord}s
         """
-
         if self.recordType not in (
             RecordType.readDelegateGroup, RecordType.writeDelegateGroup
         ):

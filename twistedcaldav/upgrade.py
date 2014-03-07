@@ -60,7 +60,7 @@ from txdav.caldav.datastore.index_file import db_basename
 
 from twisted.protocols.amp import AMP, Command, String, Boolean
 
-from calendarserver.tap.util import getRootResource, FakeRequest, directoryFromConfig
+from calendarserver.tap.util import getRootResource, FakeRequest
 from calendarserver.tools.util import getDirectory
 
 from txdav.caldav.datastore.scheduling.imip.mailgateway import migrateTokensToStore
@@ -1032,7 +1032,7 @@ class PostDBImportStep(object):
     def stepWithResult(self, result):
         if self.doPostImport:
 
-            directory = directoryFromConfig(self.config)
+            directory = self.store.directoryService()
 
             # Load proxy assignments from XML if specified
             if self.config.ProxyLoadFromFile:

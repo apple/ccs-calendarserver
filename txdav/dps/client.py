@@ -38,6 +38,9 @@ from txdav.dps.commands import (
     MembersCommand, GroupsCommand, SetMembersCommand,
     VerifyPlaintextPasswordCommand, VerifyHTTPDigestCommand
 )
+from txdav.who.directory import (
+    CalendarDirectoryRecordMixin, CalendarDirectoryServiceMixin
+)
 import txdav.who.delegates
 import txdav.who.idirectory
 from txweb2.auth.digest import DigestedCredentials
@@ -59,7 +62,7 @@ log = Logger()
 ##    component.normalizeCalendarUserAddresses
 
 @implementer(IDirectoryService, IStoreDirectoryService)
-class DirectoryService(BaseDirectoryService):
+class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
     """
     Client side of directory proxy
     """
@@ -83,15 +86,6 @@ class DirectoryService(BaseDirectoryService):
     def getGroups(self, guids=None):
         return succeed(set())
 
-    # Must maintain the hack for a bit longer:
-    def setPrincipalCollection(self, principalCollection):
-        """
-        Set the principal service that the directory relies on for doing proxy tests.
-
-        @param principalService: the principal service.
-        @type principalService: L{DirectoryProvisioningResource}
-        """
-        self.principalCollection = principalCollection
 
     guid = "1332A615-4D3A-41FE-B636-FBE25BFB982E"
 
@@ -293,8 +287,9 @@ class DirectoryService(BaseDirectoryService):
         return self.recordType.lookupByName(oldName[:-1])
 
 
+
 @implementer(ICalendarStoreDirectoryRecord)
-class DirectoryRecord(BaseDirectoryRecord):
+class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
 
 
     @inlineCallbacks
@@ -384,130 +379,6 @@ class DirectoryRecord(BaseDirectoryRecord):
         )
 
 
-    @property
-    def calendarUserAddresses(self):
-        if not self.hasCalendars:
-            return frozenset()
-
-        try:
-            cuas = set(
-                ["mailto:%s" % (emailAddress,)
-                 for emailAddress in self.emailAddresses]
-            )
-        except AttributeError:
-            cuas = set()
-
-        try:
-            if self.guid:
-                if isinstance(self.guid, uuid.UUID):
-                    guid = unicode(self.guid).upper()
-                else:
-                    guid = self.guid
-                cuas.add("urn:uuid:{guid}".format(guid=guid))
-        except AttributeError:
-            # No guid
-            pass
-        cuas.add("/principals/__uids__/{uid}/".format(uid=self.uid))
-        for shortName in self.shortNames:
-            cuas.add("/principals/{rt}/{sn}/".format(
-                rt=self.recordType.name + "s", sn=shortName)
-            )
-        return frozenset(cuas)
-
-
-    def getCUType(self):
-        # Mapping from directory record.recordType to RFC2445 CUTYPE values
-        self._cuTypes = {
-            self.service.recordType.user: 'INDIVIDUAL',
-            self.service.recordType.group: 'GROUP',
-            self.service.recordType.resource: 'RESOURCE',
-            self.service.recordType.location: 'ROOM',
-        }
-
-        return self._cuTypes.get(self.recordType, "UNKNOWN")
-
-
-    @property
-    def displayName(self):
-        return self.fullNames[0]
-
-
-    def cacheToken(self):
-        """
-        Generate a token that can be uniquely used to identify the state of this record for use
-        in a cache.
-        """
-        return hash((
-            self.__class__.__name__,
-            self.service.realmName,
-            self.recordType.name,
-            self.shortNames,
-            self.guid,
-            self.hasCalendars,
-        ))
-
-
-    def canonicalCalendarUserAddress(self):
-        """
-            Return a CUA for this record, preferring in this order:
-            urn:uuid: form
-            mailto: form
-            first in calendarUserAddresses list
-        """
-
-        cua = ""
-        for candidate in self.calendarUserAddresses:
-            # Pick the first one, but urn:uuid: and mailto: can override
-            if not cua:
-                cua = candidate
-            # But always immediately choose the urn:uuid: form
-            if candidate.startswith("urn:uuid:"):
-                cua = candidate
-                break
-            # Prefer mailto: if no urn:uuid:
-            elif candidate.startswith("mailto:"):
-                cua = candidate
-        return cua
-
-
-    def enabledAsOrganizer(self):
-        # MOVE2WHO FIXME TO LOOK AT CONFIG
-        if self.recordType == self.service.recordType.user:
-            return True
-        elif self.recordType == DirectoryService.recordType_groups:
-            return False  # config.Scheduling.Options.AllowGroupAsOrganizer
-        elif self.recordType == DirectoryService.recordType_locations:
-            return False  # config.Scheduling.Options.AllowLocationAsOrganizer
-        elif self.recordType == DirectoryService.recordType_resources:
-            return False  # config.Scheduling.Options.AllowResourceAsOrganizer
-        else:
-            return False
-
-
-    #MOVE2WHO
-    def thisServer(self):
-        return True
-
-
-    def isLoginEnabled(self):
-        return self.loginAllowed
-
-
-    #MOVE2WHO
-    def calendarsEnabled(self):
-        # In the old world, this *also* looked at config:
-        # return config.EnableCalDAV and self.enabledForCalendaring
-        return self.hasCalendars
-
-
-    def getAutoScheduleMode(self, organizer):
-        # MOVE2WHO Fix this to take organizer into account:
-        return self.autoScheduleMode
-
-
-    def canAutoSchedule(self, organizer=None):
-        # MOVE2WHO Fix this:
-        return True
 
 
     # For scheduling/freebusy

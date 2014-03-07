@@ -23,6 +23,9 @@ from twext.who.idirectory import IDirectoryService, RecordType
 from twext.who.directory import DirectoryRecord
 from twext.who.directory import DirectoryService as BaseDirectoryService
 from twext.who.util import ConstantsContainer
+from txdav.who.directory import (
+    CalendarDirectoryRecordMixin, CalendarDirectoryServiceMixin
+)
 from txdav.who.idirectory import AutoScheduleMode, FieldName
 from txdav.who.idirectory import RecordType as CalRecordType
 from txdav.who.delegates import RecordType as DelegateRecordType
@@ -33,7 +36,7 @@ from twext.python.log import Logger
 log = Logger()
 
 
-class AugmentedDirectoryRecord(DirectoryRecord):
+class AugmentedDirectoryRecord(DirectoryRecord, CalendarDirectoryRecordMixin):
 
     def __init__(self, service, baseRecord, augmentedFields):
         DirectoryRecord.__init__(self, service, augmentedFields)
@@ -64,7 +67,8 @@ class AugmentedDirectoryRecord(DirectoryRecord):
 
 
 @implementer(IDirectoryService)
-class AugmentedDirectoryService(BaseDirectoryService):
+class AugmentedDirectoryService(BaseDirectoryService,
+                                CalendarDirectoryServiceMixin):
 
     fieldName = ConstantsContainer((
         BaseDirectoryService.fieldName,

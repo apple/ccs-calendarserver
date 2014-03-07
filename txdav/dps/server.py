@@ -446,6 +446,89 @@ class DirectoryProxyOptions(Options):
 
 
 
+def directoryFromConfig(config, store=None):
+    """
+    Return a directory service based on the config
+    """
+    directoryType = config.DirectoryProxy.DirectoryType
+    args = config.DirectoryProxy.Arguments
+    kwds = config.DirectoryProxy.Keywords
+
+    # FIXME: this needs to talk to its own separate database
+    pool, txnFactory = getDBPool(config)
+    if store is None:
+        store = storeFromConfig(config, txnFactory, None)
+
+    if directoryType == "OD":
+        from twext.who.opendirectory import DirectoryService as ODDirectoryService
+        primaryDirectory = ODDirectoryService(*args, **kwds)
+
+    elif directoryType == "LDAP":
+        authDN = kwds.pop("authDN", "")
+        password = kwds.pop("password", "")
+        if authDN and password:
+            creds = UsernamePassword(authDN, password)
+        else:
+            creds = None
+        kwds["credentials"] = creds
+        debug = kwds.pop("debug", "")
+        primaryDirectory = LDAPDirectoryService(
+            *args, _debug=debug, **kwds
+        )
+
+    elif directoryType == "XML":
+        path = kwds.pop("path", "")
+        if not path or not os.path.exists(path):
+            log.error("Path not found for XML directory: {p}", p=path)
+        fp = FilePath(path)
+        primaryDirectory = XMLDirectoryService(fp, *args, **kwds)
+
+    else:
+        log.error("Invalid DirectoryType: {dt}", dt=directoryType)
+
+    #
+    # Setup the Augment Service
+    #
+    if config.AugmentService.type:
+        augmentClass = namedClass(config.AugmentService.type)
+        log.info(
+            "Configuring augment service of type: {augmentClass}",
+            augmentClass=augmentClass
+        )
+        try:
+            augmentService = augmentClass(**config.AugmentService.params)
+        except IOError:
+            log.error("Could not start augment service")
+            raise
+    else:
+        augmentService = None
+
+    delegateDirectory = DelegateDirectoryService(
+        primaryDirectory.realmName,
+        store
+    )
+
+    aggregateDirectory = AggregateDirectoryService(
+        primaryDirectory.realmName,
+        (primaryDirectory, delegateDirectory)
+    )
+    try:
+        augmented = AugmentedDirectoryService(
+            aggregateDirectory, store, augmentService
+        )
+
+        # The delegate directory needs a way to look up user/group records
+        # so hand it a reference to the augmented directory.
+        # FIXME: is there a better pattern to use here?
+        delegateDirectory.setMasterDirectory(augmented)
+
+    except Exception as e:
+        log.error("Could not create directory service", error=e)
+        raise
+
+    return augmented
+
+
 @implementer(IPlugin, service.IServiceMaker)
 class DirectoryProxyServiceMaker(object):
 
@@ -454,7 +537,7 @@ class DirectoryProxyServiceMaker(object):
     options = DirectoryProxyOptions
 
 
-    def makeService(self, options, store=None):
+    def makeService(self, options):
         """
         Return a service
         """
@@ -465,82 +548,20 @@ class DirectoryProxyServiceMaker(object):
         else:
             setproctitle("CalendarServer Directory Proxy Service")
 
-        directoryType = config.DirectoryProxy.DirectoryType
-        args = config.DirectoryProxy.Arguments
-        kwds = config.DirectoryProxy.Keywords
-
-        # FIXME: this needs to talk to its own separate database
-        if store is None:
-            pool, txnFactory = getDBPool(config)
-            store = storeFromConfig(config, txnFactory)
-
-        if directoryType == "OD":
-            from twext.who.opendirectory import DirectoryService as ODDirectoryService
-            primaryDirectory = ODDirectoryService(*args, **kwds)
-
-        elif directoryType == "LDAP":
-            authDN = kwds.pop("authDN", "")
-            password = kwds.pop("password", "")
-            if authDN and password:
-                creds = UsernamePassword(authDN, password)
-            else:
-                creds = None
-            kwds["credentials"] = creds
-            debug = kwds.pop("debug", "")
-            primaryDirectory = LDAPDirectoryService(
-                *args, _debug=debug, **kwds
-            )
-
-        elif directoryType == "XML":
-            path = kwds.pop("path", "")
-            if not path or not os.path.exists(path):
-                log.error("Path not found for XML directory: {p}", p=path)
-            fp = FilePath(path)
-            primaryDirectory = XMLDirectoryService(fp, *args, **kwds)
-
-        else:
-            log.error("Invalid DirectoryType: {dt}", dt=directoryType)
-
-        desc = "unix:{path}:mode=660".format(
-            path=config.DirectoryProxy.SocketPath
-        )
-        #
-        # Setup the Augment Service
-        #
-        if config.AugmentService.type:
-            augmentClass = namedClass(config.AugmentService.type)
-            log.info(
-                "Configuring augment service of type: {augmentClass}",
-                augmentClass=augmentClass
-            )
-            try:
-                augmentService = augmentClass(**config.AugmentService.params)
-            except IOError:
-                log.error("Could not start augment service")
-                raise
-        else:
-            augmentService = None
-
-        delegateDirectory = DelegateDirectoryService(
-            primaryDirectory.realmName,
-            store
-        )
-
-        aggregateDirectory = AggregateDirectoryService(
-            primaryDirectory.realmName,
-            (primaryDirectory, delegateDirectory)
-        )
         try:
-            augmented = AugmentedDirectoryService(
-                aggregateDirectory, store, augmentService
-            )
-
-            # The delegate directory needs a way to look up user/group records
-            # so hand it a reference to the augmented directory.
-            # FIXME: is there a better pattern to use here?
-            delegateDirectory.setMasterDirectory(augmented)
-
+            print("XZZZY AAA")
+            directory = directoryFromConfig(config)
+            print("XZZZY BBB")
         except Exception as e:
-            log.error("Could not create directory service", error=e)
+            log.error("Failed to create directory service", error=e)
             raise
-        return strPortsService(desc, DirectoryProxyAMPFactory(augmented))
+
+        log.info("Created directory service")
+        print("XZZZY CCCC")
+
+        return strPortsService(
+            "unix:{path}:mode=660".format(
+                path=config.DirectoryProxy.SocketPath
+            ),
+            DirectoryProxyAMPFactory(directory)
+        )

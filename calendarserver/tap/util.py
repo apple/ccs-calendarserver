@@ -223,7 +223,7 @@ class ConnectionDispenser(object):
 
 
 
-def storeFromConfig(config, txnFactory, directoryService=None):
+def storeFromConfig(config, txnFactory, directoryService):
     """
     Produce an L{IDataStore} from the given configuration, transaction factory,
     and notifier factory.
@@ -240,9 +240,6 @@ def storeFromConfig(config, txnFactory, directoryService=None):
 
     if config.EnableResponseCache and config.Memcached.Pools.Default.ClientEnabled:
         notifierFactories["cache"] = CacheStoreNotifierFactory()
-
-    if directoryService is None:
-        directoryService = directoryFromConfig(config)
 
     quota = config.UserQuota
     if quota == 0:
@@ -286,13 +283,10 @@ def storeFromConfig(config, txnFactory, directoryService=None):
 
 
 
-def directoryFromConfig(config):
+def REMOVEMEdirectoryFromConfig(config):
     """
     Create an L{AggregateDirectoryService} from the given configuration.
     """
-
-    # MOVE2WHO
-    return DirectoryProxyClientService("XYZZY")
 
     #
     # Setup the Augment Service
@@ -469,7 +463,6 @@ def getRootResource(config, newStore, resources=None):
 
     directory = newStore.directoryService()
     principalCollection = principalResourceClass("/principals/", directory)
-
 
     #
     # Setup the ProxyDB Service

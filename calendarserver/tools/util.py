@@ -396,13 +396,7 @@ def principalForPrincipalID(principalID, checkOnly=False, directory=None):
 
 
 @inlineCallbacks
-def recordForPrincipalID(principalID, checkOnly=False, directory=None):
-
-    # Allow a directory parameter to be passed in, but default to config.directory
-    # But config.directory isn't set right away, so only use it when we're doing more
-    # than checking.
-    if not checkOnly and not directory:
-        directory = config.directory
+def recordForPrincipalID(directory, principalID, checkOnly=False):
 
     if principalID.startswith("/"):
         segments = principalID.strip("/").split("/")

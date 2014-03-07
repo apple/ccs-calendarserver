@@ -211,6 +211,10 @@ class CommonDataStore(Service, object):
         return self._directoryService
 
 
+    def setDirectoryService(self, directoryService):
+        self._directoryService = directoryService
+
+
     def callWithNewTransactions(self, callback):
         """
         Registers a method to be called whenever a new transaction is

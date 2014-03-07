@@ -131,7 +131,6 @@ class GroupRefreshWork(WorkItem, fromTable(schema.GROUP_REFRESH_WORK)):
 
     @inlineCallbacks
     def doWork(self):
-        print("XYZZY IN GRW doWork", )
         # Delete all other work items for this group
         yield Delete(
             From=self.table, Where=(self.table.GROUP_GUID == self.groupGuid)
@@ -142,7 +141,7 @@ class GroupRefreshWork(WorkItem, fromTable(schema.GROUP_REFRESH_WORK)):
 
             try:
                 yield newGroupCacher.refreshGroup(
-                    self.transaction, self.groupGuid
+                    self.transaction, self.groupGuid.decode("utf-8")
                 )
             except Exception, e:
                 log.error(
@@ -470,5 +469,7 @@ class GroupCacher(object):
                 Where=gr.GROUP_ID.In(groupIDs)
             ).on(txn)
             attendeeGroupUIDs = set([row[0] for row in rows])
+
+        # FIXME: is this a good place to clear out unreferenced groups?
 
         returnValue(delegatedUIDs.union(attendeeGroupUIDs))
