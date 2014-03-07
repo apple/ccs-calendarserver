@@ -31,7 +31,9 @@ from json import dumps
 from zope.interface import implementer
 
 from twisted.internet.defer import inlineCallbacks, returnValue
-# from twisted.web.template import tags as html, renderer
+
+from twext.python.log import Logger
+from twext.enterprise.jobqueue import JobItem
 
 from txdav.caldav.datastore.scheduling.imip.inbound import (
     IMIPPollingWork, IMIPReplyWork
@@ -44,8 +46,6 @@ from txdav.caldav.datastore.scheduling.work import (
     ScheduleOrganizerWork, ScheduleRefreshWork,
     ScheduleReplyWork, ScheduleAutoReplyWork,
 )
-
-from twext.enterprise.jobqueue import JobItem
 
 from .eventsource import EventSourceResource, IEventDecoder
 from .resource import PageElement, TemplateResource
@@ -90,6 +90,9 @@ class WorkEventsResource(EventSourceResource):
     Resource that vends work queue information via HTML5 EventSource events.
     """
 
+    log = Logger()
+
+
     def __init__(self, store, pollInterval=1000):
         EventSourceResource.__init__(self, EventDecoder, bufferSize=100)
 
@@ -133,39 +136,61 @@ class WorkEventsResource(EventSourceResource):
                 jobDicts = []
 
                 for job in jobs:
+                    def formatTime(datetime):
+                        if datetime is None:
+                            return None
+                        else:
+                            # FIXME: Use HTTP time format
+                            return datetime.ctime()
+
                     jobDict = dict(
-                        jobID=job.jobID,
-                        priority=job.priority,
-                        notBefore=job.notBefore.ctime(),  # FIXME: HTTP format
-                        notAfter=job.notAfter,
+                        job_jobID=job.jobID,
+                        job_priority=job.priority,
+                        job_notBefore=formatTime(job.notBefore),
+                        job_notAfter=formatTime(job.notAfter),
                     )
 
                     work = yield job.workItem()
 
-                    if work is not None:
-                        if workType == PushNotificationWork:
-                            attrs = ("pushID", "priority")
-                        elif workType == ScheduleOrganizerWork:
-                            attrs = ("icalendarUid", "attendeeCount")
-                        elif workType == ScheduleRefreshWork:
-                            attrs = ("icalendarUid", "attendeeCount")
-                        elif workType == ScheduleReplyWork:
-                            attrs = ("icalendarUid",)
-                        elif workType == ScheduleAutoReplyWork:
-                            attrs = ("icalendarUid",)
-                        elif workType == GroupCacherPollingWork:
-                            attrs = ()
-                        elif workType == IMIPPollingWork:
-                            attrs = ()
-                        elif workType == IMIPReplyWork:
-                            attrs = ("organizer", "attendee")
-                        else:
-                            attrs = ()
+                    attrs = ("workID", "group")
 
-                        for attr in attrs:
-                            jobDict["work_{}".format(attr)] = (
-                                getattr(work, attr)
+                    if workType == PushNotificationWork:
+                        attrs += ("pushID", "priority")
+                    elif workType == ScheduleOrganizerWork:
+                        attrs += ("icalendarUid", "attendeeCount")
+                    elif workType == ScheduleRefreshWork:
+                        attrs += ("icalendarUid", "attendeeCount")
+                    elif workType == ScheduleReplyWork:
+                        attrs += ("icalendarUid",)
+                    elif workType == ScheduleAutoReplyWork:
+                        attrs += ("icalendarUid",)
+                    elif workType == GroupCacherPollingWork:
+                        attrs += ()
+                    elif workType == IMIPPollingWork:
+                        attrs += ()
+                    elif workType == IMIPReplyWork:
+                        attrs += ("organizer", "attendee")
+                    else:
+                        attrs = ()
+
+                    if attrs:
+                        if work is None:
+                            self.log.error(
+                                "workItem() returned None for job: {job}",
+                                job=job
                             )
+                            # jobDict.update((attr, None) for attr in attrs)
+                            for attr in attrs:
+                                jobDict["work_{}".format(attr)] = None
+                        else:
+                            # jobDict.update(
+                            #     ("work_{}".format(attr), getattr(work, attr))
+                            #     for attr in attrs
+                            # )
+                            for attr in attrs:
+                                jobDict["work_{}".format(attr)] = (
+                                    getattr(work, attr)
+                                )
 
                     jobDicts.append(jobDict)
 
