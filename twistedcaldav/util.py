@@ -29,6 +29,7 @@ from twext.python.log import Logger
 
 log = Logger()
 from twext.internet.gaiendpoint import GAIEndpoint
+from twext.internet.adaptendpoint import connect
 
 ##
 # System Resources (Memory size and processor count)
@@ -40,7 +41,6 @@ try:
         c_int, c_uint64, c_ulong,
         c_char_p, c_void_p,
         addressof, sizeof, c_size_t,
-        connect,
     )
     from ctypes.util import find_library
     hasCtypes = True
