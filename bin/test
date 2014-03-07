@@ -84,7 +84,7 @@ shift $((${OPTIND} - 1));
 
 if [ $# -eq 0 ]; then
   lint="true";
-  set - calendarserver twistedcaldav txdav txweb2 contrib;
+  set - calendarserver twistedcaldav txdav txweb2 contrib twext;
 else
   lint="false";
 fi;
