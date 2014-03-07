@@ -94,8 +94,8 @@ class _SubprocessSocket(FileDescriptor, object):
     A socket in the master process pointing at a file descriptor that can be
     used to transmit sockets to a subprocess.
 
-    @ivar skt: the UNIX socket used as the sendmsg() transport.
-    @type skt: L{socket.socket}
+    @ivar outSocket: the UNIX socket used as the sendmsg() transport.
+    @type outSocket: L{socket.socket}
 
     @ivar outgoingSocketQueue: an outgoing queue of sockets to send to the
         subprocess, along with their descriptions (strings describing their
@@ -115,14 +115,59 @@ class _SubprocessSocket(FileDescriptor, object):
     @type dispatcher: L{InheritedSocketDispatcher}
     """
 
-    def __init__(self, dispatcher, skt, status):
+    def __init__(self, dispatcher, inSocket, outSocket, status, slavenum):
         FileDescriptor.__init__(self, dispatcher.reactor)
         self.status = status
+        self.slavenum = slavenum
         self.dispatcher = dispatcher
-        self.skt = skt          # XXX needs to be set non-blocking by somebody
-        self.fileno = skt.fileno
+        self.inSocket = inSocket
+        self.outSocket = outSocket   # XXX needs to be set non-blocking by somebody
+        self.fileno = outSocket.fileno
         self.outgoingSocketQueue = []
         self.pendingCloseSocketQueue = []
+
+
+    def childSocket(self):
+        """
+        Return the socket that the child process will use to communicate with the master.
+        """
+        return self.inSocket
+
+
+    def start(self):
+        """
+        The master process monitor is about to start the child process associated with this socket.
+        Update status to ensure dispatcher know what is going on.
+        """
+        self.status.start()
+        self.dispatcher.statusChanged()
+
+
+    def restarted(self):
+        """
+        The child process associated with this socket has signaled it is ready.
+        Update status to ensure dispatcher know what is going on.
+        """
+        self.status.restarted()
+        self.dispatcher.statusChanged()
+
+
+    def stop(self):
+        """
+        The master process monitor has determined the child process associated with this socket
+        has died. Update status to ensure dispatcher know what is going on.
+        """
+        self.status.stop()
+        self.dispatcher.statusChanged()
+
+
+    def remove(self):
+        """
+        Remove this socket.
+        """
+        self.status.stop()
+        self.dispatcher.statusChanged()
+        self.dispatcher.removeSocket()
 
 
     def sendSocketToPeer(self, skt, description):
@@ -138,7 +183,7 @@ class _SubprocessSocket(FileDescriptor, object):
         Receive a status / health message and record it.
         """
         try:
-            data, _ignore_flags, _ignore_ancillary = recvmsg(self.skt.fileno())
+            data, _ignore_flags, _ignore_ancillary = recvmsg(self.outSocket.fileno())
         except SocketError, se:
             if se.errno not in (EAGAIN, ENOBUFS):
                 raise
@@ -155,7 +200,7 @@ class _SubprocessSocket(FileDescriptor, object):
         while self.outgoingSocketQueue:
             skt, desc = self.outgoingSocketQueue.pop(0)
             try:
-                sendfd(self.skt.fileno(), skt.fileno(), desc)
+                sendfd(self.outSocket.fileno(), skt.fileno(), desc)
             except SocketError, se:
                 if se.errno in (EAGAIN, ENOBUFS):
                     self.outgoingSocketQueue.insert(0, (skt, desc))
@@ -167,6 +212,51 @@ class _SubprocessSocket(FileDescriptor, object):
 
         if not self.outgoingSocketQueue:
             self.stopWriting()
+
+
+
+class IStatus(Interface):
+    """
+    Defines the status of a socket. This keeps track of active connections etc.
+    """
+
+    def effective():
+        """
+        The current effective load.
+
+        @return: The current effective load.
+        @rtype: L{int}
+        """
+
+    def active():
+        """
+        Whether the socket should be active (able to be dispatched to).
+
+        @return: Active state.
+        @rtype: L{bool}
+        """
+
+    def start():
+        """
+        Worker process is starting. Mark status accordingly but do not make
+        it active.
+
+        @return: C{self}
+        """
+
+    def restarted():
+        """
+        Worker process has signaled it is ready so make this active.
+
+        @return: C{self}
+        """
+
+    def stop():
+        """
+        Worker process has stopped so make this inactive.
+
+        @return: C{self}
+        """
 
 
 
@@ -197,7 +287,7 @@ class IStatusWatcher(Interface):
         than the somewhat more abstract language that would be accurate.
     """
 
-    def initialStatus(): #@NoSelf
+    def initialStatus():
         """
         A new socket was created and added to the dispatcher.  Compute an
         initial value for its status.
@@ -205,8 +295,7 @@ class IStatusWatcher(Interface):
         @return: the new status.
         """
 
-
-    def newConnectionStatus(previousStatus): #@NoSelf
+    def newConnectionStatus(previousStatus):
         """
         A new connection was sent to a given socket.  Compute its status based
         on the previous status of that socket.
@@ -217,8 +306,7 @@ class IStatusWatcher(Interface):
         @return: the socket's status after incrementing its outstanding work.
         """
 
-
-    def statusFromMessage(previousStatus, message): #@NoSelf
+    def statusFromMessage(previousStatus, message):
         """
         A status message was received by a worker.  Convert the previous status
         value (returned from L{newConnectionStatus}, L{initialStatus}, or
@@ -231,8 +319,7 @@ class IStatusWatcher(Interface):
             account.
         """
 
-
-    def closeCountFromStatus(previousStatus): #@NoSelf
+    def closeCountFromStatus(previousStatus):
         """
         Based on a status previously returned from a method on this
         L{IStatusWatcher}, determine how many sockets may be closed.
@@ -250,7 +337,7 @@ class InheritedSocketDispatcher(object):
     list of available sockets that connect to I{worker process}es and sends
     inbound connections to be inherited over those sockets, by those processes.
 
-    L{InheritedSocketDispatcher} is therefore insantiated in the I{master
+    L{InheritedSocketDispatcher} is therefore instantiated in the I{master
     process}.
 
     @ivar statusWatcher: The object which will handle status messages and
@@ -272,10 +359,26 @@ class InheritedSocketDispatcher(object):
     @property
     def statuses(self):
         """
-        Yield the current status of all subprocess sockets.
+        Yield the current status of all subprocess sockets in the current priority order.
         """
         for subsocket in self._subprocessSockets:
             yield subsocket.status
+
+
+    @property
+    def slavestates(self):
+        """
+        Yield the current status of all subprocess sockets, ordered by slave number.
+        """
+        for subsocket in sorted(self._subprocessSockets, key=lambda x: x.slavenum):
+            yield (subsocket.slavenum, subsocket.status,)
+
+
+    def statusChanged(self):
+        """
+        Someone is telling us a child socket status changed.
+        """
+        self.statusWatcher.statusesChanged(self.statuses)
 
 
     def statusMessage(self, subsocket, message):
@@ -283,16 +386,16 @@ class InheritedSocketDispatcher(object):
         The status of a connection has changed; update all registered status
         change listeners.
         """
-        watcher = self.statusWatcher
-        status = watcher.statusFromMessage(subsocket.status, message)
-        closeCount, subsocket.status = watcher.closeCountFromStatus(status)
-        watcher.statusesChanged(self.statuses)
+        status = self.statusWatcher.statusFromMessage(subsocket.status, message)
+        closeCount, subsocket.status = self.statusWatcher.closeCountFromStatus(status)
+        self.statusChanged()
         return closeCount
 
 
     def sendFileDescriptor(self, skt, description):
         """
-        A connection has been received.  Dispatch it.
+        A connection has been received.  Dispatch it to active sockets, sorted by
+        how much work they have.
 
         @param skt: the I{connection socket} (i.e.: not the listening socket)
         @type skt: L{socket.socket}
@@ -301,23 +404,15 @@ class InheritedSocketDispatcher(object):
             L{InheritedPort} what type of transport to create for this socket.
         @type description: C{bytes}
         """
-        # We want None to sort after 0 and before 1, so coerce to 0.5 - this
-        # allows the master to first schedule all child process that are up but
-        # not yet busy ahead of those that are still starting up.
-        def sortKey(conn):
-            if conn.status is None:
-                return 0.5
-            else:
-                return conn.status
-        self._subprocessSockets.sort(key=sortKey)
-        selectedSocket = self._subprocessSockets[0]
+        self._subprocessSockets.sort(key=lambda x: x.status.effective())
+        selectedSocket = filter(lambda x: x.status.active(), self._subprocessSockets)[0]
         selectedSocket.sendSocketToPeer(skt, description)
         # XXX Maybe want to send along 'description' or 'skt' or some
         # properties thereof? -glyph
         selectedSocket.status = self.statusWatcher.newConnectionStatus(
             selectedSocket.status
         )
-        self.statusWatcher.statusesChanged(self.statuses)
+        self.statusChanged()
 
 
     def startDispatching(self):
@@ -329,7 +424,7 @@ class InheritedSocketDispatcher(object):
             subSocket.startReading()
 
 
-    def addSocket(self, socketpair=lambda: socketpair(AF_UNIX, SOCK_DGRAM)):
+    def addSocket(self, slavenum=0, socketpair=lambda: socketpair(AF_UNIX, SOCK_DGRAM)):
         """
         Add a C{sendmsg()}-oriented AF_UNIX socket to the pool of sockets being
         used for transmitting file descriptors to child processes.
@@ -341,11 +436,19 @@ class InheritedSocketDispatcher(object):
         i, o = socketpair()
         i.setblocking(False)
         o.setblocking(False)
-        a = _SubprocessSocket(self, o, self.statusWatcher.initialStatus())
+        a = _SubprocessSocket(self, i, o, self.statusWatcher.initialStatus(), slavenum)
         self._subprocessSockets.append(a)
         if self._isDispatching:
             a.startReading()
-        return i
+        return a
+
+
+    def removeSocket(self, skt):
+        """
+        Removes a previously added socket from the pool of sockets being used
+        for transmitting file descriptors to child processes.
+        """
+        self._subprocessSockets.remove(skt)
 
 
 

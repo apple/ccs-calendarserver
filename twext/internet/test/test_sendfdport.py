@@ -1,4 +1,3 @@
-from twext.internet.sendfdport import IStatusWatcher
 # -*- test-case-name: twext.internet.test.test_sendfdport -*-
 ##
 # Copyright (c) 2010-2014 Apple Inc. All rights reserved.
@@ -27,6 +26,7 @@ from zope.interface.verify import verifyClass
 from zope.interface import implementer
 
 from twext.internet.sendfdport import InheritedSocketDispatcher
+from twext.internet.sendfdport import IStatusWatcher, IStatus
 
 from twext.web2.metafd import ConnectionLimiter
 from twisted.internet.interfaces import IReactorFDSet
@@ -93,6 +93,38 @@ def isNonBlocking(skt):
 
 
 
+@verifiedImplementer(IStatus)
+class Status(object):
+    def __init__(self):
+        self.count = 0
+        self.available = False
+
+
+    def effective(self):
+        return self.count
+
+
+    def active(self):
+        return self.available
+
+
+    def start(self):
+        self.available = False
+        return self
+
+
+    def restarted(self):
+        self.available = True
+        return self
+
+
+    def stop(self):
+        self.count = 0
+        self.available = False
+        return self
+
+
+
 @verifiedImplementer(IStatusWatcher)
 class Watcher(object):
     def __init__(self, q):
@@ -101,19 +133,21 @@ class Watcher(object):
 
 
     def newConnectionStatus(self, previous):
-        return previous + 1
+        previous.count += 1
+        return previous
 
 
     def statusFromMessage(self, previous, message):
-        return previous - 1
+        previous.count -= 1
+        return previous
 
 
     def statusesChanged(self, statuses):
-        self.q.append(list(statuses))
+        self.q.append([(status.count, status.available) for status in statuses])
 
 
     def initialStatus(self):
-        return 0
+        return Status()
 
 
     def closeCountFromStatus(self, status):
@@ -152,9 +186,10 @@ class InheritedSocketDispatcherTests(TestCase):
         two = SocketForClosing()
         three = SocketForClosing()
 
-        self.dispatcher.addSocket(
+        skt = self.dispatcher.addSocket(
             lambda: (SocketForClosing(), SocketForClosing())
         )
+        skt.restarted()
 
         self.dispatcher.sendFileDescriptor(one, "one")
         self.dispatcher.sendFileDescriptor(two, "two")
@@ -214,10 +249,11 @@ class InheritedSocketDispatcherTests(TestCase):
         dispatcher.statusWatcher = Watcher(q)
         description = "whatever"
         # Need to have a socket that will accept the descriptors.
-        dispatcher.addSocket()
+        skt = dispatcher.addSocket()
+        skt.restarted()
         dispatcher.sendFileDescriptor(object(), description)
         dispatcher.sendFileDescriptor(object(), description)
-        self.assertEquals(q, [[1], [2]])
+        self.assertEquals(q, [[(0, True)], [(1, True)], [(2, True)]])
 
 
     def test_statusesChangedOnStatusMessage(self):
@@ -235,4 +271,33 @@ class InheritedSocketDispatcherTests(TestCase):
         subskt = dispatcher._subprocessSockets[0]
         dispatcher.statusMessage(subskt, message)
         dispatcher.statusMessage(subskt, message)
-        self.assertEquals(q, [[-1], [-2]])
+        self.assertEquals(q, [[(-1, False)], [(-2, False)]])
+
+
+    def test_statusesChangedOnStartRestartStop(self):
+        """
+        L{_SubprocessSocket} will update its C{status} when state change.
+        """
+        q = []
+        dispatcher = self.dispatcher
+        dispatcher.statusWatcher = Watcher(q)
+        message = "whatever"
+        # Need to have a socket that will accept the descriptors.
+        subskt = dispatcher.addSocket()
+        subskt.start()
+        subskt.restarted()
+        dispatcher.sendFileDescriptor(subskt, message)
+        subskt.stop()
+        subskt.start()
+        subskt.restarted()
+        self.assertEquals(
+            q,
+            [
+                [(0, False)],
+                [(0, True)],
+                [(1, True)],
+                [(0, False)],
+                [(0, False)],
+                [(0, True)],
+            ]
+        )
