@@ -274,6 +274,7 @@ class EventSourceResourceTests(TestCase):
     test_streamNewEvents.todo = "Feature disabled; needs debugging"
 
 
+
 @implementer(IEventDecoder)
 class DictionaryEventDecoder(object):
     """
@@ -293,3 +294,8 @@ class DictionaryEventDecoder(object):
     @staticmethod
     def textForEvent(event):
         return event.get("eventText")
+
+
+    @staticmethod
+    def retryForEvent(event):
+        return None
