@@ -67,6 +67,15 @@ class RecordsWithEmailAddressCommand(amp.Command):
     ]
 
 
+class RecordsMatchingTokensCommand(amp.Command):
+    arguments = [
+        ('tokens', amp.ListOf(amp.String())),
+        ('context', amp.String(optional=True)),
+    ]
+    response = [
+        ('fieldsList', amp.String()),
+    ]
+
 
 class UpdateRecordsCommand(amp.Command):
     arguments = [

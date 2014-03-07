@@ -549,8 +549,8 @@ class SlaveSpawnerService(Service):
             self.monitor.addProcessObject(process, PARENT_ENVIRONMENT)
 
         if (
-           config.DirectoryProxy.Enabled and
-           config.DirectoryProxy.SocketPath != ""
+            config.DirectoryProxy.Enabled and
+            config.DirectoryProxy.SocketPath != ""
         ):
             log.info("Adding directory proxy service")
 

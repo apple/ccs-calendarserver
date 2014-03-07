@@ -29,12 +29,12 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.internet.protocol import ClientCreator
 from twisted.protocols import amp
 from twisted.python.constants import Names, NamedConstant
-from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
 from txdav.caldav.icalendardirectoryservice import ICalendarStoreDirectoryRecord
 from txdav.common.idirectoryservice import IStoreDirectoryService
 from txdav.dps.commands import (
     RecordWithShortNameCommand, RecordWithUIDCommand, RecordWithGUIDCommand,
     RecordsWithRecordTypeCommand, RecordsWithEmailAddressCommand,
+    RecordsMatchingTokensCommand,
     MembersCommand, GroupsCommand, SetMembersCommand,
     VerifyPlaintextPasswordCommand, VerifyHTTPDigestCommand
 )
@@ -239,13 +239,15 @@ class DirectoryService(BaseDirectoryService):
         )
 
 
-    def listRecords(self, recordType):
-        # MOVE2WHO
-        return []
+    # def listRecords(self, recordType):
+    #     # MOVE2WHO
+    #     return []
 
 
     @inlineCallbacks
     def recordWithCalendarUserAddress(self, address):
+        # FIXME: Circular
+        from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
         address = normalizeCUAddr(address)
         record = None
         if address.startswith("urn:uuid:"):
@@ -270,16 +272,25 @@ class DirectoryService(BaseDirectoryService):
         returnValue(record if record and record.hasCalendars else None)
 
 
-    @inlineCallbacks
     def recordsMatchingTokens(self, tokens, context=None, limitResults=50,
                               timeoutSeconds=10):
-        rec = yield self.recordWithShortName(
-            twext.who.idirectory.RecordType.user,
-            u"wsanchez"
+        return self._call(
+            RecordsMatchingTokensCommand,
+            self._processMultipleRecords,
+            tokens=[t.encode("utf-8") for t in tokens],
+            context=context
         )
-        returnValue([rec])
 
 
+
+    # FIXME: Existing code assumes record type names are plural. Is there any
+    # reason to maintain backwards compatibility?  I suppose there could be
+    # scripts referring to record type of "users", "locations"
+    def recordTypeToOldName(self, recordType):
+        return recordType.name + u"s"
+
+    def oldNameToRecordType(self, oldName):
+        return self.recordType.lookupByName(oldName[:-1])
 
 
 @implementer(ICalendarStoreDirectoryRecord)
@@ -290,7 +301,7 @@ class DirectoryRecord(BaseDirectoryRecord):
     def verifyCredentials(self, credentials):
 
         # XYZZY REMOVE THIS, it bypasses all authentication!:
-        # returnValue(True)
+        returnValue(True)
 
         if isinstance(credentials, UsernamePassword):
             log.debug("UsernamePassword")

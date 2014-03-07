@@ -112,6 +112,18 @@ class DPSClientTest(unittest.TestCase):
 
 
     @inlineCallbacks
+    def test_recordsMatchingTokens(self):
+        records = (yield self.directory.recordsMatchingTokens(
+            [u"anche"]
+        ))
+        self.assertEquals(len(records), 2)
+        self.assertEquals(
+            set([u"__dre__", u"__wsanchez__"]),
+            set([r.uid for r in records])
+        )
+
+
+    @inlineCallbacks
     def test_verifyPlaintextPassword(self):
         if testMode == "xml":
             expectations = (
