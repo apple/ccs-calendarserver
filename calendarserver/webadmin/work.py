@@ -33,16 +33,17 @@ from zope.interface import implementer
 from twisted.internet.defer import inlineCallbacks, returnValue
 # from twisted.web.template import tags as html, renderer
 
-# from txdav.caldav.datastore.scheduling.imip.inbound import (
-#     IMIPPollingWork, IMIPReplyWork
-# )
+from txdav.caldav.datastore.scheduling.imip.inbound import (
+    IMIPPollingWork, IMIPReplyWork
+)
 
-# from twistedcaldav.directory.directory import GroupCacherPollingWork
-# from calendarserver.push.notifier import PushNotificationWork
+from txdav.who.groups import GroupCacherPollingWork
+from calendarserver.push.notifier import PushNotificationWork
 
-# from txdav.caldav.datastore.scheduling.work import (
-#     ScheduleOrganizerWork, ScheduleReplyWork, ScheduleRefreshWork
-# )
+from txdav.caldav.datastore.scheduling.work import (
+    ScheduleOrganizerWork, ScheduleRefreshWork,
+    ScheduleReplyWork, ScheduleAutoReplyWork,
+)
 
 from twext.enterprise.jobqueue import JobItem
 
@@ -110,32 +111,60 @@ class WorkEventsResource(EventSourceResource):
 
         events = []
 
-        itemsByTypeName = {}
+        jobsByTypeName = {}
 
-        for item in (yield JobItem.all(txn)):
-            itemsByTypeName.setdefault(item.workType, []).append(item)
+        for job in (yield JobItem.all(txn)):
+            jobsByTypeName.setdefault(job.workType, []).append(job)
 
         totalsByTypeName = {}
 
         for workType in JobItem.workTypes():
             typeName = workType.table.model.name
-            items = itemsByTypeName.get(typeName, [])
-            totalsByTypeName[typeName] = len(items)
-            itemData = []
+            jobs = jobsByTypeName.get(typeName, [])
+            totalsByTypeName[typeName] = len(jobs)
 
-            for item in items:
-                itemData.append(dict(
-                    jobID=item.jobID,
-                    priority=item.priority,
-                    notBefore=item.notBefore.ctime(),  # FIXME: Use HTTP format
-                    notAfter=item.notAfter,
-                ))
+            jobDicts = []
 
-            if itemData:
+            for job in jobs:
+                jobDict = dict(
+                    jobID=job.jobID,
+                    priority=job.priority,
+                    notBefore=job.notBefore.ctime(),  # FIXME: Use HTTP format
+                    notAfter=job.notAfter,
+                )
+
+                work = yield job.workItem()
+
+                if work is not None:
+                    if workType == PushNotificationWork:
+                        attrs = ("pushID", "priority")
+                    elif workType == ScheduleOrganizerWork:
+                        attrs = ("icalendarUid", "attendeeCount")
+                    elif workType == ScheduleRefreshWork:
+                        attrs = ("icalendarUid", "attendeeCount")
+                    elif workType == ScheduleReplyWork:
+                        attrs = ("icalendarUid",)
+                    elif workType == ScheduleAutoReplyWork:
+                        attrs = ("icalendarUid",)
+                    elif workType == GroupCacherPollingWork:
+                        attrs = ()
+                    elif workType == IMIPPollingWork:
+                        attrs = ()
+                    elif workType == IMIPReplyWork:
+                        attrs = ("organizer", "attendee")
+                    else:
+                        attrs = ()
+
+                    for attr in attrs:
+                        jobDict["work_{}".format(attr)] = getattr(work, attr)
+
+                jobDicts.append(jobDict)
+
+            if jobDicts:
                 events.append(dict(
                     eventClass=typeName,
                     eventID=time(),
-                    eventText=asJSON(itemData),
+                    eventText=asJSON(jobDicts),
                 ))
 
         events.append(dict(

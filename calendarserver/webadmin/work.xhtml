@@ -92,9 +92,19 @@
 
       var jobItemAttributeDescriptions = {
         "jobID": "Job ID",
-        "priority": "Priority",
+        "priority": "Job Priority",
         "notBefore": "Not Before",
         "notAfter": "Not After",
+
+        // Push
+        "work_pushID": "Push ID",
+        "work_priority": "Priority",
+
+        // Scheduling
+        "work_icalendarUid": "iCalendar UID",
+        "work_attendeeCount": "Attendee Count",
+        "work_organizer": "Organizer",
+        "work_attendee": "Attendee",
       }
 
       // Function to return keys from an object in order, followed by keys
@@ -104,7 +114,7 @@
       // will be in whatever order they came in over the wire.
       function keysInKindOfKnownOrder(obj1, obj2) {
         var keys = [];
-        for (var key in obj1) { keys.push(key); }
+        for (var key in obj1) { if (key in obj2) { keys.push(key); } }
         for (var key in obj2) { if (! key in obj1) { keys.push(key); } }
         return keys;
       }
@@ -396,8 +406,12 @@
             for (var i in attributes) {
               var attribute = attributes[i];  // OMG JavaScript the lameness
 
+              var content = jobItem[attribute]
+              if (content === null) { content = ""; }
+
               var cell = document.createElement("td");
-              var text = document.createTextNode(jobItem[attribute]);
+              var text = document.createTextNode(content);
+
               cell.appendChild(text);
               row.appendChild(cell);
             }
