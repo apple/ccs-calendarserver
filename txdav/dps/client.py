@@ -104,13 +104,6 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
 
         # print("FIELDS", serializedFields)
 
-        # MOVE2WHO -- existing code assumes record.emailAddresses always exists,
-        # so adding this here, but perhaps we should change the behavior in
-        # twext.who itself:
-        # Add default empty list of email addresses
-        if self.fieldName.emailAddresses.name not in serializedFields:
-            serializedFields[self.fieldName.emailAddresses.name] = []
-
         fields = {}
         for fieldName, value in serializedFields.iteritems():
             try:
@@ -233,39 +226,6 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
         )
 
 
-    # def listRecords(self, recordType):
-    #     # MOVE2WHO
-    #     return []
-
-
-    @inlineCallbacks
-    def recordWithCalendarUserAddress(self, address):
-        # FIXME: Circular
-        from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
-        address = normalizeCUAddr(address)
-        record = None
-        if address.startswith("urn:uuid:"):
-            guid = address[9:]
-            record = yield self.recordWithGUID(guid)
-        elif address.startswith("mailto:"):
-            records = yield self.recordsWithEmailAddress(address[7:])
-            if records:
-                returnValue(records[0])
-            else:
-                returnValue(None)
-        elif address.startswith("/principals/"):
-            parts = address.split("/")
-            if len(parts) == 4:
-                if parts[2] == "__uids__":
-                    guid = parts[3]
-                    record = yield self.recordWithGUID(guid)
-                else:
-                    recordType = self.fieldName.lookupByName(parts[2])
-                    record = yield self.recordWithShortName(recordType, parts[3])
-
-        returnValue(record if record and record.hasCalendars else None)
-
-
     def recordsMatchingTokens(self, tokens, context=None, limitResults=50,
                               timeoutSeconds=10):
         return self._call(
@@ -277,14 +237,7 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
 
 
 
-    # FIXME: Existing code assumes record type names are plural. Is there any
-    # reason to maintain backwards compatibility?  I suppose there could be
-    # scripts referring to record type of "users", "locations"
-    def recordTypeToOldName(self, recordType):
-        return recordType.name + u"s"
 
-    def oldNameToRecordType(self, oldName):
-        return self.recordType.lookupByName(oldName[:-1])
 
 
 

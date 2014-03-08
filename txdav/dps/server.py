@@ -21,9 +21,6 @@ import uuid
 from calendarserver.tap.util import getDBPool, storeFromConfig
 from twext.python.log import Logger
 from twext.who.aggregate import DirectoryService as AggregateDirectoryService
-from twext.who.expression import (
-    MatchType, Operand, MatchExpression, CompoundExpression, MatchFlags
-)
 from twext.who.idirectory import RecordType
 from twext.who.ldap import DirectoryService as LDAPDirectoryService
 from twisted.application import service
@@ -179,34 +176,10 @@ class DirectoryProxyAMPProtocol(amp.AMP):
     @inlineCallbacks
     def recordsMatchingTokens(self, tokens, context=None):
         tokens = [t.decode("utf-8") for t in tokens]
-
         log.debug("RecordsMatchingTokens: {t}", t=(", ".join(tokens)))
-
-        fields = [
-            ("fullNames", MatchType.contains),
-            ("emailAddresses", MatchType.startsWith),
-        ]
-        outer = []
-        for token in tokens:
-            inner = []
-            for name, matchType in fields:
-                inner.append(
-                    MatchExpression(
-                        self._directory.fieldName.lookupByName(name),
-                        token,
-                        matchType,
-                        MatchFlags.caseInsensitive
-                    )
-                )
-            outer.append(
-                CompoundExpression(
-                    inner,
-                    Operand.OR
-                )
-            )
-        expression = CompoundExpression(outer, Operand.AND)
-        records = yield self._directory.recordsFromExpression(expression)
-
+        records = yield self._directory.recordsMatchingTokens(
+            tokens, context=context
+        )
         fieldsList = []
         for record in records:
             fieldsList.append(self.recordToDict(record))

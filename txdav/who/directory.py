@@ -20,6 +20,10 @@ Calendar/Contacts specific methods for DirectoryRecord
 
 
 import uuid
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twext.who.expression import (
+    MatchType, Operand, MatchExpression, CompoundExpression, MatchFlags
+)
 
 
 __all__ = [
@@ -41,8 +45,75 @@ class CalendarDirectoryServiceMixin(object):
         self.principalCollection = principalCollection
 
 
-class CalendarDirectoryRecordMixin(object):
+    @inlineCallbacks
+    def recordWithCalendarUserAddress(self, address):
+        # FIXME: Circular
+        from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
+        address = normalizeCUAddr(address)
+        record = None
+        if address.startswith("urn:uuid:"):
+            guid = address[9:]
+            record = yield self.recordWithGUID(guid)
+        elif address.startswith("mailto:"):
+            records = yield self.recordsWithEmailAddress(address[7:])
+            if records:
+                returnValue(records[0])
+            else:
+                returnValue(None)
+        elif address.startswith("/principals/"):
+            parts = address.split("/")
+            if len(parts) == 4:
+                if parts[2] == "__uids__":
+                    guid = parts[3]
+                    record = yield self.recordWithGUID(guid)
+                else:
+                    recordType = self.fieldName.lookupByName(parts[2])
+                    record = yield self.recordWithShortName(recordType, parts[3])
 
+        returnValue(record if record and record.hasCalendars else None)
+
+
+    def recordsMatchingTokens(self, tokens, context=None, limitResults=50,
+                              timeoutSeconds=10):
+        fields = [
+            ("fullNames", MatchType.contains),
+            ("emailAddresses", MatchType.startsWith),
+        ]
+        outer = []
+        for token in tokens:
+            inner = []
+            for name, matchType in fields:
+                inner.append(
+                    MatchExpression(
+                        self.fieldName.lookupByName(name),
+                        token,
+                        matchType,
+                        MatchFlags.caseInsensitive
+                    )
+                )
+            outer.append(
+                CompoundExpression(
+                    inner,
+                    Operand.OR
+                )
+            )
+        expression = CompoundExpression(outer, Operand.AND)
+        return self.recordsFromExpression(expression)
+
+
+    # FIXME: Existing code assumes record type names are plural. Is there any
+    # reason to maintain backwards compatibility?  I suppose there could be
+    # scripts referring to record type of "users", "locations"
+    def recordTypeToOldName(self, recordType):
+        return recordType.name + u"s"
+
+
+    def oldNameToRecordType(self, oldName):
+        return self.recordType.lookupByName(oldName[:-1])
+
+
+
+class CalendarDirectoryRecordMixin(object):
 
     @property
     def calendarUserAddresses(self):
