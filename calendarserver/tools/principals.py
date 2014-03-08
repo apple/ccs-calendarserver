@@ -26,17 +26,16 @@ from uuid import UUID
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from txdav.xml import element as davxml
+from txdav.who.delegates import addDelegate, removeDelegate
 
-from txdav.xml.base import decodeXMLName, encodeXMLName
 
 from twistedcaldav.config import config
-from twistedcaldav.directory.directory import UnknownRecordTypeError, DirectoryError
+from twistedcaldav.directory.directory import UnknownRecordTypeError
 from txdav.who.groups import schedulePolledGroupCachingUpdate
 
 from calendarserver.tools.util import (
-    booleanArgument, proxySubprincipal, action_addProxyPrincipal,
-    principalForPrincipalID, prettyPrincipal, ProxyError,
-    action_removeProxyPrincipal
+    booleanArgument, proxySubprincipal,
+    recordForPrincipalID, prettyPrincipal, prettyRecord, ProxyError
 )
 from twistedcaldav.directory.augment import allowedAutoScheduleModes
 
@@ -74,10 +73,10 @@ def usage(e=None):
     print("  --search <search-string>: search for matching principals")
     print("  --list-principal-types: list all of the known principal types")
     print("  --list-principals type: list all principals of the given type")
-    print("  --read-property=property: read DAV property (eg.: {DAV:}group-member-set)")
     print("  --list-read-proxies: list proxies with read-only access")
     print("  --list-write-proxies: list proxies with read-write access")
     print("  --list-proxies: list all proxies")
+    print("  --list-proxy-for: principals this principal is a proxy for")
     print("  --add-read-proxy=principal: add a read-only proxy")
     print("  --add-write-proxy=principal: add a read-write proxy")
     print("  --remove-proxy=principal: remove a proxy")
@@ -118,30 +117,29 @@ class PrincipalService(WorkerService):
         resource, directory, store, and whatever has been assigned to "params".
         """
         if self.function is not None:
-            rootResource = self.rootResource()
-            directory = rootResource.getDirectory()
-            yield self.function(rootResource, directory, self.store, *self.params)
+            yield self.function(self.store, *self.params)
+
 
 attrMap = {
-    'GeneratedUID' : { 'attr' : 'guid', },
-    'RealName' : { 'attr' : 'fullName', },
-    'RecordName' : { 'attr' : 'shortNames', },
-    'AutoSchedule' : { 'attr' : 'autoSchedule', },
-    'AutoAcceptGroup' : { 'attr' : 'autoAcceptGroup', },
+    'GeneratedUID': {'attr': 'guid', },
+    'RealName': {'attr': 'fullName', },
+    'RecordName': {'attr': 'shortNames', },
+    'AutoSchedule': {'attr': 'autoSchedule', },
+    'AutoAcceptGroup': {'attr': 'autoAcceptGroup', },
 
-    'Comment' : { 'extras' : True, 'attr' : 'comment', },
-    'Description' : { 'extras' : True, 'attr' : 'description', },
-    'Type' : { 'extras' : True, 'attr' : 'type', },
+    'Comment': {'extras': True, 'attr': 'comment', },
+    'Description': {'extras': True, 'attr': 'description', },
+    'Type': {'extras': True, 'attr': 'type', },
 
     # For "Locations", i.e. scheduled spaces
-    'Capacity' : { 'extras' : True, 'attr' : 'capacity', },
-    'Floor' : { 'extras' : True, 'attr' : 'floor', },
-    'AssociatedAddress' : { 'extras' : True, 'attr' : 'associatedAddress', },
+    'Capacity': {'extras': True, 'attr': 'capacity', },
+    'Floor': {'extras': True, 'attr': 'floor', },
+    'AssociatedAddress': {'extras': True, 'attr': 'associatedAddress', },
 
     # For "Addresses", i.e. nonscheduled areas containing Locations
-    'AbbreviatedName' : { 'extras' : True, 'attr' : 'abbreviatedName', },
-    'StreetAddress' : { 'extras' : True, 'attr' : 'streetAddress', },
-    'Geo' : { 'extras' : True, 'attr' : 'geo', },
+    'AbbreviatedName': {'extras': True, 'attr': 'abbreviatedName', },
+    'StreetAddress': {'extras': True, 'attr': 'streetAddress', },
+    'Geo': {'extras': True, 'attr': 'geo', },
 }
 
 
@@ -156,10 +154,10 @@ def main():
                 "search=",
                 "list-principal-types",
                 "list-principals=",
-                "read-property=",
                 "list-read-proxies",
                 "list-write-proxies",
                 "list-proxies",
+                "list-proxy-for",
                 "add-read-proxy=",
                 "add-write-proxy=",
                 "remove-proxy=",
@@ -185,7 +183,7 @@ def main():
     # Get configuration
     #
     configFileName = None
-    addType = None
+    # addType = None
     listPrincipalTypes = False
     listPrincipals = None
     searchPrincipals = None
@@ -193,6 +191,10 @@ def main():
     verbose = False
 
     for opt, arg in optargs:
+
+        # Args come in as encoded bytes
+        arg = arg.decode("utf-8")
+
         if opt in ("-h", "--help"):
             usage()
 
@@ -202,11 +204,11 @@ def main():
         elif opt in ("-f", "--config"):
             configFileName = arg
 
-        elif opt in ("-a", "--add"):
-            addType = arg
+        # elif opt in ("-a", "--add"):
+        #     addType = arg
 
-        elif opt in ("-r", "--remove"):
-            principalActions.append((action_removePrincipal,))
+        # elif opt in ("-r", "--remove"):
+        #     principalActions.append((action_removePrincipal,))
 
         elif opt in ("", "--list-principal-types"):
             listPrincipalTypes = True
@@ -217,13 +219,6 @@ def main():
         elif opt in ("", "--search"):
             searchPrincipals = arg
 
-        elif opt in ("", "--read-property"):
-            try:
-                qname = decodeXMLName(arg)
-            except ValueError, e:
-                abort(e)
-            principalActions.append((action_readProperty, qname))
-
         elif opt in ("", "--list-read-proxies"):
             principalActions.append((action_listProxies, "read"))
 
@@ -233,6 +228,9 @@ def main():
         elif opt in ("-L", "--list-proxies"):
             principalActions.append((action_listProxies, "read", "write"))
 
+        elif opt in ("--list-proxy-for"):
+            principalActions.append((action_listProxyFor, "read", "write"))
+
         elif opt in ("--add-read-proxy", "--add-write-proxy"):
             if "read" in opt:
                 proxyType = "read"
@@ -240,74 +238,63 @@ def main():
                 proxyType = "write"
             else:
                 raise AssertionError("Unknown proxy type")
-
-            try:
-                principalForPrincipalID(arg, checkOnly=True)
-            except ValueError, e:
-                abort(e)
-
             principalActions.append((action_addProxy, proxyType, arg))
 
         elif opt in ("", "--remove-proxy"):
-            try:
-                principalForPrincipalID(arg, checkOnly=True)
-            except ValueError, e:
-                abort(e)
-
             principalActions.append((action_removeProxy, arg))
 
-        elif opt in ("", "--set-auto-schedule"):
-            try:
-                autoSchedule = booleanArgument(arg)
-            except ValueError, e:
-                abort(e)
+        # elif opt in ("", "--set-auto-schedule"):
+        #     try:
+        #         autoSchedule = booleanArgument(arg)
+        #     except ValueError, e:
+        #         abort(e)
 
-            principalActions.append((action_setAutoSchedule, autoSchedule))
+        #     principalActions.append((action_setAutoSchedule, autoSchedule))
 
-        elif opt in ("", "--get-auto-schedule"):
-            principalActions.append((action_getAutoSchedule,))
+        # elif opt in ("", "--get-auto-schedule"):
+        #     principalActions.append((action_getAutoSchedule,))
 
-        elif opt in ("", "--set-auto-schedule-mode"):
-            try:
-                if arg not in allowedAutoScheduleModes:
-                    raise ValueError("Unknown auto-schedule mode: %s" % (arg,))
-                autoScheduleMode = arg
-            except ValueError, e:
-                abort(e)
+        # elif opt in ("", "--set-auto-schedule-mode"):
+        #     try:
+        #         if arg not in allowedAutoScheduleModes:
+        #             raise ValueError("Unknown auto-schedule mode: %s" % (arg,))
+        #         autoScheduleMode = arg
+        #     except ValueError, e:
+        #         abort(e)
 
-            principalActions.append((action_setAutoScheduleMode, autoScheduleMode))
+        #     principalActions.append((action_setAutoScheduleMode, autoScheduleMode))
 
-        elif opt in ("", "--get-auto-schedule-mode"):
-            principalActions.append((action_getAutoScheduleMode,))
+        # elif opt in ("", "--get-auto-schedule-mode"):
+        #     principalActions.append((action_getAutoScheduleMode,))
 
-        elif opt in ("", "--set-auto-accept-group"):
-            try:
-                principalForPrincipalID(arg, checkOnly=True)
-            except ValueError, e:
-                abort(e)
+        # elif opt in ("", "--set-auto-accept-group"):
+        #     try:
+        #         yield recordForPrincipalID(arg, checkOnly=True)
+        #     except ValueError, e:
+        #         abort(e)
 
-            principalActions.append((action_setAutoAcceptGroup, arg))
+        #     principalActions.append((action_setAutoAcceptGroup, arg))
 
-        elif opt in ("", "--get-auto-accept-group"):
-            principalActions.append((action_getAutoAcceptGroup,))
+        # elif opt in ("", "--get-auto-accept-group"):
+        #     principalActions.append((action_getAutoAcceptGroup,))
 
-        elif opt in ("", "--set-geo"):
-            principalActions.append((action_setValue, "Geo", arg))
+        # elif opt in ("", "--set-geo"):
+        #     principalActions.append((action_setValue, "Geo", arg))
 
-        elif opt in ("", "--get-geo"):
-            principalActions.append((action_getValue, "Geo"))
+        # elif opt in ("", "--get-geo"):
+        #     principalActions.append((action_getValue, "Geo"))
 
-        elif opt in ("", "--set-street-address"):
-            principalActions.append((action_setValue, "StreetAddress", arg))
+        # elif opt in ("", "--set-street-address"):
+        #     principalActions.append((action_setValue, "StreetAddress", arg))
 
-        elif opt in ("", "--get-street-address"):
-            principalActions.append((action_getValue, "StreetAddress"))
+        # elif opt in ("", "--get-street-address"):
+        #     principalActions.append((action_getValue, "StreetAddress"))
 
-        elif opt in ("", "--set-address"):
-            principalActions.append((action_setValue, "AssociatedAddress", arg))
+        # elif opt in ("", "--set-address"):
+        #     principalActions.append((action_setValue, "AssociatedAddress", arg))
 
-        elif opt in ("", "--get-address"):
-            principalActions.append((action_getValue, "AssociatedAddress"))
+        # elif opt in ("", "--get-address"):
+        #     principalActions.append((action_getValue, "AssociatedAddress"))
 
         else:
             raise NotImplementedError(opt)
@@ -322,32 +309,34 @@ def main():
         function = runListPrincipalTypes
         params = ()
 
-    elif addType:
+    # elif addType:
 
-        try:
-            addType = matchStrings(addType, ["locations", "resources", "addresses"])
-        except ValueError, e:
-            print(e)
-            return
+    #     try:
+    #         addType = matchStrings(addType, ["locations", "resources", "addresses"])
+    #     except ValueError, e:
+    #         print(e)
+    #         return
 
-        try:
-            fullName, shortName, guid = parseCreationArgs(args)
-        except ValueError, e:
-            print(e)
-            return
+    #     try:
+    #         fullName, shortName, guid = parseCreationArgs(args)
+    #     except ValueError, e:
+    #         print(e)
+    #         return
 
-        if shortName is not None:
-            shortNames = [shortName]
-        else:
-            shortNames = ()
+    #     if shortName is not None:
+    #         shortNames = [shortName]
+    #     else:
+    #         shortNames = ()
 
-        function = runAddPrincipal
-        params = (addType, guid, shortNames, fullName)
+    #     function = runAddPrincipal
+    #     params = (addType, guid, shortNames, fullName)
 
     elif listPrincipals:
         try:
-            listPrincipals = matchStrings(listPrincipals, ["users", "groups",
-                "locations", "resources", "addresses"])
+            listPrincipals = matchStrings(
+                listPrincipals,
+                ["users", "groups", "locations", "resources", "addresses"]
+            )
         except ValueError, e:
             print(e)
             return
@@ -363,21 +352,19 @@ def main():
         params = (searchPrincipals,)
 
     else:
-        #
-        # Do a quick sanity check that arguments look like principal
-        # identifiers.
-        #
         if not args:
             usage("No principals specified.")
 
-        for arg in args:
-            try:
-                principalForPrincipalID(arg, checkOnly=True)
-            except ValueError, e:
-                abort(e)
+        # We don't have a directory yet
+        # for arg in args:
+        #     try:
+        #         yield recordForPrincipalID(arg, checkOnly=True)
+        #     except ValueError, e:
+        #         abort(e)
 
+        unicodeArgs = [a.decode("utf-8") for a in args]
         function = runPrincipalActions
-        params = (args, principalActions)
+        params = (unicodeArgs, principalActions)
 
     PrincipalService.function = function
     PrincipalService.params = params
@@ -385,74 +372,86 @@ def main():
 
 
 
-def runListPrincipalTypes(service, rootResource, directory, store):
+def runListPrincipalTypes(service, store):
+    directory = store.directoryService()
     for recordType in directory.recordTypes():
-        print(recordType)
+        print(directory.recordTypeToOldString(recordType))
     return succeed(None)
 
 
 
-def runListPrincipals(service, rootResource, directory, store, listPrincipals):
+@inlineCallbacks
+def runListPrincipals(service, store, listPrincipals):
+    directory = store.directoryService()
+    recordType = directory.oldNameToRecordType(listPrincipals)
     try:
-        records = list(directory.listRecords(listPrincipals))
+        records = list((yield directory.recordsWithRecordType(recordType)))
         if records:
             printRecordList(records)
         else:
             print("No records of type %s" % (listPrincipals,))
     except UnknownRecordTypeError, e:
         usage(e)
-    return succeed(None)
+    returnValue(None)
 
 
 
 @inlineCallbacks
-def runPrincipalActions(service, rootResource, directory, store, principalIDs,
-    actions):
+def runPrincipalActions(service, store, principalIDs, actions):
+    directory = store.directoryService()
     for principalID in principalIDs:
-        # Resolve the given principal IDs to principals
+        # Resolve the given principal IDs to records
         try:
-            principal = principalForPrincipalID(principalID, directory=directory)
+            record = yield recordForPrincipalID(directory, principalID)
         except ValueError:
-            principal = None
+            record = None
 
-        if principal is None:
+        if record is None:
             sys.stderr.write("Invalid principal ID: %s\n" % (principalID,))
             continue
 
         # Performs requested actions
         for action in actions:
-            (yield action[0](rootResource, directory, store, principal,
-                *action[1:]))
+            (yield action[0](store, record, *action[1:]))
             print("")
 
 
 
 @inlineCallbacks
-def runSearch(service, rootResource, directory, store, searchTerm):
-
+def runSearch(service, store, searchTerm):
+    directory = store.directoryService()
     fields = []
-    for fieldName in ("fullName", "firstName", "lastName", "emailAddresses"):
+    for fieldName in ("fullNames", "emailAddresses"):
         fields.append((fieldName, searchTerm, True, "contains"))
 
     records = list((yield directory.recordsMatchingTokens(searchTerm.strip().split())))
     if records:
-        records.sort(key=operator.attrgetter('fullName'))
-        print("%d matches found:" % (len(records),))
+        records.sort(key=operator.attrgetter('fullNames'))
+        print("{n} matches found:".format(n=len(records)))
         for record in records:
-            print("\n%s (%s)" % (record.fullName,
-                {"users" : "User",
-                 "groups" : "Group",
-                 "locations" : "Place",
-                 "resources" : "Resource",
-                 "addresses" : "Address",
-                }.get(record.recordType),
-            ))
-            print("   GUID: %s" % (record.guid,))
-            print("   Record name(s): %s" % (", ".join(record.shortNames),))
-            if record.authIDs:
-                print("   Auth ID(s): %s" % (", ".join(record.authIDs),))
-            if record.emailAddresses:
-                print("   Email(s): %s" % (", ".join(record.emailAddresses),))
+            print(
+                "\n{d} ({rt})".format(
+                    d=record.displayName,
+                    rt=record.recordType.name
+                )
+            )
+            print("   UID: {u}".format(u=record.uid,))
+            print(
+                "   Record name{plural}: {names}".format(
+                    plural=("s" if len(record.shortNames) > 1 else ""),
+                    names=(", ".join(record.shortNames))
+                )
+            )
+            try:
+                if record.emailAddresses:
+                    print(
+                        "   Email{plural}: {emails}".format(
+                            plural=("s" if len(record.emailAddresses) > 1 else ""),
+                            emails=(", ".join(record.emailAddresses))
+                        )
+                    )
+            except AttributeError:
+                pass
     else:
         print("No matches found")
 
@@ -460,289 +459,315 @@ def runSearch(service, rootResource, directory, store, searchTerm):
 
 
 
-@inlineCallbacks
-def runAddPrincipal(service, rootResource, directory, store, addType, guid,
-    shortNames, fullName):
-    try:
-        yield updateRecord(True, directory, addType, guid=guid,
-            shortNames=shortNames, fullName=fullName)
-        print("Added '%s'" % (fullName,))
-    except DirectoryError, e:
-        print(e)
+# @inlineCallbacks
+# def runAddPrincipal(service, store, addType, guid, shortNames, fullName):
+#     directory = store.directoryService()
+#     try:
+#         # FIXME STOP USING GUID
+#         yield updateRecord(
+#             True, directory, addType, guid=guid,
+#             shortNames=shortNames, fullName=fullName
+#         )
+#         print("Added '%s'" % (fullName,))
+#     except DirectoryError, e:
+#         print(e)
 
 
 
-def action_removePrincipal(rootResource, directory, store, principal):
-    record = principal.record
-    fullName = record.fullName
-    shortName = record.shortNames[0]
-    guid = record.guid
+# def action_removePrincipal(store, record):
+#     directory = store.directoryService()
+#     fullName = record.displayName
+#     shortName = record.shortNames[0]
 
-    directory.destroyRecord(record.recordType, guid=guid)
-    print("Removed '%s' %s %s" % (fullName, shortName, guid))
+#     yield directory.destroyRecord(record.recordType, uid=record.uid)
+#     print("Removed '%s' %s %s" % (fullName, shortName, record.uid))
 
-
-
-@inlineCallbacks
-def action_readProperty(rootResource, directory, store, resource, qname):
-    property = (yield resource.readProperty(qname, None))
-    print("%r on %s:" % (encodeXMLName(*qname), resource))
-    print("")
-    print(property.toxml())
 
 
 
 @inlineCallbacks
-def action_listProxies(rootResource, directory, store, principal, *proxyTypes):
+def action_listProxies(store, record, *proxyTypes):
+    directory = store.directoryService()
     for proxyType in proxyTypes:
-        subPrincipal = proxySubprincipal(principal, proxyType)
-        if subPrincipal is None:
-            print("No %s proxies for %s" % (proxyType,
-                prettyPrincipal(principal)))
-            continue
 
-        membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
+        groupRecordType = {
+            "read": directory.recordType.readDelegateGroup,
+            "write": directory.recordType.writeDelegateGroup,
+        }.get(proxyType)
 
-        if membersProperty.children:
+        pseudoGroup = yield directory.recordWithShortName(
+            groupRecordType,
+            record.uid
+        )
+        proxies = yield pseudoGroup.members()
+        if proxies:
             print("%s proxies for %s:" % (
                 {"read": "Read-only", "write": "Read/write"}[proxyType],
-                prettyPrincipal(principal)
+                prettyRecord(record)
             ))
-            records = []
-            for member in membersProperty.children:
-                proxyPrincipal = principalForPrincipalID(str(member),
-                    directory=directory)
-                records.append(proxyPrincipal.record)
-
-            printRecordList(records)
-            print
+            printRecordList(proxies)
+            print("")
         else:
-            print("No %s proxies for %s" % (proxyType,
-                prettyPrincipal(principal)))
-
+            print("No %s proxies for %s" % (proxyType, prettyRecord(record)))
 
 
 @inlineCallbacks
-def action_addProxy(rootResource, directory, store, principal, proxyType, *proxyIDs):
+def action_listProxyFor(store, record, *proxyTypes):
+    directory = store.directoryService()
+    for proxyType in proxyTypes:
+
+        groupRecordType = {
+            "read": directory.recordType.readDelegatorGroup,
+            "write": directory.recordType.writeDelegatorGroup,
+        }.get(proxyType)
+
+        pseudoGroup = yield directory.recordWithShortName(
+            groupRecordType,
+            record.uid
+        )
+        proxies = yield pseudoGroup.members()
+        if proxies:
+            print("%s is a %s proxy for:" % (
+                prettyRecord(record),
+                {"read": "Read-only", "write": "Read/write"}[proxyType]
+            ))
+            printRecordList(proxies)
+            print("")
+        else:
+            print(
+                "{r} is not a {t} proxy for anyone".format(
+                    r=prettyRecord(record),
+                    t={"read": "Read-only", "write": "Read/write"}[proxyType]
+                )
+            )
+
+
+@inlineCallbacks
+def _addRemoveProxy(fn, store, record, proxyType, *proxyIDs):
+    directory = store.directoryService()
+    readWrite = (proxyType == "write")
     for proxyID in proxyIDs:
-        proxyPrincipal = principalForPrincipalID(proxyID, directory=directory)
-        if proxyPrincipal is None:
+        proxyRecord = yield recordForPrincipalID(directory, proxyID)
+        if proxyRecord is None:
             print("Invalid principal ID: %s" % (proxyID,))
         else:
-            (yield action_addProxyPrincipal(rootResource, directory, store,
-                principal, proxyType, proxyPrincipal))
+            txn = store.newTransaction()
+            yield fn(txn, record, proxyRecord, readWrite)
+            yield txn.commit()
 
 
-
-@inlineCallbacks
-def setProxies(store, principal, readProxyPrincipals, writeProxyPrincipals, directory=None):
-    """
-    Set read/write proxies en masse for a principal
-    @param principal: DirectoryPrincipalResource
-    @param readProxyPrincipals: a list of principal IDs (see principalForPrincipalID)
-    @param writeProxyPrincipals: a list of principal IDs (see principalForPrincipalID)
-    """
-
-    proxyTypes = [
-        ("read", readProxyPrincipals),
-        ("write", writeProxyPrincipals),
-    ]
-    for proxyType, proxyIDs in proxyTypes:
-        if proxyIDs is None:
-            continue
-        subPrincipal = proxySubprincipal(principal, proxyType)
-        if subPrincipal is None:
-            raise ProxyError("Unable to edit %s proxies for %s\n" % (proxyType,
-                prettyPrincipal(principal)))
-        memberURLs = []
-        for proxyID in proxyIDs:
-            proxyPrincipal = principalForPrincipalID(proxyID, directory=directory)
-            proxyURL = proxyPrincipal.url()
-            memberURLs.append(davxml.HRef(proxyURL))
-        membersProperty = davxml.GroupMemberSet(*memberURLs)
-        yield subPrincipal.writeProperty(membersProperty, None)
-        if store is not None:
-            # Schedule work the PeerConnectionPool will pick up as overdue
-            yield schedulePolledGroupCachingUpdate(store)
-
+def action_addProxy(store, record, proxyType, *proxyIDs):
+    return _addRemoveProxy(addDelegate, store, record, proxyType, *proxyIDs)
 
 
 @inlineCallbacks
-def getProxies(principal, directory=None):
-    """
-    Returns a tuple containing the GUIDs for read proxies and write proxies
-    of the given principal
-    """
-
-    proxies = {
-        "read" : [],
-        "write" : [],
-    }
-    for proxyType in proxies.iterkeys():
-        subPrincipal = proxySubprincipal(principal, proxyType)
-        if subPrincipal is not None:
-            membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
-            if membersProperty.children:
-                for member in membersProperty.children:
-                    proxyPrincipal = principalForPrincipalID(str(member), directory=directory)
-                    proxies[proxyType].append(proxyPrincipal.record.guid)
-
-    returnValue((proxies['read'], proxies['write']))
+def action_removeProxy(store, record, *proxyIDs):
+    # Write
+    yield _addRemoveProxy(removeDelegate, store, record, "write", *proxyIDs)
+    # Read
+    yield _addRemoveProxy(removeDelegate, store, record, "read", *proxyIDs)
 
 
 
-@inlineCallbacks
-def action_removeProxy(rootResource, directory, store, principal, *proxyIDs, **kwargs):
-    for proxyID in proxyIDs:
-        proxyPrincipal = principalForPrincipalID(proxyID, directory=directory)
-        if proxyPrincipal is None:
-            print("Invalid principal ID: %s" % (proxyID,))
-        else:
-            (yield action_removeProxyPrincipal(rootResource, directory, store,
-                principal, proxyPrincipal, **kwargs))
+# @inlineCallbacks
+# def setProxies(store, principal, readProxyPrincipals, writeProxyPrincipals, directory=None):
+#     """
+#     Set read/write proxies en masse for a principal
+#     @param principal: DirectoryPrincipalResource
+#     @param readProxyPrincipals: a list of principal IDs (see principalForPrincipalID)
+#     @param writeProxyPrincipals: a list of principal IDs (see principalForPrincipalID)
+#     """
+
+#     proxyTypes = [
+#         ("read", readProxyPrincipals),
+#         ("write", writeProxyPrincipals),
+#     ]
+#     for proxyType, proxyIDs in proxyTypes:
+#         if proxyIDs is None:
+#             continue
+#         subPrincipal = proxySubprincipal(principal, proxyType)
+#         if subPrincipal is None:
+#             raise ProxyError("Unable to edit %s proxies for %s\n" % (proxyType,
+#                 prettyPrincipal(principal)))
+#         memberURLs = []
+#         for proxyID in proxyIDs:
+#             proxyPrincipal = yield principalForPrincipalID(proxyID, directory=directory)
+#             proxyURL = proxyPrincipal.url()
+#             memberURLs.append(davxml.HRef(proxyURL))
+#         membersProperty = davxml.GroupMemberSet(*memberURLs)
+#         yield subPrincipal.writeProperty(membersProperty, None)
+#         if store is not None:
+#             # Schedule work the PeerConnectionPool will pick up as overdue
+#             yield schedulePolledGroupCachingUpdate(store)
 
 
 
-@inlineCallbacks
-def action_setAutoSchedule(rootResource, directory, store, principal, autoSchedule):
-    if principal.record.recordType == "groups":
-        print("Enabling auto-schedule for %s is not allowed." % (principal,))
+# @inlineCallbacks
+# def getProxies(principal, directory=None):
+#     """
+#     Returns a tuple containing the GUIDs for read proxies and write proxies
+#     of the given principal
+#     """
 
-    elif principal.record.recordType == "users" and not config.Scheduling.Options.AutoSchedule.AllowUsers:
-        print("Enabling auto-schedule for %s is not allowed." % (principal,))
+#     proxies = {
+#         "read": [],
+#         "write": [],
+#     }
+#     for proxyType in proxies.iterkeys():
+#         subPrincipal = proxySubprincipal(principal, proxyType)
+#         if subPrincipal is not None:
+#             membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
+#             if membersProperty.children:
+#                 for member in membersProperty.children:
+#                     proxyPrincipal = yield principalForPrincipalID(str(member), directory=directory)
+#                     proxies[proxyType].append(proxyPrincipal.record.guid)
 
-    else:
-        print("Setting auto-schedule to %s for %s" % (
-            {True: "true", False: "false"}[autoSchedule],
-            prettyPrincipal(principal),
-        ))
-
-        (yield updateRecord(False, directory,
-            principal.record.recordType,
-            guid=principal.record.guid,
-            shortNames=principal.record.shortNames,
-            fullName=principal.record.fullName,
-            autoSchedule=autoSchedule,
-            **principal.record.extras
-        ))
-
-
-
-def action_getAutoSchedule(rootResource, directory, store, principal):
-    autoSchedule = principal.getAutoSchedule()
-    print("Auto-schedule for %s is %s" % (
-        prettyPrincipal(principal),
-        {True: "true", False: "false"}[autoSchedule],
-    ))
+#     returnValue((proxies['read'], proxies['write']))
 
 
 
-@inlineCallbacks
-def action_setAutoScheduleMode(rootResource, directory, store, principal, autoScheduleMode):
-    if principal.record.recordType == "groups":
-        print("Setting auto-schedule mode for %s is not allowed." % (principal,))
-
-    elif principal.record.recordType == "users" and not config.Scheduling.Options.AutoSchedule.AllowUsers:
-        print("Setting auto-schedule mode for %s is not allowed." % (principal,))
-
-    else:
-        print("Setting auto-schedule mode to %s for %s" % (
-            autoScheduleMode,
-            prettyPrincipal(principal),
-        ))
-
-        (yield updateRecord(False, directory,
-            principal.record.recordType,
-            guid=principal.record.guid,
-            shortNames=principal.record.shortNames,
-            fullName=principal.record.fullName,
-            autoScheduleMode=autoScheduleMode,
-            **principal.record.extras
-        ))
 
 
+# @inlineCallbacks
+# def action_setAutoSchedule(rootResource, directory, store, principal, autoSchedule):
+#     if principal.record.recordType == "groups":
+#         print("Enabling auto-schedule for %s is not allowed." % (principal,))
 
-def action_getAutoScheduleMode(rootResource, directory, store, principal):
-    autoScheduleMode = principal.getAutoScheduleMode()
-    if not autoScheduleMode:
-        autoScheduleMode = "automatic"
-    print("Auto-schedule mode for %s is %s" % (
-        prettyPrincipal(principal),
-        autoScheduleMode,
-    ))
+#     elif principal.record.recordType == "users" and not config.Scheduling.Options.AutoSchedule.AllowUsers:
+#         print("Enabling auto-schedule for %s is not allowed." % (principal,))
+
+#     else:
+#         print("Setting auto-schedule to %s for %s" % (
+#             {True: "true", False: "false"}[autoSchedule],
+#             prettyPrincipal(principal),
+#         ))
+
+#         (yield updateRecord(False, directory,
+#             principal.record.recordType,
+#             guid=principal.record.guid,
+#             shortNames=principal.record.shortNames,
+#             fullName=principal.record.fullName,
+#             autoSchedule=autoSchedule,
+#             **principal.record.extras
+#         ))
 
 
 
-@inlineCallbacks
-def action_setAutoAcceptGroup(rootResource, directory, store, principal, autoAcceptGroup):
-    if principal.record.recordType == "groups":
-        print("Setting auto-accept-group for %s is not allowed." % (principal,))
-
-    elif principal.record.recordType == "users" and not config.Scheduling.Options.AutoSchedule.AllowUsers:
-        print("Setting auto-accept-group for %s is not allowed." % (principal,))
-
-    else:
-        groupPrincipal = principalForPrincipalID(autoAcceptGroup, directory=directory)
-        if groupPrincipal is None or groupPrincipal.record.recordType != "groups":
-            print("Invalid principal ID: %s" % (autoAcceptGroup,))
-        else:
-            print("Setting auto-accept-group to %s for %s" % (
-                prettyPrincipal(groupPrincipal),
-                prettyPrincipal(principal),
-            ))
-
-            (yield updateRecord(False, directory,
-                principal.record.recordType,
-                guid=principal.record.guid,
-                shortNames=principal.record.shortNames,
-                fullName=principal.record.fullName,
-                autoAcceptGroup=groupPrincipal.record.guid,
-                **principal.record.extras
-            ))
+# def action_getAutoSchedule(rootResource, directory, store, principal):
+#     autoSchedule = principal.getAutoSchedule()
+#     print("Auto-schedule for %s is %s" % (
+#         prettyPrincipal(principal),
+#         {True: "true", False: "false"}[autoSchedule],
+#     ))
 
 
 
-def action_getAutoAcceptGroup(rootResource, directory, store, principal):
-    autoAcceptGroup = principal.getAutoAcceptGroup()
-    if autoAcceptGroup:
-        record = directory.recordWithGUID(autoAcceptGroup)
-        if record is not None:
-            groupPrincipal = directory.principalCollection.principalForUID(record.uid)
-            if groupPrincipal is not None:
-                print("Auto-accept-group for %s is %s" % (
-                    prettyPrincipal(principal),
-                    prettyPrincipal(groupPrincipal),
-                ))
-                return
-        print("Invalid auto-accept-group assigned: %s" % (autoAcceptGroup,))
-    else:
-        print("No auto-accept-group assigned to %s" % (prettyPrincipal(principal),))
+# @inlineCallbacks
+# def action_setAutoScheduleMode(rootResource, directory, store, principal, autoScheduleMode):
+#     if principal.record.recordType == "groups":
+#         print("Setting auto-schedule mode for %s is not allowed." % (principal,))
+
+#     elif principal.record.recordType == "users" and not config.Scheduling.Options.AutoSchedule.AllowUsers:
+#         print("Setting auto-schedule mode for %s is not allowed." % (principal,))
+
+#     else:
+#         print("Setting auto-schedule mode to %s for %s" % (
+#             autoScheduleMode,
+#             prettyPrincipal(principal),
+#         ))
+
+#         (yield updateRecord(False, directory,
+#             principal.record.recordType,
+#             guid=principal.record.guid,
+#             shortNames=principal.record.shortNames,
+#             fullName=principal.record.fullName,
+#             autoScheduleMode=autoScheduleMode,
+#             **principal.record.extras
+#         ))
 
 
 
-@inlineCallbacks
-def action_setValue(rootResource, directory, store, principal, name, value):
-    print("Setting %s to %s for %s" % (
-        name, value, prettyPrincipal(principal),
-    ))
-
-    principal.record.extras[attrMap[name]["attr"]] = value
-    (yield updateRecord(False, directory,
-        principal.record.recordType,
-        guid=principal.record.guid,
-        shortNames=principal.record.shortNames,
-        fullName=principal.record.fullName,
-        **principal.record.extras
-    ))
+# def action_getAutoScheduleMode(rootResource, directory, store, principal):
+#     autoScheduleMode = principal.getAutoScheduleMode()
+#     if not autoScheduleMode:
+#         autoScheduleMode = "automatic"
+#     print("Auto-schedule mode for %s is %s" % (
+#         prettyPrincipal(principal),
+#         autoScheduleMode,
+#     ))
 
 
 
-def action_getValue(rootResource, directory, store, principal, name):
-    print("%s for %s is %s" % (
-        name,
-        prettyPrincipal(principal),
-        principal.record.extras[attrMap[name]["attr"]]
-    ))
+# @inlineCallbacks
+# def action_setAutoAcceptGroup(rootResource, directory, store, principal, autoAcceptGroup):
+#     if principal.record.recordType == "groups":
+#         print("Setting auto-accept-group for %s is not allowed." % (principal,))
+
+#     elif principal.record.recordType == "users" and not config.Scheduling.Options.AutoSchedule.AllowUsers:
+#         print("Setting auto-accept-group for %s is not allowed." % (principal,))
+
+#     else:
+#         groupPrincipal = yield principalForPrincipalID(autoAcceptGroup, directory=directory)
+#         if groupPrincipal is None or groupPrincipal.record.recordType != "groups":
+#             print("Invalid principal ID: %s" % (autoAcceptGroup,))
+#         else:
+#             print("Setting auto-accept-group to %s for %s" % (
+#                 prettyPrincipal(groupPrincipal),
+#                 prettyPrincipal(principal),
+#             ))
+
+#             (yield updateRecord(False, directory,
+#                 principal.record.recordType,
+#                 guid=principal.record.guid,
+#                 shortNames=principal.record.shortNames,
+#                 fullName=principal.record.fullName,
+#                 autoAcceptGroup=groupPrincipal.record.guid,
+#                 **principal.record.extras
+#             ))
+
+
+
+# def action_getAutoAcceptGroup(rootResource, directory, store, principal):
+#     autoAcceptGroup = principal.getAutoAcceptGroup()
+#     if autoAcceptGroup:
+#         record = yield directory.recordWithGUID(autoAcceptGroup)
+#         if record is not None:
+#             groupPrincipal = yield directory.principalCollection.principalForUID(record.uid)
+#             if groupPrincipal is not None:
+#                 print("Auto-accept-group for %s is %s" % (
+#                     prettyPrincipal(principal),
+#                     prettyPrincipal(groupPrincipal),
+#                 ))
+#                 return
+#         print("Invalid auto-accept-group assigned: %s" % (autoAcceptGroup,))
+#     else:
+#         print("No auto-accept-group assigned to %s" % (prettyPrincipal(principal),))
+
+
+
+# @inlineCallbacks
+# def action_setValue(rootResource, directory, store, principal, name, value):
+#     print("Setting %s to %s for %s" % (
+#         name, value, prettyPrincipal(principal),
+#     ))
+
+#     principal.record.extras[attrMap[name]["attr"]] = value
+#     (yield updateRecord(False, directory,
+#         principal.record.recordType,
+#         guid=principal.record.guid,
+#         shortNames=principal.record.shortNames,
+#         fullName=principal.record.fullName,
+#         **principal.record.extras
+#     ))
+
+
+
+# def action_getValue(rootResource, directory, store, principal, name):
+#     print("%s for %s is %s" % (
+#         name,
+#         prettyPrincipal(principal),
+#         principal.record.extras[attrMap[name]["attr"]]
+#     ))
 
 
 
@@ -803,14 +828,16 @@ def matchStrings(value, validValues):
 
 
 def printRecordList(records):
-    results = [(record.fullName, record.shortNames[0], record.guid)
-        for record in records]
+    results = [
+        (record.displayName, record.recordType.name, record.uid, record.shortNames)
+        for record in records
+    ]
     results.sort()
-    format = "%-22s %-17s %s"
-    print(format % ("Full name", "Record name", "UUID"))
-    print(format % ("---------", "-----------", "----"))
-    for fullName, shortName, guid in results:
-        print(format % (fullName, shortName, guid))
+    format = "%-22s %-10s %-20s %s"
+    print(format % ("Full name", "Type", "UID", "Short names"))
+    print(format % ("---------", "----", "---", "-----------"))
+    for fullName, recordType, uid, shortNames in results:
+        print(format % (fullName, recordType, uid, u", ".join(shortNames)))
 
 
 
@@ -859,16 +886,16 @@ def updateRecord(create, directory, recordType, **kwargs):
             kwargs[key] = newValue
 
     if create:
-        record = directory.createRecord(recordType, **kwargs)
+        record = yield directory.createRecord(recordType, **kwargs)
         kwargs['guid'] = record.guid
     else:
         try:
-            record = directory.updateRecord(recordType, **kwargs)
+            record = yield directory.updateRecord(recordType, **kwargs)
         except NotImplementedError:
             # Updating of directory information is not supported by underlying
             # directory implementation, but allow augment information to be
             # updated
-            record = directory.recordWithGUID(kwargs["guid"])
+            record = yield directory.recordWithGUID(kwargs["guid"])
             pass
 
     augmentService = directory.serviceForRecordType(recordType).augmentService
@@ -882,7 +909,7 @@ def updateRecord(create, directory, recordType, **kwargs):
         augmentRecord.autoAcceptGroup = autoAcceptGroup
     (yield augmentService.addAugmentRecords([augmentRecord]))
     try:
-        directory.updateRecord(recordType, **kwargs)
+        yield directory.updateRecord(recordType, **kwargs)
     except NotImplementedError:
         # Updating of directory information is not supported by underlying
         # directory implementation, but allow augment information to be

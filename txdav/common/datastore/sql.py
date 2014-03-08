@@ -211,6 +211,10 @@ class CommonDataStore(Service, object):
         return self._directoryService
 
 
+    def setDirectoryService(self, directoryService):
+        self._directoryService = directoryService
+
+
     def callWithNewTransactions(self, callback):
         """
         Registers a method to be called whenever a new transaction is
@@ -922,102 +926,164 @@ class CommonStoreTransaction(object):
     @classproperty
     def _addGroupQuery(cls):
         gr = schema.GROUPS
-        return Insert({gr.NAME: Parameter("name"),
-                       gr.GROUP_GUID: Parameter("groupGUID"),
-                       gr.MEMBERSHIP_HASH: Parameter("membershipHash")},
-                       Return=gr.GROUP_ID)
+        return Insert(
+            {
+                gr.NAME: Parameter("name"),
+                gr.GROUP_GUID: Parameter("groupUID"),
+                gr.MEMBERSHIP_HASH: Parameter("membershipHash")
+            },
+            Return=gr.GROUP_ID
+        )
 
 
     @classproperty
     def _updateGroupQuery(cls):
         gr = schema.GROUPS
-        return Update({gr.MEMBERSHIP_HASH: Parameter("membershipHash"),
-            gr.NAME: Parameter("name"), gr.MODIFIED: Parameter("timestamp")},
-            Where=(gr.GROUP_GUID == Parameter("groupGUID")))
+        return Update(
+            {
+                gr.MEMBERSHIP_HASH: Parameter("membershipHash"),
+                gr.NAME: Parameter("name"),
+                gr.MODIFIED:
+                Parameter("timestamp")
+            },
+            Where=(gr.GROUP_GUID == Parameter("groupUID"))
+        )
 
 
     @classproperty
-    def _groupByGUID(cls):
+    def _groupByUID(cls):
         gr = schema.GROUPS
-        return Select([gr.GROUP_ID, gr.NAME, gr.MEMBERSHIP_HASH], From=gr,
-                Where=(
-                    gr.GROUP_GUID == Parameter("groupGUID")
-                )
-            )
+        return Select(
+            [gr.GROUP_ID, gr.NAME, gr.MEMBERSHIP_HASH],
+            From=gr,
+            Where=(gr.GROUP_GUID == Parameter("groupUID"))
+        )
 
 
     @classproperty
     def _groupByID(cls):
         gr = schema.GROUPS
-        return Select([gr.GROUP_GUID, gr.NAME, gr.MEMBERSHIP_HASH], From=gr,
-                Where=(
-                    gr.GROUP_ID == Parameter("groupID")
-                )
-            )
+        return Select(
+            [gr.GROUP_GUID, gr.NAME, gr.MEMBERSHIP_HASH],
+            From=gr,
+            Where=(gr.GROUP_ID == Parameter("groupID"))
+        )
 
 
     @classproperty
     def _deleteGroup(cls):
         gr = schema.GROUPS
-        return Delete(From=gr,
-              Where=(gr.GROUP_ID == Parameter("groupID")))
+        return Delete(
+            From=gr,
+            Where=(gr.GROUP_ID == Parameter("groupID"))
+        )
 
 
-    def addGroup(self, groupGUID, name, membershipHash):
+    def addGroup(self, groupUID, name, membershipHash):
         """
-        @type groupGUID: C{UUID}
+        @type groupUID: C{unicode}
+        @type name: C{unicode}
+        @type membershipHash: C{str}
         """
-        return self._addGroupQuery.on(self, name=name,
-            groupGUID=str(groupGUID), membershipHash=membershipHash)
+        return self._addGroupQuery.on(
+            self,
+            name=name.encode("utf-8"),
+            groupUID=groupUID.encode("utf-8"),
+            membershipHash=membershipHash
+        )
 
 
-    def updateGroup(self, groupGUID, name, membershipHash):
+    def updateGroup(self, groupUID, name, membershipHash):
         """
-        @type groupGUID: C{UUID}
+        @type groupUID: C{unicode}
+        @type name: C{unicode}
+        @type membershipHash: C{str}
         """
         timestamp = datetime.datetime.utcnow()
-        return self._updateGroupQuery.on(self, name=name,
-            groupGUID=str(groupGUID), timestamp=timestamp,
-            membershipHash=membershipHash)
+        return self._updateGroupQuery.on(
+            self,
+            name=name.encode("utf-8"),
+            groupUID=groupUID.encode("utf-8"),
+            timestamp=timestamp,
+            membershipHash=membershipHash
+        )
 
 
     @inlineCallbacks
-    def groupByGUID(self, groupGUID):
+    def groupByUID(self, groupUID):
         """
-        @type groupGUID: C{UUID}
+        Return or create a record for the group UID.
+
+        @type groupUID: C{unicode}
+
+        @return: Deferred firing with tuple of group ID C{str}, group name
+            C{unicode}, and membership hash C{str}
         """
-        results = (yield self._groupByGUID.on(self, groupGUID=str(groupGUID)))
+        results = (
+            yield self._groupByUID.on(
+                self, groupUID=groupUID.encode("utf-8")
+            )
+        )
         if results:
-            returnValue(results[0])
+            returnValue((
+                results[0][0],  # group id
+                results[0][1].decode("utf-8"),  # name
+                results[0][2],  # membership hash
+            ))
         else:
-            savepoint = SavepointAction("groupByGUID")
+            savepoint = SavepointAction("groupByUID")
             yield savepoint.acquire(self)
             try:
-                yield self.addGroup(groupGUID, "", "")
+                yield self.addGroup(groupUID, u"", "")
             except Exception:
                 yield savepoint.rollback(self)
-                results = (yield self._groupByGUID.on(self,
-                    groupGUID=str(groupGUID)))
+                results = (
+                    yield self._groupByUID.on(
+                        self, groupUID=groupUID.encode("utf-8")
+                    )
+                )
                 if results:
-                    returnValue(results[0])
+                    returnValue((
+                        results[0][0],  # group id
+                        results[0][1].decode("utf-8"),  # name
+                        results[0][2],  # membership hash
+                    ))
                 else:
                     raise
             else:
                 yield savepoint.release(self)
-                results = (yield self._groupByGUID.on(self,
-                    groupGUID=str(groupGUID)))
+                results = (
+                    yield self._groupByUID.on(
+                        self, groupUID=groupUID.encode("utf-8")
+                    )
+                )
                 if results:
-                    returnValue(results[0])
+                    returnValue((
+                        results[0][0],  # group id
+                        results[0][1].decode("utf-8"),  # name
+                        results[0][2],  # membership hash
+                    ))
                 else:
                     raise
 
 
     @inlineCallbacks
     def groupByID(self, groupID):
+        """
+        Given a group ID, return the group UID, or raise NotFoundError
+
+        @type groupID: C{str}
+        @return: Deferred firing with a tuple of group UID C{unicode},
+            group name C{unicode}, and membership hash C{str}
+        """
         try:
             results = (yield self._groupByID.on(self, groupID=groupID))[0]
             if results:
-                results = [UUID("urn:uuid:" + results[0])] + results[1:]
+                results = (
+                    results[0].decode("utf-8"),
+                    results[1].decode("utf-8"),
+                    results[2]
+                )
             returnValue(results)
         except IndexError:
             raise NotFoundError
@@ -1037,7 +1103,7 @@ class CommonStoreTransaction(object):
         return Insert(
             {
                 gm.GROUP_ID: Parameter("groupID"),
-                gm.MEMBER_GUID: Parameter("memberGUID")
+                gm.MEMBER_GUID: Parameter("memberUID")
             }
         )
 
@@ -1050,7 +1116,7 @@ class CommonStoreTransaction(object):
             Where=(
                 gm.GROUP_ID == Parameter("groupID")
             ).And(
-                gm.MEMBER_GUID == Parameter("memberGUID")
+                gm.MEMBER_GUID == Parameter("memberUID")
             )
         )
 
@@ -1069,25 +1135,35 @@ class CommonStoreTransaction(object):
 
     @classproperty
     def _selectGroupsForQuery(cls):
+        gr = schema.GROUPS
         gm = schema.GROUP_MEMBERSHIP
+
         return Select(
-            [gm.GROUP_ID],
-            From=gm,
+            [gr.GROUP_GUID],
+            From=gr,
             Where=(
-                gm.MEMBER_GUID == Parameter("guid")
+                gr.GROUP_ID.In(
+                    Select(
+                        [gm.GROUP_ID],
+                        From=gm,
+                        Where=(
+                            gm.MEMBER_GUID == Parameter("uid")
+                        )
+                    )
+                )
             )
         )
 
 
-    def addMemberToGroup(self, memberGUID, groupID):
+    def addMemberToGroup(self, memberUID, groupID):
         return self._addMemberToGroupQuery.on(
-            self, groupID=groupID, memberGUID=str(memberGUID)
+            self, groupID=groupID, memberUID=memberUID.encode("utf-8")
         )
 
 
-    def removeMemberFromGroup(self, memberGUID, groupID):
+    def removeMemberFromGroup(self, memberUID, groupID):
         return self._removeMemberFromGroupQuery.on(
-            self, groupID=groupID, memberGUID=str(memberGUID)
+            self, groupID=groupID, memberUID=memberUID.encode("utf-8")
         )
 
 
@@ -1107,25 +1183,29 @@ class CommonStoreTransaction(object):
         members = set()
         results = (yield self._selectGroupMembersQuery.on(self, groupID=groupID))
         for row in results:
-            members.add(UUID("urn:uuid:" + row[0]))
+            members.add(row[0].decode("utf-8"))
         returnValue(members)
 
 
     @inlineCallbacks
-    def groupsFor(self, guid):
+    def groupsFor(self, uid):
         """
-        Returns the cached set of GUIDs for the groups this given guid is
+        Returns the cached set of UIDs for the groups this given uid is
         a member of.
 
-        @param guid: the guid
-        @type guid: C{UUID}
+        @param uid: the uid
+        @type uid: C{unicode}
         @return: the set of group IDs
         @rtype: a Deferred which fires with a set() of C{int} group IDs
         """
         groups = set()
-        results = (yield self._selectGroupsForQuery.on(self, guid=str(guid)))
+        results = (
+            yield self._selectGroupsForQuery.on(
+                self, uid=uid.encode("utf-8")
+            )
+        )
         for row in results:
-            groups.add(row[0])
+            groups.add(row[0].decode("utf-8"))
         returnValue(groups)
 
     # End of Group Members
@@ -1168,6 +1248,19 @@ class CommonStoreTransaction(object):
 
 
     @classproperty
+    def _removeDelegatesQuery(cls):
+        de = schema.DELEGATES
+        return Delete(
+            From=de,
+            Where=(
+                de.DELEGATOR == Parameter("delegator")
+            ).And(
+                de.READ_WRITE == Parameter("readWrite")
+            )
+        )
+
+
+    @classproperty
     def _removeDelegateGroupQuery(cls):
         ds = schema.DELEGATE_GROUPS
         return Delete(
@@ -1176,6 +1269,19 @@ class CommonStoreTransaction(object):
                 ds.DELEGATOR == Parameter("delegator")
             ).And(
                 ds.GROUP_ID == Parameter("groupID")
+            ).And(
+                ds.READ_WRITE == Parameter("readWrite")
+            )
+        )
+
+
+    @classproperty
+    def _removeDelegateGroupsQuery(cls):
+        ds = schema.DELEGATE_GROUPS
+        return Delete(
+            From=ds,
+            Where=(
+                ds.DELEGATOR == Parameter("delegator")
             ).And(
                 ds.READ_WRITE == Parameter("readWrite")
             )
@@ -1199,13 +1305,23 @@ class CommonStoreTransaction(object):
     @classproperty
     def _selectDelegateGroupsQuery(cls):
         ds = schema.DELEGATE_GROUPS
+        gr = schema.GROUPS
+
         return Select(
-            [ds.GROUP_ID],
-            From=ds,
+            [gr.GROUP_GUID],
+            From=gr,
             Where=(
-                ds.DELEGATOR == Parameter("delegator")
-            ).And(
-                ds.READ_WRITE == Parameter("readWrite")
+                gr.GROUP_ID.In(
+                    Select(
+                        [ds.GROUP_ID],
+                        From=ds,
+                        Where=(
+                            ds.DELEGATOR == Parameter("delegator")
+                        ).And(
+                            ds.READ_WRITE == Parameter("readWrite")
+                        )
+                    )
+                )
             )
         )
 
@@ -1317,18 +1433,18 @@ class CommonStoreTransaction(object):
         Adds a row to the DELEGATES table.  The delegate should not be a
         group.  To delegate to a group, call addDelegateGroup() instead.
 
-        @param delegator: the GUID of the delegator
-        @type delegator: C{UUID}
-        @param delegate: the GUID of the delegate
-        @type delegate: C{UUID}
+        @param delegator: the UID of the delegator
+        @type delegator: C{unicode}
+        @param delegate: the UID of the delegate
+        @type delegate: C{unicode}
         @param readWrite: grant read and write access if True, otherwise
             read-only access
         @type readWrite: C{boolean}
         """
         return self._addDelegateQuery.on(
             self,
-            delegator=str(delegator),
-            delegate=str(delegate),
+            delegator=delegator.encode("utf-8"),
+            delegate=delegate.encode("utf-8"),
             readWrite=1 if readWrite else 0
         )
 
@@ -1339,8 +1455,8 @@ class CommonStoreTransaction(object):
         Adds a row to the DELEGATE_GROUPS table.  The delegate should be a
         group.  To delegate to a person, call addDelegate() instead.
 
-        @param delegator: the GUID of the delegator
-        @type delegator: C{UUID}
+        @param delegator: the UID of the delegator
+        @type delegator: C{unicode}
         @param delegateGroupID: the GROUP_ID of the delegate group
         @type delegateGroupID: C{int}
         @param readWrite: grant read and write access if True, otherwise
@@ -1349,7 +1465,7 @@ class CommonStoreTransaction(object):
         """
         return self._addDelegateGroupQuery.on(
             self,
-            delegator=str(delegator),
+            delegator=delegator.encode("utf-8"),
             groupID=delegateGroupID,
             readWrite=1 if readWrite else 0,
             isExternal=1 if isExternal else 0
@@ -1361,18 +1477,36 @@ class CommonStoreTransaction(object):
         Removes a row from the DELEGATES table.  The delegate should not be a
         group.  To remove a delegate group, call removeDelegateGroup() instead.
 
-        @param delegator: the GUID of the delegator
-        @type delegator: C{UUID}
-        @param delegate: the GUID of the delegate
-        @type delegate: C{UUID}
+        @param delegator: the UID of the delegator
+        @type delegator: C{unicode}
+        @param delegate: the UID of the delegate
+        @type delegate: C{unicode}
         @param readWrite: remove read and write access if True, otherwise
             read-only access
         @type readWrite: C{boolean}
         """
         return self._removeDelegateQuery.on(
             self,
-            delegator=str(delegator),
-            delegate=str(delegate),
+            delegator=delegator.encode("utf-8"),
+            delegate=delegate.encode("utf-8"),
+            readWrite=1 if readWrite else 0
+        )
+
+
+    def removeDelegates(self, delegator, readWrite):
+        """
+        Removes all rows for this delegator/readWrite combination from the
+        DELEGATES table.
+
+        @param delegator: the UID of the delegator
+        @type delegator: C{unicode}
+        @param readWrite: remove read and write access if True, otherwise
+            read-only access
+        @type readWrite: C{boolean}
+        """
+        return self._removeDelegatesQuery.on(
+            self,
+            delegator=delegator.encode("utf-8"),
             readWrite=1 if readWrite else 0
         )
 
@@ -1382,8 +1516,8 @@ class CommonStoreTransaction(object):
         Removes a row from the DELEGATE_GROUPS table.  The delegate should be a
         group.  To remove a delegate person, call removeDelegate() instead.
 
-        @param delegator: the GUID of the delegator
-        @type delegator: C{UUID}
+        @param delegator: the UID of the delegator
+        @type delegator: C{unicode}
         @param delegateGroupID: the GROUP_ID of the delegate group
         @type delegateGroupID: C{int}
         @param readWrite: remove read and write access if True, otherwise
@@ -1392,26 +1526,44 @@ class CommonStoreTransaction(object):
         """
         return self._removeDelegateGroupQuery.on(
             self,
-            delegator=str(delegator),
+            delegator=delegator.encode("utf-8"),
             groupID=delegateGroupID,
             readWrite=1 if readWrite else 0
         )
 
 
-    @inlineCallbacks
-    def delegates(self, delegator, readWrite):
+    def removeDelegateGroups(self, delegator, readWrite):
         """
-        Returns the GUIDs of all delegates for the given delegator.  If
-        delegate access was granted to any groups, those groups' members
-        (flattened) will be included. No GUIDs of the groups themselves
-        will be returned.
+        Removes all rows for this delegator/readWrite combination from the
+        DELEGATE_GROUPS table.
 
-        @param delegator: the GUID of the delegator
-        @type delegator: C{UUID}
+        @param delegator: the UID of the delegator
+        @type delegator: C{unicode}
+        @param readWrite: remove read and write access if True, otherwise
+            read-only access
+        @type readWrite: C{boolean}
+        """
+        return self._removeDelegateGroupsQuery.on(
+            self,
+            delegator=delegator.encode("utf-8"),
+            readWrite=1 if readWrite else 0
+        )
+
+
+    @inlineCallbacks
+    def delegates(self, delegator, readWrite, expanded=False):
+        """
+        Returns the UIDs of all delegates for the given delegator.  If
+        expanded is False, only the direct delegates (users and groups)
+        are returned.  If expanded is True, the expanded membmership is
+        returned, not including the groups themselves.
+
+        @param delegator: the UID of the delegator
+        @type delegator: C{unicode}
         @param readWrite: the access-type to check for; read and write
             access if True, otherwise read-only access
         @type readWrite: C{boolean}
-        @returns: the GUIDs of the delegates (for the specified access
+        @returns: the UIDs of the delegates (for the specified access
             type)
         @rtype: a Deferred resulting in a set
         """
@@ -1421,23 +1573,36 @@ class CommonStoreTransaction(object):
         results = (
             yield self._selectDelegatesQuery.on(
                 self,
-                delegator=str(delegator),
+                delegator=delegator.encode("utf-8"),
                 readWrite=1 if readWrite else 0
             )
         )
         for row in results:
-            delegates.add(UUID("urn:uuid:" + row[0]))
+            delegates.add(row[0].decode("utf-8"))
 
-        # Finally get those who are in groups which have been delegated to
-        results = (
-            yield self._selectIndirectDelegatesQuery.on(
-                self,
-                delegator=str(delegator),
-                readWrite=1 if readWrite else 0
+        if expanded:
+            # Get those who are in groups which have been delegated to
+            results = (
+                yield self._selectIndirectDelegatesQuery.on(
+                    self,
+                    delegator=delegator.encode("utf-8"),
+                    readWrite=1 if readWrite else 0
+                )
             )
-        )
-        for row in results:
-            delegates.add(UUID("urn:uuid:" + row[0]))
+            for row in results:
+                delegates.add(row[0].decode("utf-8"))
+
+        else:
+            # Get the directly-delegated-to groups
+            results = (
+                yield self._selectDelegateGroupsQuery.on(
+                    self,
+                    delegator=delegator.encode("utf-8"),
+                    readWrite=1 if readWrite else 0
+                )
+            )
+            for row in results:
+                delegates.add(row[0].decode("utf-8"))
 
         returnValue(delegates)
 
@@ -1445,11 +1610,11 @@ class CommonStoreTransaction(object):
     @inlineCallbacks
     def delegators(self, delegate, readWrite):
         """
-        Returns the GUIDs of all delegators which have granted access to
+        Returns the UIDs of all delegators which have granted access to
         the given delegate, either directly or indirectly via groups.
 
-        @param delegate: the GUID of the delegate
-        @type delegate: C{UUID}
+        @param delegate: the UID of the delegate
+        @type delegate: C{unicode}
         @param readWrite: the access-type to check for; read and write
             access if True, otherwise read-only access
         @type readWrite: C{boolean}
@@ -1463,24 +1628,24 @@ class CommonStoreTransaction(object):
         results = (
             yield self._selectDirectDelegatorsQuery.on(
                 self,
-                delegate=str(delegate),
+                delegate=delegate.encode("utf-8"),
                 readWrite=1 if readWrite else 0
             )
         )
         for row in results:
-            delegators.add(UUID("urn:uuid:" + row[0]))
+            delegators.add(row[0].decode("utf-8"))
 
         # Finally get those who have delegated to groups the delegate
         # is a member of
         results = (
             yield self._selectIndirectDelegatorsQuery.on(
                 self,
-                delegate=str(delegate),
+                delegate=delegate.encode("utf-8"),
                 readWrite=1 if readWrite else 0
             )
         )
         for row in results:
-            delegators.add(UUID("urn:uuid:" + row[0]))
+            delegators.add(row[0].decode("utf-8"))
 
         returnValue(delegators)
 
@@ -1488,11 +1653,11 @@ class CommonStoreTransaction(object):
     @inlineCallbacks
     def allGroupDelegates(self):
         """
-        Return the GUIDs of all groups which have been delegated to.  Useful
+        Return the UIDs of all groups which have been delegated to.  Useful
         for obtaining the set of groups which need to be synchronized from
         the directory.
 
-        @returns: the GUIDs of all delegated-to groups
+        @returns: the UIDs of all delegated-to groups
         @rtype: a Deferred resulting in a set
         """
         gr = schema.GROUPS
@@ -1505,7 +1670,7 @@ class CommonStoreTransaction(object):
         ).on(self))
         delegates = set()
         for row in results:
-            delegates.add(UUID("urn:uuid:" + row[0]))
+            delegates.add(row[0].decode("utf-8"))
 
         returnValue(delegates)
 
@@ -1513,22 +1678,22 @@ class CommonStoreTransaction(object):
     @inlineCallbacks
     def externalDelegates(self):
         """
-        Returns a dictionary mapping delegate GUIDs to (read-group, write-group)
+        Returns a dictionary mapping delegate UIDs to (read-group, write-group)
         tuples, including only those assignments that originated from the
         directory.
 
-        @returns: dictionary mapping delegator guid to (readDelegateGUID,
-            writeDelegateGUID) tuples
+        @returns: dictionary mapping delegator uid to (readDelegateUID,
+            writeDelegateUID) tuples
         @rtype: a Deferred resulting in a dictionary
         """
         delegates = {}
 
         # Get the externally managed delegates (which are all groups)
         results = (yield self._selectExternalDelegateGroupsQuery.on(self))
-        for delegator, readDelegateGUID, writeDelegateGUID in results:
-            delegates[UUID(delegator)] = (
-                UUID(readDelegateGUID) if readDelegateGUID else None,
-                UUID(writeDelegateGUID) if writeDelegateGUID else None
+        for delegator, readDelegateUID, writeDelegateUID in results:
+            delegates[delegator.encode("utf-8")] = (
+                readDelegateUID.encode("utf-8") if readDelegateUID else None,
+                writeDelegateUID.encode("utf-8") if writeDelegateUID else None
             )
 
         returnValue(delegates)
@@ -1537,7 +1702,7 @@ class CommonStoreTransaction(object):
     @inlineCallbacks
     def assignExternalDelegates(
         self, delegator, readDelegateGroupID, writeDelegateGroupID,
-        readDelegateGUID, writeDelegateGUID
+        readDelegateUID, writeDelegateUID
     ):
         """
         Update the external delegate group table so we can quickly identify
@@ -1560,12 +1725,12 @@ class CommonStoreTransaction(object):
         )
 
         # Store new assignments in the external comparison table
-        if readDelegateGUID or writeDelegateGUID:
+        if readDelegateUID or writeDelegateUID:
             readDelegateForDB = (
-                str(readDelegateGUID) if readDelegateGUID else ""
+                readDelegateUID.encode("utf-8") if readDelegateUID else ""
             )
             writeDelegateForDB = (
-                str(writeDelegateGUID) if writeDelegateGUID else ""
+                writeDelegateUID.encode("utf-8") if writeDelegateUID else ""
             )
             yield self._storeExternalDelegateGroupsPairQuery.on(
                 self,
@@ -2750,7 +2915,7 @@ class CommonHome(SharingHomeMixIn):
                 returnValue(None)
 
             # Determine if the user is local or external
-            record = txn.directoryService().recordWithUID(uid)
+            record = yield txn.directoryService().recordWithUID(uid)
             if record is None:
                 raise DirectoryRecordNotFoundError("Cannot create home for UID since no directory record exists: {}".format(uid))
 
@@ -6751,7 +6916,7 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
             created = False
         elif create:
             # Determine if the user is local or external
-            record = txn.directoryService().recordWithUID(uid)
+            record = yield txn.directoryService().recordWithUID(uid)
             if record is None:
                 raise DirectoryRecordNotFoundError("Cannot create home for UID since no directory record exists: {}".format(uid))
 

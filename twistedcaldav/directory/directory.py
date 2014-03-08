@@ -239,7 +239,7 @@ class DirectoryService(object):
                 else:
                     record = self.recordWithShortName(parts[2], parts[3])
 
-        return record if record and record.enabledForCalendaring else None
+        return record if record and record.hasCalendars else None
 
 
     def recordWithCachedGroupsAlias(self, recordType, alias):
@@ -531,7 +531,7 @@ class DirectoryService(object):
         )
         for record in resources:
             guid = record.guid
-            if record.enabledForCalendaring:
+            if record.hasCalendars:
                 assignments.append(("%s#calendar-proxy-write" % (guid,),
                                    record.externalProxies()))
                 assignments.append(("%s#calendar-proxy-read" % (guid,),
@@ -937,7 +937,8 @@ class GroupMembershipCacheUpdater(object):
 
             self.log.info("Retrieving list of all proxies")
             # This is always a set of guids:
-            delegatedGUIDs = set((yield self.proxyDB.getAllMembers()))
+            # MOVE2WHO
+            delegatedGUIDs = set() # set((yield self.proxyDB.getAllMembers()))
             self.log.info("There are %d proxies" % (len(delegatedGUIDs),))
             self.log.info("Retrieving group hierarchy from directory")
 

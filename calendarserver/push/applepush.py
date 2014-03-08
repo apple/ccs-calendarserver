@@ -820,23 +820,25 @@ class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn,
 
 
     def defaultAccessControlList(self):
-        return davxml.ACL(
-            # DAV:Read for authenticated principals
-            davxml.ACE(
-                davxml.Principal(davxml.Authenticated()),
-                davxml.Grant(
-                    davxml.Privilege(davxml.Read()),
+        return succeed(
+            davxml.ACL(
+                # DAV:Read for authenticated principals
+                davxml.ACE(
+                    davxml.Principal(davxml.Authenticated()),
+                    davxml.Grant(
+                        davxml.Privilege(davxml.Read()),
+                    ),
+                    davxml.Protected(),
                 ),
-                davxml.Protected(),
-            ),
-            # DAV:Write for authenticated principals
-            davxml.ACE(
-                davxml.Principal(davxml.Authenticated()),
-                davxml.Grant(
-                    davxml.Privilege(davxml.Write()),
+                # DAV:Write for authenticated principals
+                davxml.ACE(
+                    davxml.Principal(davxml.Authenticated()),
+                    davxml.Grant(
+                        davxml.Privilege(davxml.Write()),
+                    ),
+                    davxml.Protected(),
                 ),
-                davxml.Protected(),
-            ),
+            )
         )
 
 

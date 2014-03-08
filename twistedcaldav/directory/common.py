@@ -71,10 +71,11 @@ class CommonUIDProvisioningResource(object):
             log.debug("No directory record with GUID %r" % (name,))
             returnValue(None)
 
-        if not getattr(record, self.enabledAttribute):
-            log.debug("Directory record %r is not enabled for %s" % (
-                record, self.homeResourceTypeName))
-            returnValue(None)
+        # MOVE2WHO
+        # if not getattr(record, self.enabledAttribute):
+        #     log.debug("Directory record %r is not enabled for %s" % (
+        #         record, self.homeResourceTypeName))
+        #     returnValue(None)
 
         assert len(name) > 4, "Directory record has an invalid GUID: %r" % (
             name,)
@@ -94,7 +95,7 @@ class CommonUIDProvisioningResource(object):
         if name == "":
             returnValue((self, ()))
 
-        record = self.directory.recordWithUID(name)
+        record = yield self.directory.recordWithUID(name)
         if record:
             child = yield self.homeResourceForRecord(record, request)
             returnValue((child, segments[1:]))
@@ -149,7 +150,7 @@ class CommonHomeTypeProvisioningResource(object):
         if name == "":
             returnValue((self, segments[1:]))
 
-        record = self.directory.recordWithShortName(self.recordType, name)
+        record = yield self.directory.recordWithShortName(self.recordType, name)
         if record is None:
             returnValue(
                 (NotFoundResource(principalCollections=self._parent.principalCollections()), [])

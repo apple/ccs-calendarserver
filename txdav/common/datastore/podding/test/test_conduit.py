@@ -123,19 +123,31 @@ class TestConduit (CommonCommonTests, txweb2.dav.test.util.TestCase):
     }
 
 
-    def test_validRequst(self):
+    @inlineCallbacks
+    def test_validRequest(self):
         """
         Cross-pod request fails when there is no shared secret header present.
         """
 
         conduit = PoddingConduit(self.storeUnderTest())
-        r1, r2 = conduit.validRequst("user01", "puser02")
+        r1, r2 = yield conduit.validRequest("user01", "puser02")
         self.assertTrue(r1 is not None)
         self.assertTrue(r2 is not None)
 
-        self.assertRaises(DirectoryRecordNotFoundError, conduit.validRequst, "bogus01", "user02")
-        self.assertRaises(DirectoryRecordNotFoundError, conduit.validRequst, "user01", "bogus02")
-        self.assertRaises(FailedCrossPodRequestError, conduit.validRequst, "user01", "user02")
+        self.assertFailure(
+            conduit.validRequest("bogus01", "user02"),
+            DirectoryRecordNotFoundError
+        )
+
+        self.assertFailure(
+            conduit.validRequest("user01", "bogus02"),
+            DirectoryRecordNotFoundError
+        )
+
+        self.assertFailure(
+            conduit.validRequest("user01", "user02"),
+            FailedCrossPodRequestError
+        )
 
 
 
@@ -145,7 +157,7 @@ class TestConduitToConduit(MultiStoreConduitTest):
 
         @inlineCallbacks
         def send_fake(self, txn, ownerUID, shareeUID):
-            _ignore_owner, sharee = self.validRequst(ownerUID, shareeUID)
+            _ignore_owner, sharee = yield self.validRequest(ownerUID, shareeUID)
             action = {
                 "action": "fake",
                 "echo": "bravo"

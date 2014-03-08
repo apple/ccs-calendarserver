@@ -143,9 +143,13 @@ class DirectoryService(BaseDirectoryService):
         (BaseDirectoryService.recordType, RecordType)
     )
 
-    fieldName = ConstantsContainer(
-        (BaseDirectoryService.fieldName, FieldName)
-    )
+    # MOVE2WHO: Wilfredo had added augment fields into xml, which does make
+    # some sense, but for backwards compatibility right now I will take those
+    # out, and rely on a separate augment service
+
+    # fieldName = ConstantsContainer(
+    #     (BaseDirectoryService.fieldName, FieldName)
+    # )
 
     # XML schema constants
 

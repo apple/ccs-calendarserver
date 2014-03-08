@@ -334,6 +334,7 @@ def checkDirectory(dirpath, description, access=None, create=None, wait=False):
 
 
 
+@inlineCallbacks
 def principalForPrincipalID(principalID, checkOnly=False, directory=None):
 
     # Allow a directory parameter to be passed in, but default to config.directory
@@ -351,16 +352,16 @@ def principalForPrincipalID(principalID, checkOnly=False, directory=None):
             raise ValueError("Can't resolve all paths yet")
 
         if checkOnly:
-            return None
+            returnValue(None)
 
-        return directory.principalCollection.principalForUID(uid)
+        returnValue((yield directory.principalCollection.principalForUID(uid)))
 
     if principalID.startswith("("):
         try:
             i = principalID.index(")")
 
             if checkOnly:
-                return None
+                returnValue(None)
 
             recordType = principalID[1:i]
             shortName = principalID[i + 1:]
@@ -368,27 +369,80 @@ def principalForPrincipalID(principalID, checkOnly=False, directory=None):
             if not recordType or not shortName or "(" in recordType:
                 raise ValueError()
 
-            return directory.principalCollection.principalForShortName(recordType, shortName)
+            returnValue((yield directory.principalCollection.principalForShortName(recordType, shortName)))
 
         except ValueError:
             pass
 
     if ":" in principalID:
         if checkOnly:
-            return None
+            returnValue(None)
 
         recordType, shortName = principalID.split(":", 1)
 
-        return directory.principalCollection.principalForShortName(recordType, shortName)
+        returnValue((yield directory.principalCollection.principalForShortName(recordType, shortName)))
 
     try:
         UUID(principalID)
 
         if checkOnly:
-            return None
+            returnValue(None)
 
-        x = directory.principalCollection.principalForUID(principalID)
-        return x
+        returnValue((yield directory.principalCollection.principalForUID(principalID)))
+    except ValueError:
+        pass
+
+    raise ValueError("Invalid principal identifier: %s" % (principalID,))
+
+
+@inlineCallbacks
+def recordForPrincipalID(directory, principalID, checkOnly=False):
+
+    if principalID.startswith("/"):
+        segments = principalID.strip("/").split("/")
+        if (len(segments) == 3 and
+            segments[0] == "principals" and segments[1] == "__uids__"):
+            uid = segments[2]
+        else:
+            raise ValueError("Can't resolve all paths yet")
+
+        if checkOnly:
+            returnValue(None)
+
+        returnValue((yield directory.recordWithUID(uid)))
+
+    if principalID.startswith("("):
+        try:
+            i = principalID.index(")")
+
+            if checkOnly:
+                returnValue(None)
+
+            recordType = directory.oldNameToRecordType(principalID[1:i])
+            shortName = principalID[i + 1:]
+
+            if not recordType or not shortName or "(" in recordType:
+                raise ValueError()
+
+            returnValue((yield directory.recordWithShortName(recordType, shortName)))
+
+        except ValueError:
+            pass
+
+    if ":" in principalID:
+        if checkOnly:
+            returnValue(None)
+
+        recordType, shortName = principalID.split(":", 1)
+        recordType = directory.oldNameToRecordType(recordType)
+
+        returnValue((yield directory.recordWithShortName(recordType, shortName)))
+
+    try:
+        if checkOnly:
+            returnValue(None)
+
+        returnValue((yield directory.recordWithUID(principalID)))
     except ValueError:
         pass
 
@@ -501,9 +555,16 @@ def removeProxy(rootResource, directory, store, principal, proxyPrincipal, **kwa
 
 
 def prettyPrincipal(principal):
-    record = principal.record
-    return "\"%s\" (%s:%s)" % (record.fullName, record.recordType,
-        record.shortNames[0])
+    prettyRecord(principal.record)
+
+
+def prettyRecord(record):
+    return "\"{d}\" {uid} ({rt}) {sn}".format(
+        d=record.displayName,
+        rt=record.recordType.name,
+        uid=record.uid,
+        sn=(", ".join(record.shortNames))
+    )
 
 
 

@@ -299,7 +299,7 @@ class DirectoryPrincipalPropertySearchMixIn(object):
         records = (yield dir.recordsMatchingTokens(tokens, context=context))
 
         for record in records:
-            resource = principalCollection.principalForRecord(record)
+            resource = yield principalCollection.principalForRecord(record)
             if resource:
                 matchingResources.append(resource)
 
@@ -420,9 +420,9 @@ class DirectoryElement(Element):
                 f.trap(HTTPError)
                 code = f.value.response.code
                 if code == responsecode.NOT_FOUND:
-                    log.error("Property %s was returned by listProperties() "
-                              "but does not exist for resource %s."
-                              % (name, self.resource))
+                    log.error("Property {p} was returned by listProperties() "
+                              "but does not exist for resource {r}.",
+                              p=name, r=self.resource)
                     return (name, None)
                 if code == responsecode.UNAUTHORIZED:
                     return (name, accessDeniedValue)
@@ -721,7 +721,8 @@ class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn,
 
             elif name == "record-type":
                 if hasattr(self, "record"):
-                    returnValue(customxml.RecordType(self.record.recordType))
+                    # MOVE2WHO -- need mapping
+                    returnValue(customxml.RecordType(self.record.recordType.name + "s"))
                 else:
                     raise HTTPError(StatusResponse(
                         responsecode.NOT_FOUND,
@@ -848,7 +849,7 @@ class ReadOnlyResourceMixIn (ReadOnlyWritePropertiesResourceMixIn):
     ):
         # Permissions here are fixed, and are not subject to
         # inheritance rules, etc.
-        return succeed(self.defaultAccessControlList())
+        return self.defaultAccessControlList()
 
 
 

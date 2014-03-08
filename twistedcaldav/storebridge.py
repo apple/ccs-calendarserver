@@ -1763,11 +1763,12 @@ class AttachmentsCollection(_GetChildHelper):
         return succeed(davPrivilegeSet)
 
 
+    @inlineCallbacks
     def defaultAccessControlList(self):
         """
         Only read privileges allowed for managed attachments.
         """
-        myPrincipal = self.parent.principalForRecord()
+        myPrincipal = yield self.parent.principalForRecord()
 
         read_privs = (
             davxml.Privilege(davxml.Read()),
@@ -1808,12 +1809,12 @@ class AttachmentsCollection(_GetChildHelper):
                 ),
             )
 
-        return davxml.ACL(*aces)
+        returnValue(davxml.ACL(*aces))
 
 
     def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
         # Permissions here are fixed, and are not subject to inheritance rules, etc.
-        return succeed(self.defaultAccessControlList())
+        return self.defaultAccessControlList()
 
 
 

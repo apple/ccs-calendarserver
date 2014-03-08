@@ -103,9 +103,14 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                         else:
                             return uid
 
-                    uidn = convertUIDtoShortName(uidn)
-                    if uidz:
-                        uidz = convertUIDtoShortName(uidz)
+                    # MOVE2WHO
+                    # Better to stick the records directly on the request at
+                    # an earlier point, since we can't do anything deferred
+                    # in here.
+
+                    # uidn = convertUIDtoShortName(uidn)
+                    # if uidz:
+                    #     uidz = convertUIDtoShortName(uidz)
 
                     if uidn and uidz:
                         uid = '"%s as %s"' % (uidn, uidz,)

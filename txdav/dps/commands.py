@@ -67,6 +67,15 @@ class RecordsWithEmailAddressCommand(amp.Command):
     ]
 
 
+class RecordsMatchingTokensCommand(amp.Command):
+    arguments = [
+        ('tokens', amp.ListOf(amp.String())),
+        ('context', amp.String(optional=True)),
+    ]
+    response = [
+        ('fieldsList', amp.String()),
+    ]
+
 
 class UpdateRecordsCommand(amp.Command):
     arguments = [
@@ -82,6 +91,37 @@ class UpdateRecordsCommand(amp.Command):
 class RemoveRecordsCommand(amp.Command):
     arguments = [
         ('uids', amp.ListOf(amp.String())),
+    ]
+    response = [
+        ('success', amp.Boolean()),
+    ]
+
+
+
+class MembersCommand(amp.Command):
+    arguments = [
+        ('uid', amp.String()),
+    ]
+    response = [
+        ('fieldsList', amp.String()),
+    ]
+
+
+
+class GroupsCommand(amp.Command):
+    arguments = [
+        ('uid', amp.String()),
+    ]
+    response = [
+        ('fieldsList', amp.String()),
+    ]
+
+
+
+class SetMembersCommand(amp.Command):
+    arguments = [
+        ('uid', amp.String()),
+        ('memberUIDs', amp.ListOf(amp.String())),
     ]
     response = [
         ('success', amp.Boolean()),

@@ -1536,6 +1536,7 @@ class UpgradeTests(TestCase):
         self.assertFalse(changed)
 
 
+    @inlineCallbacks
     def test_normalizeCUAddrs(self):
         """
         Ensure that calendar user addresses (CUAs) are cached so we can
@@ -1577,8 +1578,8 @@ class UpgradeTests(TestCase):
 
         directory = StubDirectory()
         cuaCache = {}
-        normalizeCUAddrs(normalizeEvent, directory, cuaCache)
-        normalizeCUAddrs(normalizeEvent, directory, cuaCache)
+        yield normalizeCUAddrs(normalizeEvent, directory, cuaCache)
+        yield normalizeCUAddrs(normalizeEvent, directory, cuaCache)
 
         # Ensure we only called principalForCalendarUserAddress 3 times.  It
         # would have been 8 times without the cuaCache.

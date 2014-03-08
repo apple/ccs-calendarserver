@@ -60,7 +60,7 @@ from txdav.caldav.datastore.index_file import db_basename
 
 from twisted.protocols.amp import AMP, Command, String, Boolean
 
-from calendarserver.tap.util import getRootResource, FakeRequest, directoryFromConfig
+from calendarserver.tap.util import getRootResource, FakeRequest
 from calendarserver.tools.util import getDirectory
 
 from txdav.caldav.datastore.scheduling.imip.mailgateway import migrateTokensToStore
@@ -121,6 +121,7 @@ def fixBadQuotes(data):
 
 
 
+@inlineCallbacks
 def upgradeCalendarCollection(calPath, directory, cuaCache):
     errorOccurred = False
     collectionUpdated = False
@@ -164,7 +165,7 @@ def upgradeCalendarCollection(calPath, directory, cuaCache):
                 continue
 
             try:
-                data, fixed = normalizeCUAddrs(data, directory, cuaCache)
+                data, fixed = (yield normalizeCUAddrs(data, directory, cuaCache))
                 if fixed:
                     log.debug("Normalized CUAddrs in %s" % (resPath,))
                     needsRewrite = True
@@ -207,10 +208,11 @@ def upgradeCalendarCollection(calPath, directory, cuaCache):
         except:
             raise
 
-    return errorOccurred
+    returnValue(errorOccurred)
 
 
 
+@inlineCallbacks
 def upgradeCalendarHome(homePath, directory, cuaCache):
 
     errorOccurred = False
@@ -229,7 +231,7 @@ def upgradeCalendarHome(homePath, directory, cuaCache):
                 rmdir(calPath)
                 continue
             log.debug("Upgrading calendar: %s" % (calPath,))
-            if not upgradeCalendarCollection(calPath, directory, cuaCache):
+            if not (yield upgradeCalendarCollection(calPath, directory, cuaCache)):
                 errorOccurred = True
 
             # Change the calendar-free-busy-set xattrs of the inbox to the
@@ -254,7 +256,7 @@ def upgradeCalendarHome(homePath, directory, cuaCache):
         log.error("Failed to upgrade calendar home %s: %s" % (homePath, e))
         raise
 
-    return errorOccurred
+    returnValue(errorOccurred)
 
 
 
@@ -288,9 +290,10 @@ class To1Home(AMP):
 
 
     @UpgradeOneHome.responder
+    @inlineCallbacks
     def upgradeOne(self, path):
-        result = upgradeCalendarHome(path, self.directory, self.cuaCache)
-        return dict(succeeded=result)
+        result = yield upgradeCalendarHome(path, self.directory, self.cuaCache)
+        returnValue(dict(succeeded=result))
 
 
 
@@ -543,9 +546,9 @@ def upgrade_to_1(config, directory):
                                         # Skip non-directories
                                         continue
 
-                                    if not upgradeCalendarHome(
+                                    if not (yield upgradeCalendarHome(
                                         homePath, directory, cuaCache
-                                    ):
+                                    )):
                                         setError()
 
                                     count += 1
@@ -564,6 +567,7 @@ def upgrade_to_1(config, directory):
 
 
 
+@inlineCallbacks
 def normalizeCUAddrs(data, directory, cuaCache):
     """
     Normalize calendar user addresses to urn:uuid: form.
@@ -583,23 +587,24 @@ def normalizeCUAddrs(data, directory, cuaCache):
     """
     cal = Component.fromString(data)
 
+    @inlineCallbacks
     def lookupFunction(cuaddr, principalFunction, config):
 
         # Return cached results, if any.
         if cuaddr in cuaCache:
-            return cuaCache[cuaddr]
+            returnValue(cuaCache[cuaddr])
 
-        result = normalizationLookup(cuaddr, principalFunction, config)
+        result = yield normalizationLookup(cuaddr, principalFunction, config)
 
         # Cache the result
         cuaCache[cuaddr] = result
-        return result
+        returnValue(result)
 
-    cal.normalizeCalendarUserAddresses(lookupFunction,
+    yield cal.normalizeCalendarUserAddresses(lookupFunction,
         directory.principalForCalendarUserAddress)
 
     newData = str(cal)
-    return newData, not newData == data
+    returnValue(newData, not newData == data)
 
 
 
@@ -997,7 +1002,9 @@ class UpgradeFileSystemFormatStep(object):
         """
         Execute the step.
         """
-        return self.doUpgrade()
+        return succeed(None)
+        # MOVE2WHO
+        # return self.doUpgrade()
 
 
 
@@ -1025,7 +1032,7 @@ class PostDBImportStep(object):
     def stepWithResult(self, result):
         if self.doPostImport:
 
-            directory = directoryFromConfig(self.config)
+            directory = self.store.directoryService()
 
             # Load proxy assignments from XML if specified
             if self.config.ProxyLoadFromFile:

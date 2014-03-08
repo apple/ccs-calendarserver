@@ -16,7 +16,7 @@
 ##
 from twisted.trial.unittest import TestCase
 from twext.python.clsprop import classproperty
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, succeed
 
 """
 Store test utility functions
@@ -40,7 +40,7 @@ class TestCalendarStoreDirectoryService(TestStoreDirectoryService):
 
 
     def recordWithCalendarUserAddress(self, cuaddr):
-        return self.recordsByCUA.get(cuaddr)
+        return succeed(self.recordsByCUA.get(cuaddr))
 
 
     def addRecord(self, record):
@@ -117,7 +117,7 @@ class TestCalendarStoreDirectoryRecord(TestStoreDirectoryRecord):
 
 
     def isProxyFor(self, other):
-        return False
+        return succeed(False)
 
 
 

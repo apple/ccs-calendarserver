@@ -27,7 +27,7 @@ from txweb2.dav.xattrprops import xattrPropertyStore
 from txweb2.http import HTTPError, StatusResponse, RedirectResponse
 
 from twisted.cred.error import LoginFailed, UnauthorizedLogin
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python.reflect import namedClass
 from twisted.web.xmlrpc import Proxy
 from twisted.web.error import Error as WebError
@@ -110,7 +110,7 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
 
 
     def defaultAccessControlList(self):
-        return config.RootResourceACL
+        return succeed(config.RootResourceACL)
 
 
     @inlineCallbacks

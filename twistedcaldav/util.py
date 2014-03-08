@@ -23,6 +23,7 @@ from subprocess import Popen, PIPE, STDOUT
 from hashlib import md5, sha1
 
 from twisted.internet import ssl, reactor
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web import client
 from twisted.python import failure
 from twext.python.log import Logger
@@ -495,6 +496,7 @@ class AuthorizedHTTPGetter(client.HTTPPageGetter):
 
 
 
+@inlineCallbacks
 def normalizationLookup(cuaddr, principalFunction, config):
     """
     Lookup function to be passed to ical.normalizeCalendarUserAddresses.
@@ -503,13 +505,13 @@ def normalizationLookup(cuaddr, principalFunction, config):
     principal for the cuaddr.
     """
     try:
-        principal = principalFunction(cuaddr)
+        principal = yield principalFunction(cuaddr)
     except Exception, e:
         log.debug("Lookup of %s failed: %s" % (cuaddr, e))
         principal = None
 
     if principal is None:
-        return (None, None, None)
+        returnValue((None, None, None))
     else:
         rec = principal.record
 
@@ -520,9 +522,9 @@ def normalizationLookup(cuaddr, principalFunction, config):
         # to single-quotes.
         fullName = rec.fullName.replace('"', "'")
 
-        cuas = principal.record.calendarUserAddresses
+        cuas = principal.record.calendarUserAddresses()
 
-        return (fullName, rec.guid, cuas)
+        returnValue((fullName, rec.guid, cuas))
 
 
 

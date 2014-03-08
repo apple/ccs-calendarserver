@@ -189,7 +189,7 @@ class ScheduleOrganizerWork(WorkItem, fromTable(schema.SCHEDULE_ORGANIZER_WORK),
         try:
             home = (yield self.transaction.calendarHomeWithResourceID(self.homeResourceID))
             resource = (yield home.objectResourceWithID(self.resourceID))
-            organizerPrincipal = home.directoryService().recordWithUID(home.uid())
+            organizerPrincipal = yield home.directoryService().recordWithUID(home.uid())
             organizer = organizerPrincipal.canonicalCalendarUserAddress()
             calendar_old = Component.fromString(self.icalendarTextOld) if self.icalendarTextOld else None
             calendar_new = Component.fromString(self.icalendarTextNew) if self.icalendarTextNew else None
@@ -311,7 +311,7 @@ class ScheduleReplyWork(WorkItem, fromTable(schema.SCHEDULE_REPLY_WORK), Schedul
         try:
             home = (yield self.transaction.calendarHomeWithResourceID(self.homeResourceID))
             resource = (yield home.objectResourceWithID(self.resourceID))
-            attendeePrincipal = home.directoryService().recordWithUID(home.uid())
+            attendeePrincipal = yield home.directoryService().recordWithUID(home.uid())
             attendee = attendeePrincipal.canonicalCalendarUserAddress()
             calendar = (yield resource.componentForUser())
             organizer = calendar.validOrganizerForScheduling()
@@ -336,6 +336,7 @@ class ScheduleReplyWork(WorkItem, fromTable(schema.SCHEDULE_REPLY_WORK), Schedul
             self._dequeued()
 
         except Exception, e:
+            # FIXME: calendar may not be set here!
             log.debug("ScheduleReplyWork - exception ID: {id}, UID: '{uid}', {err}", id=self.workID, uid=calendar.resourceUID(), err=str(e))
             raise
         except:
@@ -381,7 +382,7 @@ class ScheduleReplyCancelWork(WorkItem, fromTable(schema.SCHEDULE_REPLY_CANCEL_W
 
         try:
             home = (yield self.transaction.calendarHomeWithResourceID(self.homeResourceID))
-            attendeePrincipal = home.directoryService().recordWithUID(home.uid())
+            attendeePrincipal = yield home.directoryService().recordWithUID(home.uid())
             attendee = attendeePrincipal.canonicalCalendarUserAddress()
             calendar = Component.fromString(self.icalendarText)
             organizer = calendar.validOrganizerForScheduling()

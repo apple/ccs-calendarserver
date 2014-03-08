@@ -186,7 +186,7 @@ class IScheduleScheduler(RemoteScheduler):
         # Normalize recipient addresses
         results = []
         for recipient in recipients:
-            normalized = normalizeCUAddress(recipient, normalizationLookup, self.txn.directoryService().recordWithCalendarUserAddress)
+            normalized = yield normalizeCUAddress(recipient, normalizationLookup, self.txn.directoryService().recordWithCalendarUserAddress)
             self.recipientsNormalizationMap[normalized] = recipient
             results.append(normalized)
         recipients = results
@@ -205,7 +205,7 @@ class IScheduleScheduler(RemoteScheduler):
         if not self.checkForFreeBusy():
             # Need to normalize the calendar data and recipient values to keep those in sync,
             # as we might later try to match them
-            self.calendar.normalizeCalendarUserAddresses(normalizationLookup, self.txn.directoryService().recordWithCalendarUserAddress)
+            return self.calendar.normalizeCalendarUserAddresses(normalizationLookup, self.txn.directoryService().recordWithCalendarUserAddress)
 
 
     def checkAuthorization(self):
@@ -226,7 +226,7 @@ class IScheduleScheduler(RemoteScheduler):
         """
 
         # For remote requests we do not allow the originator to be a local user or one within our domain.
-        originatorPrincipal = self.txn.directoryService().recordWithCalendarUserAddress(self.originator)
+        originatorPrincipal = (yield self.txn.directoryService().recordWithCalendarUserAddress(self.originator))
         localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(self.originator))
         if originatorPrincipal or localUser:
             if originatorPrincipal.thisServer():
@@ -367,7 +367,7 @@ class IScheduleScheduler(RemoteScheduler):
         # Verify that the ORGANIZER's cu address does not map to a valid user
         organizer = self.calendar.getOrganizer()
         if organizer:
-            organizerPrincipal = self.txn.directoryService().recordWithCalendarUserAddress(organizer)
+            organizerPrincipal = yield self.txn.directoryService().recordWithCalendarUserAddress(organizer)
             if organizerPrincipal:
                 if organizerPrincipal.thisServer():
                     log.error("Invalid ORGANIZER in calendar data: %s" % (self.calendar,))
@@ -408,7 +408,7 @@ class IScheduleScheduler(RemoteScheduler):
         """
 
         # Attendee cannot be local.
-        attendeePrincipal = self.txn.directoryService().recordWithCalendarUserAddress(self.attendee)
+        attendeePrincipal = yield self.txn.directoryService().recordWithCalendarUserAddress(self.attendee)
         if attendeePrincipal:
             if attendeePrincipal.thisServer():
                 log.error("Invalid ATTENDEE in calendar data: %s" % (self.calendar,))

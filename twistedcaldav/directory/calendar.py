@@ -65,7 +65,7 @@ class DirectoryCalendarProvisioningResource (
     DAVResource,
 ):
     def defaultAccessControlList(self):
-        return config.ProvisioningResourceACL
+        return succeed(config.ProvisioningResourceACL)
 
 
     def etag(self):
@@ -91,7 +91,8 @@ class DirectoryCalendarHomeProvisioningResource (DirectoryCalendarProvisioningRe
 
         super(DirectoryCalendarHomeProvisioningResource, self).__init__()
 
-        self.directory = IDirectoryService(directory)
+        # MOVE2WHO
+        self.directory = directory  # IDirectoryService(directory)
         self._url = url
         self._newStore = store
 
@@ -101,8 +102,9 @@ class DirectoryCalendarHomeProvisioningResource (DirectoryCalendarProvisioningRe
         #
         # Create children
         #
-        for recordType in self.directory.recordTypes():
-            self.putChild(recordType, DirectoryCalendarHomeTypeProvisioningResource(self, recordType))
+        # MOVE2WHO
+        for name, recordType in [(r.name + "s", r) for r in self.directory.recordTypes()]:
+            self.putChild(name, DirectoryCalendarHomeTypeProvisioningResource(self, name, recordType))
 
         self.putChild(uidsResourceName, DirectoryCalendarHomeUIDProvisioningResource(self))
 
@@ -112,7 +114,8 @@ class DirectoryCalendarHomeProvisioningResource (DirectoryCalendarProvisioningRe
 
 
     def listChildren(self):
-        return self.directory.recordTypes()
+        # MOVE2WHO
+        return [r.name + "s" for r in self.directory.recordTypes()]
 
 
     def principalCollections(self):
@@ -127,12 +130,13 @@ class DirectoryCalendarHomeProvisioningResource (DirectoryCalendarProvisioningRe
         return self.directory.principalCollection.principalForRecord(record)
 
 
+    @inlineCallbacks
     def homeForDirectoryRecord(self, record, request):
-        uidResource = self.getChild(uidsResourceName)
+        uidResource = yield self.getChild(uidsResourceName)
         if uidResource is None:
-            return None
+            returnValue(None)
         else:
-            return uidResource.homeResourceForRecord(record, request)
+            returnValue((yield uidResource.homeResourceForRecord(record, request)))
 
 
     ##
@@ -156,23 +160,25 @@ class DirectoryCalendarHomeTypeProvisioningResource(
     Resource which provisions calendar home collections of a specific
     record type as needed.
     """
-    def __init__(self, parent, recordType):
+    def __init__(self, parent, name, recordType):
         """
         @param parent: the parent of this resource
         @param recordType: the directory record type to provision.
         """
         assert parent is not None
+        assert name is not None
         assert recordType is not None
 
         super(DirectoryCalendarHomeTypeProvisioningResource, self).__init__()
 
         self.directory = parent.directory
+        self.name = name
         self.recordType = recordType
         self._parent = parent
 
 
     def url(self):
-        return joinURL(self._parent.url(), self.recordType)
+        return joinURL(self._parent.url(), self.name)
 
 
     def listChildren(self):
@@ -203,7 +209,7 @@ class DirectoryCalendarHomeTypeProvisioningResource(
 
 
     def displayName(self):
-        return self.recordType
+        return self.name
 
 
     ##
@@ -258,7 +264,7 @@ class DirectoryCalendarHomeResource (CalendarHomeResource):
             else:
                 # ...otherwise permissions are fixed, and are not subject to
                 # inheritance rules, etc.
-                return succeed(self.defaultAccessControlList())
+                return self.defaultAccessControlList()
 
         d = getWikiACL(self, request)
         d.addCallback(gotACL)

@@ -50,11 +50,12 @@ from txdav.common.datastore.file import CommonDataStore
 from calendarserver.provision.root import RootResource
 
 from twext.python.log import Logger
-from txdav.caldav.datastore.test.util import buildCalendarStore
-from calendarserver.tap.util import getRootResource, directoryFromConfig
+from calendarserver.tap.util import getRootResource
 from txweb2.dav.test.util import SimpleRequest
 from twistedcaldav.directory.util import transactionFromRequest
 from twistedcaldav.directory.directory import DirectoryService
+from txdav.caldav.datastore.test.util import buildCalendarStore
+from txdav.dps.server import directoryFromConfig
 
 log = Logger()
 
