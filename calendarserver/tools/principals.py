@@ -427,18 +427,31 @@ def runSearch(service, store, searchTerm):
     records = list((yield directory.recordsMatchingTokens(searchTerm.strip().split())))
     if records:
         records.sort(key=operator.attrgetter('fullNames'))
-        print("%d matches found:" % (len(records),))
+        print("{n} matches found:".format(n=len(records)))
         for record in records:
             print(
-                "\n{d} {rt}".format(
+                "\n{d} ({rt})".format(
                     d=record.displayName,
                     rt=record.recordType.name
                 )
             )
-            print("   UID: %s" % (record.uid,))
-            print("   Record name(s): %s" % (", ".join(record.shortNames),))
-            if record.emailAddresses:
-                print("   Email(s): %s" % (", ".join(record.emailAddresses),))
+            print("   UID: {u}".format(u=record.uid,))
+            print(
+                "   Record name{plural}: {names}".format(
+                    plural=("s" if len(record.shortNames) > 1 else ""),
+                    names=(", ".join(record.shortNames))
+                )
+            )
+            try:
+                if record.emailAddresses:
+                    print(
+                        "   Email{plural}: {emails}".format(
+                            plural=("s" if len(record.emailAddresses) > 1 else ""),
+                            emails=(", ".join(record.emailAddresses))
+                        )
+                    )
+            except AttributeError:
+                pass
     else:
         print("No matches found")
 
