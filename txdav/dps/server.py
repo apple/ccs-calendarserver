@@ -34,7 +34,7 @@ from twisted.python.constants import Names, NamedConstant
 from twisted.python.filepath import FilePath
 from twisted.python.reflect import namedClass
 from twisted.python.usage import Options, UsageError
-from twistedcaldav.config import config
+from twistedcaldav.config import config, fullServerPath
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from txdav.dps.commands import (
     RecordWithShortNameCommand, RecordWithUIDCommand, RecordWithGUIDCommand,
@@ -421,43 +421,63 @@ class DirectoryProxyOptions(Options):
 
 def directoryFromConfig(config, store=None):
     """
-    Return a directory service based on the config
+    Return a directory service based on the config.  If you want to go through
+    AMP to talk to one of these as a client, instantiate
+    txdav.dps.client.DirectoryService
     """
-    directoryType = config.DirectoryProxy.DirectoryType
-    args = config.DirectoryProxy.Arguments
-    kwds = config.DirectoryProxy.Keywords
 
-    # FIXME: this needs to talk to its own separate database
+    # FIXME: this needs to talk to its own separate database.  In fact,
+    # don't pass store=None if you already have called storeFromConfig()
+    # within this process.  Pass the existing store in here.
     pool, txnFactory = getDBPool(config)
     if store is None:
         store = storeFromConfig(config, txnFactory, None)
 
-    if directoryType == "OD":
-        from twext.who.opendirectory import DirectoryService as ODDirectoryService
-        primaryDirectory = ODDirectoryService(*args, **kwds)
+    # directoryType = config.DirectoryProxy.DirectoryType
+    directoryType = config.DirectoryService.type
 
-    elif directoryType == "LDAP":
-        authDN = kwds.pop("authDN", "")
-        password = kwds.pop("password", "")
-        if authDN and password:
-            creds = UsernamePassword(authDN, password)
-        else:
-            creds = None
-        kwds["credentials"] = creds
-        debug = kwds.pop("debug", "")
-        primaryDirectory = LDAPDirectoryService(
-            *args, _debug=debug, **kwds
-        )
+    if "XML" in directoryType:
+        xmlFile = config.DirectoryService.params.xmlFile
+        xmlFile = fullServerPath(config.DataRoot, xmlFile)
+        # path = kwds.pop("path", "")
+        if not xmlFile or not os.path.exists(xmlFile):
+            log.error("Path not found for XML directory: {p}", p=xmlFile)
+        fp = FilePath(xmlFile)
+        primaryDirectory = XMLDirectoryService(fp)
 
-    elif directoryType == "XML":
-        path = kwds.pop("path", "")
-        if not path or not os.path.exists(path):
-            log.error("Path not found for XML directory: {p}", p=path)
-        fp = FilePath(path)
-        primaryDirectory = XMLDirectoryService(fp, *args, **kwds)
 
-    else:
-        log.error("Invalid DirectoryType: {dt}", dt=directoryType)
+    # FIXME: implement the other service types
+
+    # args = config.DirectoryProxy.Arguments
+    # kwds = config.DirectoryProxy.Keywords
+
+
+    # if directoryType == "OD":
+    #     from twext.who.opendirectory import DirectoryService as ODDirectoryService
+    #     primaryDirectory = ODDirectoryService(*args, **kwds)
+
+    # elif directoryType == "LDAP":
+    #     authDN = kwds.pop("authDN", "")
+    #     password = kwds.pop("password", "")
+    #     if authDN and password:
+    #         creds = UsernamePassword(authDN, password)
+    #     else:
+    #         creds = None
+    #     kwds["credentials"] = creds
+    #     debug = kwds.pop("debug", "")
+    #     primaryDirectory = LDAPDirectoryService(
+    #         *args, _debug=debug, **kwds
+    #     )
+
+    # elif directoryType == "XML":
+    #     path = kwds.pop("path", "")
+    #     if not path or not os.path.exists(path):
+    #         log.error("Path not found for XML directory: {p}", p=path)
+    #     fp = FilePath(path)
+    #     primaryDirectory = XMLDirectoryService(fp, *args, **kwds)
+
+    # else:
+    #     log.error("Invalid DirectoryType: {dt}", dt=directoryType)
 
     #
     # Setup the Augment Service
@@ -522,15 +542,12 @@ class DirectoryProxyServiceMaker(object):
             setproctitle("CalendarServer Directory Proxy Service")
 
         try:
-            print("XZZZY AAA")
             directory = directoryFromConfig(config)
-            print("XZZZY BBB")
         except Exception as e:
             log.error("Failed to create directory service", error=e)
             raise
 
         log.info("Created directory service")
-        print("XZZZY CCCC")
 
         return strPortsService(
             "unix:{path}:mode=660".format(

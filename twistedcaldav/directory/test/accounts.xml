@@ -18,279 +18,261 @@ limitations under the License.
 
 <!DOCTYPE accounts SYSTEM "../../../conf/auth/accounts.dtd">
 
-<accounts realm="Test">
-  <user>
-    <uid>admin</uid>
-    <guid>D11F03A0-97EA-48AF-9A6C-FAC7F3975766</guid>
+<directory realm="Test">
+  <record type="user">
+    <short-name>admin</short-name>
+    <uid>D11F03A0-97EA-48AF-9A6C-FAC7F3975766</uid>
     <password>nimda</password>
-    <name>Administrators</name>
-  </user>
-  <user>
-    <uid>wsanchez</uid>
-    <guid>6423F94A-6B76-4A3A-815B-D52CFD77935D</guid>
+    <full-name>Administrators</full-name>
+  </record>
+  <record type="user">
+    <short-name>wsanchez</short-name>
+    <uid>6423F94A-6B76-4A3A-815B-D52CFD77935D</uid>
     <password>zehcnasw</password>
-    <name>Wilfredo Sanchez</name>
-    <email-address>wsanchez@example.com</email-address>
-  </user>
-  <user>
-    <uid>cdaboo</uid>
-    <guid>5A985493-EE2C-4665-94CF-4DFEA3A89500</guid>
+    <full-name>Wilfredo Sanchez</full-name>
+    <email>wsanchez@example.com</email>
+  </record>
+  <record type="user">
+    <short-name>cdaboo</short-name>
+    <uid>5A985493-EE2C-4665-94CF-4DFEA3A89500</uid>
     <password>oobadc</password>
-    <name>Cyrus Daboo</name>
-    <email-address>cdaboo@example.com</email-address>
-  </user>
-  <user>
-    <uid>lecroy</uid>
-    <guid>8B4288F6-CC82-491D-8EF9-642EF4F3E7D0</guid>
+    <full-name>Cyrus Daboo</full-name>
+    <email>cdaboo@example.com</email>
+  </record>
+  <record type="user">
+    <short-name>lecroy</short-name>
+    <uid>8B4288F6-CC82-491D-8EF9-642EF4F3E7D0</uid>
     <password>yorcel</password>
-    <name>Chris Lecroy</name>
-    <email-address>lecroy@example.com</email-address>
-  </user>
-  <user>
-    <uid>dreid</uid>
-    <guid>5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1</guid>
+    <full-name>Chris Lecroy</full-name>
+    <email>lecroy@example.com</email>
+  </record>
+  <record type="user">
+    <short-name>dreid</short-name>
+    <uid>5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1</uid>
     <password>dierd</password>
-    <name>David Reid</name>
-    <email-address>dreid@example.com</email-address>
-  </user>
-  <user>
-    <uid>doublequotes</uid>
-    <guid>8E04787E-336D-41ED-A70B-D233AD0DCE6F</guid>
+    <full-name>David Reid</full-name>
+    <email>dreid@example.com</email>
+  </record>
+  <record type="user">
+    <short-name>doublequotes</short-name>
+    <uid>8E04787E-336D-41ED-A70B-D233AD0DCE6F</uid>
     <password>setouqelbuod</password>
-    <name>Double "quotey" Quotes</name>
-    <email-address>doublequotes@example.com</email-address>
-  </user>
-  <user>
-    <uid>nocalendar</uid>
-    <guid>543D28BA-F74F-4D5F-9243-B3E3A61171E5</guid>
+    <full-name>Double "quotey" Quotes</full-name>
+    <email>doublequotes@example.com</email>
+  </record>
+  <record type="user">
+    <short-name>nocalendar</short-name>
+    <uid>543D28BA-F74F-4D5F-9243-B3E3A61171E5</uid>
     <password>radnelacon</password>
-    <name>No Calendar</name>
-    <email-address>nocalendar@example.com</email-address>
-  </user>
-  <user>
-    <uid>usera</uid>
-    <guid>7423F94A-6B76-4A3A-815B-D52CFD77935D</guid>
+    <full-name>No Calendar</full-name>
+    <email>nocalendar@example.com</email>
+  </record>
+  <record type="user">
+    <short-name>usera</short-name>
+    <uid>7423F94A-6B76-4A3A-815B-D52CFD77935D</uid>
     <password>a</password>
-    <name>a</name>
-    <email-address>a@example.com</email-address>
-  </user>
-  <user>
-    <uid>userb</uid>
-    <guid>8A985493-EE2C-4665-94CF-4DFEA3A89500</guid>
+    <full-name>a</full-name>
+    <email>a@example.com</email>
+  </record>
+  <record type="user">
+    <short-name>userb</short-name>
+    <uid>8A985493-EE2C-4665-94CF-4DFEA3A89500</uid>
     <password>b</password>
-    <name>b</name>
-    <email-address>b@example.com</email-address>
-  </user>
-  <user>
-    <uid>userc</uid>
-    <guid>9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD2</guid>
+    <full-name>b</full-name>
+    <email>b@example.com</email>
+  </record>
+  <record type="user">
+    <short-name>userc</short-name>
+    <uid>9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD2</uid>
     <password>c</password>
-    <name>c</name>
-    <email-address>c@example.com</email-address>
-  </user>
-  <user>
-    <uid>usercalonly</uid>
-    <guid>9E1FFAC4-3CCD-45A1-8272-D161C92D2EEE</guid>
+    <full-name>c</full-name>
+    <email>c@example.com</email>
+  </record>
+  <record type="user">
+    <short-name>usercalonly</short-name>
+    <uid>9E1FFAC4-3CCD-45A1-8272-D161C92D2EEE</uid>
     <password>a</password>
-    <name>a calonly</name>
-    <email-address>a-calonly@example.com</email-address>
-  </user>
-  <user>
-    <uid>useradbkonly</uid>
-    <guid>7678EC8A-A069-4E82-9066-7279C6718507</guid>
+    <full-name>a calonly</full-name>
+    <email>a-calonly@example.com</email>
+  </record>
+  <record type="user">
+    <short-name>useradbkonly</short-name>
+    <uid>7678EC8A-A069-4E82-9066-7279C6718507</uid>
     <password>a</password>
-    <name>a adbkonly</name>
-    <email-address>a-adbkonly@example.com</email-address>
-  </user>
-  <user>
-    <uid>nonascii</uid>
-    <uid>nonascii佐藤</uid>
-    <guid>320B73A1-46E2-4180-9563-782DFDBE1F63</guid>
+    <full-name>a adbkonly</full-name>
+    <email>a-adbkonly@example.com</email>
+  </record>
+  <record type="user">
+    <short-name>nonascii</short-name>
+    <short-name>nonascii佐藤</short-name>
+    <uid>320B73A1-46E2-4180-9563-782DFDBE1F63</uid>
     <password>a</password>
-    <name>佐藤佐藤佐藤</name>
-    <email-address>nonascii@example.com</email-address>
-  </user>
-  <user>
-    <uid>delegator</uid>
-    <guid>FC465590-E9E9-4746-ACE8-6C756A49FE4D</guid>
+    <full-name>佐藤佐藤佐藤</full-name>
+    <email>nonascii@example.com</email>
+  </record>
+  <record type="user">
+    <short-name>delegator</short-name>
+    <uid>FC465590-E9E9-4746-ACE8-6C756A49FE4D</uid>
     <password>a</password>
-    <name>Calendar Delegator</name>
-    <email-address>calendardelegator@example.com</email-address>
-  </user>
-  <user>
-    <uid>occasionaldelegate</uid>
-    <guid>EC465590-E9E9-4746-ACE8-6C756A49FE4D</guid>
+    <full-name>Calendar Delegator</full-name>
+    <email>calendardelegator@example.com</email>
+  </record>
+  <record type="user">
+    <short-name>occasionaldelegate</short-name>
+    <uid>EC465590-E9E9-4746-ACE8-6C756A49FE4D</uid>
     <password>a</password>
-    <name>Occasional Delegate</name>
-    <email-address>occasional@example.com</email-address>
-  </user>
-    <user>
-    <uid>delegateviagroup</uid>
-    <guid>46D9D716-CBEE-490F-907A-66FA6C3767FF</guid>
+    <full-name>Occasional Delegate</full-name>
+    <email>occasional@example.com</email>
+  </record>
+    <record type="user">
+    <short-name>delegateviagroup</short-name>
+    <uid>46D9D716-CBEE-490F-907A-66FA6C3767FF</uid>
     <password>a</password>
-    <name>Delegate Via Group</name>
-    <email-address>delegateviagroup@example.com</email-address>
-  </user>
-  <group>
-    <uid>delegategroup</uid>
-    <guid>00599DAF-3E75-42DD-9DB7-52617E79943F</guid>
-    <name>Delegate Group</name>
-    <members>
-      <member type="users">delegateviagroup</member>
-    </members>
-  </group>
+    <full-name>Delegate Via Group</full-name>
+    <email>delegateviagroup@example.com</email>
+  </record>
+  <record type="group">
+    <short-name>delegategroup</short-name>
+    <uid>00599DAF-3E75-42DD-9DB7-52617E79943F</uid>
+    <full-name>Delegate Group</full-name>
+      <member-uid>delegateviagroup</member-uid>
+  </record>
   <user repeat="100">
+    <short-name>user%02d</short-name>
     <uid>user%02d</uid>
-    <guid>user%02d</guid>
     <password>%02duser</password>
-    <name>~35 User %02d</name>
+    <full-name>~35 User %02d</full-name>
     <first-name>~5</first-name>
     <last-name>~9 User %02d</last-name>
-    <email-address>~10@example.com</email-address>
+    <email>~10@example.com</email>
   </user>
-  <group>
-    <uid>managers</uid>
-    <guid>9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1</guid>
+  <record type="group">
+    <short-name>managers</short-name>
+    <uid>9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1</uid>
     <password>managers</password>
-    <name>Managers</name>
-    <members>
-      <member type="users">lecroy</member>
-    </members>
-  </group>
-  <group>
+    <full-name>Managers</full-name>
+      <member-uid>lecroy</member-uid>
+  </record>
+  <record type="group">
+    <short-name>admin</short-name>
     <uid>admin</uid>
-    <guid>admin</guid>
     <password>admin</password>
-    <name>Administrators</name>
-    <members>
-      <member type="groups">managers</member>
-    </members>
-  </group>
-  <group>
+    <full-name>Administrators</full-name>
+      <member-uid>managers</member-uid>
+  </record>
+  <record type="group">
+    <short-name>grunts</short-name>
     <uid>grunts</uid>
-    <guid>grunts</guid>
     <password>grunts</password>
-    <name>We do all the work</name>
-    <members>
-      <member>wsanchez</member>
-      <member>cdaboo</member>
-      <member>dreid</member>
-    </members>
-  </group>
-  <group>
+    <full-name>We do all the work</full-name>
+      <member-uid>wsanchez</member-uid>
+      <member-uid>cdaboo</member-uid>
+      <member-uid>dreid</member-uid>
+  </record>
+  <record type="group">
+    <short-name>right_coast</short-name>
     <uid>right_coast</uid>
-    <guid>right_coast</guid>
     <password>right_coast</password>
-    <name>East Coast</name>
-    <members>
-      <member>cdaboo</member>
-    </members>
-  </group>
-  <group>
+    <full-name>East Coast</full-name>
+      <member-uid>cdaboo</member-uid>
+  </record>
+  <record type="group">
+    <short-name>left_coast</short-name>
     <uid>left_coast</uid>
-    <guid>left_coast</guid>
     <password>left_coast</password>
-    <name>West Coast</name>
-    <members>
-      <member>wsanchez</member>
-      <member>lecroy</member>
-      <member>dreid</member>
-    </members>
-  </group>
-  <group>
+    <full-name>West Coast</full-name>
+      <member-uid>wsanchez</member-uid>
+      <member-uid>lecroy</member-uid>
+      <member-uid>dreid</member-uid>
+  </record>
+  <record type="group">
+    <short-name>both_coasts</short-name>
     <uid>both_coasts</uid>
-    <guid>both_coasts</guid>
     <password>both_coasts</password>
-    <name>Both Coasts</name>
-    <members>
-      <member type="groups">right_coast</member>
-      <member type="groups">left_coast</member>
-    </members>
-  </group>
-  <group>
+    <full-name>Both Coasts</full-name>
+      <member-uid>right_coast</member-uid>
+      <member-uid>left_coast</member-uid>
+  </record>
+  <record type="group">
+    <short-name>recursive1_coasts</short-name>
     <uid>recursive1_coasts</uid>
-    <guid>recursive1_coasts</guid>
     <password>recursive1_coasts</password>
-    <name>Recursive1 Coasts</name>
-    <members>
-      <member type="groups">recursive2_coasts</member>
-      <member>wsanchez</member>
-    </members>
-  </group>
-  <group>
+    <full-name>Recursive1 Coasts</full-name>
+      <member-uid>recursive2_coasts</member-uid>
+      <member-uid>wsanchez</member-uid>
+  </record>
+  <record type="group">
+    <short-name>recursive2_coasts</short-name>
     <uid>recursive2_coasts</uid>
-    <guid>recursive2_coasts</guid>
     <password>recursive2_coasts</password>
-    <name>Recursive2 Coasts</name>
-    <members>
-      <member type="groups">recursive1_coasts</member>
-      <member>cdaboo</member>
-    </members>
-  </group>
-  <group>
+    <full-name>Recursive2 Coasts</full-name>
+      <member-uid>recursive1_coasts</member-uid>
+      <member-uid>cdaboo</member-uid>
+  </record>
+  <record type="group">
+    <short-name>non_calendar_group</short-name>
     <uid>non_calendar_group</uid>
-    <guid>non_calendar_group</guid>
     <password>non_calendar_group</password>
-    <name>Non-calendar group</name>
-    <members>
-      <member>cdaboo</member>
-      <member>lecroy</member>
-    </members>
-  </group>
+    <full-name>Non-calendar group</full-name>
+      <member-uid>cdaboo</member-uid>
+      <member-uid>lecroy</member-uid>
+  </record>
+  <!--
   <location>
     <uid>mercury</uid>
-    <guid>mercury</guid>
+    <uid>mercury</uid>
     <password>mercury</password>
     <name>Mercury Seven</name>
     <email-address>mercury@example.com</email-address>
   </location>
   <location>
     <uid>gemini</uid>
-    <guid>gemini</guid>
+    <uid>gemini</uid>
     <password>gemini</password>
     <name>Gemini Twelve</name>
     <email-address>gemini@example.com</email-address>
   </location>
   <location>
     <uid>apollo</uid>
-    <guid>apollo</guid>
+    <uid>apollo</uid>
     <password>apollo</password>
     <name>Apollo Eleven</name>
     <email-address>apollo@example.com</email-address>
   </location>
   <location>
     <uid>orion</uid>
-    <guid>orion</guid>
+    <uid>orion</uid>
     <password>orion</password>
     <name>Orion</name>
     <email-address>orion@example.com</email-address>
   </location>
   <resource>
     <uid>transporter</uid>
-    <guid>transporter</guid>
+    <uid>transporter</uid>
     <password>transporter</password>
     <name>Mass Transporter</name>
     <email-address>transporter@example.com</email-address>
   </resource>
   <resource>
     <uid>ftlcpu</uid>
-    <guid>ftlcpu</guid>
+    <uid>ftlcpu</uid>
     <password>ftlcpu</password>
     <name>Faster-Than-Light Microprocessor</name>
     <email-address>ftlcpu@example.com</email-address>
   </resource>
   <resource>
     <uid>non_calendar_proxy</uid>
-    <guid>non_calendar_proxy</guid>
+    <uid>non_calendar_proxy</uid>
     <password>non_calendar_proxy</password>
     <name>Non-calendar proxy</name>
     <email-address>non_calendar_proxy@example.com</email-address>
   </resource>
   <resource>
     <uid>disabled</uid>
-    <guid>disabled</guid>
+    <uid>disabled</uid>
     <password>disabled</password>
     <name>Disabled Record</name>
     <email-address>disabled@example.com</email-address>
   </resource>
-</accounts>
+-->
+</directory>
