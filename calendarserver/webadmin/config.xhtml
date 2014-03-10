@@ -34,6 +34,7 @@
         This may or may not be the same address that the server listens to itself.
         This may, for example, be the address for a load balancer which forwards requests to the server.
       </caption>
+      <thead t:render="settings_header" />
       <tbody>
         <tr>
           <th class="config_key">Host Name</th>
@@ -65,6 +66,7 @@
         These settings determine the actual network address that the server binds to.
         By default, this is the same as the public network address information provided above.
       </caption>
+      <thead t:render="settings_header" />
       <tbody>
         <tr>
           <th class="config_key">IP Addresses</th>
@@ -93,6 +95,7 @@
         This may or may not be the same address that the server listens to itself.
         This may, for example, be the address for a load balancer which forwards requests to the server.
       </caption>
+      <thead t:render="settings_header" />
       <tbody>
         <tr>
           <th class="config_key">Enable HTTPS (TLS)</th>
@@ -141,6 +144,7 @@
 
     <table>
       <caption />
+      <thead t:render="settings_header" />
       <tbody>
         <tr>
           <th class="config_key">Enable CalDAV</th>
@@ -160,6 +164,7 @@
 
     <table>
       <caption />
+      <thead t:render="settings_header" />
       <tbody>
         <tr>
           <th class="config_key">Server Root</th>
@@ -201,24 +206,11 @@
     </table>
 
 
-    <h2>Log Levels</h2>
-
-    <table>
-      <caption />
-      <tbody>
-        <tr t:render="log_level_row">
-          <th class="config_key"><t:slot name="log_level_name" /></th>
-          <td class="config_value"><t:slot name="log_level_value" /></td>
-          <td class="comment" />
-        </tr>
-      </tbody>
-    </table>
-
-
     <h2>Process Management</h2>
 
     <table>
       <caption />
+      <thead t:render="settings_header" />
       <tbody>
         <tr>
           <th class="config_key">User Name</th>
@@ -251,6 +243,25 @@
           <th class="config_key">Max Requests Per Process</th>
           <td class="config_value"><t:slot name="MaxRequests" /></td>
           <td class="comment" />
+        </tr>
+      </tbody>
+    </table>
+
+
+    <h2>Log Levels</h2>
+
+    <table>
+      <caption />
+      <thead>
+        <tr>
+          <th>Namespace</th>
+          <th>Log Level</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr t:render="log_level_row">
+          <th><t:slot name="log_level_name" /></th>
+          <td><t:slot name="log_level_value" /></td>
         </tr>
       </tbody>
     </table>

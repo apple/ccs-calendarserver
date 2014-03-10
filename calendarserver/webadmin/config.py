@@ -106,6 +106,17 @@ class ConfigurationPageElement(PageElement):
 
 
     @renderer
+    def settings_header(self, request, tag):
+        return tag(
+            html.tr(
+                html.th(u"Option"),
+                html.th(u"Value"),
+                html.th(u"Note"),
+            ),
+        )
+
+
+    @renderer
     def log_level_row(self, request, tag):
         def rowsForNamespaces(namespaces):
             for namespace in namespaces:
