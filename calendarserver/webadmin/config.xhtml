@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html
+ xmlns:t="http://twistedmatrix.com/ns/twisted.web.template/0.1"
+ t:render="main"
+>
+
+  <head>
+    <title><t:slot name="title" /></title>
+    <link t:render="stylesheet" />
+
+    <style>
+
+      .config_key {
+        width: 20%;
+      }
+      .config_value {
+        width: 40%;
+      }
+
+    </style>
+
+  </head>
+
+  <body>
+
+    <h1><t:slot name="title" /></h1>
+
+
+    <h2>Public Network Address Information</h2>
+
+    <table>
+      <caption>
+        These settings determine how one accesses the server on the Internet.
+        This may or may not be the same address that the server listens to itself.
+        This may, for example, be the address for a load balancer which forwards requests to the server.
+      </caption>
+      <tbody>
+        <tr>
+          <th class="config_key">Host Name</th>
+          <td class="config_value"><t:slot name="ServerHostName" /></td>
+          <td class="comment" />
+        </tr>
+        <tr>
+          <th class="config_key">HTTP Port</th>
+          <td class="config_value"><t:slot name="HTTPPort" /></td>
+          <td class="comment">
+            For most servers, this should be <code>80</code>.
+          </td>
+        </tr>
+        <tr>
+          <th class="config_key">HTTPS (TLS) Port</th>
+          <td class="config_value"><t:slot name="SSLPort" /></td>
+          <td class="comment">
+            For most servers, this should be <code>443</code>.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+
+    <h2>Bound Network Address Information</h2>
+
+    <table>
+      <caption>
+        These settings determine the actual network address that the server binds to.
+        By default, this is the same as the public network address information provided above.
+      </caption>
+      <tbody>
+        <tr>
+          <th class="config_key">IP Addresses</th>
+          <td class="config_value"><t:slot name="BindAddresses" /></td>
+          <td class="comment" />
+        </tr>
+        <tr>
+          <th class="config_key">HTTP Ports</th>
+          <td class="config_value"><t:slot name="BindHTTPPorts" /></td>
+          <td class="comment" />
+        </tr>
+        <tr>
+          <th class="config_key">TLS Ports</th>
+          <td class="config_value"><t:slot name="BindSSLPorts" /></td>
+          <td class="comment" />
+        </tr>
+      </tbody>
+    </table>
+
+
+    <h2>Transport Layer Security (TLS) Settings</h2>
+
+    <table>
+      <caption>
+        These settings determine how one accesses the server on the Internet.
+        This may or may not be the same address that the server listens to itself.
+        This may, for example, be the address for a load balancer which forwards requests to the server.
+      </caption>
+      <tbody>
+        <tr>
+          <th class="config_key">Enable HTTPS (TLS)</th>
+          <td class="config_value"><t:slot name="EnableSSL" /></td>
+          <td class="comment">
+            It is strongly advised that TLS is enabled on production servers.
+          </td>
+        </tr>
+        <tr>
+          <th class="config_key">Redirect To HTTPS</th>
+          <td class="config_value"><t:slot name="RedirectHTTPToHTTPS" /></td>
+          <td class="comment">
+            Redirect clients to the secure port (recommended).
+          </td>
+        </tr>
+        <tr>
+          <th class="config_key">TLS Certificate</th>
+          <td class="config_value"><t:slot name="SSLCertificate" /></td>
+          <td class="comment" />
+        </tr>
+        <tr>
+          <th class="config_key">TLS Private Key</th>
+          <td class="config_value"><t:slot name="SSLPrivateKey" /></td>
+          <td class="comment" />
+        </tr>
+        <tr>
+          <th class="config_key">TLS Authority Chain</th>
+          <td class="config_value"><t:slot name="SSLAuthorityChain" /></td>
+          <td class="comment" />
+        </tr>
+        <tr>
+          <th class="config_key">TLS Methods</th>
+          <td class="config_value"><t:slot name="SSLMethod" /></td>
+          <td class="comment" />
+        </tr>
+        <tr>
+          <th class="config_key">TLS Ciphers</th>
+          <td class="config_value"><t:slot name="SSLCiphers" /></td>
+          <td class="comment" />
+        </tr>
+      </tbody>
+    </table>
+
+
+    <h2>Service Settings</h2>
+
+    <table>
+      <caption />
+      <tbody>
+        <tr>
+          <th class="config_key">Enable CalDAV</th>
+          <td class="config_value"><t:slot name="EnableCalDAV" /></td>
+          <td class="comment" />
+        </tr>
+        <tr>
+          <th class="config_key">Enable CardDAV</th>
+          <td class="config_value"><t:slot name="EnableCardDAV" /></td>
+          <td class="comment" />
+        </tr>
+      </tbody>
+    </table>
+
+
+    <h2>Data Store</h2>
+
+    <table>
+      <caption />
+      <tbody>
+        <tr>
+          <th class="config_key">Server Root</th>
+          <td class="config_value"><t:slot name="ServerRoot" /></td>
+          <td class="comment" />
+        </tr>
+        <tr>
+          <th class="config_key">Data Source Name</th>
+          <td class="config_value"><t:slot name="EnableSSL" /></td>
+          <td class="comment">
+            Database connection string.
+          </td>
+        </tr>
+        <tr>
+          <th class="config_key">Attachment Quota (Bytes)</th>
+          <td class="config_value"><t:slot name="UserQuota" /></td>
+          <td class="comment" />
+        </tr>
+        <tr>
+          <th class="config_key">Max # Collections Per Account</th>
+          <td class="config_value"><t:slot name="MaxCollectionsPerHome" /></td>
+          <td class="comment">
+            Collections include calendars and address books.
+          </td>
+        </tr>
+        <tr>
+          <th class="config_key">Max # Objects Per Collection</th>
+          <td class="config_value"><t:slot name="MaxResourcesPerCollection" /></td>
+          <td class="comment">
+            Objects include events, to-dos and contacts.
+          </td>
+        </tr>
+        <tr>
+          <th class="config_key">Max Object Size</th>
+          <td class="config_value"><t:slot name="MaxResourceSize" /></td>
+          <td class="comment" />
+        </tr>
+      </tbody>
+    </table>
+
+
+    <h2>Logging</h2>
+
+    <table>
+      <caption />
+      <tbody>
+        <tr t:render="log_level_row">
+          <th class="config_key"><t:slot name="log_level_name" /></th>
+          <td class="config_value"><t:slot name="log_level_value" /></td>
+          <td class="comment" />
+        </tr>
+      </tbody>
+    </table>
+
+
+    <h2>Process Management</h2>
+
+    <table>
+      <caption />
+      <tbody>
+        <tr>
+          <th class="config_key">User Name</th>
+          <td class="config_value"><t:slot name="UserName" /></td>
+          <td class="comment" />
+        </tr>
+        <tr>
+          <th class="config_key">Group Name</th>
+          <td class="config_value"><t:slot name="GroupName" /></td>
+          <td class="comment" />
+        </tr>
+        <tr>
+          <th class="config_key">Process Type</th>
+          <td class="config_value"><t:slot name="ProcessType" /></td>
+          <td class="comment" />
+        </tr>
+<!--
+        <tr>
+          <th class="config_key">Min Process Count</th>
+          <td class="config_value"><t:slot name="MultiProcess.MinProcessCount" /></td>
+          <td class="comment" />
+        </tr>
+        <tr>
+          <th class="config_key">Max Process Count</th>
+          <td class="config_value"><t:slot name="MultiProcess.ProcessCount" /></td>
+          <td class="comment" />
+        </tr>
+ -->
+        <tr>
+          <th class="config_key">Max Requests Per Process</th>
+          <td class="config_value"><t:slot name="MaxRequests" /></td>
+          <td class="comment" />
+        </tr>
+      </tbody>
+    </table>
+
+
+  </body>
+
+</html>

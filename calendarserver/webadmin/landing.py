@@ -26,11 +26,6 @@ __all__ = [
 # from twisted.web.template import renderer
 
 from .resource import PageElement, TemplateResource
-from .logs import LogsResource
-from .principals import PrincipalsResource
-from .work import WorkMonitorResource
-
-from . import logs, principals, work
 
 
 
@@ -61,14 +56,25 @@ class WebAdminLandingResource(TemplateResource):
     def __init__(self, path, root, directory, store, principalCollections=()):
         TemplateResource.__init__(self, WebAdminLandingPageElement)
 
+        from twistedcaldav.config import config as configuration
+
+        self.configuration = configuration
         self.directory = directory
         self.store = store
         # self._path = path
         # self._root = root
         # self._principalCollections = principalCollections
 
-        self.putChild(u"logs", LogsResource())
+        from .config import ConfigurationResource
+        self.putChild(u"config", ConfigurationResource(configuration))
+
+        from .principals import PrincipalsResource
         self.putChild(u"principals", PrincipalsResource(directory))
+
+        from .logs import LogsResource
+        self.putChild(u"logs", LogsResource())
+
+        from .work import WorkMonitorResource
         self.putChild(u"work", WorkMonitorResource(store))
 
 
@@ -85,13 +91,19 @@ class WebAdminLandingResource(TemplateResource):
         # re-loaded for each request.
         #
 
-        if name == u"logs":
-            reload(logs)
-            return logs.LogsResource()
+        from . import config, principals, logs, work
+
+        if name == u"config":
+            reload(config)
+            return config.ConfigurationResource(self.configuration)
 
         elif name == u"principals":
             reload(principals)
             return principals.PrincipalsResource(self.directory)
+
+        elif name == u"logs":
+            reload(logs)
+            return logs.LogsResource()
 
         elif name == u"work":
             reload(work)
