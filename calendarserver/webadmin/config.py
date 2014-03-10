@@ -78,8 +78,8 @@ class ConfigurationPageElement(PageElement):
         ):
             value = self.configuration
 
-            for key in key.split("."):
-                value = getattr(value, key)
+            for subkey in key.split("."):
+                value = getattr(value, subkey)
 
             def describe(value):
                 if value == u"":
