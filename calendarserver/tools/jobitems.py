@@ -154,20 +154,21 @@ class JobItemMonitorService(WorkerService, object):
             print("-------------")
 
         # Check keystrokes
-        try:
-            c = self.window.window.getkey()
-        except:
-            c = -1
-        if c == "q":
-            self.reactor.stop()
-        elif c == " ":
-            self.paused = not self.paused
-        elif c == "t":
-            self.seconds = 1.0 if self.seconds == 0.1 else 1.0
-        elif c == "h":
-            yield self.displayHelp()
-        elif c == "j":
-            yield self.displayJobs()
+        if useCurses:
+            try:
+                c = self.window.window.getkey()
+            except:
+                c = -1
+            if c == "q":
+                self.reactor.stop()
+            elif c == " ":
+                self.paused = not self.paused
+            elif c == "t":
+                self.seconds = 1.0 if self.seconds == 0.1 else 1.0
+            elif c == "h":
+                yield self.displayHelp()
+            elif c == "j":
+                yield self.displayJobs()
 
         self.reactor.callLater(self.seconds, self.updateDisplay)
 
@@ -176,7 +177,8 @@ class JobItemMonitorService(WorkerService, object):
 class BaseWindow(object):
     def __init__(self, nlines, ncols, begin_y, begin_x, store, title):
         self.window = curses.newwin(nlines, ncols, begin_y, begin_x) if useCurses else None
-        self.window.nodelay(1)
+        if useCurses:
+            self.window.nodelay(1)
         self.ncols = ncols
         self.store = store
         self.title = title
