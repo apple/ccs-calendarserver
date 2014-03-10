@@ -142,17 +142,23 @@ class UpgraderService(WorkerService, object):
         """
         Immediately stop.  The upgrade will have been run before this.
         """
-        if self.store is None:
-            if self.options["status"]:
-                self.output.write("Upgrade needed.\n")
-            else:
-                self.output.write("Upgrade failed.\n")
+        # If we get this far the database is OK
+        if self.options["status"]:
+            self.output.write("Database OK.\n")
         else:
-            # If we get this far the database is OK
-            if self.options["status"]:
-                self.output.write("Database OK.\n")
-            else:
-                self.output.write("Upgrade complete, shutting down.\n")
+            self.output.write("Upgrade complete, shutting down.\n")
+        UpgraderService.started = True
+        return succeed(None)
+
+
+    def doWorkWithoutStore(self):
+        """
+        Immediately stop.  The upgrade will have been run before this.
+        """
+        if self.options["status"]:
+            self.output.write("Upgrade needed.\n")
+        else:
+            self.output.write("Upgrade failed.\n")
         UpgraderService.started = True
         return succeed(None)
 
