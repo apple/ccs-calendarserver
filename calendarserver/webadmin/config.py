@@ -25,6 +25,8 @@ __all__ = [
 
 from twisted.web.template import renderer, tags as html
 
+from twext.python.log import Logger
+
 from .resource import PageElement, TemplateResource
 
 
@@ -107,12 +109,24 @@ class ConfigurationPageElement(PageElement):
     def log_level_row(self, request, tag):
         def rowsForNamespaces(namespaces):
             for namespace in namespaces:
-                yield tag.clone().fillSlots(
-                    log_level_name="** name **",
-                    log_level_value="** value **",
+                if namespace is None:
+                    name = u"(default)"
+                else:
+                    name = html.code(namespace)
+
+                value = html.code(
+                    Logger.publisher.levels.logLevelForNamespace(
+                        namespace
+                    ).name
                 )
 
-        namespaces = ()
+                yield tag.clone().fillSlots(
+                    log_level_name=name,
+                    log_level_value=value,
+                )
+
+        # FIXME: Using private attributes is bad.
+        namespaces = Logger.publisher.levels._logLevelsByNamespace.keys()
 
         return rowsForNamespaces(namespaces)
 
