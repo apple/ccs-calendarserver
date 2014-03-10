@@ -479,7 +479,7 @@ class ImplicitScheduler(object):
         # Get some useful information from the calendar
         yield self.extractCalendarData()
 
-        self.attendeePrincipal = yield self.calendar_home.directoryService().recordWithUID(self.calendar_home.uid())
+        self.attendeePrincipal = yield self.calendar_home.directoryService().recordWithUID(self.calendar_home.uid().decode("utf-8"))
         self.originator = self.attendee = self.attendeePrincipal.canonicalCalendarUserAddress()
 
         result = (yield self.scheduleWithOrganizer())
@@ -491,7 +491,7 @@ class ImplicitScheduler(object):
     def extractCalendarData(self):
 
         # Get the originator who is the owner of the calendar resource being modified
-        self.originatorPrincipal = yield self.calendar_home.directoryService().recordWithUID(self.calendar_home.uid())
+        self.originatorPrincipal = yield self.calendar_home.directoryService().recordWithUID(self.calendar_home.uid().decode("utf-8"))
 
         # Pick the canonical CUA:
         self.originator = self.originatorPrincipal.canonicalCalendarUserAddress()

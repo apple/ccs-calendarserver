@@ -77,30 +77,30 @@ class PoddingConduit(object):
 
 
     @inlineCallbacks
-    def validRequest(self, source_guid, destination_guid):
+    def validRequest(self, source_uid, destination_uid):
         """
-        Verify that the specified GUIDs are valid for the request and return the
+        Verify that the specified uids are valid for the request and return the
         matching directory records.
 
-        @param source_guid: GUID for the user on whose behalf the request is being made
-        @type source_guid: C{str}
-        @param destination_guid: GUID for the user to whom the request is being sent
-        @type destination_guid: C{str}
+        @param source_uid: UID for the user on whose behalf the request is being made
+        @type source_uid: C{str}
+        @param destination_uid: UID for the user to whom the request is being sent
+        @type destination_uid: C{str}
 
         @return: L{Deferred} resulting in C{tuple} of L{IStoreDirectoryRecord}
         """
 
-        source = yield self.store.directoryService().recordWithUID(source_guid)
+        source = yield self.store.directoryService().recordWithUID(source_uid)
         if source is None:
-            raise DirectoryRecordNotFoundError("Cross-pod source: {}".format(source_guid))
+            raise DirectoryRecordNotFoundError("Cross-pod source: {}".format(source_uid))
         if not source.thisServer():
-            raise FailedCrossPodRequestError("Cross-pod source not on this server: {}".format(source_guid))
+            raise FailedCrossPodRequestError("Cross-pod source not on this server: {}".format(source_uid))
 
-        destination = yield self.store.directoryService().recordWithUID(destination_guid)
+        destination = yield self.store.directoryService().recordWithUID(destination_uid)
         if destination is None:
-            raise DirectoryRecordNotFoundError("Cross-pod destination: {}".format(destination_guid))
+            raise DirectoryRecordNotFoundError("Cross-pod destination: {}".format(destination_uid))
         if destination.thisServer():
-            raise FailedCrossPodRequestError("Cross-pod destination on this server: {}".format(destination_guid))
+            raise FailedCrossPodRequestError("Cross-pod destination on this server: {}".format(destination_uid))
 
         returnValue((source, destination,))
 
@@ -167,13 +167,13 @@ class PoddingConduit(object):
 
         @param homeType: Type of home being shared.
         @type homeType: C{int}
-        @param ownerUID: GUID of the sharer.
+        @param ownerUID: UID of the sharer.
         @type ownerUID: C{str}
         @param ownerID: resource ID of the sharer calendar
         @type ownerID: C{int}
         @param ownerName: owner's name of the sharer calendar
         @type ownerName: C{str}
-        @param shareeUID: GUID of the sharee
+        @param shareeUID: UID of the sharee
         @type shareeUID: C{str}
         @param shareUID: Resource/invite ID for sharee
         @type shareUID: C{str}
@@ -251,11 +251,11 @@ class PoddingConduit(object):
 
         @param homeType: Type of home being shared.
         @type homeType: C{int}
-        @param ownerUID: GUID of the sharer.
+        @param ownerUID: UID of the sharer.
         @type ownerUID: C{str}
         @param ownerID: resource ID of the sharer calendar
         @type ownerID: C{int}
-        @param shareeUID: GUID of the sharee
+        @param shareeUID: UID of the sharee
         @type shareeUID: C{str}
         @param shareUID: Resource/invite ID for sharee
         @type shareUID: C{str}
@@ -314,9 +314,9 @@ class PoddingConduit(object):
 
         @param homeType: Type of home being shared.
         @type homeType: C{int}
-        @param ownerUID: GUID of the sharer.
+        @param ownerUID: UID of the sharer.
         @type ownerUID: C{str}
-        @param shareeUID: GUID of the recipient
+        @param shareeUID: UID of the recipient
         @type shareeUID: C{str}
         @param shareUID: Resource/invite ID for recipient
         @type shareUID: C{str}

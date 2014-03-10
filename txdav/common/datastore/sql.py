@@ -2907,6 +2907,9 @@ class CommonHome(SharingHomeMixIn):
     @classmethod
     @inlineCallbacks
     def homeWithUID(cls, txn, uid, create=False):
+        """
+        @param uid: I'm going to assume uid is utf-8 encoded bytes
+        """
         homeObject = yield cls.makeClass(txn, uid)
         if homeObject is not None:
             returnValue(homeObject)
@@ -2915,7 +2918,7 @@ class CommonHome(SharingHomeMixIn):
                 returnValue(None)
 
             # Determine if the user is local or external
-            record = yield txn.directoryService().recordWithUID(uid)
+            record = yield txn.directoryService().recordWithUID(uid.decode("utf-8"))
             if record is None:
                 raise DirectoryRecordNotFoundError("Cannot create home for UID since no directory record exists: {}".format(uid))
 
@@ -3009,7 +3012,7 @@ class CommonHome(SharingHomeMixIn):
 
 
     def directoryRecord(self):
-        return self.directoryService().recordWithUID(self.uid())
+        return self.directoryService().recordWithUID(self.uid().decode("utf-8"))
 
 
     @inlineCallbacks
@@ -6909,6 +6912,9 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
     @classmethod
     @inlineCallbacks
     def notificationsWithUID(cls, txn, uid, create):
+        """
+        @param uid: I'm going to assume uid is utf-8 encoded bytes
+        """
         rows = yield cls._resourceIDFromUIDQuery.on(txn, uid=uid)
 
         if rows:
@@ -6916,7 +6922,7 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
             created = False
         elif create:
             # Determine if the user is local or external
-            record = yield txn.directoryService().recordWithUID(uid)
+            record = yield txn.directoryService().recordWithUID(uid.decode("utf-8"))
             if record is None:
                 raise DirectoryRecordNotFoundError("Cannot create home for UID since no directory record exists: {}".format(uid))
 

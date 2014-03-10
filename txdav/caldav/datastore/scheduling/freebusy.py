@@ -47,6 +47,8 @@ fbtype_index_mapper = {'B': 0, 'T': 1, 'U': 2}
 
 fbcacher = Memcacher("FBCache", pickle=True)
 
+
+
 class FBCacheEntry(object):
 
     CACHE_DAYS_FLOATING_ADJUST = 1
@@ -217,7 +219,7 @@ def _internalGenerateFreeBusyInfo(
 
     # Free busy is per-user
     attendee_uid = calresource.viewerHome().uid()
-    attendee_record = yield calresource.directoryService().recordWithUID(attendee_uid)
+    attendee_record = yield calresource.directoryService().recordWithUID(attendee_uid.decode("utf-8"))
 
     # Get the timezone property from the collection.
     tz = calresource.getTimezone()
@@ -237,7 +239,7 @@ def _internalGenerateFreeBusyInfo(
         authz_record = organizer_record
         if hasattr(calresource._txn, "_authz_uid") and calresource._txn._authz_uid != organizer_uid:
             authz_uid = calresource._txn._authz_uid
-            authz_record = yield calresource.directoryService().recordWithUID(unicode(authz_uid))
+            authz_record = yield calresource.directoryService().recordWithUID(authz_uid.decode("utf-8"))
 
         # Check if attendee is also the organizer or the delegate doing the request
         if attendee_uid in (organizer_uid, authz_uid):

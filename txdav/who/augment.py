@@ -19,20 +19,22 @@
 Augmenting Directory Service
 """
 
-from twext.who.idirectory import IDirectoryService, RecordType
+from twext.python.log import Logger
 from twext.who.directory import DirectoryRecord
 from twext.who.directory import DirectoryService as BaseDirectoryService
+from twext.who.idirectory import IDirectoryService, RecordType
 from twext.who.util import ConstantsContainer
+from twisted.internet.defer import inlineCallbacks, returnValue
+from txdav.common.idirectoryservice import IStoreDirectoryService
+from txdav.who.delegates import RecordType as DelegateRecordType
 from txdav.who.directory import (
     CalendarDirectoryRecordMixin, CalendarDirectoryServiceMixin
 )
 from txdav.who.idirectory import AutoScheduleMode, FieldName
 from txdav.who.idirectory import RecordType as CalRecordType
-from txdav.who.delegates import RecordType as DelegateRecordType
-from twisted.internet.defer import inlineCallbacks, returnValue
 from zope.interface import implementer
 
-from twext.python.log import Logger
+
 log = Logger()
 
 
@@ -66,7 +68,7 @@ class AugmentedDirectoryRecord(DirectoryRecord, CalendarDirectoryRecordMixin):
         returnValue(augmented)
 
 
-@implementer(IDirectoryService)
+@implementer(IDirectoryService, IStoreDirectoryService)
 class AugmentedDirectoryService(BaseDirectoryService,
                                 CalendarDirectoryServiceMixin):
 

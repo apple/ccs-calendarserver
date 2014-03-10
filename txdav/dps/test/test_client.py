@@ -25,14 +25,31 @@ from twisted.test.testutils import returnConnected
 from twisted.trial import unittest
 from txdav.dps.client import DirectoryService
 from txdav.dps.server import DirectoryProxyAMPProtocol
+from txdav.who.directory import CalendarDirectoryServiceMixin
 
 
 testMode = "xml"  # "xml" or "od"
 if testMode == "xml":
     from txdav.who.xml import DirectoryService as XMLDirectoryService
+
+    # Mix in the calendar-specific service methods
+    class CalendarXMLDirectorySerivce(
+        XMLDirectoryService,
+        CalendarDirectoryServiceMixin
+    ):
+        pass
+
 elif testMode == "od":
     odpw = "secret"
     from twext.who.opendirectory import DirectoryService as OpenDirectoryService
+
+    # Mix in the calendar-specific service methods
+    class CalendarODDirectorySerivce(
+        OpenDirectoryService,
+        CalendarDirectoryServiceMixin
+    ):
+        pass
+
 
 
 
@@ -46,9 +63,9 @@ class DPSClientTest(unittest.TestCase):
         # The "remote" directory service
         if testMode == "xml":
             path = os.path.join(os.path.dirname(__file__), "test.xml")
-            remoteDirectory = XMLDirectoryService(FilePath(path))
+            remoteDirectory = CalendarXMLDirectorySerivce(FilePath(path))
         elif testMode == "od":
-            remoteDirectory = OpenDirectoryService()
+            remoteDirectory = CalendarODDirectorySerivce()
 
         # Connect the two services directly via an IOPump
         client = AMP()

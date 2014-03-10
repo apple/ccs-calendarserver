@@ -2010,7 +2010,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
                 # Find current principal and update modified by details
                 if hasattr(self._txn, "_authz_uid"):
-                    authz = yield self.directoryService().recordWithUID(self._txn._authz_uid)
+                    authz = yield self.directoryService().recordWithUID(self._txn._authz_uid.decode("utf-8"))
                     prop = Property("X-CALENDARSERVER-MODIFIED-BY", authz.canonicalCalendarUserAddress())
                     prop.setParameter("CN", authz.displayName())
                     for candidate in authz.calendarUserAddresses():

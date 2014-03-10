@@ -18,19 +18,19 @@ limitations under the License.
 
 <!DOCTYPE accounts SYSTEM "../../../conf/auth/accounts.dtd">
 
-<accounts realm="/Search">
-  <user>
+<directory realm="/Search">
+  <record type="user">
     <uid>home1</uid>
-    <guid>home1</guid>
+    <short-name>home1</short-name>
     <password>home1</password>
-    <name>Example User 1</name>
-    <email-address>home1@example.com</email-address>
-  </user>
-  <user>
+    <full-name>Example User 1</full-name>
+    <email>home1@example.com</email>
+  </record>
+  <record type="user">
     <uid>home2</uid>
-    <guid>home2</guid>
+    <short-name>home2</short-name>
     <password>home2</password>
-    <name>Example User 2</name>
-    <email-address>home2@example.com</email-address>
-  </user>
-</accounts>
+    <full-name>Example User 2</full-name>
+    <email>home2@example.com</email>
+  </record>
+</directory>
