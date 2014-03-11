@@ -25,8 +25,16 @@ __all__ = [
     "PrincipalsResource",
 ]
 
+from cStringIO import StringIO
+from zipfile import ZipFile
+
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web.template import tags as html, renderer
+
+from txweb2.stream import MemoryStream
+from txweb2.resource import Resource
+from txweb2.http import Response
+from txweb2.http_headers import MimeType
 
 from .resource import PageElement, TemplateResource
 
@@ -104,12 +112,13 @@ class PrincipalsResource(TemplateResource):
     addSlash = True
 
 
-    def __init__(self, directory):
+    def __init__(self, directory, store):
         TemplateResource.__init__(
             self, lambda: PrincipalsPageElement(directory)
         )
 
         self._directory = directory
+        self._store = store
 
 
     def getChild(self, name):
@@ -119,13 +128,13 @@ class PrincipalsResource(TemplateResource):
         record = self._directory.recordWithUID(name)
 
         if record:
-            return PrincipalEditResource(record)
+            return PrincipalResource(record, self._store)
         else:
             return None
 
 
 
-class PrincipalEditPageElement(PageElement):
+class PrincipalPageElement(PageElement):
     """
     Principal editing page element.
     """
@@ -150,18 +159,124 @@ class PrincipalEditPageElement(PageElement):
 
 
 
-class PrincipalEditResource(TemplateResource):
+class PrincipalResource(TemplateResource):
     """
     Principal editing resource.
+    """
+
+    addSlash = True
+
+
+    def __init__(self, record, store):
+        TemplateResource.__init__(
+            self, lambda: PrincipalPageElement(record)
+        )
+
+        self._record = record
+        self._store = store
+
+
+    def getChild(self, name):
+        if name == "":
+            return self
+
+        if name == "calendars_combined":
+            return PrincipalCalendarsExportResource(self._record, self._store)
+
+
+
+class PrincipalCalendarsExportResource(Resource):
+    """
+    Resource that vends a principal's calendars as iCalendar text.
     """
 
     addSlash = False
 
 
-    def __init__(self, record):
-        TemplateResource.__init__(
-            self, lambda: PrincipalEditPageElement(record)
+    def __init__(self, record, store):
+        Resource.__init__(self)
+
+        self._record = record
+        self._store = store
+
+
+    @inlineCallbacks
+    def calendarComponents(self):
+        uid = self._record.uid
+
+        calendarComponents = []
+
+        txn = self._store.newTransaction()
+        try:
+            calendarHome = yield txn.calendarHomeWithUID(uid)
+
+            if calendarHome is None:
+                raise RuntimeError("No calendar home for UID: {}".format(uid))
+
+            for calendar in (yield calendarHome.calendars()):
+                name = calendar.displayName()
+
+                for calendarObject in (yield calendar.calendarObjects()):
+                    perUser = yield calendarObject.filteredComponent(uid, True)
+                    calendarComponents.add((name, perUser))
+
+        finally:
+            txn.abort()
+
+        returnValue(calendarComponents)
+
+
+    @inlineCallbacks
+    def iCalendarZipArchiveData(self):
+        calendarComponents = yield self.calendarComponents()
+
+        fileHandle = StringIO()
+        try:
+            zipFile = ZipFile(fileHandle, "w", allowZip64=True)
+            try:
+                zipFile.comment = (
+                    "Calendars for UID: {}".format(self._record.uid)
+                )
+
+                names = set()
+
+                for name, component in calendarComponents:
+                    if name in names:
+                        i = 0
+                        while True:
+                            i += 1
+                            nextName = "{} {:d}".format(name, i)
+                            if nextName not in names:
+                                name = nextName
+                                break
+                            assert i < len(calendarComponents)
+
+                    text = component.getText().encode("utf-8")
+
+                    zipFile.writestr(name.encode("utf-8"), text)
+
+            finally:
+                zipFile.close()
+
+            data = fileHandle.getvalue()
+        finally:
+            fileHandle.close()
+
+        returnValue(data)
+
+
+    @inlineCallbacks
+    def render(self, request):
+        response = Response()
+        response.stream = MemoryStream((yield self.iCalendarZipArchiveData()))
+
+        # FIXME: Use content-encoding instead?
+        response.headers.setHeader(
+            b"content-type",
+            MimeType.fromString(b"application/zip")
         )
+
+        returnValue(response)
 
 
 
