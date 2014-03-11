@@ -69,7 +69,7 @@ class WebAdminLandingResource(TemplateResource):
         self.putChild(u"config", ConfigurationResource(configuration))
 
         from .principals import PrincipalsResource
-        self.putChild(u"principals", PrincipalsResource(directory))
+        self.putChild(u"principals", PrincipalsResource(directory, store))
 
         from .logs import LogsResource
         self.putChild(u"logs", LogsResource())
@@ -99,7 +99,7 @@ class WebAdminLandingResource(TemplateResource):
 
         elif name == u"principals":
             reload(principals)
-            return principals.PrincipalsResource(self.directory)
+            return principals.PrincipalsResource(self.directory, self.store)
 
         elif name == u"logs":
             reload(logs)
