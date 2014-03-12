@@ -40,10 +40,11 @@ from twistedcaldav.config import config, fullServerPath
 from twistedcaldav.database import (
     AbstractADBAPIDatabase, ADBAPISqliteMixin, ADBAPIPostgreSQLMixin
 )
-from twistedcaldav.directory.principal import formatLink
-from twistedcaldav.directory.principal import formatLinks
-from twistedcaldav.directory.principal import formatPrincipals
 from twistedcaldav.directory.util import normalizeUUID
+from twistedcaldav.directory.util import (
+    formatLink, formatLinks, formatPrincipals
+)
+
 from twistedcaldav.extensions import (
     DAVPrincipalResource, DAVResourceWithChildrenMixin
 )

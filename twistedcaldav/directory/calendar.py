@@ -35,7 +35,6 @@ from txweb2.http_headers import ETag, MimeType
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 
 from twistedcaldav.config import config
-from twistedcaldav.directory.idirectory import IDirectoryService
 from twistedcaldav.directory.common import uidsResourceName, \
     CommonUIDProvisioningResource, CommonHomeTypeProvisioningResource
 
@@ -48,7 +47,10 @@ from uuid import uuid4
 
 log = Logger()
 
+
 # FIXME: copied from resource.py to avoid circular dependency
+
+
 class CalDAVComplianceMixIn(object):
     def davComplianceClasses(self):
         return (
@@ -102,9 +104,14 @@ class DirectoryCalendarHomeProvisioningResource (DirectoryCalendarProvisioningRe
         #
         # Create children
         #
-        # MOVE2WHO
-        for name, recordType in [(r.name + "s", r) for r in self.directory.recordTypes()]:
-            self.putChild(name, DirectoryCalendarHomeTypeProvisioningResource(self, name, recordType))
+        # ...just "users" though.  If we iterate all of the directory's
+        # recordTypes, we also get the proxy sub principal types.
+        for recordTypeName in [
+            self.directory.recordTypeToOldName(r) for r in [
+                self.directory.recordType.user
+            ]
+        ]:
+            self.putChild(recordTypeName, DirectoryCalendarHomeTypeProvisioningResource(self, recordTypeName, r))
 
         self.putChild(uidsResourceName, DirectoryCalendarHomeUIDProvisioningResource(self))
 
@@ -114,8 +121,7 @@ class DirectoryCalendarHomeProvisioningResource (DirectoryCalendarProvisioningRe
 
 
     def listChildren(self):
-        # MOVE2WHO
-        return [r.name + "s" for r in self.directory.recordTypes()]
+        return [self.directory.recordTypeToOldName(r) for r in self.directory.recordTypes()]
 
 
     def principalCollections(self):
@@ -153,9 +159,9 @@ class DirectoryCalendarHomeProvisioningResource (DirectoryCalendarProvisioningRe
 
 
 class DirectoryCalendarHomeTypeProvisioningResource(
-        CommonHomeTypeProvisioningResource,
-        DirectoryCalendarProvisioningResource
-    ):
+    CommonHomeTypeProvisioningResource,
+    DirectoryCalendarProvisioningResource
+):
     """
     Resource which provisions calendar home collections of a specific
     record type as needed.
@@ -181,16 +187,15 @@ class DirectoryCalendarHomeTypeProvisioningResource(
         return joinURL(self._parent.url(), self.name)
 
 
+    @inlineCallbacks
     def listChildren(self):
         if config.EnablePrincipalListings:
-
-            def _recordShortnameExpand():
-                for record in self.directory.listRecords(self.recordType):
-                    if record.enabledForCalendaring:
-                        for shortName in record.shortNames:
-                            yield shortName
-
-            return _recordShortnameExpand()
+            children = []
+            for record in (yield self.directory.listRecords(self.recordType)):
+                if record.enabledForCalendaring:
+                    for shortName in record.shortNames:
+                        children.append(shortName)
+            returnValue(children)
         else:
             # Not a listable collection
             raise HTTPError(responsecode.FORBIDDEN)
@@ -226,9 +231,9 @@ class DirectoryCalendarHomeTypeProvisioningResource(
 
 
 class DirectoryCalendarHomeUIDProvisioningResource (
-        CommonUIDProvisioningResource,
-        DirectoryCalendarProvisioningResource
-    ):
+    CommonUIDProvisioningResource,
+    DirectoryCalendarProvisioningResource
+):
 
     homeResourceTypeName = 'calendars'
 

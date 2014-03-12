@@ -1016,8 +1016,6 @@ DEFAULT_CONFIG = {
         "Enabled": True,
         "MemcachedPool" : "Default",
         "UpdateSeconds" : 300,
-        "ExpireSeconds" : 86400,
-        "LockSeconds"   : 600,
         "EnableUpdater" : True,
         "UseExternalProxies" : False,
     },

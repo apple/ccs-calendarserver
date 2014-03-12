@@ -34,7 +34,6 @@ from txweb2.http_headers import ETag, MimeType
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 
 from twistedcaldav.config import config
-from twistedcaldav.directory.idirectory import IDirectoryService
 
 from twistedcaldav.directory.common import CommonUIDProvisioningResource,\
     uidsResourceName, CommonHomeTypeProvisioningResource
@@ -58,7 +57,7 @@ class CalDAVComplianceMixIn(object):
 
 
 
-class DirectoryAddressBookProvisioningResource (
+class DirectoryAddressBookProvisioningResource(
     ReadOnlyResourceMixIn,
     CalDAVComplianceMixIn,
     DAVResourceWithChildrenMixin,
@@ -77,9 +76,9 @@ class DirectoryAddressBookProvisioningResource (
 
 
 
-class DirectoryAddressBookHomeProvisioningResource (
-        DirectoryAddressBookProvisioningResource
-    ):
+class DirectoryAddressBookHomeProvisioningResource(
+    DirectoryAddressBookProvisioningResource
+):
     """
     Resource which provisions address book home collections as needed.
     """
@@ -104,8 +103,14 @@ class DirectoryAddressBookHomeProvisioningResource (
         #
         # Create children
         #
-        for recordType in [r.name for r in self.directory.recordTypes()]:
-            self.putChild(recordType, DirectoryAddressBookHomeTypeProvisioningResource(self, recordType))
+        # ...just "users" though.  If we iterate all of the directory's
+        # recordTypes, we also get the proxy sub principal types.
+        for recordTypeName in [
+            self.directory.recordTypeToOldName(r) for r in [
+                self.directory.recordType.user
+            ]
+        ]:
+            self.putChild(recordTypeName, DirectoryAddressBookHomeTypeProvisioningResource(self, r))
 
         self.putChild(uidsResourceName, DirectoryAddressBookHomeUIDProvisioningResource(self))
 
@@ -115,7 +120,7 @@ class DirectoryAddressBookHomeProvisioningResource (
 
 
     def listChildren(self):
-        return [r.name for r in self.directory.recordTypes()]
+        return [self.directory.recordTypeToOldName(r) for r in self.directory.recordTypes()]
 
 
     def principalCollections(self):
@@ -153,9 +158,9 @@ class DirectoryAddressBookHomeProvisioningResource (
 
 
 class DirectoryAddressBookHomeTypeProvisioningResource (
-        CommonHomeTypeProvisioningResource,
-        DirectoryAddressBookProvisioningResource
-    ):
+    CommonHomeTypeProvisioningResource,
+    DirectoryAddressBookProvisioningResource
+):
     """
     Resource which provisions address book home collections of a specific
     record type as needed.
@@ -176,19 +181,19 @@ class DirectoryAddressBookHomeTypeProvisioningResource (
 
 
     def url(self):
-        return joinURL(self._parent.url(), self.recordType)
+        return joinURL(self._parent.url(), self.directory.recordTypeToOldName(self.recordType))
 
 
+    @inlineCallbacks
     def listChildren(self):
         if config.EnablePrincipalListings:
+            children = []
+            for record in (yield self.directory.listRecords(self.recordType)):
+                if record.enabledForAddressBooks:
+                    for shortName in record.shortNames:
+                        children.append(shortName)
 
-            def _recordShortnameExpand():
-                for record in self.directory.listRecords(self.recordType):
-                    if record.enabledForAddressBooks:
-                        for shortName in record.shortNames:
-                            yield shortName
-
-            return _recordShortnameExpand()
+            returnValue(children)
         else:
             # Not a listable collection
             raise HTTPError(responsecode.FORBIDDEN)
@@ -224,9 +229,9 @@ class DirectoryAddressBookHomeTypeProvisioningResource (
 
 
 class DirectoryAddressBookHomeUIDProvisioningResource (
-        CommonUIDProvisioningResource,
-        DirectoryAddressBookProvisioningResource
-    ):
+    CommonUIDProvisioningResource,
+    DirectoryAddressBookProvisioningResource
+):
 
     homeResourceTypeName = 'addressbooks'
 

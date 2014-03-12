@@ -28,48 +28,46 @@ __all__ = [
     "DirectoryCalendarPrincipalResource",
 ]
 
-import uuid
 from urllib import unquote
 from urlparse import urlparse
-
-from twisted.cred.credentials import UsernamePassword
-from twisted.python.failure import Failure
-from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.internet.defer import succeed
-from twisted.web.template import XMLFile, Element, renderer, tags
-from twistedcaldav.directory.util import NotFoundResource
-
-from txweb2.auth.digest import DigestedCredentials
-from txweb2 import responsecode
-from txweb2.http import HTTPError
-from txdav.xml import element as davxml
-from txweb2.dav.util import joinURL
-from txweb2.dav.noneprops import NonePropertyStore
+import uuid
 
 from twext.python.log import Logger
-
-
-try:
-    from twistedcaldav.authkerb import NegotiateCredentials
-    NegotiateCredentials # sigh, pyflakes
-except ImportError:
-    NegotiateCredentials = None
+from twisted.cred.credentials import UsernamePassword
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import succeed
 from twisted.python.modules import getModule
-
+from twisted.web.template import XMLFile, Element, renderer
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
 from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.directory.augment import allowedAutoScheduleModes
 from twistedcaldav.directory.common import uidsResourceName
-from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
-from twistedcaldav.directory.idirectory import IDirectoryService
+from twistedcaldav.directory.util import NotFoundResource
+from twistedcaldav.directory.util import (
+    formatLink, formatLinks, formatPrincipals, formatList
+)
 from twistedcaldav.directory.wiki import getWikiACL
+from twistedcaldav.extensions import (
+    ReadOnlyResourceMixIn, DAVPrincipalResource, DAVResourceWithChildrenMixin
+)
 from twistedcaldav.extensions import DirectoryElement
-from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVPrincipalResource, \
-    DAVResourceWithChildrenMixin
 from twistedcaldav.resource import CalendarPrincipalCollectionResource, CalendarPrincipalResource
 from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
+from txdav.who.directory import CalendarDirectoryRecordMixin
+from txdav.xml import element as davxml
+from txweb2 import responsecode
+from txweb2.auth.digest import DigestedCredentials
+from txweb2.dav.noneprops import NonePropertyStore
+from txweb2.dav.util import joinURL
+from txweb2.http import HTTPError
+
+try:
+    from twistedcaldav.authkerb import NegotiateCredentials
+    NegotiateCredentials  # sigh, pyflakes
+except ImportError:
+    NegotiateCredentials = None
 
 thisModule = getModule(__name__)
 log = Logger()
@@ -109,7 +107,7 @@ class PermissionsMixIn (ReadOnlyResourceMixIn):
 def cuTypeConverter(cuType):
     """ Converts calendar user types to OD type names """
 
-    return "recordType", DirectoryRecord.fromCUType(cuType)
+    return "recordType", CalendarDirectoryRecordMixin.fromCUType(cuType)
 
 
 
@@ -127,7 +125,7 @@ def cuAddressConverter(origCUAddr):
     elif cua.startswith("/") or cua.startswith("http"):
         ignored, collection, id = cua.rsplit("/", 2)
         if collection == "__uids__":
-            return "guid", id
+            return "uid", id
         else:
             return "recordName", id
 
@@ -223,7 +221,7 @@ class DirectoryProvisioningResource (
     _cs_ns = "http://calendarserver.org/ns/"
     _fieldMap = {
         ("DAV:" , "displayname") :
-            ("fullName", None, "Display Name", davxml.DisplayName),
+            ("fullNames", None, "Display Name", davxml.DisplayName),
         ("urn:ietf:params:xml:ns:caldav" , "calendar-user-type") :
             ("", cuTypeConverter, "Calendar User Type",
             caldavxml.CalendarUserType),
@@ -287,10 +285,16 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
         #
         # Create children
         #
-        # MOVE2WHO - hack: appending "s" -- need mapping
-        for name, recordType in [(r.name + "s", r) for r in self.directory.recordTypes()]:
-            self.putChild(name, DirectoryPrincipalTypeProvisioningResource(self,
-                name, recordType))
+        for name, recordType in [
+            (self.directory.recordTypeToOldName(r), r)
+            for r in self.directory.recordTypes()
+        ]:
+            self.putChild(
+                name,
+                DirectoryPrincipalTypeProvisioningResource(
+                    self, name, recordType
+                )
+            )
 
         self.putChild(uidsResourceName, DirectoryPrincipalUIDProvisioningResource(self))
 
@@ -869,8 +873,12 @@ class DirectoryPrincipalResource (
             #         returnValue(None)
 
             if name == "email-address-set":
+                try:
+                    emails = self.record.emailAddresses
+                except AttributeError:
+                    emails = []
                 returnValue(customxml.EmailAddressSet(
-                    *[customxml.EmailAddressProperty(addr) for addr in sorted(self.record.emailAddresses)]
+                    *[customxml.EmailAddressProperty(addr) for addr in sorted(emails)]
                 ))
 
         result = (yield super(DirectoryPrincipalResource, self).readProperty(property, request))
@@ -1463,71 +1471,3 @@ authReadACL = davxml.ACL(
 
 
 
-def formatPrincipals(principals):
-    """
-    Format a list of principals into some twisted.web.template DOM objects.
-    """
-    def recordKey(principal):
-        try:
-            record = principal.record
-        except AttributeError:
-            try:
-                record = principal.parent.record
-            except:
-                return None
-        return (record.recordType, record.shortNames[0])
-
-
-    def describe(principal):
-        if hasattr(principal, "record"):
-            return " - %s" % (principal.record.displayName,)
-        else:
-            return ""
-
-    return formatList(
-        tags.a(href=principal.principalURL())(
-            str(principal), describe(principal)
-        )
-        for principal in sorted(principals, key=recordKey)
-    )
-
-
-
-def formatList(iterable):
-    """
-    Format a list of stuff as an interable.
-    """
-    thereAreAny = False
-    try:
-        item = None
-        for item in iterable:
-            thereAreAny = True
-            yield " -> "
-            if item is None:
-                yield "None"
-            else:
-                yield item
-            yield "\n"
-    except Exception, e:
-        log.error("Exception while rendering: %s" % (e,))
-        Failure().printTraceback()
-        yield "  ** %s **: %s\n" % (e.__class__.__name__, e)
-    if not thereAreAny:
-        yield " '()\n"
-
-
-
-def formatLink(url):
-    """
-    Convert a URL string into some twisted.web.template DOM objects for
-    rendering as a link to itself.
-    """
-    return tags.a(href=url)(url)
-
-
-
-def formatLinks(urls):
-    """
-    Format a list of URL strings as a list of twisted.web.template DOM links.
-    """
-    return formatList(formatLink(link) for link in urls)

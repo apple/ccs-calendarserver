@@ -88,12 +88,10 @@ from txdav.common.datastore.work.revision_cleanup import (
 )
 from txdav.dps.server import directoryFromConfig
 from txdav.dps.client import DirectoryService as DirectoryProxyClientService
-from txdav.who.groups import GroupCacher as NewGroupCacher
+from txdav.who.groups import GroupCacher
 
 from twistedcaldav import memcachepool
 from twistedcaldav.config import config, ConfigurationError
-from twistedcaldav.directory import calendaruserproxy
-from twistedcaldav.directory.directory import GroupMembershipCacheUpdater
 from txdav.who.groups import scheduleNextGroupCachingUpdate
 from twistedcaldav.localization import processLocalizationFiles
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
@@ -550,10 +548,7 @@ class SlaveSpawnerService(Service):
             )
             self.monitor.addProcessObject(process, PARENT_ENVIRONMENT)
 
-        if (
-            config.DirectoryProxy.Enabled and
-            config.DirectoryProxy.SocketPath != ""
-        ):
+        if (config.DirectoryProxy.SocketPath != ""):
             log.info("Adding directory proxy service")
 
             dpsArgv = [
@@ -1004,26 +999,18 @@ class CalDAVServiceMaker (object):
 
         # Optionally set up group cacher
         if config.GroupCaching.Enabled:
-            groupCacher = GroupMembershipCacheUpdater(
-                calendaruserproxy.ProxyDBService,
+            groupCacher = GroupCacher(
                 directory,
-                config.GroupCaching.UpdateSeconds,
-                config.GroupCaching.ExpireSeconds,
-                config.GroupCaching.LockSeconds,
-                namespace=config.GroupCaching.MemcachedPool,
-                useExternalProxies=config.GroupCaching.UseExternalProxies,
+                updateSeconds=config.GroupCaching.UpdateSeconds
             )
-            newGroupCacher = NewGroupCacher(directory)
         else:
             groupCacher = None
-            newGroupCacher = None
 
         def decorateTransaction(txn):
             txn._pushDistributor = pushDistributor
             txn._rootResource = result.rootResource
             txn._mailRetriever = mailRetriever
             txn._groupCacher = groupCacher
-            txn._newGroupCacher = newGroupCacher
 
         store.callWithNewTransactions(decorateTransaction)
 
@@ -1357,19 +1344,12 @@ class CalDAVServiceMaker (object):
 
             # Optionally set up group cacher
             if config.GroupCaching.Enabled:
-                groupCacher = GroupMembershipCacheUpdater(
-                    calendaruserproxy.ProxyDBService,
+                groupCacher = GroupCacher(
                     directory,
-                    config.GroupCaching.UpdateSeconds,
-                    config.GroupCaching.ExpireSeconds,
-                    config.GroupCaching.LockSeconds,
-                    namespace=config.GroupCaching.MemcachedPool,
-                    useExternalProxies=config.GroupCaching.UseExternalProxies
+                    updateSeconds=config.GroupCaching.UpdateSeconds
                 )
-                newGroupCacher = NewGroupCacher(directory)
             else:
                 groupCacher = None
-                newGroupCacher = None
 
             # Optionally enable Manhole access
             if config.Manhole.Enabled:
@@ -1405,7 +1385,6 @@ class CalDAVServiceMaker (object):
                 txn._rootResource = result.rootResource
                 txn._mailRetriever = mailRetriever
                 txn._groupCacher = groupCacher
-                txn._newGroupCacher = newGroupCacher
 
             store.callWithNewTransactions(decorateTransaction)
 
@@ -1942,26 +1921,18 @@ class CalDAVServiceMaker (object):
 
             # Optionally set up group cacher
             if config.GroupCaching.Enabled:
-                groupCacher = GroupMembershipCacheUpdater(
-                    calendaruserproxy.ProxyDBService,
+                groupCacher = GroupCacher(
                     directory,
-                    config.GroupCaching.UpdateSeconds,
-                    config.GroupCaching.ExpireSeconds,
-                    config.GroupCaching.LockSeconds,
-                    namespace=config.GroupCaching.MemcachedPool,
-                    useExternalProxies=config.GroupCaching.UseExternalProxies
+                    updateSeconds=config.GroupCaching.UpdateSeconds
                 )
-                newGroupCacher = NewGroupCacher(directory)
             else:
                 groupCacher = None
-                newGroupCacher = None
 
             def decorateTransaction(txn):
                 txn._pushDistributor = None
                 txn._rootResource = rootResource
                 txn._mailRetriever = mailRetriever
                 txn._groupCacher = groupCacher
-                txn._newGroupCacher = newGroupCacher
 
             store.callWithNewTransactions(decorateTransaction)
 

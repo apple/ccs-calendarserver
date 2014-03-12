@@ -30,7 +30,6 @@ from txdav.who.delegates import addDelegate, removeDelegate
 
 
 from twistedcaldav.config import config
-from twistedcaldav.directory.directory import UnknownRecordTypeError
 from txdav.who.groups import schedulePolledGroupCachingUpdate
 
 from calendarserver.tools.util import (
@@ -44,11 +43,6 @@ from calendarserver.tools.cmdline import utilityMain, WorkerService
 
 def usage(e=None):
     if e:
-        if isinstance(e, UnknownRecordTypeError):
-            print("Valid record types:")
-            for recordType in config.directory.recordTypes():
-                print("    %s" % (recordType,))
-
         print(e)
         print("")
 

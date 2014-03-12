@@ -20,10 +20,19 @@ Calendar/Contacts specific methods for DirectoryRecord
 
 
 import uuid
+from twext.python.log import Logger
+
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.who.expression import (
     MatchType, Operand, MatchExpression, CompoundExpression, MatchFlags
 )
+from twext.who.idirectory import RecordType as BaseRecordType
+from txdav.who.idirectory import RecordType as DAVRecordType
+from twisted.cred.credentials import UsernamePassword
+from txweb2.auth.digest import DigestedCredentials
+
+
+log = Logger()
 
 
 __all__ = [
@@ -33,6 +42,8 @@ __all__ = [
 
 
 class CalendarDirectoryServiceMixin(object):
+
+    guid = "1332A615-4D3A-41FE-B636-FBE25BFB982E"
 
     # Must maintain the hack for a bit longer:
     def setPrincipalCollection(self, principalCollection):
@@ -101,6 +112,40 @@ class CalendarDirectoryServiceMixin(object):
         return self.recordsFromExpression(expression)
 
 
+    def recordsMatchingFieldsWithCUType(self, fields, operand=Operand.OR,
+                                        cuType=None):
+        if cuType:
+            recordType = CalendarDirectoryRecordMixin.fromCUType(cuType)
+        else:
+            recordType = None
+
+        return self.recordsMatchingFields(
+            fields, operand=operand, recordType=recordType
+        )
+
+
+    def recordsMatchingFields(self, fields, operand=Operand.OR, recordType=None):
+        """
+        @param fields: a iterable of tuples, each tuple consisting of:
+            directory field name (C{unicode})
+            search term (C{unicode})
+            match flags (L{twext.who.expression.MatchFlags})
+            match type (L{twext.who.expression.MatchType})
+        """
+        subExpressions = []
+        for fieldName, searchTerm, matchFlags, matchType in fields:
+            subExpressions.append(
+                MatchExpression(
+                    self.fieldName.lookupByName(fieldName),
+                    searchTerm,
+                    matchType,
+                    matchFlags
+                )
+            )
+        expression = CompoundExpression(subExpressions, operand)
+        return self.recordsFromExpression(expression)
+
+
     # FIXME: Existing code assumes record type names are plural. Is there any
     # reason to maintain backwards compatibility?  I suppose there could be
     # scripts referring to record type of "users", "locations"
@@ -114,6 +159,37 @@ class CalendarDirectoryServiceMixin(object):
 
 
 class CalendarDirectoryRecordMixin(object):
+
+
+    @inlineCallbacks
+    def verifyCredentials(self, credentials):
+
+        # XYZZY REMOVE THIS, it bypasses all authentication!:
+        returnValue(True)
+
+        if isinstance(credentials, UsernamePassword):
+            log.debug("UsernamePassword")
+            returnValue(
+                (yield self.verifyPlaintextPassword(credentials.password))
+            )
+
+        elif isinstance(credentials, DigestedCredentials):
+            log.debug("DigestedCredentials")
+            returnValue(
+                (yield self.verifyHTTPDigest(
+                    self.shortNames[0],
+                    self.service.realmName,
+                    credentials.fields["uri"],
+                    credentials.fields["nonce"],
+                    credentials.fields.get("cnonce", ""),
+                    credentials.fields["algorithm"],
+                    credentials.fields.get("nc", ""),
+                    credentials.fields.get("qop", ""),
+                    credentials.fields["response"],
+                    credentials.method
+                ))
+            )
+
 
     @property
     def calendarUserAddresses(self):
@@ -146,16 +222,43 @@ class CalendarDirectoryRecordMixin(object):
         return frozenset(cuas)
 
 
-    def getCUType(self):
-        # Mapping from directory record.recordType to RFC2445 CUTYPE values
-        self._cuTypes = {
-            self.service.recordType.user: 'INDIVIDUAL',
-            self.service.recordType.group: 'GROUP',
-            self.service.recordType.resource: 'RESOURCE',
-            self.service.recordType.location: 'ROOM',
-        }
+    # Mapping from directory record.recordType to RFC2445 CUTYPE values
+    _cuTypes = {
+        BaseRecordType.user: 'INDIVIDUAL',
+        BaseRecordType.group: 'GROUP',
+        DAVRecordType.resource: 'RESOURCE',
+        DAVRecordType.location: 'ROOM',
+    }
 
+
+    def getCUType(self):
         return self._cuTypes.get(self.recordType, "UNKNOWN")
+
+
+    @classmethod
+    def fromCUType(cls, cuType):
+        for key, val in cls._cuTypes.iteritems():
+            if val == cuType:
+                return key
+        return None
+
+
+    def applySACLs(self):
+        """
+        Disable calendaring and addressbooks as dictated by SACLs
+        """
+
+        # FIXME: need to re-implement SACLs
+        # if config.EnableSACLs and self.CheckSACL:
+        #     username = self.shortNames[0]
+        #     if self.CheckSACL(username, "calendar") != 0:
+        #         self.log.debug("%s is not enabled for calendaring due to SACL"
+        #                        % (username,))
+        #         self.enabledForCalendaring = False
+        #     if self.CheckSACL(username, "addressbook") != 0:
+        #         self.log.debug("%s is not enabled for addressbooks due to SACL"
+        #                        % (username,))
+        #         self.enabledForAddressBooks = False
 
 
     @property

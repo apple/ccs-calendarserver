@@ -53,10 +53,8 @@ from twistedcaldav.bind import doBind
 from twistedcaldav.cache import CacheStoreNotifierFactory
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeProvisioningResource
-from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
-from twistedcaldav.directory.directory import GroupMembershipCache
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.wiki import WikiDirectoryService
 from calendarserver.push.notifier import NotifierFactory
@@ -491,7 +489,7 @@ def getRootResource(config, newStore, resources=None):
     portal.registerChecker(HTTPDigestCredentialChecker(directory))
     portal.registerChecker(PrincipalCredentialChecker())
 
-    realm = directory.realmName or ""
+    realm = directory.realmName.encode("utf-8") or ""
 
     log.info("Configuring authentication for realm: {realm}", realm=realm)
 

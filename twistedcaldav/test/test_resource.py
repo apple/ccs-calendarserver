@@ -14,20 +14,23 @@
 # limitations under the License.
 ##
 
+from twext.who.idirectory import RecordType
+from twisted.internet.defer import inlineCallbacks
+from twistedcaldav import carddavxml
+from twistedcaldav.config import config
+from twistedcaldav.notifications import NotificationCollectionResource
+from twistedcaldav.resource import (
+    CalDAVResource, CommonHomeResource,
+    CalendarHomeResource, AddressBookHomeResource
+)
+from twistedcaldav.test.util import (
+    InMemoryPropertyStore, StoreTestCase, SimpleStoreRequest
+)
+from twistedcaldav.test.util import TestCase
 from txdav.xml.element import HRef, Principal, Unauthenticated
 from txweb2.http import HTTPError
 from txweb2.test.test_server import SimpleRequest
 
-from twisted.internet.defer import inlineCallbacks
-
-from twistedcaldav import carddavxml
-from twistedcaldav.config import config
-from twistedcaldav.resource import CalDAVResource, CommonHomeResource, \
- CalendarHomeResource, AddressBookHomeResource
-from twistedcaldav.test.util import InMemoryPropertyStore, StoreTestCase, \
-    SimpleStoreRequest
-from twistedcaldav.test.util import TestCase
-from twistedcaldav.notifications import NotificationCollectionResource
 
 
 class StubProperty(object):
@@ -185,13 +188,20 @@ class OwnershipTests(TestCase):
 
 class DefaultAddressBook (StoreTestCase):
 
+
+    @inlineCallbacks
+    def setUp(self):
+        yield StoreTestCase.setUp(self)
+        self.authRecord = yield self.directory.recordWithShortName(RecordType.user, u"wsanchez")
+
+
     @inlineCallbacks
     def test_pick_default_addressbook(self):
         """
         Get adbk
         """
 
-        request = SimpleStoreRequest(self, "GET", "/addressbooks/users/wsanchez/", authid="wsanchez")
+        request = SimpleStoreRequest(self, "GET", "/addressbooks/users/wsanchez/", authRecord=self.authRecord)
         home = yield request.locateResource("/addressbooks/users/wsanchez")
 
         # default property initially not present

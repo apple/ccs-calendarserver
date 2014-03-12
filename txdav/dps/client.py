@@ -23,7 +23,6 @@ from twext.who.directory import DirectoryService as BaseDirectoryService
 from twext.who.idirectory import RecordType, IDirectoryService
 import twext.who.idirectory
 from twext.who.util import ConstantsContainer
-from twisted.cred.credentials import UsernamePassword
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.internet.protocol import ClientCreator
@@ -43,7 +42,6 @@ from txdav.who.directory import (
 )
 import txdav.who.delegates
 import txdav.who.idirectory
-from txweb2.auth.digest import DigestedCredentials
 from zope.interface import implementer
 
 log = Logger()
@@ -78,19 +76,17 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
          txdav.who.idirectory.FieldName)
     )
 
+
+    # MOVE2WHO: we talked about passing these in instead:
     # def __init__(self, fieldNames, recordTypes):
     #     self.fieldName = fieldNames
     #     self.recordType = recordTypes
 
-    # MOVE2WHO
+
+    # MOVE2WHO needed?
     def getGroups(self, guids=None):
         return succeed(set())
-
-
-    guid = "1332A615-4D3A-41FE-B636-FBE25BFB982E"
-
     # END MOVE2WHO
-
 
 
 
@@ -186,6 +182,13 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
         # temporary hack until we can fix all callers not to pass strings:
         if isinstance(recordType, (str, unicode)):
             recordType = self.recordType.lookupByName(recordType)
+
+        # MOVE2WHO, REMOVE THIS HACK TOO:
+        if not isinstance(shortName, unicode):
+            log.warn("Need to change shortName to unicode")
+            shortName = shortName.decode("utf-8")
+
+
         return self._call(
             RecordWithShortNameCommand,
             self._processSingleRecord,
@@ -195,6 +198,11 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
 
 
     def recordWithUID(self, uid):
+        # MOVE2WHO, REMOVE THIS:
+        if not isinstance(uid, unicode):
+            log.warn("Need to change uid to unicode")
+            uid = uid.decode("utf-8")
+
         return self._call(
             RecordWithUIDCommand,
             self._processSingleRecord,
@@ -236,6 +244,10 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
         )
 
 
+    def recordsMatchingFields(self, fields, operand="or", recordType=None):
+        # MOVE2WHO FIXME: Need to add an AMP command
+        raise NotImplementedError
+
 
 
 
@@ -243,36 +255,6 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
 
 @implementer(ICalendarStoreDirectoryRecord)
 class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
-
-
-    @inlineCallbacks
-    def verifyCredentials(self, credentials):
-
-        # XYZZY REMOVE THIS, it bypasses all authentication!:
-        returnValue(True)
-
-        if isinstance(credentials, UsernamePassword):
-            log.debug("UsernamePassword")
-            returnValue(
-                (yield self.verifyPlaintextPassword(credentials.password))
-            )
-
-        elif isinstance(credentials, DigestedCredentials):
-            log.debug("DigestedCredentials")
-            returnValue(
-                (yield self.verifyHTTPDigest(
-                    self.shortNames[0],
-                    self.service.realmName,
-                    credentials.fields["uri"],
-                    credentials.fields["nonce"],
-                    credentials.fields.get("cnonce", ""),
-                    credentials.fields["algorithm"],
-                    credentials.fields.get("nc", ""),
-                    credentials.fields.get("qop", ""),
-                    credentials.fields["response"],
-                    credentials.method
-                ))
-            )
 
 
     def verifyPlaintextPassword(self, password):
@@ -305,6 +287,7 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
         )
 
 
+
     def members(self):
         return self.service._call(
             MembersCommand,
@@ -330,8 +313,6 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
             uid=self.uid.encode("utf-8"),
             memberUIDs=memberUIDs
         )
-
-
 
 
     # For scheduling/freebusy

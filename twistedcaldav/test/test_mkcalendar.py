@@ -27,6 +27,10 @@ from txweb2.dav.fileop import rmdir
 from twistedcaldav import caldavxml
 from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest
 
+from twext.who.idirectory import RecordType
+
+
+
 class MKCALENDAR (StoreTestCase):
     """
     MKCALENDAR request
@@ -34,6 +38,12 @@ class MKCALENDAR (StoreTestCase):
     # FIXME:
     # Try nesting calendars (should fail)
     # HEAD request on calendar: resourcetype = (collection, calendar)
+
+    @inlineCallbacks
+    def setUp(self):
+        yield StoreTestCase.setUp(self)
+        self.authRecord = yield self.directory.recordWithShortName(RecordType.user, u"user01")
+
 
     def test_make_calendar(self):
         """
@@ -45,7 +55,7 @@ class MKCALENDAR (StoreTestCase):
         if os.path.exists(path):
             rmdir(path)
 
-        request = SimpleStoreRequest(self, "MKCALENDAR", uri, authid="user01")
+        request = SimpleStoreRequest(self, "MKCALENDAR", uri, authRecord=self.authRecord)
 
         @inlineCallbacks
         def do_test(response):
@@ -146,7 +156,7 @@ END:VCALENDAR
             )
         )
 
-        request = SimpleStoreRequest(self, "MKCALENDAR", uri, authid="user01")
+        request = SimpleStoreRequest(self, "MKCALENDAR", uri, authRecord=self.authRecord)
         request.stream = MemoryStream(mk.toxml())
         return self.send(request, do_test)
 
@@ -165,7 +175,7 @@ END:VCALENDAR
 
             # FIXME: Check for DAV:resource-must-be-null element
 
-        request = SimpleStoreRequest(self, "MKCALENDAR", uri, authid="user01")
+        request = SimpleStoreRequest(self, "MKCALENDAR", uri, authRecord=self.authRecord)
         return self.send(request, do_test)
 
 
@@ -190,8 +200,8 @@ END:VCALENDAR
 
             nested_uri = os.path.join(first_uri, "nested")
 
-            request = SimpleStoreRequest(self, "MKCALENDAR", nested_uri, authid="user01")
+            request = SimpleStoreRequest(self, "MKCALENDAR", nested_uri, authRecord=self.authRecord)
             yield self.send(request, do_test)
 
-        request = SimpleStoreRequest(self, "MKCALENDAR", first_uri, authid="user01")
+        request = SimpleStoreRequest(self, "MKCALENDAR", first_uri, authRecord=self.authRecord)
         return self.send(request, next)

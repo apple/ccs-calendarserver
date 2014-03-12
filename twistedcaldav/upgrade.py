@@ -39,11 +39,8 @@ from txweb2.dav.fileop import rmdir
 from twistedcaldav import caldavxml
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
-from twistedcaldav.directory.directory import DirectoryService
-from twistedcaldav.directory.directory import GroupMembershipCacheUpdater
 from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
-from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.ical import Component
 from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser
 from txdav.caldav.datastore.scheduling.imip.mailgateway import MailGatewayTokensDatabase
@@ -61,7 +58,6 @@ from txdav.caldav.datastore.index_file import db_basename
 from twisted.protocols.amp import AMP, Command, String, Boolean
 
 from calendarserver.tap.util import getRootResource, FakeRequest
-from calendarserver.tools.util import getDirectory
 
 from txdav.caldav.datastore.scheduling.imip.mailgateway import migrateTokensToStore
 
@@ -909,31 +905,31 @@ def removeIllegalCharacters(data):
 
 
 
-# Deferred
-def migrateFromOD(config, directory):
-    #
-    # Migrates locations and resources from OD
-    #
-    try:
-        from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
-        from calendarserver.tools.resources import migrateResources
-    except ImportError:
-        return succeed(None)
+# # Deferred
+# def migrateFromOD(config, directory):
+#     #
+#     # Migrates locations and resources from OD
+#     #
+#     try:
+#         from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
+#         from calendarserver.tools.resources import migrateResources
+#     except ImportError:
+#         return succeed(None)
 
-    log.warn("Migrating locations and resources")
+#     log.warn("Migrating locations and resources")
 
-    userService = directory.serviceForRecordType("users")
-    resourceService = directory.serviceForRecordType("resources")
-    if (
-        not isinstance(userService, OpenDirectoryService) or
-        not isinstance(resourceService, XMLDirectoryService)
-    ):
-        # Configuration requires no migration
-        return succeed(None)
+#     userService = directory.serviceForRecordType("users")
+#     resourceService = directory.serviceForRecordType("resources")
+#     if (
+#         not isinstance(userService, OpenDirectoryService) or
+#         not isinstance(resourceService, XMLDirectoryService)
+#     ):
+#         # Configuration requires no migration
+#         return succeed(None)
 
-    # Create internal copies of resources and locations based on what is
-    # found in OD
-    return migrateResources(userService, resourceService)
+#     # Create internal copies of resources and locations based on what is
+#     # found in OD
+#     return migrateResources(userService, resourceService)
 
 
 
@@ -1042,27 +1038,28 @@ class PostDBImportStep(object):
                 loader = XMLCalendarUserProxyLoader(self.config.ProxyLoadFromFile)
                 yield loader.updateProxyDB()
 
-            # Populate the group membership cache
-            if (self.config.GroupCaching.Enabled and
-                self.config.GroupCaching.EnableUpdater):
-                proxydb = calendaruserproxy.ProxyDBService
-                if proxydb is None:
-                    proxydbClass = namedClass(self.config.ProxyDBService.type)
-                    proxydb = proxydbClass(**self.config.ProxyDBService.params)
+            # # Populate the group membership cache
+            # if (self.config.GroupCaching.Enabled and
+            #     self.config.GroupCaching.EnableUpdater):
+            #     proxydb = calendaruserproxy.ProxyDBService
+            #     if proxydb is None:
+            #         proxydbClass = namedClass(self.config.ProxyDBService.type)
+            #         proxydb = proxydbClass(**self.config.ProxyDBService.params)
 
-                updater = GroupMembershipCacheUpdater(proxydb,
-                    directory,
-                    self.config.GroupCaching.UpdateSeconds,
-                    self.config.GroupCaching.ExpireSeconds,
-                    self.config.GroupCaching.LockSeconds,
-                    namespace=self.config.GroupCaching.MemcachedPool,
-                    useExternalProxies=self.config.GroupCaching.UseExternalProxies)
-                yield updater.updateCache(fast=True)
+            #     # MOVE2WHO FIXME: port to new group cacher
+            #     updater = GroupMembershipCacheUpdater(proxydb,
+            #         directory,
+            #         self.config.GroupCaching.UpdateSeconds,
+            #         self.config.GroupCaching.ExpireSeconds,
+            #         self.config.GroupCaching.LockSeconds,
+            #         namespace=self.config.GroupCaching.MemcachedPool,
+            #         useExternalProxies=self.config.GroupCaching.UseExternalProxies)
+            #     yield updater.updateCache(fast=True)
 
-                uid, gid = getCalendarServerIDs(self.config)
-                dbPath = os.path.join(self.config.DataRoot, "proxies.sqlite")
-                if os.path.exists(dbPath):
-                    os.chown(dbPath, uid, gid)
+            uid, gid = getCalendarServerIDs(self.config)
+            dbPath = os.path.join(self.config.DataRoot, "proxies.sqlite")
+            if os.path.exists(dbPath):
+                os.chown(dbPath, uid, gid)
 
             # Process old inbox items
             self.store.setMigrating(True)

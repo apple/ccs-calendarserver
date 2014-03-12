@@ -45,17 +45,14 @@ class GroupCacherPollingWork(
         # Delete all other work items
         yield Delete(From=self.table, Where=None).on(self.transaction)
 
-        oldGroupCacher = getattr(self.transaction, "_groupCacher", None)
-        newGroupCacher = getattr(self.transaction, "_newGroupCacher", None)
-        if oldGroupCacher is not None or newGroupCacher is not None:
+        groupCacher = getattr(self.transaction, "_groupCacher", None)
+        if groupCacher is not None:
 
             # Schedule next update
 
-            # TODO: Be sure to move updateSeconds to the new cacher
-            # implementation
             notBefore = (
                 datetime.datetime.utcnow() +
-                datetime.timedelta(seconds=oldGroupCacher.updateSeconds)
+                datetime.timedelta(seconds=groupCacher.updateSeconds)
             )
             log.debug(
                 "Scheduling next group cacher update: {when}", when=notBefore
@@ -67,21 +64,12 @@ class GroupCacherPollingWork(
 
             # New implmementation
             try:
-                yield newGroupCacher.update(self.transaction)
+                yield groupCacher.update(self.transaction)
             except Exception, e:
                 log.error(
                     "Failed to update new group membership cache ({error})",
                     error=e
                 )
-
-            # Old implmementation
-            # try:
-            #     oldGroupCacher.updateCache()
-            # except Exception, e:
-            #     log.error(
-            #         "Failed to update old group membership cache ({error})",
-            #         error=e
-            #     )
 
         else:
             notBefore = (
@@ -136,11 +124,11 @@ class GroupRefreshWork(WorkItem, fromTable(schema.GROUP_REFRESH_WORK)):
             From=self.table, Where=(self.table.GROUP_GUID == self.groupGuid)
         ).on(self.transaction)
 
-        newGroupCacher = getattr(self.transaction, "_newGroupCacher", None)
-        if newGroupCacher is not None:
+        groupCacher = getattr(self.transaction, "_groupCacher", None)
+        if groupCacher is not None:
 
             try:
-                yield newGroupCacher.refreshGroup(
+                yield groupCacher.refreshGroup(
                     self.transaction, self.groupGuid.decode("utf-8")
                 )
             except Exception, e:
@@ -255,13 +243,16 @@ class GroupCacher(object):
 
     def __init__(
         self, directory,
-        useExternalProxies=False, externalProxiesSource=None
+        updateSeconds=600,
+        useExternalProxies=False,
+        externalProxiesSource=None
     ):
         self.directory = directory
         self.useExternalProxies = useExternalProxies
         if useExternalProxies and externalProxiesSource is None:
             externalProxiesSource = self.directory.getExternalProxyAssignments
         self.externalProxiesSource = externalProxiesSource
+        self.updateSeconds = updateSeconds
 
 
     @inlineCallbacks

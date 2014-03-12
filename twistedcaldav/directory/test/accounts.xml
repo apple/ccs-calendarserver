@@ -135,8 +135,42 @@ limitations under the License.
     <short-name>delegategroup</short-name>
     <uid>00599DAF-3E75-42DD-9DB7-52617E79943F</uid>
     <full-name>Delegate Group</full-name>
-      <member-uid>delegateviagroup</member-uid>
+    <member-uid>delegateviagroup</member-uid>
   </record>
+
+  <record type="user">
+    <short-name>user01</short-name>
+    <uid>user01</uid>
+    <password>user01</password>
+    <full-name>User 01</full-name>
+    <email>user01@example.com</email>
+  </record>
+
+  <record type="user">
+    <short-name>user02</short-name>
+    <uid>user02</uid>
+    <password>user02</password>
+    <full-name>User 02</full-name>
+    <email>user02@example.com</email>
+  </record>
+
+  <record type="user">
+    <short-name>user03</short-name>
+    <uid>user03</uid>
+    <password>user03</password>
+    <full-name>User 03</full-name>
+    <email>user03@example.com</email>
+  </record>
+
+  <record type="user">
+    <short-name>user04</short-name>
+    <uid>user04</uid>
+    <password>user04</password>
+    <full-name>User 04</full-name>
+    <email>user04@example.com</email>
+  </record>
+
+  <!-- Repeat is not (yet?) supported in twext.who.xml
   <user repeat="100">
     <short-name>user%02d</short-name>
     <uid>user%02d</uid>
@@ -146,6 +180,8 @@ limitations under the License.
     <last-name>~9 User %02d</last-name>
     <email>~10@example.com</email>
   </user>
+  -->
+
   <record type="group">
     <short-name>managers</short-name>
     <uid>9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1</uid>

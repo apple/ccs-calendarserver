@@ -68,7 +68,7 @@ class CommonUIDProvisioningResource(object):
         name = record.uid
 
         if record is None:
-            log.debug("No directory record with GUID %r" % (name,))
+            log.debug("No directory record with UID %r" % (name,))
             returnValue(None)
 
         # MOVE2WHO

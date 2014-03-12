@@ -1989,7 +1989,7 @@ class AttachmentsChildCollection(_GetChildHelper):
                 # Access level comes from what the wiki has granted to the
                 # sharee
                 sharee = self.principalForUID(shareeUID)
-                userID = sharee.record.guid
+                userID = sharee.record.uid
                 wikiID = owner.record.shortNames[0]
                 access = (yield getWikiAccess(userID, wikiID))
                 if access == "read":
@@ -2866,7 +2866,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                 principalURL = str(authz_principal)
                 if principalURL:
                     authz = (yield request.locateResource(principalURL))
-                    self._parentResource._newStoreObject._txn._authz_uid = authz.record.guid
+                    self._parentResource._newStoreObject._txn._authz_uid = authz.record.uid
 
             try:
                 response = (yield self.storeComponent(component, smart_merge=schedule_tag_match))
@@ -3587,7 +3587,7 @@ class AddressBookObjectResource(_CommonObjectResource):
                 principalURL = str(authz_principal)
                 if principalURL:
                     authz = (yield request.locateResource(principalURL))
-                    self._parentResource._newStoreObject._txn._authz_uid = authz.record.guid
+                    self._parentResource._newStoreObject._txn._authz_uid = authz.record.uid
 
             try:
                 response = (yield self.storeComponent(component))
