@@ -446,6 +446,16 @@ class LimitingInheritingProtocolFactory(InheritingProtocolFactory):
         self.limiter = limiter
         self.maxAccepts = limiter.maxAccepts
         self.maxRequests = limiter.maxRequests
+        self.stopping = False
+
+
+    def stopFactory(self):
+        """
+        Mark this factory as being stopped to prevent attempts to start reading on its
+        port again when the limiter statuses change during shutdown.
+        """
+        super(LimitingInheritingProtocolFactory, self).stopFactory()
+        self.stopping = True
 
 
     def loadAboveMaximum(self):
@@ -457,9 +467,11 @@ class LimitingInheritingProtocolFactory(InheritingProtocolFactory):
 
     def loadNominal(self):
         """
-        The current server load is nominal; proceed with reading requests.
+        The current server load is nominal; proceed with reading requests (but only if
+        the server itself is still running).
         """
-        self.myServer.myPort.startReading()
+        if not self.stopping:
+            self.myServer.myPort.startReading()
 
 
     @property
