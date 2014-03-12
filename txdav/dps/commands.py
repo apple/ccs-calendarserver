@@ -77,6 +77,17 @@ class RecordsMatchingTokensCommand(amp.Command):
     ]
 
 
+class RecordsMatchingFieldsCommand(amp.Command):
+    arguments = [
+        ('fields', amp.ListOf(amp.ListOf(amp.String()))),
+        ('operand', amp.String()),
+        ('recordType', amp.String(optional=True)),
+    ]
+    response = [
+        ('fieldsList', amp.String()),
+    ]
+
+
 class UpdateRecordsCommand(amp.Command):
     arguments = [
         ('fieldsList', amp.String()),

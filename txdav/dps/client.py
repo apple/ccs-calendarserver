@@ -20,6 +20,7 @@ import uuid
 from twext.python.log import Logger
 from twext.who.directory import DirectoryRecord as BaseDirectoryRecord
 from twext.who.directory import DirectoryService as BaseDirectoryService
+from twext.who.expression import Operand
 from twext.who.idirectory import RecordType, IDirectoryService
 import twext.who.idirectory
 from twext.who.util import ConstantsContainer
@@ -33,7 +34,7 @@ from txdav.common.idirectoryservice import IStoreDirectoryService
 from txdav.dps.commands import (
     RecordWithShortNameCommand, RecordWithUIDCommand, RecordWithGUIDCommand,
     RecordsWithRecordTypeCommand, RecordsWithEmailAddressCommand,
-    RecordsMatchingTokensCommand,
+    RecordsMatchingTokensCommand, RecordsMatchingFieldsCommand,
     MembersCommand, GroupsCommand, SetMembersCommand,
     VerifyPlaintextPasswordCommand, VerifyHTTPDigestCommand
 )
@@ -244,10 +245,28 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
         )
 
 
-    def recordsMatchingFields(self, fields, operand="or", recordType=None):
-        # MOVE2WHO FIXME: Need to add an AMP command
-        raise NotImplementedError
+    def recordsMatchingFields(self, fields, operand=Operand.OR, recordType=None):
 
+        newFields = []
+        for fieldName, searchTerm, matchFlags, matchType in fields:
+            newFields.append(
+                (
+                    fieldName.encode("utf-8"),
+                    searchTerm.encode("utf-8"),
+                    matchFlags.name.encode("utf-8"),
+                    matchType.name.encode("utf-8")
+                )
+            )
+        if recordType is not None:
+            recordType = recordType.name.encode("utf-8")
+
+        return self._call(
+            RecordsMatchingFieldsCommand,
+            self._processMultipleRecords,
+            fields=newFields,
+            operand=operand.name.encode("utf-8"),
+            recordType=recordType
+        )
 
 
 

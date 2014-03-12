@@ -134,14 +134,14 @@ class CalendarDirectoryServiceMixin(object):
         """
         subExpressions = []
         for fieldName, searchTerm, matchFlags, matchType in fields:
-            subExpressions.append(
-                MatchExpression(
-                    self.fieldName.lookupByName(fieldName),
-                    searchTerm,
-                    matchType,
-                    matchFlags
-                )
+            subExpression = MatchExpression(
+                self.fieldName.lookupByName(fieldName),
+                searchTerm,
+                matchType,
+                matchFlags
             )
+            subExpressions.append(subExpression)
+
         expression = CompoundExpression(subExpressions, operand)
         return self.recordsFromExpression(expression)
 

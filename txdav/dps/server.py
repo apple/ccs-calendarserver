@@ -21,6 +21,7 @@ import uuid
 from calendarserver.tap.util import getDBPool, storeFromConfig
 from twext.python.log import Logger
 from twext.who.aggregate import DirectoryService as AggregateDirectoryService
+from twext.who.expression import MatchType, MatchFlags, Operand
 from twext.who.idirectory import RecordType
 from twext.who.ldap import DirectoryService as LDAPDirectoryService
 from twisted.application import service
@@ -39,7 +40,7 @@ from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from txdav.dps.commands import (
     RecordWithShortNameCommand, RecordWithUIDCommand, RecordWithGUIDCommand,
     RecordsWithRecordTypeCommand, RecordsWithEmailAddressCommand,
-    RecordsMatchingTokensCommand,
+    RecordsMatchingTokensCommand, RecordsMatchingFieldsCommand,
     MembersCommand, GroupsCommand, SetMembersCommand,
     VerifyPlaintextPasswordCommand, VerifyHTTPDigestCommand,
     # UpdateRecordsCommand, RemoveRecordsCommand
@@ -179,6 +180,33 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         log.debug("RecordsMatchingTokens: {t}", t=(", ".join(tokens)))
         records = yield self._directory.recordsMatchingTokens(
             tokens, context=context
+        )
+        fieldsList = []
+        for record in records:
+            fieldsList.append(self.recordToDict(record))
+        response = {
+            "fieldsList": pickle.dumps(fieldsList),
+        }
+        log.debug("Responding with: {response}", response=response)
+        returnValue(response)
+
+
+    @RecordsMatchingFieldsCommand.responder
+    @inlineCallbacks
+    def recordsMatchingFields(self, fields, operand="OR", recordType=None):
+        log.debug("RecordsMatchingFields")
+        newFields = []
+        for fieldName, searchTerm, matchFlags, matchType in fields:
+            fieldName = fieldName.decode("utf-8")
+            searchTerm = searchTerm.decode("utf-8")
+            matchFlags = MatchFlags.lookupByName(matchFlags.decode("utf-8"))
+            matchType = MatchType.lookupByName(matchType.decode("utf-8"))
+            newFields.append((fieldName, searchTerm, matchFlags, matchType))
+        operand = Operand.lookupByName(operand)
+        if recordType:
+            recordType = RecordType.lookupByName(recordType)
+        records = yield self._directory.recordsMatchingFields(
+            newFields, operand=operand, recordType=recordType
         )
         fieldsList = []
         for record in records:
