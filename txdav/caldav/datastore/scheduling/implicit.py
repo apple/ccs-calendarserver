@@ -603,6 +603,8 @@ class ImplicitScheduler(object):
 
         self.needs_sequence_change = False
 
+        self.coerceOrganizerScheduleAgent()
+
         # Check for a delete
         if self.action == "remove":
 
@@ -790,8 +792,15 @@ class ImplicitScheduler(object):
                     only_status = False
 
             if checkOrganizerValue:
-                oldOrganizer = self.oldcalendar.getOrganizer()
-                newOrganizer = self.calendar.getOrganizer()
+                def _normalizeCUAddress(addr):
+                    if not addr.startswith("urn:uuid"):
+                        principal = self.calendar_home.directoryService().recordWithCalendarUserAddress(addr)
+                        if principal is not None:
+                            addr = principal.canonicalCalendarUserAddress()
+                    return addr
+
+                oldOrganizer = _normalizeCUAddress(self.oldcalendar.getOrganizer())
+                newOrganizer = _normalizeCUAddress(self.calendar.getOrganizer())
                 if oldOrganizer != newOrganizer:
                     log.error("Cannot change ORGANIZER: UID:{uid}", uid=self.uid)
                     raise HTTPError(ErrorResponse(
@@ -1001,6 +1010,15 @@ class ImplicitScheduler(object):
                     changed = True
 
         return changed
+
+
+    def coerceOrganizerScheduleAgent(self):
+        """
+        Do not allow SCHEDULE-AGENT=CLIENT/NONE for organizers hosted by this server when they schedule. Coerce to
+        SCHEDULE-AGENT=SERVER.
+        """
+
+        self.calendar.removePropertyParameters("ORGANIZER", ("SCHEDULE-AGENT",))
 
 
     @inlineCallbacks

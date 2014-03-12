@@ -34,7 +34,8 @@ from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler, \
 from txdav.caldav.datastore.scheduling.scheduler import ScheduleResponseQueue
 from txdav.caldav.datastore.test.util import buildCalendarStore, \
     buildDirectoryRecord
-from txdav.caldav.icalendarstore import AttendeeAllowedError
+from txdav.caldav.icalendarstore import AttendeeAllowedError, \
+    ComponentUpdateState
 from txdav.common.datastore.test.util import CommonCommonTests, populateCalendarsFrom
 
 import hashlib
@@ -1248,6 +1249,62 @@ END:VCALENDAR
         self.assertEqual(len(list2), 2)
         self.assertTrue(list2[0].startswith(hashlib.md5("12345-67890").hexdigest()))
         self.assertTrue(list2[1].startswith(hashlib.md5("12345-67890").hexdigest()))
+
+
+    @inlineCallbacks
+    def test_doImplicitScheduling_UpdateMailtoOrganizerEvent(self):
+        """
+        Test that doImplicitScheduling works when the existing calendar data contains a non-normalized
+        organizer calendar user address.
+        """
+
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01";SCHEDULE-AGENT=NONE:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+        data2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T130000Z
+DTEND:20080601T140000Z
+ORGANIZER;CN="User 01";SCHEDULE-AGENT=NONE:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+        yield self._createCalendarObject(data1, "user01", "test.ics")
+
+        cobj = yield self.calendarObjectUnderTest(home="user01", name="test.ics")
+        yield cobj._setComponentInternal(Component.fromString(data1), internal_state=ComponentUpdateState.RAW)
+        yield self.commit()
+
+        cobj = yield self.calendarObjectUnderTest(home="user01", name="test.ics")
+        comp = yield cobj.component()
+        self.assertTrue(comp.getOrganizer().startswith("mailto:"))
+        self.assertFalse(comp.getOrganizerScheduleAgent())
+
+        cobj = yield self.calendarObjectUnderTest(home="user01", name="test.ics")
+        yield cobj.setComponent(Component.fromString(data2))
+        yield self.commit()
+
+        cobj = yield self.calendarObjectUnderTest(home="user01", name="test.ics")
+        comp = yield cobj.component()
+        self.assertTrue(comp.getOrganizer().startswith("urn:uuid:"))
+        self.assertTrue(comp.getOrganizerScheduleAgent())
 
 
     @inlineCallbacks
