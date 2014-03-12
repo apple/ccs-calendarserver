@@ -110,6 +110,10 @@ class iTipProcessing(object):
             # Ignore out of sequence message
             return None, None
 
+        # Special check: if the SCHEDULE-AGENT is being changed throw away all the existing data
+        if calendar.getOrganizerScheduleAgent() != itip_message.getOrganizerScheduleAgent():
+            return (iTipProcessing.processNewRequest(itip_message, recipient, creating=True), {})
+
         # Merge Organizer data with Attendee's own changes (VALARMs, Comment only for now).
         from txdav.caldav.datastore.scheduling.icaldiff import iCalDiff
         differ = iCalDiff(calendar, itip_message, False)

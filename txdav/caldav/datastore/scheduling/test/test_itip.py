@@ -252,6 +252,74 @@ END:VCALENDAR
             self.assertEqual(result, changed, msg="Calendar mismatch: %s" % (title,))
 
 
+    def test_processRequest_scheduleAgentChange(self):
+        """
+        Test iTIPProcessing.processRequest properly replaces a SCHEDULE-AGENT=CLIENT component with a
+        SCHEDULE-AGENT=SERVER one.
+        """
+
+        data = (
+            (
+                "1.1 Simple Reply - non recurring",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:PT1H
+DTSTAMP:20071114T000000Z
+ATTENDEE:mailto:user01@example.com
+ORGANIZER;SCHEDULE-AGENT=CLIENT:mailto:user01@example.com
+SUMMARY:Test - original
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+METHOD:REQUEST
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:PT1H
+DTSTAMP:20071114T000000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+ORGANIZER:mailto:user01@example.com
+SUMMARY:Test - update
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:PT1H
+DTSTAMP:20071114T000000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+ORGANIZER:mailto:user01@example.com
+SUMMARY:Test - update
+TRANSP:TRANSPARENT
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+        )
+
+        for title, calendar_txt, itip_txt, changed_txt in data:
+            calendar = Component.fromString(calendar_txt)
+            itip = Component.fromString(itip_txt)
+            changed = Component.fromString(changed_txt)
+
+            result, rids = iTipProcessing.processRequest(itip, calendar, "mailto:user02@example.com")
+            self.assertEqual(len(rids), 0)
+            self.assertEqual(result, changed, msg="Calendar mismatch: %s" % (title,))
+
+
     def test_processReply(self):
         """
         Test iTIPProcessing.processReply
