@@ -137,7 +137,7 @@ install::
 install::
 	@echo "Installing CalDAVTester package..."
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/AppleInternal/ServerTools"
-	$(_v) $(INSTALL_FILE) "$(Sources)/CalDAVTester.tgz" "$(DSTROOT)/AppleInternal/ServerTools/CalDAVTester.tgz"
+	$(_v) $(TAR) -C "$(DSTROOT)/AppleInternal/ServerTools" -xzf "$(Sources)/CalDAVTester.tgz"
 
 #
 # Automatic Extract
