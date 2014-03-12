@@ -248,15 +248,6 @@ class XMLDirectoryService(DirectoryService):
         return self._accounts()
 
 
-    def recordWithCalendarUserAddress(self, cua):
-        cua = normalizeCUAddr(cua)
-        for recordType in self.recordTypes():
-            record = self._lookupInIndex(recordType, self.INDEX_TYPE_CUA, cua)
-            if record and record.enabledForCalendaring:
-                return record
-        return None
-
-
     def recordWithShortName(self, recordType, shortName):
         return self._lookupInIndex(recordType, self.INDEX_TYPE_SHORTNAME, shortName)
 
