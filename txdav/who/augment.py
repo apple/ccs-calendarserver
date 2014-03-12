@@ -154,6 +154,11 @@ class AugmentedDirectoryService(BaseDirectoryService,
 
     @inlineCallbacks
     def recordWithShortName(self, recordType, shortName):
+        # log.debug(
+        #     "Augment - recordWithShortName {rt}, {n}",
+        #     rt=recordType.name,
+        #     n=shortName
+        # )
         # MOVE2WHO, REMOVE THIS:
         if not isinstance(shortName, unicode):
             log.warn("Need to change shortName to unicode")
@@ -161,6 +166,13 @@ class AugmentedDirectoryService(BaseDirectoryService,
 
         record = yield self._directory.recordWithShortName(recordType, shortName)
         record = yield self.augment(record)
+        # log.debug(
+        #     "Augment - recordWithShortName {rt}, {n} returned {r}, {u}",
+        #     rt=recordType.name,
+        #     n=shortName,
+        #     r=record.recordType.name,
+        #     u=record.uid
+        # )
         returnValue(record)
 
 

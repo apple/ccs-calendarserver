@@ -22,7 +22,7 @@ from calendarserver.tap.util import getDBPool, storeFromConfig
 from twext.python.log import Logger
 from twext.who.aggregate import DirectoryService as AggregateDirectoryService
 from twext.who.expression import MatchType, MatchFlags, Operand
-from twext.who.idirectory import RecordType
+from twext.who.idirectory import RecordType, DirectoryConfigurationError
 from twext.who.ldap import DirectoryService as LDAPDirectoryService
 from twisted.application import service
 from twisted.application.strports import service as strPortsService
@@ -454,17 +454,19 @@ def directoryFromConfig(config, store=None):
     txdav.dps.client.DirectoryService
     """
 
-    # FIXME: this needs to talk to its own separate database.  In fact,
+    # MOVE2WHO FIXME: this needs to talk to its own separate database.  In fact,
     # don't pass store=None if you already have called storeFromConfig()
     # within this process.  Pass the existing store in here.
     pool, txnFactory = getDBPool(config)
     if store is None:
         store = storeFromConfig(config, txnFactory, None)
 
-    # directoryType = config.DirectoryProxy.DirectoryType
-    directoryType = config.DirectoryService.type
+    directoryType = config.DirectoryService.type.lower()
 
-    if "XML" in directoryType:
+    # MOVE2WHO FIXME:
+    # Set the appropriate record types on each service
+
+    if "xml" in directoryType:
         xmlFile = config.DirectoryService.params.xmlFile
         xmlFile = fullServerPath(config.DataRoot, xmlFile)
         # path = kwds.pop("path", "")
@@ -472,40 +474,31 @@ def directoryFromConfig(config, store=None):
             log.error("Path not found for XML directory: {p}", p=xmlFile)
         fp = FilePath(xmlFile)
         primaryDirectory = XMLDirectoryService(fp)
+        log.debug(
+            "Using XML for {types}",
+            types=(", ".join([rt.name for rt in primaryDirectory.recordTypes()]))
+        )
 
+    elif "opendirectory" in directoryType:
+        from twext.who.opendirectory import DirectoryService as ODDirectoryService
+        primaryDirectory = ODDirectoryService()
 
-    # FIXME: implement the other service types
+    elif "ldap" in directoryType:
+        params = config.DirectoryService.params
+        if params.credentials.dn and params.credentials.password:
+            creds = UsernamePassword(params.credentials.dn,
+                                     params.credentials.password)
+        else:
+            creds = None
+        primaryDirectory = LDAPDirectoryService(
+            params.uri,
+            params.rdnSchema.base,
+            creds=creds
+        )
 
-    # args = config.DirectoryProxy.Arguments
-    # kwds = config.DirectoryProxy.Keywords
-
-
-    # if directoryType == "OD":
-    #     from twext.who.opendirectory import DirectoryService as ODDirectoryService
-    #     primaryDirectory = ODDirectoryService(*args, **kwds)
-
-    # elif directoryType == "LDAP":
-    #     authDN = kwds.pop("authDN", "")
-    #     password = kwds.pop("password", "")
-    #     if authDN and password:
-    #         creds = UsernamePassword(authDN, password)
-    #     else:
-    #         creds = None
-    #     kwds["credentials"] = creds
-    #     debug = kwds.pop("debug", "")
-    #     primaryDirectory = LDAPDirectoryService(
-    #         *args, _debug=debug, **kwds
-    #     )
-
-    # elif directoryType == "XML":
-    #     path = kwds.pop("path", "")
-    #     if not path or not os.path.exists(path):
-    #         log.error("Path not found for XML directory: {p}", p=path)
-    #     fp = FilePath(path)
-    #     primaryDirectory = XMLDirectoryService(fp, *args, **kwds)
-
-    # else:
-    #     log.error("Invalid DirectoryType: {dt}", dt=directoryType)
+    else:
+        log.error("Invalid DirectoryType: {dt}", dt=directoryType)
+        raise DirectoryConfigurationError
 
     #
     # Setup the Augment Service

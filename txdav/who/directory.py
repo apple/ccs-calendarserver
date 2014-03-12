@@ -20,15 +20,16 @@ Calendar/Contacts specific methods for DirectoryRecord
 
 
 import uuid
-from twext.python.log import Logger
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twext.python.log import Logger
 from twext.who.expression import (
     MatchType, Operand, MatchExpression, CompoundExpression, MatchFlags
 )
 from twext.who.idirectory import RecordType as BaseRecordType
-from txdav.who.idirectory import RecordType as DAVRecordType
 from twisted.cred.credentials import UsernamePassword
+from twisted.internet.defer import inlineCallbacks, returnValue
+from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
+from txdav.who.idirectory import RecordType as DAVRecordType
 from txweb2.auth.digest import DigestedCredentials
 
 
@@ -58,8 +59,6 @@ class CalendarDirectoryServiceMixin(object):
 
     @inlineCallbacks
     def recordWithCalendarUserAddress(self, address):
-        # FIXME: Circular
-        from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
         address = normalizeCUAddr(address)
         record = None
         if address.startswith("urn:uuid:"):
