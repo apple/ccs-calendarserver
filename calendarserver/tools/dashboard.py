@@ -199,7 +199,7 @@ class BaseWindow(object):
 
 
     def makeWindow(self, top=0, left=0):
-        raise NotImplementedError
+        raise NotImplementedError()
 
 
     def _createWindow(
@@ -242,7 +242,7 @@ class BaseWindow(object):
         """
         Periodic window update - redraw the window.
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
 
 
