@@ -15,8 +15,8 @@
 ##
 
 """
-A curses (or plain text) based dashboard for viewing various aspects of the server as exposed by
-the L{DashboardProtocol} stats socket.
+A curses (or plain text) based dashboard for viewing various aspects of the
+server as exposed by the L{DashboardProtocol} stats socket.
 """
 
 from getopt import getopt, GetoptError
@@ -30,8 +30,9 @@ import time
 import socket
 import errno
 
-def usage(e=None):
 
+
+def usage(e=None):
     name = os.path.basename(sys.argv[0])
     print("usage: %s [options]" % (name,))
     print("")
@@ -50,8 +51,8 @@ def usage(e=None):
 
 BOX_WIDTH = 52
 
-def main():
 
+def main():
     try:
         (optargs, _ignore_args) = getopt(
             sys.argv[1:], "ht", [
@@ -91,7 +92,8 @@ def main():
 
 class Dashboard(object):
     """
-    Main dashboard controller. Use Python's L{sched} feature to schedule updates.
+    Main dashboard controller. Use Python's L{sched} feature to schedule
+    updates.
     """
 
     screen = None
@@ -108,9 +110,10 @@ class Dashboard(object):
     @classmethod
     def registerWindow(cls, wtype, keypress):
         """
-        Register a window type along with a key press action. This allows the controller to
-        select the appropriate window when its key is pressed, and also provides help information
-        to the L{HelpWindow} for each available window type.
+        Register a window type along with a key press action. This allows the
+        controller to select the appropriate window when its key is pressed,
+        and also provides help information to the L{HelpWindow} for each
+        available window type.
         """
         cls.registered_windows[keypress] = wtype
 
@@ -139,7 +142,9 @@ class Dashboard(object):
             self.windows[-1].update()
         else:
             top = 0
-            for wtype in filter(lambda x: x.all, self.registered_windows.values()):
+            for wtype in filter(
+                lambda x: x.all, self.registered_windows.values()
+            ):
                 self.windows.append(wtype(self.usesCurses).makeWindow(top=top))
                 self.windows[-1].update()
                 top += self.windows[-1].nlines
@@ -151,7 +156,9 @@ class Dashboard(object):
         """
         try:
             if not self.paused:
-                for window in filter(lambda x: x.requiresUpdate(), self.windows):
+                for window in filter(
+                    lambda x: x.requiresUpdate(), self.windows
+                ):
                     window.update()
         except Exception as e:
             print(str(e))
@@ -195,7 +202,9 @@ class BaseWindow(object):
         raise NotImplementedError
 
 
-    def _createWindow(self, title, nlines, ncols=BOX_WIDTH, begin_y=0, begin_x=0):
+    def _createWindow(
+        self, title, nlines, ncols=BOX_WIDTH, begin_y=0, begin_x=0
+    ):
         """
         Initialize a curses window based on the sizes required.
         """
@@ -213,8 +222,9 @@ class BaseWindow(object):
 
     def requiresUpdate(self):
         """
-        Indicates whether a window type has dynamic data that should be refreshed on each update,
-        or whether it is static data (e.g., L{HelpWindow}) that only needs to be drawn once.
+        Indicates whether a window type has dynamic data that should be
+        refreshed on each update, or whether it is static data (e.g.,
+        L{HelpWindow}) that only needs to be drawn once.
         """
         return True
 
@@ -250,11 +260,17 @@ class BaseSocketWindow(BaseWindow):
 
     def readSock(self, item):
         """
-        Open a socket, send the specified request, and retrieve the response. Keep the socket open.
+        Open a socket, send the specified request, and retrieve the response.
+        Keep the socket open.
         """
         try:
             if self.socket is None:
-                self.socket = socket.socket(socket.AF_INET if self.useTCP else socket.AF_UNIX, socket.SOCK_STREAM)
+                if self.useTCP:
+                    self.socket = socket.socket(socket.AF_INET)
+                else:
+                    self.socket = socket.socket(
+                        socket.AF_UNIX, socket.SOCK_STREAM
+                    )
                 self.socket.connect(self.sockname)
                 self.socket.setblocking(0)
             self.socket.sendall(json.dumps([item]) + "\r\n")
@@ -272,7 +288,10 @@ class BaseSocketWindow(BaseWindow):
                     break
             data = json.loads(data)[item]
         except socket.error as e:
-            data = {"Failed": "Unable to read statistics from server: %s %s" % (self.sockname, e)}
+            data = {
+                "Failed": "Unable to read statistics from server: {} {}"
+                .format(self.sockname, e)
+            }
             self.socket = None
         return data
 
@@ -299,7 +318,11 @@ class HelpWindow(BaseWindow):
 
 
     def makeWindow(self, top=0, left=0):
-        self._createWindow("Help", len(self.help) + len(Dashboard.registered_windows) + 2, begin_y=top, begin_x=left)
+        self._createWindow(
+            "Help",
+            len(self.help) + len(Dashboard.registered_windows) + 2,
+            begin_y=top, begin_x=left
+        )
         return self
 
 
@@ -318,7 +341,9 @@ class HelpWindow(BaseWindow):
         y = 1
 
         items = []
-        for keypress, wtype in sorted(Dashboard.registered_windows.items(), key=lambda x: x[0]):
+        for keypress, wtype in sorted(
+            Dashboard.registered_windows.items(), key=lambda x: x[0]
+        ):
             items.append("{} - {}".format(keypress, wtype.help))
         items.extend(self.help)
         for item in items:
@@ -353,7 +378,10 @@ class WorkWindow(BaseSocketWindow):
         if self.usesCurses:
             self.window.erase()
             self.window.border()
-            self.window.addstr(0, 2, self.title + " {} ({})".format(len(records), self.iter,))
+            self.window.addstr(
+                0, 2,
+                self.title + " {} ({})".format(len(records), self.iter)
+            )
 
         x = 1
         y = 1
@@ -364,11 +392,21 @@ class WorkWindow(BaseSocketWindow):
             print(s)
         y += 1
         for work_type, count in sorted(records.items(), key=lambda x: x[0]):
-            changed = work_type in self.lastResult and self.lastResult[work_type] != count
-            s = "{}{:<40}{:>8} ".format(">" if count else " ", work_type, count)
+            changed = (
+                work_type in self.lastResult and
+                self.lastResult[work_type] != count
+            )
+            s = "{}{:<40}{:>8} ".format(
+                ">" if count else " ", work_type, count
+            )
             try:
                 if self.usesCurses:
-                    self.window.addstr(y, x, s, curses.A_REVERSE if changed else (curses.A_BOLD if count else curses.A_NORMAL))
+                    self.window.addstr(
+                        y, x, s,
+                        curses.A_REVERSE if changed else (
+                            curses.A_BOLD if count else curses.A_NORMAL
+                        )
+                    )
                 else:
                     print(s)
             except curses.error:
@@ -401,7 +439,10 @@ class SlotsWindow(BaseSocketWindow):
 
     def makeWindow(self, top=0, left=0):
         slots = self.readSock("slots")["slots"]
-        self._createWindow("Slots", len(slots) + 5, self.FORMAT_WIDTH, begin_y=top, begin_x=left)
+        self._createWindow(
+            "Slots", len(slots) + 5, self.FORMAT_WIDTH,
+            begin_y=top, begin_x=left
+        )
         return self
 
 
@@ -413,18 +454,27 @@ class SlotsWindow(BaseSocketWindow):
         if self.usesCurses:
             self.window.erase()
             self.window.border()
-            self.window.addstr(0, 2, self.title + " {} ({})".format(len(records), self.iter,))
+            self.window.addstr(
+                0, 2,
+                self.title + " {} ({})".format(len(records), self.iter)
+            )
 
         x = 1
         y = 1
-        s = " {:>4}{:>8}{:>8}{:>8}{:>8}{:>8}{:>8}{:>8}{:>8} ".format("Slot", "unack", "ack", "uncls", "total", "start", "strting", "stopped", "abd")
+        s = " {:>4}{:>8}{:>8}{:>8}{:>8}{:>8}{:>8}{:>8}{:>8} ".format(
+            "Slot", "unack", "ack", "uncls", "total",
+            "start", "strting", "stopped", "abd"
+        )
         if self.usesCurses:
             self.window.addstr(y, x, s, curses.A_REVERSE)
         else:
             print(s)
         y += 1
         for record in sorted(records, key=lambda x: x["slot"]):
-            changed = record["slot"] in self.lastResult and self.lastResult[record["slot"]] != record
+            changed = (
+                record["slot"] in self.lastResult and
+                self.lastResult[record["slot"]] != record
+            )
             s = " {:>4}{:>8}{:>8}{:>8}{:>8}{:>8}{:>8}{:>8}{:>8} ".format(
                 record["slot"],
                 record["unacknowledged"],
@@ -439,7 +489,12 @@ class SlotsWindow(BaseSocketWindow):
             try:
                 count = record["unacknowledged"] + record["acknowledged"]
                 if self.usesCurses:
-                    self.window.addstr(y, x, s, curses.A_REVERSE if changed else (curses.A_BOLD if count else curses.A_NORMAL))
+                    self.window.addstr(
+                        y, x, s,
+                        curses.A_REVERSE if changed else (
+                            curses.A_BOLD if count else curses.A_NORMAL
+                        )
+                    )
                 else:
                     print(s)
             except curses.error:
@@ -448,7 +503,10 @@ class SlotsWindow(BaseSocketWindow):
 
         s = " {:<12}{:>8}{:>16}".format(
             "Total:",
-            sum([record["unacknowledged"] + record["acknowledged"] for record in records]),
+            sum([
+                record["unacknowledged"] + record["acknowledged"]
+                for record in records
+            ]),
             sum([record["total"] for record in records]),
         )
         if self.usesCurses:
@@ -457,7 +515,10 @@ class SlotsWindow(BaseSocketWindow):
             self.window.addstr(y, x, s)
             x += len(s) + 4
             s = "{:>10}".format("OVERLOADED" if data["overloaded"] else "")
-            self.window.addstr(y, x, s, curses.A_REVERSE if data["overloaded"] else curses.A_NORMAL)
+            self.window.addstr(
+                y, x, s,
+                curses.A_REVERSE if data["overloaded"] else curses.A_NORMAL
+            )
         else:
             if data["overloaded"]:
                 s += "    OVERLOADED"
@@ -491,7 +552,10 @@ class SystemWindow(BaseSocketWindow):
         if self.usesCurses:
             self.window.erase()
             self.window.border()
-            self.window.addstr(0, 2, self.title + " {} ({})".format(len(records), self.iter,))
+            self.window.addstr(
+                0, 2,
+                self.title + " {} ({})".format(len(records), self.iter)
+            )
 
         x = 1
         y = 1
@@ -504,18 +568,25 @@ class SystemWindow(BaseSocketWindow):
 
         records["cpu use"] = "{:.2f}".format(records["cpu use"])
         records["memory percent"] = "{:.1f}".format(records["memory percent"])
-        records["memory used"] = "{:.2f} GB".format(records["memory used"] / (1000.0 * 1000.0 * 1000.0))
+        records["memory used"] = "{:.2f} GB".format(
+            records["memory used"] / (1000.0 * 1000.0 * 1000.0)
+        )
         records["uptime"] = int(time.time() - records["start time"])
         hours, mins = divmod(records["uptime"] / 60, 60)
         records["uptime"] = "{}:{:02d} hours".format(hours, mins)
         del records["start time"]
 
         for item, value in sorted(records.items(), key=lambda x: x[0]):
-            changed = item in self.lastResult and self.lastResult[item] != value
+            changed = (
+                item in self.lastResult and self.lastResult[item] != value
+            )
             s = " {:<30}{:>18} ".format(item, value)
             try:
                 if self.usesCurses:
-                    self.window.addstr(y, x, s, curses.A_REVERSE if changed else curses.A_NORMAL)
+                    self.window.addstr(
+                        y, x, s,
+                        curses.A_REVERSE if changed else curses.A_NORMAL
+                    )
                 else:
                     print(s)
             except curses.error:
