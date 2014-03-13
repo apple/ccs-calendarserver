@@ -275,7 +275,7 @@ class CalendarDirectoryRecordMixin(object):
             self.service.realmName,
             self.recordType.name,
             self.shortNames,
-            self.guid,
+            self.uid,
             self.hasCalendars,
         ))
 

@@ -26,12 +26,10 @@ from twext.who.idirectory import IDirectoryService, RecordType
 from twext.who.util import ConstantsContainer
 from twisted.internet.defer import inlineCallbacks, returnValue
 from txdav.common.idirectoryservice import IStoreDirectoryService
-from txdav.who.delegates import RecordType as DelegateRecordType
 from txdav.who.directory import (
     CalendarDirectoryRecordMixin, CalendarDirectoryServiceMixin
 )
 from txdav.who.idirectory import AutoScheduleMode, FieldName
-from txdav.who.idirectory import RecordType as CalRecordType
 from zope.interface import implementer
 
 
@@ -77,17 +75,13 @@ class AugmentedDirectoryService(BaseDirectoryService,
         FieldName,
     ))
 
-    recordType = ConstantsContainer((
-        RecordType.user,
-        RecordType.group,
-        CalRecordType.location,
-        CalRecordType.resource,
-        CalRecordType.address,
-        DelegateRecordType.readDelegateGroup,
-        DelegateRecordType.writeDelegateGroup,
-        DelegateRecordType.readDelegatorGroup,
-        DelegateRecordType.writeDelegatorGroup,
-    ))
+
+    @property
+    def recordType(self):
+        """
+        Defer to the directory service we're augmenting
+        """
+        return self._directory.recordType
 
 
     def __init__(self, directory, store, augmentDB):
@@ -184,6 +178,16 @@ class AugmentedDirectoryService(BaseDirectoryService,
             emailAddress = emailAddress.decode("utf-8")
 
         records = yield self._directory.recordsWithEmailAddress(emailAddress)
+        augmented = []
+        for record in records:
+            record = yield self.augment(record)
+            augmented.append(record)
+        returnValue(augmented)
+
+
+    @inlineCallbacks
+    def listRecords(self, recordType):
+        records = yield self._directory.listRecords(recordType)
         augmented = []
         for record in records:
             record = yield self.augment(record)

@@ -486,17 +486,19 @@ class DirectoryPrincipalTypeProvisioningResource (DirectoryProvisioningResource)
             return self.principalForShortName(self.recordType, name)
 
 
+    @inlineCallbacks
     def listChildren(self):
+        children = []
         if config.EnablePrincipalListings:
+            try:
+                for record in (yield self.directory.listRecords(self.recordType)):
+                    for shortName in record.shortNames:
+                        children.append(shortName)
+            except AttributeError:
+                log.warn("Cannot list children of record type {rt}",
+                         rt=self.recordType.name)
+            returnValue(children)
 
-
-            def _recordShortnameExpand():
-                for record in self.directory.listRecords(self.recordType):
-                    if record.enabled:
-                        for shortName in record.shortNames:
-                            yield shortName
-
-            return _recordShortnameExpand()
         else:
             # Not a listable collection
             raise HTTPError(responsecode.FORBIDDEN)

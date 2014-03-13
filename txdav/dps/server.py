@@ -24,6 +24,7 @@ from twext.who.aggregate import DirectoryService as AggregateDirectoryService
 from twext.who.expression import MatchType, MatchFlags, Operand
 from twext.who.idirectory import RecordType, DirectoryConfigurationError
 from twext.who.ldap import DirectoryService as LDAPDirectoryService
+from twext.who.util import ConstantsContainer
 from twisted.application import service
 from twisted.application.strports import service as strPortsService
 from twisted.cred.credentials import UsernamePassword
@@ -47,6 +48,7 @@ from txdav.dps.commands import (
 )
 from txdav.who.augment import AugmentedDirectoryService
 from txdav.who.delegates import DirectoryService as DelegateDirectoryService
+from txdav.who.idirectory import RecordType as CalRecordType
 from txdav.who.xml import DirectoryService as XMLDirectoryService
 from zope.interface import implementer
 
@@ -461,44 +463,62 @@ def directoryFromConfig(config, store=None):
     if store is None:
         store = storeFromConfig(config, txnFactory, None)
 
-    directoryType = config.DirectoryService.type.lower()
+    aggregatedServices = []
 
-    # MOVE2WHO FIXME:
-    # Set the appropriate record types on each service
+    for serviceKey in ("DirectoryService", "ResourceService"):
+        serviceValue = config.get(serviceKey, None)
+        directoryType = serviceValue.type.lower()
+        params = serviceValue.params
 
-    if "xml" in directoryType:
-        xmlFile = config.DirectoryService.params.xmlFile
-        xmlFile = fullServerPath(config.DataRoot, xmlFile)
-        # path = kwds.pop("path", "")
-        if not xmlFile or not os.path.exists(xmlFile):
-            log.error("Path not found for XML directory: {p}", p=xmlFile)
-        fp = FilePath(xmlFile)
-        primaryDirectory = XMLDirectoryService(fp)
-        log.debug(
-            "Using XML for {types}",
-            types=(", ".join([rt.name for rt in primaryDirectory.recordTypes()]))
-        )
+        if "xml" in directoryType:
+            xmlFile = params.xmlFile
+            xmlFile = fullServerPath(config.DataRoot, xmlFile)
+            # path = kwds.pop("path", "")
+            if not xmlFile or not os.path.exists(xmlFile):
+                log.error("Path not found for XML directory: {p}", p=xmlFile)
+            fp = FilePath(xmlFile)
+            directory = XMLDirectoryService(fp)
 
-    elif "opendirectory" in directoryType:
-        from twext.who.opendirectory import DirectoryService as ODDirectoryService
-        primaryDirectory = ODDirectoryService()
+        elif "opendirectory" in directoryType:
+            from twext.who.opendirectory import DirectoryService as ODDirectoryService
+            directory = ODDirectoryService()
 
-    elif "ldap" in directoryType:
-        params = config.DirectoryService.params
-        if params.credentials.dn and params.credentials.password:
-            creds = UsernamePassword(params.credentials.dn,
-                                     params.credentials.password)
+        elif "ldap" in directoryType:
+            if params.credentials.dn and params.credentials.password:
+                creds = UsernamePassword(params.credentials.dn,
+                                         params.credentials.password)
+            else:
+                creds = None
+            directory = LDAPDirectoryService(
+                params.uri,
+                params.rdnSchema.base,
+                creds=creds
+            )
+
         else:
-            creds = None
-        primaryDirectory = LDAPDirectoryService(
-            params.uri,
-            params.rdnSchema.base,
-            creds=creds
-        )
+            log.error("Invalid DirectoryType: {dt}", dt=directoryType)
+            raise DirectoryConfigurationError
 
-    else:
-        log.error("Invalid DirectoryType: {dt}", dt=directoryType)
-        raise DirectoryConfigurationError
+        # Set the appropriate record types on each service
+        types = []
+        for recordTypeName in params.recordTypes:
+            recordType = {
+                "users": RecordType.user,
+                "groups": RecordType.group,
+                "locations": CalRecordType.location,
+                "resources": CalRecordType.resource,
+                "addresses": CalRecordType.address,
+            }.get(recordTypeName, None)
+            if recordType is None:
+                log.error("Invalid Record Type: {rt}", rt=recordTypeName)
+                raise DirectoryConfigurationError
+            if recordType in types:
+                log.error("Duplicate Record Type: {rt}", rt=recordTypeName)
+                raise DirectoryConfigurationError
+            types.append(recordType)
+
+        directory.recordType = ConstantsContainer(types)
+        aggregatedServices.append(directory)
 
     #
     # Setup the Augment Service
@@ -517,14 +537,23 @@ def directoryFromConfig(config, store=None):
     else:
         augmentService = None
 
+    userDirectory = None
+    for directory in aggregatedServices:
+        if RecordType.user in directory.recordTypes():
+            userDirectory = directory
+            break
+    else:
+        log.error("No directory service set up for users")
+        raise DirectoryConfigurationError
+
     delegateDirectory = DelegateDirectoryService(
-        primaryDirectory.realmName,
+        userDirectory.realmName,
         store
     )
+    aggregatedServices.append(delegateDirectory)
 
     aggregateDirectory = AggregateDirectoryService(
-        primaryDirectory.realmName,
-        (primaryDirectory, delegateDirectory)
+        userDirectory.realmName, aggregatedServices
     )
     try:
         augmented = AugmentedDirectoryService(
@@ -541,6 +570,7 @@ def directoryFromConfig(config, store=None):
         raise
 
     return augmented
+
 
 
 @implementer(IPlugin, service.IServiceMaker)
