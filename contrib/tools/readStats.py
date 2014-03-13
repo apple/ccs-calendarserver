@@ -25,6 +25,7 @@ import socket
 import sys
 import tables
 import time
+import errno
 
 """
 This tool reads data from the server's statistics socket and prints a summary.
@@ -39,18 +40,25 @@ def readSock(sockname, useTCP):
     try:
         s = socket.socket(socket.AF_INET if useTCP else socket.AF_UNIX, socket.SOCK_STREAM)
         s.connect(sockname)
+        s.sendall(json.dumps(["stats"]) + "\r\n")
+        s.setblocking(0)
         data = ""
-        while True:
-            d = s.recv(1024)
+        while not data.endswith("\n"):
+            try:
+                d = s.recv(1024)
+            except socket.error as se:
+                if se.args[0] != errno.EWOULDBLOCK:
+                    raise
+                continue
             if d:
                 data += d
             else:
                 break
         s.close()
-        data = json.loads(data)
-    except socket.error:
-        data = {"Failed": "Unable to read statistics from server: %s" % (sockname,)}
-    data["Server"] = sockname
+        data = json.loads(data)["stats"]
+    except socket.error as e:
+        data = {"Failed": "Unable to read statistics from server: %s %s" % (sockname, e)}
+    data["server"] = sockname
     return data
 
 
@@ -74,18 +82,18 @@ def printStats(stats, multimode, showMethods, topUsers, showAgents):
 def printStat(stats, index, showMethods, topUsers, showAgents):
 
     print("- " * 40)
-    print("Server: %s" % (stats["Server"],))
+    print("Server: %s" % (stats["server"],))
     print(datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S"))
-    print("Service Uptime: %s" % (datetime.timedelta(seconds=(int(time.time() - stats["System"]["start time"]))),))
-    if stats["System"]["cpu count"] > 0:
+    print("Service Uptime: %s" % (datetime.timedelta(seconds=(int(time.time() - stats["system"]["start time"]))),))
+    if stats["system"]["cpu count"] > 0:
         print("Current CPU: %.1f%% (%d CPUs)" % (
-            stats["System"]["cpu use"],
-            stats["System"]["cpu count"],
+            stats["system"]["cpu use"],
+            stats["system"]["cpu count"],
         ))
         print("Current Memory Used: %d bytes (%.1f GB) (%.1f%% of total)" % (
-            stats["System"]["memory used"],
-            stats["System"]["memory used"] / (1024.0 * 1024 * 1024),
-            stats["System"]["memory percent"],
+            stats["system"]["memory used"],
+            stats["system"]["memory used"] / (1024.0 * 1024 * 1024),
+            stats["system"]["memory percent"],
         ))
     else:
         print("Current CPU: Unavailable")
@@ -112,7 +120,7 @@ def printMultipleStats(stats, multimode, showMethods, topUsers, showAgents):
     times = []
     for stat in stats:
         try:
-            t = str(datetime.timedelta(seconds=int(time.time() - stat["System"]["start time"])))
+            t = str(datetime.timedelta(seconds=int(time.time() - stat["system"]["start time"])))
         except KeyError:
             t = "-"
         times.append(t)
@@ -120,9 +128,9 @@ def printMultipleStats(stats, multimode, showMethods, topUsers, showAgents):
     cpus = []
     memories = []
     for stat in stats:
-        if stat["System"]["cpu count"] > 0:
-            cpus.append(stat["System"]["cpu use"])
-            memories.append(stat["System"]["memory percent"])
+        if stat["system"]["cpu count"] > 0:
+            cpus.append(stat["system"]["cpu use"])
+            memories.append(stat["system"]["memory percent"])
         else:
             cpus.append(-1)
             memories.append(-1)
@@ -139,7 +147,7 @@ def printMultipleStats(stats, multimode, showMethods, topUsers, showAgents):
 
 
 def serverLabels(stats):
-    servers = [stat["Server"] for stat in stats]
+    servers = [stat["server"] for stat in stats]
     if isinstance(servers[0], tuple):
         hosts = set([item[0] for item in servers])
         ports = set([item[1] for item in servers])
@@ -193,7 +201,7 @@ def printRequestSummary(stats):
         )
     )
 
-    for key, seconds in (("Current", 60,), ("1 Minute", 60,), ("5 Minutes", 5 * 60,), ("1 Hour", 60 * 60,),):
+    for key, seconds in (("current", 60,), ("1m", 60,), ("5m", 5 * 60,), ("1h", 60 * 60,),):
 
         stat = stats[key]
         table.addRow((
@@ -515,7 +523,7 @@ if __name__ == '__main__':
     topUsers = 0
     showAgents = False
 
-    multimodes = (("Current", 60,), ("1 Minute", 60,), ("5 Minutes", 5 * 60,), ("1 Hour", 60 * 60,),)
+    multimodes = (("current", 60,), ("1m", 60,), ("5m", 5 * 60,), ("1h", 60 * 60,),)
     multimode = multimodes[2]
 
     options, args = getopt.getopt(sys.argv[1:], "hs:t:", ["tcp=", "0", "1", "5", "60", "methods", "users=", "agents"])

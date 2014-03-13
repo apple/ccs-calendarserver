@@ -16,23 +16,8 @@
 # limitations under the License.
 ##
 
-import os
-import sys
-
-# In OS X Server context, add to PATH to find Postgres utilities (initdb, pg_ctl)
-if "Server.app" in sys.argv[0]:
-    os.environ["PATH"] += ":" + os.path.join(os.path.dirname(os.path.dirname(sys.argv[0])), "bin")
-
-#PYTHONPATH
+# This tool can run standalone, so does not need any special PYTHONPATH or preamble handling
 
 if __name__ == "__main__":
-    if "PYTHONPATH" in globals():
-        sys.path.insert(0, PYTHONPATH)
-    else:
-        try:
-            import _calendarserver_preamble
-        except ImportError:
-            sys.exc_clear()
-
-    from calendarserver.tools.jobitems import main
+    from calendarserver.tools.dashboard import main
     main()

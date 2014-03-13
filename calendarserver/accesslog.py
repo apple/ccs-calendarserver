@@ -428,13 +428,13 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
             self.mergeStats(oneHour, stat)
 
         printStats = {
-            "System": self.systemStats.items,
-            "Current": currentStats,
-            "1 Minute": previousMinute,
-            "5 Minutes": fiveMinutes,
-            "1 Hour": oneHour,
+            "system": self.systemStats.items,
+            "current": currentStats,
+            "1m": previousMinute,
+            "5m": fiveMinutes,
+            "1h": oneHour,
         }
-        return json.dumps(printStats)
+        return printStats
 
 
     def ensureSequentialStats(self):

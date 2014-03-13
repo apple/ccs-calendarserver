@@ -46,7 +46,7 @@ from twisted.internet.defer import (
 from twisted.internet.endpoints import UNIXClientEndpoint, TCP4ClientEndpoint
 from twisted.internet.process import ProcessExitedAlready
 from twisted.internet.protocol import ProcessProtocol
-from twisted.internet.protocol import Protocol, Factory
+from twisted.internet.protocol import Factory
 from twisted.plugin import IPlugin
 from twisted.protocols.amp import AMP
 from twisted.python.log import FileLogObserver, ILogObserver
@@ -110,6 +110,7 @@ from calendarserver.accesslog import AMPLoggingFactory
 from calendarserver.accesslog import RotatingFileAccessLoggingObserver
 from calendarserver.controlsocket import ControlSocket
 from calendarserver.controlsocket import ControlSocketConnectingService
+from calendarserver.dashboard_service import DashboardServer
 from calendarserver.push.amppush import AMPPushMaster, AMPPushForwarder
 from calendarserver.push.applepush import ApplePushNotifierService
 from calendarserver.push.notifier import PushDistributor
@@ -213,24 +214,6 @@ def _computeEnvVars(parent):
     return result
 
 PARENT_ENVIRONMENT = _computeEnvVars(os.environ)
-
-
-
-class CalDAVStatisticsProtocol (Protocol):
-
-    def connectionMade(self):
-        stats = self.factory.logger.observer.getStats()
-        self.transport.write("{}\r\n".format(stats))
-        self.transport.loseConnection()
-
-
-
-class CalDAVStatisticsServer (Factory):
-
-    protocol = CalDAVStatisticsProtocol
-
-    def __init__(self, logObserver):
-        self.logger = logObserver
 
 
 
@@ -1834,14 +1817,14 @@ class CalDAVServiceMaker (object):
         # Start listening on the stats socket, for administrators to inspect
         # the current stats on the server.
         if config.Stats.EnableUnixStatsSocket:
-            stats = CalDAVStatisticsServer(logger)
+            stats = DashboardServer(logger, cl if config.UseMetaFD else None)
             statsService = GroupOwnedUNIXServer(
                 gid, config.Stats.UnixStatsSocket, stats, mode=0660
             )
             statsService.setName("unix-stats")
             statsService.setServiceParent(s)
         if config.Stats.EnableTCPStatsSocket:
-            stats = CalDAVStatisticsServer(logger)
+            stats = DashboardServer(logger, cl if config.UseMetaFD else None)
             statsService = TCPServer(
                 config.Stats.TCPStatsPort, stats, interface=""
             )
@@ -1887,6 +1870,8 @@ class CalDAVServiceMaker (object):
         def spawnerSvcCreator(pool, store, ignored, storageService):
             if store is None:
                 raise StoreNotAvailable()
+
+            stats.store = store
 
             from twisted.internet import reactor
             pool = PeerConnectionPool(

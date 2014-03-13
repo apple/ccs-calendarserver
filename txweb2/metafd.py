@@ -223,6 +223,10 @@ class WorkerStatus(FancyStrMixin, object):
         self.stopped = stopped
 
 
+    def items(self):
+        return dict([(attr, getattr(self, attr)) for attr in self.showAttributes])
+
+
     def effective(self):
         """
         The current effective load.
