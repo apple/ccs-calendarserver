@@ -595,6 +595,16 @@ py_dependencies () {
 
   "${python}" "${wd}/setup.py" check > /dev/null;
 
+  # Work around a change in Xcode tools that breaks Python modules in OS X
+  # 10.9.2 and prior due to a hard error if the -mno-fused-madd is used, as
+  # it was in the system Python, and is therefore passed along by disutils.
+  if [ "$(uname -s)" == "Darwin" ]; then
+    if "${python}" -c 'import distutils.sysconfig; print distutils.sysconfig.get_config_var("CFLAGS")' \
+       | grep -e -mno-fused-madd; then
+      export CFLAGS="";
+    fi;
+  fi;
+
   for requirements in "${wd}/requirements/py_"*".txt"; do
 
     ruler "Preparing Python requirements: ${requirements}";
