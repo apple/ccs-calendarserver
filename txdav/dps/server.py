@@ -15,28 +15,20 @@
 ##
 
 import cPickle as pickle
-import os
 import uuid
 
-from calendarserver.tap.util import getDBPool, storeFromConfig
 from twext.python.log import Logger
-from twext.who.aggregate import DirectoryService as AggregateDirectoryService
 from twext.who.expression import MatchType, MatchFlags, Operand
-from twext.who.idirectory import RecordType, DirectoryConfigurationError
-from twext.who.ldap import DirectoryService as LDAPDirectoryService
-from twext.who.util import ConstantsContainer
+from twext.who.idirectory import RecordType
 from twisted.application import service
 from twisted.application.strports import service as strPortsService
-from twisted.cred.credentials import UsernamePassword
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.protocol import Factory
 from twisted.plugin import IPlugin
 from twisted.protocols import amp
 from twisted.python.constants import Names, NamedConstant
-from twisted.python.filepath import FilePath
-from twisted.python.reflect import namedClass
 from twisted.python.usage import Options, UsageError
-from twistedcaldav.config import config, fullServerPath
+from twistedcaldav.config import config
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from txdav.dps.commands import (
     RecordWithShortNameCommand, RecordWithUIDCommand, RecordWithGUIDCommand,
@@ -46,11 +38,9 @@ from txdav.dps.commands import (
     VerifyPlaintextPasswordCommand, VerifyHTTPDigestCommand,
     # UpdateRecordsCommand, RemoveRecordsCommand
 )
-from txdav.who.augment import AugmentedDirectoryService
-from txdav.who.delegates import DirectoryService as DelegateDirectoryService
-from txdav.who.idirectory import RecordType as CalRecordType
-from txdav.who.xml import DirectoryService as XMLDirectoryService
+from txdav.who.util import directoryFromConfig
 from zope.interface import implementer
+
 
 log = Logger()
 
@@ -446,130 +436,6 @@ class DirectoryProxyOptions(Options):
         config.load(self['config'])
         config.updateDefaults(self.overrides)
         self.parent['pidfile'] = None
-
-
-
-def directoryFromConfig(config, store=None):
-    """
-    Return a directory service based on the config.  If you want to go through
-    AMP to talk to one of these as a client, instantiate
-    txdav.dps.client.DirectoryService
-    """
-
-    # MOVE2WHO FIXME: this needs to talk to its own separate database.  In fact,
-    # don't pass store=None if you already have called storeFromConfig()
-    # within this process.  Pass the existing store in here.
-    pool, txnFactory = getDBPool(config)
-    if store is None:
-        store = storeFromConfig(config, txnFactory, None)
-
-    aggregatedServices = []
-
-    for serviceKey in ("DirectoryService", "ResourceService"):
-        serviceValue = config.get(serviceKey, None)
-        directoryType = serviceValue.type.lower()
-        params = serviceValue.params
-
-        if "xml" in directoryType:
-            xmlFile = params.xmlFile
-            xmlFile = fullServerPath(config.DataRoot, xmlFile)
-            # path = kwds.pop("path", "")
-            if not xmlFile or not os.path.exists(xmlFile):
-                log.error("Path not found for XML directory: {p}", p=xmlFile)
-            fp = FilePath(xmlFile)
-            directory = XMLDirectoryService(fp)
-
-        elif "opendirectory" in directoryType:
-            from twext.who.opendirectory import DirectoryService as ODDirectoryService
-            directory = ODDirectoryService()
-
-        elif "ldap" in directoryType:
-            if params.credentials.dn and params.credentials.password:
-                creds = UsernamePassword(params.credentials.dn,
-                                         params.credentials.password)
-            else:
-                creds = None
-            directory = LDAPDirectoryService(
-                params.uri,
-                params.rdnSchema.base,
-                creds=creds
-            )
-
-        else:
-            log.error("Invalid DirectoryType: {dt}", dt=directoryType)
-            raise DirectoryConfigurationError
-
-        # Set the appropriate record types on each service
-        types = []
-        for recordTypeName in params.recordTypes:
-            recordType = {
-                "users": RecordType.user,
-                "groups": RecordType.group,
-                "locations": CalRecordType.location,
-                "resources": CalRecordType.resource,
-                "addresses": CalRecordType.address,
-            }.get(recordTypeName, None)
-            if recordType is None:
-                log.error("Invalid Record Type: {rt}", rt=recordTypeName)
-                raise DirectoryConfigurationError
-            if recordType in types:
-                log.error("Duplicate Record Type: {rt}", rt=recordTypeName)
-                raise DirectoryConfigurationError
-            types.append(recordType)
-
-        directory.recordType = ConstantsContainer(types)
-        aggregatedServices.append(directory)
-
-    #
-    # Setup the Augment Service
-    #
-    if config.AugmentService.type:
-        augmentClass = namedClass(config.AugmentService.type)
-        log.info(
-            "Configuring augment service of type: {augmentClass}",
-            augmentClass=augmentClass
-        )
-        try:
-            augmentService = augmentClass(**config.AugmentService.params)
-        except IOError:
-            log.error("Could not start augment service")
-            raise
-    else:
-        augmentService = None
-
-    userDirectory = None
-    for directory in aggregatedServices:
-        if RecordType.user in directory.recordTypes():
-            userDirectory = directory
-            break
-    else:
-        log.error("No directory service set up for users")
-        raise DirectoryConfigurationError
-
-    delegateDirectory = DelegateDirectoryService(
-        userDirectory.realmName,
-        store
-    )
-    aggregatedServices.append(delegateDirectory)
-
-    aggregateDirectory = AggregateDirectoryService(
-        userDirectory.realmName, aggregatedServices
-    )
-    try:
-        augmented = AugmentedDirectoryService(
-            aggregateDirectory, store, augmentService
-        )
-
-        # The delegate directory needs a way to look up user/group records
-        # so hand it a reference to the augmented directory.
-        # FIXME: is there a better pattern to use here?
-        delegateDirectory.setMasterDirectory(augmented)
-
-    except Exception as e:
-        log.error("Could not create directory service", error=e)
-        raise
-
-    return augmented
 
 
 

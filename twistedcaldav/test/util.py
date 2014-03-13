@@ -40,7 +40,7 @@ from twistedcaldav.stdconfig import config
 from txdav.caldav.datastore.test.util import buildCalendarStore
 from txdav.common.datastore.file import CommonDataStore
 from txdav.common.datastore.test.util import deriveQuota, CommonCommonTests
-from txdav.dps.server import directoryFromConfig
+from txdav.who.util import directoryFromConfig
 from txdav.xml import element as davxml, element
 from txweb2.dav.test.util import SimpleRequest
 import txweb2.dav.test.util

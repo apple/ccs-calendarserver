@@ -21,7 +21,7 @@ from twistedcaldav.config import config
 from twistedcaldav.directory.augment import AugmentXMLDB
 from twisted.internet.task import Clock
 from twisted.internet.defer import succeed, inlineCallbacks
-from txdav.dps.server import directoryFromConfig
+from txdav.who.util import directoryFromConfig
 
 class ProcessCountTestCase(TestCase):
 

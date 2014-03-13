@@ -226,6 +226,8 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
             recordType=recordType.name.encode("utf-8")
         )
 
+    listRecords = recordsWithRecordType
+
 
     def recordsWithEmailAddress(self, emailAddress):
         return self._call(

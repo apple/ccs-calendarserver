@@ -30,7 +30,7 @@ from twistedcaldav.directory.directory import DirectoryError
 from twistedcaldav.test.util import (
     TestCase, CapturingProcessProtocol, ErrorOutput
 )
-from txdav.dps.server import directoryFromConfig
+from txdav.who.util import directoryFromConfig
 
 
 

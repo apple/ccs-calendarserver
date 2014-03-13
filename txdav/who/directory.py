@@ -28,10 +28,8 @@ from twext.who.expression import (
 from twext.who.idirectory import RecordType as BaseRecordType
 from twisted.cred.credentials import UsernamePassword
 from twisted.internet.defer import inlineCallbacks, returnValue
-from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
 from txdav.who.idirectory import RecordType as DAVRecordType
 from txweb2.auth.digest import DigestedCredentials
-
 
 log = Logger()
 
@@ -40,6 +38,7 @@ __all__ = [
     "CalendarDirectoryRecordMixin",
     "CalendarDirectoryServiceMixin",
 ]
+
 
 
 class CalendarDirectoryServiceMixin(object):
@@ -59,6 +58,8 @@ class CalendarDirectoryServiceMixin(object):
 
     @inlineCallbacks
     def recordWithCalendarUserAddress(self, address):
+        # FIXME: moved this here to avoid circular import problems
+        from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
         address = normalizeCUAddr(address)
         record = None
         if address.startswith("urn:uuid:"):

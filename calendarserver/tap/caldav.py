@@ -86,7 +86,7 @@ from txdav.common.datastore.work.inbox_cleanup import scheduleFirstInboxCleanup
 from txdav.common.datastore.work.revision_cleanup import (
     scheduleFirstFindMinRevision
 )
-from txdav.dps.server import directoryFromConfig
+from txdav.who.util import directoryFromConfig
 from txdav.dps.client import DirectoryService as DirectoryProxyClientService
 from txdav.who.groups import GroupCacher
 

@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from txdav.dps.server import directoryFromConfig
+from txdav.who.util import directoryFromConfig
 
 from pycalendar.datetime import DateTime
 from pycalendar.value import Value

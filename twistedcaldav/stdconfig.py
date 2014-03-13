@@ -374,6 +374,7 @@ DEFAULT_CONFIG = {
     #    users, groups, locations and resources) to the server.
     #
     "DirectoryService": {
+        "Enabled": True,
         "type": "twistedcaldav.directory.xmlfile.XMLDirectoryService",
         "params": DEFAULT_SERVICE_PARAMS["twistedcaldav.directory.xmlfile.XMLDirectoryService"],
     },
@@ -385,7 +386,7 @@ DEFAULT_CONFIG = {
     #    and resources.
     #
     "ResourceService": {
-        "Enabled" : True,
+        "Enabled": True,
         "type": "twistedcaldav.directory.xmlfile.XMLDirectoryService",
         "params": DEFAULT_RESOURCE_PARAMS["twistedcaldav.directory.xmlfile.XMLDirectoryService"],
     },
