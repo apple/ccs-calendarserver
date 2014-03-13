@@ -35,7 +35,6 @@ from txweb2.http_headers import ETag, MimeType
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 
 from twistedcaldav.config import config
-from twistedcaldav.directory.idirectory import IDirectoryService
 from twistedcaldav.directory.common import uidsResourceName, \
     CommonUIDProvisioningResource, CommonHomeTypeProvisioningResource
 
@@ -48,7 +47,10 @@ from uuid import uuid4
 
 log = Logger()
 
+
 # FIXME: copied from resource.py to avoid circular dependency
+
+
 class CalDAVComplianceMixIn(object):
     def davComplianceClasses(self):
         return (
@@ -65,7 +67,7 @@ class DirectoryCalendarProvisioningResource (
     DAVResource,
 ):
     def defaultAccessControlList(self):
-        return config.ProvisioningResourceACL
+        return succeed(config.ProvisioningResourceACL)
 
 
     def etag(self):
@@ -91,7 +93,8 @@ class DirectoryCalendarHomeProvisioningResource (DirectoryCalendarProvisioningRe
 
         super(DirectoryCalendarHomeProvisioningResource, self).__init__()
 
-        self.directory = IDirectoryService(directory)
+        # MOVE2WHO
+        self.directory = directory  # IDirectoryService(directory)
         self._url = url
         self._newStore = store
 
@@ -101,8 +104,14 @@ class DirectoryCalendarHomeProvisioningResource (DirectoryCalendarProvisioningRe
         #
         # Create children
         #
-        for recordType in self.directory.recordTypes():
-            self.putChild(recordType, DirectoryCalendarHomeTypeProvisioningResource(self, recordType))
+        # ...just "users" though.  If we iterate all of the directory's
+        # recordTypes, we also get the proxy sub principal types.
+        for recordTypeName in [
+            self.directory.recordTypeToOldName(r) for r in [
+                self.directory.recordType.user
+            ]
+        ]:
+            self.putChild(recordTypeName, DirectoryCalendarHomeTypeProvisioningResource(self, recordTypeName, r))
 
         self.putChild(uidsResourceName, DirectoryCalendarHomeUIDProvisioningResource(self))
 
@@ -112,7 +121,7 @@ class DirectoryCalendarHomeProvisioningResource (DirectoryCalendarProvisioningRe
 
 
     def listChildren(self):
-        return self.directory.recordTypes()
+        return [self.directory.recordTypeToOldName(r) for r in self.directory.recordTypes()]
 
 
     def principalCollections(self):
@@ -127,12 +136,13 @@ class DirectoryCalendarHomeProvisioningResource (DirectoryCalendarProvisioningRe
         return self.directory.principalCollection.principalForRecord(record)
 
 
+    @inlineCallbacks
     def homeForDirectoryRecord(self, record, request):
-        uidResource = self.getChild(uidsResourceName)
+        uidResource = yield self.getChild(uidsResourceName)
         if uidResource is None:
-            return None
+            returnValue(None)
         else:
-            return uidResource.homeResourceForRecord(record, request)
+            returnValue((yield uidResource.homeResourceForRecord(record, request)))
 
 
     ##
@@ -149,42 +159,43 @@ class DirectoryCalendarHomeProvisioningResource (DirectoryCalendarProvisioningRe
 
 
 class DirectoryCalendarHomeTypeProvisioningResource(
-        CommonHomeTypeProvisioningResource,
-        DirectoryCalendarProvisioningResource
-    ):
+    CommonHomeTypeProvisioningResource,
+    DirectoryCalendarProvisioningResource
+):
     """
     Resource which provisions calendar home collections of a specific
     record type as needed.
     """
-    def __init__(self, parent, recordType):
+    def __init__(self, parent, name, recordType):
         """
         @param parent: the parent of this resource
         @param recordType: the directory record type to provision.
         """
         assert parent is not None
+        assert name is not None
         assert recordType is not None
 
         super(DirectoryCalendarHomeTypeProvisioningResource, self).__init__()
 
         self.directory = parent.directory
+        self.name = name
         self.recordType = recordType
         self._parent = parent
 
 
     def url(self):
-        return joinURL(self._parent.url(), self.recordType)
+        return joinURL(self._parent.url(), self.name)
 
 
+    @inlineCallbacks
     def listChildren(self):
         if config.EnablePrincipalListings:
-
-            def _recordShortnameExpand():
-                for record in self.directory.listRecords(self.recordType):
-                    if record.enabledForCalendaring:
-                        for shortName in record.shortNames:
-                            yield shortName
-
-            return _recordShortnameExpand()
+            children = []
+            for record in (yield self.directory.listRecords(self.recordType)):
+                if record.enabledForCalendaring:
+                    for shortName in record.shortNames:
+                        children.append(shortName)
+            returnValue(children)
         else:
             # Not a listable collection
             raise HTTPError(responsecode.FORBIDDEN)
@@ -203,7 +214,7 @@ class DirectoryCalendarHomeTypeProvisioningResource(
 
 
     def displayName(self):
-        return self.recordType
+        return self.name
 
 
     ##
@@ -220,9 +231,9 @@ class DirectoryCalendarHomeTypeProvisioningResource(
 
 
 class DirectoryCalendarHomeUIDProvisioningResource (
-        CommonUIDProvisioningResource,
-        DirectoryCalendarProvisioningResource
-    ):
+    CommonUIDProvisioningResource,
+    DirectoryCalendarProvisioningResource
+):
 
     homeResourceTypeName = 'calendars'
 
@@ -258,7 +269,7 @@ class DirectoryCalendarHomeResource (CalendarHomeResource):
             else:
                 # ...otherwise permissions are fixed, and are not subject to
                 # inheritance rules, etc.
-                return succeed(self.defaultAccessControlList())
+                return self.defaultAccessControlList()
 
         d = getWikiACL(self, request)
         d.addCallback(gotACL)

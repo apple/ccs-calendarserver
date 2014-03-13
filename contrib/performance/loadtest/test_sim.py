@@ -24,32 +24,34 @@ from twisted.python.filepath import FilePath
 from twisted.internet.defer import Deferred, succeed
 from twisted.trial.unittest import TestCase
 
-from twistedcaldav.directory.directory import DirectoryRecord
-
 from contrib.performance.stats import NormalDistribution
 from contrib.performance.loadtest.ical import OS_X_10_6
 from contrib.performance.loadtest.profiles import Eventer, Inviter, Accepter
 from contrib.performance.loadtest.population import (
     SmoothRampUp, ClientType, PopulationParameters, Populator, CalendarClientSimulator,
-    ProfileType, SimpleStatistics)
+    ProfileType, SimpleStatistics
+)
 from contrib.performance.loadtest.sim import (
-    Arrival, SimOptions, LoadSimulator, LagTrackingReactor)
+    Arrival, SimOptions, LoadSimulator, LagTrackingReactor,
+    _DirectoryRecord
+)
+
 
 VALID_CONFIG = {
     'server': 'tcp:127.0.0.1:8008',
     'webadmin': {
         'enabled': True,
         'HTTPPort': 8080,
-        },
+    },
     'arrival': {
         'factory': 'contrib.performance.loadtest.population.SmoothRampUp',
         'params': {
             'groups': 10,
             'groupSize': 1,
             'interval': 3,
-            },
         },
-    }
+    },
+}
 
 VALID_CONFIG_PLIST = writePlistToString(VALID_CONFIG)
 
@@ -104,8 +106,9 @@ class CalendarClientSimulatorTests(TestCase):
     realmName = 'stub'
 
     def _user(self, name):
-        record = DirectoryRecord(self, 'user', name, (name,))
-        record.password = 'password-' + name
+        password = 'password-' + name
+        email = name + "@example.com"
+        record = _DirectoryRecord(name, password, name, email)
         return record
 
 
@@ -119,10 +122,10 @@ class CalendarClientSimulatorTests(TestCase):
             [self._user('alice'), self._user('bob'), self._user('carol')],
             Populator(None), None, None, 'http://example.org:1234/', None, None)
         users = sorted([
-                calsim._createUser(0)[0],
-                calsim._createUser(1)[0],
-                calsim._createUser(2)[0],
-                ])
+            calsim._createUser(0)[0],
+            calsim._createUser(1)[0],
+            calsim._createUser(2)[0],
+        ])
         self.assertEqual(['alice', 'bob', 'carol'], users)
 
 
@@ -171,8 +174,9 @@ class CalendarClientSimulatorTests(TestCase):
 
         params = PopulationParameters()
         params.addClient(1, ClientType(
-                BrokenClient, {'runResult': clientRunResult},
-                [ProfileType(BrokenProfile, {'runResult': profileRunResult})]))
+            BrokenClient, {'runResult': clientRunResult},
+            [ProfileType(BrokenProfile, {'runResult': profileRunResult})])
+        )
         sim = CalendarClientSimulator(
             [self._user('alice')], Populator(None), params, None, 'http://example.com:1234/', None, None)
         sim.add(1, 1)
@@ -284,8 +288,9 @@ class LoadSimulatorTests(TestCase):
         config["accounts"] = {
             "loader": "contrib.performance.loadtest.sim.recordsFromCSVFile",
             "params": {
-                "path": accounts.path},
-            }
+                "path": accounts.path
+            },
+        }
         configpath = FilePath(self.mktemp())
         configpath.setContent(writePlistToString(config))
         io = StringIO()
@@ -312,8 +317,9 @@ class LoadSimulatorTests(TestCase):
         config["accounts"] = {
             "loader": "contrib.performance.loadtest.sim.recordsFromCSVFile",
             "params": {
-                "path": ""},
-            }
+                "path": ""
+            },
+        }
         configpath = FilePath(self.mktemp())
         configpath.setContent(writePlistToString(config))
         sim = LoadSimulator.fromCommandLine(['--config', configpath.path],
@@ -406,8 +412,9 @@ class LoadSimulatorTests(TestCase):
         section of the configuration file specified.
         """
         config = FilePath(self.mktemp())
-        config.setContent(writePlistToString({
-                    "server": "https://127.0.0.3:8432/"}))
+        config.setContent(
+            writePlistToString({"server": "https://127.0.0.3:8432/"})
+        )
         sim = LoadSimulator.fromCommandLine(['--config', config.path])
         self.assertEquals(sim.server, "https://127.0.0.3:8432/")
 
@@ -418,16 +425,18 @@ class LoadSimulatorTests(TestCase):
         [arrival] section of the configuration file specified.
         """
         config = FilePath(self.mktemp())
-        config.setContent(writePlistToString({
-                    "arrival": {
-                        "factory": "contrib.performance.loadtest.population.SmoothRampUp",
-                        "params": {
-                            "groups": 10,
-                            "groupSize": 1,
-                            "interval": 3,
-                            },
-                        },
-                    }))
+        config.setContent(
+            writePlistToString({
+                "arrival": {
+                    "factory": "contrib.performance.loadtest.population.SmoothRampUp",
+                    "params": {
+                        "groups": 10,
+                        "groupSize": 1,
+                        "interval": 3,
+                    },
+                },
+            })
+        )
         sim = LoadSimulator.fromCommandLine(['--config', config.path])
         self.assertEquals(
             sim.arrival,
@@ -461,11 +470,17 @@ class LoadSimulatorTests(TestCase):
         section of the configuration file specified.
         """
         config = FilePath(self.mktemp())
-        config.setContent(writePlistToString({
-                    "clients": [{
+        config.setContent(
+            writePlistToString(
+                {
+                    "clients": [
+                        {
                             "software": "contrib.performance.loadtest.ical.OS_X_10_6",
-                            "params": {"foo": "bar"},
-                            "profiles": [{
+                            "params": {
+                                "foo": "bar"
+                            },
+                            "profiles": [
+                                {
                                     "params": {
                                         "interval": 25,
                                         "eventStartDistribution": {
@@ -473,19 +488,38 @@ class LoadSimulatorTests(TestCase):
                                             "params": {
                                                 "mu": 123,
                                                 "sigma": 456,
-                                                }}},
-                                    "class": "contrib.performance.loadtest.profiles.Eventer"}],
+                                            }
+                                        }
+                                    },
+                                    "class": "contrib.performance.loadtest.profiles.Eventer"
+                                }
+                            ],
                             "weight": 3,
-                            }]}))
+                        }
+                    ]
+                }
+            )
+        )
 
         sim = LoadSimulator.fromCommandLine(
             ['--config', config.path, '--clients', config.path]
         )
         expectedParameters = PopulationParameters()
         expectedParameters.addClient(
-            3, ClientType(OS_X_10_6, {"foo": "bar"}, [ProfileType(Eventer, {
+            3,
+            ClientType(
+                OS_X_10_6,
+                {"foo": "bar"},
+                [
+                    ProfileType(
+                        Eventer, {
                             "interval": 25,
-                            "eventStartDistribution": NormalDistribution(123, 456)})]))
+                            "eventStartDistribution": NormalDistribution(123, 456)
+                        }
+                    )
+                ]
+            )
+        )
         self.assertEquals(sim.parameters, expectedParameters)
 
 
@@ -512,9 +546,18 @@ class LoadSimulatorTests(TestCase):
         configuration file are added to the logging system.
         """
         config = FilePath(self.mktemp())
-        config.setContent(writePlistToString({
-            "observers": [{"type":"contrib.performance.loadtest.population.SimpleStatistics", "params":{}, }, ]
-        }))
+        config.setContent(
+            writePlistToString(
+                {
+                    "observers": [
+                        {
+                            "type": "contrib.performance.loadtest.population.SimpleStatistics",
+                            "params": {},
+                        },
+                    ]
+                }
+            )
+        )
         sim = LoadSimulator.fromCommandLine(['--config', config.path])
         self.assertEquals(len(sim.observers), 1)
         self.assertIsInstance(sim.observers[0], SimpleStatistics)

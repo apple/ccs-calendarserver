@@ -228,7 +228,7 @@ class IScheduleRequest(object):
             # Loop over at most 3 redirects
             ssl, host, port, path = self.server.details()
             for _ignore in xrange(3):
-                self._prepareRequest(host, port)
+                yield self._prepareRequest(host, port)
                 response = (yield self._processRequest(ssl, host, port, path))
                 if response.code not in (responsecode.MOVED_PERMANENTLY, responsecode.TEMPORARY_REDIRECT,):
                     break
@@ -334,16 +334,18 @@ class IScheduleRequest(object):
         returnValue(iostr.getvalue())
 
 
+    @inlineCallbacks
     def _prepareRequest(self, host, port):
         """
         Setup the request for sending. We might need to do this several times
         whilst following redirects.
         """
 
-        component, method = self._prepareData()
-        self._prepareHeaders(host, port, component, method)
+        component, method = (yield self._prepareData())
+        yield self._prepareHeaders(host, port, component, method)
 
 
+    @inlineCallbacks
     def _prepareHeaders(self, host, port, component, method):
         """
         Always generate a new set of headers because the Host may varying during redirects,
@@ -357,7 +359,7 @@ class IScheduleRequest(object):
         # The Originator must be the ORGANIZER (for a request) or ATTENDEE (for a reply)
         originator = self.scheduler.organizer.cuaddr if self.scheduler.isiTIPRequest else self.scheduler.attendee
         if self.server.unNormalizeAddresses:
-            originator = normalizeCUAddress(originator, normalizationLookup, self.scheduler.txn.directoryService().recordWithCalendarUserAddress, toUUID=False)
+            originator = yield normalizeCUAddress(originator, normalizationLookup, self.scheduler.txn.directoryService().recordWithCalendarUserAddress, toUUID=False)
         self.headers.addRawHeader("Originator", utf8String(originator))
         self.sign_headers.append("Originator")
 
@@ -399,6 +401,7 @@ class IScheduleRequest(object):
             self.sign_headers.append("Authorization")
 
 
+    @inlineCallbacks
     def _prepareData(self):
         """
         Prepare data via normalization etc. Only need to do this once even when
@@ -411,7 +414,7 @@ class IScheduleRequest(object):
             normalizedCalendar = self.scheduler.calendar.duplicate()
             self.original_organizer = normalizedCalendar.getOrganizer()
             if self.server.unNormalizeAddresses:
-                normalizedCalendar.normalizeCalendarUserAddresses(
+                yield normalizedCalendar.normalizeCalendarUserAddresses(
                     normalizationLookup,
                     self.scheduler.txn.directoryService().recordWithCalendarUserAddress,
                     toUUID=False)
@@ -423,12 +426,12 @@ class IScheduleRequest(object):
             component = normalizedCalendar.mainType()
             method = normalizedCalendar.propertyValue("METHOD")
             self.data = str(normalizedCalendar)
-            return component, method
+            returnValue(component, method)
         else:
             cal = Component.fromString(self.data)
             component = cal.mainType()
             method = cal.propertyValue("METHOD")
-            return component, method
+            returnValue(component, method)
 
 
     @inlineCallbacks

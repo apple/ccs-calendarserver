@@ -329,9 +329,12 @@ class MailReceiver(object):
                 toAddr = organizer[7:]
             elif organizer.startswith("urn:uuid:"):
                 guid = organizer[9:]
-                record = self.directory.recordWithGUID(guid)
-                if record and record.emailAddresses:
-                    toAddr = list(record.emailAddresses)[0]
+                record = yield self.directory.recordWithGUID(guid)
+                try:
+                    if record and record.emailAddresses:
+                        toAddr = list(record.emailAddresses)[0]
+                except AttributeError:
+                    pass
 
             if toAddr is None:
                 log.error("Don't have an email address for the organizer; "

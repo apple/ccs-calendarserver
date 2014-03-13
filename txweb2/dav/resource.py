@@ -997,6 +997,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             if the authentication scheme is unsupported, or the
             credentials provided by the request are not valid.
         """
+
         # Bypass normal authentication if its already been done (by SACL check)
         if (
             hasattr(request, "authnUser") and
@@ -1134,7 +1135,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         # The default behaviour is no ACL; we should inherit from the parent
         # collection.
         #
-        return element.ACL()
+        return succeed(element.ACL())
 
 
     def setAccessControlList(self, acl):
@@ -1360,6 +1361,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         @return: a L{Deferred} that callbacks with C{None} or errbacks
             with an L{AccessDeniedError}
         """
+
         if principal is None:
             principal = self.currentPrincipal(request)
 
@@ -1509,7 +1511,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                 # If we get to the root without any ACLs, then use the default.
                 acl = self.defaultRootAccessControlList()
             else:
-                acl = self.defaultAccessControlList()
+                acl = yield self.defaultAccessControlList()
 
         # Dynamically update privileges for those ace's that are inherited.
         if inheritance:
@@ -1618,6 +1620,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         return []
 
 
+    @inlineCallbacks
     def principalsForAuthID(self, request, authid):
         """
         Return authentication and authorization principal identifiers
@@ -1637,16 +1640,16 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             HTTPError(responsecode.FORBIDDEN) if the principal isn't
             found.
         """
-        authnPrincipal = self.findPrincipalForAuthID(authid)
+        authnPrincipal = yield self.findPrincipalForAuthID(authid)
 
         if authnPrincipal is None:
-            return succeed((None, None))
+            returnValue((None, None))
 
-        d = self.authorizationPrincipal(request, authid, authnPrincipal)
-        d.addCallback(lambda authzPrincipal: (authnPrincipal, authzPrincipal))
-        return d
+        authzPrincipal = yield self.authorizationPrincipal(request, authid, authnPrincipal)
+        returnValue((authnPrincipal, authzPrincipal))
 
 
+    @inlineCallbacks
     def findPrincipalForAuthID(self, authid):
         """
         Return authentication and authorization principal identifiers
@@ -1662,10 +1665,10 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             found return None.
         """
         for collection in self.principalCollections():
-            principal = collection.principalForUser(authid)
+            principal = yield collection.principalForUser(authid)
             if principal is not None:
-                return principal
-        return None
+                returnValue(principal)
+        returnValue(None)
 
 
     def authorizationPrincipal(self, request, authid, authnPrincipal):

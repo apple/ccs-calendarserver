@@ -86,14 +86,12 @@ from txdav.common.datastore.work.inbox_cleanup import scheduleFirstInboxCleanup
 from txdav.common.datastore.work.revision_cleanup import (
     scheduleFirstFindMinRevision
 )
-from txdav.dps.server import DirectoryProxyServiceMaker
+from txdav.who.util import directoryFromConfig
 from txdav.dps.client import DirectoryService as DirectoryProxyClientService
-from txdav.who.groups import GroupCacher as NewGroupCacher
+from txdav.who.groups import GroupCacher
 
 from twistedcaldav import memcachepool
 from twistedcaldav.config import config, ConfigurationError
-from twistedcaldav.directory import calendaruserproxy
-from twistedcaldav.directory.directory import GroupMembershipCacheUpdater
 from txdav.who.groups import scheduleNextGroupCachingUpdate
 from twistedcaldav.localization import processLocalizationFiles
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
@@ -533,10 +531,7 @@ class SlaveSpawnerService(Service):
             )
             self.monitor.addProcessObject(process, PARENT_ENVIRONMENT)
 
-        if (
-           config.DirectoryProxy.Enabled and
-           config.DirectoryProxy.SocketPath != ""
-        ):
+        if (config.DirectoryProxy.SocketPath != ""):
             log.info("Adding directory proxy service")
 
             dpsArgv = [
@@ -912,10 +907,10 @@ class CalDAVServiceMaker (object):
         CalDAV and CardDAV requests.
         """
         pool, txnFactory = getDBPool(config)
-        store = storeFromConfig(config, txnFactory)
+        directory = DirectoryProxyClientService("FIXME")
+        store = storeFromConfig(config, txnFactory, directory)
         logObserver = AMPCommonAccessLoggingObserver()
         result = self.requestProcessingService(options, store, logObserver)
-        directory = store.directoryService()
 
         if pool is not None:
             pool.setServiceParent(result)
@@ -987,14 +982,9 @@ class CalDAVServiceMaker (object):
 
         # Optionally set up group cacher
         if config.GroupCaching.Enabled:
-            groupCacher = GroupMembershipCacheUpdater(
-                calendaruserproxy.ProxyDBService,
+            groupCacher = GroupCacher(
                 directory,
-                config.GroupCaching.UpdateSeconds,
-                config.GroupCaching.ExpireSeconds,
-                config.GroupCaching.LockSeconds,
-                namespace=config.GroupCaching.MemcachedPool,
-                useExternalProxies=config.GroupCaching.UseExternalProxies,
+                updateSeconds=config.GroupCaching.UpdateSeconds
             )
         else:
             groupCacher = None
@@ -1294,6 +1284,13 @@ class CalDAVServiceMaker (object):
             if store is None:
                 raise StoreNotAvailable()
 
+            # Create a Directory Proxy "Server" service and hand it to the
+            # store.
+            # FIXME: right now the store passed *to* the directory is the
+            # calendar/contacts data store, but for a multi-server deployment
+            # it will need its own separate store.
+            store.setDirectoryService(directoryFromConfig(config, store=store))
+
             result = self.requestProcessingService(options, store, logObserver)
 
             # Optionally set up push notifications
@@ -1330,21 +1327,12 @@ class CalDAVServiceMaker (object):
 
             # Optionally set up group cacher
             if config.GroupCaching.Enabled:
-                groupCacher = GroupMembershipCacheUpdater(
-                    calendaruserproxy.ProxyDBService,
+                groupCacher = GroupCacher(
                     directory,
-                    config.GroupCaching.UpdateSeconds,
-                    config.GroupCaching.ExpireSeconds,
-                    config.GroupCaching.LockSeconds,
-                    namespace=config.GroupCaching.MemcachedPool,
-                    useExternalProxies=config.GroupCaching.UseExternalProxies
-                )
-                newGroupCacher = NewGroupCacher(
-                    DirectoryProxyClientService(None)
+                    updateSeconds=config.GroupCaching.UpdateSeconds
                 )
             else:
                 groupCacher = None
-                newGroupCacher = None
 
             # Optionally enable Manhole access
             if config.Manhole.Enabled:
@@ -1375,17 +1363,11 @@ class CalDAVServiceMaker (object):
                         "manhole_tap could not be imported"
                     )
 
-            # Optionally enable Directory Proxy
-            if config.DirectoryProxy.Enabled:
-                dps = DirectoryProxyServiceMaker().makeService(None)
-                dps.setServiceParent(result)
-
             def decorateTransaction(txn):
                 txn._pushDistributor = pushDistributor
                 txn._rootResource = result.rootResource
                 txn._mailRetriever = mailRetriever
                 txn._groupCacher = groupCacher
-                txn._newGroupCacher = newGroupCacher
 
             store.callWithNewTransactions(decorateTransaction)
 
@@ -1425,7 +1407,7 @@ class CalDAVServiceMaker (object):
                 Popen(memcachedArgv)
 
         return self.storageService(
-            slaveSvcCreator, logObserver, uid=uid, gid=gid
+            slaveSvcCreator, logObserver, uid=uid, gid=gid, directory=None
         )
 
 
@@ -1438,10 +1420,17 @@ class CalDAVServiceMaker (object):
         """
 
         def toolServiceCreator(pool, store, ignored, storageService):
+            # Create a Directory Proxy "Server" service and hand it to the
+            # store
+            # FIXME: right now the store passed *to* the directory is the
+            # calendar/contacts data store, but for a multi-server deployment
+            # it will need its own separate store.
+            store.setDirectoryService(directoryFromConfig(config, store=store))
             return config.UtilityServiceClass(store)
 
         uid, gid = getSystemIDs(config.UserName, config.GroupName)
-        return self.storageService(toolServiceCreator, None, uid=uid, gid=gid)
+        return self.storageService(toolServiceCreator, None, uid=uid, gid=gid,
+                                   directory=None)
 
 
     def makeService_Agent(self, options):
@@ -1489,7 +1478,7 @@ class CalDAVServiceMaker (object):
 
 
     def storageService(
-        self, createMainService, logObserver, uid=None, gid=None
+        self, createMainService, logObserver, uid=None, gid=None, directory=None
     ):
         """
         If necessary, create a service to be started used for storage; for
@@ -1515,6 +1504,9 @@ class CalDAVServiceMaker (object):
             running as root (also the gid to chown Attachments to).
         @type gid: C{int}
 
+        @param directory: The directory service to use.
+        @type directory: L{IStoreDirectoryService} or None
+
         @return: the appropriate a service to start.
         @rtype: L{IService}
         """
@@ -1529,7 +1521,7 @@ class CalDAVServiceMaker (object):
                     maxConnections=config.MaxDBConnectionsPerPool
                 )
                 cp.setServiceParent(ms)
-                store = storeFromConfig(config, cp.connection)
+                store = storeFromConfig(config, cp.connection, directory)
 
                 pps = PreProcessingService(
                     createMainService, cp, store, logObserver, storageService
@@ -1654,7 +1646,7 @@ class CalDAVServiceMaker (object):
                     "Unknown database type {}".format(config.DBType)
                 )
         else:
-            store = storeFromConfig(config, None)
+            store = storeFromConfig(config, None, directory)
             return createMainService(None, store, logObserver, None)
 
 
@@ -1914,14 +1906,9 @@ class CalDAVServiceMaker (object):
 
             # Optionally set up group cacher
             if config.GroupCaching.Enabled:
-                groupCacher = GroupMembershipCacheUpdater(
-                    calendaruserproxy.ProxyDBService,
+                groupCacher = GroupCacher(
                     directory,
-                    config.GroupCaching.UpdateSeconds,
-                    config.GroupCaching.ExpireSeconds,
-                    config.GroupCaching.LockSeconds,
-                    namespace=config.GroupCaching.MemcachedPool,
-                    useExternalProxies=config.GroupCaching.UseExternalProxies
+                    updateSeconds=config.GroupCaching.UpdateSeconds
                 )
             else:
                 groupCacher = None
@@ -1936,7 +1923,10 @@ class CalDAVServiceMaker (object):
 
             return multi
 
-        ssvc = self.storageService(spawnerSvcCreator, None, uid, gid)
+        ssvc = self.storageService(
+            spawnerSvcCreator, None, uid, gid,
+            directory=DirectoryProxyClientService("FIXME")
+        )
         ssvc.setServiceParent(s)
         return s
 

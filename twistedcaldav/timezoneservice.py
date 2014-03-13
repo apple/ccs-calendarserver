@@ -86,15 +86,17 @@ class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutCh
 
 
     def defaultAccessControlList(self):
-        return davxml.ACL(
-            # DAV:Read for all principals (includes anonymous)
-            davxml.ACE(
-                davxml.Principal(davxml.All()),
-                davxml.Grant(
-                    davxml.Privilege(davxml.Read()),
+        return succeed(
+            davxml.ACL(
+                # DAV:Read for all principals (includes anonymous)
+                davxml.ACE(
+                    davxml.Principal(davxml.All()),
+                    davxml.Grant(
+                        davxml.Privilege(davxml.Read()),
+                    ),
+                    davxml.Protected(),
                 ),
-                davxml.Protected(),
-            ),
+            )
         )
 
 

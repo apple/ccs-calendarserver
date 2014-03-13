@@ -14,21 +14,21 @@
 # limitations under the License.
 ##
 
-from twisted.internet.defer import inlineCallbacks
 from twext.python.filepath import CachingFilePath as FilePath
-from txweb2 import responsecode
-from txweb2.iweb import IResponse
-from txweb2.stream import MemoryStream, FileStream
-from txweb2.http_headers import MimeType
-
+from twext.who.idirectory import RecordType
+from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.ical import Component
 from twistedcaldav.memcachelock import MemcacheLock
 from twistedcaldav.memcacher import Memcacher
-
-
 from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest
-from txweb2.dav.util import joinURL
 from txdav.caldav.datastore.sql import CalendarObject
+from txweb2 import responsecode
+from txweb2.dav.util import joinURL
+from txweb2.http_headers import MimeType
+from txweb2.iweb import IResponse
+from txweb2.stream import MemoryStream, FileStream
+
+
 
 class CollectionContents(StoreTestCase):
     """
@@ -52,7 +52,7 @@ class CollectionContents(StoreTestCase):
         def _fakeDoImplicitScheduling(self, component, inserting, internal_state):
             return False, None, False, None
 
-        self.patch(CalendarObject , "doImplicitScheduling",
+        self.patch(CalendarObject, "doImplicitScheduling",
                    _fakeDoImplicitScheduling)
 
         # Tests in this suite assume that the root resource is a calendar home.
@@ -61,31 +61,27 @@ class CollectionContents(StoreTestCase):
         return super(CollectionContents, self).setUp()
 
 
+    @inlineCallbacks
     def test_collection_in_calendar(self):
         """
         Make (regular) collection in calendar
         """
         calendar_uri = "/calendars/users/wsanchez/collection_in_calendar/"
 
-        def mkcalendar_cb(response):
-            response = IResponse(response)
-
-            if response.code != responsecode.CREATED:
-                self.fail("MKCALENDAR failed: %s" % (response.code,))
-
-            def mkcol_cb(response):
-                response = IResponse(response)
-
-                if response.code != responsecode.FORBIDDEN:
-                    self.fail("Incorrect response to nested MKCOL: %s" % (response.code,))
-
+        authRecord = yield self.directory.recordWithShortName(RecordType.user, u"wsanchez")
+        request = SimpleStoreRequest(self, "MKCALENDAR", calendar_uri, authRecord=authRecord)
+        response = yield self.send(request)
+        response = IResponse(response)
+        if response.code != responsecode.CREATED:
+            self.fail("MKCALENDAR failed: %s" % (response.code,))
             nested_uri = joinURL(calendar_uri, "nested")
 
-            request = SimpleStoreRequest(self, "MKCOL", nested_uri, authid="wsanchez")
-            return self.send(request, mkcol_cb)
+            request = SimpleStoreRequest(self, "MKCOL", nested_uri, authRecord=authRecord)
+            response = yield self.send(request)
+            response = IResponse(response)
 
-        request = SimpleStoreRequest(self, "MKCALENDAR", calendar_uri, authid="wsanchez")
-        return self.send(request, mkcalendar_cb)
+            if response.code != responsecode.FORBIDDEN:
+                self.fail("Incorrect response to nested MKCOL: %s" % (response.code,))
 
 
     def test_bogus_file(self):
@@ -163,6 +159,7 @@ class CollectionContents(StoreTestCase):
         )
 
 
+    @inlineCallbacks
     def _test_file_in_calendar(self, what, *work):
         """
         Creates a calendar collection, then PUTs a resource into that collection
@@ -171,68 +168,58 @@ class CollectionContents(StoreTestCase):
         """
         calendar_uri = "/calendars/users/wsanchez/testing_calendar/"
 
+        authRecord = yield self.directory.recordWithShortName(RecordType.user, u"wsanchez")
+        request = SimpleStoreRequest(self, "MKCALENDAR", calendar_uri, authRecord=authRecord)
+        response = yield self.send(request)
+        response = IResponse(response)
+        if response.code != responsecode.CREATED:
+            self.fail("MKCALENDAR failed: %s" % (response.code,))
 
-        @inlineCallbacks
-        def mkcalendar_cb(response):
+        c = 0
+        for stream, response_code in work:
+            dst_uri = joinURL(calendar_uri, "dst%d.ics" % (c,))
+            request = SimpleStoreRequest(self, "PUT", dst_uri, authRecord=authRecord)
+            request.headers.setHeader("if-none-match", "*")
+            request.headers.setHeader("content-type", MimeType("text", "calendar"))
+            request.stream = stream
+            response = yield self.send(request)
             response = IResponse(response)
 
-            if response.code != responsecode.CREATED:
-                self.fail("MKCALENDAR failed: %s" % (response.code,))
+            if response.code != response_code:
+                self.fail("Incorrect response to %s: %s (!= %s)" % (what, response.code, response_code))
 
-            c = 0
-
-            for stream, response_code in work:
-
-                dst_uri = joinURL(calendar_uri, "dst%d.ics" % (c,))
-                request = SimpleStoreRequest(self, "PUT", dst_uri, authid="wsanchez")
-                request.headers.setHeader("if-none-match", "*")
-                request.headers.setHeader("content-type", MimeType("text", "calendar"))
-                request.stream = stream
-                response = yield self.send(request)
-                response = IResponse(response)
-
-                if response.code != response_code:
-                    self.fail("Incorrect response to %s: %s (!= %s)" % (what, response.code, response_code))
-
-                c += 1
-
-        request = SimpleStoreRequest(self, "MKCALENDAR", calendar_uri, authid="wsanchez")
-        return self.send(request, mkcalendar_cb)
+            c += 1
 
 
+
+    @inlineCallbacks
     def test_fail_dot_file_put_in_calendar(self):
         """
         Make (regular) collection in calendar
         """
         calendar_uri = "/calendars/users/wsanchez/dot_file_in_calendar/"
+        authRecord = yield self.directory.recordWithShortName(RecordType.user, u"wsanchez")
+        request = SimpleStoreRequest(self, "MKCALENDAR", calendar_uri, authRecord=authRecord)
+        response = yield self.send(request)
+        response = IResponse(response)
+        if response.code != responsecode.CREATED:
+            self.fail("MKCALENDAR failed: %s" % (response.code,))
 
-        def mkcalendar_cb(response):
-            response = IResponse(response)
+        stream = self.dataPath.child(
+            "Holidays").child(
+            "C318AA54-1ED0-11D9-A5E0-000A958A3252.ics"
+        ).open()
+        try:
+            calendar = str(Component.fromStream(stream))
+        finally:
+            stream.close()
 
-            if response.code != responsecode.CREATED:
-                self.fail("MKCALENDAR failed: %s" % (response.code,))
+        event_uri = "/".join([calendar_uri, ".event.ics"])
 
-            def put_cb(response):
-                response = IResponse(response)
-
-                if response.code != responsecode.FORBIDDEN:
-                    self.fail("Incorrect response to dot file PUT: %s" % (response.code,))
-
-            stream = self.dataPath.child(
-                "Holidays").child(
-                "C318AA54-1ED0-11D9-A5E0-000A958A3252.ics"
-            ).open()
-            try:
-                calendar = str(Component.fromStream(stream))
-            finally:
-                stream.close()
-
-            event_uri = "/".join([calendar_uri, ".event.ics"])
-
-            request = SimpleStoreRequest(self, "PUT", event_uri, authid="wsanchez")
-            request.headers.setHeader("content-type", MimeType("text", "calendar"))
-            request.stream = MemoryStream(calendar)
-            return self.send(request, put_cb)
-
-        request = SimpleStoreRequest(self, "MKCALENDAR", calendar_uri, authid="wsanchez")
-        return self.send(request, mkcalendar_cb)
+        request = SimpleStoreRequest(self, "PUT", event_uri, authRecord=authRecord)
+        request.headers.setHeader("content-type", MimeType("text", "calendar"))
+        request.stream = MemoryStream(calendar)
+        response = yield self.send(request)
+        response = IResponse(response)
+        if response.code != responsecode.FORBIDDEN:
+            self.fail("Incorrect response to dot file PUT: %s" % (response.code,))

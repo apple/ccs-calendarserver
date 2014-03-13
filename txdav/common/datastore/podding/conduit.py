@@ -76,32 +76,33 @@ class PoddingConduit(object):
         self.store = store
 
 
-    def validRequst(self, source_guid, destination_guid):
+    @inlineCallbacks
+    def validRequest(self, source_uid, destination_uid):
         """
-        Verify that the specified GUIDs are valid for the request and return the
+        Verify that the specified uids are valid for the request and return the
         matching directory records.
 
-        @param source_guid: GUID for the user on whose behalf the request is being made
-        @type source_guid: C{str}
-        @param destination_guid: GUID for the user to whom the request is being sent
-        @type destination_guid: C{str}
+        @param source_uid: UID for the user on whose behalf the request is being made
+        @type source_uid: C{str}
+        @param destination_uid: UID for the user to whom the request is being sent
+        @type destination_uid: C{str}
 
-        @return: C{tuple} of L{IStoreDirectoryRecord}
+        @return: L{Deferred} resulting in C{tuple} of L{IStoreDirectoryRecord}
         """
 
-        source = self.store.directoryService().recordWithUID(source_guid)
+        source = yield self.store.directoryService().recordWithUID(source_uid)
         if source is None:
-            raise DirectoryRecordNotFoundError("Cross-pod source: {}".format(source_guid))
+            raise DirectoryRecordNotFoundError("Cross-pod source: {}".format(source_uid))
         if not source.thisServer():
-            raise FailedCrossPodRequestError("Cross-pod source not on this server: {}".format(source_guid))
+            raise FailedCrossPodRequestError("Cross-pod source not on this server: {}".format(source_uid))
 
-        destination = self.store.directoryService().recordWithUID(destination_guid)
+        destination = yield self.store.directoryService().recordWithUID(destination_uid)
         if destination is None:
-            raise DirectoryRecordNotFoundError("Cross-pod destination: {}".format(destination_guid))
+            raise DirectoryRecordNotFoundError("Cross-pod destination: {}".format(destination_uid))
         if destination.thisServer():
-            raise FailedCrossPodRequestError("Cross-pod destination on this server: {}".format(destination_guid))
+            raise FailedCrossPodRequestError("Cross-pod destination on this server: {}".format(destination_uid))
 
-        return (source, destination,)
+        returnValue((source, destination,))
 
 
     @inlineCallbacks
@@ -166,13 +167,13 @@ class PoddingConduit(object):
 
         @param homeType: Type of home being shared.
         @type homeType: C{int}
-        @param ownerUID: GUID of the sharer.
+        @param ownerUID: UID of the sharer.
         @type ownerUID: C{str}
         @param ownerID: resource ID of the sharer calendar
         @type ownerID: C{int}
         @param ownerName: owner's name of the sharer calendar
         @type ownerName: C{str}
-        @param shareeUID: GUID of the sharee
+        @param shareeUID: UID of the sharee
         @type shareeUID: C{str}
         @param shareUID: Resource/invite ID for sharee
         @type shareUID: C{str}
@@ -186,7 +187,7 @@ class PoddingConduit(object):
         @type supported_components: C{str}
         """
 
-        _ignore_sender, recipient = self.validRequst(ownerUID, shareeUID)
+        _ignore_sender, recipient = yield self.validRequest(ownerUID, shareeUID)
 
         action = {
             "action": "shareinvite",
@@ -250,17 +251,17 @@ class PoddingConduit(object):
 
         @param homeType: Type of home being shared.
         @type homeType: C{int}
-        @param ownerUID: GUID of the sharer.
+        @param ownerUID: UID of the sharer.
         @type ownerUID: C{str}
         @param ownerID: resource ID of the sharer calendar
         @type ownerID: C{int}
-        @param shareeUID: GUID of the sharee
+        @param shareeUID: UID of the sharee
         @type shareeUID: C{str}
         @param shareUID: Resource/invite ID for sharee
         @type shareUID: C{str}
         """
 
-        _ignore_sender, recipient = self.validRequst(ownerUID, shareeUID)
+        _ignore_sender, recipient = yield self.validRequest(ownerUID, shareeUID)
 
         action = {
             "action": "shareuninvite",
@@ -313,9 +314,9 @@ class PoddingConduit(object):
 
         @param homeType: Type of home being shared.
         @type homeType: C{int}
-        @param ownerUID: GUID of the sharer.
+        @param ownerUID: UID of the sharer.
         @type ownerUID: C{str}
-        @param shareeUID: GUID of the recipient
+        @param shareeUID: UID of the recipient
         @type shareeUID: C{str}
         @param shareUID: Resource/invite ID for recipient
         @type shareUID: C{str}
@@ -325,7 +326,7 @@ class PoddingConduit(object):
         @type summary: C{str}
         """
 
-        _ignore_sender, recipient = self.validRequst(shareeUID, ownerUID)
+        _ignore_sender, recipient = yield self.validRequest(shareeUID, ownerUID)
 
         action = {
             "action": "sharereply",
@@ -398,7 +399,7 @@ class PoddingConduit(object):
 
         actionName = "add-attachment"
         shareeView = objectResource._parentCollection
-        action, recipient = self._send(actionName, shareeView, objectResource)
+        action, recipient = yield self._send(actionName, shareeView, objectResource)
         action["rids"] = rids
         action["filename"] = filename
         result = yield self.sendRequest(shareeView._txn, recipient, action, stream, content_type)
@@ -458,7 +459,7 @@ class PoddingConduit(object):
 
         actionName = "update-attachment"
         shareeView = objectResource._parentCollection
-        action, recipient = self._send(actionName, shareeView, objectResource)
+        action, recipient = yield self._send(actionName, shareeView, objectResource)
         action["managedID"] = managed_id
         action["filename"] = filename
         result = yield self.sendRequest(shareeView._txn, recipient, action, stream, content_type)
@@ -514,7 +515,7 @@ class PoddingConduit(object):
 
         actionName = "remove-attachment"
         shareeView = objectResource._parentCollection
-        action, recipient = self._send(actionName, shareeView, objectResource)
+        action, recipient = yield self._send(actionName, shareeView, objectResource)
         action["rids"] = rids
         action["managedID"] = managed_id
         result = yield self.sendRequest(shareeView._txn, recipient, action)
@@ -557,6 +558,7 @@ class PoddingConduit(object):
     # Sharer data access related apis
     #
 
+    @inlineCallbacks
     def _send(self, action, parent, child=None):
         """
         Base behavior for an operation on a L{CommonHomeChild}.
@@ -570,7 +572,7 @@ class PoddingConduit(object):
         ownerID = parent.external_id()
         shareeUID = parent.viewerHome().uid()
 
-        _ignore_sender, recipient = self.validRequst(shareeUID, ownerUID)
+        _ignore_sender, recipient = yield self.validRequest(shareeUID, ownerUID)
 
         result = {
             "action": action,
@@ -581,7 +583,7 @@ class PoddingConduit(object):
         }
         if child is not None:
             result["resource_id"] = child.id()
-        return result, recipient
+        returnValue((result, recipient))
 
 
     @inlineCallbacks
@@ -644,7 +646,7 @@ class PoddingConduit(object):
         @type kwargs: C{dict}
         """
 
-        action, recipient = self._send(actionName, shareeView, objectResource)
+        action, recipient = yield self._send(actionName, shareeView, objectResource)
         if args is not None:
             action["arguments"] = args
         if kwargs is not None:
@@ -710,7 +712,7 @@ class PoddingConduit(object):
         servertoserver,
         event_details,
     ):
-        action, recipient = self._send("freebusy", calresource)
+        action, recipient = yield self._send("freebusy", calresource)
         action["timerange"] = [timerange.start.getText(), timerange.end.getText()]
         action["matchtotal"] = matchtotal
         action["excludeuid"] = excludeuid

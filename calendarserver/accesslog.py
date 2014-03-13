@@ -48,7 +48,6 @@ from twisted.internet import protocol, task
 from twisted.protocols import amp
 
 from twistedcaldav.config import config
-from twistedcaldav.directory.directory import DirectoryService
 
 from txdav.xml import element as davxml
 
@@ -91,21 +90,26 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                     if hasattr(request, "authzUser") and str(request.authzUser.children[0]) != uidn:
                         uidz = str(request.authzUser.children[0])
 
-                    def convertUIDtoShortName(uid):
-                        uid = uid.rstrip("/")
-                        uid = uid[uid.rfind("/") + 1:]
-                        record = request.site.resource.getDirectory().recordWithUID(uid)
-                        if record:
-                            if record.recordType == DirectoryService.recordType_users:
-                                return record.shortNames[0]
-                            else:
-                                return "(%s)%s" % (record.recordType, record.shortNames[0],)
-                        else:
-                            return uid
+                    # def convertUIDtoShortName(uid):
+                    #     uid = uid.rstrip("/")
+                    #     uid = uid[uid.rfind("/") + 1:]
+                    #     record = request.site.resource.getDirectory().recordWithUID(uid)
+                    #     if record:
+                    #         if record.recordType == DirectoryService.recordType_users:
+                    #             return record.shortNames[0]
+                    #         else:
+                    #             return "(%s)%s" % (record.recordType, record.shortNames[0],)
+                    #     else:
+                    #         return uid
 
-                    uidn = convertUIDtoShortName(uidn)
-                    if uidz:
-                        uidz = convertUIDtoShortName(uidz)
+                    # MOVE2WHO
+                    # Better to stick the records directly on the request at
+                    # an earlier point, since we can't do anything deferred
+                    # in here.
+
+                    # uidn = convertUIDtoShortName(uidn)
+                    # if uidz:
+                    #     uidz = convertUIDtoShortName(uidz)
 
                     if uidn and uidz:
                         uid = '"%s as %s"' % (uidn, uidz,)

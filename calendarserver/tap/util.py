@@ -53,10 +53,8 @@ from twistedcaldav.bind import doBind
 from twistedcaldav.cache import CacheStoreNotifierFactory
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeProvisioningResource
-from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
-from twistedcaldav.directory.directory import GroupMembershipCache
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.wiki import WikiDirectoryService
 from calendarserver.push.notifier import NotifierFactory
@@ -100,7 +98,12 @@ from twext.python.filepath import CachingFilePath
 from urllib import quote
 from twisted.python.usage import UsageError
 
+from txdav.dps.client import DirectoryService as DirectoryProxyClientService
 
+from twext.who.checker import UsernamePasswordCredentialChecker
+from twext.who.checker import HTTPDigestCredentialChecker
+from twisted.cred.error import UnauthorizedLogin
+from txweb2.dav.auth import IPrincipalCredentials
 log = Logger()
 
 
@@ -218,7 +221,7 @@ class ConnectionDispenser(object):
 
 
 
-def storeFromConfig(config, txnFactory, directoryService=None):
+def storeFromConfig(config, txnFactory, directoryService):
     """
     Produce an L{IDataStore} from the given configuration, transaction factory,
     and notifier factory.
@@ -235,9 +238,6 @@ def storeFromConfig(config, txnFactory, directoryService=None):
 
     if config.EnableResponseCache and config.Memcached.Pools.Default.ClientEnabled:
         notifierFactories["cache"] = CacheStoreNotifierFactory()
-
-    if directoryService is None:
-        directoryService = directoryFromConfig(config)
 
     quota = config.UserQuota
     if quota == 0:
@@ -281,10 +281,11 @@ def storeFromConfig(config, txnFactory, directoryService=None):
 
 
 
-def directoryFromConfig(config):
+def REMOVEMEdirectoryFromConfig(config):
     """
     Create an L{AggregateDirectoryService} from the given configuration.
     """
+
     #
     # Setup the Augment Service
     #
@@ -370,6 +371,55 @@ def directoryFromConfig(config):
     return directory
 
 
+# MOVE2WHO -- should we move this class somewhere else?
+class PrincipalCredentialChecker(object):
+    credentialInterfaces = (IPrincipalCredentials,)
+
+    @inlineCallbacks
+    def requestAvatarId(self, credentials):
+        credentials = IPrincipalCredentials(credentials)
+
+        if credentials.authnPrincipal is None:
+            raise UnauthorizedLogin("No such user: %s" % (credentials.credentials.username,))
+
+        # See if record is enabledForLogin
+        if not credentials.authnPrincipal.record.isLoginEnabled():
+            raise UnauthorizedLogin(
+                "User not allowed to log in: {user}".format(
+                    user=credentials.credentials.username
+                )
+            )
+
+        # Handle Kerberos as a separate behavior
+        try:
+            from twistedcaldav.authkerb import NegotiateCredentials
+        except ImportError:
+            NegotiateCredentials = None
+
+        if NegotiateCredentials and isinstance(credentials.credentials,
+                                               NegotiateCredentials):
+            # If we get here with Kerberos, then authentication has already succeeded
+            returnValue(
+                (
+                    credentials.authnPrincipal.principalURL(),
+                    credentials.authzPrincipal.principalURL(),
+                    credentials.authnPrincipal,
+                    credentials.authzPrincipal,
+                )
+            )
+        else:
+            if (yield credentials.authnPrincipal.record.verifyCredentials(credentials.credentials)):
+                returnValue(
+                    (
+                        credentials.authnPrincipal.principalURL(),
+                        credentials.authzPrincipal.principalURL(),
+                        credentials.authnPrincipal,
+                        credentials.authzPrincipal,
+                    )
+                )
+            else:
+                raise UnauthorizedLogin("Incorrect credentials for %s" % (credentials.credentials.username,))
+
 
 def getRootResource(config, newStore, resources=None):
     """
@@ -407,21 +457,25 @@ def getRootResource(config, newStore, resources=None):
     addressBookResourceClass = DirectoryAddressBookHomeProvisioningResource
     directoryBackedAddressBookResourceClass = DirectoryBackedAddressBookResource
     apnSubscriptionResourceClass = APNSubscriptionResource
+    principalResourceClass = DirectoryPrincipalProvisioningResource
 
     directory = newStore.directoryService()
+    principalCollection = principalResourceClass("/principals/", directory)
 
     #
     # Setup the ProxyDB Service
     #
-    proxydbClass = namedClass(config.ProxyDBService.type)
 
-    log.info("Configuring proxydb service of type: {cls}", cls=proxydbClass)
+    # MOVE2WHO
+    # proxydbClass = namedClass(config.ProxyDBService.type)
 
-    try:
-        calendaruserproxy.ProxyDBService = proxydbClass(**config.ProxyDBService.params)
-    except IOError:
-        log.error("Could not start proxydb service")
-        raise
+    # log.info("Configuring proxydb service of type: {cls}", cls=proxydbClass)
+
+    # try:
+    #     calendaruserproxy.ProxyDBService = proxydbClass(**config.ProxyDBService.params)
+    # except IOError:
+    #     log.error("Could not start proxydb service")
+    #     raise
 
     #
     # Configure the Site and Wrappers
@@ -431,9 +485,11 @@ def getRootResource(config, newStore, resources=None):
 
     portal = Portal(auth.DavRealm())
 
-    portal.registerChecker(directory)
+    portal.registerChecker(UsernamePasswordCredentialChecker(directory))
+    portal.registerChecker(HTTPDigestCredentialChecker(directory))
+    portal.registerChecker(PrincipalCredentialChecker())
 
-    realm = directory.realmName or ""
+    realm = directory.realmName.encode("utf-8") or ""
 
     log.info("Configuring authentication for realm: {realm}", realm=realm)
 
@@ -491,7 +547,7 @@ def getRootResource(config, newStore, resources=None):
     #
     log.info("Setting up document root at: {root}", root=config.DocumentRoot)
 
-    principalCollection = directory.principalCollection
+    # principalCollection = directory.principalCollection
 
     if config.EnableCalDAV:
         log.info("Setting up calendar collection: {cls}", cls=calendarResourceClass)
@@ -712,6 +768,7 @@ def getRootResource(config, newStore, resources=None):
     #
     # Configure ancillary data
     #
+    # MOVE2WHO
     log.info("Configuring authentication wrapper")
 
     overrides = {}

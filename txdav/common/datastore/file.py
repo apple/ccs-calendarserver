@@ -700,7 +700,7 @@ class CommonHome(FileMetaDataMixin):
 
 
     def directoryRecord(self):
-        return self.directoryService().recordWithUID(self.uid())
+        return self.directoryService().recordWithUID(self.uid().decode("utf-8"))
 
 
     def retrieveOldShares(self):

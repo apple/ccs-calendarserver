@@ -431,7 +431,7 @@ class CalVerifyService(WorkerService, object):
         configuration, creating one first if necessary.
         """
         if self._directory is None:
-            self._directory = getDirectory(self.config) #directoryFromConfig(self.config)
+            self._directory = getDirectory(self.config)
         return self._directory
 
 

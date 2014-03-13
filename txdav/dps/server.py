@@ -15,10 +15,10 @@
 ##
 
 import cPickle as pickle
-import os
 import uuid
 
 from twext.python.log import Logger
+from twext.who.expression import MatchType, MatchFlags, Operand
 from twext.who.idirectory import RecordType
 from twisted.application import service
 from twisted.application.strports import service as strPortsService
@@ -26,20 +26,21 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.protocol import Factory
 from twisted.plugin import IPlugin
 from twisted.protocols import amp
-from twisted.python.filepath import FilePath
+from twisted.python.constants import Names, NamedConstant
 from twisted.python.usage import Options, UsageError
 from twistedcaldav.config import config
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from txdav.dps.commands import (
     RecordWithShortNameCommand, RecordWithUIDCommand, RecordWithGUIDCommand,
     RecordsWithRecordTypeCommand, RecordsWithEmailAddressCommand,
+    RecordsMatchingTokensCommand, RecordsMatchingFieldsCommand,
+    MembersCommand, GroupsCommand, SetMembersCommand,
     VerifyPlaintextPasswordCommand, VerifyHTTPDigestCommand,
     # UpdateRecordsCommand, RemoveRecordsCommand
 )
-from twext.who.ldap import DirectoryService as LDAPDirectoryService
-from txdav.who.xml import DirectoryService as XMLDirectoryService
+from txdav.who.util import directoryFromConfig
 from zope.interface import implementer
-from twisted.cred.credentials import UsernamePassword
+
 
 log = Logger()
 
@@ -63,15 +64,21 @@ class DirectoryProxyAMPProtocol(amp.AMP):
 
     def recordToDict(self, record):
         """
-        This to be replaced by something awesome
+        Turn a record in a dictionary of fields which can be reconstituted
+        within the client
         """
         fields = {}
         if record is not None:
             for field, value in record.fields.iteritems():
-                # print("%s: %s" % (field.name, value))
-                valueType = self._directory.fieldName.valueType(field)
-                if valueType is unicode:
+                valueType = record.service.fieldName.valueType(field)
+                # print("%s: %s (%s)" % (field.name, value, valueType))
+                if valueType in (unicode, bool):
                     fields[field.name] = value
+                elif valueType is uuid.UUID:
+                    fields[field.name] = str(value)
+                elif issubclass(valueType, (Names, NamedConstant)):
+                    fields[field.name] = value.name if value else None
+        # print("Server side fields", fields)
         return fields
 
 
@@ -82,7 +89,7 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         shortName = shortName.decode("utf-8")
         log.debug("RecordWithShortName: {r} {n}", r=recordType, n=shortName)
         record = (yield self._directory.recordWithShortName(
-            RecordType.lookupByName(recordType), shortName)
+            self._directory.recordType.lookupByName(recordType), shortName)
         )
         fields = self.recordToDict(record)
         response = {
@@ -151,6 +158,124 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         fieldsList = []
         for record in records:
             fieldsList.append(self.recordToDict(record))
+        response = {
+            "fieldsList": pickle.dumps(fieldsList),
+        }
+        log.debug("Responding with: {response}", response=response)
+        returnValue(response)
+
+
+    @RecordsMatchingTokensCommand.responder
+    @inlineCallbacks
+    def recordsMatchingTokens(self, tokens, context=None):
+        tokens = [t.decode("utf-8") for t in tokens]
+        log.debug("RecordsMatchingTokens: {t}", t=(", ".join(tokens)))
+        records = yield self._directory.recordsMatchingTokens(
+            tokens, context=context
+        )
+        fieldsList = []
+        for record in records:
+            fieldsList.append(self.recordToDict(record))
+        response = {
+            "fieldsList": pickle.dumps(fieldsList),
+        }
+        log.debug("Responding with: {response}", response=response)
+        returnValue(response)
+
+
+    @RecordsMatchingFieldsCommand.responder
+    @inlineCallbacks
+    def recordsMatchingFields(self, fields, operand="OR", recordType=None):
+        log.debug("RecordsMatchingFields")
+        newFields = []
+        for fieldName, searchTerm, matchFlags, matchType in fields:
+            fieldName = fieldName.decode("utf-8")
+            searchTerm = searchTerm.decode("utf-8")
+            matchFlags = MatchFlags.lookupByName(matchFlags.decode("utf-8"))
+            matchType = MatchType.lookupByName(matchType.decode("utf-8"))
+            newFields.append((fieldName, searchTerm, matchFlags, matchType))
+        operand = Operand.lookupByName(operand)
+        if recordType:
+            recordType = RecordType.lookupByName(recordType)
+        records = yield self._directory.recordsMatchingFields(
+            newFields, operand=operand, recordType=recordType
+        )
+        fieldsList = []
+        for record in records:
+            fieldsList.append(self.recordToDict(record))
+        response = {
+            "fieldsList": pickle.dumps(fieldsList),
+        }
+        log.debug("Responding with: {response}", response=response)
+        returnValue(response)
+
+
+    @MembersCommand.responder
+    @inlineCallbacks
+    def members(self, uid):
+        uid = uid.decode("utf-8")
+        log.debug("Members: {u}", u=uid)
+        try:
+            record = (yield self._directory.recordWithUID(uid))
+        except Exception as e:
+            log.error("Failed in members", error=e)
+            record = None
+
+        fieldsList = []
+        if record is not None:
+            for member in (yield record.members()):
+                fieldsList.append(self.recordToDict(member))
+        response = {
+            "fieldsList": pickle.dumps(fieldsList),
+        }
+        log.debug("Responding with: {response}", response=response)
+        returnValue(response)
+
+
+    @SetMembersCommand.responder
+    @inlineCallbacks
+    def setMembers(self, uid, memberUIDs):
+        uid = uid.decode("utf-8")
+        memberUIDs = [m.decode("utf-8") for m in memberUIDs]
+        log.debug("Set Members: {u} -> {m}", u=uid, m=memberUIDs)
+        try:
+            record = (yield self._directory.recordWithUID(uid))
+        except Exception as e:
+            log.error("Failed in setMembers", error=e)
+            record = None
+
+        if record is not None:
+            memberRecords = []
+            for memberUID in memberUIDs:
+                memberRecord = yield self._directory.recordWithUID(memberUID)
+                if memberRecord is not None:
+                    memberRecords.append(memberRecord)
+            yield record.setMembers(memberRecords)
+            success = True
+        else:
+            success = False
+
+        response = {
+            "success": success,
+        }
+        log.debug("Responding with: {response}", response=response)
+        returnValue(response)
+
+
+    @GroupsCommand.responder
+    @inlineCallbacks
+    def groups(self, uid):
+        uid = uid.decode("utf-8")
+        log.debug("Groups: {u}", u=uid)
+        try:
+            record = (yield self._directory.recordWithUID(uid))
+        except Exception as e:
+            log.error("Failed in groups", error=e)
+            record = None
+
+        fieldsList = []
+        for group in (yield record.groups()):
+            fieldsList.append(self.recordToDict(group))
         response = {
             "fieldsList": pickle.dumps(fieldsList),
         }
@@ -333,36 +458,17 @@ class DirectoryProxyServiceMaker(object):
         else:
             setproctitle("CalendarServer Directory Proxy Service")
 
-        directoryType = config.DirectoryProxy.DirectoryType
-        args = config.DirectoryProxy.Arguments
-        kwds = config.DirectoryProxy.Keywords
+        try:
+            directory = directoryFromConfig(config)
+        except Exception as e:
+            log.error("Failed to create directory service", error=e)
+            raise
 
-        if directoryType == "OD":
-            from twext.who.opendirectory import DirectoryService as ODDirectoryService
-            directory = ODDirectoryService(*args, **kwds)
+        log.info("Created directory service")
 
-        elif directoryType == "LDAP":
-            authDN = kwds.pop("authDN", "")
-            password = kwds.pop("password", "")
-            if authDN and password:
-                creds = UsernamePassword(authDN, password)
-            else:
-                creds = None
-            kwds["credentials"] = creds
-            debug = kwds.pop("debug", "")
-            directory = LDAPDirectoryService(*args, _debug=debug, **kwds)
-
-        elif directoryType == "XML":
-            path = kwds.pop("path", "")
-            if not path or not os.path.exists(path):
-                log.error("Path not found for XML directory: {p}", p=path)
-            fp = FilePath(path)
-            directory = XMLDirectoryService(fp, *args, **kwds)
-
-        else:
-            log.error("Invalid DirectoryType: {dt}", dt=directoryType)
-
-        desc = "unix:{path}:mode=660".format(
-            path=config.DirectoryProxy.SocketPath
+        return strPortsService(
+            "unix:{path}:mode=660".format(
+                path=config.DirectoryProxy.SocketPath
+            ),
+            DirectoryProxyAMPFactory(directory)
         )
-        return strPortsService(desc, DirectoryProxyAMPFactory(directory))

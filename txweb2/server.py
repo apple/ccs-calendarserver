@@ -192,7 +192,7 @@ class Request(http.Request):
                        error.defaultErrorHandler, defaultHeadersFilter]
 
     def __init__(self, *args, **kw):
-        
+
         self.timeStamps = [("t", time.time(),)]
 
         if kw.has_key('site'):
@@ -308,10 +308,10 @@ class Request(http.Request):
         clients into using an inappropriate scheme for subsequent requests. What we should do is
         take the port number from the Host header or request-URI and map that to the scheme that
         matches the service we configured to listen on that port.
- 
+
         @param port: the port number to test
         @type port: C{int}
-        
+
         @return: C{True} if scheme is https (secure), C{False} otherwise
         @rtype: C{bool}
         """
@@ -322,7 +322,7 @@ class Request(http.Request):
                 return True
             elif port in self.site.BindSSLPorts:
                 return True
-        
+
         return False
 
     def _fixupURLParts(self):
@@ -558,7 +558,7 @@ class Request(http.Request):
                 break
             else:
                 postSegments.insert(0, preSegments.pop())
-        
+
         if cachedParent is None:
             cachedParent = self.site.resource
             postSegments = segments[1:]

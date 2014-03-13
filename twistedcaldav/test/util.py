@@ -17,44 +17,36 @@ from __future__ import print_function
 from __future__ import with_statement
 
 import os
-import xattr
 
-from twistedcaldav.stdconfig import config
-
-from twisted.python.failure import Failure
+from calendarserver.provision.root import RootResource
+from calendarserver.tap.util import getRootResource
+from twext.python.filepath import CachingFilePath as FilePath
+from twext.python.log import Logger
 from twisted.internet.base import DelayedCall
 from twisted.internet.defer import succeed, fail, inlineCallbacks, returnValue
 from twisted.internet.protocol import ProcessProtocol
-
-from twext.python.filepath import CachingFilePath as FilePath
-import txweb2.dav.test.util
-from txdav.xml import element as davxml, element
-from txweb2.http import HTTPError, StatusResponse
-
+from twisted.python.failure import Failure
 from twistedcaldav import memcacher
-from twistedcaldav.memcacheclient import ClientFactory
 from twistedcaldav.bind import doBind
-from twistedcaldav.directory import augment
 from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeProvisioningResource
 from twistedcaldav.directory.calendar import (
     DirectoryCalendarHomeProvisioningResource
 )
 from twistedcaldav.directory.principal import (
     DirectoryPrincipalProvisioningResource)
-from twistedcaldav.directory.aggregate import AggregateDirectoryService
-from twistedcaldav.directory.xmlfile import XMLDirectoryService
-
-from txdav.common.datastore.test.util import deriveQuota, CommonCommonTests
-from txdav.common.datastore.file import CommonDataStore
-
-from calendarserver.provision.root import RootResource
-
-from twext.python.log import Logger
-from txdav.caldav.datastore.test.util import buildCalendarStore
-from calendarserver.tap.util import getRootResource, directoryFromConfig
-from txweb2.dav.test.util import SimpleRequest
 from twistedcaldav.directory.util import transactionFromRequest
-from twistedcaldav.directory.directory import DirectoryService
+from twistedcaldav.memcacheclient import ClientFactory
+from twistedcaldav.stdconfig import config
+from txdav.caldav.datastore.test.util import buildCalendarStore
+from txdav.common.datastore.file import CommonDataStore
+from txdav.common.datastore.test.util import deriveQuota, CommonCommonTests
+from txdav.who.util import directoryFromConfig
+from txdav.xml import element as davxml, element
+from txweb2.dav.test.util import SimpleRequest
+import txweb2.dav.test.util
+from txweb2.http import HTTPError, StatusResponse
+import xattr
+
 
 log = Logger()
 
@@ -67,9 +59,11 @@ __all__ = [
 ]
 DelayedCall.debug = True
 
+
 def _todo(f, why):
     f.todo = why
     return f
+
 
 featureUnimplemented = lambda f: _todo(f, "Feature unimplemented")
 testUnimplemented = lambda f: _todo(f, "Test unimplemented")
@@ -83,92 +77,21 @@ proxiesFile = dirTest.child("proxies.xml")
 
 
 
-class DirectoryFixture(object):
-    """
-    Test fixture for creating various parts of the resource hierarchy related
-    to directories.
-    """
-
-    def __init__(self):
-        def _setUpPrincipals(ds):
-            # FIXME: see FIXME in
-            # DirectoryPrincipalProvisioningResource.__init__; this performs a
-            # necessary modification to any directory service object for it to
-            # be fully functional.
-            self.principalsResource = DirectoryPrincipalProvisioningResource(
-                "/principals/", ds
-            )
-        self._directoryChangeHooks = [_setUpPrincipals]
-
-    directoryService = None
-    principalsResource = None
-
-    def addDirectoryService(self, newService):
-        """
-        Add an L{IDirectoryService} to this test case.
-
-        If this test case does not have a directory service yet, create it and
-        assign C{directoryService} and C{principalsResource} attributes to this
-        test case.
-
-        If the test case already has a directory service, create an
-        L{AggregateDirectoryService} and re-assign the C{self.directoryService}
-        attribute to point at it instead, while setting the C{realmName} of the
-        new service to match the old one.
-
-        If the test already has an L{AggregateDirectoryService}, create a
-        I{new} L{AggregateDirectoryService} with the same list of services,
-        after adjusting the new service's realm to match the existing ones.
-        """
-
-        if self.directoryService is None:
-            directoryService = newService
-        else:
-            newService.realmName = self.directoryService.realmName
-            if isinstance(self.directoryService, AggregateDirectoryService):
-                directories = set(self.directoryService._recordTypes.items())
-                directories.add(newService)
-            else:
-                directories = [newService, self.directoryService]
-            directoryService = AggregateDirectoryService(directories, None)
-
-        self.directoryService = directoryService
-        # FIXME: see FIXME in DirectoryPrincipalProvisioningResource.__init__;
-        # this performs a necessary modification to the directory service object
-        # for it to be fully functional.
-        for hook in self._directoryChangeHooks:
-            hook(directoryService)
-
-
-    def whenDirectoryServiceChanges(self, callback):
-        """
-        When the C{directoryService} attribute is changed by
-        L{TestCase.addDirectoryService}, call the given callback in order to
-        update any state which relies upon that service.
-
-        If there's already a directory, invoke the callback immediately.
-        """
-        self._directoryChangeHooks.append(callback)
-        if self.directoryService is not None:
-            callback(self.directoryService)
-
 
 
 class SimpleStoreRequest(SimpleRequest):
     """
     A SimpleRequest that automatically grabs the proper transaction for a test.
     """
-    def __init__(self, test, method, uri, headers=None, content=None, authid=None):
+    def __init__(self, test, method, uri, headers=None, content=None, authRecord=None):
         super(SimpleStoreRequest, self).__init__(test.site, method, uri, headers, content)
         self._test = test
         self._newStoreTransaction = test.transactionUnderTest(txn=transactionFromRequest(self, test.storeUnderTest()))
         self.credentialFactories = {}
 
         # Fake credentials if auth needed
-        if authid is not None:
-            record = self._test.directory.recordWithShortName(DirectoryService.recordType_users, authid)
-            if record:
-                self.authzUser = self.authnUser = element.Principal(element.HRef("/principals/__uids__/%s/" % (record.uid,)))
+        if authRecord is not None:
+            self.authzUser = self.authnUser = element.Principal(element.HRef("/principals/__uids__/%s/" % (authRecord.uid,)))
 
 
     @inlineCallbacks
@@ -198,9 +121,13 @@ class StoreTestCase(CommonCommonTests, txweb2.dav.test.util.TestCase):
 
         self.configure()
 
-        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory, directoryFromConfig(config))
+        self._sqlCalendarStore = yield buildCalendarStore(
+            self, self.notifierFactory, None
+        )
+        self.directory = directoryFromConfig(config, self._sqlCalendarStore)
+        self._sqlCalendarStore.setDirectoryService(self.directory)
+
         self.rootResource = getRootResource(config, self._sqlCalendarStore)
-        self.directory = self._sqlCalendarStore.directoryService()
 
         self.principalsResource = DirectoryPrincipalProvisioningResource("/principals/", self.directory)
         self.site.resource.putChild("principals", self.principalsResource)
@@ -259,15 +186,6 @@ class StoreTestCase(CommonCommonTests, txweb2.dav.test.util.TestCase):
         accounts.setContent(xmlFile.getContent())
 
 
-    @property
-    def directoryService(self):
-        """
-        Read-only alias for L{DirectoryFixture.directoryService} for
-        compatibility with older tests.  TODO: remove this.
-        """
-        return self.directory
-
-
 
 class TestCase(txweb2.dav.test.util.TestCase):
     resource_class = RootResource
@@ -280,19 +198,6 @@ class TestCase(txweb2.dav.test.util.TestCase):
         """
         return CommonDataStore(FilePath(config.DocumentRoot), None, None, True, False,
                                quota=deriveQuota(self))
-
-
-    def createStockDirectoryService(self):
-        """
-        Create a stock C{directoryService} attribute and assign it.
-        """
-        self.xmlFile = FilePath(config.DataRoot).child("accounts.xml")
-        self.xmlFile.setContent(xmlFile.getContent())
-        self.directoryFixture.addDirectoryService(XMLDirectoryService({
-            "xmlFile": "accounts.xml",
-            "augmentService":
-                augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,)),
-        }))
 
 
     def setupCalendars(self):
@@ -308,6 +213,8 @@ class TestCase(txweb2.dav.test.util.TestCase):
         L{TestCase.directoryFixture.addDirectoryService}.
         """
         newStore = self.createDataStore()
+
+
         @self.directoryFixture.whenDirectoryServiceChanges
         def putAllChildren(ds):
             self.calendarCollection = (
@@ -343,19 +250,9 @@ class TestCase(txweb2.dav.test.util.TestCase):
         config.UsePackageTimezones = True
 
 
-    @property
-    def directoryService(self):
-        """
-        Read-only alias for L{DirectoryFixture.directoryService} for
-        compatibility with older tests.  TODO: remove this.
-        """
-        return self.directoryFixture.directoryService
-
 
     def setUp(self):
         super(TestCase, self).setUp()
-
-        self.directoryFixture = DirectoryFixture()
 
         # FIXME: this is only here to workaround circular imports
         doBind()
@@ -506,7 +403,7 @@ class TestCase(txweb2.dav.test.util.TestCase):
                                     print("Xattr mismatch:", childPath, attr)
                                     print((xattr.getxattr(childPath, attr), " != ", value))
                                     return False
-                            else: # method
+                            else:  # method
                                 if not value(xattr.getxattr(childPath, attr)):
                                     return False
 
@@ -555,7 +452,8 @@ class HomeTestCase(TestCase):
         that stores the data for that L{CalendarHomeResource}.
         """
         super(HomeTestCase, self).setUp()
-        self.createStockDirectoryService()
+
+
         @self.directoryFixture.whenDirectoryServiceChanges
         def addHomeProvisioner(ds):
             self.homeProvisioner = DirectoryCalendarHomeProvisioningResource(
@@ -639,7 +537,8 @@ class AddressBookHomeTestCase(TestCase):
         file.
         """
         super(AddressBookHomeTestCase, self).setUp()
-        self.createStockDirectoryService()
+
+
         @self.directoryFixture.whenDirectoryServiceChanges
         def addHomeProvisioner(ds):
             self.homeProvisioner = DirectoryAddressBookHomeProvisioningResource(

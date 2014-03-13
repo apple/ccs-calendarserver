@@ -31,6 +31,9 @@ from twisted.python.filepath import FilePath
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from txdav.xml import element as davxml
+from twext.who.idirectory import RecordType
+
+
 
 class AddressBookMultiget (StoreTestCase):
     """
@@ -38,6 +41,13 @@ class AddressBookMultiget (StoreTestCase):
     """
     data_dir = os.path.join(os.path.dirname(__file__), "data")
     vcards_dir = os.path.join(data_dir, "vCards")
+
+
+    @inlineCallbacks
+    def setUp(self):
+        yield StoreTestCase.setUp(self)
+        self.authRecord = yield self.directory.recordWithShortName(RecordType.user, u"wsanchez")
+
 
     def test_multiget_some_vcards(self):
         """
@@ -207,7 +217,7 @@ class AddressBookMultiget (StoreTestCase):
 </D:set>
 </D:mkcol>
 """
-            response = yield self.send(SimpleStoreRequest(self, "MKCOL", addressbook_uri, content=mkcol, authid="wsanchez"))
+            response = yield self.send(SimpleStoreRequest(self, "MKCOL", addressbook_uri, content=mkcol, authRecord=self.authRecord))
 
             response = IResponse(response)
 
@@ -221,7 +231,7 @@ class AddressBookMultiget (StoreTestCase):
                         "PUT",
                         joinURL(addressbook_uri, filename + ".vcf"),
                         headers=Headers({"content-type": MimeType.fromString("text/vcard")}),
-                        authid="wsanchez"
+                        authRecord=self.authRecord
                     )
                     request.stream = MemoryStream(icaldata)
                     yield self.send(request)
@@ -235,12 +245,12 @@ class AddressBookMultiget (StoreTestCase):
                         "PUT",
                         joinURL(addressbook_uri, child.basename()),
                         headers=Headers({"content-type": MimeType.fromString("text/vcard")}),
-                        authid="wsanchez"
+                        authRecord=self.authRecord
                     )
                     request.stream = MemoryStream(child.getContent())
                     yield self.send(request)
 
-        request = SimpleStoreRequest(self, "REPORT", addressbook_uri, authid="wsanchez")
+        request = SimpleStoreRequest(self, "REPORT", addressbook_uri, authRecord=self.authRecord)
         request.stream = MemoryStream(query.toxml())
         response = yield self.send(request)
 

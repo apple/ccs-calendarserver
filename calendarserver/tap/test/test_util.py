@@ -14,13 +14,14 @@
 # limitations under the License.
 ##
 
-from calendarserver.tap.util import directoryFromConfig, MemoryLimitService, Stepper
+from calendarserver.tap.util import MemoryLimitService, Stepper
 from twistedcaldav.util import computeProcessCount
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.config import config
 from twistedcaldav.directory.augment import AugmentXMLDB
 from twisted.internet.task import Clock
 from twisted.internet.defer import succeed, inlineCallbacks
+from txdav.who.util import directoryFromConfig
 
 class ProcessCountTestCase(TestCase):
 

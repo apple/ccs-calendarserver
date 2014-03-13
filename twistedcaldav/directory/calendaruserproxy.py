@@ -29,36 +29,40 @@ __all__ = [
 
 import itertools
 import time
-
-from twisted.internet.defer import succeed, inlineCallbacks, returnValue
-from txweb2 import responsecode
-from txweb2.http import HTTPError, StatusResponse
-from txdav.xml import element as davxml
-from txdav.xml.base import dav_namespace
-from txweb2.dav.util import joinURL
-from txweb2.dav.noneprops import NonePropertyStore
+import uuid
 
 from twext.python.log import Logger
-
-from twisted.web.template import XMLFile, Element, renderer
+from twext.who.idirectory import RecordType as BaseRecordType
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twisted.python.modules import getModule
-from twistedcaldav.extensions import DirectoryElement
-from twistedcaldav.directory.principal import formatLink
-from twistedcaldav.directory.principal import formatLinks
-from twistedcaldav.directory.principal import formatPrincipals
-
-from twistedcaldav.directory.util import normalizeUUID
+from twisted.web.template import XMLFile, Element, renderer
 from twistedcaldav.config import config, fullServerPath
-from twistedcaldav.database import AbstractADBAPIDatabase, ADBAPISqliteMixin, \
-    ADBAPIPostgreSQLMixin
-from twistedcaldav.extensions import DAVPrincipalResource, \
-    DAVResourceWithChildrenMixin
+from twistedcaldav.database import (
+    AbstractADBAPIDatabase, ADBAPISqliteMixin, ADBAPIPostgreSQLMixin
+)
+from twistedcaldav.directory.util import normalizeUUID
+from twistedcaldav.directory.util import (
+    formatLink, formatLinks, formatPrincipals
+)
+
+from twistedcaldav.extensions import (
+    DAVPrincipalResource, DAVResourceWithChildrenMixin
+)
+from twistedcaldav.extensions import DirectoryElement
 from twistedcaldav.extensions import ReadOnlyWritePropertiesResourceMixIn
 from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.resource import CalDAVComplianceMixIn
+from txdav.who.delegates import RecordType as DelegateRecordType
+from txdav.xml import element as davxml
+from txdav.xml.base import dav_namespace
+from txweb2 import responsecode
+from txweb2.dav.noneprops import NonePropertyStore
+from txweb2.dav.util import joinURL
+from txweb2.http import HTTPError, StatusResponse
 
 thisModule = getModule(__name__)
 log = Logger()
+
 
 class PermissionsMixIn (ReadOnlyWritePropertiesResourceMixIn):
     def defaultAccessControlList(self):
@@ -86,13 +90,13 @@ class PermissionsMixIn (ReadOnlyWritePropertiesResourceMixIn):
             for principal in config.AdminPrincipals
         ))
 
-        return davxml.ACL(*aces)
+        return succeed(davxml.ACL(*aces))
 
 
     def accessControlList(self, request, inheritance=True, expanding=False,
                           inherited_aces=None):
         # Permissions here are fixed, and are not subject to inheritance rules, etc.
-        return succeed(self.defaultAccessControlList())
+        return self.defaultAccessControlList()
 
 
 
@@ -119,13 +123,20 @@ class ProxyPrincipalDetailElement(Element):
         record = self.resource.parent.record
         resource = self.resource
         parent = self.resource.parent
+        try:
+            if isinstance(record.guid, uuid.UUID):
+                guid = str(record.guid).upper()
+            else:
+                guid = record.guid
+        except AttributeError:
+            guid = ""
         return tag.fillSlots(
             directoryGUID=record.service.guid,
             realm=record.service.realmName,
-            guid=record.guid,
-            recordType=record.recordType,
+            guid=guid,
+            recordType=record.recordType.name + "s",  # MOVE2WHO need mapping
             shortNames=record.shortNames,
-            fullName=record.fullName,
+            fullName=record.displayName,
             principalUID=parent.principalUID(),
             principalURL=formatLink(parent.principalURL()),
             proxyPrincipalUID=resource.principalUID(),
@@ -209,9 +220,13 @@ class CalendarUserProxyPrincipalResource (
 
     def resourceType(self):
         if self.proxyType == "calendar-proxy-read":
-            return davxml.ResourceType.calendarproxyread #@UndefinedVariable
+            return davxml.ResourceType.calendarproxyread  # @UndefinedVariable
         elif self.proxyType == "calendar-proxy-write":
-            return davxml.ResourceType.calendarproxywrite #@UndefinedVariable
+            return davxml.ResourceType.calendarproxywrite  # @UndefinedVariable
+        elif self.proxyType == "calendar-proxy-read-for":
+            return davxml.ResourceType.calendarproxyreadfor  # @UndefinedVariable
+        elif self.proxyType == "calendar-proxy-write-for":
+            return davxml.ResourceType.calendarproxywritefor  # @UndefinedVariable
         else:
             return super(CalendarUserProxyPrincipalResource, self).resourceType()
 
@@ -270,7 +285,7 @@ class CalendarUserProxyPrincipalResource (
         principals = []
         newUIDs = set()
         for uri in members:
-            principal = self.pcollection._principalForURI(uri)
+            principal = yield self.pcollection._principalForURI(uri)
             # Invalid principals MUST result in an error.
             if principal is None or principal.principalURL() != uri:
                 raise HTTPError(StatusResponse(
@@ -282,7 +297,9 @@ class CalendarUserProxyPrincipalResource (
             newUIDs.add(principal.principalUID())
 
         # Get the old set of UIDs
-        oldUIDs = (yield self._index().getMembers(self.uid))
+        # oldUIDs = (yield self._index().getMembers(self.uid))
+        oldPrincipals = yield self.groupMembers()
+        oldUIDs = [p.principalUID() for p in oldPrincipals]
 
         # Change membership
         yield self.setGroupMemberSetPrincipals(principals)
@@ -293,19 +310,24 @@ class CalendarUserProxyPrincipalResource (
 
         changedUIDs = newUIDs.symmetric_difference(oldUIDs)
         for uid in changedUIDs:
-            principal = self.pcollection.principalForUID(uid)
+            principal = yield self.pcollection.principalForUID(uid)
             if principal:
                 yield principal.cacheNotifier.changed()
 
         returnValue(True)
 
 
+    @inlineCallbacks
     def setGroupMemberSetPrincipals(self, principals):
-        # Map the principals to UIDs.
-        return self._index().setGroupMembers(
-            self.uid,
-            [p.principalUID() for p in principals],
+
+        # Find our pseudo-record
+        record = yield self.parent.record.service.recordWithShortName(
+            self._recordTypeFromProxyType(),
+            self.parent.principalUID()
         )
+        # Set the members
+        memberRecords = [p.record for p in principals]
+        yield record.setMembers(memberRecords)
 
 
     ##
@@ -349,7 +371,7 @@ class CalendarUserProxyPrincipalResource (
 
 
     @inlineCallbacks
-    def _expandMemberUIDs(self, uid=None, relatives=None, uids=None, infinity=False):
+    def _expandMemberPrincipals(self, uid=None, relatives=None, uids=None, infinity=False):
         if uid is None:
             uid = self.principalUID()
         if relatives is None:
@@ -360,14 +382,14 @@ class CalendarUserProxyPrincipalResource (
         if uid not in uids:
             from twistedcaldav.directory.principal import DirectoryPrincipalResource
             uids.add(uid)
-            principal = self.pcollection.principalForUID(uid)
+            principal = yield self.pcollection.principalForUID(uid)
             if isinstance(principal, CalendarUserProxyPrincipalResource):
                 members = yield self._directGroupMembers()
                 for member in members:
                     if member.principalUID() not in uids:
                         relatives.add(member)
                         if infinity:
-                            yield self._expandMemberUIDs(member.principalUID(), relatives, uids, infinity=infinity)
+                            yield self._expandMemberPrincipals(member.principalUID(), relatives, uids, infinity=infinity)
             elif isinstance(principal, DirectoryPrincipalResource):
                 if infinity:
                     members = yield principal.expandedGroupMembers()
@@ -378,30 +400,45 @@ class CalendarUserProxyPrincipalResource (
         returnValue(relatives)
 
 
+    def _recordTypeFromProxyType(self):
+        return {
+            "calendar-proxy-read": DelegateRecordType.readDelegateGroup,
+            "calendar-proxy-write": DelegateRecordType.writeDelegateGroup,
+            "calendar-proxy-read-for": DelegateRecordType.readDelegatorGroup,
+            "calendar-proxy-write-for": DelegateRecordType.writeDelegatorGroup,
+        }.get(self.proxyType)
+
+
     @inlineCallbacks
     def _directGroupMembers(self):
-        # Get member UIDs from database and map to principal resources
-        members = yield self._index().getMembers(self.uid)
-        found = []
-        for uid in members:
-            p = self.pcollection.principalForUID(uid)
-            if p:
-                # Only principals enabledForLogin can be a delegate
-                # (and groups as well)
-                if (p.record.enabledForLogin or
-                    p.record.recordType == p.record.service.recordType_groups):
-                    found.append(p)
-                # Make sure any outstanding deletion timer entries for
-                # existing principals are removed
-                yield self._index().refreshPrincipal(uid)
-            else:
-                self.log.warn("Delegate is missing from directory: %s" % (uid,))
-
-        returnValue(found)
+        """
+        Fault in the record representing the sub principal for this proxy type
+        (either read-only or read-write), then fault in the direct members of
+        that record.
+        """
+        memberPrincipals = []
+        record = yield self.parent.record.service.recordWithShortName(
+            self._recordTypeFromProxyType(),
+            self.parent.principalUID()
+        )
+        if record is not None:
+            memberRecords = yield record.members()
+            for record in memberRecords:
+                if record is not None:
+                    principal = yield self.pcollection.principalForRecord(
+                        record
+                    )
+                    if principal is not None:
+                        if (
+                            principal.record.loginAllowed or
+                            principal.record.recordType is BaseRecordType.group
+                        ):
+                            memberPrincipals.append(principal)
+        returnValue(memberPrincipals)
 
 
     def groupMembers(self):
-        return self._expandMemberUIDs()
+        return self._expandMemberPrincipals()
 
 
     @inlineCallbacks
@@ -410,18 +447,12 @@ class CalendarUserProxyPrincipalResource (
         Return the complete, flattened set of principals belonging to this
         group.
         """
-        returnValue((yield self._expandMemberUIDs(infinity=True)))
+        returnValue((yield self._expandMemberPrincipals(infinity=True)))
 
 
     def groupMemberships(self):
-        # Get membership UIDs and map to principal resources
-        d = self._index().getMemberships(self.uid)
-        d.addCallback(lambda memberships: [
-            p for p
-            in [self.pcollection.principalForUID(uid) for uid in memberships]
-            if p
-        ])
-        return d
+        # Unlikely to ever want to put a subprincipal into a group
+        return succeed([])
 
 
     @inlineCallbacks
@@ -437,7 +468,7 @@ class CalendarUserProxyPrincipalResource (
         @return: True if principal is a proxy (of the correct type) of our parent
         @rtype: C{boolean}
         """
-        readWrite = self.isProxyType(True) # is read-write
+        readWrite = self.isProxyType(True)  # is read-write
         if principal and self.parent in (yield principal.proxyFor(readWrite)):
             returnValue(True)
         returnValue(False)
@@ -630,7 +661,7 @@ class ProxyDB(AbstractADBAPIDatabase):
 
             overdue = yield self._memcacher.checkDeletionTimer(principalUID)
 
-            if overdue == False:
+            if overdue is False:
                 # Do nothing
                 returnValue(None)
 
@@ -855,9 +886,9 @@ class ProxyDB(AbstractADBAPIDatabase):
         )
         if alreadyDone is None:
             for (groupname, member) in (
-                    (yield self._db_all_values_for_sql(
-                        "select GROUPNAME, MEMBER from GROUPS"))
-                ):
+                (yield self._db_all_values_for_sql(
+                    "select GROUPNAME, MEMBER from GROUPS"))
+            ):
                 grouplist = groupname.split("#")
                 grouplist[0] = normalizeUUID(grouplist[0])
                 newGroupName = "#".join(grouplist)
