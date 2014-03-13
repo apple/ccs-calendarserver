@@ -23,7 +23,6 @@ __all__ = [
 ]
 
 import os
-import signal
 import socket
 import stat
 import sys
@@ -67,6 +66,8 @@ from twext.internet.ssl import ChainingOpenSSLContextFactory
 from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 from twext.python.filepath import CachingFilePath
 from twext.python.log import Logger, LogLevel, replaceTwistedLoggers
+from twext.application.service import ReExecService
+
 from txweb2.channel.http import (
     LimitingHTTPFactory, SSLRedirectRequest, HTTPChannel
 )
@@ -601,58 +602,6 @@ class WorkSchedulingService(Service):
             self.store,
             int(config.LogID) if config.LogID else 5
         )
-
-
-
-class ReExecService(MultiService):
-    """
-    A MultiService which catches SIGHUP and re-exec's the process.
-    """
-    log = Logger()
-
-    def __init__(self, pidfilePath, reactor=None):
-        """
-        @param pidFilePath: Absolute path to the pidfile which will need to be
-            removed
-        @type pidFilePath: C{str}
-        """
-        self.pidfilePath = pidfilePath
-        if reactor is None:
-            from twisted.internet import reactor
-        self.reactor = reactor
-        MultiService.__init__(self)
-
-
-    def reExec(self):
-        """
-        Removes pidfile, registers an exec to happen after shutdown, then
-        stops the reactor.
-        """
-        self.log.warn("SIGHUP received - restarting")
-        try:
-            self.log.info("Removing pidfile: {log_source.pidfilePath}")
-            os.remove(self.pidfilePath)
-        except OSError:
-            pass
-        self.reactor.addSystemEventTrigger(
-            "after", "shutdown", os.execv,
-            sys.executable, [sys.executable] + sys.argv
-        )
-        self.reactor.stop()
-
-
-    def sighupHandler(self, num, frame):
-        self.reactor.callFromThread(self.reExec)
-
-
-    def startService(self):
-        self.previousHandler = signal.signal(signal.SIGHUP, self.sighupHandler)
-        MultiService.startService(self)
-
-
-    def stopService(self):
-        signal.signal(signal.SIGHUP, self.previousHandler)
-        MultiService.stopService(self)
 
 
 
