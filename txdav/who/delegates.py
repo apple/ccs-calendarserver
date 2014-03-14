@@ -31,7 +31,6 @@ from twext.who.idirectory import (
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python.constants import Names, NamedConstant
 
-
 log = Logger()
 
 
@@ -54,8 +53,8 @@ class RecordType(Names):
     writeDelegatorGroup.description = u"write-delegator-group"
 
 
-class DirectoryRecord(BaseDirectoryRecord):
 
+class DirectoryRecord(BaseDirectoryRecord):
 
     @inlineCallbacks
     def members(self, expanded=False):
@@ -66,7 +65,7 @@ class DirectoryRecord(BaseDirectoryRecord):
         the members will consist of the records who have delegated *to*
         this record.
         """
-        parentUID, proxyType = self.uid.split("#")
+        parentUID, proxyType = self.uid.split(u"#")
 
         txn = self.service._store.newTransaction()
 
@@ -87,7 +86,7 @@ class DirectoryRecord(BaseDirectoryRecord):
         records = []
         for uid in delegateUIDs:
             if uid != parentUID:
-                record = (yield self.service._masterDirectory.recordWithUID(uid))
+                record = yield self.service._masterDirectory.recordWithUID(uid)
                 if record is not None:
                     records.append(record)
         yield txn.commit()
@@ -109,14 +108,13 @@ class DirectoryRecord(BaseDirectoryRecord):
         ):
             raise NotAllowedError("Setting members not supported")
 
-        parentUID, proxyType = self.uid.split("#")
+        parentUID, proxyType = self.uid.split(u"#")
         readWrite = (self.recordType is RecordType.writeDelegateGroup)
 
         log.debug(
-            "Setting delegate assignments for {u} ({rw}) to {m}".format(
-                u=parentUID, rw=("write" if readWrite else "read"),
-                m=[r.uid for r in memberRecords]
-            )
+            "Setting delegate assignments for {u} ({rw}) to {m}",
+            u=parentUID, rw=("write" if readWrite else "read"),
+            m=[r.uid for r in memberRecords]
         )
 
         txn = self.service._store.newTransaction()
@@ -124,7 +122,9 @@ class DirectoryRecord(BaseDirectoryRecord):
         yield txn.removeDelegates(parentUID, readWrite)
         yield txn.removeDelegateGroups(parentUID, readWrite)
 
-        delegator = yield self.service._masterDirectory.recordWithUID(parentUID)
+        delegator = (
+            yield self.service._masterDirectory.recordWithUID(parentUID)
+        )
 
         for delegate in memberRecords:
             yield addDelegate(txn, delegator, delegate, readWrite)

@@ -18,7 +18,6 @@
 Calendar/Contacts specific methods for DirectoryRecord
 """
 
-
 import uuid
 
 from twext.python.log import Logger

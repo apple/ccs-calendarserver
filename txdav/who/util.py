@@ -42,8 +42,8 @@ def directoryFromConfig(config, store=None):
     txdav.dps.client.DirectoryService
     """
 
-    # MOVE2WHO FIXME: this needs to talk to its own separate database.  In fact,
-    # don't pass store=None if you already have called storeFromConfig()
+    # MOVE2WHO FIXME: this needs to talk to its own separate database.  In
+    # fact, don't pass store=None if you already have called storeFromConfig()
     # within this process.  Pass the existing store in here.
     if store is None:
         pool, txnFactory = getDBPool(config)
@@ -70,13 +70,17 @@ def directoryFromConfig(config, store=None):
             directory = XMLDirectoryService(fp)
 
         elif "opendirectory" in directoryType:
-            from twext.who.opendirectory import DirectoryService as ODDirectoryService
+            from twext.who.opendirectory import (
+                DirectoryService as ODDirectoryService
+            )
             directory = ODDirectoryService()
 
         elif "ldap" in directoryType:
             if params.credentials.dn and params.credentials.password:
-                creds = UsernamePassword(params.credentials.dn,
-                                         params.credentials.password)
+                creds = UsernamePassword(
+                    params.credentials.dn,
+                    params.credentials.password
+                )
             else:
                 creds = None
             directory = LDAPDirectoryService(
@@ -99,12 +103,15 @@ def directoryFromConfig(config, store=None):
                 "resources": CalRecordType.resource,
                 "addresses": CalRecordType.address,
             }.get(recordTypeName, None)
+
             if recordType is None:
                 log.error("Invalid Record Type: {rt}", rt=recordTypeName)
                 raise DirectoryConfigurationError
+
             if recordType in types:
                 log.error("Duplicate Record Type: {rt}", rt=recordTypeName)
                 raise DirectoryConfigurationError
+
             types.append(recordType)
 
         directory.recordType = ConstantsContainer(types)

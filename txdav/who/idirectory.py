@@ -23,6 +23,9 @@ Calendar and contacts directory extensions to L{twext.who.idirectory}.
 """
 
 __all__ = [
+    "AutoScheduleMode",
+    "RecordType",
+    "FieldName",
 ]
 
 from twisted.python.constants import Names, NamedConstant

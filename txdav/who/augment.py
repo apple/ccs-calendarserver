@@ -19,64 +19,40 @@
 Augmenting Directory Service
 """
 
+__all__ = [
+    "AugmentedDirectoryService",
+]
+
+from zope.interface import implementer
+
+from twisted.internet.defer import inlineCallbacks, returnValue
+
 from twext.python.log import Logger
 from twext.who.directory import DirectoryRecord
 from twext.who.directory import DirectoryService as BaseDirectoryService
 from twext.who.idirectory import IDirectoryService, RecordType
 from twext.who.util import ConstantsContainer
-from twisted.internet.defer import inlineCallbacks, returnValue
+
 from txdav.common.idirectoryservice import IStoreDirectoryService
 from txdav.who.directory import (
     CalendarDirectoryRecordMixin, CalendarDirectoryServiceMixin
 )
 from txdav.who.idirectory import AutoScheduleMode, FieldName
-from zope.interface import implementer
-
 
 log = Logger()
 
 
-class AugmentedDirectoryRecord(DirectoryRecord, CalendarDirectoryRecordMixin):
-
-    def __init__(self, service, baseRecord, augmentedFields):
-        DirectoryRecord.__init__(self, service, augmentedFields)
-        self._baseRecord = baseRecord
-
-
-    @inlineCallbacks
-    def members(self):
-        augmented = []
-        records = yield self._baseRecord.members()
-        for record in records:
-            augmented.append((yield self.service.augment(record)))
-        returnValue(augmented)
-
-
-    @inlineCallbacks
-    def groups(self):
-        augmented = []
-        txn = self.service._store.newTransaction()
-        groupUIDs = yield txn.groupsFor(self.uid)
-        for groupUID in groupUIDs:
-            groupRecord = yield self.service.recordWithShortName(
-                RecordType.group, groupUID
-            )
-            if groupRecord:
-                augmented.append((yield self.service.augment(groupRecord)))
-        returnValue(augmented)
-
-
-    def verifyPlaintextPassword(self, password):
-        return self._baseRecord.verifyPlaintextPassword(password)
-
-
-    def verifyHTTPDigest(self, *args):
-        return self._baseRecord.verifyHTTPDigest(*args)
-
 
 @implementer(IDirectoryService, IStoreDirectoryService)
-class AugmentedDirectoryService(BaseDirectoryService,
-                                CalendarDirectoryServiceMixin):
+class AugmentedDirectoryService(
+    BaseDirectoryService, CalendarDirectoryServiceMixin
+):
+    """
+    Augmented directory service.
+
+    This is a directory service that wraps an L{IDirectoryService} and augments
+    directory records with additional or modified fields.
+    """
 
     fieldName = ConstantsContainer((
         BaseDirectoryService.fieldName,
@@ -86,9 +62,7 @@ class AugmentedDirectoryService(BaseDirectoryService,
 
     @property
     def recordType(self):
-        """
-        Defer to the directory service we're augmenting
-        """
+        # Defer to the directory service we're augmenting
         return self._directory.recordType
 
 
@@ -100,6 +74,7 @@ class AugmentedDirectoryService(BaseDirectoryService,
 
 
     def recordTypes(self):
+        # Defer to the directory service we're augmenting
         return self._directory.recordTypes()
 
 
@@ -108,7 +83,7 @@ class AugmentedDirectoryService(BaseDirectoryService,
         records = yield self._directory.recordsFromExpression(expression)
         augmented = []
         for record in records:
-            record = yield self.augment(record)
+            record = yield self._augment(record)
             augmented.append(record)
         returnValue(augmented)
 
@@ -120,7 +95,7 @@ class AugmentedDirectoryService(BaseDirectoryService,
         )
         augmented = []
         for record in records:
-            record = yield self.augment(record)
+            record = yield self._augment(record)
             augmented.append(record)
         returnValue(augmented)
 
@@ -133,14 +108,14 @@ class AugmentedDirectoryService(BaseDirectoryService,
             uid = uid.decode("utf-8")
 
         record = yield self._directory.recordWithUID(uid)
-        record = yield self.augment(record)
+        record = yield self._augment(record)
         returnValue(record)
 
 
     @inlineCallbacks
     def recordWithGUID(self, guid):
         record = yield self._directory.recordWithGUID(guid)
-        record = yield self.augment(record)
+        record = yield self._augment(record)
         returnValue(record)
 
 
@@ -149,7 +124,7 @@ class AugmentedDirectoryService(BaseDirectoryService,
         records = yield self._directory.recordsWithRecordType(recordType)
         augmented = []
         for record in records:
-            record = yield self.augment(record)
+            record = yield self._augment(record)
             augmented.append(record)
         returnValue(augmented)
 
@@ -166,8 +141,10 @@ class AugmentedDirectoryService(BaseDirectoryService,
             log.warn("Need to change shortName to unicode")
             shortName = shortName.decode("utf-8")
 
-        record = yield self._directory.recordWithShortName(recordType, shortName)
-        record = yield self.augment(record)
+        record = yield self._directory.recordWithShortName(
+            recordType, shortName
+        )
+        record = yield self._augment(record)
         # log.debug(
         #     "Augment - recordWithShortName {rt}, {n} returned {r}, {u}",
         #     rt=recordType.name,
@@ -188,17 +165,18 @@ class AugmentedDirectoryService(BaseDirectoryService,
         records = yield self._directory.recordsWithEmailAddress(emailAddress)
         augmented = []
         for record in records:
-            record = yield self.augment(record)
+            record = yield self._augment(record)
             augmented.append(record)
         returnValue(augmented)
 
 
+    # FIXME: This shouldn't be here; we have recordsWithRecordType() above
     @inlineCallbacks
     def listRecords(self, recordType):
         records = yield self._directory.listRecords(recordType)
         augmented = []
         for record in records:
-            record = yield self.augment(record)
+            record = yield self._augment(record)
             augmented.append(record)
         returnValue(augmented)
 
@@ -213,13 +191,13 @@ class AugmentedDirectoryService(BaseDirectoryService,
         return self._directory.removeRecords(uids)
 
 
-    def assignToField(self, fields, name, value):
+    def _assignToField(self, fields, name, value):
         field = self.fieldName.lookupByName(name)
         fields[field] = value
 
 
     @inlineCallbacks
-    def augment(self, record):
+    def _augment(self, record):
         if record is None:
             returnValue(None)
 
@@ -240,14 +218,15 @@ class AugmentedDirectoryService(BaseDirectoryService,
         if augmentRecord:
             # record.enabled = augmentRecord.enabled
             # record.serverID = augmentRecord.serverID
-            self.assignToField(
+            self._assignToField(
                 fields, "hasCalendars",
                 augmentRecord.enabledForCalendaring
             )
-            self.assignToField(
+            self._assignToField(
                 fields, "hasContacts",
                 augmentRecord.enabledForAddressBooks
             )
+
             autoScheduleMode = {
                 "none": AutoScheduleMode.none,
                 "accept-always": AutoScheduleMode.accept,
@@ -256,42 +235,101 @@ class AugmentedDirectoryService(BaseDirectoryService,
                 "decline-if-busy": AutoScheduleMode.declineIfBusy,
                 "automatic": AutoScheduleMode.acceptIfFreeDeclineIfBusy,
             }.get(augmentRecord.autoScheduleMode, None)
-            self.assignToField(
+
+            self._assignToField(
                 fields, "autoScheduleMode",
                 autoScheduleMode
             )
-            self.assignToField(
+            self._assignToField(
                 fields, "autoAcceptGroup",
                 unicode(augmentRecord.autoAcceptGroup)
             )
-            self.assignToField(
+            self._assignToField(
                 fields, "loginAllowed",
                 augmentRecord.enabledForLogin
             )
 
             if (
                 (
-                    fields.get(self.fieldName.lookupByName("hasCalendars"), False) or
-                    fields.get(self.fieldName.lookupByName("hasContacts"), False)
-                ) and record.recordType == RecordType.group
+                    fields.get(
+                        self.fieldName.lookupByName("hasCalendars"), False
+                    ) or
+                    fields.get(
+                        self.fieldName.lookupByName("hasContacts"), False
+                    )
+                ) and
+                record.recordType == RecordType.group
             ):
-                self.assignToField(fields, "hasCalendars", False)
-                self.assignToField(fields, "hasContacts", False)
+                self._assignToField(fields, "hasCalendars", False)
+                self._assignToField(fields, "hasContacts", False)
 
                 # For augment records cloned from the Default augment record,
                 # don't emit this message:
                 if not augmentRecord.clonedFromDefault:
-                    log.error("Group '%s(%s)' cannot be enabled for calendaring or address books" % (record.guid, record.shortNames[0],))
+                    log.error(
+                        "Group {record} cannot be enabled for "
+                        "calendaring or address books",
+                        record=record
+                    )
 
         else:
             # Groups are by default always enabled
-            # record.enabled = (record.recordType == record.service.recordType_groups)
+            # record.enabled = (
+            #     record.recordType == record.service.recordType_groups
+            # )
             # record.serverID = ""
-            self.assignToField(fields, "hasCalendars", False)
-            self.assignToField(fields, "hasContacts", False)
-            self.assignToField(fields, "loginAllowed", False)
+            self._assignToField(fields, "hasCalendars", False)
+            self._assignToField(fields, "hasContacts", False)
+            self._assignToField(fields, "loginAllowed", False)
 
         # print("Augmented fields", fields)
 
         # Clone to a new record with the augmented fields
         returnValue(AugmentedDirectoryRecord(self, record, fields))
+
+
+
+class AugmentedDirectoryRecord(DirectoryRecord, CalendarDirectoryRecordMixin):
+    """
+    Augmented directory record.
+    """
+
+    def __init__(self, service, baseRecord, augmentedFields):
+        DirectoryRecord.__init__(self, service, augmentedFields)
+        self._baseRecord = baseRecord
+
+
+    @inlineCallbacks
+    def members(self):
+        augmented = []
+        records = yield self._baseRecord.members()
+
+        for record in records:
+            augmented.append((yield self.service._augment(record)))
+
+        returnValue(augmented)
+
+
+    @inlineCallbacks
+    def groups(self):
+        augmented = []
+
+        txn = self.service._store.newTransaction()
+        groupUIDs = yield txn.groupsFor(self.uid)
+
+        for groupUID in groupUIDs:
+            groupRecord = yield self.service.recordWithShortName(
+                RecordType.group, groupUID
+            )
+            if groupRecord:
+                augmented.append((yield self.service._augment(groupRecord)))
+
+        returnValue(augmented)
+
+
+    def verifyPlaintextPassword(self, password):
+        return self._baseRecord.verifyPlaintextPassword(password)
+
+
+    def verifyHTTPDigest(self, *args):
+        return self._baseRecord.verifyHTTPDigest(*args)
