@@ -907,7 +907,7 @@ class CalDAVServiceMaker (object):
         CalDAV and CardDAV requests.
         """
         pool, txnFactory = getDBPool(config)
-        directory = DirectoryProxyClientService("FIXME")
+        directory = DirectoryProxyClientService(config.DirectoryRealmName)
         store = storeFromConfig(config, txnFactory, directory)
         logObserver = AMPCommonAccessLoggingObserver()
         result = self.requestProcessingService(options, store, logObserver)
@@ -1927,7 +1927,7 @@ class CalDAVServiceMaker (object):
 
         ssvc = self.storageService(
             spawnerSvcCreator, None, uid, gid,
-            directory=DirectoryProxyClientService("FIXME")
+            directory=DirectoryProxyClientService(config.DirectoryRealmName)
         )
         ssvc.setServiceParent(s)
         return s

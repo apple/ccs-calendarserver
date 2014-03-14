@@ -379,6 +379,8 @@ DEFAULT_CONFIG = {
         "params": DEFAULT_SERVICE_PARAMS["twistedcaldav.directory.xmlfile.XMLDirectoryService"],
     },
 
+    "DirectoryRealmName": "",
+
     #
     # Locations and Resources service
     #
@@ -1252,6 +1254,10 @@ def _updateHostName(configDict, reloading=False):
         if not hostname:
             hostname = "localhost"
         configDict.ServerHostName = hostname
+
+    # Default DirectoryRealmName from ServerHostName
+    if not configDict.DirectoryRealmName:
+        configDict.DirectoryRealmName = configDict.ServerHostName
 
 
 
