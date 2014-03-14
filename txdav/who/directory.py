@@ -146,15 +146,29 @@ class CalendarDirectoryServiceMixin(object):
         return self.recordsFromExpression(expression)
 
 
+    _oldRecordTypeNames = {
+        "address": "addresses",
+        "group": "groups",
+        "location": "locations",
+        "resource": "resources",
+        "user": "users",
+        "readDelegateGroup": "readDelegateGroups",
+        "writeDelegateGroup": "writeDelegateGroups",
+        "readDelegatorGroup": "readDelegatorGroups",
+        "writeDelegatorGroup": "writeDelegatorGroups",
+    }
+
     # FIXME: Existing code assumes record type names are plural. Is there any
     # reason to maintain backwards compatibility?  I suppose there could be
     # scripts referring to record type of "users", "locations"
     def recordTypeToOldName(self, recordType):
-        return recordType.name + u"s"
-
+        return self._oldRecordTypeNames[recordType.name]
 
     def oldNameToRecordType(self, oldName):
-        return self.recordType.lookupByName(oldName[:-1])
+        for name, value in self._oldRecordTypeNames.iteritems():
+            if oldName == value:
+                return self.recordType.lookupByName(name)
+        return None
 
 
 
@@ -217,7 +231,8 @@ class CalendarDirectoryRecordMixin(object):
         cuas.add("/principals/__uids__/{uid}/".format(uid=self.uid))
         for shortName in self.shortNames:
             cuas.add("/principals/{rt}/{sn}/".format(
-                rt=self.recordType.name + "s", sn=shortName)
+                rt=self.service.recordTypeToOldName(self.recordType),
+                sn=shortName)
             )
         return frozenset(cuas)
 

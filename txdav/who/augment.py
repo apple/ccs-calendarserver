@@ -215,12 +215,10 @@ class AugmentedDirectoryService(BaseDirectoryService,
         if record is None:
             returnValue(None)
 
-        # MOVE2WHO
-        # FIXME: hacked by appending an "s" -- need a mapping
         try:
             augmentRecord = yield self._augmentDB.getAugmentRecord(
                 record.uid,
-                record.recordType.name + "s"
+                self.recordTypeToOldName(record.recordType)
             )
         except KeyError:
             # Augments does not know about this record type, so return

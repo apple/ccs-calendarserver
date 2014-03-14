@@ -729,8 +729,13 @@ class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn,
 
             elif name == "record-type":
                 if hasattr(self, "record"):
-                    # MOVE2WHO -- need mapping
-                    returnValue(customxml.RecordType(self.record.recordType.name + "s"))
+                    returnValue(
+                        customxml.RecordType(
+                            self.record.service.recordTypeToOldName(
+                                self.record.recordType
+                            )
+                        )
+                    )
                 else:
                     raise HTTPError(StatusResponse(
                         responsecode.NOT_FOUND,

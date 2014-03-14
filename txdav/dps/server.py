@@ -137,7 +137,7 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         recordType = recordType  # as bytes
         log.debug("RecordsWithRecordType: {r}", r=recordType)
         records = (yield self._directory.recordsWithRecordType(
-            RecordType.lookupByName(recordType))
+            self._directory.recordType.lookupByName(recordType))
         )
         fieldsList = []
         for record in records:
@@ -196,7 +196,7 @@ class DirectoryProxyAMPProtocol(amp.AMP):
             newFields.append((fieldName, searchTerm, matchFlags, matchType))
         operand = Operand.lookupByName(operand)
         if recordType:
-            recordType = RecordType.lookupByName(recordType)
+            recordType = self._directory.recordType.lookupByName(recordType)
         records = yield self._directory.recordsMatchingFields(
             newFields, operand=operand, recordType=recordType
         )

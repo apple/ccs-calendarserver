@@ -402,8 +402,10 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
 
 
     def listChildren(self):
-        # MOVE2WHO hack
-        return [r.name + "s" for r in self.directory.recordTypes()]
+        return [
+            self.directory.recordTypeToOldName(r)
+            for r in self.directory.recordTypes()
+        ]
 
 
     ##
@@ -652,7 +654,7 @@ class DirectoryPrincipalDetailElement(Element):
             directoryGUID=str(record.service.guid),
             realm=str(record.service.realmName),
             principalGUID=guid,
-            recordType=record.recordType.name + "s",  # MOVE2WHO need mapping
+            recordType=record.service.recordTypeToOldName(record.recordType),
             shortNames=",".join(record.shortNames),
             # MOVE2WHO: need this?
             # securityIDs=",".join(record.authIDs),

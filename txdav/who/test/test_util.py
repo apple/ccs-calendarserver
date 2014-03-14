@@ -21,6 +21,7 @@ txdav.who.util tests
 import os
 
 from txdav.who.util import directoryFromConfig
+from twisted.internet.defer import inlineCallbacks
 from twisted.trial.unittest import TestCase
 from twistedcaldav.config import ConfigDict
 from twisted.python.filepath import FilePath
@@ -64,6 +65,7 @@ class UtilTest(TestCase):
         augments.setContent(sourceAugments.getContent())
 
 
+    @inlineCallbacks
     def test_directoryFromConfig(self):
 
         config = ConfigDict(
@@ -82,7 +84,7 @@ class UtilTest(TestCase):
                     "type": "XML",
                     "params": {
                         "xmlFile": "resources.xml",
-                        "recordTypes": ["locations", "resources"],
+                        "recordTypes": ["locations", "resources", "addresses"],
                     },
                 },
                 "AugmentService": {
@@ -115,7 +117,13 @@ class UtilTest(TestCase):
         )
         self.assertEquals(
             set(service._directory.services[1].recordTypes()),
-            set([CalRecordType.location, CalRecordType.resource])
+            set(
+                [
+                    CalRecordType.location,
+                    CalRecordType.resource,
+                    CalRecordType.address
+                ]
+            )
         )
         self.assertTrue(
             isinstance(service._directory.services[2], DelegateDirectoryService)
@@ -131,3 +139,7 @@ class UtilTest(TestCase):
                 ]
             )
         )
+
+        # And make sure it's functional:
+        record = yield service.recordWithUID("group07")
+        self.assertEquals(record.fullNames, [u'Group 07'])

@@ -134,7 +134,7 @@ class ProxyPrincipalDetailElement(Element):
             directoryGUID=record.service.guid,
             realm=record.service.realmName,
             guid=guid,
-            recordType=record.recordType.name + "s",  # MOVE2WHO need mapping
+            recordType=record.service.recordTypeToOldName(record.recordType),
             shortNames=record.shortNames,
             fullName=record.displayName,
             principalUID=parent.principalUID(),
