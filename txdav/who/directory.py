@@ -179,7 +179,7 @@ class CalendarDirectoryRecordMixin(object):
     def verifyCredentials(self, credentials):
 
         # XYZZY REMOVE THIS, it bypasses all authentication!:
-        returnValue(True)
+        # returnValue(True)
 
         if isinstance(credentials, UsernamePassword):
             log.debug("UsernamePassword")

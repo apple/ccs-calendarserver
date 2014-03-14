@@ -66,6 +66,14 @@ class AugmentedDirectoryRecord(DirectoryRecord, CalendarDirectoryRecordMixin):
         returnValue(augmented)
 
 
+    def verifyPlaintextPassword(self, password):
+        return self._baseRecord.verifyPlaintextPassword(password)
+
+
+    def verifyHTTPDigest(self, *args):
+        return self._baseRecord.verifyHTTPDigest(*args)
+
+
 @implementer(IDirectoryService, IStoreDirectoryService)
 class AugmentedDirectoryService(BaseDirectoryService,
                                 CalendarDirectoryServiceMixin):

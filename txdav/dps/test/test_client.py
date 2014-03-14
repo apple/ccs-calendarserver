@@ -30,21 +30,26 @@ from txdav.who.directory import CalendarDirectoryServiceMixin
 
 testMode = "xml"  # "xml" or "od"
 if testMode == "xml":
+    testShortName = u"wsanchez"
+    testUID = u"__wsanchez__"
+    testPassword = u"zehcnasw"
     from txdav.who.xml import DirectoryService as XMLDirectoryService
 
     # Mix in the calendar-specific service methods
-    class CalendarXMLDirectorySerivce(
+    class CalendarXMLDirectoryService(
         XMLDirectoryService,
         CalendarDirectoryServiceMixin
     ):
         pass
 
 elif testMode == "od":
-    odpw = "secret"
+    testShortName = u"becausedigest"
+    testUID = u"381D56CA-3B89-4AA1-942A-D4BFBC4F6F69"
+    testPassword = u"password"
     from twext.who.opendirectory import DirectoryService as OpenDirectoryService
 
     # Mix in the calendar-specific service methods
-    class CalendarODDirectorySerivce(
+    class CalendarODDirectoryService(
         OpenDirectoryService,
         CalendarDirectoryServiceMixin
     ):
@@ -63,9 +68,9 @@ class DPSClientTest(unittest.TestCase):
         # The "remote" directory service
         if testMode == "xml":
             path = os.path.join(os.path.dirname(__file__), "test.xml")
-            remoteDirectory = CalendarXMLDirectorySerivce(FilePath(path))
+            remoteDirectory = CalendarXMLDirectoryService(FilePath(path))
         elif testMode == "od":
-            remoteDirectory = CalendarODDirectorySerivce()
+            remoteDirectory = CalendarODDirectoryService()
 
         # Connect the two services directly via an IOPump
         client = AMP()
@@ -90,42 +95,42 @@ class DPSClientTest(unittest.TestCase):
 
     @inlineCallbacks
     def test_uid(self):
-        record = (yield self.directory.recordWithUID("__dre__"))
-        self.assertEquals(record.shortNames, [u"dre"])
+        record = (yield self.directory.recordWithUID(testUID))
+        self.assertTrue(testShortName in record.shortNames)
 
 
     @inlineCallbacks
     def test_shortName(self):
         record = (yield self.directory.recordWithShortName(
             RecordType.user,
-            "wsanchez"
+            testShortName
         ))
-        self.assertEquals(record.shortNames, [u'wsanchez', u'wilfredo_sanchez'])
+        self.assertEquals(record.uid, testUID)
 
 
-    @inlineCallbacks
     def test_guid(self):
-        record = (yield self.directory.recordWithGUID(
-            "A3B1158F-0564-4F5B-81E4-A89EA5FF81B0"
-        ))
-        self.assertEquals(record.shortNames, [u'dre'])
+        if testMode == "od":
+            record = (yield self.directory.recordWithGUID(testUID))
+            self.assertTrue(testShortName in record.shortNames)
 
 
     @inlineCallbacks
     def test_recordType(self):
-        records = (yield self.directory.recordsWithRecordType(
-            RecordType.user
-        ))
-        self.assertEquals(len(records), 9)
+        if testMode != "od":
+            records = (yield self.directory.recordsWithRecordType(
+                RecordType.user
+            ))
+            self.assertEquals(len(records), 9)
 
 
     @inlineCallbacks
     def test_emailAddress(self):
-        records = (yield self.directory.recordsWithEmailAddress(
-            "cdaboo@bitbucket.calendarserver.org"
-        ))
-        self.assertEquals(len(records), 1)
-        self.assertEquals(records[0].shortNames, [u"cdaboo"])
+        if testMode == "xml":
+            records = (yield self.directory.recordsWithEmailAddress(
+                "cdaboo@bitbucket.calendarserver.org"
+            ))
+            self.assertEquals(len(records), 1)
+            self.assertEquals(records[0].shortNames, [u"cdaboo"])
 
 
     @inlineCallbacks
@@ -133,33 +138,26 @@ class DPSClientTest(unittest.TestCase):
         records = (yield self.directory.recordsMatchingTokens(
             [u"anche"]
         ))
-        self.assertEquals(len(records), 2)
-        self.assertEquals(
-            set([u"__dre__", u"__wsanchez__"]),
-            set([r.uid for r in records])
-        )
+        matchingShortNames = set()
+        for r in records:
+            for shortName in r.shortNames:
+                matchingShortNames.add(shortName)
+        self.assertTrue("dre" in matchingShortNames)
+        self.assertTrue("wsanchez" in matchingShortNames)
 
 
     @inlineCallbacks
     def test_verifyPlaintextPassword(self):
-        if testMode == "xml":
-            expectations = (
-                ("erd", True),    # Correct
-                ("wrong", False)  # Incorrect
+        expectations = (
+            (testPassword, True),  # Correct
+            ("wrong", False)  # Incorrect
+        )
+        record = (
+            yield self.directory.recordWithShortName(
+                RecordType.user,
+                testShortName
             )
-            record = (
-                yield self.directory.recordWithShortName(RecordType.user, "dre")
-            )
-        elif testMode == "od":
-            expectations = (
-                (odpw, True),     # Correct
-                ("wrong", False)  # Incorrect
-            )
-            record = (
-                yield self.directory.recordWithGUID(
-                    "D0B38B00-4166-11DD-B22C-A07C87F02F6A"
-                )
-            )
+        )
 
         for password, answer in expectations:
             authenticated = (yield record.verifyPlaintextPassword(password))
@@ -168,26 +166,16 @@ class DPSClientTest(unittest.TestCase):
 
     @inlineCallbacks
     def test_verifyHTTPDigest(self):
-        if testMode == "xml":
-            username = "dre"
-            expectations = (
-                ("erd", True),    # Correct
-                ("wrong", False)  # Incorrect
+        expectations = (
+            (testPassword, True),  # Correct
+            ("wrong", False)  # Incorrect
+        )
+        record = (
+            yield self.directory.recordWithShortName(
+                RecordType.user,
+                testShortName
             )
-            record = (
-                yield self.directory.recordWithShortName(RecordType.user, "dre")
-            )
-        elif testMode == "od":
-            username = "sagen"
-            expectations = (
-                (odpw, True),     # Correct
-                ("wrong", False)  # Incorrect
-            )
-            record = (
-                yield self.directory.recordWithGUID(
-                    "D0B38B00-4166-11DD-B22C-A07C87F02F6A"
-                )
-            )
+        )
 
         realm = "host.example.com"
         nonce = "128446648710842461101646794502"
@@ -201,13 +189,13 @@ class DPSClientTest(unittest.TestCase):
                 ("auth", "00000001", "/rrD6TqPA3lHRmg+fw/vyU6oWoQgzK7h9yWrsCmv/lE="),
             ):
                 response = calcResponse(
-                    calcHA1(algorithm, username, realm, password, nonce, cnonce),
+                    calcHA1(algorithm, testShortName, realm, password, nonce, cnonce),
                     calcHA2(algorithm, method, uri, qop, None),
                     algorithm, nonce, nc, cnonce, qop)
 
                 authenticated = (
                     yield record.verifyHTTPDigest(
-                        username, realm, uri, nonce, cnonce, algorithm, nc, qop,
+                        testShortName, realm, uri, nonce, cnonce, algorithm, nc, qop,
                         response, method
                     )
                 )
