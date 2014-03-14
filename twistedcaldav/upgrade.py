@@ -39,11 +39,8 @@ from txweb2.dav.fileop import rmdir
 from twistedcaldav import caldavxml
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
-from twistedcaldav.directory.directory import DirectoryService
-from twistedcaldav.directory.directory import GroupMembershipCacheUpdater
 from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
-from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.ical import Component
 from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser
 from txdav.caldav.datastore.scheduling.imip.mailgateway import MailGatewayTokensDatabase
@@ -60,8 +57,7 @@ from txdav.caldav.datastore.index_file import db_basename
 
 from twisted.protocols.amp import AMP, Command, String, Boolean
 
-from calendarserver.tap.util import getRootResource, FakeRequest, directoryFromConfig
-from calendarserver.tools.util import getDirectory
+from calendarserver.tap.util import getRootResource, FakeRequest
 
 from txdav.caldav.datastore.scheduling.imip.mailgateway import migrateTokensToStore
 
@@ -121,6 +117,7 @@ def fixBadQuotes(data):
 
 
 
+@inlineCallbacks
 def upgradeCalendarCollection(calPath, directory, cuaCache):
     errorOccurred = False
     collectionUpdated = False
@@ -164,7 +161,7 @@ def upgradeCalendarCollection(calPath, directory, cuaCache):
                 continue
 
             try:
-                data, fixed = normalizeCUAddrs(data, directory, cuaCache)
+                data, fixed = (yield normalizeCUAddrs(data, directory, cuaCache))
                 if fixed:
                     log.debug("Normalized CUAddrs in %s" % (resPath,))
                     needsRewrite = True
@@ -207,10 +204,11 @@ def upgradeCalendarCollection(calPath, directory, cuaCache):
         except:
             raise
 
-    return errorOccurred
+    returnValue(errorOccurred)
 
 
 
+@inlineCallbacks
 def upgradeCalendarHome(homePath, directory, cuaCache):
 
     errorOccurred = False
@@ -229,7 +227,7 @@ def upgradeCalendarHome(homePath, directory, cuaCache):
                 rmdir(calPath)
                 continue
             log.debug("Upgrading calendar: %s" % (calPath,))
-            if not upgradeCalendarCollection(calPath, directory, cuaCache):
+            if not (yield upgradeCalendarCollection(calPath, directory, cuaCache)):
                 errorOccurred = True
 
             # Change the calendar-free-busy-set xattrs of the inbox to the
@@ -254,7 +252,7 @@ def upgradeCalendarHome(homePath, directory, cuaCache):
         log.error("Failed to upgrade calendar home %s: %s" % (homePath, e))
         raise
 
-    return errorOccurred
+    returnValue(errorOccurred)
 
 
 
@@ -288,9 +286,10 @@ class To1Home(AMP):
 
 
     @UpgradeOneHome.responder
+    @inlineCallbacks
     def upgradeOne(self, path):
-        result = upgradeCalendarHome(path, self.directory, self.cuaCache)
-        return dict(succeeded=result)
+        result = yield upgradeCalendarHome(path, self.directory, self.cuaCache)
+        returnValue(dict(succeeded=result))
 
 
 
@@ -543,9 +542,9 @@ def upgrade_to_1(config, directory):
                                         # Skip non-directories
                                         continue
 
-                                    if not upgradeCalendarHome(
+                                    if not (yield upgradeCalendarHome(
                                         homePath, directory, cuaCache
-                                    ):
+                                    )):
                                         setError()
 
                                     count += 1
@@ -564,6 +563,7 @@ def upgrade_to_1(config, directory):
 
 
 
+@inlineCallbacks
 def normalizeCUAddrs(data, directory, cuaCache):
     """
     Normalize calendar user addresses to urn:uuid: form.
@@ -583,23 +583,24 @@ def normalizeCUAddrs(data, directory, cuaCache):
     """
     cal = Component.fromString(data)
 
+    @inlineCallbacks
     def lookupFunction(cuaddr, principalFunction, config):
 
         # Return cached results, if any.
         if cuaddr in cuaCache:
-            return cuaCache[cuaddr]
+            returnValue(cuaCache[cuaddr])
 
-        result = normalizationLookup(cuaddr, principalFunction, config)
+        result = yield normalizationLookup(cuaddr, principalFunction, config)
 
         # Cache the result
         cuaCache[cuaddr] = result
-        return result
+        returnValue(result)
 
-    cal.normalizeCalendarUserAddresses(lookupFunction,
+    yield cal.normalizeCalendarUserAddresses(lookupFunction,
         directory.principalForCalendarUserAddress)
 
     newData = str(cal)
-    return newData, not newData == data
+    returnValue(newData, not newData == data)
 
 
 
@@ -904,31 +905,31 @@ def removeIllegalCharacters(data):
 
 
 
-# Deferred
-def migrateFromOD(config, directory):
-    #
-    # Migrates locations and resources from OD
-    #
-    try:
-        from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
-        from calendarserver.tools.resources import migrateResources
-    except ImportError:
-        return succeed(None)
+# # Deferred
+# def migrateFromOD(config, directory):
+#     #
+#     # Migrates locations and resources from OD
+#     #
+#     try:
+#         from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
+#         from calendarserver.tools.resources import migrateResources
+#     except ImportError:
+#         return succeed(None)
 
-    log.warn("Migrating locations and resources")
+#     log.warn("Migrating locations and resources")
 
-    userService = directory.serviceForRecordType("users")
-    resourceService = directory.serviceForRecordType("resources")
-    if (
-        not isinstance(userService, OpenDirectoryService) or
-        not isinstance(resourceService, XMLDirectoryService)
-    ):
-        # Configuration requires no migration
-        return succeed(None)
+#     userService = directory.serviceForRecordType("users")
+#     resourceService = directory.serviceForRecordType("resources")
+#     if (
+#         not isinstance(userService, OpenDirectoryService) or
+#         not isinstance(resourceService, XMLDirectoryService)
+#     ):
+#         # Configuration requires no migration
+#         return succeed(None)
 
-    # Create internal copies of resources and locations based on what is
-    # found in OD
-    return migrateResources(userService, resourceService)
+#     # Create internal copies of resources and locations based on what is
+#     # found in OD
+#     return migrateResources(userService, resourceService)
 
 
 
@@ -997,7 +998,9 @@ class UpgradeFileSystemFormatStep(object):
         """
         Execute the step.
         """
-        return self.doUpgrade()
+        return succeed(None)
+        # MOVE2WHO
+        # return self.doUpgrade()
 
 
 
@@ -1025,7 +1028,7 @@ class PostDBImportStep(object):
     def stepWithResult(self, result):
         if self.doPostImport:
 
-            directory = directoryFromConfig(self.config)
+            directory = self.store.directoryService()
 
             # Load proxy assignments from XML if specified
             if self.config.ProxyLoadFromFile:
@@ -1035,27 +1038,28 @@ class PostDBImportStep(object):
                 loader = XMLCalendarUserProxyLoader(self.config.ProxyLoadFromFile)
                 yield loader.updateProxyDB()
 
-            # Populate the group membership cache
-            if (self.config.GroupCaching.Enabled and
-                self.config.GroupCaching.EnableUpdater):
-                proxydb = calendaruserproxy.ProxyDBService
-                if proxydb is None:
-                    proxydbClass = namedClass(self.config.ProxyDBService.type)
-                    proxydb = proxydbClass(**self.config.ProxyDBService.params)
+            # # Populate the group membership cache
+            # if (self.config.GroupCaching.Enabled and
+            #     self.config.GroupCaching.EnableUpdater):
+            #     proxydb = calendaruserproxy.ProxyDBService
+            #     if proxydb is None:
+            #         proxydbClass = namedClass(self.config.ProxyDBService.type)
+            #         proxydb = proxydbClass(**self.config.ProxyDBService.params)
 
-                updater = GroupMembershipCacheUpdater(proxydb,
-                    directory,
-                    self.config.GroupCaching.UpdateSeconds,
-                    self.config.GroupCaching.ExpireSeconds,
-                    self.config.GroupCaching.LockSeconds,
-                    namespace=self.config.GroupCaching.MemcachedPool,
-                    useExternalProxies=self.config.GroupCaching.UseExternalProxies)
-                yield updater.updateCache(fast=True)
+            #     # MOVE2WHO FIXME: port to new group cacher
+            #     updater = GroupMembershipCacheUpdater(proxydb,
+            #         directory,
+            #         self.config.GroupCaching.UpdateSeconds,
+            #         self.config.GroupCaching.ExpireSeconds,
+            #         self.config.GroupCaching.LockSeconds,
+            #         namespace=self.config.GroupCaching.MemcachedPool,
+            #         useExternalProxies=self.config.GroupCaching.UseExternalProxies)
+            #     yield updater.updateCache(fast=True)
 
-                uid, gid = getCalendarServerIDs(self.config)
-                dbPath = os.path.join(self.config.DataRoot, "proxies.sqlite")
-                if os.path.exists(dbPath):
-                    os.chown(dbPath, uid, gid)
+            uid, gid = getCalendarServerIDs(self.config)
+            dbPath = os.path.join(self.config.DataRoot, "proxies.sqlite")
+            if os.path.exists(dbPath):
+                os.chown(dbPath, uid, gid)
 
             # Process old inbox items
             self.store.setMigrating(True)

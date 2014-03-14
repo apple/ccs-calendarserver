@@ -297,7 +297,7 @@ class ImplicitScheduler(object):
         organizer_scheduling = (yield self.isOrganizerScheduling())
         if organizer_scheduling:
             self.state = "organizer"
-        elif self.isAttendeeScheduling():
+        elif (yield self.isAttendeeScheduling()):
             self.state = "attendee"
         elif self.organizer:
             # There is an ORGANIZER that is not this user but no ATTENDEE property for
@@ -365,7 +365,7 @@ class ImplicitScheduler(object):
 
         # Get some useful information from the calendar
         yield self.extractCalendarData()
-        self.organizerPrincipal = self.calendar_home.directoryService().recordWithCalendarUserAddress(self.organizer)
+        self.organizerPrincipal = yield self.calendar_home.directoryService().recordWithCalendarUserAddress(self.organizer)
         self.organizerAddress = (yield addressmapping.mapper.getCalendarUser(self.organizer, self.organizerPrincipal))
 
         # Originator is the organizer in this case
@@ -447,7 +447,7 @@ class ImplicitScheduler(object):
             self.calendar = calendar_old
 
         yield self.extractCalendarData()
-        self.organizerPrincipal = self.calendar_home.directoryService().recordWithCalendarUserAddress(self.organizer)
+        self.organizerPrincipal = yield self.calendar_home.directoryService().recordWithCalendarUserAddress(self.organizer)
         self.organizerAddress = (yield addressmapping.mapper.getCalendarUser(self.organizer, self.organizerPrincipal))
 
         # Originator is the organizer in this case
@@ -479,7 +479,7 @@ class ImplicitScheduler(object):
         # Get some useful information from the calendar
         yield self.extractCalendarData()
 
-        self.attendeePrincipal = self.calendar_home.directoryService().recordWithUID(self.calendar_home.uid())
+        self.attendeePrincipal = yield self.calendar_home.directoryService().recordWithUID(self.calendar_home.uid().decode("utf-8"))
         self.originator = self.attendee = self.attendeePrincipal.canonicalCalendarUserAddress()
 
         result = (yield self.scheduleWithOrganizer())
@@ -491,7 +491,7 @@ class ImplicitScheduler(object):
     def extractCalendarData(self):
 
         # Get the originator who is the owner of the calendar resource being modified
-        self.originatorPrincipal = self.calendar_home.directoryService().recordWithUID(self.calendar_home.uid())
+        self.originatorPrincipal = yield self.calendar_home.directoryService().recordWithUID(self.calendar_home.uid().decode("utf-8"))
 
         # Pick the canonical CUA:
         self.originator = self.originatorPrincipal.canonicalCalendarUserAddress()
@@ -555,7 +555,7 @@ class ImplicitScheduler(object):
             returnValue(False)
 
         # Organizer must map to a valid principal
-        self.organizerPrincipal = self.calendar_home.directoryService().recordWithCalendarUserAddress(self.organizer)
+        self.organizerPrincipal = yield self.calendar_home.directoryService().recordWithCalendarUserAddress(self.organizer)
         self.organizerAddress = (yield addressmapping.mapper.getCalendarUser(self.organizer, self.organizerPrincipal))
         if not self.organizerPrincipal:
             returnValue(False)
@@ -567,21 +567,22 @@ class ImplicitScheduler(object):
         returnValue(True)
 
 
+    @inlineCallbacks
     def isAttendeeScheduling(self):
 
         # First must have organizer property
         if not self.organizer:
-            return False
+            returnValue(False)
 
         # Check to see whether any attendee is the owner
         for attendee in self.attendees:
-            attendeePrincipal = self.calendar_home.directoryService().recordWithCalendarUserAddress(attendee)
+            attendeePrincipal = yield self.calendar_home.directoryService().recordWithCalendarUserAddress(attendee)
             if attendeePrincipal and attendeePrincipal.uid == self.calendar_home.uid():
                 self.attendee = attendee
                 self.attendeePrincipal = attendeePrincipal
-                return True
+                returnValue(True)
 
-        return False
+        returnValue(False)
 
 
     def makeScheduler(self):
@@ -1033,7 +1034,7 @@ class ImplicitScheduler(object):
             if attendee.parameterValue("SCHEDULE-AGENT", "SERVER").upper() == "CLIENT":
                 cuaddr = attendee.value()
                 if cuaddr not in coerced:
-                    attendeePrincipal = self.calendar_home.directoryService().recordWithCalendarUserAddress(cuaddr)
+                    attendeePrincipal = yield self.calendar_home.directoryService().recordWithCalendarUserAddress(cuaddr)
                     attendeeAddress = (yield addressmapping.mapper.getCalendarUser(cuaddr, attendeePrincipal))
                     local_attendee = type(attendeeAddress) in (LocalCalendarUser, OtherServerCalendarUser,)
                     coerced[cuaddr] = local_attendee
@@ -1096,7 +1097,7 @@ class ImplicitScheduler(object):
 
             # Handle split by not scheduling local attendees
             if self.split_details is not None:
-                attendeePrincipal = self.calendar_home.directoryService().recordWithCalendarUserAddress(attendee)
+                attendeePrincipal = yield self.calendar_home.directoryService().recordWithCalendarUserAddress(attendee)
                 attendeeAddress = (yield addressmapping.mapper.getCalendarUser(attendee, attendeePrincipal))
                 if type(attendeeAddress) is LocalCalendarUser:
                     continue
@@ -1153,7 +1154,7 @@ class ImplicitScheduler(object):
 
             # Handle split by not scheduling local attendees
             if self.split_details is not None:
-                attendeePrincipal = self.calendar_home.directoryService().recordWithCalendarUserAddress(attendee)
+                attendeePrincipal = yield self.calendar_home.directoryService().recordWithCalendarUserAddress(attendee)
                 attendeeAddress = (yield addressmapping.mapper.getCalendarUser(attendee, attendeePrincipal))
                 if type(attendeeAddress) is LocalCalendarUser:
                     continue
@@ -1213,7 +1214,7 @@ class ImplicitScheduler(object):
 
             # Handle split by not scheduling local attendees
             if self.split_details is not None:
-                attendeePrincipal = self.calendar_home.directoryService().recordWithCalendarUserAddress(attendee)
+                attendeePrincipal = yield self.calendar_home.directoryService().recordWithCalendarUserAddress(attendee)
                 attendeeAddress = (yield addressmapping.mapper.getCalendarUser(attendee, attendeePrincipal))
                 if type(attendeeAddress) is LocalCalendarUser:
                     continue
@@ -1278,7 +1279,7 @@ class ImplicitScheduler(object):
 
             # Handle split by not scheduling local attendees
             if self.split_details is not None:
-                attendeePrincipal = self.calendar_home.directoryService().recordWithCalendarUserAddress(attendee)
+                attendeePrincipal = yield self.calendar_home.directoryService().recordWithCalendarUserAddress(attendee)
                 attendeeAddress = (yield addressmapping.mapper.getCalendarUser(attendee, attendeePrincipal))
                 if type(attendeeAddress) is LocalCalendarUser:
                     continue

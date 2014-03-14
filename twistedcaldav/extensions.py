@@ -66,7 +66,7 @@ from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.method.report import http_REPORT
 
 from twistedcaldav.config import config
-
+from twext.who.expression import Operand, MatchType, MatchFlags
 
 thisModule = getModule(__name__)
 
@@ -95,7 +95,7 @@ class DirectoryPrincipalPropertySearchMixIn(object):
             msg = "Bad XML: unknown value for test attribute: %s" % (testMode,)
             log.warn(msg)
             raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, msg))
-        operand = "and" if testMode == "allof" else "or"
+        operand = Operand.AND if testMode == "allof" else Operand.OR
 
         # Are we narrowing results down to a single CUTYPE?
         cuType = principal_property_search.attributes.get("type", None)
@@ -144,10 +144,18 @@ class DirectoryPrincipalPropertySearchMixIn(object):
                     log.warn(msg)
                     raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, msg))
 
+                # Convert to twext.who.expression form
+                matchType = {
+                    "starts-with": MatchType.startsWith,
+                    "contains": MatchType.contains,
+                    "equals": MatchType.equals
+                }.get(matchType)
+                matchFlags = MatchFlags.caseInsensitive if caseless else MatchFlags.none
+
                 # Ignore any query strings under three letters
-                matchText = str(match)
+                matchText = match.toString()  # gives us unicode
                 if len(matchText) >= 3:
-                    propertySearches.append((props.children, matchText, caseless, matchType))
+                    propertySearches.append((props.children, matchText, matchFlags, matchType))
 
             elif child.qname() == (calendarserver_namespace, "limit"):
                 try:
@@ -182,7 +190,7 @@ class DirectoryPrincipalPropertySearchMixIn(object):
         # See if we can take advantage of the directory
         fields = []
         nonDirectorySearches = []
-        for props, match, caseless, matchType in propertySearches:
+        for props, match, matchFlags, matchType in propertySearches:
             nonDirectoryProps = []
             for prop in props:
                 try:
@@ -191,12 +199,12 @@ class DirectoryPrincipalPropertySearchMixIn(object):
                 except ValueError, e:
                     raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
                 if fieldName:
-                    fields.append((fieldName, match, caseless, matchType))
+                    fields.append((fieldName, match, matchFlags, matchType))
                 else:
                     nonDirectoryProps.append(prop)
             if nonDirectoryProps:
                 nonDirectorySearches.append((nonDirectoryProps, match,
-                    caseless, matchType))
+                    matchFlags, matchType))
 
         matchingResources = []
         matchcount = 0
@@ -208,7 +216,7 @@ class DirectoryPrincipalPropertySearchMixIn(object):
                 operand=operand, cuType=cuType))
 
             for record in records:
-                resource = principalCollection.principalForRecord(record)
+                resource = yield principalCollection.principalForRecord(record)
                 if resource:
                     matchingResources.append(resource)
 
@@ -299,7 +307,7 @@ class DirectoryPrincipalPropertySearchMixIn(object):
         records = (yield dir.recordsMatchingTokens(tokens, context=context))
 
         for record in records:
-            resource = principalCollection.principalForRecord(record)
+            resource = yield principalCollection.principalForRecord(record)
             if resource:
                 matchingResources.append(resource)
 
@@ -420,9 +428,9 @@ class DirectoryElement(Element):
                 f.trap(HTTPError)
                 code = f.value.response.code
                 if code == responsecode.NOT_FOUND:
-                    log.error("Property %s was returned by listProperties() "
-                              "but does not exist for resource %s."
-                              % (name, self.resource))
+                    log.error("Property {p} was returned by listProperties() "
+                              "but does not exist for resource {r}.",
+                              p=name, r=self.resource)
                     return (name, None)
                 if code == responsecode.UNAUTHORIZED:
                     return (name, accessDeniedValue)
@@ -721,7 +729,13 @@ class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn,
 
             elif name == "record-type":
                 if hasattr(self, "record"):
-                    returnValue(customxml.RecordType(self.record.recordType))
+                    returnValue(
+                        customxml.RecordType(
+                            self.record.service.recordTypeToOldName(
+                                self.record.recordType
+                            )
+                        )
+                    )
                 else:
                     raise HTTPError(StatusResponse(
                         responsecode.NOT_FOUND,
@@ -848,7 +862,7 @@ class ReadOnlyResourceMixIn (ReadOnlyWritePropertiesResourceMixIn):
     ):
         # Permissions here are fixed, and are not subject to
         # inheritance rules, etc.
-        return succeed(self.defaultAccessControlList())
+        return self.defaultAccessControlList()
 
 
 

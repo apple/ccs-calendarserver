@@ -179,11 +179,13 @@ class ConduitResource(ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildrenMix
             davxml.Privilege(davxml.Read()),
         )
 
-        return davxml.ACL(
-            # DAV:Read for all principals (includes anonymous)
-            davxml.ACE(
-                davxml.Principal(davxml.All()),
-                davxml.Grant(*privs),
-                davxml.Protected(),
-            ),
+        return succeed(
+            davxml.ACL(
+                # DAV:Read for all principals (includes anonymous)
+                davxml.ACE(
+                    davxml.Principal(davxml.All()),
+                    davxml.Grant(*privs),
+                    davxml.Protected(),
+                ),
+            )
         )

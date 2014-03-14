@@ -1,135 +1,273 @@
-<accounts realm="Test Realm">
-  <location repeat="10">
-    <uid>location%02d</uid>
-    <guid>location%02d</guid>
-    <password>location%02d</password>
-    <name>Room %02d</name>
-  </location>
-  <resource repeat="20">
-    <uid>resource%02d</uid>
-    <guid>resource%02d</guid>
-    <password>resource%02d</password>
-    <name>Resource %02d</name>
-  </resource>
-  <location>
-    <uid>fantastic</uid>
-    <guid>4D66A20A-1437-437D-8069-2F14E8322234</guid>
-    <name>Fantastic Conference Room</name>
+<directory realm="Test Realm">
+  <record type="location">
+    <short-name>fantastic</short-name>
+    <uid>4D66A20A-1437-437D-8069-2F14E8322234</uid>
+    <full-name>Fantastic Conference Room</full-name>
     <extras>
       <associatedAddress>63A2F949-2D8D-4C8D-B8A5-DCF2A94610F3</associatedAddress>
     </extras>
-  </location>
-  <location>
+  </record>
+  <record type="location">
+    <short-name>jupiter</short-name>
     <uid>jupiter</uid>
-    <guid>jupiter</guid>
-    <name>Jupiter Conference Room, Building 2, 1st Floor</name>
-  </location>
-  <location>
+    <full-name>Jupiter Conference Room, Building 2, 1st Floor</full-name>
+  </record>
+  <record type="location">
+    <short-name>uranus</short-name>
     <uid>uranus</uid>
-    <guid>uranus</guid>
-    <name>Uranus Conference Room, Building 3, 1st Floor</name>
-  </location>
-  <location>
-    <uid>morgensroom</uid>
-    <guid>03DFF660-8BCC-4198-8588-DD77F776F518</guid>
-    <name>Morgen's Room</name>
-  </location>
-  <location>
+    <full-name>Uranus Conference Room, Building 3, 1st Floor</full-name>
+  </record>
+  <record type="location">
+    <short-name>morgensroom</short-name>
+    <uid>03DFF660-8BCC-4198-8588-DD77F776F518</uid>
+    <full-name>Morgen's Room</full-name>
+  </record>
+  <record type="location">
+    <short-name>mercury</short-name>
     <uid>mercury</uid>
-    <guid>mercury</guid>
-    <name>Mercury Conference Room, Building 1, 2nd Floor</name>
-  </location>
-  <location>
+    <full-name>Mercury Conference Room, Building 1, 2nd Floor</full-name>
+  </record>
+  <record type="location">
+    <short-name>location09</short-name>
+    <uid>location09</uid>
+    <full-name>Room 09</full-name>
+  </record>
+  <record type="location">
+    <short-name>location08</short-name>
+    <uid>location08</uid>
+    <full-name>Room 08</full-name>
+  </record>
+  <record type="location">
+    <short-name>location07</short-name>
+    <uid>location07</uid>
+    <full-name>Room 07</full-name>
+  </record>
+  <record type="location">
+    <short-name>location06</short-name>
+    <uid>location06</uid>
+    <full-name>Room 06</full-name>
+  </record>
+  <record type="location">
+    <short-name>location05</short-name>
+    <uid>location05</uid>
+    <full-name>Room 05</full-name>
+  </record>
+  <record type="location">
+    <short-name>location04</short-name>
+    <uid>location04</uid>
+    <full-name>Room 04</full-name>
+  </record>
+  <record type="location">
+    <short-name>location03</short-name>
+    <uid>location03</uid>
+    <full-name>Room 03</full-name>
+  </record>
+  <record type="location">
+    <short-name>location02</short-name>
+    <uid>location02</uid>
+    <full-name>Room 02</full-name>
+  </record>
+  <record type="location">
+    <short-name>location01</short-name>
+    <uid>location01</uid>
+    <full-name>Room 01</full-name>
+  </record>
+  <record type="location">
+    <short-name>delegatedroom</short-name>
     <uid>delegatedroom</uid>
-    <guid>delegatedroom</guid>
-    <name>Delegated Conference Room</name>
-  </location>
-  <location>
-    <uid>mars</uid>
-    <guid>redplanet</guid>
-    <name>Mars Conference Room, Building 1, 1st Floor</name>
-  </location>
-  <location>
-    <uid>sharissroom</uid>
-    <guid>80689D41-DAF8-4189-909C-DB017B271892</guid>
-    <name>Shari's Room</name>
+    <full-name>Delegated Conference Room</full-name>
+  </record>
+  <record type="location">
+    <short-name>mars</short-name>
+    <uid>redplanet</uid>
+    <full-name>Mars Conference Room, Building 1, 1st Floor</full-name>
+  </record>
+  <record type="location">
+    <short-name>sharissroom</short-name>
+    <uid>80689D41-DAF8-4189-909C-DB017B271892</uid>
+    <full-name>Shari's Room</full-name>
     <extras>
       <associatedAddress>6F9EE33B-78F6-481B-9289-3D0812FF0D64</associatedAddress>
     </extras>
-  </location>
-  <location>
+  </record>
+  <record type="location">
+    <short-name>pluto</short-name>
     <uid>pluto</uid>
-    <guid>pluto</guid>
-    <name>Pluto Conference Room, Building 2, 1st Floor</name>
-  </location>
-  <location>
+    <full-name>Pluto Conference Room, Building 2, 1st Floor</full-name>
+  </record>
+  <record type="location">
+    <short-name>saturn</short-name>
     <uid>saturn</uid>
-    <guid>saturn</guid>
-    <name>Saturn Conference Room, Building 2, 1st Floor</name>
-  </location>
-  <location>
-    <uid>pretend</uid>
-    <guid>06E3BDCB-9C19-485A-B14E-F146A80ADDC6</guid>
-    <name>Pretend Conference Room</name>
+    <full-name>Saturn Conference Room, Building 2, 1st Floor</full-name>
+  </record>
+  <record type="location">
+    <short-name>location10</short-name>
+    <uid>location10</uid>
+    <full-name>Room 10</full-name>
+  </record>
+  <record type="location">
+    <short-name>pretend</short-name>
+    <uid>06E3BDCB-9C19-485A-B14E-F146A80ADDC6</uid>
+    <full-name>Pretend Conference Room</full-name>
     <extras>
       <associatedAddress>76E7ECA6-08BC-4AE7-930D-F2E7453993A5</associatedAddress>
     </extras>
-  </location>
-  <location>
+  </record>
+  <record type="location">
+    <short-name>neptune</short-name>
     <uid>neptune</uid>
-    <guid>neptune</guid>
-    <name>Neptune Conference Room, Building 2, 1st Floor</name>
-  </location>
-  <location>
+    <full-name>Neptune Conference Room, Building 2, 1st Floor</full-name>
+  </record>
+  <record type="location">
+    <short-name>Earth</short-name>
     <uid>Earth</uid>
-    <guid>Earth</guid>
-    <name>Earth Conference Room, Building 1, 1st Floor</name>
-  </location>
-  <location>
+    <full-name>Earth Conference Room, Building 1, 1st Floor</full-name>
+  </record>
+  <record type="location">
+    <short-name>venus</short-name>
     <uid>venus</uid>
-    <guid>venus</guid>
-    <name>Venus Conference Room, Building 1, 2nd Floor</name>
-  </location>
-  <resource>
-    <uid>sharisotherresource</uid>
-    <guid>CCE95217-A57B-481A-AC3D-FEC9AB6CE3A9</guid>
-    <name>Shari's Other Resource</name>
-  </resource>
-  <resource>
-    <uid>sharisresource</uid>
-    <guid>C38BEE7A-36EE-478C-9DCB-CBF4612AFE65</guid>
-    <name>Shari's Resource</name>
-  </resource>
-  <resource>
-    <uid>sharisotherresource1</uid>
-    <guid>0CE0BF31-5F9E-4801-A489-8C70CF287F5F</guid>
-    <name>Shari's Other Resource1</name>
-  </resource>
-  <address>
-    <uid>testaddress1</uid>
-    <guid>6F9EE33B-78F6-481B-9289-3D0812FF0D64</guid>
-    <name>Test Address One</name>
+    <full-name>Venus Conference Room, Building 1, 2nd Floor</full-name>
+  </record>
+  <record type="resource">
+    <short-name>sharisotherresource</short-name>
+    <uid>CCE95217-A57B-481A-AC3D-FEC9AB6CE3A9</uid>
+    <full-name>Shari's Other Resource</full-name>
+  </record>
+  <record type="resource">
+    <short-name>resource15</short-name>
+    <uid>resource15</uid>
+    <full-name>Resource 15</full-name>
+  </record>
+  <record type="resource">
+    <short-name>resource14</short-name>
+    <uid>resource14</uid>
+    <full-name>Resource 14</full-name>
+  </record>
+  <record type="resource">
+    <short-name>resource17</short-name>
+    <uid>resource17</uid>
+    <full-name>Resource 17</full-name>
+  </record>
+  <record type="resource">
+    <short-name>resource16</short-name>
+    <uid>resource16</uid>
+    <full-name>Resource 16</full-name>
+  </record>
+  <record type="resource">
+    <short-name>resource11</short-name>
+    <uid>resource11</uid>
+    <full-name>Resource 11</full-name>
+  </record>
+  <record type="resource">
+    <short-name>resource10</short-name>
+    <uid>resource10</uid>
+    <full-name>Resource 10</full-name>
+  </record>
+  <record type="resource">
+    <short-name>resource13</short-name>
+    <uid>resource13</uid>
+    <full-name>Resource 13</full-name>
+  </record>
+  <record type="resource">
+    <short-name>resource12</short-name>
+    <uid>resource12</uid>
+    <full-name>Resource 12</full-name>
+  </record>
+  <record type="resource">
+    <short-name>resource19</short-name>
+    <uid>resource19</uid>
+    <full-name>Resource 19</full-name>
+  </record>
+  <record type="resource">
+    <short-name>resource18</short-name>
+    <uid>resource18</uid>
+    <full-name>Resource 18</full-name>
+  </record>
+  <record type="resource">
+    <short-name>sharisresource</short-name>
+    <uid>C38BEE7A-36EE-478C-9DCB-CBF4612AFE65</uid>
+    <full-name>Shari's Resource</full-name>
+  </record>
+  <record type="resource">
+    <short-name>resource20</short-name>
+    <uid>resource20</uid>
+    <full-name>Resource 20</full-name>
+  </record>
+  <record type="resource">
+    <short-name>resource06</short-name>
+    <uid>resource06</uid>
+    <full-name>Resource 06</full-name>
+  </record>
+  <record type="resource">
+    <short-name>resource07</short-name>
+    <uid>resource07</uid>
+    <full-name>Resource 07</full-name>
+  </record>
+  <record type="resource">
+    <short-name>resource04</short-name>
+    <uid>resource04</uid>
+    <full-name>Resource 04</full-name>
+  </record>
+  <record type="resource">
+    <short-name>resource05</short-name>
+    <uid>resource05</uid>
+    <full-name>Resource 05</full-name>
+  </record>
+  <record type="resource">
+    <short-name>resource02</short-name>
+    <uid>resource02</uid>
+    <full-name>Resource 02</full-name>
+  </record>
+  <record type="resource">
+    <short-name>resource03</short-name>
+    <uid>resource03</uid>
+    <full-name>Resource 03</full-name>
+  </record>
+  <record type="resource">
+    <short-name>resource01</short-name>
+    <uid>resource01</uid>
+    <full-name>Resource 01</full-name>
+  </record>
+  <record type="resource">
+    <short-name>sharisotherresource1</short-name>
+    <uid>0CE0BF31-5F9E-4801-A489-8C70CF287F5F</uid>
+    <full-name>Shari's Other Resource1</full-name>
+  </record>
+  <record type="resource">
+    <short-name>resource08</short-name>
+    <uid>resource08</uid>
+    <full-name>Resource 08</full-name>
+  </record>
+  <record type="resource">
+    <short-name>resource09</short-name>
+    <uid>resource09</uid>
+    <full-name>Resource 09</full-name>
+  </record>
+  <record type="address">
+    <short-name>testaddress1</short-name>
+    <uid>6F9EE33B-78F6-481B-9289-3D0812FF0D64</uid>
+    <full-name>Test Address One</full-name>
     <extras>
       <streetAddress>20300 Stevens Creek Blvd, Cupertino, CA 95014</streetAddress>
       <geo>37.322281,-122.028345</geo>
     </extras>
-  </address>
-  <address>
-    <uid>il2</uid>
-    <guid>63A2F949-2D8D-4C8D-B8A5-DCF2A94610F3</guid>
-    <name>IL2</name>
+  </record>
+  <record type="address">
+    <short-name>il2</short-name>
+    <uid>63A2F949-2D8D-4C8D-B8A5-DCF2A94610F3</uid>
+    <full-name>IL2</full-name>
     <extras>
       <streetAddress>2 Infinite Loop, Cupertino, CA 95014</streetAddress>
       <geo>37.332633,-122.030502</geo>
     </extras>
-  </address>
-  <address>
-    <uid>il1</uid>
-    <guid>76E7ECA6-08BC-4AE7-930D-F2E7453993A5</guid>
-    <name>IL1</name>
+  </record>
+  <record type="address">
+    <short-name>il1</short-name>
+    <uid>76E7ECA6-08BC-4AE7-930D-F2E7453993A5</uid>
+    <full-name>IL1</full-name>
     <extras>
       <streetAddress>1 Infinite Loop, Cupertino, CA 95014</streetAddress>
       <geo>37.331741,-122.030333</geo>
     </extras>
-  </address>
-</accounts>
+  </record>
+</directory>

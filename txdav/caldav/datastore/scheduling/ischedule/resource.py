@@ -353,11 +353,13 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
             davxml.Privilege(caldavxml.ScheduleDeliver()),
         )
 
-        return davxml.ACL(
-            # DAV:Read, CalDAV:schedule-deliver for all principals (includes anonymous)
-            davxml.ACE(
-                davxml.Principal(davxml.All()),
-                davxml.Grant(*privs),
-                davxml.Protected(),
-            ),
+        return succeed(
+            davxml.ACL(
+                # DAV:Read, CalDAV:schedule-deliver for all principals (includes anonymous)
+                davxml.ACE(
+                    davxml.Principal(davxml.All()),
+                    davxml.Grant(*privs),
+                    davxml.Protected(),
+                ),
+            )
         )

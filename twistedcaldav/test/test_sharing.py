@@ -185,7 +185,8 @@ class SharingTests(StoreTestCase):
 
     @inlineCallbacks
     def _doPOST(self, body, resultcode=responsecode.OK):
-        request = SimpleStoreRequest(self, "POST", "/calendars/__uids__/user01/calendar/", content=body, authid="user01")
+        authRecord = yield self.directory.recordWithUID(u"user01")
+        request = SimpleStoreRequest(self, "POST", "/calendars/__uids__/user01/calendar/", content=body, authRecord=authRecord)
         request.headers.setHeader("content-type", MimeType("text", "xml"))
         response = yield self.send(request)
         response = IResponse(response)
@@ -210,7 +211,8 @@ class SharingTests(StoreTestCase):
 
     @inlineCallbacks
     def _doPOSTSharerAccept(self, body, resultcode=responsecode.OK):
-        request = SimpleStoreRequest(self, "POST", "/calendars/__uids__/user02/", content=body, authid="user02")
+        authRecord = yield self.directory.recordWithUID(u"user02")
+        request = SimpleStoreRequest(self, "POST", "/calendars/__uids__/user02/", content=body, authRecord=authRecord)
         request.headers.setHeader("content-type", MimeType("text", "xml"))
         response = yield self.send(request)
         response = IResponse(response)
@@ -732,6 +734,7 @@ class SharingTests(StoreTestCase):
         self.assertEquals(propInvite, None)
 
 
+    # MOVE2WHO Fix wiki
     @inlineCallbacks
     def wikiSetup(self):
         """
@@ -798,7 +801,8 @@ class SharingTests(StoreTestCase):
         self.patch(sharing, "getWikiAccess", stubWikiAccessMethod)
         @inlineCallbacks
         def listChildrenViaPropfind():
-            request = SimpleStoreRequest(self, "PROPFIND", "/calendars/__uids__/user01/", authid="user01")
+            authRecord = yield self.directory.recordWithUID(u"user01")
+            request = SimpleStoreRequest(self, "PROPFIND", "/calendars/__uids__/user01/", authRecord=authRecord)
             request.headers.setHeader("depth", "1")
             response = yield self.send(request)
             response = IResponse(response)

@@ -16,68 +16,63 @@
 from __future__ import print_function
 
 import os
+from urllib import quote
 
 from twisted.cred.credentials import UsernamePassword
 from twisted.internet.defer import inlineCallbacks
+from twistedcaldav import carddavxml
+from twistedcaldav.cache import DisabledCacheNotifier
+from twistedcaldav.caldavxml import caldav_namespace
+from twistedcaldav.config import config
+from twistedcaldav.customxml import calendarserver_namespace
+from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeProvisioningResource
+from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
+from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
+from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
+from twistedcaldav.directory.principal import DirectoryPrincipalResource
+from twistedcaldav.directory.principal import DirectoryPrincipalTypeProvisioningResource
+from twistedcaldav.test.util import StoreTestCase
+from txdav.common.datastore.file import CommonDataStore
 from txdav.xml import element as davxml
 from txweb2.dav.fileop import rmdir
 from txweb2.dav.resource import AccessDeniedError
 from txweb2.http import HTTPError
 from txweb2.test.test_server import SimpleRequest
 
-from twistedcaldav.cache import DisabledCacheNotifier
-from twistedcaldav.caldavxml import caldav_namespace
-from twistedcaldav.config import config
-from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.directory import augment, calendaruserproxy
-from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeProvisioningResource
-from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
-from twistedcaldav.directory.directory import DirectoryService
-from twistedcaldav.directory.xmlfile import XMLDirectoryService
-from twistedcaldav.directory.test.test_xmlfile import xmlFile, augmentsFile
-from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
-from twistedcaldav.directory.principal import DirectoryPrincipalTypeProvisioningResource
-from twistedcaldav.directory.principal import DirectoryPrincipalResource
-from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
-from twistedcaldav import carddavxml
-import twistedcaldav.test.util
-
-from txdav.common.datastore.file import CommonDataStore
-from urllib import quote
 
 
 
-class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
+class ProvisionedPrincipals(StoreTestCase):  # twistedcaldav.test.util.TestCase):
     """
     Directory service provisioned principals.
     """
-    def setUp(self):
-        super(ProvisionedPrincipals, self).setUp()
+    # def setUp(self):
+    #     super(ProvisionedPrincipals, self).setUp()
 
-        self.directoryServices = (
-            XMLDirectoryService(
-                {
-                    'xmlFile' : xmlFile,
-                    'augmentService' :
-                        augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,)),
-                }
-            ),
-        )
+    #     self.directoryServices = (
+    #         XMLDirectoryService(
+    #             {
+    #                 'xmlFile' : xmlFile,
+    #                 'augmentService' :
+    #                     augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,)),
+    #             }
+    #         ),
+    #     )
 
-        # Set up a principals hierarchy for each service we're testing with
-        self.principalRootResources = {}
-        for directory in self.directoryServices:
-            name = directory.__class__.__name__
-            url = "/" + name + "/"
+    #     # Set up a principals hierarchy for each service we're testing with
+    #     self.principalRootResources = {}
+    #     for directory in self.directoryServices:
+    #         name = directory.__class__.__name__
+    #         url = "/" + name + "/"
 
-            provisioningResource = DirectoryPrincipalProvisioningResource(url, directory)
-            directory.setPrincipalCollection(provisioningResource)
+    #         provisioningResource = DirectoryPrincipalProvisioningResource(url, directory)
+    #         directory.setPrincipalCollection(provisioningResource)
 
-            self.site.resource.putChild(name, provisioningResource)
+    #         self.site.resource.putChild(name, provisioningResource)
 
-            self.principalRootResources[directory.__class__.__name__] = provisioningResource
+    #         self.principalRootResources[directory.__class__.__name__] = provisioningResource
 
-        calendaruserproxy.ProxyDBService = calendaruserproxy.ProxySqliteDB(os.path.abspath(self.mktemp()))
+    #     calendaruserproxy.ProxyDBService = calendaruserproxy.ProxySqliteDB(os.path.abspath(self.mktemp()))
 
 
     @inlineCallbacks
@@ -95,7 +90,8 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
 
         DirectoryPrincipalResource.principalURL(),
         """
-        for directory in self.directoryServices:
+        directory = self.directory
+        if True:
             #print("\n -> %s" % (directory.__class__.__name__,))
             provisioningResource = self.principalRootResources[directory.__class__.__name__]
 
@@ -170,33 +166,33 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         """
         DirectoryPrincipalProvisioningResource.principalForUser()
         """
-        for directory in self.directoryServices:
-            provisioningResource = self.principalRootResources[directory.__class__.__name__]
+        directory = self.directory
+        provisioningResource = self.principalRootResources[directory.__class__.__name__]
 
-            for user in directory.listRecords(DirectoryService.recordType_users):
-                userResource = provisioningResource.principalForUser(user.shortNames[0])
-                if user.enabled:
-                    self.failIf(userResource is None)
-                    self.assertEquals(user, userResource.record)
-                else:
-                    self.failIf(userResource is not None)
+        for user in directory.listRecords(DirectoryService.recordType_users):
+            userResource = provisioningResource.principalForUser(user.shortNames[0])
+            if user.enabled:
+                self.failIf(userResource is None)
+                self.assertEquals(user, userResource.record)
+            else:
+                self.failIf(userResource is not None)
 
 
     def test_principalForAuthID(self):
         """
         DirectoryPrincipalProvisioningResource.principalForAuthID()
         """
-        for directory in self.directoryServices:
-            provisioningResource = self.principalRootResources[directory.__class__.__name__]
+        directory = self.directory
+        provisioningResource = self.principalRootResources[directory.__class__.__name__]
 
-            for user in directory.listRecords(DirectoryService.recordType_users):
-                creds = UsernamePassword(user.shortNames[0], "bogus")
-                userResource = provisioningResource.principalForAuthID(creds)
-                if user.enabled:
-                    self.failIf(userResource is None)
-                    self.assertEquals(user, userResource.record)
-                else:
-                    self.failIf(userResource is not None)
+        for user in directory.listRecords(DirectoryService.recordType_users):
+            creds = UsernamePassword(user.shortNames[0], "bogus")
+            userResource = provisioningResource.principalForAuthID(creds)
+            if user.enabled:
+                self.failIf(userResource is None)
+                self.assertEquals(user, userResource.record)
+            else:
+                self.failIf(userResource is not None)
 
 
     def test_principalForUID(self):
@@ -465,23 +461,23 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         # Need to create a addressbook home provisioner for each service.
         addressBookRootResources = {}
 
-        for directory in self.directoryServices:
-            path = os.path.join(self.docroot, directory.__class__.__name__)
+        directory = self.directory
+        path = os.path.join(self.docroot, directory.__class__.__name__)
 
-            if os.path.exists(path):
-                rmdir(path)
-            os.mkdir(path)
+        if os.path.exists(path):
+            rmdir(path)
+        os.mkdir(path)
 
-            # Need a data store
-            _newStore = CommonDataStore(path, None, None, True, False)
+        # need a data store
+        _newstore = commondatastore(path, none, none, true, false)
 
-            provisioningResource = DirectoryAddressBookHomeProvisioningResource(
-                directory,
-                "/addressbooks/",
-                _newStore
-            )
+        provisioningresource = directoryaddressbookhomeprovisioningresource(
+            directory,
+            "/addressbooks/",
+            _newstore
+        )
 
-            addressBookRootResources[directory.__class__.__name__] = provisioningResource
+        addressbookrootresources[directory.__class__.__name__] = provisioningResource
 
         # AddressBook home provisioners should result in addressBook homes.
         for provisioningResource, _ignore_recordType, recordResource, record in self._allRecords():
@@ -517,23 +513,23 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         # Need to create a calendar home provisioner for each service.
         calendarRootResources = {}
 
-        for directory in self.directoryServices:
-            path = os.path.join(self.docroot, directory.__class__.__name__)
+        directory = self.directory
+        path = os.path.join(self.docroot, directory.__class__.__name__)
 
-            if os.path.exists(path):
-                rmdir(path)
-            os.mkdir(path)
+        if os.path.exists(path):
+            rmdir(path)
+        os.mkdir(path)
 
-            # Need a data store
-            _newStore = CommonDataStore(path, None, None, True, False)
+        # Need a data store
+        _newStore = CommonDataStore(path, None, None, True, False)
 
-            provisioningResource = DirectoryCalendarHomeProvisioningResource(
-                directory,
-                "/calendars/",
-                _newStore
-            )
+        provisioningResource = DirectoryCalendarHomeProvisioningResource(
+            directory,
+            "/calendars/",
+            _newStore
+        )
 
-            calendarRootResources[directory.__class__.__name__] = provisioningResource
+        calendarRootResources[directory.__class__.__name__] = provisioningResource
 
         # Calendar home provisioners should result in calendar homes.
         for provisioningResource, _ignore_recordType, recordResource, record in self._allRecords():
@@ -643,19 +639,19 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         """
         Default access controls for principal provisioning resources.
         """
-        for directory in self.directoryServices:
-            #print("\n -> %s" % (directory.__class__.__name__,))
-            provisioningResource = self.principalRootResources[directory.__class__.__name__]
+        directory = self.directory
+        #print("\n -> %s" % (directory.__class__.__name__,))
+        provisioningResource = self.principalRootResources[directory.__class__.__name__]
 
-            for args in _authReadOnlyPrivileges(self, provisioningResource, provisioningResource.principalCollectionURL()):
+        for args in _authReadOnlyPrivileges(self, provisioningResource, provisioningResource.principalCollectionURL()):
+            yield self._checkPrivileges(*args)
+
+        for recordType in (yield provisioningResource.listChildren()):
+            #print("   -> %s" % (recordType,))
+            typeResource = provisioningResource.getChild(recordType)
+
+            for args in _authReadOnlyPrivileges(self, typeResource, typeResource.principalCollectionURL()):
                 yield self._checkPrivileges(*args)
-
-            for recordType in (yield provisioningResource.listChildren()):
-                #print("   -> %s" % (recordType,))
-                typeResource = provisioningResource.getChild(recordType)
-
-                for args in _authReadOnlyPrivileges(self, typeResource, typeResource.principalCollectionURL()):
-                    yield self._checkPrivileges(*args)
 
 
     def test_propertyToField(self):
@@ -705,14 +701,14 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
             C{record} is the directory service record
             for each record in each directory in C{directoryServices}.
         """
-        for directory in self.directoryServices:
-            provisioningResource = self.principalRootResources[
-                directory.__class__.__name__
-            ]
-            for recordType in directory.recordTypes():
-                for record in directory.listRecords(recordType):
-                    recordResource = provisioningResource.principalForRecord(record)
-                    yield provisioningResource, recordType, recordResource, record
+        directory = self.directory
+        provisioningResource = self.principalRootResources[
+            directory.__class__.__name__
+        ]
+        for recordType in directory.recordTypes():
+            for record in directory.listRecords(recordType):
+                recordResource = provisioningResource.principalForRecord(record)
+                yield provisioningResource, recordType, recordResource, record
 
 
     def _checkPrivileges(self, resource, url, principal, privilege, allowed):

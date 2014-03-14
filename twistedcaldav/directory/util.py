@@ -34,6 +34,9 @@ from txweb2.http import StatusResponse
 from twisted.internet.defer import inlineCallbacks, returnValue
 from txdav.xml import element as davxml
 from uuid import UUID, uuid5
+from twisted.python.failure import Failure
+from twisted.web.template import tags
+
 
 log = Logger()
 
@@ -148,3 +151,76 @@ class NotFoundResource(DAVResource):
         else:
             response = StatusResponse(responsecode.NOT_FOUND, "Resource not found")
             returnValue(response)
+
+
+
+
+def formatLink(url):
+    """
+    Convert a URL string into some twisted.web.template DOM objects for
+    rendering as a link to itself.
+    """
+    return tags.a(href=url)(url)
+
+
+
+def formatLinks(urls):
+    """
+    Format a list of URL strings as a list of twisted.web.template DOM links.
+    """
+    return formatList(formatLink(link) for link in urls)
+
+
+def formatPrincipals(principals):
+    """
+    Format a list of principals into some twisted.web.template DOM objects.
+    """
+    def recordKey(principal):
+        try:
+            record = principal.record
+        except AttributeError:
+            try:
+                record = principal.parent.record
+            except:
+                return None
+        return (record.recordType, record.shortNames[0])
+
+
+    def describe(principal):
+        if hasattr(principal, "record"):
+            return " - %s" % (principal.record.displayName,)
+        else:
+            return ""
+
+    return formatList(
+        tags.a(href=principal.principalURL())(
+            str(principal), describe(principal)
+        )
+        for principal in sorted(principals, key=recordKey)
+    )
+
+
+
+def formatList(iterable):
+    """
+    Format a list of stuff as an interable.
+    """
+    thereAreAny = False
+    try:
+        item = None
+        for item in iterable:
+            thereAreAny = True
+            yield " -> "
+            if item is None:
+                yield "None"
+            else:
+                yield item
+            yield "\n"
+    except Exception, e:
+        log.error("Exception while rendering: %s" % (e,))
+        Failure().printTraceback()
+        yield "  ** %s **: %s\n" % (e.__class__.__name__, e)
+    if not thereAreAny:
+        yield " '()\n"
+
+

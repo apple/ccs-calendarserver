@@ -47,6 +47,8 @@ fbtype_index_mapper = {'B': 0, 'T': 1, 'U': 2}
 
 fbcacher = Memcacher("FBCache", pickle=True)
 
+
+
 class FBCacheEntry(object):
 
     CACHE_DAYS_FLOATING_ADJUST = 1
@@ -212,12 +214,12 @@ def _internalGenerateFreeBusyInfo(
     # TODO: actually we by pass altogether by assuming anyone can check anyone else's freebusy
 
     # May need organizer principal
-    organizer_record = calresource.directoryService().recordWithCalendarUserAddress(organizer) if organizer else None
+    organizer_record = (yield calresource.directoryService().recordWithCalendarUserAddress(organizer)) if organizer else None
     organizer_uid = organizer_record.uid if organizer_record else ""
 
     # Free busy is per-user
     attendee_uid = calresource.viewerHome().uid()
-    attendee_record = calresource.directoryService().recordWithUID(attendee_uid)
+    attendee_record = yield calresource.directoryService().recordWithUID(attendee_uid.decode("utf-8"))
 
     # Get the timezone property from the collection.
     tz = calresource.getTimezone()
@@ -237,7 +239,7 @@ def _internalGenerateFreeBusyInfo(
         authz_record = organizer_record
         if hasattr(calresource._txn, "_authz_uid") and calresource._txn._authz_uid != organizer_uid:
             authz_uid = calresource._txn._authz_uid
-            authz_record = calresource.directoryService().recordWithUID(authz_uid)
+            authz_record = yield calresource.directoryService().recordWithUID(authz_uid.decode("utf-8"))
 
         # Check if attendee is also the organizer or the delegate doing the request
         if attendee_uid in (organizer_uid, authz_uid):
@@ -335,7 +337,7 @@ def _internalGenerateFreeBusyInfo(
                 if excludeuid:
                     # See if we have a UID match
                     if (excludeuid == uid):
-                        test_record = calresource.directoryService().recordWithCalendarUserAddress(test_organizer) if test_organizer else None
+                        test_record = (yield calresource.directoryService().recordWithCalendarUserAddress(test_organizer)) if test_organizer else None
                         test_uid = test_record.uid if test_record else ""
 
                         # Check that ORGANIZER's match (security requirement)

@@ -83,11 +83,17 @@ def recordBasicInfo(directory, record):
     add("First Name", record.firstName)
     add("Last Name" , record.lastName )
 
-    for email in record.emailAddresses:
-        add("Email Address", email)
+    try:
+        for email in record.emailAddresses:
+            add("Email Address", email)
+    except AttributeError:
+        pass
 
-    for cua in record.calendarUserAddresses:
-        add("Calendar User Address", cua)
+    try:
+        for cua in record.calendarUserAddresses:
+            add("Calendar User Address", cua)
+    except AttributeError:
+        pass
 
     add("Server ID"           , record.serverID)
     add("Enabled"             , record.enabled)

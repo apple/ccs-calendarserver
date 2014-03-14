@@ -17,20 +17,21 @@
 import os
 import sys
 
+from calendarserver.tools.principals import (
+    parseCreationArgs, matchStrings,
+    updateRecord, principalForPrincipalID, getProxies, setProxies
+)
 from twext.python.filepath import CachingFilePath as FilePath
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
-
 from twistedcaldav.config import config
-from twistedcaldav.directory.directory import DirectoryError
 from twistedcaldav.directory import calendaruserproxy
+from twistedcaldav.directory.directory import DirectoryError
+from twistedcaldav.test.util import (
+    TestCase, CapturingProcessProtocol, ErrorOutput
+)
+from txdav.who.util import directoryFromConfig
 
-from twistedcaldav.test.util import TestCase, CapturingProcessProtocol, \
-    ErrorOutput
-
-from calendarserver.tap.util import directoryFromConfig
-from calendarserver.tools.principals import (parseCreationArgs, matchStrings,
-    updateRecord, principalForPrincipalID, getProxies, setProxies)
 
 
 class ManagePrincipalsTestCase(TestCase):
