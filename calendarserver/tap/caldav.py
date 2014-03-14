@@ -22,23 +22,27 @@ __all__ = [
     "CalDAVServiceMaker",
 ]
 
-import os
-import socket
-import stat
 import sys
+# import os
+from os import getuid, getgid, umask, remove, environ, stat, chown
+from os.path import exists, basename, isfile
+import socket
+from stat import S_ISSOCK
 from time import time
 from subprocess import Popen, PIPE
 from pwd import getpwuid, getpwnam
 from grp import getgrnam
+
 import OpenSSL
 from OpenSSL.SSL import Error as SSLError
-from os import getuid, getgid
 
 from zope.interface import implements
 
-from twisted.application.internet import TCPServer, UNIXServer
-from twisted.application.service import MultiService, IServiceMaker
-from twisted.application.service import Service
+from twisted.python.log import FileLogObserver, ILogObserver
+from twisted.python.logfile import LogFile
+from twisted.python.usage import Options, UsageError
+from twisted.python.util import uidFromString, gidFromString
+from twisted.plugin import IPlugin
 from twisted.internet.defer import (
     gatherResults, Deferred, inlineCallbacks, succeed
 )
@@ -46,27 +50,26 @@ from twisted.internet.endpoints import UNIXClientEndpoint, TCP4ClientEndpoint
 from twisted.internet.process import ProcessExitedAlready
 from twisted.internet.protocol import ProcessProtocol
 from twisted.internet.protocol import Factory
-from twisted.plugin import IPlugin
+from twisted.application.internet import TCPServer, UNIXServer
+from twisted.application.service import MultiService, IServiceMaker
+from twisted.application.service import Service
 from twisted.protocols.amp import AMP
-from twisted.python.log import FileLogObserver, ILogObserver
-from twisted.python.logfile import LogFile
-from twisted.python.usage import Options, UsageError
-from twisted.python.util import uidFromString, gidFromString
 
+from twext.python.filepath import CachingFilePath
+from twext.python.log import Logger, LogLevel, replaceTwistedLoggers
+from twext.internet.fswatch import (
+    DirectoryChangeListener, IDirectoryChangeListenee
+)
+from twext.internet.ssl import ChainingOpenSSLContextFactory
+from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 from twext.enterprise.adbapi2 import ConnectionPool
 from twext.enterprise.ienterprise import ORACLE_DIALECT
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
 from twext.enterprise.jobqueue import NonPerformingQueuer
 from twext.enterprise.jobqueue import PeerConnectionPool
 from twext.enterprise.jobqueue import WorkerFactory as QueueWorkerFactory
-from twext.internet.fswatch import (
-    DirectoryChangeListener, IDirectoryChangeListenee
-)
-from twext.internet.ssl import ChainingOpenSSLContextFactory
-from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
-from twext.python.filepath import CachingFilePath
-from twext.python.log import Logger, LogLevel, replaceTwistedLoggers
 from twext.application.service import ReExecService
+from txdav.who.groups import scheduleNextGroupCachingUpdate
 
 from txweb2.channel.http import (
     LimitingHTTPFactory, SSLRedirectRequest, HTTPChannel
@@ -95,7 +98,6 @@ from twistedcaldav import memcachepool
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.directory import GroupMembershipCacheUpdater
-from txdav.who.groups import scheduleNextGroupCachingUpdate
 from twistedcaldav.localization import processLocalizationFiles
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.upgrade import UpgradeFileSystemFormatStep, PostDBImportStep
@@ -125,11 +127,11 @@ from calendarserver.tap.util import (
 
 try:
     from calendarserver.version import version
-    version
 except ImportError:
     from twisted.python.modules import getModule
     sys.path.insert(
-        0, getModule(__name__).pathEntry.filePath.child("support").path)
+        0, getModule(__name__).pathEntry.filePath.child("support").path
+    )
     from version import version as getVersion
     version = "{} ({}*)".format(getVersion())
 
@@ -214,7 +216,7 @@ def _computeEnvVars(parent):
             result[varname] = parent[varname]
     return result
 
-PARENT_ENVIRONMENT = _computeEnvVars(os.environ)
+PARENT_ENVIRONMENT = _computeEnvVars(environ)
 
 
 
@@ -396,7 +398,7 @@ class CalDAVOptions (Options):
 
 
     def loadConfiguration(self):
-        if not os.path.exists(self["config"]):
+        if not exists(self["config"]):
             raise ConfigurationError(
                 "Config file {} not found. Exiting."
                 .format(self["config"])
@@ -437,17 +439,17 @@ class CalDAVOptions (Options):
             uid, gid = getid(self.parent["uid"], self.parent["gid"])
 
         def gottaBeRoot():
-            if os.getuid() != 0:
-                username = getpwuid(os.getuid()).pw_name
+            if getuid() != 0:
+                username = getpwuid(getuid()).pw_name
                 raise UsageError(
                     "Only root can drop privileges.  You are: {}"
                     .format(username)
                 )
 
-        if uid and uid != os.getuid():
+        if uid and uid != getuid():
             gottaBeRoot()
 
-        if gid and gid != os.getgid():
+        if gid and gid != getgid():
             gottaBeRoot()
 
         self.parent["pidfile"] = config.PIDFile
@@ -462,7 +464,7 @@ class CalDAVOptions (Options):
             FileLogObserver.timeFormat = ""
 
         # Check current umask and warn if changed
-        oldmask = os.umask(config.umask)
+        oldmask = umask(config.umask)
         if oldmask != config.umask:
             self.log.info(
                 "WARNING: changing umask from: 0{old!03o} to 0{new!03o}",
@@ -492,7 +494,7 @@ class GroupOwnedUNIXServer(UNIXServer, object):
 
         # Unfortunately, there's no public way to access this. -glyph
         fileName = self._port.port
-        os.chown(fileName, os.getuid(), self.gid)
+        chown(fileName, getuid(), self.gid)
 
 
 
@@ -722,13 +724,13 @@ class QuitAfterUpgradeStep(object):
 
     def removeTriggerFile(self):
         try:
-            os.remove(self.triggerFile)
+            remove(self.triggerFile)
         except OSError:
             pass
 
 
     def stepWithResult(self, result):
-        if os.path.exists(self.triggerFile):
+        if exists(self.triggerFile):
             self.removeTriggerFile()
             self.reactor.stop()
             raise PostUpgradeStopRequested()
@@ -737,7 +739,7 @@ class QuitAfterUpgradeStep(object):
 
 
     def stepWithFailure(self, failure):
-        if os.path.exists(self.triggerFile):
+        if exists(self.triggerFile):
             self.removeTriggerFile()
             self.reactor.stop()
             raise PostUpgradeStopRequested()
@@ -775,7 +777,7 @@ class CalDAVServiceMaker (object):
             pass
 
         else:
-            execName = os.path.basename(sys.argv[0])
+            execName = basename(sys.argv[0])
 
             if config.LogID:
                 logID = " #{}".format(config.LogID)
@@ -1569,7 +1571,7 @@ class CalDAVServiceMaker (object):
 
         if config.UseDatabase:
 
-            if os.getuid() == 0:  # Only override if root
+            if getuid() == 0:  # Only override if root
                 overrideUID = uid
                 overrideGID = gid
             else:
@@ -1640,7 +1642,7 @@ class CalDAVServiceMaker (object):
                     "Invalid group name: {}".format(config.GroupName)
                 )
         else:
-            gid = os.getgid()
+            gid = getgid()
 
         if config.UserName:
             try:
@@ -1650,7 +1652,7 @@ class CalDAVServiceMaker (object):
                     "Invalid user name: {}".format(config.UserName)
                 )
         else:
-            uid = os.getuid()
+            uid = getuid()
 
         controlSocket = ControlSocket()
         controlSocket.addFactory(_LOG_ROUTE, logger)
@@ -1897,14 +1899,14 @@ class CalDAVServiceMaker (object):
             config.ControlSocket, config.Stats.UnixStatsSocket
         ]:
             # See if the file exists.
-            if (os.path.exists(checkSocket)):
+            if (exists(checkSocket)):
                 # See if the file represents a socket.  If not, delete it.
-                if (not stat.S_ISSOCK(os.stat(checkSocket).st_mode)):
+                if (not S_ISSOCK(stat(checkSocket).st_mode)):
                     self.log.warn(
                         "Deleting stale socket file (not a socket): {socket}",
                         socket=checkSocket
                     )
-                    os.remove(checkSocket)
+                    remove(checkSocket)
                 else:
                     # It looks like a socket.
                     # See if it's accepting connections.
@@ -1927,7 +1929,7 @@ class CalDAVServiceMaker (object):
                             "(not accepting connections): {socket}",
                             socket=checkSocket
                         )
-                        os.remove(checkSocket)
+                        remove(checkSocket)
 
 
 
@@ -1997,24 +1999,27 @@ class TwistdSlaveProcess(object):
 
     def starting(self):
         """
-        Called when the process is being started (or restarted). Allows for various initialization
-        operations to be done. The child process will itself signal back to the master when it is ready
-        to accept sockets - until then the master socket is marked as "starting" which means it is not
-        active and won't be dispatched to.
+        Called when the process is being started (or restarted). Allows for
+        various initialization operations to be done. The child process will
+        itself signal back to the master when it is ready to accept sockets -
+        until then the master socket is marked as "starting" which means it is
+        not active and won't be dispatched to.
         """
 
-        # Always tell any metafd socket that we have started, so it can re-initialize state.
+        # Always tell any metafd socket that we have started, so it can
+        # re-initialize state.
         if self.metaSocket is not None:
             self.metaSocket.start()
 
 
     def stopped(self):
         """
-        Called when the process has stopped (died). The socket is marked as "stopped" which means it is
-        not active and won't be dispatched to.
+        Called when the process has stopped (died). The socket is marked as
+        "stopped" which means it is not active and won't be dispatched to.
         """
 
-        # Always tell any metafd socket that we have started, so it can re-initialize state.
+        # Always tell any metafd socket that we have started, so it can
+        # re-initialize state.
         if self.metaSocket is not None:
             self.metaSocket.stop()
 
@@ -2109,7 +2114,9 @@ class TwistdSlaveProcess(object):
 
         if self.metaSocket is not None:
             args.extend([
-                "-o", "MetaFD={}".format(self.metaSocket.childSocket().fileno())
+                "-o", "MetaFD={}".format(
+                    self.metaSocket.childSocket().fileno()
+                )
             ])
         if self.ampDBSocket is not None:
             args.extend([
@@ -2584,7 +2591,7 @@ def getSSLPassphrase(*ignored):
     if not config.SSLPrivateKey:
         return None
 
-    if config.SSLCertAdmin and os.path.isfile(config.SSLCertAdmin):
+    if config.SSLCertAdmin and isfile(config.SSLCertAdmin):
         child = Popen(
             args=[
                 "sudo", config.SSLCertAdmin,
@@ -2607,7 +2614,7 @@ def getSSLPassphrase(*ignored):
 
     if (
         config.SSLPassPhraseDialog and
-        os.path.isfile(config.SSLPassPhraseDialog)
+        isfile(config.SSLPassPhraseDialog)
     ):
         sslPrivKey = open(config.SSLPrivateKey)
         try:
