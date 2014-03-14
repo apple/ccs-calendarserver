@@ -26,6 +26,13 @@ from twistedcaldav.config import ConfigDict
 from twisted.python.filepath import FilePath
 from txdav.who.augment import AugmentedDirectoryService
 from twext.who.aggregate import DirectoryService as AggregateDirectoryService
+from twext.who.xml import DirectoryService as XMLDirectoryService
+from txdav.who.delegates import (
+    DirectoryService as DelegateDirectoryService,
+    RecordType as DelegateRecordType
+)
+from twext.who.idirectory import RecordType
+from txdav.who.idirectory import RecordType as CalRecordType
 
 
 class StubStore(object):
@@ -91,6 +98,36 @@ class UtilTest(TestCase):
 
         store = StubStore()
         service = directoryFromConfig(config, store=store)
+
+        # Inspect the directory service structure
         self.assertTrue(isinstance(service, AugmentedDirectoryService))
         self.assertTrue(isinstance(service._directory, AggregateDirectoryService))
         self.assertEquals(len(service._directory.services), 3)
+        self.assertTrue(
+            isinstance(service._directory.services[0], XMLDirectoryService)
+        )
+        self.assertEquals(
+            set(service._directory.services[0].recordTypes()),
+            set([RecordType.user, RecordType.group])
+        )
+        self.assertTrue(
+            isinstance(service._directory.services[1], XMLDirectoryService)
+        )
+        self.assertEquals(
+            set(service._directory.services[1].recordTypes()),
+            set([CalRecordType.location, CalRecordType.resource])
+        )
+        self.assertTrue(
+            isinstance(service._directory.services[2], DelegateDirectoryService)
+        )
+        self.assertEquals(
+            set(service._directory.services[2].recordTypes()),
+            set(
+                [
+                    DelegateRecordType.readDelegateGroup,
+                    DelegateRecordType.writeDelegateGroup,
+                    DelegateRecordType.readDelegatorGroup,
+                    DelegateRecordType.writeDelegatorGroup,
+                ]
+            )
+        )

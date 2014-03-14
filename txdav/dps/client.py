@@ -54,9 +54,14 @@ log = Logger()
 
 
 ## MOVE2WHO TODOs:
-## augmented service
-## configuration of aggregate services
-## hooking up delegates
+## realm from primary/user directory service
+## SACLs
+## Wiki
+## LDAP
+## Tests from old twistedcaldav/directory
+## Cmd line tools
+## Store based directory service (records in the store, i.e. locations/resources)
+## Separate store for DPS (augments and delegates separate from calendar data)
 ## calverify needs deferreds, including:
 ##    component.normalizeCalendarUserAddresses
 
