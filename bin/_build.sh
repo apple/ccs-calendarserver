@@ -601,7 +601,7 @@ py_dependencies () {
   if [ "$(uname -s)" == "Darwin" ]; then
     if "${python}" -c 'import distutils.sysconfig; print distutils.sysconfig.get_config_var("CFLAGS")' \
        | grep -e -mno-fused-madd; then
-      export CFLAGS="";
+      export ARCHFLAGS="-Wno-error=unused-command-line-argument-hard-error-in-future";
     fi;
   fi;
 
