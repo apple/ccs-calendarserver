@@ -600,7 +600,7 @@ py_dependencies () {
   # it was in the system Python, and is therefore passed along by disutils.
   if [ "$(uname -s)" == "Darwin" ]; then
     if "${python}" -c 'import distutils.sysconfig; print distutils.sysconfig.get_config_var("CFLAGS")' \
-       | grep -e -mno-fused-madd; then
+       | grep -e -mno-fused-madd > /dev/null; then
       export ARCHFLAGS="-Wno-error=unused-command-line-argument-hard-error-in-future";
     fi;
   fi;
