@@ -1808,6 +1808,7 @@ class CalDAVServiceMaker (object):
 
         # Start listening on the stats socket, for administrators to inspect
         # the current stats on the server.
+        stats = None
         if config.Stats.EnableUnixStatsSocket:
             stats = DashboardServer(logger, cl if config.UseMetaFD else None)
             statsService = GroupOwnedUNIXServer(
@@ -1863,7 +1864,8 @@ class CalDAVServiceMaker (object):
             if store is None:
                 raise StoreNotAvailable()
 
-            stats.store = store
+            if stats is not None:
+                stats.store = store
 
             from twisted.internet import reactor
             pool = PeerConnectionPool(
