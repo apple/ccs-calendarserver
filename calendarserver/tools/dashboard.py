@@ -81,12 +81,18 @@ def main():
         def _wrapped(stdscrn):
             curses.curs_set(0)
             curses.use_default_colors()
+            curses.init_pair(1, curses.COLOR_RED, curses.COLOR_WHITE)
             d = Dashboard(stdscrn, True)
             d.run()
         curses.wrapper(_wrapped)
     else:
         d = Dashboard(None, False)
         d.run()
+
+
+
+def safeDivision(value, total, factor=1):
+    return value * factor / total if total else 0
 
 
 
@@ -98,13 +104,15 @@ class Dashboard(object):
 
     screen = None
     registered_windows = {}
+    registered_order = []
 
     def __init__(self, screen, usesCurses):
         self.screen = screen
         self.usesCurses = usesCurses
         self.paused = False
-        self.seconds = 0.1
+        self.seconds = 0.1 if usesCurses else 1.0
         self.sched = sched.scheduler(time.time, time.sleep)
+        self.client = DashboardClient(("localhost", 8100), True)
 
 
     @classmethod
@@ -116,6 +124,7 @@ class Dashboard(object):
         available window type.
         """
         cls.registered_windows[keypress] = wtype
+        cls.registered_order.append(keypress)
 
 
     def run(self):
@@ -124,7 +133,7 @@ class Dashboard(object):
         """
         self.windows = []
         self.displayWindow(None)
-        self.sched.enter(0, 0, self.updateDisplay, ())
+        self.sched.enter(self.seconds, 0, self.updateDisplay, ())
         self.sched.run()
 
 
@@ -134,30 +143,33 @@ class Dashboard(object):
         """
         if self.windows:
             for window in self.windows:
-                window.clear()
+                window.deactivate()
             self.windows = []
 
         if wtype is not None:
-            self.windows.append(wtype(self.usesCurses).makeWindow())
-            self.windows[-1].update()
+            self.windows.append(wtype(self.usesCurses, self.client).makeWindow())
+            self.windows[-1].activate()
         else:
             top = 0
-            for wtype in filter(
-                lambda x: x.all, self.registered_windows.values()
-            ):
-                self.windows.append(wtype(self.usesCurses).makeWindow(top=top))
-                self.windows[-1].update()
-                top += self.windows[-1].nlines
+            ordered_windows = [self.registered_windows[i] for i in self.registered_order]
+            for wtype in filter(lambda x: x.all, ordered_windows):
+                self.windows.append(wtype(self.usesCurses, self.client).makeWindow(top=top))
+                self.windows[-1].activate()
+                top += self.windows[-1].nlines + 1
+
+        self.updateDisplay(True)
 
 
-    def updateDisplay(self):
+    def updateDisplay(self, initialUpdate=False):
         """
         Periodic update of the current window and check for a key press.
         """
+        self.client.update()
         try:
-            if not self.paused:
+            if not self.paused or initialUpdate:
                 for window in filter(
-                    lambda x: x.requiresUpdate(), self.windows
+                    lambda x: x.requiresUpdate() or initialUpdate,
+                    self.windows
                 ):
                     window.update()
         except Exception as e:
@@ -182,7 +194,79 @@ class Dashboard(object):
             elif c in self.registered_windows:
                 self.displayWindow(self.registered_windows[c])
 
-        self.sched.enter(self.seconds, 0, self.updateDisplay, ())
+        if not initialUpdate:
+            self.sched.enter(self.seconds, 0, self.updateDisplay, ())
+
+
+
+class DashboardClient(object):
+    """
+    Client that connects to a server and fetches information.
+    """
+
+    def __init__(self, sockname, useTCP):
+        self.socket = None
+        self.sockname = sockname
+        self.useTCP = useTCP
+        self.currentData = None
+        self.items = []
+
+
+    def readSock(self, items):
+        """
+        Open a socket, send the specified request, and retrieve the response. Keep the socket open.
+        """
+        try:
+            if self.socket is None:
+                self.socket = socket.socket(socket.AF_INET if self.useTCP else socket.AF_UNIX, socket.SOCK_STREAM)
+                self.socket.connect(self.sockname)
+                self.socket.setblocking(0)
+            self.socket.sendall(json.dumps(items) + "\r\n")
+            data = ""
+            while not data.endswith("\n"):
+                try:
+                    d = self.socket.recv(1024)
+                except socket.error as se:
+                    if se.args[0] != errno.EWOULDBLOCK:
+                        raise
+                    continue
+                if d:
+                    data += d
+                else:
+                    break
+            data = json.loads(data)
+        except socket.error as e:
+            data = {"Failed": "Unable to read statistics from server: %s %s" % (self.sockname, e)}
+            self.socket = None
+        return data
+
+
+    def update(self):
+        """
+        Update the current data from the server.
+        """
+        self.currentData = self.readSock(self.items)
+
+
+    def getOneItem(self, item):
+        """
+        Update the current data from the server.
+        """
+        return self.readSock([item])[item]
+
+
+    def addItem(self, item):
+        """
+        Add a server data item to monitor.
+        """
+        self.items.append(item)
+
+
+    def removeItem(self, item):
+        """
+        No need to monitor this item.
+        """
+        self.items.remove(item)
 
 
 
@@ -193,9 +277,11 @@ class BaseWindow(object):
 
     help = "Not Implemented"
     all = True
+    clientItem = None
 
-    def __init__(self, usesCurses):
+    def __init__(self, usesCurses, client):
         self.usesCurses = usesCurses
+        self.client = client
 
 
     def makeWindow(self, top=0, left=0):
@@ -229,10 +315,20 @@ class BaseWindow(object):
         return True
 
 
-    def clear(self):
+    def activate(self):
+        """
+        About to start displaying.
+        """
+        if self.clientItem:
+            self.client.addItem(self.clientItem)
+
+
+    def deactivate(self):
         """
         Clear any drawing done by the current window type.
         """
+        if self.clientItem:
+            self.client.removeItem(self.clientItem)
         if self.usesCurses:
             self.window.erase()
             self.window.refresh()
@@ -245,55 +341,12 @@ class BaseWindow(object):
         raise NotImplementedError()
 
 
-
-class BaseSocketWindow(BaseWindow):
-    """
-    Common behavior for a window that reads from the server's stats socket.
-    """
-
-    def __init__(self, usesCurses):
-        super(BaseSocketWindow, self).__init__(usesCurses)
-        self.socket = None
-        self.sockname = ("localhost", 8100)
-        self.useTCP = True
+    def clientData(self):
+        return self.client.currentData[self.clientItem]
 
 
-    def readSock(self, item):
-        """
-        Open a socket, send the specified request, and retrieve the response.
-        Keep the socket open.
-        """
-        try:
-            if self.socket is None:
-                if self.useTCP:
-                    self.socket = socket.socket(socket.AF_INET)
-                else:
-                    self.socket = socket.socket(
-                        socket.AF_UNIX, socket.SOCK_STREAM
-                    )
-                self.socket.connect(self.sockname)
-                self.socket.setblocking(0)
-            self.socket.sendall(json.dumps([item]) + "\r\n")
-            data = ""
-            while not data.endswith("\n"):
-                try:
-                    d = self.socket.recv(1024)
-                except socket.error as se:
-                    if se.args[0] != errno.EWOULDBLOCK:
-                        raise
-                    continue
-                if d:
-                    data += d
-                else:
-                    break
-            data = json.loads(data)[item]
-        except socket.error as e:
-            data = {
-                "Failed": "Unable to read statistics from server: {} {}"
-                .format(self.sockname, e)
-            }
-            self.socket = None
-        return data
+    def readItem(self, item):
+        return self.client.getOneItem(item)
 
 
 
@@ -304,23 +357,19 @@ class HelpWindow(BaseWindow):
 
     help = "display dashboard help"
     all = False
-
-    def __init__(self, usesCurses):
-        super(HelpWindow, self).__init__(usesCurses)
-        self.help = (
-            "",
-            "a - all windows",
-            "  - (space) pause dashboard polling",
-            "t - toggle update between 0.1 and 1.0 seconds",
-            "",
-            "q - exit the dashboard",
-        )
-
+    helpItems = (
+        "",
+        "a - all windows",
+        "  - (space) pause dashboard polling",
+        "t - toggle update between 0.1 and 1.0 seconds",
+        "",
+        "q - exit the dashboard",
+    )
 
     def makeWindow(self, top=0, left=0):
         self._createWindow(
             "Help",
-            len(self.help) + len(Dashboard.registered_windows) + 2,
+            len(self.helpItems) + len(Dashboard.registered_windows) + 2,
             begin_y=top, begin_x=left
         )
         return self
@@ -345,7 +394,7 @@ class HelpWindow(BaseWindow):
             Dashboard.registered_windows.items(), key=lambda x: x[0]
         ):
             items.append("{} - {}".format(keypress, wtype.help))
-        items.extend(self.help)
+        items.extend(self.helpItems)
         for item in items:
             if self.usesCurses:
                 self.window.addstr(y, x, item)
@@ -358,21 +407,22 @@ class HelpWindow(BaseWindow):
 
 
 
-class WorkWindow(BaseSocketWindow):
+class WorkWindow(BaseWindow):
     """
     Display the status of the server's job queue.
     """
 
     help = "display server jobs"
+    clientItem = "jobs"
 
     def makeWindow(self, top=0, left=0):
-        nlines = self.readSock("jobcount")
+        nlines = self.readItem("jobcount")
         self._createWindow("Jobs", nlines + 5, begin_y=top, begin_x=left)
         return self
 
 
     def update(self):
-        records = self.readSock("jobs")
+        records = self.clientData()
         self.iter += 1
 
         if self.usesCurses:
@@ -429,16 +479,17 @@ class WorkWindow(BaseSocketWindow):
 
 
 
-class SlotsWindow(BaseSocketWindow):
+class SlotsWindow(BaseWindow):
     """
     Displays the status of the server's master process worker slave slots.
     """
 
     help = "display server child slots"
+    clientItem = "slots"
     FORMAT_WIDTH = 72
 
     def makeWindow(self, top=0, left=0):
-        slots = self.readSock("slots")["slots"]
+        slots = self.readItem(self.clientItem)["slots"]
         self._createWindow(
             "Slots", len(slots) + 5, self.FORMAT_WIDTH,
             begin_y=top, begin_x=left
@@ -447,7 +498,7 @@ class SlotsWindow(BaseSocketWindow):
 
 
     def update(self):
-        data = self.readSock("slots")
+        data = self.clientData()
         records = data["slots"]
         self.iter += 1
 
@@ -517,7 +568,7 @@ class SlotsWindow(BaseSocketWindow):
             s = "{:>10}".format("OVERLOADED" if data["overloaded"] else "")
             self.window.addstr(
                 y, x, s,
-                curses.A_REVERSE if data["overloaded"] else curses.A_NORMAL
+                curses.color_pair(1) + curses.A_BOLD if data["overloaded"] else curses.A_NORMAL
             )
         else:
             if data["overloaded"]:
@@ -532,21 +583,22 @@ class SlotsWindow(BaseSocketWindow):
 
 
 
-class SystemWindow(BaseSocketWindow):
+class SystemWindow(BaseWindow):
     """
     Displays the system information provided by the server.
     """
 
     help = "display system details"
+    clientItem = "stats_system"
 
     def makeWindow(self, top=0, left=0):
-        slots = self.readSock("stats")["system"]
+        slots = self.readItem(self.clientItem)
         self._createWindow("System", len(slots) + 3, begin_y=top, begin_x=left)
         return self
 
 
     def update(self):
-        records = self.readSock("stats")["system"]
+        records = self.clientData()
         self.iter += 1
 
         if self.usesCurses:
@@ -599,10 +651,78 @@ class SystemWindow(BaseSocketWindow):
         self.lastResult = records
 
 
-Dashboard.registerWindow(HelpWindow, "h")
+
+class StatsWindow(BaseWindow):
+    """
+    Displays the status of the server's master process worker slave slots.
+    """
+
+    help = "display server request stats"
+    clientItem = "stats"
+    FORMAT_WIDTH = 84
+
+    def makeWindow(self, top=0, left=0):
+        self._createWindow("Request Statistics", 8, self.FORMAT_WIDTH, begin_y=top, begin_x=left)
+        return self
+
+
+    def update(self):
+        records = self.clientData()
+        self.iter += 1
+
+        if self.usesCurses:
+            self.window.erase()
+            self.window.border()
+            self.window.addstr(0, 2, self.title + " {} ({})".format(len(records), self.iter,))
+
+        x = 1
+        y = 1
+        s1 = " {:<8}{:>8}{:>10}{:>10}{:>10}{:>10}{:>8}{:>8}{:>8} ".format(
+            "Period", "Reqs", "Av-Reqs", "Av-NoWr", "Av-Resp", "Max-Resp", "Slot", "CPU ", "500's"
+        )
+        s2 = " {:<8}{:>8}{:>10}{:>10}{:>10}{:>10}{:>8}{:>8}{:>8} ".format(
+            "", "", "per sec", "(ms)", "(ms)", "(ms)", "Avg.", "Avg.", ""
+        )
+        if self.usesCurses:
+            self.window.addstr(y, x, s1, curses.A_REVERSE)
+            self.window.addstr(y + 1, x, s2, curses.A_REVERSE)
+        else:
+            print(s1)
+            print(s2)
+        y += 2
+        for key, seconds in (("current", 60,), ("1m", 60,), ("5m", 5 * 60,), ("1h", 60 * 60,),):
+            stat = records[key]
+            s = " {:<8}{:>8}{:>10.1f}{:>10.1f}{:>10.1f}{:>10.1f}{:>8.2f}{:>7.1f}%{:>8} ".format(
+                key,
+                stat["requests"],
+                safeDivision(float(stat["requests"]), seconds),
+                safeDivision(stat["t"], stat["requests"]),
+                safeDivision(stat["t"] - stat["t-resp-wr"], stat["requests"]),
+                stat["T-MAX"],
+                safeDivision(float(stat["slots"]), stat["requests"]),
+                safeDivision(stat["cpu"], stat["requests"]),
+                stat["500"],
+            )
+            try:
+                if self.usesCurses:
+                    self.window.addstr(y, x, s)
+                else:
+                    print(s)
+            except curses.error:
+                pass
+            y += 1
+
+        if self.usesCurses:
+            self.window.refresh()
+
+        self.lastResult = records
+
+
+Dashboard.registerWindow(SystemWindow, "s")
+Dashboard.registerWindow(StatsWindow, "r")
 Dashboard.registerWindow(WorkWindow, "j")
 Dashboard.registerWindow(SlotsWindow, "c")
-Dashboard.registerWindow(SystemWindow, "s")
+Dashboard.registerWindow(HelpWindow, "h")
 
 
 if __name__ == "__main__":
