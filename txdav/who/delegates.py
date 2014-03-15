@@ -19,17 +19,18 @@
 Delegate assignments
 """
 
+from twisted.python.constants import Names, NamedConstant
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+
 from twext.python.log import Logger
+from twext.who.idirectory import (
+    RecordType as BaseRecordType, FieldName, NotAllowedError
+)
 from twext.who.directory import (
     DirectoryService as BaseDirectoryService,
     DirectoryRecord as BaseDirectoryRecord
 )
 from twext.who.expression import MatchExpression, MatchType
-from twext.who.idirectory import (
-    RecordType as BaseRecordType, FieldName, NotAllowedError
-)
-from twisted.internet.defer import inlineCallbacks, returnValue, succeed
-from twisted.python.constants import Names, NamedConstant
 
 log = Logger()
 
