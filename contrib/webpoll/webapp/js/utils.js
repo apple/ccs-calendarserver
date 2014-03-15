@@ -79,8 +79,8 @@ function findElementNS(node, nsname) {
 	var namespace = gNamespaceShortcuts[segments[0]];
 	var name = segments[1];
 	var results = [];
-	node.children(name).each(function() {
-		if (this.namespaceURI == namespace) {
+	node.children().each(function() {
+		if (this.localName == name && this.namespaceURI == namespace) {
 			results.push($(this));
 		}
 	});
