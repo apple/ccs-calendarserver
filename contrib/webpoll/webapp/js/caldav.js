@@ -246,7 +246,7 @@ CalDAVSession.prototype.currentUserPropfind = function(whenDone) {
 	Propfind(joinURLs(this.host, gWellKnown), "0", [
 		"D:current-user-principal"
 	]).done(function(response) {
-		var msr = new MultiStatusResponse($.parseXML(response), gWellKnown);
+		var msr = new MultiStatusResponse(response, gWellKnown);
 		var href = msr.getPropertyText("D:current-user-principal/D:href");
 		if (href == null) {
 			alert("Could not determine current user.");
