@@ -795,7 +795,7 @@ class ImplicitScheduler(object):
             if checkOrganizerValue:
                 def _normalizeCUAddress(addr):
                     if not addr.startswith("urn:uuid"):
-                        principal = self.calendar_home.directoryService().recordWithCalendarUserAddress(addr)
+                        principal = yield self.calendar_home.directoryService().recordWithCalendarUserAddress(addr)
                         if principal is not None:
                             addr = principal.canonicalCalendarUserAddress()
                     return addr
