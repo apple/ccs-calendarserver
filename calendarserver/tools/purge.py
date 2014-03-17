@@ -30,7 +30,7 @@ from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twistedcaldav import caldavxml
-from twistedcaldav.directory.directory import DirectoryRecord
+# from twistedcaldav.directory.directory import DirectoryRecord
 
 from txdav.caldav.datastore.query.filter import Filter
 from txdav.xml import element as davxml
@@ -735,15 +735,15 @@ class PurgePrincipalService(WorkerService):
 
         # Does the record exist?
         record = self.directory.recordWithUID(uid)
-        if record is None:
+        # if record is None:
             # The user has already been removed from the directory service.  We
             # need to fashion a temporary, fake record
 
             # FIXME: probably want a more elegant way to accomplish this,
             # since it requires the aggregate directory to examine these first:
-            record = DirectoryRecord(self.directory, "users", uid, shortNames=(uid,), enabledForCalendaring=True)
-            self.directory._tmpRecords["shortNames"][uid] = record
-            self.directory._tmpRecords["uids"][uid] = record
+            # record = DirectoryRecord(self.directory, "users", uid, shortNames=(uid,), enabledForCalendaring=True)
+            # self.directory._tmpRecords["shortNames"][uid] = record
+            # self.directory._tmpRecords["uids"][uid] = record
 
         # Override augments settings for this record
         record.enabled = True
