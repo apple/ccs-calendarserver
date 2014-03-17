@@ -51,7 +51,6 @@ from txdav.common.icommondatastore import NotFoundError
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 
 from calendarserver.tools.cmdline import utilityMain, WorkerService
-from calendarserver.tools.util import getDirectory
 from calendarserver.tools.shell.cmd import Commands, UsageError as CommandUsageError
 
 log = Logger()
@@ -116,9 +115,9 @@ class ShellService(WorkerService, object):
     @type config: L{twistedcaldav.config.Config}
     """
 
-    def __init__(self, store, directory, options, reactor, config):
+    def __init__(self, store, options, reactor, config):
         super(ShellService, self).__init__(store)
-        self.directory = directory
+        self.directory = store.directoryService()
         self.options = options
         self.reactor = reactor
         self.config = config
@@ -434,8 +433,7 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
 
     def makeService(store):
         from twistedcaldav.config import config
-        directory = getDirectory()
-        return ShellService(store, directory, options, reactor, config)
+        return ShellService(store, options, reactor, config)
 
     print("Initializing shell...")
 
