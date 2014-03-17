@@ -28,7 +28,6 @@ from twisted.python import log as logging
 from twisted.python.threadable import isInIOThread
 from twisted.internet.reactor import callFromThread
 from twisted.python.usage import Options, UsageError
-from twisted.python.reflect import namedAny
 from twisted.python.procutils import which
 
 from twisted.internet.interfaces import IProcessTransport, IReactorProcess
@@ -551,7 +550,7 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
         store.queuer.callWithNewProposals(something)
         def patch(maker):
             def storageServiceStandIn(createMainService, logObserver,
-                                      uid=None, gid=None):
+                                      uid=None, gid=None, directory=None):
                 pool = None
                 logObserver = None
                 storageService = None
@@ -909,22 +908,6 @@ class DirectoryServiceTest(BaseServiceMakerTests):
         calendars = site.resource.resource.resource.getChild("calendars")
 
         self.assertEquals(principals.directory, calendars.directory)
-
-
-    def test_configuredDirectoryService(self):
-        """
-        Test that the real directory service is the directory service
-        set in the configuration file.
-        """
-        site = self.getSite()
-        principals = site.resource.resource.resource.getChild("principals")
-        directory = principals.directory
-
-        realDirectory = directory.serviceForRecordType("users")
-
-        configuredDirectory = namedAny(self.config.DirectoryService.type)
-
-        self.failUnless(isinstance(realDirectory, configuredDirectory))
 
 
 
