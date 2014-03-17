@@ -35,7 +35,8 @@ from twistedcaldav.directory.directory import DirectoryService, DirectoryError
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 
 from calendarserver.platform.darwin.od import dsattributes
-from calendarserver.tools.util import loadConfig, getDirectory, setupMemcached, checkDirectory
+from calendarserver.tools.util import loadConfig, setupMemcached, checkDirectory
+from txdav.who.util import directoryFromConfig
 
 log = Logger()
 
@@ -141,17 +142,18 @@ def main():
         os.umask(config.umask)
 
         # Configure memcached client settings prior to setting up resource
-        # hierarchy (in getDirectory)
+        # hierarchy
         setupMemcached(config)
 
         try:
-            config.directory = getDirectory()
+            config.directory = directoryFromConfig(config)
         except DirectoryError, e:
             abort(e)
 
     except ConfigurationError, e:
         abort(e)
 
+    # FIXME: this all has to change:
     # Find the opendirectory service
     userService = config.directory.serviceForRecordType("users")
     resourceService = config.directory.serviceForRecordType("resources")

@@ -80,7 +80,6 @@ from txdav.common.icommondatastore import InternalDataStoreError
 from calendarserver.tools.cmdline import utilityMain, WorkerService
 
 from calendarserver.tools import tables
-from calendarserver.tools.util import getDirectory
 
 log = Logger()
 
@@ -396,7 +395,7 @@ class CalVerifyService(WorkerService, object):
         self.output = output
         self.reactor = reactor
         self.config = config
-        self._directory = None
+        self._directory = store.directoryService()
 
         self.cuaCache = {}
 
@@ -427,11 +426,8 @@ class CalVerifyService(WorkerService, object):
 
     def directoryService(self):
         """
-        Get an appropriate directory service for this L{CalVerifyService}'s
-        configuration, creating one first if necessary.
+        Return the directory service
         """
-        if self._directory is None:
-            self._directory = getDirectory(self.config)
         return self._directory
 
 
