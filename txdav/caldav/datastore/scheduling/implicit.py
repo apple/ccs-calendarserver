@@ -633,7 +633,7 @@ class ImplicitScheduler(object):
                 self.calendar.sequenceInSync(self.oldcalendar)
 
             # Significant change
-            no_change, self.changed_rids, self.needs_action_rids, reinvites, recurrence_reschedule, status_cancelled, only_status = self.isOrganizerChangeInsignificant()
+            no_change, self.changed_rids, self.needs_action_rids, reinvites, recurrence_reschedule, status_cancelled, only_status = yield self.isOrganizerChangeInsignificant()
             if no_change:
                 if reinvites:
                     log.debug("Implicit - organizer '{organizer}' is re-inviting UID: '{uid}', attendees: {attendees}", organizer=self.organizer, uid=self.uid, attendees=", ".join(reinvites))
@@ -711,6 +711,7 @@ class ImplicitScheduler(object):
                 pass
 
 
+    @inlineCallbacks
     def isOrganizerChangeInsignificant(self):
 
         rids = None
@@ -793,15 +794,16 @@ class ImplicitScheduler(object):
                     only_status = False
 
             if checkOrganizerValue:
+                @inlineCallbacks
                 def _normalizeCUAddress(addr):
                     if not addr.startswith("urn:uuid"):
                         principal = yield self.calendar_home.directoryService().recordWithCalendarUserAddress(addr)
                         if principal is not None:
                             addr = principal.canonicalCalendarUserAddress()
-                    return addr
+                    returnValue(addr)
 
-                oldOrganizer = _normalizeCUAddress(self.oldcalendar.getOrganizer())
-                newOrganizer = _normalizeCUAddress(self.calendar.getOrganizer())
+                oldOrganizer = yield _normalizeCUAddress(self.oldcalendar.getOrganizer())
+                newOrganizer = yield _normalizeCUAddress(self.calendar.getOrganizer())
                 if oldOrganizer != newOrganizer:
                     log.error("Cannot change ORGANIZER: UID:{uid}", uid=self.uid)
                     raise HTTPError(ErrorResponse(
@@ -819,7 +821,10 @@ class ImplicitScheduler(object):
                 except KeyError:
                     pass
 
-        return no_change, rids, date_changed_rids, reinvites, recurrence_reschedule, status_cancelled, only_status
+        returnValue((
+            no_change, rids, date_changed_rids, reinvites,
+            recurrence_reschedule, status_cancelled, only_status
+        ))
 
 
     def findRemovedAttendees(self):
