@@ -42,7 +42,7 @@ from twisted.application import internet
 
 from twext.python.log import Logger
 from twext.python.filepath import CachingFilePath as FilePath
-from plistlib import writePlist #@UnresolvedImport
+from plistlib import writePlist  # @UnresolvedImport
 from txweb2.dav import auth
 from txweb2.log import LogWrapperResource
 from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
@@ -50,7 +50,6 @@ from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 from twistedcaldav.config import config, ConfigDict, ConfigurationError
 from twistedcaldav.stdconfig import DEFAULT_CONFIG
 
-from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 
@@ -910,18 +909,6 @@ class DirectoryServiceTest(BaseServiceMakerTests):
         calendars = site.resource.resource.resource.getChild("calendars")
 
         self.assertEquals(principals.directory, calendars.directory)
-
-
-    def test_aggregateDirectory(self):
-        """
-        Assert that the base directory service is actually
-        an AggregateDirectoryService
-        """
-        site = self.getSite()
-        principals = site.resource.resource.resource.getChild("principals")
-        directory = principals.directory
-
-        self.failUnless(isinstance(directory, AggregateDirectoryService))
 
 
     def test_configuredDirectoryService(self):
