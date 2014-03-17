@@ -17,11 +17,8 @@
 from calendarserver.tap.util import MemoryLimitService, Stepper
 from twistedcaldav.util import computeProcessCount
 from twistedcaldav.test.util import TestCase
-from twistedcaldav.config import config
-from twistedcaldav.directory.augment import AugmentXMLDB
 from twisted.internet.task import Clock
 from twisted.internet.defer import succeed, inlineCallbacks
-from txdav.who.util import directoryFromConfig
 
 class ProcessCountTestCase(TestCase):
 
@@ -54,20 +51,6 @@ class ProcessCountTestCase(TestCase):
                 computeProcessCount(min, perCPU, perGB, cpuCount=cpu, memSize=mem)
             )
 
-
-
-class UtilTestCase(TestCase):
-
-    def test_directoryFromConfig(self):
-        """
-        Ensure augments service is on by default
-        """
-        dir = directoryFromConfig(config)
-        for service in dir._recordTypes.values():
-            # all directory services belonging to the aggregate have
-            # augmentService set to AugmentXMLDB
-            if hasattr(service, "augmentService"):
-                self.assertTrue(isinstance(service.augmentService, AugmentXMLDB))
 
 
 
