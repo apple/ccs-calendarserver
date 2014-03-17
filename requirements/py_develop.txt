@@ -4,6 +4,7 @@
 
 pyflakes
 docutils>=0.11
+mockldap>=0.1.4
 
 -e svn+http://svn.calendarserver.org/repository/calendarserver/CalDAVClientLibrary/trunk#egg=CalDAVClientLibrary
 
