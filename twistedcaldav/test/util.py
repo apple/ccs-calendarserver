@@ -72,6 +72,7 @@ todo = lambda why: lambda f: _todo(f, why)
 dirTest = FilePath(__file__).parent().sibling("directory").child("test")
 
 xmlFile = dirTest.child("accounts.xml")
+resourcesFile = dirTest.child("resources.xml")
 augmentsFile = dirTest.child("augments.xml")
 proxiesFile = dirTest.child("proxies.xml")
 
@@ -184,6 +185,9 @@ class StoreTestCase(CommonCommonTests, txweb2.dav.test.util.TestCase):
 
         accounts = FilePath(config.DataRoot).child("accounts.xml")
         accounts.setContent(xmlFile.getContent())
+
+        resources = FilePath(config.DataRoot).child("resources.xml")
+        resources.setContent(resourcesFile.getContent())
 
 
 

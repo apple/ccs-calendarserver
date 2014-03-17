@@ -18,5 +18,5 @@ limitations under the License.
 
 <!DOCTYPE accounts SYSTEM "../../../conf/auth/accounts.dtd">
 
-<accounts realm="Test">
-</accounts>
+<directory realm="Test">
+</directory>
