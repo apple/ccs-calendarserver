@@ -1,14 +1,13 @@
-#!/bin/sh
-# -*- sh-basic-offset: 2 -*-
+#!/usr/bin/env python
 
 ##
-# Copyright (c) 2014 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,15 +16,15 @@
 # limitations under the License.
 ##
 
-set -e
-set -u
+import sys
 
-wd="$(cd "$(dirname "$0")/.." && pwd)";
+#PYTHONPATH
 
-. "${wd}/bin/_build.sh";
+if __name__ == "__main__":
+    try:
+        sys.path.insert(0, PYTHONPATH)
+    except NameError:
+        sys.exc_clear()
 
-do_setup="false";
-
-develop > /dev/null;
-
-exec "${python}" "${wd}/bin/py/$(basename "$0")" "$@";
+    from calendarserver.tools.validcalendardata import main
+    main()

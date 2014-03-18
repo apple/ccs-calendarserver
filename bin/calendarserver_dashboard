@@ -1,13 +1,14 @@
-#!/usr/bin/env python
+#!/bin/sh
+# -*- sh-basic-offset: 2 -*-
 
 ##
-# Copyright (c) 2006-2014 Apple Inc. All rights reserved.
+# Copyright (c) 2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-# http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,8 +17,15 @@
 # limitations under the License.
 ##
 
-# This tool can run standalone, so does not need any special PYTHONPATH or preamble handling
+set -e
+set -u
 
-if __name__ == "__main__":
-    from calendarserver.tools.dashboard import main
-    main()
+wd="$(cd "$(dirname "$0")/.." && pwd)";
+
+. "${wd}/bin/_build.sh";
+
+do_setup="false";
+
+develop > /dev/null;
+
+exec "${python}" "${wd}/bin/py/$(basename "$0")" "$@";
