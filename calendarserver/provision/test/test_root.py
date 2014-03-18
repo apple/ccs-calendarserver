@@ -326,6 +326,7 @@ class SACLCacheTests(RootTests):
         self.actualRoot.responseCache = SACLCacheTests.StubResponseCacheResource()
 
 
+    @inlineCallbacks
     def test_PROPFIND(self):
         self.actualRoot.useSacls = True
 
@@ -337,53 +338,43 @@ class SACLCacheTests(RootTests):
 </D:prop>
 </D:propfind>
 """
+        record = yield self.directory.recordWithShortName(
+            RecordType.user,
+            u"dreid"
+        )
 
         request = SimpleStoreRequest(
             self,
             "PROPFIND",
             "/principals/users/dreid/",
-            headers=http_headers.Headers(
-                {
-                    'Authorization': [
-                        'basic', '%s' % ('dreid:dierd'.encode('base64'),)
-                    ],
-                    'Content-Type': 'application/xml; charset="utf-8"',
+            headers=http_headers.Headers({
                     'Depth': '1',
-                }
-            ),
+            }),
+            authRecord=record,
             content=body
         )
+        response = yield self.send(request)
+        response = IResponse(response)
 
-        def gotResponse1(response):
-            if response.code != responsecode.MULTI_STATUS:
-                self.fail("Incorrect response for PROPFIND /principals/: %s" % (response.code,))
+        if response.code != responsecode.MULTI_STATUS:
+            self.fail("Incorrect response for PROPFIND /principals/: %s" % (response.code,))
 
-            request = SimpleStoreRequest(
-                self,
-                "PROPFIND",
-                "/principals/users/dreid/",
-                headers=http_headers.Headers(
-                    {
-                        'Authorization': [
-                            'basic', '%s' % ('dreid:dierd'.encode('base64'),)
-                        ],
-                        'Content-Type': 'application/xml; charset="utf-8"',
-                        'Depth': '1',
-                    }
-                ),
-                content=body
-            )
+        request = SimpleStoreRequest(
+            self,
+            "PROPFIND",
+            "/principals/users/dreid/",
+            headers=http_headers.Headers({
+                    'Depth': '1',
+            }),
+            authRecord=record,
+            content=body
+        )
+        response = yield self.send(request)
+        response = IResponse(response)
 
-            d = self.send(request, gotResponse2)
-            return d
-
-        def gotResponse2(response):
-            if response.code != responsecode.MULTI_STATUS:
-                self.fail("Incorrect response for PROPFIND /principals/: %s" % (response.code,))
-            self.assertEqual(self.actualRoot.responseCache.cacheHitCount, 1)
-
-        d = self.send(request, gotResponse1)
-        return d
+        if response.code != responsecode.MULTI_STATUS:
+            self.fail("Incorrect response for PROPFIND /principals/: %s" % (response.code,))
+        self.assertEqual(self.actualRoot.responseCache.cacheHitCount, 1)
 
 
 

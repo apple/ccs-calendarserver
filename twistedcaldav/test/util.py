@@ -129,7 +129,7 @@ class StoreTestCase(CommonCommonTests, txweb2.dav.test.util.TestCase):
 
         self.rootResource = getRootResource(config, self._sqlCalendarStore)
         self.actualRoot = self.rootResource.resource.resource
-        self.site = Site(self.rootResource)
+        self.site = Site(self.actualRoot)
 
         yield self.populate()
 
