@@ -18,28 +18,14 @@
 from twisted.trial.unittest import TestCase
 from twisted.internet.defer import succeed, inlineCallbacks
 
-try:
-    from twistedcaldav.directory.test.test_xmlfile import XMLFileBase
-except ImportError:
-    from twisted.trial.unittest import SkipTest
+# from twext.who.test.test_xml import xmlService
 
-    class XMLFileBase(object):
-        @property
-        def service(self):
-            # Make this raise SkipTest also
-            return XMLFileBase
-
-        def __init__(*args, **kwargs):
-            raise SkipTest(
-                "XMLFileBase is gone; this needs to be reimplemented."
-            )
-
-from txdav.common.datastore.test.util import buildStore
+# from txdav.common.datastore.test.util import buildStore
 
 from calendarserver.tools.shell.vfs import ListEntry
 from calendarserver.tools.shell.vfs import File, Folder
-from calendarserver.tools.shell.vfs import UIDsFolder
-from calendarserver.tools.shell.terminal import ShellService
+# from calendarserver.tools.shell.vfs import UIDsFolder
+# from calendarserver.tools.shell.terminal import ShellService
 
 
 
@@ -170,36 +156,23 @@ class TestListEntry(TestCase):
 
 
 
-class DirectoryStubber(XMLFileBase):
-    """
-    Object which creates a stub L{IDirectoryService}.
-    """
-    def __init__(self, testCase):
-        self.testCase = testCase
-
-
-    def mktemp(self):
-        return self.testCase.mktemp()
-
-
-
 class UIDsFolderTests(TestCase):
     """
     L{UIDsFolder} contains all principals and is keyed by UID.
     """
 
-    @inlineCallbacks
-    def setUp(self):
-        """
-        Create a L{UIDsFolder}.
-        """
-        directory = DirectoryStubber(self).service()
-        self.svc = ShellService(
-            store=(yield buildStore(self, None, directoryService=directory)),
-            directory=directory,
-            options=None, reactor=None, config=None
-        )
-        self.folder = UIDsFolder(self.svc, ())
+    # @inlineCallbacks
+    # def setUp(self):
+    #     """
+    #     Create a L{UIDsFolder}.
+    #     """
+    #     directory = xmlService(self.mktemp())
+    #     self.svc = ShellService(
+    #         store=(yield buildStore(self, None, directoryService=directory)),
+    #         directory=directory,
+    #         options=None, reactor=None, config=None
+    #     )
+    #     self.folder = UIDsFolder(self.svc, ())
 
 
     @inlineCallbacks
@@ -233,3 +206,5 @@ class UIDsFolderTests(TestCase):
                 },
             ]
         )
+
+    test_list.todo = "setup() needs to be reimplemented"
