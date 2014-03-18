@@ -138,6 +138,10 @@ platforms = ["all"]
 # Dependencies
 #
 
+reqs_extension = ".txt"
+reqs_opt_prefix = "py_opt_"
+
+
 requirements_dir = joinpath(dirname(__file__), "requirements")
 
 
@@ -153,9 +157,15 @@ setup_requirements = []
 install_requirements = read_requirements("py_base.txt")
 
 extras_requirements = dict(
-    (reqs_filename[4:-4], read_requirements(reqs_filename))
+    (
+        reqs_filename[len(reqs_opt_prefix):-len(reqs_extension)],
+        read_requirements(reqs_filename)
+    )
     for reqs_filename in listdir(requirements_dir)
-    if reqs_filename.startswith("py_opt_") and reqs_filename.endswith(".txt")
+    if (
+        reqs_filename.startswith(reqs_opt_prefix) and
+        reqs_filename.endswith(reqs_extension)
+    )
 )
 
 # Requirements for development and testing
