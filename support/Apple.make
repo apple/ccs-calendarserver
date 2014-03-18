@@ -112,7 +112,6 @@ install::
 	@echo "Installing manual pages..."
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
 	$(_v) $(INSTALL_FILE) "$(Sources)/doc/caldavd.8"                              "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_bootstrap_database.8"    "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
 	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_command_gateway.8"       "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
 	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_export.8"                "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
 	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_manage_principals.8"     "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
