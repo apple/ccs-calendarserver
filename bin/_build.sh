@@ -18,20 +18,6 @@
 . "${wd}/bin/_py.sh";
 
 
-echo_header () {
-  echo "$@";
-  echo "";
-}
-
-
-using_system () {
-  if "${do_setup}"; then
-    local name="$1"; shift;
-    echo_header "Using system version of ${name}.";
-  fi;
-}
-
-
 # Provide a default value: if the variable named by the first argument is
 # empty, set it to the default in the second argument.
 conditional_set () {
@@ -111,7 +97,6 @@ init_build () {
 
   project="$(setup_print name)";
 
-  export PYTHONPATH="${wd}:${PYTHONPATH:-}";
   export _DEVELOP_PROJECT_="${project}";
 
   # These variables are defaults for things which might be configured by
@@ -484,6 +469,14 @@ ruler () {
 }
 
 
+using_system () {
+  if "${do_setup}"; then
+    local name="$1"; shift;
+    echo "Using system version of ${name}.";
+    echo "";
+  fi;
+}
+
 
 #
 # Build C dependencies
@@ -498,9 +491,11 @@ c_dependencies () {
   if find_header ffi.h; then
     using_system "libffi";
   elif find_header ffi/ffi.h; then
-    mkdir -p "${c_glue_include}";
-    echo "#include <ffi/ffi.h>" > "${c_glue_include}/ffi.h"
-    using_system "libffi";
+    if "${do_setup}"; then
+      mkdir -p "${c_glue_include}";
+      echo "#include <ffi/ffi.h>" > "${c_glue_include}/ffi.h"
+      using_system "libffi";
+    fi;
   else
     c_dependency -m "45f3b6dbc9ee7c7dfbbbc5feba571529" \
       "libffi" "libffi-3.0.13" \
@@ -524,9 +519,11 @@ c_dependencies () {
   if find_header sasl.h; then
     using_system "SASL";
   elif find_header sasl/sasl.h; then
-    mkdir -p "${c_glue_include}";
-    echo "#include <sasl/sasl.h>" > "${c_glue_include}/sasl.h"
-    using_system "SASL";
+    if "${do_setup}"; then
+      mkdir -p "${c_glue_include}";
+      echo "#include <sasl/sasl.h>" > "${c_glue_include}/sasl.h"
+      using_system "SASL";
+    fi;
   else
     local v="2.1.26";
     local n="cyrus-sasl";
@@ -579,6 +576,8 @@ c_dependencies () {
 #
 py_dependencies () {
   export PATH="${py_root}/bin:${PATH}";
+  export PYTHON="${python}";
+  export PYTHONPATH="${wd}:${PYTHONPATH:-}";
 
   if ! "${do_setup}"; then return 0; fi;
 
