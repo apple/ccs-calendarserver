@@ -246,7 +246,7 @@ def doSetup():
             "bin/py/calendarserver_export",
             # "bin/py/calendarserver_icalendar_validate",
             "bin/py/calendarserver_manage_principals",
-            "bin/py/calendarserver_manage_push",
+            # "bin/py/calendarserver_manage_push",
             # "bin/py/calendarserver_manage_timezones",
             "bin/py/calendarserver_migrate_resources",
             # "bin/py/calendarserver_monitor_amp_notifications",
