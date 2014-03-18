@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 # -*- sh-basic-offset: 2 -*-
 
 ##
@@ -110,10 +110,10 @@ parse_options () {
       'p')
         do_get="false"; do_setup="false"; run="false"; print_path="true";
         ;;
-      'e')
-        do_get="false"; do_setup="false"; run="false"; print_path="true";
-        print_environment="true";
-        ;;
+      # 'e')
+      #   do_get="false"; do_setup="false"; run="false"; print_path="true";
+      #   print_environment="true";
+      #   ;;
       # 'i')
       #   do_get="true";
       #   do_setup="true";
@@ -218,6 +218,10 @@ run_main () {
     exit $?;
   fi;
 
+  if "${print_path}"; then
+    exec "${wd}/bin/environment" PYTHONPATH;
+  fi;
+
   # About to do something for real; let's enumerate (and depending on options,
   # possibly download and/or install) the dependencies.
 
@@ -243,17 +247,6 @@ run_main () {
     if ! "${restart}"; then
       exit 0;
     fi;
-  fi;
-
-  # Now that all the dependencies are set up, let's see if we're just being
-  # asked to print the path.
-  if "${print_path}"; then
-    if "${print_environment}"; then
-      ${python} -c "import os; print repr(dict(os.environ))"
-    else
-      echo "${PYTHONPATH}";
-    fi;
-    exit 0;
   fi;
 
   # # If we're installing, install the calendar server itself.
