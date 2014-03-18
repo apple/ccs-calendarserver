@@ -18,40 +18,46 @@ limitations under the License.
 
 <!DOCTYPE accounts SYSTEM "../../../conf/auth/accounts.dtd">
 
-<accounts realm="/Search">
-  <user>
-    <uid>example1</uid>
-    <guid>D46F3D71-04B7-43C2-A7B6-6F92F92E61D0</guid>
+<directory realm="/Search">
+
+  <record type="user">
+    <short-name>example1</short-name>
+    <uid>D46F3D71-04B7-43C2-A7B6-6F92F92E61D0</uid>
     <password>example</password>
-    <name>Example User1</name>
-    <email-address>example1@example.com</email-address>
-  </user>
-  <user>
-    <uid>example2</uid>
-    <guid>47B16BB4-DB5F-4BF6-85FE-A7DA54230F92</guid>
+    <full-name>Example User1</full-name>
+    <email>example1@example.com</email>
+  </record>
+
+  <record type="user">
+    <short-name>example2</short-name>
+    <uid>47B16BB4-DB5F-4BF6-85FE-A7DA54230F92</uid>
     <password>example</password>
-    <name>Example User2</name>
-    <email-address>example2@example.com</email-address>
-  </user>
-  <user>
-    <uid>example3</uid>
-    <guid>AC478592-7783-44D1-B2AE-52359B4E8415</guid>
+    <full-name>Example User2</full-name>
+    <email>example2@example.com</email>
+  </record>
+
+  <record type="user">
+    <short-name>example3</short-name>
+    <uid>AC478592-7783-44D1-B2AE-52359B4E8415</uid>
     <password>example</password>
-    <name>Example User3</name>
-    <email-address>example3@example.com</email-address>
-  </user>
-  <user>
-    <uid>example4</uid>
-    <guid>A89E3A97-1658-4E45-A185-479F3E49D446</guid>
+    <full-name>Example User3</full-name>
+    <email>example3@example.com</email>
+  </record>
+
+  <record type="user">
+    <short-name>example4</short-name>
+    <uid>A89E3A97-1658-4E45-A185-479F3E49D446</uid>
     <password>example</password>
-    <name>Example User4</name>
-    <email-address>example4@example.com</email-address>
-  </user>
-  <user>
+    <full-name>Example User4</full-name>
+    <email>example4@example.com</email>
+  </record>
+
+  <record type="user">
     <uid>home1</uid>
-    <guid>home1</guid>
+    <short-name>home1</short-name>
     <password>home1</password>
-    <name>Home 1</name>
-    <email-address>home1@example.com</email-address>
-  </user>
-</accounts>
+    <full-name>Home 1</full-name>
+    <email>home1@example.com</email>
+  </record>
+
+</directory>

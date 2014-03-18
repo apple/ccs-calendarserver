@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 
-<accounts realm="/Search">
-  <location>
-    <uid>location01</uid>
-    <guid>75EA36BE-F71B-40F9-81F9-CF59BF40CA8F</guid>
+<directory realm="/Search">
+  <record type="location">
+    <short-name>location01</short-name>
+    <uid>75EA36BE-F71B-40F9-81F9-CF59BF40CA8F</uid>
     <password>location01</password>
-    <name>Room 01</name>
-  </location>
-</accounts>
+    <full-name>Room 01</full-name>
+  </record>
+</directory>
