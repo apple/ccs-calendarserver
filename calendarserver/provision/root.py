@@ -160,7 +160,7 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
         request.checkingSACL = True
 
         for collection in self.principalCollections():
-            principal = collection._principalForURI(authzUser.children[0].children[0].data)
+            principal = yield collection._principalForURI(authzUser.children[0].children[0].data)
             if principal is None:
                 response = (yield UnauthorizedResponse.makeResponse(
                     request.credentialFactories,

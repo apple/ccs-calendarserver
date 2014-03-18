@@ -69,6 +69,7 @@ is making the request (including proxy state changes etc).
 
 """
 
+
 class DisabledCacheNotifier(object):
     def __init__(self, *args, **kwargs):
         pass
@@ -164,6 +165,7 @@ class BaseResponseCache(object):
             raise URINotFoundException(uri)
 
 
+    @inlineCallbacks
     def _canonicalizeURIForRequest(self, uri, request):
         """
         Always use canonicalized forms of the URIs for caching (i.e. __uids__ paths).
@@ -174,21 +176,24 @@ class BaseResponseCache(object):
         uribits = uri.split("/")
         if len(uribits) > 1 and uribits[1] in ("principals", "calendars", "addressbooks"):
             if uribits[2] == "__uids__":
-                return succeed(uri)
+                returnValue(uri)
             else:
                 recordType = uribits[2]
                 recordName = uribits[3]
                 directory = request.site.resource.getDirectory()
-                record = directory.recordWithShortName(recordType, recordName)
+                record = yield directory.recordWithShortName(
+                    directory.oldNameToRecordType(recordType),
+                    recordName
+                )
                 if record is not None:
                     uribits[2] = "__uids__"
-                    uribits[3] = record.uid
-                    return succeed("/".join(uribits))
+                    uribits[3] = record.uid.encode("utf-8")
+                    returnValue("/".join(uribits))
 
         # Fall back to the locateResource approach
         try:
-            return request.locateResource(uri).addCallback(
-                lambda resrc: resrc.url()).addErrback(self._uriNotFound, uri)
+            resrc = yield request.locateResource(uri)
+            returnValue(resrc.url())
         except AssertionError:
             raise URINotFoundException(uri)
 
@@ -252,7 +257,8 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
         """
         Get the current token for a particular URI.
         """
-
+        if isinstance(uri, unicode):
+            uri = uri.encode("utf-8")
         if cachePoolHandle:
             result = (yield defaultCachePool(cachePoolHandle).get('cacheToken:%s' % (uri,)))
         else:
@@ -436,8 +442,9 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
                     cTokens,
                 )
             )
-            yield self.getCachePool().set(key, cacheEntry,
-                expireTime=config.ResponseCacheTimeout * 60)
+            yield self.getCachePool().set(
+                key, cacheEntry, expireTime=config.ResponseCacheTimeout * 60
+            )
 
         except URINotFoundException, e:
             self.log.debug("Could not locate URI: {e!r}", e=e)

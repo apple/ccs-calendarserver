@@ -973,7 +973,7 @@ class OrphansService(CalVerifyService):
             elif not record.thisServer():
                 contents = yield self.countHomeContents(uid)
                 wrong_server.append((uid, contents,))
-            elif not record.enabledForCalendaring:
+            elif not record.hasCalendars:
                 contents = yield self.countHomeContents(uid)
                 disabled.append((uid, contents,))
 
@@ -1542,7 +1542,7 @@ class SchedulingMismatchService(CalVerifyService):
 
         if uuid not in self.validForCalendaringUUIDs:
             record = self.directoryService().recordWithGUID(uuid)
-            self.validForCalendaringUUIDs[uuid] = record is not None and record.enabledForCalendaring and record.thisServer()
+            self.validForCalendaringUUIDs[uuid] = record is not None and record.hasCalendars and record.thisServer()
         return self.validForCalendaringUUIDs[uuid]
 
 
@@ -2171,7 +2171,7 @@ class DoubleBookingService(CalVerifyService):
             record = self.directoryService().recordWithGUID(uuid)
             if record is None:
                 continue
-            if not record.thisServer() or not record.enabledForCalendaring:
+            if not record.thisServer() or not record.hasCalendars:
                 continue
 
             rname = record.fullName
@@ -2482,7 +2482,7 @@ class DarkPurgeService(CalVerifyService):
             record = self.directoryService().recordWithGUID(uuid)
             if record is None:
                 continue
-            if not record.thisServer() or not record.enabledForCalendaring:
+            if not record.thisServer() or not record.hasCalendars:
                 continue
 
             rname = record.fullName

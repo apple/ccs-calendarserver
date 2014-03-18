@@ -411,7 +411,7 @@ class PrincipalHomeFolder(Folder):
                 if (
                     self.record is not None and
                     self.service.config.EnableCalDAV and
-                    self.record.enabledForCalendaring
+                    self.record.hasCalendars
                 ):
                     create = True
                 else:

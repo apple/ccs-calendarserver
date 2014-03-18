@@ -41,7 +41,7 @@ import itertools
 
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options, UsageError
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 
 from twext.python.log import Logger
 from twistedcaldav.ical import Component
@@ -75,6 +75,7 @@ description = '\n'.join(
         int(os.environ.get('COLUMNS', '80'))
     )
 )
+
 
 class ExportOptions(Options):
     """
@@ -188,7 +189,7 @@ class _ExporterBase(object):
         Enumerate all calendars based on the directory record and/or calendars
         for this calendar home.
         """
-        uid = self.getHomeUID(exportService)
+        uid = yield self.getHomeUID(exportService)
         home = yield txn.calendarHomeWithUID(uid, True)
         result = []
         if self.collections:
@@ -218,7 +219,7 @@ class UIDExporter(_ExporterBase):
 
 
     def getHomeUID(self, exportService):
-        return self.uid
+        return succeed(self.uid)
 
 
 
@@ -244,13 +245,17 @@ class DirectoryExporter(_ExporterBase):
         self.shortName = shortName
 
 
+    @inlineCallbacks
     def getHomeUID(self, exportService):
         """
         Retrieve the home UID.
         """
         directory = exportService.directoryService()
-        record = directory.recordWithShortName(self.recordType, self.shortName)
-        return record.uid
+        record = yield directory.recordWithShortName(
+            directory.oldNameToRecordType(self.recordType),
+            self.shortName
+        )
+        returnValue(record.uid)
 
 
 

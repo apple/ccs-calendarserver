@@ -192,7 +192,7 @@ class DirectoryCalendarHomeTypeProvisioningResource(
         if config.EnablePrincipalListings:
             children = []
             for record in (yield self.directory.listRecords(self.recordType)):
-                if record.enabledForCalendaring:
+                if record.hasCalendars:
                     for shortName in record.shortNames:
                         children.append(shortName)
             returnValue(children)

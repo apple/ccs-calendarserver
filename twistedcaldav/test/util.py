@@ -32,8 +32,6 @@ from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeProvisio
 from twistedcaldav.directory.calendar import (
     DirectoryCalendarHomeProvisioningResource
 )
-from twistedcaldav.directory.principal import (
-    DirectoryPrincipalProvisioningResource)
 from twistedcaldav.directory.util import transactionFromRequest
 from twistedcaldav.memcacheclient import ClientFactory
 from twistedcaldav.stdconfig import config
@@ -46,6 +44,7 @@ from txweb2.dav.test.util import SimpleRequest
 import txweb2.dav.test.util
 from txweb2.http import HTTPError, StatusResponse
 import xattr
+from txweb2.server import Site
 
 
 log = Logger()
@@ -129,13 +128,8 @@ class StoreTestCase(CommonCommonTests, txweb2.dav.test.util.TestCase):
         self._sqlCalendarStore.setDirectoryService(self.directory)
 
         self.rootResource = getRootResource(config, self._sqlCalendarStore)
-
-        self.principalsResource = DirectoryPrincipalProvisioningResource("/principals/", self.directory)
-        self.site.resource.putChild("principals", self.principalsResource)
-        self.calendarCollection = DirectoryCalendarHomeProvisioningResource(self.directory, "/calendars/", self._sqlCalendarStore)
-        self.site.resource.putChild("calendars", self.calendarCollection)
-        self.addressbookCollection = DirectoryAddressBookHomeProvisioningResource(self.directory, "/addressbooks/", self._sqlCalendarStore)
-        self.site.resource.putChild("addressbooks", self.addressbookCollection)
+        self.actualRoot = self.rootResource.resource.resource
+        self.site = Site(self.rootResource)
 
         yield self.populate()
 

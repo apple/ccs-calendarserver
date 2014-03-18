@@ -155,8 +155,9 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                 format += ' i=%(serverInstance)s'
                 formatArgs["serverInstance"] = config.LogID if config.LogID else "0"
 
-                format += ' or=%(outstandingRequests)s'
-                formatArgs["outstandingRequests"] = request.chanRequest.channel.factory.outstandingRequests
+                if request.chanRequest:  # This can be None during tests
+                    format += ' or=%(outstandingRequests)s'
+                    formatArgs["outstandingRequests"] = request.chanRequest.channel.factory.outstandingRequests
 
                 # Tags for time stamps collected along the way - the first one in the list is the initial
                 # time for request creation - we use that to track the entire request/response time

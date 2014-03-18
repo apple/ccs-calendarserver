@@ -212,9 +212,9 @@ class DirectoryTestCase (TestCase):
             guid = record.guid
 
         addresses = set(value("addresses"))
-        if record.enabledForCalendaring:
+        if record.hasCalendars:
             addresses.add("urn:uuid:%s" % (record.guid,))
-            addresses.add("/principals/__uids__/%s/" % (record.guid,))
+            addresses.add("/principals/__uids__/%s/" % (record.uid,))
             addresses.add("/principals/%s/%s/" % (record.recordType, record.shortNames[0],))
 
         if hasattr(record.service, "recordTypePrefix"):

@@ -97,8 +97,8 @@ def recordBasicInfo(directory, record):
 
     add("Server ID"           , record.serverID)
     add("Enabled"             , record.enabled)
-    add("Enabled for Calendar", record.enabledForCalendaring)
-    add("Enabled for Contacts", record.enabledForAddressBooks)
+    add("Enabled for Calendar", record.hasCalendars)
+    add("Enabled for Contacts", record.hasContacts)
 
     return succeed(table.toString())
 

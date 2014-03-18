@@ -14,28 +14,21 @@
 # limitations under the License.
 ##
 
-import os
 
-from twisted.cred.portal import Portal
 from twisted.internet.defer import inlineCallbacks, maybeDeferred, returnValue
 
+from twext.who.idirectory import RecordType
 from txweb2 import http_headers
 from txweb2 import responsecode
-from txweb2 import server
-from txweb2.auth import basic
-from txweb2.dav import auth
 from txdav.xml import element as davxml
 from txweb2.http import HTTPError
 from txweb2.iweb import IResponse
-from txweb2.test.test_server import SimpleRequest
 
-from twistedcaldav.test.util import TestCase
+from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
-from twistedcaldav.directory.xmlfile import XMLDirectoryService
-from twistedcaldav.directory.test.test_xmlfile import xmlFile, augmentsFile
 
 from calendarserver.provision.root import RootResource
-from twistedcaldav.directory import augment
+
 
 class FakeCheckSACL(object):
     def __init__(self, sacls=None):
@@ -53,45 +46,13 @@ class FakeCheckSACL(object):
 
 
 
-class RootTests(TestCase):
+class RootTests(StoreTestCase):
 
+    @inlineCallbacks
     def setUp(self):
-        super(RootTests, self).setUp()
-
-        self.docroot = self.mktemp()
-        os.mkdir(self.docroot)
+        yield super(RootTests, self).setUp()
 
         RootResource.CheckSACL = FakeCheckSACL(sacls={"calendar": ["dreid"]})
-
-        directory = XMLDirectoryService(
-            {
-                "xmlFile" : xmlFile,
-                "augmentService" :
-                    augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,))
-            }
-        )
-
-        principals = DirectoryPrincipalProvisioningResource(
-            "/principals/",
-            directory
-        )
-
-        root = RootResource(self.docroot, principalCollections=[principals])
-
-        root.putChild("principals",
-                      principals)
-
-        portal = Portal(auth.DavRealm())
-        portal.registerChecker(directory)
-
-        self.root = auth.AuthenticationWrapper(
-            root,
-            portal,
-            (basic.BasicCredentialFactory("Test realm"),),
-            (basic.BasicCredentialFactory("Test realm"),),
-            loginInterfaces=(auth.IPrincipal,))
-
-        self.site = server.Site(self.root)
 
 
 
@@ -107,8 +68,8 @@ class ComplianceTests(RootTests):
         Deferred which will fire with (something adaptable to) an HTTP response
         object.
         """
-        request = SimpleRequest(self.site, method, ("/".join([""] + segments)))
-        rsrc = self.root
+        request = SimpleStoreRequest(self, method, ("/".join([""] + segments)))
+        rsrc = self.actualRoot
         while segments:
             rsrc, segments = (yield maybeDeferred(
                 rsrc.locateChild, request, segments
@@ -138,18 +99,12 @@ class SACLTests(RootTests):
 
         should return a valid resource
         """
-        self.root.resource.useSacls = False
+        self.actualRoot.useSacls = False
 
-        request = SimpleRequest(self.site,
-                                "GET",
-                                "/principals/")
-
-        resrc, _ignore_segments = (yield maybeDeferred(
-            self.root.locateChild, request, ["principals"]
-        ))
+        request = SimpleStoreRequest(self, "GET", "/principals/")
 
         resrc, segments = (yield maybeDeferred(
-            resrc.locateChild, request, ["principals"]
+            self.actualRoot.locateChild, request, ["principals"]
         ))
 
         self.failUnless(
@@ -169,26 +124,21 @@ class SACLTests(RootTests):
 
         should return a valid resource
         """
-        self.root.resource.useSacls = True
+        self.actualRoot.useSacls = True
 
-        request = SimpleRequest(
-            self.site,
+        record = yield self.directory.recordWithShortName(
+            RecordType.user,
+            u"dreid"
+        )
+        request = SimpleStoreRequest(
+            self,
             "GET",
             "/principals/",
-            headers=http_headers.Headers({
-                "Authorization": [
-                    "basic",
-                    "%s" % ("dreid:dierd".encode("base64"),)
-                ]
-            })
+            authRecord=record
         )
 
-        resrc, _ignore_segments = (yield maybeDeferred(
-            self.root.locateChild, request, ["principals"]
-        ))
-
         resrc, segments = (yield maybeDeferred(
-            resrc.locateChild, request, ["principals"]
+            self.actualRoot.locateChild, request, ["principals"]
         ))
 
         self.failUnless(
@@ -218,28 +168,27 @@ class SACLTests(RootTests):
 
         should return a 403 forbidden response
         """
-        self.root.resource.useSacls = True
+        self.actualRoot.useSacls = True
 
-        request = SimpleRequest(
-            self.site,
-            "GET",
-            "/principals/",
-            headers=http_headers.Headers({
-                "Authorization": [
-                    "basic",
-                    "%s" % ("wsanchez:zehcnasw".encode("base64"),)
-                ]
-            })
+        record = yield self.directory.recordWithShortName(
+            RecordType.user,
+            u"wsanchez"
         )
 
-        resrc, _ignore_segments = (yield maybeDeferred(
-            self.root.locateChild, request, ["principals"]
-        ))
+        request = SimpleStoreRequest(
+            self,
+            "GET",
+            "/principals/",
+            authRecord=record
+        )
 
         try:
             resrc, _ignore_segments = (yield maybeDeferred(
-                resrc.locateChild, request, ["principals"]
+                self.actualRoot.locateChild, request, ["principals"]
             ))
+            raise AssertionError(
+                "RootResource.locateChild did not return an error"
+            )
         except HTTPError, e:
             self.assertEquals(e.response.code, 403)
 
@@ -253,20 +202,16 @@ class SACLTests(RootTests):
         should return a 401 UnauthorizedResponse
         """
 
-        self.root.resource.useSacls = True
-        request = SimpleRequest(
-            self.site,
+        self.actualRoot.useSacls = True
+        request = SimpleStoreRequest(
+            self,
             "GET",
             "/principals/"
         )
 
-        resrc, _ignore_segments = (yield maybeDeferred(
-            self.root.locateChild, request, ["principals"]
-        ))
-
         try:
             resrc, _ignore_segments = (yield maybeDeferred(
-                resrc.locateChild, request, ["principals"]
+                self.actualRoot.locateChild, request, ["principals"]
             ))
             raise AssertionError(
                 "RootResource.locateChild did not return an error"
@@ -283,24 +228,28 @@ class SACLTests(RootTests):
 
         should return a 401 UnauthorizedResponse
         """
-        self.root.resource.useSacls = True
+        self.actualRoot.useSacls = True
 
-        request = SimpleRequest(
-            self.site,
+        request = SimpleStoreRequest(
+            self,
             "GET",
             "/principals/",
-            headers=http_headers.Headers({
-                    "Authorization": ["basic", "%s" % (
-                            "dreid:dreid".encode("base64"),)]}))
-
-        resrc, _ignore_segments = (yield maybeDeferred(
-            self.root.locateChild, request, ["principals"]
-        ))
+            headers=http_headers.Headers(
+                {
+                    "Authorization": [
+                        "basic", "%s" % ("dreid:dreid".encode("base64"),)
+                    ]
+                }
+            )
+        )
 
         try:
             resrc, _ignore_segments = (yield maybeDeferred(
-                resrc.locateChild, request, ["principals"]
+                self.actualRoot.locateChild, request, ["principals"]
             ))
+            raise AssertionError(
+                "RootResource.locateChild did not return an error"
+            )
         except HTTPError, e:
             self.assertEquals(e.response.code, 401)
 
@@ -313,7 +262,7 @@ class SACLTests(RootTests):
                 self.fail("Incorrect response for DELETE /: %s"
                           % (response.code,))
 
-        request = SimpleRequest(self.site, "DELETE", "/")
+        request = SimpleStoreRequest(self, "DELETE", "/")
         return self.send(request, do_test)
 
 
@@ -325,8 +274,8 @@ class SACLTests(RootTests):
                 self.fail("Incorrect response for COPY /: %s"
                           % (response.code,))
 
-        request = SimpleRequest(
-            self.site,
+        request = SimpleStoreRequest(
+            self,
             "COPY",
             "/",
             headers=http_headers.Headers({"Destination": "/copy/"})
@@ -342,8 +291,8 @@ class SACLTests(RootTests):
                 self.fail("Incorrect response for MOVE /: %s"
                           % (response.code,))
 
-        request = SimpleRequest(
-            self.site,
+        request = SimpleStoreRequest(
+            self,
             "MOVE",
             "/",
             headers=http_headers.Headers({"Destination": "/copy/"})
@@ -371,13 +320,14 @@ class SACLCacheTests(RootTests):
             return response
 
 
+    @inlineCallbacks
     def setUp(self):
-        super(SACLCacheTests, self).setUp()
-        self.root.resource.responseCache = SACLCacheTests.StubResponseCacheResource()
+        yield super(SACLCacheTests, self).setUp()
+        self.actualRoot.responseCache = SACLCacheTests.StubResponseCacheResource()
 
 
     def test_PROPFIND(self):
-        self.root.resource.useSacls = True
+        self.actualRoot.useSacls = True
 
         body = """<?xml version="1.0" encoding="utf-8" ?>
 <D:propfind xmlns:D="DAV:">
@@ -388,15 +338,19 @@ class SACLCacheTests(RootTests):
 </D:propfind>
 """
 
-        request = SimpleRequest(
-            self.site,
+        request = SimpleStoreRequest(
+            self,
             "PROPFIND",
             "/principals/users/dreid/",
-            headers=http_headers.Headers({
-                    'Authorization': ['basic', '%s' % ('dreid:dierd'.encode('base64'),)],
+            headers=http_headers.Headers(
+                {
+                    'Authorization': [
+                        'basic', '%s' % ('dreid:dierd'.encode('base64'),)
+                    ],
                     'Content-Type': 'application/xml; charset="utf-8"',
                     'Depth': '1',
-            }),
+                }
+            ),
             content=body
         )
 
@@ -404,15 +358,19 @@ class SACLCacheTests(RootTests):
             if response.code != responsecode.MULTI_STATUS:
                 self.fail("Incorrect response for PROPFIND /principals/: %s" % (response.code,))
 
-            request = SimpleRequest(
-                self.site,
+            request = SimpleStoreRequest(
+                self,
                 "PROPFIND",
                 "/principals/users/dreid/",
-                headers=http_headers.Headers({
-                        'Authorization': ['basic', '%s' % ('dreid:dierd'.encode('base64'),)],
+                headers=http_headers.Headers(
+                    {
+                        'Authorization': [
+                            'basic', '%s' % ('dreid:dierd'.encode('base64'),)
+                        ],
                         'Content-Type': 'application/xml; charset="utf-8"',
                         'Depth': '1',
-                }),
+                    }
+                ),
                 content=body
             )
 
@@ -422,7 +380,7 @@ class SACLCacheTests(RootTests):
         def gotResponse2(response):
             if response.code != responsecode.MULTI_STATUS:
                 self.fail("Incorrect response for PROPFIND /principals/: %s" % (response.code,))
-            self.assertEqual(self.root.resource.responseCache.cacheHitCount, 1)
+            self.assertEqual(self.actualRoot.responseCache.cacheHitCount, 1)
 
         d = self.send(request, gotResponse1)
         return d
@@ -438,12 +396,9 @@ class WikiTests(RootTests):
         request.checkedWiki will be set to True
         """
 
-        request = SimpleRequest(self.site, "GET", "/principals/")
+        request = SimpleStoreRequest(self, "GET", "/principals/")
 
         resrc, _ignore_segments = (yield maybeDeferred(
-            self.root.locateChild, request, ["principals"]
-        ))
-        resrc, _ignore_segments = (yield maybeDeferred(
-            resrc.locateChild, request, ["principals"]
+            self.actualRoot.locateChild, request, ["principals"]
         ))
         self.assertTrue(request.checkedWiki)
