@@ -206,8 +206,10 @@ class WrappingTests(StoreTestCase):
         Verify that the C{_principalCollections} attribute of the given
         L{Resource} is accurately set.
         """
-        self.assertEquals(resource._principalCollections,
-                          frozenset([self.principalsResource]))
+        self.assertEquals(
+            resource._principalCollections,
+            frozenset([self.actualRoot.getChild("principals")])
+        )
 
 
     @inlineCallbacks
@@ -423,7 +425,7 @@ class WrappingTests(StoreTestCase):
         Creating a AddressBookHomeProvisioningFile will create a paired
         AddressBookStore.
         """
-        assertProvides(self, IDataStore, self.addressbookCollection._newStore)
+        assertProvides(self, IDataStore, self.actualRoot.getChild("addressbooks")._newStore)
 
 
     @inlineCallbacks
