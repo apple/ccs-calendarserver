@@ -133,8 +133,16 @@ class CalendarDirectoryServiceMixin(object):
         """
         subExpressions = []
         for fieldName, searchTerm, matchFlags, matchType in fields:
+            try:
+                field = self.fieldName.lookupByName(fieldName)
+            except ValueError:
+                log.debug(
+                    "Unsupported field name: {fieldName}",
+                    fieldName=fieldName
+                )
+                continue
             subExpression = MatchExpression(
-                self.fieldName.lookupByName(fieldName),
+                field,
                 searchTerm,
                 matchType,
                 matchFlags

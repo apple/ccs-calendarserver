@@ -151,6 +151,7 @@ class DPSClientTest(unittest.TestCase):
     def test_recordsMatchingFields_anyType(self):
         fields = (
             (u"fullNames", "anche", MatchFlags.caseInsensitive, MatchType.contains),
+            (u"fullNames", "morgen", MatchFlags.caseInsensitive, MatchType.contains),
         )
         records = (yield self.directory.recordsMatchingFields(
             fields, operand=Operand.OR, recordType=None
@@ -159,6 +160,7 @@ class DPSClientTest(unittest.TestCase):
         for r in records:
             for shortName in r.shortNames:
                 matchingShortNames.add(shortName)
+        self.assertTrue("sagen" in matchingShortNames)
         self.assertTrue("dre" in matchingShortNames)
         self.assertTrue("wsanchez" in matchingShortNames)
         self.assertTrue("sanchezoffice" in matchingShortNames)
@@ -180,6 +182,25 @@ class DPSClientTest(unittest.TestCase):
         self.assertTrue("wsanchez" in matchingShortNames)
         # This location should *not* appear in the results
         self.assertFalse("sanchezoffice" in matchingShortNames)
+
+
+    @inlineCallbacks
+    def test_recordsMatchingFields_unsupportedField(self):
+        fields = (
+            (u"fullNames", "anche", MatchFlags.caseInsensitive, MatchType.contains),
+            # This should be ignored:
+            (u"foo", "bar", MatchFlags.caseInsensitive, MatchType.contains),
+        )
+        records = (yield self.directory.recordsMatchingFields(
+            fields, operand=Operand.OR, recordType=None
+        ))
+        matchingShortNames = set()
+        for r in records:
+            for shortName in r.shortNames:
+                matchingShortNames.add(shortName)
+        self.assertTrue("dre" in matchingShortNames)
+        self.assertTrue("wsanchez" in matchingShortNames)
+        self.assertTrue("sanchezoffice" in matchingShortNames)
 
 
     @inlineCallbacks
