@@ -579,6 +579,16 @@ py_dependencies () {
   export PYTHON="${python}";
   export PYTHONPATH="${wd}:${PYTHONPATH:-}";
 
+  # Work around a change in Xcode tools that breaks Python modules in OS X
+  # 10.9.2 and prior due to a hard error if the -mno-fused-madd is used, as
+  # it was in the system Python, and is therefore passed along by disutils.
+  if [ "$(uname -s)" == "Darwin" ]; then
+    if "${python}" -c 'import distutils.sysconfig; print distutils.sysconfig.get_config_var("CFLAGS")' \
+       | grep -e -mno-fused-madd > /dev/null; then
+      export ARCHFLAGS="-Wno-error=unused-command-line-argument-hard-error-in-future";
+    fi;
+  fi;
+
   if ! "${do_setup}"; then return 0; fi;
 
   # Set up virtual environment
@@ -594,14 +604,10 @@ py_dependencies () {
 
   "${python}" "${wd}/setup.py" check > /dev/null;
 
-  # Work around a change in Xcode tools that breaks Python modules in OS X
-  # 10.9.2 and prior due to a hard error if the -mno-fused-madd is used, as
-  # it was in the system Python, and is therefore passed along by disutils.
-  if [ "$(uname -s)" == "Darwin" ]; then
-    if "${python}" -c 'import distutils.sysconfig; print distutils.sysconfig.get_config_var("CFLAGS")' \
-       | grep -e -mno-fused-madd > /dev/null; then
-      export ARCHFLAGS="-Wno-error=unused-command-line-argument-hard-error-in-future";
-    fi;
+  if [ -d "${wd}/requirements/cache" ]; then
+    pip_install="pip_install_from_cache";
+  else
+    pip_install="pip_install";
   fi;
 
   for requirements in "${wd}/requirements/py_"*".txt"; do
@@ -609,11 +615,7 @@ py_dependencies () {
     ruler "Preparing Python requirements: ${requirements}";
     echo "";
 
-    if ! "${python}" -m pip install               \
-        --requirement "${requirements}"           \
-        --download-cache "${dev_home}/pip_cache"  \
-        --log "${dev_home}/pip.log"               \
-    ; then
+    if ! "${pip_install}" "${requirements}"; then
       err=$?;
       echo "Unable to set up Python requirements: ${requirements}";
       if [ "${requirements#${wd}/requirements/py_opt_}" != "${requirements}" ]; then
@@ -630,6 +632,26 @@ py_dependencies () {
   echo "";
 }
 
+
+pip_install_from_cache () {
+  local requirements="$1"; shift;
+
+  "${python}" -m pip install                 \
+    --requirement="${requirements}"          \
+    --find-links "${wd}/requirements/cache"  \
+    --no-index                               \
+    --log="${dev_home}/pip.log";
+}
+
+
+pip_install () {
+  local requirements="$1"; shift;
+
+  "${python}" -m pip install                  \
+    --requirement="${requirements}"           \
+    --download-cache="${dev_home}/pip_cache"  \
+    --log="${dev_home}/pip.log";
+}
 
 
 #
