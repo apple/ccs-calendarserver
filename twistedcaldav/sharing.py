@@ -62,24 +62,25 @@ class SharedResourceMixin(object):
         """
         if config.Sharing.Enabled:
 
+            @inlineCallbacks
             def invitePropertyElement(invitation, includeUID=True):
 
                 userid = "urn:uuid:" + invitation.shareeUID
-                principal = self.principalForUID(invitation.shareeUID)
+                principal = yield self.principalForUID(invitation.shareeUID)
                 cn = principal.displayName() if principal else invitation.shareeUID
-                return customxml.InviteUser(
+                returnValue(customxml.InviteUser(
                     customxml.UID.fromString(invitation.uid) if includeUID else None,
                     element.HRef.fromString(userid),
                     customxml.CommonName.fromString(cn),
                     customxml.InviteAccess(invitationBindModeToXMLMap[invitation.mode]()),
                     invitationBindStatusToXMLMap[invitation.status](),
-                )
+                ))
 
             # See if this property is on the shared calendar
             if self.isShared():
                 invitations = yield self.validateInvites(request)
                 returnValue(customxml.Invite(
-                    *[invitePropertyElement(invitation) for invitation in invitations]
+                    *[(yield invitePropertyElement(invitation)) for invitation in invitations]
                 ))
 
             # See if it is on the sharee calendar
@@ -89,7 +90,7 @@ class SharedResourceMixin(object):
                     invitations = yield original.allInvitations()
                     invitations = yield self.validateInvites(request, invitations)
 
-                    ownerPrincipal = self.principalForUID(self._newStoreObject.ownerHome().uid())
+                    ownerPrincipal = yield self.principalForUID(self._newStoreObject.ownerHome().uid())
                     # FIXME:  use urn:uuid in all cases
                     if self.isCalendarCollection():
                         owner = ownerPrincipal.principalURL()
@@ -102,7 +103,7 @@ class SharedResourceMixin(object):
                             element.HRef.fromString(owner),
                             customxml.CommonName.fromString(ownerCN),
                         ),
-                        *[invitePropertyElement(invitation, includeUID=False) for invitation in invitations]
+                        *[(yield invitePropertyElement(invitation, includeUID=False)) for invitation in invitations]
                     ))
 
         returnValue(None)
@@ -266,8 +267,8 @@ class SharedResourceMixin(object):
             any access at all.
         """
         if self._newStoreObject.direct():
-            owner = self.principalForUID(self._newStoreObject.ownerHome().uid())
-            sharee = self.principalForUID(self._newStoreObject.viewerHome().uid())
+            owner = yield self.principalForUID(self._newStoreObject.ownerHome().uid())
+            sharee = yield self.principalForUID(self._newStoreObject.viewerHome().uid())
             if owner.record.recordType == WikiDirectoryService.recordType_wikis:
                 # Access level comes from what the wiki has granted to the
                 # sharee
@@ -320,7 +321,7 @@ class SharedResourceMixin(object):
         assert self._isShareeResource, "Only call this for a sharee resource"
         assert self.isCalendarCollection() or self.isAddressBookCollection(), "Only call this for a address book or calendar resource"
 
-        sharee = self.principalForUID(self._newStoreObject.viewerHome().uid())
+        sharee = yield self.principalForUID(self._newStoreObject.viewerHome().uid())
         access = yield self._checkAccessControl()
 
         if access == "original" and not self._newStoreObject.ownerHome().external():
@@ -411,7 +412,7 @@ class SharedResourceMixin(object):
         """
 
         # First try to resolve as a principal
-        principal = self.principalForCalendarUserAddress(userid)
+        principal = yield self.principalForCalendarUserAddress(userid)
         if principal:
             if request:
                 ownerPrincipal = (yield self.ownerPrincipal(request))
@@ -504,7 +505,7 @@ class SharedResourceMixin(object):
     def inviteSingleUserToShare(self, userid, cn, ace, summary, request): #@UnusedVariable
 
         # We currently only handle local users
-        sharee = self.principalForCalendarUserAddress(userid)
+        sharee = yield self.principalForCalendarUserAddress(userid)
         if not sharee:
             returnValue(False)
 
@@ -521,7 +522,7 @@ class SharedResourceMixin(object):
     def uninviteSingleUserFromShare(self, userid, aces, request): #@UnusedVariable
 
         # Cancel invites - we'll just use whatever userid we are given
-        sharee = self.principalForCalendarUserAddress(userid)
+        sharee = yield self.principalForCalendarUserAddress(userid)
         if not sharee:
             returnValue(False)
 

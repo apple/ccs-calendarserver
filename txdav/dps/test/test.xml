@@ -114,4 +114,10 @@
     <member-uid>__alyssa__</member-uid>
   </record>
 
+  <record type="location">
+    <uid>__sanchezoffice__</uid>
+    <short-name>sanchezoffice</short-name>
+    <full-name>Sanchez Office</full-name>
+  </record>
+
 </directory>

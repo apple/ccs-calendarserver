@@ -191,7 +191,7 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
 
         # MOVE2WHO, REMOVE THIS HACK TOO:
         if not isinstance(shortName, unicode):
-            log.warn("Need to change shortName to unicode")
+            # log.warn("Need to change shortName to unicode")
             shortName = shortName.decode("utf-8")
 
 
@@ -206,7 +206,7 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
     def recordWithUID(self, uid):
         # MOVE2WHO, REMOVE THIS:
         if not isinstance(uid, unicode):
-            log.warn("Need to change uid to unicode")
+            # log.warn("Need to change uid to unicode")
             uid = uid.decode("utf-8")
 
         return self._call(

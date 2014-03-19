@@ -43,6 +43,7 @@ from twistedcaldav import caldavxml
 
 log = Logger()
 
+
 @inlineCallbacks
 def http_REPORT(self, request):
     """
@@ -58,7 +59,7 @@ def http_REPORT(self, request):
     try:
         doc = (yield davXMLFromStream(request.stream))
     except ValueError, e:
-        log.error("Error while handling REPORT body: %s" % (e,))
+        log.error("Error while handling REPORT body: {err}", err=str(e))
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
 
     if doc is None:

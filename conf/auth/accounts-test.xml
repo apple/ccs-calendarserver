@@ -290,6 +290,76 @@ limitations under the License.
     <email>user25@example.com</email>
   </record>
 
+  <record type="user">
+    <short-name>public01</short-name>
+    <uid>public01</uid>
+    <password>public01</password>
+    <full-name>Public 01</full-name>
+  </record>
+
+  <record type="user">
+    <short-name>public02</short-name>
+    <uid>public02</uid>
+    <password>public02</password>
+    <full-name>Public 02</full-name>
+  </record>
+
+  <record type="user">
+    <short-name>public03</short-name>
+    <uid>public03</uid>
+    <password>public03</password>
+    <full-name>Public 03</full-name>
+  </record>
+
+  <record type="user">
+    <short-name>public04</short-name>
+    <uid>public04</uid>
+    <password>public04</password>
+    <full-name>Public 04</full-name>
+  </record>
+
+  <record type="user">
+    <short-name>public05</short-name>
+    <uid>public05</uid>
+    <password>public05</password>
+    <full-name>Public 05</full-name>
+  </record>
+
+  <record type="user">
+    <short-name>public06</short-name>
+    <uid>public06</uid>
+    <password>public06</password>
+    <full-name>Public 06</full-name>
+  </record>
+
+  <record type="user">
+    <short-name>public07</short-name>
+    <uid>public07</uid>
+    <password>public07</password>
+    <full-name>Public 07</full-name>
+  </record>
+
+  <record type="user">
+    <short-name>public08</short-name>
+    <uid>public08</uid>
+    <password>public08</password>
+    <full-name>Public 08</full-name>
+  </record>
+
+  <record type="user">
+    <short-name>public09</short-name>
+    <uid>public09</uid>
+    <password>public09</password>
+    <full-name>Public 09</full-name>
+  </record>
+
+  <record type="user">
+    <short-name>public10</short-name>
+    <uid>public10</uid>
+    <password>public10</password>
+    <full-name>Public 10</full-name>
+  </record>
+
   <record type="group">
     <uid>group01</uid>
     <short-name>group01</short-name>

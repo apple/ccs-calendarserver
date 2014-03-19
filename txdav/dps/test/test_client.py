@@ -16,6 +16,7 @@
 
 import os
 
+from twext.who.expression import Operand, MatchType, MatchFlags
 from twext.who.idirectory import RecordType
 from twisted.cred.credentials import calcResponse, calcHA1, calcHA2
 from twisted.internet.defer import inlineCallbacks, succeed
@@ -144,6 +145,41 @@ class DPSClientTest(unittest.TestCase):
                 matchingShortNames.add(shortName)
         self.assertTrue("dre" in matchingShortNames)
         self.assertTrue("wsanchez" in matchingShortNames)
+
+
+    @inlineCallbacks
+    def test_recordsMatchingFields_anyType(self):
+        fields = (
+            (u"fullNames", "anche", MatchFlags.caseInsensitive, MatchType.contains),
+        )
+        records = (yield self.directory.recordsMatchingFields(
+            fields, operand=Operand.OR, recordType=None
+        ))
+        matchingShortNames = set()
+        for r in records:
+            for shortName in r.shortNames:
+                matchingShortNames.add(shortName)
+        self.assertTrue("dre" in matchingShortNames)
+        self.assertTrue("wsanchez" in matchingShortNames)
+        self.assertTrue("sanchezoffice" in matchingShortNames)
+
+
+    @inlineCallbacks
+    def test_recordsMatchingFields_oneType(self):
+        fields = (
+            (u"fullNames", "anche", MatchFlags.caseInsensitive, MatchType.contains),
+        )
+        records = (yield self.directory.recordsMatchingFields(
+            fields, operand=Operand.OR, recordType=RecordType.user
+        ))
+        matchingShortNames = set()
+        for r in records:
+            for shortName in r.shortNames:
+                matchingShortNames.add(shortName)
+        self.assertTrue("dre" in matchingShortNames)
+        self.assertTrue("wsanchez" in matchingShortNames)
+        # This location should *not* appear in the results
+        self.assertFalse("sanchezoffice" in matchingShortNames)
 
 
     @inlineCallbacks

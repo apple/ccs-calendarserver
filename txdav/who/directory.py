@@ -142,6 +142,22 @@ class CalendarDirectoryServiceMixin(object):
             subExpressions.append(subExpression)
 
         expression = CompoundExpression(subExpressions, operand)
+
+        # AND in the recordType if passed in
+        if recordType is not None:
+            typeExpression = MatchExpression(
+                self.fieldName.recordType,
+                recordType,
+                MatchType.equals,
+                MatchFlags.none
+            )
+            expression = CompoundExpression(
+                [
+                    expression,
+                    typeExpression
+                ],
+                Operand.AND
+            )
         return self.recordsFromExpression(expression)
 
 
@@ -289,7 +305,7 @@ class CalendarDirectoryRecordMixin(object):
             self.__class__.__name__,
             self.service.realmName,
             self.recordType.name,
-            self.shortNames,
+            # self.shortNames, # MOVE2WHO FIXME: is this needed? it's not hashable
             self.uid,
             self.hasCalendars,
         ))
