@@ -428,7 +428,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
             principalURL = str(authz_principal)
             if principalURL:
                 authz = (yield request.locateResource(principalURL))
-                self._associatedTransaction._authz_uid = authz.record.guid
+                self._associatedTransaction._authz_uid = authz.record.uid
 
         # Log extended item
         if not hasattr(request, "extendedLogItems"):

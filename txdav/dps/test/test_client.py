@@ -128,7 +128,7 @@ class DPSClientTest(unittest.TestCase):
     def test_emailAddress(self):
         if testMode == "xml":
             records = (yield self.directory.recordsWithEmailAddress(
-                "cdaboo@bitbucket.calendarserver.org"
+                u"cdaboo@bitbucket.calendarserver.org"
             ))
             self.assertEquals(len(records), 1)
             self.assertEquals(records[0].shortNames, [u"cdaboo"])

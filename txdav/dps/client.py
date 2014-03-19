@@ -238,7 +238,7 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
         return self._call(
             RecordsWithEmailAddressCommand,
             self._processMultipleRecords,
-            emailAddress=emailAddress
+            emailAddress=emailAddress.encode("utf-8")
         )
 
 
