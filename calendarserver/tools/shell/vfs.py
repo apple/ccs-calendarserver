@@ -334,7 +334,9 @@ class RecordFolder(Folder):
     def list(self):
         names = set()
 
-        for record in self.service.directory.listRecords(self.recordType):
+        for record in self.service.directory.recordsWithRecordType(
+            self.recordType
+        ):
             for shortName in record.shortNames:
                 if shortName in names:
                     continue

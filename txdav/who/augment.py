@@ -170,17 +170,6 @@ class AugmentedDirectoryService(
         returnValue(augmented)
 
 
-    # FIXME: This shouldn't be here; we have recordsWithRecordType() above
-    @inlineCallbacks
-    def listRecords(self, recordType):
-        records = yield self._directory.listRecords(recordType)
-        augmented = []
-        for record in records:
-            record = yield self._augment(record)
-            augmented.append(record)
-        returnValue(augmented)
-
-
     @inlineCallbacks
     def updateRecords(self, records, create=False):
         return self._directory.updateRecords(records, create=create)

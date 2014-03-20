@@ -493,7 +493,9 @@ class DirectoryPrincipalTypeProvisioningResource (DirectoryProvisioningResource)
         children = []
         if config.EnablePrincipalListings:
             try:
-                for record in (yield self.directory.listRecords(self.recordType)):
+                for record in (
+                    yield self.directory.recordsWithRecordType(self.recordType)
+                ):
                     for shortName in record.shortNames:
                         children.append(shortName)
             except AttributeError:

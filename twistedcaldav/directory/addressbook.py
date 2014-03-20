@@ -188,7 +188,9 @@ class DirectoryAddressBookHomeTypeProvisioningResource (
     def listChildren(self):
         if config.EnablePrincipalListings:
             children = []
-            for record in (yield self.directory.listRecords(self.recordType)):
+            for record in (
+                yield self.directory.recordsWithRecordType(self.recordType)
+            ):
                 if record.enabledForAddressBooks:
                     for shortName in record.shortNames:
                         children.append(shortName)

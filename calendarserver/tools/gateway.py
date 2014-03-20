@@ -607,7 +607,7 @@ class Runner(object):
     def respondWithRecordsOfTypes(self, directory, command, recordTypes):
         result = []
         for recordType in recordTypes:
-            for record in directory.listRecords(recordType):
+            for record in directory.recordsWithRecordType(recordType):
                 recordDict = recordToDict(record)
                 result.append(recordDict)
         self.respond(command, result)
