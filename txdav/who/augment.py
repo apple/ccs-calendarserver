@@ -27,6 +27,7 @@ from zope.interface import implementer
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 
+from twistedcaldav.directory.augment import AugmentRecord
 from twext.python.log import Logger
 from twext.who.directory import DirectoryRecord
 from twext.who.directory import DirectoryService as BaseDirectoryService
@@ -172,17 +173,84 @@ class AugmentedDirectoryService(
 
     @inlineCallbacks
     def updateRecords(self, records, create=False):
-        return self._directory.updateRecords(records, create=create)
+        """
+        Pull out the augmented fields from each record, apply those to the
+        augments database, then update the base records.
+        """
+
+        baseRecords = []
+        augmentRecords = []
+
+        for record in records:
+
+            # Split out the base fields from the augment fields
+            baseFields, augmentFields = self._splitFields(record)
+
+            if augmentFields:
+                # Create an AugmentRecord
+                autoScheduleMode = {
+                    AutoScheduleMode.none: "none",
+                    AutoScheduleMode.accept: "accept-always",
+                    AutoScheduleMode.decline: "decline-always",
+                    AutoScheduleMode.acceptIfFree: "accept-if-free",
+                    AutoScheduleMode.declineIfBusy: "decline-if-busy",
+                    AutoScheduleMode.acceptIfFreeDeclineIfBusy: "automatic",
+                }.get(augmentFields.get(FieldName.autoScheduleMode, None), None)
+                augmentRecord = AugmentRecord(
+                    uid=record.uid,
+                    enabledForCalendaring=augmentFields[FieldName.hasCalendars],
+                    enabledForAddressBooks=augmentFields[FieldName.hasContacts],
+                    autoScheduleMode=autoScheduleMode,
+                    enabledForLogin=augmentFields[FieldName.loginAllowed],
+                    autoAcceptGroup=augmentFields[FieldName.autoAcceptGroup],
+                    serverID=augmentFields[FieldName.serviceNodeUID],
+                )
+                augmentRecords.append(augmentRecord)
+
+            # Create new base records:
+            baseRecords.append(DirectoryRecord(self._directory, baseFields))
+
+        # Apply the augment records
+        if augmentRecords:
+            yield self._augmentDB.addAugmentRecords(augmentRecords)
+
+        # Apply the base records
+        if baseRecords:
+            yield self._directory.updateRecords(baseRecords, create=create)
 
 
-    @inlineCallbacks
+    def _splitFields(self, record):
+        """
+        Returns a tuple of two dictionaries; the first contains all the non
+        augment fields, and the second contains all the augment fields.
+        """
+        if record is None:
+            return None
+
+        augmentFields = {}
+        baseFields = record.fields.copy()
+        for field in (
+            FieldName.loginAllowed,
+            FieldName.hasCalendars, FieldName.hasContacts,
+            FieldName.autoScheduleMode, FieldName.autoAcceptGroup,
+            FieldName.serviceNodeUID
+        ):
+            if field in baseFields:
+                augmentFields[field] = baseFields[field]
+                del baseFields[field]
+
+        return (baseFields, augmentFields)
+
+
     def removeRecords(self, uids):
+        self._augmentDB.removeAugmentRecords(uids)
         return self._directory.removeRecords(uids)
 
 
     def _assignToField(self, fields, name, value):
         field = self.fieldName.lookupByName(name)
         fields[field] = value
+
 
 
     @inlineCallbacks
@@ -205,12 +273,12 @@ class AugmentedDirectoryService(
         # print("Got augment record", augmentRecord)
 
         if augmentRecord:
-            # record.enabled = augmentRecord.enabled
-            # record.serverID = augmentRecord.serverID
+
             self._assignToField(
                 fields, "hasCalendars",
                 augmentRecord.enabledForCalendaring
             )
+
             self._assignToField(
                 fields, "hasContacts",
                 augmentRecord.enabledForAddressBooks
@@ -229,13 +297,20 @@ class AugmentedDirectoryService(
                 fields, "autoScheduleMode",
                 autoScheduleMode
             )
+
             self._assignToField(
                 fields, "autoAcceptGroup",
-                unicode(augmentRecord.autoAcceptGroup)
+                augmentRecord.autoAcceptGroup.decode("utf-8")
             )
+
             self._assignToField(
                 fields, "loginAllowed",
                 augmentRecord.enabledForLogin
+            )
+
+            self._assignToField(
+                fields, "serviceNodeUID",
+                augmentRecord.serverID.decode("utf-8")
             )
 
             if (

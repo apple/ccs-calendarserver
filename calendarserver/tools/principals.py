@@ -17,28 +17,34 @@
 ##
 from __future__ import print_function
 
-import sys
-import os
-import operator
 from getopt import getopt, GetoptError
+import operator
+import os
+import sys
 from uuid import UUID
 
+from calendarserver.tools.cmdline import utilityMain, WorkerService
+from calendarserver.tools.util import (
+    recordForPrincipalID, prettyRecord
+)
+from twext.who.directory import DirectoryRecord
+from twext.who.idirectory import RecordType, InvalidDirectoryRecordError
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
-from txdav.xml import element as davxml
-from txdav.who.delegates import addDelegate, removeDelegate
-
-
 from twistedcaldav.config import config
-from txdav.who.groups import schedulePolledGroupCachingUpdate
+from txdav.who.delegates import addDelegate, removeDelegate
+from txdav.who.idirectory import AutoScheduleMode
 
-from calendarserver.tools.util import (
-    booleanArgument, proxySubprincipal,
-    recordForPrincipalID, prettyPrincipal, prettyRecord, ProxyError
-)
-from twistedcaldav.directory.augment import allowedAutoScheduleModes
 
-from calendarserver.tools.cmdline import utilityMain, WorkerService
+allowedAutoScheduleModes = {
+    "default": None,
+    "none": AutoScheduleMode.none,
+    "accept-always": AutoScheduleMode.accept,
+    "decline-always": AutoScheduleMode.decline,
+    "accept-if-free": AutoScheduleMode.acceptIfFree,
+    "decline-if-busy": AutoScheduleMode.declineIfBusy,
+    "automatic": AutoScheduleMode.acceptIfFreeDeclineIfBusy,
+}
 
 
 def usage(e=None):
@@ -74,8 +80,6 @@ def usage(e=None):
     print("  --add-read-proxy=principal: add a read-only proxy")
     print("  --add-write-proxy=principal: add a read-write proxy")
     print("  --remove-proxy=principal: remove a proxy")
-    print("  --set-auto-schedule={true|false}: set auto-accept state")
-    print("  --get-auto-schedule: read auto-schedule state")
     print("  --set-auto-schedule-mode={default|none|accept-always|decline-always|accept-if-free|decline-if-busy|automatic}: set auto-schedule mode")
     print("  --get-auto-schedule-mode: read auto-schedule mode")
     print("  --set-auto-accept-group=principal: set auto-accept-group")
@@ -93,7 +97,6 @@ def usage(e=None):
         sys.exit(64)
     else:
         sys.exit(0)
-
 
 
 class PrincipalService(WorkerService):
@@ -155,8 +158,6 @@ def main():
                 "add-read-proxy=",
                 "add-write-proxy=",
                 "remove-proxy=",
-                "set-auto-schedule=",
-                "get-auto-schedule",
                 "set-auto-schedule-mode=",
                 "get-auto-schedule-mode",
                 "set-auto-accept-group=",
@@ -177,7 +178,7 @@ def main():
     # Get configuration
     #
     configFileName = None
-    # addType = None
+    addType = None
     listPrincipalTypes = False
     listPrincipals = None
     searchPrincipals = None
@@ -198,11 +199,11 @@ def main():
         elif opt in ("-f", "--config"):
             configFileName = arg
 
-        # elif opt in ("-a", "--add"):
-        #     addType = arg
+        elif opt in ("-a", "--add"):
+            addType = arg
 
-        # elif opt in ("-r", "--remove"):
-        #     principalActions.append((action_removePrincipal,))
+        elif opt in ("-r", "--remove"):
+            principalActions.append((action_removePrincipal,))
 
         elif opt in ("", "--list-principal-types"):
             listPrincipalTypes = True
@@ -237,40 +238,25 @@ def main():
         elif opt in ("", "--remove-proxy"):
             principalActions.append((action_removeProxy, arg))
 
-        # elif opt in ("", "--set-auto-schedule"):
-        #     try:
-        #         autoSchedule = booleanArgument(arg)
-        #     except ValueError, e:
-        #         abort(e)
+        elif opt in ("", "--set-auto-schedule-mode"):
+            try:
+                if arg not in allowedAutoScheduleModes:
+                    raise ValueError("Unknown auto-schedule mode: {mode}".format(
+                        mode=arg))
+                autoScheduleMode = allowedAutoScheduleModes[arg]
+            except ValueError, e:
+                abort(e)
 
-        #     principalActions.append((action_setAutoSchedule, autoSchedule))
+            principalActions.append((action_setAutoScheduleMode, autoScheduleMode))
 
-        # elif opt in ("", "--get-auto-schedule"):
-        #     principalActions.append((action_getAutoSchedule,))
+        elif opt in ("", "--get-auto-schedule-mode"):
+            principalActions.append((action_getAutoScheduleMode,))
 
-        # elif opt in ("", "--set-auto-schedule-mode"):
-        #     try:
-        #         if arg not in allowedAutoScheduleModes:
-        #             raise ValueError("Unknown auto-schedule mode: %s" % (arg,))
-        #         autoScheduleMode = arg
-        #     except ValueError, e:
-        #         abort(e)
+        elif opt in ("", "--set-auto-accept-group"):
+            principalActions.append((action_setAutoAcceptGroup, arg))
 
-        #     principalActions.append((action_setAutoScheduleMode, autoScheduleMode))
-
-        # elif opt in ("", "--get-auto-schedule-mode"):
-        #     principalActions.append((action_getAutoScheduleMode,))
-
-        # elif opt in ("", "--set-auto-accept-group"):
-        #     try:
-        #         yield recordForPrincipalID(arg, checkOnly=True)
-        #     except ValueError, e:
-        #         abort(e)
-
-        #     principalActions.append((action_setAutoAcceptGroup, arg))
-
-        # elif opt in ("", "--get-auto-accept-group"):
-        #     principalActions.append((action_getAutoAcceptGroup,))
+        elif opt in ("", "--get-auto-accept-group"):
+            principalActions.append((action_getAutoAcceptGroup,))
 
         # elif opt in ("", "--set-geo"):
         #     principalActions.append((action_setValue, "Geo", arg))
@@ -303,27 +289,37 @@ def main():
         function = runListPrincipalTypes
         params = ()
 
-    # elif addType:
+    elif addType:
 
-    #     try:
-    #         addType = matchStrings(addType, ["locations", "resources", "addresses"])
-    #     except ValueError, e:
-    #         print(e)
-    #         return
+        try:
+            addType = matchStrings(
+                addType,
+                [
+                    "locations", "resources", "addresses", "users", "groups"
+                ]
+            )
+        except ValueError, e:
+            print(e)
+            return
 
-    #     try:
-    #         fullName, shortName, guid = parseCreationArgs(args)
-    #     except ValueError, e:
-    #         print(e)
-    #         return
+        try:
+            fullName, shortName, uid = parseCreationArgs(args)
+        except ValueError, e:
+            print(e)
+            return
 
-    #     if shortName is not None:
-    #         shortNames = [shortName]
-    #     else:
-    #         shortNames = ()
+        if fullName is not None:
+            fullNames = [fullName]
+        else:
+            fullNames = ()
 
-    #     function = runAddPrincipal
-    #     params = (addType, guid, shortNames, fullName)
+        if shortName is not None:
+            shortNames = [shortName]
+        else:
+            shortNames = ()
+
+        function = runAddPrincipal
+        params = (addType, uid, shortNames, fullNames)
 
     elif listPrincipals:
         try:
@@ -348,13 +344,6 @@ def main():
     else:
         if not args:
             usage("No principals specified.")
-
-        # We don't have a directory yet
-        # for arg in args:
-        #     try:
-        #         yield recordForPrincipalID(arg, checkOnly=True)
-        #     except ValueError, e:
-        #         abort(e)
 
         unicodeArgs = [a.decode("utf-8") for a in args]
         function = runPrincipalActions
@@ -384,7 +373,7 @@ def runListPrincipals(service, store, listPrincipals):
             printRecordList(records)
         else:
             print("No records of type %s" % (listPrincipals,))
-    except UnknownRecordTypeError, e:
+    except InvalidDirectoryRecordError, e:
         usage(e)
     returnValue(None)
 
@@ -453,28 +442,33 @@ def runSearch(service, store, searchTerm):
 
 
 
-# @inlineCallbacks
-# def runAddPrincipal(service, store, addType, guid, shortNames, fullName):
-#     directory = store.directoryService()
-#     try:
-#         # FIXME STOP USING GUID
-#         yield updateRecord(
-#             True, directory, addType, guid=guid,
-#             shortNames=shortNames, fullName=fullName
-#         )
-#         print("Added '%s'" % (fullName,))
-#     except DirectoryError, e:
-#         print(e)
+@inlineCallbacks
+def runAddPrincipal(service, store, addType, uid, shortNames, fullNames):
+    directory = store.directoryService()
+    recordType = directory.oldNameToRecordType(addType)
+    fields = {
+        directory.fieldName.recordType: recordType,
+        directory.fieldName.uid: uid,
+        directory.fieldName.shortNames: shortNames,
+        directory.fieldName.fullNames: fullNames,
+    }
+    record = DirectoryRecord(directory, fields)
+    yield record.service.updateRecords([record], create=True)
 
 
 
-# def action_removePrincipal(store, record):
-#     directory = store.directoryService()
-#     fullName = record.displayName
-#     shortName = record.shortNames[0]
+@inlineCallbacks
+def action_removePrincipal(store, record):
+    directory = store.directoryService()
+    fullName = record.displayName
+    shortNames = ",".join(record.shortNames)
 
-#     yield directory.destroyRecord(record.recordType, uid=record.uid)
-#     print("Removed '%s' %s %s" % (fullName, shortName, record.uid))
+    yield directory.removeRecords([record.uid])
+    print(
+        "Removed '{full}' {shorts} {uid}".format(
+            full=fullName, shorts=shortNames, uid=record.uid
+        )
+    )
 
 
 
@@ -622,147 +616,120 @@ def action_removeProxy(store, record, *proxyIDs):
 
 
 
-# @inlineCallbacks
-# def action_setAutoSchedule(rootResource, directory, store, principal, autoSchedule):
-#     if principal.record.recordType == "groups":
-#         print("Enabling auto-schedule for %s is not allowed." % (principal,))
-
-#     elif principal.record.recordType == "users" and not config.Scheduling.Options.AutoSchedule.AllowUsers:
-#         print("Enabling auto-schedule for %s is not allowed." % (principal,))
-
-#     else:
-#         print("Setting auto-schedule to %s for %s" % (
-#             {True: "true", False: "false"}[autoSchedule],
-#             prettyPrincipal(principal),
-#         ))
-
-#         (yield updateRecord(False, directory,
-#             principal.record.recordType,
-#             guid=principal.record.guid,
-#             shortNames=principal.record.shortNames,
-#             fullName=principal.record.fullName,
-#             autoSchedule=autoSchedule,
-#             **principal.record.extras
-#         ))
+def action_getAutoScheduleMode(store, record):
+    print(
+        "Auto-schedule mode for {record} is {mode}".format(
+            record=prettyRecord(record),
+            mode=(
+                record.autoScheduleMode.description if record.autoScheduleMode
+                else "Default"
+            )
+        )
+    )
 
 
+@inlineCallbacks
+def action_setAutoScheduleMode(store, record, autoScheduleMode):
+    if record.recordType == RecordType.group:
+        print(
+            "Setting auto-schedule-mode for {record} is not allowed.".format(
+                record=prettyRecord(record)
+            )
+        )
 
-# def action_getAutoSchedule(rootResource, directory, store, principal):
-#     autoSchedule = principal.getAutoSchedule()
-#     print("Auto-schedule for %s is %s" % (
-#         prettyPrincipal(principal),
-#         {True: "true", False: "false"}[autoSchedule],
-#     ))
+    elif (
+        record.recordType == RecordType.user and
+        not config.Scheduling.Options.AutoSchedule.AllowUsers
+    ):
+        print(
+            "Setting auto-schedule-mode for {record} is not allowed.".format(
+                record=prettyRecord(record)
+            )
+        )
 
+    else:
+        print(
+            "Setting auto-schedule-mode to {mode} for {record}".format(
+                mode=autoScheduleMode.description,
+                record=prettyRecord(record),
+            )
+        )
 
+        # Get original fields
+        newFields = record.fields.copy()
 
-# @inlineCallbacks
-# def action_setAutoScheduleMode(rootResource, directory, store, principal, autoScheduleMode):
-#     if principal.record.recordType == "groups":
-#         print("Setting auto-schedule mode for %s is not allowed." % (principal,))
+        # Set new values
+        newFields[record.service.fieldName.autoScheduleMode] = autoScheduleMode
 
-#     elif principal.record.recordType == "users" and not config.Scheduling.Options.AutoSchedule.AllowUsers:
-#         print("Setting auto-schedule mode for %s is not allowed." % (principal,))
-
-#     else:
-#         print("Setting auto-schedule mode to %s for %s" % (
-#             autoScheduleMode,
-#             prettyPrincipal(principal),
-#         ))
-
-#         (yield updateRecord(False, directory,
-#             principal.record.recordType,
-#             guid=principal.record.guid,
-#             shortNames=principal.record.shortNames,
-#             fullName=principal.record.fullName,
-#             autoScheduleMode=autoScheduleMode,
-#             **principal.record.extras
-#         ))
-
-
-
-# def action_getAutoScheduleMode(rootResource, directory, store, principal):
-#     autoScheduleMode = principal.getAutoScheduleMode()
-#     if not autoScheduleMode:
-#         autoScheduleMode = "automatic"
-#     print("Auto-schedule mode for %s is %s" % (
-#         prettyPrincipal(principal),
-#         autoScheduleMode,
-#     ))
+        updatedRecord = DirectoryRecord(record.service, newFields)
+        yield record.service.updateRecords([updatedRecord], create=False)
 
 
+@inlineCallbacks
+def action_setAutoAcceptGroup(store, record, autoAcceptGroup):
+    if record.recordType == RecordType.group:
+        print(
+            "Setting auto-accept-group for {record} is not allowed.".format(
+                record=prettyRecord(record)
+            )
+        )
 
-# @inlineCallbacks
-# def action_setAutoAcceptGroup(rootResource, directory, store, principal, autoAcceptGroup):
-#     if principal.record.recordType == "groups":
-#         print("Setting auto-accept-group for %s is not allowed." % (principal,))
+    elif (
+        record.recordType == RecordType.user and
+        not config.Scheduling.Options.AutoSchedule.AllowUsers
+    ):
+        print(
+            "Setting auto-accept-group for {record} is not allowed.".format(
+                record=prettyRecord(record)
+            )
+        )
 
-#     elif principal.record.recordType == "users" and not config.Scheduling.Options.AutoSchedule.AllowUsers:
-#         print("Setting auto-accept-group for %s is not allowed." % (principal,))
+    else:
+        groupRecord = yield recordForPrincipalID(record.service, autoAcceptGroup)
+        if groupRecord is None or groupRecord.recordType != RecordType.group:
+            print("Invalid principal ID: {id}".format(id=autoAcceptGroup))
+        else:
+            print("Setting auto-accept-group to {group} for {record}".format(
+                group=prettyRecord(groupRecord),
+                record=prettyRecord(record),
+            ))
 
-#     else:
-#         groupPrincipal = yield principalForPrincipalID(autoAcceptGroup, directory=directory)
-#         if groupPrincipal is None or groupPrincipal.record.recordType != "groups":
-#             print("Invalid principal ID: %s" % (autoAcceptGroup,))
-#         else:
-#             print("Setting auto-accept-group to %s for %s" % (
-#                 prettyPrincipal(groupPrincipal),
-#                 prettyPrincipal(principal),
-#             ))
+            # Get original fields
+            newFields = record.fields.copy()
 
-#             (yield updateRecord(False, directory,
-#                 principal.record.recordType,
-#                 guid=principal.record.guid,
-#                 shortNames=principal.record.shortNames,
-#                 fullName=principal.record.fullName,
-#                 autoAcceptGroup=groupPrincipal.record.guid,
-#                 **principal.record.extras
-#             ))
+            # Set new values
+            newFields[record.service.fieldName.autoAcceptGroup] = groupRecord.uid
+
+            updatedRecord = DirectoryRecord(record.service, newFields)
+            yield record.service.updateRecords([updatedRecord], create=False)
 
 
 
-# def action_getAutoAcceptGroup(rootResource, directory, store, principal):
-#     autoAcceptGroup = principal.getAutoAcceptGroup()
-#     if autoAcceptGroup:
-#         record = yield directory.recordWithGUID(autoAcceptGroup)
-#         if record is not None:
-#             groupPrincipal = yield directory.principalCollection.principalForUID(record.uid)
-#             if groupPrincipal is not None:
-#                 print("Auto-accept-group for %s is %s" % (
-#                     prettyPrincipal(principal),
-#                     prettyPrincipal(groupPrincipal),
-#                 ))
-#                 return
-#         print("Invalid auto-accept-group assigned: %s" % (autoAcceptGroup,))
-#     else:
-#         print("No auto-accept-group assigned to %s" % (prettyPrincipal(principal),))
-
-
-
-# @inlineCallbacks
-# def action_setValue(rootResource, directory, store, principal, name, value):
-#     print("Setting %s to %s for %s" % (
-#         name, value, prettyPrincipal(principal),
-#     ))
-
-#     principal.record.extras[attrMap[name]["attr"]] = value
-#     (yield updateRecord(False, directory,
-#         principal.record.recordType,
-#         guid=principal.record.guid,
-#         shortNames=principal.record.shortNames,
-#         fullName=principal.record.fullName,
-#         **principal.record.extras
-#     ))
-
-
-
-# def action_getValue(rootResource, directory, store, principal, name):
-#     print("%s for %s is %s" % (
-#         name,
-#         prettyPrincipal(principal),
-#         principal.record.extras[attrMap[name]["attr"]]
-#     ))
-
+@inlineCallbacks
+def action_getAutoAcceptGroup(store, record):
+    if record.autoAcceptGroup:
+        groupRecord = yield record.service.recordWithUID(
+            record.autoAcceptGroup
+        )
+        if groupRecord is not None:
+            print(
+                "Auto-accept-group for {record} is {group}".format(
+                    record=prettyRecord(record),
+                    group=prettyRecord(groupRecord),
+                )
+            )
+        else:
+            print(
+                "Invalid auto-accept-group assigned: {uid}".format(
+                    uid=record.autoAcceptGroup
+                )
+            )
+    else:
+        print(
+            "No auto-accept-group assigned to {record}".format(
+                record=prettyRecord(record)
+            )
+        )
 
 
 def abort(msg, status=1):
@@ -777,29 +744,16 @@ def abort(msg, status=1):
 
 def parseCreationArgs(args):
     """
-    Look at the command line arguments for --add, and figure out which
-    one is the shortName and which one is the guid by attempting to make a
-    UUID object out of them.
+    Look at the command line arguments for --add, and simply assume the first
+    is full name, the second is short name, and the third is uid.  We can make
+    this fancier later.
     """
 
-    fullName = args[0]
-    shortName = None
-    guid = None
-    for arg in args[1:]:
-        if isUUID(arg):
-            if guid is not None:
-                # Both the 2nd and 3rd args are UUIDs.  The first one
-                # should be used for shortName.
-                shortName = guid
-            guid = arg
-        else:
-            shortName = arg
+    fullName = args[0].decode("utf-8")
+    shortName = args[1].decode("utf-8")
+    uid = args[2].decode("utf-8")
 
-    if len(args) == 3 and guid is None:
-        # both shortName and guid were specified but neither was a UUID
-        raise ValueError("Invalid value for guid")
-
-    return fullName, shortName, guid
+    return fullName, shortName, uid
 
 
 
@@ -834,83 +788,6 @@ def printRecordList(records):
         print(format % (fullName, recordType, uid, u", ".join(shortNames)))
 
 
-
-@inlineCallbacks
-def updateRecord(create, directory, recordType, **kwargs):
-    """
-    Create/update a record, including the extra work required to set the
-    autoSchedule bit in the augment record.
-
-    If C{create} is true, the record is created, otherwise update the record
-    matching the guid in kwargs.
-    """
-
-    assignAutoSchedule = False
-    if "autoSchedule" in kwargs:
-        assignAutoSchedule = True
-        autoSchedule = kwargs["autoSchedule"]
-        del kwargs["autoSchedule"]
-    elif create:
-        assignAutoSchedule = True
-        autoSchedule = recordType in ("locations", "resources")
-
-    assignAutoScheduleMode = False
-    if "autoScheduleMode" in kwargs:
-        assignAutoScheduleMode = True
-        autoScheduleMode = kwargs["autoScheduleMode"]
-        del kwargs["autoScheduleMode"]
-    elif create:
-        assignAutoScheduleMode = True
-        autoScheduleMode = None
-
-    assignAutoAcceptGroup = False
-    if "autoAcceptGroup" in kwargs:
-        assignAutoAcceptGroup = True
-        autoAcceptGroup = kwargs["autoAcceptGroup"]
-        del kwargs["autoAcceptGroup"]
-    elif create:
-        assignAutoAcceptGroup = True
-        autoAcceptGroup = None
-
-    for key, value in kwargs.items():
-        if isinstance(value, unicode):
-            kwargs[key] = value.encode("utf-8")
-        elif isinstance(value, list):
-            newValue = [v.encode("utf-8") for v in value]
-            kwargs[key] = newValue
-
-    if create:
-        record = yield directory.createRecord(recordType, **kwargs)
-        kwargs['guid'] = record.guid
-    else:
-        try:
-            record = yield directory.updateRecord(recordType, **kwargs)
-        except NotImplementedError:
-            # Updating of directory information is not supported by underlying
-            # directory implementation, but allow augment information to be
-            # updated
-            record = yield directory.recordWithGUID(kwargs["guid"])
-            pass
-
-    augmentService = directory.serviceForRecordType(recordType).augmentService
-    augmentRecord = (yield augmentService.getAugmentRecord(kwargs['guid'], recordType))
-
-    if assignAutoSchedule:
-        augmentRecord.autoSchedule = autoSchedule
-    if assignAutoScheduleMode:
-        augmentRecord.autoScheduleMode = autoScheduleMode
-    if assignAutoAcceptGroup:
-        augmentRecord.autoAcceptGroup = autoAcceptGroup
-    (yield augmentService.addAugmentRecords([augmentRecord]))
-    try:
-        yield directory.updateRecord(recordType, **kwargs)
-    except NotImplementedError:
-        # Updating of directory information is not supported by underlying
-        # directory implementation, but allow augment information to be
-        # updated
-        pass
-
-    returnValue(record)
 
 
 

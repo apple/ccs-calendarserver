@@ -824,11 +824,10 @@ class DirectoryPrincipalResource (
         url = joinURL(parent.principalCollectionURL(), self.principalUID()) + slash
         self._url = url
 
-        # MOVE2WHO - hack: just adding an "s" using recordType.name (need a mapping)
         self._alternate_urls = tuple([
             joinURL(
                 parent.parent.principalCollectionURL(),
-                (record.recordType.name + "s"),
+                record.service.recordTypeToOldName(record.recordType),
                 quote(shortName.encode("utf-8"))
             ) + slash
             for shortName in record.shortNames
