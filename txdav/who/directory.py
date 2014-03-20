@@ -42,12 +42,13 @@ __all__ = [
 
 class CalendarDirectoryServiceMixin(object):
 
-    guid = "1332A615-4D3A-41FE-B636-FBE25BFB982E"
+    guid = u"1332A615-4D3A-41FE-B636-FBE25BFB982E"
 
     # Must maintain the hack for a bit longer:
     def setPrincipalCollection(self, principalCollection):
         """
-        Set the principal service that the directory relies on for doing proxy tests.
+        Set the principal service that the directory relies on for doing proxy
+        tests.
 
         @param principalService: the principal service.
         @type principalService: L{DirectoryProvisioningResource}
@@ -61,24 +62,26 @@ class CalendarDirectoryServiceMixin(object):
         from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
         address = normalizeCUAddr(address)
         record = None
-        if address.startswith("urn:uuid:"):
+        if address.startswith(u"urn:uuid:"):
             guid = address[9:]
             record = yield self.recordWithGUID(uuid.UUID(guid))
-        elif address.startswith("mailto:"):
+        elif address.startswith(u"mailto:"):
             records = yield self.recordsWithEmailAddress(address[7:])
             if records:
                 returnValue(records[0])
             else:
                 returnValue(None)
-        elif address.startswith("/principals/"):
-            parts = address.split("/")
+        elif address.startswith(u"/principals/"):
+            parts = address.split(u"/")
             if len(parts) == 4:
-                if parts[2] == "__uids__":
+                if parts[2] == u"__uids__":
                     uid = parts[3]
                     record = yield self.recordWithUID(uid)
                 else:
                     recordType = self.fieldName.lookupByName(parts[2])
-                    record = yield self.recordWithShortName(recordType, parts[3])
+                    record = (
+                        yield self.recordWithShortName(recordType, parts[3])
+                    )
 
         returnValue(record if record and record.hasCalendars else None)
 
@@ -86,8 +89,8 @@ class CalendarDirectoryServiceMixin(object):
     def recordsMatchingTokens(self, tokens, context=None, limitResults=50,
                               timeoutSeconds=10):
         fields = [
-            ("fullNames", MatchType.contains),
-            ("emailAddresses", MatchType.startsWith),
+            (u"fullNames", MatchType.contains),
+            (u"emailAddresses", MatchType.startsWith),
         ]
         outer = []
         for token in tokens:
@@ -123,7 +126,9 @@ class CalendarDirectoryServiceMixin(object):
         )
 
 
-    def recordsMatchingFields(self, fields, operand=Operand.OR, recordType=None):
+    def recordsMatchingFields(
+        self, fields, operand=Operand.OR, recordType=None
+    ):
         """
         @param fields: a iterable of tuples, each tuple consisting of:
             directory field name (C{unicode})
@@ -170,15 +175,15 @@ class CalendarDirectoryServiceMixin(object):
 
 
     _oldRecordTypeNames = {
-        "address": "addresses",
-        "group": "groups",
-        "location": "locations",
-        "resource": "resources",
-        "user": "users",
-        "readDelegateGroup": "readDelegateGroups",
-        "writeDelegateGroup": "writeDelegateGroups",
-        "readDelegatorGroup": "readDelegatorGroups",
-        "writeDelegatorGroup": "writeDelegatorGroups",
+        u"address": u"addresses",
+        u"group": u"groups",
+        u"location": u"locations",
+        u"resource": u"resources",
+        u"user": u"users",
+        u"readDelegateGroup": u"readDelegateGroups",
+        u"writeDelegateGroup": u"writeDelegateGroups",
+        u"readDelegatorGroup": u"readDelegatorGroups",
+        u"writeDelegatorGroup": u"writeDelegatorGroups",
     }
 
     # FIXME: Existing code assumes record type names are plural. Is there any
@@ -212,8 +217,8 @@ class CalendarDirectoryRecordMixin(object):
 
         elif isinstance(credentials, DigestedCredentials):
             log.debug("DigestedCredentials")
-            returnValue(
-                (yield self.verifyHTTPDigest(
+            returnValue((
+                yield self.verifyHTTPDigest(
                     self.shortNames[0],
                     self.service.realmName,
                     credentials.fields["uri"],
@@ -224,8 +229,8 @@ class CalendarDirectoryRecordMixin(object):
                     credentials.fields.get("qop", ""),
                     credentials.fields["response"],
                     credentials.method
-                ))
-            )
+                )
+            ))
 
 
     @property
@@ -234,10 +239,10 @@ class CalendarDirectoryRecordMixin(object):
             return frozenset()
 
         try:
-            cuas = set(
-                ["mailto:%s" % (emailAddress,)
-                 for emailAddress in self.emailAddresses]
-            )
+            cuas = set([
+                u"mailto:{}".format(emailAddress)
+                for emailAddress in self.emailAddresses
+            ])
         except AttributeError:
             cuas = set()
 
@@ -247,30 +252,32 @@ class CalendarDirectoryRecordMixin(object):
                     guid = unicode(self.guid).upper()
                 else:
                     guid = self.guid
-                cuas.add("urn:uuid:{guid}".format(guid=guid))
+                cuas.add(u"urn:uuid:{guid}".format(guid=guid))
         except AttributeError:
             # No guid
             pass
-        cuas.add("/principals/__uids__/{uid}/".format(uid=self.uid))
+        cuas.add(u"/principals/__uids__/{uid}/".format(uid=self.uid))
         for shortName in self.shortNames:
-            cuas.add("/principals/{rt}/{sn}/".format(
-                rt=self.service.recordTypeToOldName(self.recordType),
-                sn=shortName)
+            cuas.add(
+                u"/principals/{rt}/{sn}/".format(
+                    rt=self.service.recordTypeToOldName(self.recordType),
+                    sn=shortName
+                )
             )
         return frozenset(cuas)
 
 
     # Mapping from directory record.recordType to RFC2445 CUTYPE values
     _cuTypes = {
-        BaseRecordType.user: 'INDIVIDUAL',
-        BaseRecordType.group: 'GROUP',
-        DAVRecordType.resource: 'RESOURCE',
-        DAVRecordType.location: 'ROOM',
+        BaseRecordType.user: u"INDIVIDUAL",
+        BaseRecordType.group: u"GROUP",
+        DAVRecordType.resource: u"RESOURCE",
+        DAVRecordType.location: u"ROOM",
     }
 
 
     def getCUType(self):
-        return self._cuTypes.get(self.recordType, "UNKNOWN")
+        return self._cuTypes.get(self.recordType, u"UNKNOWN")
 
 
     @classmethod
@@ -286,16 +293,20 @@ class CalendarDirectoryRecordMixin(object):
         Disable calendaring and addressbooks as dictated by SACLs
         """
 
-        # FIXME: need to re-implement SACLs
+        # # FIXME: need to re-implement SACLs
         # if config.EnableSACLs and self.CheckSACL:
         #     username = self.shortNames[0]
         #     if self.CheckSACL(username, "calendar") != 0:
-        #         self.log.debug("%s is not enabled for calendaring due to SACL"
-        #                        % (username,))
+        #         self.log.debug(
+        #             "{user} is not enabled for calendaring due to SACL",
+        #             user=username
+        #         )
         #         self.enabledForCalendaring = False
         #     if self.CheckSACL(username, "addressbook") != 0:
-        #         self.log.debug("%s is not enabled for addressbooks due to SACL"
-        #                        % (username,))
+        #         self.log.debug(
+        #             "{user} is not enabled for addressbooks due to SACL",
+        #             user=username
+        #         )
         #         self.enabledForAddressBooks = False
 
 
@@ -306,14 +317,15 @@ class CalendarDirectoryRecordMixin(object):
 
     def cacheToken(self):
         """
-        Generate a token that can be uniquely used to identify the state of this record for use
-        in a cache.
+        Generate a token that can be uniquely used to identify the state of
+        this record for use in a cache.
         """
         return hash((
             self.__class__.__name__,
             self.service.realmName,
             self.recordType.name,
-            # self.shortNames, # MOVE2WHO FIXME: is this needed? it's not hashable
+            # MOVE2WHO FIXME: is this needed? it's not hashable
+            # self.shortNames,
             self.uid,
             self.hasCalendars,
         ))
@@ -321,23 +333,23 @@ class CalendarDirectoryRecordMixin(object):
 
     def canonicalCalendarUserAddress(self):
         """
-            Return a CUA for this record, preferring in this order:
-            urn:uuid: form
-            mailto: form
-            first in calendarUserAddresses list
+        Return a CUA for this record, preferring in this order:
+        urn:uuid: form
+        mailto: form
+        first in calendarUserAddresses list
         """
 
-        cua = ""
+        cua = u""
         for candidate in self.calendarUserAddresses:
             # Pick the first one, but urn:uuid: and mailto: can override
             if not cua:
                 cua = candidate
             # But always immediately choose the urn:uuid: form
-            if candidate.startswith("urn:uuid:"):
+            if candidate.startswith(u"urn:uuid:"):
                 cua = candidate
                 break
             # Prefer mailto: if no urn:uuid:
-            elif candidate.startswith("mailto:"):
+            elif candidate.startswith(u"mailto:"):
                 cua = candidate
         return cua
 

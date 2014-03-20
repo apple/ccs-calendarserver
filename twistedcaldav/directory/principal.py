@@ -28,7 +28,7 @@ __all__ = [
     "DirectoryCalendarPrincipalResource",
 ]
 
-from urllib import unquote
+from urllib import quote, unquote
 from urlparse import urlparse
 import uuid
 
@@ -826,7 +826,12 @@ class DirectoryPrincipalResource (
 
         # MOVE2WHO - hack: just adding an "s" using recordType.name (need a mapping)
         self._alternate_urls = tuple([
-            joinURL(parent.parent.principalCollectionURL(), record.recordType.name+"s", shortName) + slash for shortName in record.shortNames
+            joinURL(
+                parent.parent.principalCollectionURL(),
+                (record.recordType.name + "s"),
+                quote(shortName.encode("utf-8"))
+            ) + slash
+            for shortName in record.shortNames
         ])
 
 
@@ -838,7 +843,10 @@ class DirectoryPrincipalResource (
         """
         Principals are the same if their principalURLs are the same.
         """
-        return (self.principalURL() == other.principalURL()) if isinstance(other, DirectoryPrincipalResource) else False
+        if isinstance(other, DirectoryPrincipalResource):
+            return (self.principalURL() == other.principalURL())
+        else:
+            return False
 
 
     def __ne__(self, other):
