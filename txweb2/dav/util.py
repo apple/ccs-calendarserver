@@ -129,7 +129,7 @@ def normalizeURL(url):
 
     (scheme, host, path, query, fragment) = urlsplit(cleanup(url))
 
-    path = cleanup(posixpath.normpath(urllib.unquote(path)))
+    path = cleanup(posixpath.normpath(urllib.unquote(path))).encode("utf-8")
 
     return urlunsplit((scheme, host, urllib.quote(path), query, fragment))
 
