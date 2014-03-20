@@ -18,8 +18,8 @@ from __future__ import print_function
 import os
 from urllib import quote
 
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.cred.credentials import UsernamePassword
-from twisted.internet.defer import inlineCallbacks
 
 from txweb2.dav.fileop import rmdir
 from txweb2.dav.resource import AccessDeniedError
@@ -42,7 +42,6 @@ from twistedcaldav.directory.calendar import (
 )
 from twistedcaldav.directory.principal import (
     DirectoryCalendarPrincipalResource,
-    DirectoryPrincipalProvisioningResource,
     DirectoryPrincipalResource,
     DirectoryPrincipalTypeProvisioningResource,
 )
@@ -50,38 +49,16 @@ from twistedcaldav.test.util import StoreTestCase
 
 
 
-# twistedcaldav.test.util.TestCase
 class ProvisionedPrincipals(StoreTestCase):
     """
     Directory service provisioned principals.
     """
-    # def setUp(self):
-    #     super(ProvisionedPrincipals, self).setUp()
+    @inlineCallbacks
+    def setUp(self):
+        yield super(ProvisionedPrincipals, self).setUp()
 
-    #     self.directoryServices = (
-    #         XMLDirectoryService(
-    #             {
-    #                 'xmlFile' : xmlFile,
-    #                 'augmentService' :
-    #                     augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,)),
-    #             }
-    #         ),
-    #     )
+        self.principalRootResource = self.actualRoot.getChild("principals")
 
-    #     # Set up a principals hierarchy for each service we're testing with
-    #     self.principalRootResources = {}
-    #     for directory in self.directoryServices:
-    #         name = directory.__class__.__name__
-    #         url = "/" + name + "/"
-
-    #         provisioningResource = DirectoryPrincipalProvisioningResource(url, directory)
-    #         directory.setPrincipalCollection(provisioningResource)
-
-    #         self.site.resource.putChild(name, provisioningResource)
-
-    #         self.principalRootResources[directory.__class__.__name__] = provisioningResource
-
-    #     calendaruserproxy.ProxyDBService = calendaruserproxy.ProxySqliteDB(os.path.abspath(self.mktemp()))
 
 
     @inlineCallbacks
@@ -99,14 +76,11 @@ class ProvisionedPrincipals(StoreTestCase):
 
         DirectoryPrincipalResource.principalURL(),
         """
-        directory = self.directory
         if True:
             #print("\n -> %s" % (directory.__class__.__name__,))
-            provisioningResource = (
-                self.principalRootResources[directory.__class__.__name__]
-            )
+            provisioningResource = self.principalRootResource
 
-            provisioningURL = "/" + directory.__class__.__name__ + "/"
+            provisioningURL = "/" + self.directory.__class__.__name__ + "/"
             self.assertEquals(
                 provisioningURL,
                 provisioningResource.principalCollectionURL()
@@ -119,7 +93,7 @@ class ProvisionedPrincipals(StoreTestCase):
             )
 
             recordTypes = set((yield provisioningResource.listChildren()))
-            self.assertEquals(recordTypes, set(directory.recordTypes()))
+            self.assertEquals(recordTypes, set(self.directory.recordTypes()))
 
             for recordType in recordTypes:
                 #print("   -> %s" % (recordType,))
@@ -148,14 +122,16 @@ class ProvisionedPrincipals(StoreTestCase):
                 shortNames = set((yield typeResource.listChildren()))
                 # Handle records with mulitple shortNames
                 expected = []
-                for r in directory.listRecords(recordType):
+                for r in (
+                    yield self.directory.recordsWithRecordType(recordType)
+                ):
                     if r.uid != "disabled":
                         expected.extend(r.shortNames)
                 self.assertEquals(shortNames, set(expected))
 
                 for shortName in shortNames:
                     #print("     -> %s" % (shortName,))
-                    recordResource = typeResource.getChild(shortName)
+                    recordResource = yield typeResource.getChild(shortName)
                     self.failUnless(
                         isinstance(recordResource, DirectoryPrincipalResource)
                     )
@@ -182,14 +158,15 @@ class ProvisionedPrincipals(StoreTestCase):
                     )
 
 
+    @inlineCallbacks
     def test_allRecords(self):
         """
         Test of a test routine...
         """
         for (
             provisioningResource, recordType, recordResource, record
-        ) in self._allRecords():
-            if record.enabled:
+        ) in (yield self._allRecords()):
+            if True:  # user.enabled:
                 self.assertEquals(recordResource.record, record)
 
 
@@ -197,99 +174,108 @@ class ProvisionedPrincipals(StoreTestCase):
     # DirectoryPrincipalProvisioningResource
     ##
 
+    @inlineCallbacks
     def test_principalForShortName(self):
         """
         DirectoryPrincipalProvisioningResource.principalForShortName()
         """
         for (
             provisioningResource, recordType, recordResource, record
-        ) in self._allRecords():
-            principal = provisioningResource.principalForShortName(
+        ) in (yield self._allRecords()):
+            principal = yield provisioningResource.principalForShortName(
                 recordType, record.shortNames[0]
             )
-            if record.enabled:
+            if True:  # user.enabled:
                 self.failIf(principal is None)
                 self.assertEquals(record, principal.record)
             else:
                 self.failIf(principal is not None)
 
 
+    @inlineCallbacks
     def test_principalForUser(self):
         """
         DirectoryPrincipalProvisioningResource.principalForUser()
         """
-        directory = self.directory
-        provisioningResource = (
-            self.principalRootResources[directory.__class__.__name__]
-        )
+        provisioningResource = self.principalRootResource
 
-        for user in directory.listRecords(DirectoryService.recordType_users):
-            userResource = provisioningResource.principalForUser(
+        for user in (
+            yield self.directory.recordsWithRecordType(
+                self.directory.recordType.user
+            )
+        ):
+            userResource = yield provisioningResource.principalForUser(
                 user.shortNames[0]
             )
-            if user.enabled:
+            if True:  # user.enabled:
                 self.failIf(userResource is None)
                 self.assertEquals(user, userResource.record)
             else:
                 self.failIf(userResource is not None)
 
 
+    @inlineCallbacks
     def test_principalForAuthID(self):
         """
         DirectoryPrincipalProvisioningResource.principalForAuthID()
         """
-        directory = self.directory
-        provisioningResource = (
-            self.principalRootResources[directory.__class__.__name__]
-        )
+        provisioningResource = self.principalRootResource
 
-        for user in directory.listRecords(DirectoryService.recordType_users):
+        for user in (
+            yield self.directory.recordsWithRecordType(
+                self.directory.recordType.user
+            )
+        ):
             creds = UsernamePassword(user.shortNames[0], "bogus")
-            userResource = provisioningResource.principalForAuthID(creds)
-            if user.enabled:
+            userResource = yield provisioningResource.principalForAuthID(creds)
+            if True:  # user.enabled:
                 self.failIf(userResource is None)
                 self.assertEquals(user, userResource.record)
             else:
                 self.failIf(userResource is not None)
 
 
+    @inlineCallbacks
     def test_principalForUID(self):
         """
         DirectoryPrincipalProvisioningResource.principalForUID()
         """
         for (
             provisioningResource, recordType, recordResource, record
-        ) in self._allRecords():
-            principal = provisioningResource.principalForUID(record.uid)
-            if record.enabled:
+        ) in (yield self._allRecords()):
+            principal = yield provisioningResource.principalForUID(record.uid)
+            if True:  # user.enabled:
                 self.failIf(principal is None)
                 self.assertEquals(record, principal.record)
             else:
                 self.failIf(principal is not None)
 
 
+    @inlineCallbacks
     def test_principalForRecord(self):
         """
         DirectoryPrincipalProvisioningResource.principalForRecord()
         """
         for (
             provisioningResource, recordType, recordResource, record
-        ) in self._allRecords():
-            principal = provisioningResource.principalForRecord(record)
-            if record.enabled:
+        ) in (yield self._allRecords()):
+            principal = yield provisioningResource.principalForRecord(record)
+            if True:  # user.enabled:
                 self.failIf(principal is None)
                 self.assertEquals(record, principal.record)
             else:
                 self.failIf(principal is not None)
 
 
+    @inlineCallbacks
     def test_principalForCalendarUserAddress(self):
         """
-        DirectoryPrincipalProvisioningResource.principalForCalendarUserAddress()
+        DirectoryPrincipalProvisioningResource
+        .principalForCalendarUserAddress()
         """
         for (
             provisioningResource, recordType, recordResource, record
-        ) in self._allRecords():
+        ) in (yield self._allRecords()):
 
             test_items = tuple(record.calendarUserAddresses)
             if recordResource:
@@ -302,61 +288,69 @@ class ProvisionedPrincipals(StoreTestCase):
 
             for address in test_items:
                 principal = (
-                    provisioningResource
+                    yield provisioningResource
                     .principalForCalendarUserAddress(address)
                 )
-                if record.enabledForCalendaring:
+                if record.hasCalendars:
                     self.failIf(principal is None)
                     self.assertEquals(record, principal.record)
                 else:
                     self.failIf(principal is not None)
 
         # Explicitly check the disabled record
-        provisioningResource = (
-            self.principalRootResources['XMLDirectoryService']
-        )
+        provisioningResource = self.principalRootResource
 
         self.failUnlessIdentical(
-            provisioningResource.principalForCalendarUserAddress(
-                "mailto:nocalendar@example.com"
+            (
+                yield provisioningResource.principalForCalendarUserAddress(
+                    "mailto:nocalendar@example.com"
+                )
             ),
             None
         )
         self.failUnlessIdentical(
-            provisioningResource.principalForCalendarUserAddress(
-                "urn:uuid:543D28BA-F74F-4D5F-9243-B3E3A61171E5"
+            (
+                yield provisioningResource.principalForCalendarUserAddress(
+                    "urn:uuid:543D28BA-F74F-4D5F-9243-B3E3A61171E5"
+                )
             ),
             None
         )
         self.failUnlessIdentical(
-            provisioningResource.principalForCalendarUserAddress(
-                "/principals/users/nocalendar/"
+            (
+                yield provisioningResource.principalForCalendarUserAddress(
+                    "/principals/users/nocalendar/"
+                )
             ),
             None
         )
         self.failUnlessIdentical(
-            provisioningResource.principalForCalendarUserAddress(
-                "/principals/__uids__/543D28BA-F74F-4D5F-9243-B3E3A61171E5/"
+            (
+                yield provisioningResource.principalForCalendarUserAddress(
+                    "/principals/__uids__/"
+                    "543D28BA-F74F-4D5F-9243-B3E3A61171E5/"
+                )
             ),
             None
         )
 
 
     @inlineCallbacks
-    def test_enabledForCalendaring(self):
+    def test_hasCalendars(self):
         """
-        DirectoryPrincipalProvisioningResource.principalForCalendarUserAddress()
+        DirectoryPrincipalProvisioningResource
+        .principalForCalendarUserAddress()
         """
         for (
             provisioningResource, recordType, recordResource, record
-        ) in self._allRecords():
-            principal = provisioningResource.principalForRecord(record)
-            if record.enabled:
+        ) in (yield self._allRecords()):
+            principal = yield provisioningResource.principalForRecord(record)
+            if True:  # user.enabled:
                 self.failIf(principal is None)
             else:
                 self.failIf(principal is not None)
                 continue
-            if record.enabledForCalendaring:
+            if record.hasCalendars:
                 self.assertTrue(
                     isinstance(principal, DirectoryCalendarPrincipalResource)
                 )
@@ -364,7 +358,7 @@ class ProvisionedPrincipals(StoreTestCase):
                 self.assertTrue(
                     isinstance(principal, DirectoryPrincipalResource)
                 )
-                if record.enabledForAddressBooks:
+                if record.hasContacts:
                     self.assertTrue(
                         isinstance(
                             principal, DirectoryCalendarPrincipalResource
@@ -397,7 +391,7 @@ class ProvisionedPrincipals(StoreTestCase):
                         % (principal, property,)
                     )
 
-            if record.enabledForCalendaring:
+            if record.hasCalendars:
                 yield hasProperty(
                     (caldav_namespace, "calendar-home-set")
                 )
@@ -448,7 +442,7 @@ class ProvisionedPrincipals(StoreTestCase):
                     (calendarserver_namespace, "auto-schedule")
                 )
 
-            if record.enabledForAddressBooks:
+            if record.hasContacts:
                 yield hasProperty(carddavxml.AddressBookHomeSet.qname())
             else:
                 yield doesNotHaveProperty(
@@ -456,20 +450,23 @@ class ProvisionedPrincipals(StoreTestCase):
                 )
 
 
+    @inlineCallbacks
     def test_enabledAsOrganizer(self):
         """
-        DirectoryPrincipalProvisioningResource.principalForCalendarUserAddress()
+        DirectoryPrincipalProvisioningResource
+        .principalForCalendarUserAddress()
         """
-
         ok_types = (
-            DirectoryService.recordType_users,
+            self.directory.recordType.user,
         )
         for (
             provisioningResource, recordType, recordResource, record
-        ) in self._allRecords():
+        ) in (yield self._allRecords()):
 
-            if record.enabledForCalendaring:
-                principal = provisioningResource.principalForRecord(record)
+            if record.hasCalendars:
+                principal = (
+                    yield provisioningResource.principalForRecord(record)
+                )
                 self.failIf(principal is None)
                 self.assertEqual(
                     principal.enabledAsOrganizer(),
@@ -480,16 +477,18 @@ class ProvisionedPrincipals(StoreTestCase):
         config.Scheduling.Options.AllowLocationAsOrganizer = True
         config.Scheduling.Options.AllowResourceAsOrganizer = True
         ok_types = (
-            DirectoryService.recordType_users,
-            DirectoryService.recordType_groups,
-            DirectoryService.recordType_locations,
-            DirectoryService.recordType_resources,
+            self.directory.recordType.user,
+            self.directory.recordType.group,
+            self.directory.recordType.location,
+            self.directory.recordType.resource,
         )
         for (
             provisioningResource, recordType, recordResource, record
-        ) in self._allRecords():
-            if record.enabledForCalendaring:
-                principal = provisioningResource.principalForRecord(record)
+        ) in (yield self._allRecords()):
+            if record.hasCalendars:
+                principal = (
+                    yield provisioningResource.principalForRecord(record)
+                )
                 self.failIf(principal is None)
                 self.assertEqual(
                     principal.enabledAsOrganizer(),
@@ -504,6 +503,7 @@ class ProvisionedPrincipals(StoreTestCase):
     # DirectoryPrincipalResource
     ##
 
+    @inlineCallbacks
     def test_cacheNotifier(self):
         """
         Each DirectoryPrincipalResource should have a cacheNotifier attribute
@@ -511,8 +511,8 @@ class ProvisionedPrincipals(StoreTestCase):
         """
         for (
             provisioningResource, recordType, recordResource, record
-        ) in self._allRecords():
-            if record.enabled:
+        ) in (yield self._allRecords()):
+            if True:  # user.enabled:
                 self.failUnless(
                     isinstance(
                         recordResource.cacheNotifier,
@@ -521,14 +521,15 @@ class ProvisionedPrincipals(StoreTestCase):
                 )
 
 
+    @inlineCallbacks
     def test_displayName(self):
         """
         DirectoryPrincipalResource.displayName()
         """
         for (
             provisioningResource, recordType, recordResource, record
-        ) in self._allRecords():
-            if record.enabled:
+        ) in (yield self._allRecords()):
+            if True:  # user.enabled:
                 self.failUnless(recordResource.displayName())
 
 
@@ -539,11 +540,11 @@ class ProvisionedPrincipals(StoreTestCase):
         """
         for (
             provisioningResource, recordType, recordResource, record
-        ) in self._allRecords():
-            if record.enabled:
+        ) in (yield self._allRecords()):
+            if True:  # user.enabled:
                 members = yield recordResource.groupMembers()
                 self.failUnless(
-                    set(record.members()).issubset(
+                    set((yield record.members())).issubset(
                         set(r.record for r in members)
                     )
                 )
@@ -556,11 +557,11 @@ class ProvisionedPrincipals(StoreTestCase):
         """
         for (
             provisioningResource, recordType, recordResource, record
-        ) in self._allRecords():
-            if record.enabled:
+        ) in (yield self._allRecords()):
+            if True:  # user.enabled:
                 memberships = yield recordResource.groupMemberships()
                 self.failUnless(
-                    set(record.groups()).issubset(
+                    set((yield record.groups())).issubset(
                         set(
                             r.record
                             for r in memberships if hasattr(r, "record")
@@ -569,49 +570,53 @@ class ProvisionedPrincipals(StoreTestCase):
                 )
 
 
+    @inlineCallbacks
     def test_principalUID(self):
         """
         DirectoryPrincipalResource.principalUID()
         """
         for (
             provisioningResource, recordType, recordResource, record
-        ) in self._allRecords():
-            if record.enabled:
+        ) in (yield self._allRecords()):
+            if True:  # user.enabled:
                 self.assertEquals(record.guid, recordResource.principalUID())
 
 
+    @inlineCallbacks
     def test_calendarUserAddresses(self):
         """
         DirectoryPrincipalResource.calendarUserAddresses()
         """
         for (
             provisioningResource, recordType, recordResource, record
-        ) in self._allRecords():
-            if record.enabledForCalendaring:
+        ) in (yield self._allRecords()):
+            if record.hasCalendars:
                 self.assertEqual(
                     set(record.calendarUserAddresses),
                     set(recordResource.calendarUserAddresses())
                 )
 
                 # Verify that if not enabled for calendaring, no CUAs:
-                record.enabledForCalendaring = False
+                record.hasCalendars = False
                 self.failIf(recordResource.calendarUserAddresses())
 
 
+    @inlineCallbacks
     def test_canonicalCalendarUserAddress(self):
         """
         DirectoryPrincipalResource.canonicalCalendarUserAddress()
         """
         for (
             provisioningResource, recordType, recordResource, record
-        ) in self._allRecords():
-            if record.enabledForCalendaring:
+        ) in (yield self._allRecords()):
+            if record.hasCalendars:
                 self.failUnless(
                     recordResource.canonicalCalendarUserAddress()
                     .startswith("urn:uuid:")
                 )
 
 
+    @inlineCallbacks
     def test_addressBookHomeURLs(self):
         """
         DirectoryPrincipalResource.addressBookHomeURLs(),
@@ -620,57 +625,43 @@ class ProvisionedPrincipals(StoreTestCase):
         # homes.
         for (
             provisioningResource, recordType, recordResource, record
-        ) in self._allRecords():
-            if record.enabledForAddressBooks:
+        ) in (yield self._allRecords()):
+            if record.hasContacts:
                 self.failIf(tuple(recordResource.addressBookHomeURLs()))
 
-        # Need to create a addressbook home provisioner for each service.
-        addressBookRootResources = {}
-
-        directory = self.directory
-        path = os.path.join(self.docroot, directory.__class__.__name__)
+        path = os.path.join(self.docroot, self.directory.__class__.__name__)
 
         if os.path.exists(path):
             rmdir(path)
         os.mkdir(path)
 
-        # need a data store
-        newstore = commondatastore(path, none, none, true, false)
-
-        provisioningresource = directoryaddressbookhomeprovisioningresource(
-            directory,
+        addressBookRootResource = DirectoryAddressBookHomeProvisioningResource(
+            self.directory,
             "/addressbooks/",
-            newstore
-        )
-
-        addressbookrootresources[directory.__class__.__name__] = (
-            provisioningResource
+            self.storeUnderTest()
         )
 
         # AddressBook home provisioners should result in addressBook homes.
         for (
             provisioningResource, recordType, recordResource, record
-        ) in self._allRecords():
-            if record.enabledForAddressBooks:
+        ) in (yield self._allRecords()):
+            if record.hasContacts:
                 homeURLs = tuple(recordResource.addressBookHomeURLs())
                 self.failUnless(homeURLs)
 
-                # Turn off enabledForAddressBooks and addressBookHomeURLs
+                # Turn off hasContacts and addressBookHomeURLs
                 # should be empty
-                record.enabledForAddressBooks = False
+                record.hasContacts = False
                 self.failIf(tuple(recordResource.addressBookHomeURLs()))
-                record.enabledForAddressBooks = True
+                record.hasContacts = True
 
-                addressBookRootURL = (
-                    addressBookRootResources[
-                        record.service.__class__.__name__
-                    ].url()
-                )
+                addressBookRootURL = addressBookRootResource.url()
 
                 for homeURL in homeURLs:
                     self.failUnless(homeURL.startswith(addressBookRootURL))
 
 
+    @inlineCallbacks
     def test_calendarHomeURLs(self):
         """
         DirectoryPrincipalResource.calendarHomeURLs(),
@@ -680,8 +671,8 @@ class ProvisionedPrincipals(StoreTestCase):
         # No calendar home provisioner should result in no calendar homes.
         for (
             provisioningResource, recordType, recordResource, record
-        ) in self._allRecords():
-            if record.enabledForCalendaring:
+        ) in (yield self._allRecords()):
+            if record.hasCalendars:
                 self.failIf(tuple(recordResource.calendarHomeURLs()))
                 self.failIf(recordResource.scheduleInboxURL())
                 self.failIf(recordResource.scheduleOutboxURL())
@@ -689,8 +680,7 @@ class ProvisionedPrincipals(StoreTestCase):
         # Need to create a calendar home provisioner for each service.
         calendarRootResources = {}
 
-        directory = self.directory
-        path = os.path.join(self.docroot, directory.__class__.__name__)
+        path = os.path.join(self.docroot, self.directory.__class__.__name__)
 
         if os.path.exists(path):
             rmdir(path)
@@ -700,28 +690,28 @@ class ProvisionedPrincipals(StoreTestCase):
         _newStore = CommonDataStore(path, None, None, True, False)
 
         provisioningResource = DirectoryCalendarHomeProvisioningResource(
-            directory,
+            self.directory,
             "/calendars/",
             _newStore
         )
 
-        calendarRootResources[directory.__class__.__name__] = (
+        calendarRootResources[self.directory.__class__.__name__] = (
             provisioningResource
         )
 
         # Calendar home provisioners should result in calendar homes.
         for (
             provisioningResource, recordType, recordResource, record
-        ) in self._allRecords():
-            if record.enabledForCalendaring:
+        ) in (yield self._allRecords()):
+            if record.hasCalendars:
                 homeURLs = tuple(recordResource.calendarHomeURLs())
                 self.failUnless(homeURLs)
 
-                # Turn off enabledForCalendaring and calendarHomeURLs should
+                # Turn off hasCalendars and calendarHomeURLs should
                 # be empty
-                record.enabledForCalendaring = False
+                record.hasCalendars = False
                 self.failIf(tuple(recordResource.calendarHomeURLs()))
-                record.enabledForCalendaring = True
+                record.hasCalendars = True
 
                 calendarRootURL = (
                     calendarRootResources[
@@ -752,6 +742,7 @@ class ProvisionedPrincipals(StoreTestCase):
                 self.failIf(outboxURL)
 
 
+    @inlineCallbacks
     def test_canAutoSchedule(self):
         """
         DirectoryPrincipalResource.canAutoSchedule()
@@ -760,8 +751,8 @@ class ProvisionedPrincipals(StoreTestCase):
         # Set all resources and locations to auto-schedule, plus one user
         for (
             provisioningResource, recordType, recordResource, record
-        ) in self._allRecords():
-            if record.enabledForCalendaring:
+        ) in (yield self._allRecords()):
+            if record.hasCalendars:
                 if (
                     recordType in ("locations", "resources") or
                     record.uid == "cdaboo"
@@ -771,8 +762,8 @@ class ProvisionedPrincipals(StoreTestCase):
         # Default state - resources and locations, enabled, others not
         for (
             provisioningResource, recordType, recordResource, record
-        ) in self._allRecords():
-            if record.enabledForCalendaring:
+        ) in (yield self._allRecords()):
+            if record.hasCalendars:
                 if recordType in ("locations", "resources"):
                     self.assertTrue(recordResource.canAutoSchedule())
                 else:
@@ -782,8 +773,8 @@ class ProvisionedPrincipals(StoreTestCase):
         self.patch(config.Scheduling.Options.AutoSchedule, "AllowUsers", True)
         for (
             provisioningResource, recordType, recordResource, record
-        ) in self._allRecords():
-            if record.enabledForCalendaring:
+        ) in (yield self._allRecords()):
+            if record.hasCalendars:
                 if (
                     recordType in ("locations", "resources") or
                     record.uid == "cdaboo"
@@ -796,11 +787,12 @@ class ProvisionedPrincipals(StoreTestCase):
         self.patch(config.Scheduling.Options.AutoSchedule, "Enabled", False)
         for (
             provisioningResource, recordType, recordResource, record
-        ) in self._allRecords():
-            if record.enabledForCalendaring:
+        ) in (yield self._allRecords()):
+            if record.hasCalendars:
                 self.assertFalse(recordResource.canAutoSchedule())
 
 
+    @inlineCallbacks
     def test_canAutoScheduleAutoAcceptGroup(self):
         """
         DirectoryPrincipalResource.canAutoSchedule(organizer)
@@ -812,7 +804,7 @@ class ProvisionedPrincipals(StoreTestCase):
 
         for (
             provisioningResource, recordType, recordResource, record
-        ) in self._allRecords():
+        ) in (yield self._allRecords()):
             if record.uid == "apollo":
 
                 # No organizer
@@ -839,10 +831,12 @@ class ProvisionedPrincipals(StoreTestCase):
         """
         for (
             provisioningResource, recordType, recordResource, record
-        ) in self._allRecords():
-            if record.enabled:
-                for args in _authReadOnlyPrivileges(
-                    self, recordResource, recordResource.principalURL()
+        ) in (yield self._allRecords()):
+            if True:  # user.enabled:
+                for args in (
+                    yield _authReadOnlyPrivileges(
+                        self, recordResource, recordResource.principalURL()
+                    )
                 ):
                     yield self._checkPrivileges(*args)
 
@@ -852,24 +846,24 @@ class ProvisionedPrincipals(StoreTestCase):
         """
         Default access controls for principal provisioning resources.
         """
-        directory = self.directory
-        #print("\n -> %s" % (directory.__class__.__name__,))
-        provisioningResource = (
-            self.principalRootResources[directory.__class__.__name__]
-        )
+        provisioningResource = self.principalRootResource
 
-        for args in _authReadOnlyPrivileges(
-            self, provisioningResource,
-            provisioningResource.principalCollectionURL()
+        for args in (
+            yield _authReadOnlyPrivileges(
+                self, provisioningResource,
+                provisioningResource.principalCollectionURL()
+            )
         ):
             yield self._checkPrivileges(*args)
 
         for recordType in (yield provisioningResource.listChildren()):
             #print("   -> %s" % (recordType,))
-            typeResource = provisioningResource.getChild(recordType)
+            typeResource = yield provisioningResource.getChild(recordType)
 
-            for args in _authReadOnlyPrivileges(
-                self, typeResource, typeResource.principalCollectionURL()
+            for args in (
+                yield _authReadOnlyPrivileges(
+                    self, typeResource, typeResource.principalCollectionURL()
+                )
             ):
                 yield self._checkPrivileges(*args)
 
@@ -884,9 +878,7 @@ class ProvisionedPrincipals(StoreTestCase):
             def qname(self):
                 return self.ns, self.name
 
-        provisioningResource = (
-            self.principalRootResources['XMLDirectoryService']
-        )
+        provisioningResource = self.principalRootResource
 
         expected = (
             (
@@ -961,6 +953,7 @@ class ProvisionedPrincipals(StoreTestCase):
             )
 
 
+    @inlineCallbacks
     def _allRecords(self):
         """
         @return: an iterable of tuples
@@ -968,18 +961,21 @@ class ProvisionedPrincipals(StoreTestCase):
             where C{provisioningResource} is the root provisioning resource,
             C{recordType} is the record type, C{recordResource} is the
             principal resource and C{record} is the directory service record
-            for each record in each directory in C{directoryServices}.
+            for each record the directory.
         """
-        directory = self.directory
-        provisioningResource = self.principalRootResources[
-            directory.__class__.__name__
-        ]
-        for recordType in directory.recordTypes():
-            for record in directory.listRecords(recordType):
+        provisioningResource = self.principalRootResource
+        results = []
+        for recordType in self.directory.recordTypes():
+            for record in (
+                yield self.directory.recordsWithRecordType(recordType)
+            ):
                 recordResource = (
-                    provisioningResource.principalForRecord(record)
+                    yield provisioningResource.principalForRecord(record)
                 )
-                yield provisioningResource, recordType, recordResource, record
+                results.append(
+                    (provisioningResource, recordType, recordResource, record)
+                )
+        returnValue(results)
 
 
     def _checkPrivileges(self, resource, url, principal, privilege, allowed):
@@ -1017,12 +1013,13 @@ class ProvisionedPrincipals(StoreTestCase):
 
 
 
+@inlineCallbacks
 def _authReadOnlyPrivileges(self, resource, url):
     items = []
     for (
         provisioningResource, recordType, recordResource, record
-    ) in self._allRecords():
-        if record.enabled:
+    ) in (yield self._allRecords()):
+        if True:  # user.enabled:
             items.append((
                 davxml.HRef().fromString(recordResource.principalURL()),
                 davxml.Read(), True
@@ -1038,5 +1035,8 @@ def _authReadOnlyPrivileges(self, resource, url):
         davxml.Unauthenticated(), davxml.Write(), False
     ))
 
+    results = []
     for principal, privilege, allowed in items:
-        yield resource, url, principal, privilege, allowed
+        results.append((resource, url, principal, privilege, allowed))
+
+    returnValue(results)
