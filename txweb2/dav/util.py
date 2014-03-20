@@ -125,13 +125,13 @@ def normalizeURL(url):
                 count += 1
             path = path[count - 1:]
 
-        return path
+        return path.encode("utf-8")
 
     (scheme, host, path, query, fragment) = urlsplit(cleanup(url))
 
-    path = cleanup(posixpath.normpath(urllib.unquote(path))).encode("utf-8")
+    path = cleanup(posixpath.normpath(path))
 
-    return urlunsplit((scheme, host, urllib.quote(path), query, fragment))
+    return urlunsplit((scheme, host, path, query, fragment))
 
 
 
