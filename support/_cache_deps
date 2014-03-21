@@ -30,16 +30,19 @@ develop > /dev/null;
 
 mkdir "${wd}/requirements/cache";
 
-find "${wd}/requirements" -type f -name "py_*.txt" | while read requirements; do
-  case "${requirements}" in
-    */py_opt_OpenDirectory.txt) download=false; ;;
-    */py_opt_Oracle.txt) download=false; ;;
-    *) download=true; ;;
-  esac;
+find "${wd}/requirements" -type f -name "py_*.txt" |\
+  while read requirements; do
+    case "${requirements}" in
+      */py_opt_OpenDirectory.txt) download=false; ;;
+      */py_opt_Oracle.txt) download=false; ;;
+      *) download=true; ;;
+    esac;
 
-  if "${download}"; then
-    echo "Downloading requirements from: ${requirements}";
+    if "${download}"; then
+      echo "Downloading requirements from: ${requirements}";
 
-    "${python}" -m pip install --download "${wd}/requirements/cache" --requirement "${requirements}";
-  fi;
-done;
+      "${python}" -m pip install               \
+        --download "${wd}/requirements/cache"  \
+        --requirement "${requirements}";
+    fi;
+  done;
