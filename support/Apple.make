@@ -27,23 +27,28 @@ ToolType    = Applications
 
 # Include common makefile targets for B&I
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
-include /AppleInternal/ServerTools/ServerBuildVariables.xcconfig
+-include /AppleInternal/ServerTools/ServerBuildVariables.xcconfig
 
+ifeq ($(RPCFILES),)
+SIPP = /Applications/Server.app/Contents/ServerRoot
+else
 SIPP = $(SERVER_INSTALL_PATH_PREFIX)
+endif
 SERVERSETUP = $(SIPP)$(NSSYSTEMDIR)$(NSLIBRARYSUBDIR)/ServerSetup
 
 Cruft += .develop
-Extra_Environment += PATH="$(SIPP)/usr/bin:$$PATH"
-Extra_Environment += PYTHONPATH="$(PY_TMP_LIB)"
+# Extra_Environment += PATH="$(SIPP)/usr/bin:$$PATH"
+# Extra_Environment += PYTHONPATH="$(CS_PY_LIBS)"
 
 CALDAVDSUBDIR = /caldavd
 
 PYTHON = $(USRBINDIR)/python
-PY_HOME = $(SIPP)$(SHAREDIR)$(CALDAVDSUBDIR)
-PY_TMP_LIB = $(DSTROOT)$(SIPP)/usr/share/caldavd/lib/python/
-PY_INSTALL_FLAGS = --root="$(DSTROOT)" --prefix="$(SIPP)" --install-lib="$(PY_HOME)/lib/python" --install-scripts="$(SIPP)$(LIBEXECDIR)$(CALDAVDSUBDIR)"
-CS_INSTALL_FLAGS = --install-scripts="$(SIPP)$(USRSBINDIR)" --install-data="$(SIPP)$(ETCDIR)"
-CS_BUILD_EXT_FLAGS = --include-dirs="$(SIPP)/usr/include" --library-dirs="$(SIPP)/usr/lib"
+CS_SHAREDIR = $(SHAREDIR)$(CALDAVDSUBDIR)
+CS_PY_LIBS = $(CS_SHAREDIR)/lib/python
+CS_LIBEXEC = $(SIPP)$(LIBEXECDIR)$(CALDAVDSUBDIR)
+# PY_INSTALL_FLAGS = --root="$(DSTROOT)" --prefix="$(SIPP)" --install-lib="$(CS_PY_LIBS)" --install-scripts="$(CS_LIBEXEC)"
+# CS_INSTALL_FLAGS = --install-scripts="$(SIPP)$(USRSBINDIR)" --install-data="$(SIPP)$(ETCDIR)"
+# CS_BUILD_EXT_FLAGS = --include-dirs="$(SIPP)/usr/include" --library-dirs="$(SIPP)/usr/lib"
 
 CS_USER  = _calendar
 CS_GROUP = _calendar
@@ -52,39 +57,45 @@ CS_GROUP = _calendar
 # Build
 #
 
-.phony: $(Project) prep build install install-ossfiles buildit
+.phony: build install install_source install-ossfiles cache_deps buildit
 
-$(Project):: $(BuildDirectory)/$(Project)
-	@echo "Building $@..."
-	$(_v) cd $(BuildDirectory)/$@ && $(Environment) $(PYTHON) setup.py build
-
-build:: $(Project)
+build:: $(BuildDirectory)/$(Project)
+	# @echo "Building $(Project)...";
+	# $(_v) cd $(BuildDirectory)/$(Project) && $(Environment) $(PYTHON) setup.py build
 
 install:: build
-	$(_v) cd $(BuildDirectory)/$(Project) && \
-		$(Environment) $(PYTHON) setup.py \
-		build_ext $(CS_BUILD_EXT_FLAGS) \
-		install $(PY_INSTALL_FLAGS) $(CS_INSTALL_FLAGS) \
+	# $(_v) cd $(BuildDirectory)/$(Project) && \
+	# 	$(Environment) $(PYTHON) setup.py \
+	# 	build_ext $(CS_BUILD_EXT_FLAGS) \
+	# 	install $(PY_INSTALL_FLAGS) $(CS_INSTALL_FLAGS) \
+	# 	;
+	@echo "Installing Python packages...";
+	$(_v) pip install -e $(BuildDirectory)/$(Project)       \
+		--install-option --root="$(DSTROOT)"                \
+		--install-option --prefix="$(SIPP)"                 \
+		--install-option --install-lib="$(CS_PY_LIBS)"      \
+		--install-option --install-scripts="$(CS_LIBEXEC)"  \
 		;
-	$(_v) for so in $$(find "$(DSTROOT)$(PY_HOME)/lib" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done;
+	@echo "Cleaning up...";
+	$(_v) for so in $$(find "$(DSTROOT)$(CS_SHAREDIR)/lib" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done;
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)";
 	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)/caldavd-apple.plist";
-	$(_v) chmod -R ugo+r "$(DSTROOT)$(PY_HOME)";
+	$(_v) chmod -R ugo+r "$(DSTROOT)$(CS_SHAREDIR)";
 	$(_v) for f in $$(find "$(DSTROOT)$(SIPP)$(ETCDIR)" -type f ! -name '*.default'); do cp "$${f}" "$${f}.default"; done;
 
 install::
-	@echo "Installing manual pages..."
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/caldavd.8"                              "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_command_gateway.8"       "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_export.8"                "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_manage_principals.8"     "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_purge_attachments.8"     "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_purge_events.8"          "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_purge_principals.8"      "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_shell.8"                 "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_manage_timezones.8"      "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
-	$(_v) gzip -9 -f "$(DSTROOT)$(SIPP)$(MANDIR)/man8/"*.[0-9]
+	@echo "Installing manual pages...";
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/caldavd.8"                           "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_command_gateway.8"    "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_export.8"             "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_manage_principals.8"  "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_purge_attachments.8"  "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_purge_events.8"       "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_purge_principals.8"   "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_shell.8"              "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_manage_timezones.8"   "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
+	$(_v) gzip -9 -f "$(DSTROOT)$(SIPP)$(MANDIR)/man8/"*.[0-9];
 
 install::
 	@echo "Installing launchd config...";
@@ -132,8 +143,10 @@ install-ossfiles::
 # B&I Hooey
 #
 
-buildit:
+cache_deps::
 	@echo "Downloading dependencies...";
-	$(_v) ./support/_cache_deps
+	$(_v) if [ ! -d requirements/cache ]; then ./support/_cache_deps ]; fi;
+
+buildit: cache_deps
 	@echo "Running buildit...";
 	$(_v) sudo ~rc/bin/buildit $(CC_Archs) $(Sources);

@@ -28,6 +28,7 @@ do_setup="false";
 
 develop > /dev/null;
 
+rm -rf "${wd}/requirements/cache";
 mkdir "${wd}/requirements/cache";
 
 find "${wd}/requirements" -type f -name "py_*.txt" |\
