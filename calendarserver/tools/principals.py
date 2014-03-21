@@ -258,23 +258,23 @@ def main():
         elif opt in ("", "--get-auto-accept-group"):
             principalActions.append((action_getAutoAcceptGroup,))
 
-        # elif opt in ("", "--set-geo"):
-        #     principalActions.append((action_setValue, "Geo", arg))
+        elif opt in ("", "--set-geo"):
+            principalActions.append((action_setValue, u"geographicLocation", arg))
 
-        # elif opt in ("", "--get-geo"):
-        #     principalActions.append((action_getValue, "Geo"))
+        elif opt in ("", "--get-geo"):
+            principalActions.append((action_getValue, u"geographicLocation"))
 
-        # elif opt in ("", "--set-street-address"):
-        #     principalActions.append((action_setValue, "StreetAddress", arg))
+        elif opt in ("", "--set-street-address"):
+            principalActions.append((action_setValue, u"streetAddress", arg))
 
-        # elif opt in ("", "--get-street-address"):
-        #     principalActions.append((action_getValue, "StreetAddress"))
+        elif opt in ("", "--get-street-address"):
+            principalActions.append((action_getValue, u"streetAddress"))
 
-        # elif opt in ("", "--set-address"):
-        #     principalActions.append((action_setValue, "AssociatedAddress", arg))
+        elif opt in ("", "--set-address"):
+            principalActions.append((action_setValue, u"associatedAddress", arg))
 
-        # elif opt in ("", "--get-address"):
-        #     principalActions.append((action_getValue, "AssociatedAddress"))
+        elif opt in ("", "--get-address"):
+            principalActions.append((action_getValue, u"associatedAddress"))
 
         else:
             raise NotImplementedError(opt)
@@ -728,6 +728,39 @@ def action_getAutoAcceptGroup(store, record):
         print(
             "No auto-accept-group assigned to {record}".format(
                 record=prettyRecord(record)
+            )
+        )
+
+
+@inlineCallbacks
+def action_setValue(store, record, name, value):
+    print(
+        "Setting {name} to {value} for {record}".format(
+            name=name, value=value, record=prettyRecord(record),
+        )
+    )
+    # Get original fields
+    newFields = record.fields.copy()
+
+    # Set new value
+    newFields[record.service.fieldName.lookupByName(name)] = value
+
+    updatedRecord = DirectoryRecord(record.service, newFields)
+    yield record.service.updateRecords([updatedRecord], create=False)
+
+
+def action_getValue(store, record, name):
+    try:
+        value = record.fields[record.service.fieldName.lookupByName(name)]
+        print(
+            "{name} for {record} is {value}".format(
+                name=name, record=prettyRecord(record), value=value
+            )
+        )
+    except KeyError:
+        print(
+            "{name} is not set for {record}".format(
+                name=name, record=prettyRecord(record),
             )
         )
 

@@ -105,6 +105,28 @@ class Element(Values):
         AutoScheduleMode.acceptIfFreeDeclineIfBusy
     )
 
+    # For "locations", i.e., scheduled spaces:
+
+    capacity = ValueConstant(u"capacity")
+    capacity.fieldName = FieldName.capacity
+
+    floor = ValueConstant(u"floor")
+    floor.fieldName = FieldName.floor
+
+    associatedAddress = ValueConstant(u"associatedAddress")
+    associatedAddress.fieldName = FieldName.associatedAddress
+
+    # For "addresses", i.e., non-scheduled areas containing locations:
+
+    abbreviatedName = ValueConstant(u"abbreviatedName")
+    abbreviatedName.fieldName = FieldName.abbreviatedName
+
+    streetAddress = ValueConstant(u"streetAddress")
+    streetAddress.fieldName = FieldName.streetAddress
+
+    geographicLocation = ValueConstant(u"geographicLocation")
+    geographicLocation.fieldName = FieldName.geographicLocation
+
 
 
 class Attribute(Values):

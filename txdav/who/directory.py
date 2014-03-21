@@ -181,9 +181,10 @@ class CalendarDirectoryServiceMixin(object):
         "writeDelegatorGroup": "writeDelegatorGroups",
     }
 
-    # FIXME: Existing code assumes record type names are plural. Is there any
-    # reason to maintain backwards compatibility?  I suppose there could be
-    # scripts referring to record type of "users", "locations"
+
+    # Maps record types <--> url path segments, i.e. the segment after
+    # /principals/ e.g. "users" or "groups"
+
     def recordTypeToOldName(self, recordType):
         return self._oldRecordTypeNames[recordType.name]
 
@@ -200,9 +201,6 @@ class CalendarDirectoryRecordMixin(object):
 
     @inlineCallbacks
     def verifyCredentials(self, credentials):
-
-        # XYZZY REMOVE THIS, it bypasses all authentication!:
-        # returnValue(True)
 
         if isinstance(credentials, UsernamePassword):
             log.debug("UsernamePassword")

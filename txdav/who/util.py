@@ -22,15 +22,21 @@ from twext.who.aggregate import DirectoryService as AggregateDirectoryService
 from txdav.who.augment import AugmentedDirectoryService
 
 from calendarserver.tap.util import getDBPool, storeFromConfig
-from twext.who.idirectory import RecordType, DirectoryConfigurationError
+from twext.who.idirectory import (
+    RecordType, DirectoryConfigurationError, FieldName
+)
 from twext.who.ldap import DirectoryService as LDAPDirectoryService
 from twext.who.util import ConstantsContainer
 from twisted.python.filepath import FilePath
 from twisted.python.reflect import namedClass
 from twistedcaldav.config import fullServerPath
 from txdav.who.delegates import DirectoryService as DelegateDirectoryService
-from txdav.who.idirectory import RecordType as CalRecordType
+from txdav.who.idirectory import (
+    RecordType as CalRecordType,
+    FieldName as CalFieldName
+)
 from txdav.who.xml import DirectoryService as XMLDirectoryService
+
 
 log = Logger()
 
@@ -60,6 +66,9 @@ def directoryFromConfig(config, store=None):
 
         directoryType = serviceValue.type.lower()
         params = serviceValue.params
+
+        # TODO: add a "test" directory service that produces test records
+        # from code -- no files needed.
 
         if "xml" in directoryType:
             xmlFile = params.xmlFile
@@ -115,6 +124,7 @@ def directoryFromConfig(config, store=None):
             types.append(recordType)
 
         directory.recordType = ConstantsContainer(types)
+        directory.fieldName = ConstantsContainer((FieldName, CalFieldName))
         aggregatedServices.append(directory)
 
     #

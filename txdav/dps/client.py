@@ -41,6 +41,7 @@ from txdav.dps.commands import (
 from txdav.who.directory import (
     CalendarDirectoryRecordMixin, CalendarDirectoryServiceMixin
 )
+import txdav.who.augment
 import txdav.who.delegates
 import txdav.who.idirectory
 from zope.interface import implementer
@@ -79,7 +80,8 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
 
     fieldName = ConstantsContainer(
         (twext.who.idirectory.FieldName,
-         txdav.who.idirectory.FieldName)
+         txdav.who.idirectory.FieldName,
+         txdav.who.augment.FieldName)
     )
 
 

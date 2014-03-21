@@ -26,19 +26,22 @@ __all__ = [
 from zope.interface import implementer
 
 from twisted.internet.defer import inlineCallbacks, returnValue
-
 from twistedcaldav.directory.augment import AugmentRecord
 from twext.python.log import Logger
 from twext.who.directory import DirectoryRecord
 from twext.who.directory import DirectoryService as BaseDirectoryService
-from twext.who.idirectory import IDirectoryService, RecordType
+from twext.who.idirectory import (
+    IDirectoryService, RecordType, FieldName as BaseFieldName
+)
 from twext.who.util import ConstantsContainer
 
 from txdav.common.idirectoryservice import IStoreDirectoryService
 from txdav.who.directory import (
-    CalendarDirectoryRecordMixin, CalendarDirectoryServiceMixin
+    CalendarDirectoryRecordMixin, CalendarDirectoryServiceMixin,
 )
-from txdav.who.idirectory import AutoScheduleMode, FieldName
+from txdav.who.idirectory import (
+    AutoScheduleMode, FieldName
+)
 
 log = Logger()
 
@@ -56,7 +59,7 @@ class AugmentedDirectoryService(
     """
 
     fieldName = ConstantsContainer((
-        BaseDirectoryService.fieldName,
+        BaseFieldName,
         FieldName,
     ))
 
