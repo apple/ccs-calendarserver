@@ -18,7 +18,110 @@ limitations under the License.
 
 <!DOCTYPE accounts SYSTEM "accounts.dtd">
 
-<accounts realm="Test Realm">
+<directory realm="Test Realm">
+  <record type="location">
+    <short-name>location01</short-name>
+    <uid>location01</uid>
+    <full-name>Room 01</full-name>
+  </record>
+  <record type="location">
+    <short-name>location02</short-name>
+    <uid>location02</uid>
+    <full-name>Room 02</full-name>
+  </record>
+  <record type="location">
+    <short-name>location03</short-name>
+    <uid>location03</uid>
+    <full-name>Room 03</full-name>
+  </record>
+  <record type="location">
+    <short-name>location04</short-name>
+    <uid>location04</uid>
+    <full-name>Room 04</full-name>
+  </record>
+  <record type="location">
+    <short-name>location05</short-name>
+    <uid>location05</uid>
+    <full-name>Room 05</full-name>
+  </record>
+  <record type="location">
+    <short-name>location06</short-name>
+    <uid>location06</uid>
+    <full-name>Room 06</full-name>
+  </record>
+  <record type="location">
+    <short-name>location07</short-name>
+    <uid>location07</uid>
+    <full-name>Room 07</full-name>
+  </record>
+  <record type="location">
+    <short-name>location08</short-name>
+    <uid>location08</uid>
+    <full-name>Room 08</full-name>
+  </record>
+  <record type="location">
+    <short-name>location09</short-name>
+    <uid>location09</uid>
+    <full-name>Room 09</full-name>
+  </record>
+  <record type="location">
+    <short-name>location10</short-name>
+    <uid>location10</uid>
+    <full-name>Room 10</full-name>
+  </record>
+
+  <record type="resource">
+    <short-name>resource01</short-name>
+    <uid>resource01</uid>
+    <full-name>Resource 01</full-name>
+  </record>
+  <record type="resource">
+    <short-name>resource02</short-name>
+    <uid>resource02</uid>
+    <full-name>Resource 02</full-name>
+  </record>
+  <record type="resource">
+    <short-name>resource03</short-name>
+    <uid>resource03</uid>
+    <full-name>Resource 03</full-name>
+  </record>
+  <record type="resource">
+    <short-name>resource04</short-name>
+    <uid>resource04</uid>
+    <full-name>Resource 04</full-name>
+  </record>
+  <record type="resource">
+    <short-name>resource05</short-name>
+    <uid>resource05</uid>
+    <full-name>Resource 05</full-name>
+  </record>
+  <record type="resource">
+    <short-name>resource06</short-name>
+    <uid>resource06</uid>
+    <full-name>Resource 06</full-name>
+  </record>
+  <record type="resource">
+    <short-name>resource07</short-name>
+    <uid>resource07</uid>
+    <full-name>Resource 07</full-name>
+  </record>
+  <record type="resource">
+    <short-name>resource08</short-name>
+    <uid>resource08</uid>
+    <full-name>Resource 08</full-name>
+  </record>
+  <record type="resource">
+    <short-name>resource09</short-name>
+    <uid>resource09</uid>
+    <full-name>Resource 09</full-name>
+  </record>
+  <record type="resource">
+    <short-name>resource10</short-name>
+    <uid>resource10</uid>
+    <full-name>Resource 10</full-name>
+  </record>
+
+  <!--
   <location repeat="10">
     <uid>location%02d</uid>
     <guid>location%02d</guid>
@@ -31,4 +134,5 @@ limitations under the License.
     <password>resource%02d</password>
     <name>Resource %02d</name>
   </resource>
-</accounts>
+-->
+</directory>

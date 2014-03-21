@@ -32,7 +32,9 @@ from twext.who.idirectory import RecordType, InvalidDirectoryRecordError
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twistedcaldav.config import config
-from txdav.who.delegates import addDelegate, removeDelegate
+from txdav.who.delegates import (
+    addDelegate, removeDelegate, RecordType as DelegateRecordType
+)
 from txdav.who.idirectory import AutoScheduleMode
 
 
@@ -84,7 +86,7 @@ def usage(e=None):
     print("  --get-auto-schedule-mode: read auto-schedule mode")
     print("  --set-auto-accept-group=principal: set auto-accept-group")
     print("  --get-auto-accept-group: read auto-accept-group")
-    print("  --add {locations|resources|addresses} 'full name' [record name] [GUID]: add a principal")
+    print("  --add {locations|resources|addresses} full-name record-name UID: add a principal")
     print("  --remove: remove a principal")
     print("  --set-geo=url: set the geo: url for an address (e.g. geo:37.331741,-122.030333)")
     print("  --get-geo: get the geo: url for an address")
@@ -358,7 +360,7 @@ def main():
 def runListPrincipalTypes(service, store):
     directory = store.directoryService()
     for recordType in directory.recordTypes():
-        print(directory.recordTypeToOldString(recordType))
+        print(directory.recordTypeToOldName(recordType))
     return succeed(None)
 
 
@@ -446,6 +448,20 @@ def runSearch(service, store, searchTerm):
 def runAddPrincipal(service, store, addType, uid, shortNames, fullNames):
     directory = store.directoryService()
     recordType = directory.oldNameToRecordType(addType)
+
+    # See if that UID is in use
+    record = yield directory.recordWithUID(uid)
+    if record is not None:
+        print("UID already in use: {uid}".format(uid=uid))
+        returnValue(None)
+
+    # See if the shortnames are in use
+    for shortName in shortNames:
+        record = yield directory.recordWithShortName(recordType, shortName)
+        if record is not None:
+            print("Record name already in use: {name}".format(name=shortName))
+            returnValue(None)
+
     fields = {
         directory.fieldName.recordType: recordType,
         directory.fieldName.uid: uid,
@@ -454,6 +470,7 @@ def runAddPrincipal(service, store, addType, uid, shortNames, fullNames):
     }
     record = DirectoryRecord(directory, fields)
     yield record.service.updateRecords([record], create=True)
+    print("Added '{name}'".format(name=fullNames[0]))
 
 
 
@@ -531,7 +548,7 @@ def action_listProxyFor(store, record, *proxyTypes):
 
 
 @inlineCallbacks
-def _addRemoveProxy(fn, store, record, proxyType, *proxyIDs):
+def _addRemoveProxy(msg, fn, store, record, proxyType, *proxyIDs):
     directory = store.directoryService()
     readWrite = (proxyType == "write")
     for proxyID in proxyIDs:
@@ -542,75 +559,78 @@ def _addRemoveProxy(fn, store, record, proxyType, *proxyIDs):
             txn = store.newTransaction()
             yield fn(txn, record, proxyRecord, readWrite)
             yield txn.commit()
+            print(
+                "{msg} {proxy} as a {proxyType} proxy for {record}".format(
+                    msg=msg, proxy=prettyRecord(proxyRecord),
+                    proxyType=proxyType, record=prettyRecord(record)
+                )
+            )
 
 
+@inlineCallbacks
 def action_addProxy(store, record, proxyType, *proxyIDs):
-    return _addRemoveProxy(addDelegate, store, record, proxyType, *proxyIDs)
+    yield _addRemoveProxy("Added", addDelegate, store, record, proxyType, *proxyIDs)
 
 
 @inlineCallbacks
 def action_removeProxy(store, record, *proxyIDs):
     # Write
-    yield _addRemoveProxy(removeDelegate, store, record, "write", *proxyIDs)
+    yield _addRemoveProxy("Removed", removeDelegate, store, record, "write", *proxyIDs)
     # Read
-    yield _addRemoveProxy(removeDelegate, store, record, "read", *proxyIDs)
+    yield _addRemoveProxy("Removed", removeDelegate, store, record, "read", *proxyIDs)
 
 
 
-# @inlineCallbacks
-# def setProxies(store, principal, readProxyPrincipals, writeProxyPrincipals, directory=None):
-#     """
-#     Set read/write proxies en masse for a principal
-#     @param principal: DirectoryPrincipalResource
-#     @param readProxyPrincipals: a list of principal IDs (see principalForPrincipalID)
-#     @param writeProxyPrincipals: a list of principal IDs (see principalForPrincipalID)
-#     """
+@inlineCallbacks
+def setProxies(record, readProxyRecords, writeProxyRecords):
+    """
+    Set read/write proxies en masse for a record
+    @param record: L{IDirectoryRecord}
+    @param readProxyRecords: a list of records
+    @param writeProxyRecords: a list of records
+    """
 
-#     proxyTypes = [
-#         ("read", readProxyPrincipals),
-#         ("write", writeProxyPrincipals),
-#     ]
-#     for proxyType, proxyIDs in proxyTypes:
-#         if proxyIDs is None:
-#             continue
-#         subPrincipal = proxySubprincipal(principal, proxyType)
-#         if subPrincipal is None:
-#             raise ProxyError("Unable to edit %s proxies for %s\n" % (proxyType,
-#                 prettyPrincipal(principal)))
-#         memberURLs = []
-#         for proxyID in proxyIDs:
-#             proxyPrincipal = yield principalForPrincipalID(proxyID, directory=directory)
-#             proxyURL = proxyPrincipal.url()
-#             memberURLs.append(davxml.HRef(proxyURL))
-#         membersProperty = davxml.GroupMemberSet(*memberURLs)
-#         yield subPrincipal.writeProperty(membersProperty, None)
-#         if store is not None:
-#             # Schedule work the PeerConnectionPool will pick up as overdue
-#             yield schedulePolledGroupCachingUpdate(store)
+    proxyTypes = [
+        (DelegateRecordType.readDelegateGroup, readProxyRecords),
+        (DelegateRecordType.writeDelegateGroup, writeProxyRecords),
+    ]
+    for recordType, proxyRecords in proxyTypes:
+        if proxyRecords is None:
+            continue
+        proxyGroup = yield record.service.recordWithShortName(
+            recordType, record.uid
+        )
+        yield proxyGroup.setMembers(proxyRecords)
+
+    # if store is not None:
+    #     # Schedule work the PeerConnectionPool will pick up as overdue
+    #     yield schedulePolledGroupCachingUpdate(store)
 
 
 
-# @inlineCallbacks
-# def getProxies(principal, directory=None):
-#     """
-#     Returns a tuple containing the GUIDs for read proxies and write proxies
-#     of the given principal
-#     """
+@inlineCallbacks
+def getProxies(record):
+    """
+    Returns a tuple containing the records for read proxies and write proxies
+    of the given record
+    """
 
-#     proxies = {
-#         "read": [],
-#         "write": [],
-#     }
-#     for proxyType in proxies.iterkeys():
-#         subPrincipal = proxySubprincipal(principal, proxyType)
-#         if subPrincipal is not None:
-#             membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
-#             if membersProperty.children:
-#                 for member in membersProperty.children:
-#                     proxyPrincipal = yield principalForPrincipalID(str(member), directory=directory)
-#                     proxies[proxyType].append(proxyPrincipal.record.guid)
+    allProxies = {
+        DelegateRecordType.readDelegateGroup: [],
+        DelegateRecordType.writeDelegateGroup: [],
+    }
+    for recordType in allProxies.iterkeys():
+        proxyGroup = yield record.service.recordWithShortName(
+            recordType, record.uid
+        )
+        allProxies[recordType] = yield proxyGroup.members()
 
-#     returnValue((proxies['read'], proxies['write']))
+    returnValue(
+        (
+            allProxies[DelegateRecordType.readDelegateGroup],
+            allProxies[DelegateRecordType.writeDelegateGroup]
+        )
+    )
 
 
 
@@ -781,6 +801,13 @@ def parseCreationArgs(args):
     is full name, the second is short name, and the third is uid.  We can make
     this fancier later.
     """
+
+    if len(args) != 3:
+        print(
+            "When adding a principal, you must provide full-name, record-name, "
+            "and UID"
+        )
+        sys.exit(64)
 
     fullName = args[0].decode("utf-8")
     shortName = args[1].decode("utf-8")
