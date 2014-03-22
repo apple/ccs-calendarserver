@@ -19,30 +19,52 @@ from __future__ import print_function
 
 from getopt import getopt, GetoptError
 import os
+from plistlib import readPlistFromString, writePlistToString
 import sys
 import xml
 
-from plistlib import readPlistFromString, writePlistToString
-
-from twisted.internet.defer import inlineCallbacks, succeed
-from twistedcaldav.directory.directory import DirectoryError
-from txdav.xml import element as davxml
-
+from calendarserver.tools.cmdline import utilityMain
+from calendarserver.tools.config import WRITABLE_CONFIG_KEYS, setKeyPath, getKeyPath, flattenDictionary, WritableConfig
+from calendarserver.tools.principals import (
+    getProxies, setProxies
+)
+from calendarserver.tools.purge import WorkerService, PurgeOldEventsService, DEFAULT_BATCH_SIZE, DEFAULT_RETAIN_DAYS
 from calendarserver.tools.util import (
     principalForPrincipalID, proxySubprincipal, addProxy, removeProxy,
     ProxyError, ProxyWarning, autoDisableMemcached
 )
-from calendarserver.tools.principals import (
-    getProxies, setProxies, updateRecord, attrMap
-)
-from calendarserver.tools.purge import WorkerService, PurgeOldEventsService, DEFAULT_BATCH_SIZE, DEFAULT_RETAIN_DAYS
-from calendarserver.tools.cmdline import utilityMain
-
 from pycalendar.datetime import DateTime
-
+from twext.who.directory import DirectoryRecord
+from twisted.internet.defer import inlineCallbacks, succeed
 from twistedcaldav.config import config, ConfigDict
+from txdav.xml import element as davxml
 
-from calendarserver.tools.config import WRITABLE_CONFIG_KEYS, setKeyPath, getKeyPath, flattenDictionary, WritableConfig
+from txdav.who.idirectory import RecordType as CalRecordType
+from twext.who.idirectory import FieldName
+
+
+attrMap = {
+    'GeneratedUID': {'attr': 'uid', },
+    'RealName': {'attr': 'fullNames', },
+    'RecordName': {'attr': 'shortNames', },
+    'AutoScheduleMode': {'attr': 'autoScheduleMode', },
+    'AutoAcceptGroup': {'attr': 'autoAcceptGroup', },
+
+    # 'Comment': {'extras': True, 'attr': 'comment', },
+    # 'Description': {'extras': True, 'attr': 'description', },
+    # 'Type': {'extras': True, 'attr': 'type', },
+
+    # For "Locations", i.e. scheduled spaces
+    'Capacity': {'attr': 'capacity', },
+    'Floor': {'attr': 'floor', },
+    'AssociatedAddress': {'attr': 'associatedAddress', },
+
+    # For "Addresses", i.e. nonscheduled areas containing Locations
+    'AbbreviatedName': {'attr': 'abbreviatedName', },
+    'StreetAddress': {'attr': 'streetAddress', },
+    'GeographicLocation': {'attr': 'geographicLocation', },
+}
+
 
 def usage(e=None):
 
@@ -76,9 +98,7 @@ class RunnerService(WorkerService):
         """
         Create/run a Runner to execute the commands
         """
-        rootResource = self.rootResource()
-        directory = rootResource.getDirectory()
-        runner = Runner(rootResource, directory, self.store, self.commands)
+        runner = Runner(self.store, self.commands)
         if runner.validate():
             yield runner.run()
 
@@ -145,10 +165,9 @@ def main():
 
 class Runner(object):
 
-    def __init__(self, root, directory, store, commands, output=None):
-        self.root = root
-        self.dir = directory
+    def __init__(self, store, commands, output=None):
         self.store = store
+        self.dir = store.directoryService()
         self.commands = commands
         if output is None:
             output = sys.stdout
@@ -180,12 +199,13 @@ class Runner(object):
             pool.ClientEnabled = True
         autoDisableMemcached(config)
 
-        from twistedcaldav.directory import calendaruserproxy
-        if calendaruserproxy.ProxyDBService is not None:
-            # Reset the proxy db memcacher because memcached may have come or
-            # gone since the last time through here.
-            # TODO: figure out a better way to do this
-            calendaruserproxy.ProxyDBService._memcacher._memcacheProtocol = None
+        # FIXME:
+        # from twistedcaldav.directory import calendaruserproxy
+        # if calendaruserproxy.ProxyDBService is not None:
+        #     # Reset the proxy db memcacher because memcached may have come or
+        #     # gone since the last time through here.
+        #     # TODO: figure out a better way to do this
+        #     calendaruserproxy.ProxyDBService._memcacher._memcacheProtocol = None
 
         try:
             for command in self.commands:
@@ -203,47 +223,85 @@ class Runner(object):
 
     # Locations
 
+    # deferred
     def command_getLocationList(self, command):
-        self.respondWithRecordsOfTypes(self.dir, command, ["locations"])
+        return self.respondWithRecordsOfTypes(self.dir, command, ["locations"])
 
 
     @inlineCallbacks
     def command_createLocation(self, command):
-        kwargs = {}
+
+        fields = {
+            FieldName.recordType: CalRecordType.location
+        }
         for key, info in attrMap.iteritems():
             if key in command:
-                kwargs[info['attr']] = command[key]
+                attrName = info['attr']
+                field = self.dir.fieldName.lookupByName(attrName)
+                valueType = self.dir.fieldName.valueType(field)
+                value = command[key]
+                if self.dir.fieldName.isMultiValue(field) and not isinstance(value, list):
+                    value = [value]
+                if valueType == int:
+                    value = int(value)
+                else:
+                    if isinstance(value, list):
+                        newList = []
+                        for item in value:
+                            if isinstance(item, str):
+                                newList.append(item.decode("utf-8"))
+                            else:
+                                newList.append(item)
+                        value = newList
+                    elif isinstance(value, str):
+                        value = value.decode("utf-8")
 
-        try:
-            record = (yield updateRecord(True, self.dir, "locations", **kwargs))
-        except DirectoryError, e:
-            self.respondWithError(str(e))
-            return
+                fields[field] = value
+
+        record = DirectoryRecord(self.dir, fields)
+        yield self.dir.updateRecords([record], create=True)
+
 
         readProxies = command.get("ReadProxies", None)
-        writeProxies = command.get("WriteProxies", None)
-        principal = principalForPrincipalID(record.guid, directory=self.dir)
-        (yield setProxies(self.store, principal, readProxies, writeProxies, directory=self.dir))
+        if readProxies:
+            proxyRecords = []
+            for proxyUID in readProxies:
+                proxyRecord = yield self.dir.recordWithUID(proxyUID)
+                if proxyRecord is not None:
+                    proxyRecords.append(proxyRecord)
+            readProxies = proxyRecords
 
-        self.respondWithRecordsOfTypes(self.dir, command, ["locations"])
+        writeProxies = command.get("WriteProxies", None)
+        if writeProxies:
+            proxyRecords = []
+            for proxyUID in writeProxies:
+                proxyRecord = yield self.dir.recordWithUID(proxyUID)
+                if proxyRecord is not None:
+                    proxyRecords.append(proxyRecord)
+            writeProxies = proxyRecords
+
+        yield setProxies(record, readProxies, writeProxies)
+
+        yield self.respondWithRecordsOfTypes(self.dir, command, ["locations"])
 
 
     @inlineCallbacks
     def command_getLocationAttributes(self, command):
-        guid = command['GeneratedUID']
-        record = self.dir.recordWithGUID(guid)
+        uid = command['GeneratedUID']
+        record = yield self.dir.recordWithUID(uid)
         if record is None:
-            self.respondWithError("Principal not found: %s" % (guid,))
+            self.respondWithError("Location not found: %s" % (uid,))
             return
         recordDict = recordToDict(record)
-        principal = principalForPrincipalID(guid, directory=self.dir)
-        if principal is None:
-            self.respondWithError("Principal not found: %s" % (guid,))
-            return
-        recordDict['AutoSchedule'] = principal.getAutoSchedule()
-        recordDict['AutoAcceptGroup'] = principal.getAutoAcceptGroup()
-        recordDict['ReadProxies'], recordDict['WriteProxies'] = (yield getProxies(principal,
-            directory=self.dir))
+        # recordDict['AutoSchedule'] = principal.getAutoSchedule()
+        try:
+            recordDict['AutoAcceptGroup'] = record.autoAcceptGroup
+        except AttributeError:
+            pass
+
+        readProxies, writeProxies = yield getProxies(record)
+        recordDict['ReadProxies'] = [r.uid for r in readProxies]
+        recordDict['WriteProxies'] = [r.uid for r in writeProxies]
         self.respond(command, recordDict)
 
     command_getResourceAttributes = command_getLocationAttributes
@@ -358,8 +416,9 @@ class Runner(object):
         self.respondWithRecordsOfTypes(self.dir, command, ["resources"])
 
 
+    # deferred
     def command_getLocationAndResourceList(self, command):
-        self.respondWithRecordsOfTypes(self.dir, command, ["locations", "resources"])
+        return self.respondWithRecordsOfTypes(self.dir, command, ["locations", "resources"])
 
 
     # Addresses
@@ -604,10 +663,12 @@ class Runner(object):
         })
 
 
+    @inlineCallbacks
     def respondWithRecordsOfTypes(self, directory, command, recordTypes):
         result = []
         for recordType in recordTypes:
-            for record in directory.recordsWithRecordType(recordType):
+            recordType = directory.oldNameToRecordType(recordType)
+            for record in (yield directory.recordsWithRecordType(recordType)):
                 recordDict = recordToDict(record)
                 result.append(recordDict)
         self.respond(command, result)
@@ -626,11 +687,10 @@ def recordToDict(record):
     recordDict = {}
     for key, info in attrMap.iteritems():
         try:
-            if info.get('extras', False):
-                value = record.extras[info['attr']]
-            else:
-                value = getattr(record, info['attr'])
-            if isinstance(value, str):
+            value = record.fields[record.service.fieldName.lookupByName(info['attr'])]
+            if value is None:
+                continue
+            elif isinstance(value, str):
                 value = value.decode("utf-8")
             recordDict[key] = value
         except KeyError:

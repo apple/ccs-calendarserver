@@ -25,16 +25,44 @@ from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 
 from twistedcaldav.config import config
-from twistedcaldav.test.util import TestCase, CapturingProcessProtocol
+from twistedcaldav.test.util import StoreTestCase, CapturingProcessProtocol
 import plistlib
-from twisted.trial.unittest import SkipTest
+from twistedcaldav.memcacheclient import ClientFactory
+from twistedcaldav import memcacher
 
 
-class RunCommandTestCase(TestCase):
+class RunCommandTestCase(StoreTestCase):
 
-    def setUp(self):
-        super(RunCommandTestCase, self).setUp()
-        raise SkipTest("Needs porting to twext.who still")
+    def configure(self):
+        """
+        Override the standard StoreTestCase configuration
+        """
+        self.serverRoot = self.mktemp()
+        os.mkdir(self.serverRoot)
+        absoluteServerRoot = os.path.abspath(self.serverRoot)
+
+        configRoot = os.path.join(absoluteServerRoot, "Config")
+        if not os.path.exists(configRoot):
+            os.makedirs(configRoot)
+
+        dataRoot = os.path.join(absoluteServerRoot, "Data")
+        if not os.path.exists(dataRoot):
+            os.makedirs(dataRoot)
+
+        documentRoot = os.path.join(absoluteServerRoot, "Documents")
+        if not os.path.exists(documentRoot):
+            os.makedirs(documentRoot)
+
+        logRoot = os.path.join(absoluteServerRoot, "Logs")
+        if not os.path.exists(logRoot):
+            os.makedirs(logRoot)
+
+        runRoot = os.path.join(absoluteServerRoot, "Run")
+        if not os.path.exists(runRoot):
+            os.makedirs(runRoot)
+
+        config.reset()
+        self.configInit()
 
         testRoot = os.path.join(os.path.dirname(__file__), "gateway")
         templateName = os.path.join(testRoot, "caldavd.plist")
@@ -44,41 +72,79 @@ class RunCommandTestCase(TestCase):
 
         databaseRoot = os.path.abspath("_spawned_scripts_db" + str(os.getpid()))
         newConfig = template % {
-            "ServerRoot" : os.path.abspath(config.ServerRoot),
-            "DatabaseRoot" : databaseRoot,
-            "WritablePlist" : os.path.join(os.path.abspath(config.ConfigRoot), "caldavd-writable.plist"),
+            "ServerRoot": absoluteServerRoot,
+            "DataRoot": dataRoot,
+            "DatabaseRoot": databaseRoot,
+            "DocumentRoot": documentRoot,
+            "ConfigRoot": configRoot,
+            "LogRoot": logRoot,
+            "RunRoot": runRoot,
+            "WritablePlist": os.path.join(
+                os.path.abspath(configRoot), "caldavd-writable.plist"
+            ),
         }
-        configFilePath = FilePath(os.path.join(config.ConfigRoot, "caldavd.plist"))
+        configFilePath = FilePath(
+            os.path.join(configRoot, "caldavd.plist")
+        )
+
         configFilePath.setContent(newConfig)
 
         self.configFileName = configFilePath.path
         config.load(self.configFileName)
 
-        origUsersFile = FilePath(os.path.join(os.path.dirname(__file__),
-            "gateway", "users-groups.xml"))
-        copyUsersFile = FilePath(os.path.join(config.DataRoot, "accounts.xml"))
+        config.Memcached.Pools.Default.ClientEnabled = False
+        config.Memcached.Pools.Default.ServerEnabled = False
+        ClientFactory.allowTestCache = True
+        memcacher.Memcacher.allowTestCache = True
+        memcacher.Memcacher.memoryCacheInstance = None
+        config.DirectoryAddressBook.Enabled = False
+        config.UsePackageTimezones = True
+
+        origUsersFile = FilePath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "gateway",
+                "users-groups.xml"
+            )
+        )
+        copyUsersFile = FilePath(
+            os.path.join(config.DataRoot, "accounts.xml")
+        )
         origUsersFile.copyTo(copyUsersFile)
 
-        origResourcesFile = FilePath(os.path.join(os.path.dirname(__file__),
-            "gateway", "resources-locations.xml"))
-        copyResourcesFile = FilePath(os.path.join(config.DataRoot, "resources.xml"))
+        origResourcesFile = FilePath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "gateway",
+                "resources-locations.xml"
+            )
+        )
+        copyResourcesFile = FilePath(
+            os.path.join(config.DataRoot, "resources.xml")
+        )
         origResourcesFile.copyTo(copyResourcesFile)
 
-        origAugmentFile = FilePath(os.path.join(os.path.dirname(__file__),
-            "gateway", "augments.xml"))
+        origAugmentFile = FilePath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "gateway",
+                "augments.xml"
+            )
+        )
         copyAugmentFile = FilePath(os.path.join(config.DataRoot, "augments.xml"))
         origAugmentFile.copyTo(copyAugmentFile)
 
-        # Make sure trial puts the reactor in the right state, by letting it
-        # run one reactor iteration.  (Ignore me, please.)
-        d = Deferred()
-        reactor.callLater(0, d.callback, True)
-        return d
+        # # Make sure trial puts the reactor in the right state, by letting it
+        # # run one reactor iteration.  (Ignore me, please.)
+        # d = Deferred()
+        # reactor.callLater(0, d.callback, True)
+        # return d
 
 
     @inlineCallbacks
-    def runCommand(self, command, error=False,
-        script="calendarserver_command_gateway"):
+    def runCommand(
+        self, command, error=False, script="calendarserver_command_gateway"
+    ):
         """
         Run the given command by feeding it as standard input to
         calendarserver_command_gateway in a subprocess.
@@ -87,7 +153,9 @@ class RunCommandTestCase(TestCase):
         if isinstance(command, unicode):
             command = command.encode("utf-8")
 
-        sourceRoot = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        sourceRoot = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        )
         python = sys.executable
         script = os.path.join(sourceRoot, "bin", script)
 
@@ -98,7 +166,10 @@ class RunCommandTestCase(TestCase):
         cwd = sourceRoot
 
         deferred = Deferred()
-        reactor.spawnProcess(CapturingProcessProtocol(deferred, command), python, args, env=os.environ, path=cwd)
+        reactor.spawnProcess(
+            CapturingProcessProtocol(deferred, command),
+            python, args, env=os.environ, path=cwd
+        )
         output = yield deferred
         try:
             plist = readPlistFromString(output)
@@ -158,15 +229,14 @@ class GatewayTestCase(RunCommandTestCase):
 
     @inlineCallbacks
     def test_createAddress(self):
-        directory = getDirectory()
 
-        record = directory.recordWithUID("C701069D-9CA1-4925-A1A9-5CD94767B74B")
+        record = yield self.directory.recordWithUID("C701069D-9CA1-4925-A1A9-5CD94767B74B")
         self.assertEquals(record, None)
         yield self.runCommand(command_createAddress)
 
-        directory.flushCaches()
+        # directory.flushCaches()
 
-        record = directory.recordWithUID("C701069D-9CA1-4925-A1A9-5CD94767B74B")
+        record = yield self.directory.recordWithUID("C701069D-9CA1-4925-A1A9-5CD94767B74B")
         self.assertEquals(record.fullName.decode("utf-8"),
             "Created Address 01 %s %s" % (unichr(208), u"\ud83d\udca3"))
 
@@ -197,29 +267,27 @@ class GatewayTestCase(RunCommandTestCase):
 
     @inlineCallbacks
     def test_createLocation(self):
-        directory = getDirectory()
 
-        record = directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
+        record = yield self.directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
         self.assertEquals(record, None)
         yield self.runCommand(command_createLocation)
 
-        directory.flushCaches()
+        # directory.flushCaches()
 
         # This appears to be necessary in order for record.autoSchedule to
         # reflect the change prior to the directory record expiration
-        augmentService = directory.serviceForRecordType(directory.recordType_locations).augmentService
-        augmentService.refresh()
+        # augmentService = directory.serviceForRecordType(directory.recordType_locations).augmentService
+        # augmentService.refresh()
 
-        record = directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
-        self.assertEquals(record.fullName.decode("utf-8"),
-            "Created Location 01 %s %s" % (unichr(208), u"\ud83d\udca3"))
+        record = yield self.directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
+        self.assertEquals(record.fullNames[0],
+            u"Created Location 01 %s %s" % (unichr(208), u"\ud83d\udca3"))
 
         self.assertNotEquals(record, None)
-        self.assertEquals(record.autoSchedule, True)
+        # self.assertEquals(record.autoScheduleMode, "")
 
-        self.assertEquals(record.extras["comment"], "Test Comment")
-        self.assertEquals(record.extras["floor"], "First")
-        self.assertEquals(record.extras["capacity"], "40")
+        self.assertEquals(record.floor, u"First")
+        # self.assertEquals(record.extras["capacity"], "40")
 
         results = yield self.runCommand(command_getLocationAttributes)
         self.assertEquals(set(results["result"]["ReadProxies"]), set(['user03', 'user04']))
@@ -437,8 +505,10 @@ command_createLocation = """<?xml version="1.0" encoding="UTF-8"?>
 <dict>
         <key>command</key>
         <string>createLocation</string>
-        <key>AutoSchedule</key>
-        <true/>
+        <!--
+        <key>AutoScheduleMode</key>
+        <string></string>
+        -->
         <key>AutoAcceptGroup</key>
         <string>E5A6142C-4189-4E9E-90B0-9CD0268B314B</string>
         <key>GeneratedUID</key>
@@ -455,19 +525,21 @@ command_createLocation = """<?xml version="1.0" encoding="UTF-8"?>
         <string>Test Description</string>
         <key>Floor</key>
         <string>First</string>
+        <!--
         <key>Capacity</key>
         <string>40</string>
+        -->
         <key>AssociatedAddress</key>
         <string>C701069D-9CA1-4925-A1A9-5CD94767B74B</string>
         <key>ReadProxies</key>
         <array>
-            <string>users:user03</string>
-            <string>users:user04</string>
+            <string>user03</string>
+            <string>user04</string>
         </array>
         <key>WriteProxies</key>
         <array>
-            <string>users:user05</string>
-            <string>users:user06</string>
+            <string>user05</string>
+            <string>user06</string>
         </array>
 </dict>
 </plist>

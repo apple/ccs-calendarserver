@@ -60,7 +60,7 @@ class AugmentRecord(object):
         enabledForCalendaring=False,
         autoSchedule=False,
         autoScheduleMode="default",
-        autoAcceptGroup="",
+        autoAcceptGroup=None,
         enabledForAddressBooks=False,
         enabledForLogin=True,
     ):

@@ -199,15 +199,23 @@ class AugmentedDirectoryService(
                     AutoScheduleMode.declineIfBusy: "decline-if-busy",
                     AutoScheduleMode.acceptIfFreeDeclineIfBusy: "automatic",
                 }.get(augmentFields.get(FieldName.autoScheduleMode, None), None)
-                augmentRecord = AugmentRecord(
-                    uid=record.uid,
-                    enabledForCalendaring=augmentFields[FieldName.hasCalendars],
-                    enabledForAddressBooks=augmentFields[FieldName.hasContacts],
-                    autoScheduleMode=autoScheduleMode,
-                    enabledForLogin=augmentFields[FieldName.loginAllowed],
-                    autoAcceptGroup=augmentFields[FieldName.autoAcceptGroup],
-                    serverID=augmentFields[FieldName.serviceNodeUID],
-                )
+
+                kwargs = {
+                    "uid": record.uid,
+                    "autoScheduleMode": autoScheduleMode,
+                }
+                if FieldName.hasCalendars in augmentFields:
+                    kwargs["enabledForCalendaring"] = augmentFields[FieldName.hasCalendars]
+                if FieldName.hasContacts in augmentFields:
+                    kwargs["enabledForAddressBooks"] = augmentFields[FieldName.hasContacts]
+                if FieldName.loginAllowed in augmentFields:
+                    kwargs["enabledForLogin"] = augmentFields[FieldName.loginAllowed]
+                if FieldName.autoAcceptGroup in augmentFields:
+                    kwargs["autoAcceptGroup"] = augmentFields[FieldName.autoAcceptGroup]
+                if FieldName.serviceNodeUID in augmentFields:
+                    kwargs["serverID"] = augmentFields[FieldName.serviceNodeUID]
+                augmentRecord = AugmentRecord(**kwargs)
+
                 augmentRecords.append(augmentRecord)
 
             # Create new base records:
@@ -301,10 +309,11 @@ class AugmentedDirectoryService(
                 autoScheduleMode
             )
 
-            self._assignToField(
-                fields, "autoAcceptGroup",
-                augmentRecord.autoAcceptGroup.decode("utf-8")
-            )
+            if augmentRecord.autoAcceptGroup is not None:
+                self._assignToField(
+                    fields, "autoAcceptGroup",
+                    augmentRecord.autoAcceptGroup.decode("utf-8")
+                )
 
             self._assignToField(
                 fields, "loginAllowed",

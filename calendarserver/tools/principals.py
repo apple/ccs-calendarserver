@@ -119,28 +119,6 @@ class PrincipalService(WorkerService):
             yield self.function(self.store, *self.params)
 
 
-attrMap = {
-    'GeneratedUID': {'attr': 'guid', },
-    'RealName': {'attr': 'fullName', },
-    'RecordName': {'attr': 'shortNames', },
-    'AutoSchedule': {'attr': 'autoSchedule', },
-    'AutoAcceptGroup': {'attr': 'autoAcceptGroup', },
-
-    'Comment': {'extras': True, 'attr': 'comment', },
-    'Description': {'extras': True, 'attr': 'description', },
-    'Type': {'extras': True, 'attr': 'type', },
-
-    # For "Locations", i.e. scheduled spaces
-    'Capacity': {'extras': True, 'attr': 'capacity', },
-    'Floor': {'extras': True, 'attr': 'floor', },
-    'AssociatedAddress': {'extras': True, 'attr': 'associatedAddress', },
-
-    # For "Addresses", i.e. nonscheduled areas containing Locations
-    'AbbreviatedName': {'extras': True, 'attr': 'abbreviatedName', },
-    'StreetAddress': {'extras': True, 'attr': 'streetAddress', },
-    'Geo': {'extras': True, 'attr': 'geo', },
-}
-
 
 def main():
     try:
