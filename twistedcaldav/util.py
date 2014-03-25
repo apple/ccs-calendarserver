@@ -505,26 +505,25 @@ def normalizationLookup(cuaddr, principalFunction, config):
     principal for the cuaddr.
     """
     try:
-        principal = yield principalFunction(cuaddr)
+        record = yield principalFunction(cuaddr)
     except Exception, e:
         log.debug("Lookup of %s failed: %s" % (cuaddr, e))
-        principal = None
+        record = None
 
-    if principal is None:
+    if record is None:
         returnValue((None, None, None))
     else:
-        rec = principal.record
 
         # RFC5545 syntax does not allow backslash escaping in
         # parameter values. A double-quote is thus not allowed
         # in a parameter value except as the start/end delimiters.
         # Single quotes are allowed, so we convert any double-quotes
         # to single-quotes.
-        fullName = rec.fullName.replace('"', "'")
+        fullName = record.displayName.replace('"', "'")
 
-        cuas = principal.record.calendarUserAddresses()
+        cuas = record.calendarUserAddresses
 
-        returnValue((fullName, rec.guid, cuas))
+        returnValue((fullName, record.uid, cuas))
 
 
 

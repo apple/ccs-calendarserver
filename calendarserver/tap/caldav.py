@@ -98,7 +98,9 @@ from twistedcaldav import memcachepool
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.localization import processLocalizationFiles
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
-from twistedcaldav.upgrade import UpgradeFileSystemFormatStep, PostDBImportStep
+from twistedcaldav.upgrade import (
+    UpgradeFileSystemFormatStep, PostDBImportStep,
+)
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -1235,13 +1237,6 @@ class CalDAVServiceMaker (object):
             if store is None:
                 raise StoreNotAvailable()
 
-            # Create a Directory Proxy "Server" service and hand it to the
-            # store.
-            # FIXME: right now the store passed *to* the directory is the
-            # calendar/contacts data store, but for a multi-server deployment
-            # it will need its own separate store.
-            store.setDirectoryService(directoryFromConfig(config, store=store))
-
             result = self.requestProcessingService(options, store, logObserver)
 
             # Optionally set up push notifications
@@ -1371,12 +1366,6 @@ class CalDAVServiceMaker (object):
         """
 
         def toolServiceCreator(pool, store, ignored, storageService):
-            # Create a Directory Proxy "Server" service and hand it to the
-            # store
-            # FIXME: right now the store passed *to* the directory is the
-            # calendar/contacts data store, but for a multi-server deployment
-            # it will need its own separate store.
-            store.setDirectoryService(directoryFromConfig(config, store=store))
             return config.UtilityServiceClass(store)
 
         uid, gid = getSystemIDs(config.UserName, config.GroupName)
@@ -1461,6 +1450,7 @@ class CalDAVServiceMaker (object):
         @return: the appropriate a service to start.
         @rtype: L{IService}
         """
+
         def createSubServiceFactory(
             dialect=POSTGRES_DIALECT, paramstyle='pyformat'
         ):
@@ -1473,6 +1463,13 @@ class CalDAVServiceMaker (object):
                 )
                 cp.setServiceParent(ms)
                 store = storeFromConfig(config, cp.connection, directory)
+                if directory is None:
+                    # Create a Directory Proxy "Server" service and hand it to
+                    # the store.
+                    # FIXME: right now the store passed *to* the directory is the
+                    # calendar/contacts data store, but for a multi-server deployment
+                    # it will need its own separate store.
+                    store.setDirectoryService(directoryFromConfig(config, store=store))
 
                 pps = PreProcessingService(
                     createMainService, cp, store, logObserver, storageService
@@ -1489,7 +1486,7 @@ class CalDAVServiceMaker (object):
 
                 # Still need this for Snow Leopard support
                 pps.addStep(
-                    UpgradeFileSystemFormatStep(config)
+                    UpgradeFileSystemFormatStep(config, store)
                 )
 
                 pps.addStep(

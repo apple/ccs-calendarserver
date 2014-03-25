@@ -187,91 +187,6 @@ class StoreTestCase(CommonCommonTests, txweb2.dav.test.util.TestCase):
         augments.setContent(augmentsFile.getContent())
 
 
-class TestCase(txweb2.dav.test.util.TestCase):
-    resource_class = RootResource
-
-    def createDataStore(self):
-        """
-        Create an L{IDataStore} that can store calendars (but not
-        addressbooks.)  By default returns a L{CommonDataStore}, but this is a
-        hook for subclasses to override to provide different data stores.
-        """
-        return CommonDataStore(FilePath(config.DocumentRoot), None, None, True, False,
-                               quota=deriveQuota(self))
-
-
-    def setupCalendars(self):
-        """
-        When a directory service exists, set up the resources at C{/calendars}
-        and C{/addressbooks} (a L{DirectoryCalendarHomeProvisioningResource}
-        and L{DirectoryAddressBookHomeProvisioningResource} respectively), and
-        assign them to the C{self.calendarCollection} and
-        C{self.addressbookCollection} attributes.
-
-        A directory service may be associated with this L{TestCase} with
-        L{TestCase.createStockDirectoryService} or
-        L{TestCase.directoryFixture.addDirectoryService}.
-        """
-        newStore = self.createDataStore()
-
-
-        @self.directoryFixture.whenDirectoryServiceChanges
-        def putAllChildren(ds):
-            self.calendarCollection = (
-                DirectoryCalendarHomeProvisioningResource(
-                    ds, "/calendars/", newStore
-                ))
-            self.site.resource.putChild("calendars", self.calendarCollection)
-            self.addressbookCollection = (
-                DirectoryAddressBookHomeProvisioningResource(
-                    ds, "/addressbooks/", newStore
-                ))
-            self.site.resource.putChild("addressbooks",
-                                        self.addressbookCollection)
-
-
-    def configure(self):
-        """
-        Adjust the global configuration for this test.
-        """
-        config.reset()
-
-        config.ServerRoot = os.path.abspath(self.serverRoot)
-        config.ConfigRoot = "config"
-        config.LogRoot = "logs"
-        config.RunRoot = "logs"
-
-        config.Memcached.Pools.Default.ClientEnabled = False
-        config.Memcached.Pools.Default.ServerEnabled = False
-        ClientFactory.allowTestCache = True
-        memcacher.Memcacher.allowTestCache = True
-        memcacher.Memcacher.memoryCacheInstance = None
-        config.DirectoryAddressBook.Enabled = False
-        config.UsePackageTimezones = True
-
-
-
-    def setUp(self):
-        super(TestCase, self).setUp()
-
-        # FIXME: this is only here to workaround circular imports
-        doBind()
-
-        self.serverRoot = self.mktemp()
-        os.mkdir(self.serverRoot)
-
-        self.configure()
-
-        if not os.path.exists(config.DataRoot):
-            os.makedirs(config.DataRoot)
-        if not os.path.exists(config.DocumentRoot):
-            os.makedirs(config.DocumentRoot)
-        if not os.path.exists(config.ConfigRoot):
-            os.makedirs(config.ConfigRoot)
-        if not os.path.exists(config.LogRoot):
-            os.makedirs(config.LogRoot)
-
-
     def createHierarchy(self, structure, root=None):
         if root is None:
             root = os.path.abspath(self.mktemp())
@@ -422,6 +337,93 @@ class TestCase(txweb2.dav.test.util.TestCase):
             return True
 
         return verifyChildren(root, structure)
+
+
+
+class TestCase(txweb2.dav.test.util.TestCase):
+    resource_class = RootResource
+
+    def createDataStore(self):
+        """
+        Create an L{IDataStore} that can store calendars (but not
+        addressbooks.)  By default returns a L{CommonDataStore}, but this is a
+        hook for subclasses to override to provide different data stores.
+        """
+        return CommonDataStore(FilePath(config.DocumentRoot), None, None, True, False,
+                               quota=deriveQuota(self))
+
+
+    def setupCalendars(self):
+        """
+        When a directory service exists, set up the resources at C{/calendars}
+        and C{/addressbooks} (a L{DirectoryCalendarHomeProvisioningResource}
+        and L{DirectoryAddressBookHomeProvisioningResource} respectively), and
+        assign them to the C{self.calendarCollection} and
+        C{self.addressbookCollection} attributes.
+
+        A directory service may be associated with this L{TestCase} with
+        L{TestCase.createStockDirectoryService} or
+        L{TestCase.directoryFixture.addDirectoryService}.
+        """
+        newStore = self.createDataStore()
+
+
+        @self.directoryFixture.whenDirectoryServiceChanges
+        def putAllChildren(ds):
+            self.calendarCollection = (
+                DirectoryCalendarHomeProvisioningResource(
+                    ds, "/calendars/", newStore
+                ))
+            self.site.resource.putChild("calendars", self.calendarCollection)
+            self.addressbookCollection = (
+                DirectoryAddressBookHomeProvisioningResource(
+                    ds, "/addressbooks/", newStore
+                ))
+            self.site.resource.putChild("addressbooks",
+                                        self.addressbookCollection)
+
+
+    def configure(self):
+        """
+        Adjust the global configuration for this test.
+        """
+        config.reset()
+
+        config.ServerRoot = os.path.abspath(self.serverRoot)
+        config.ConfigRoot = "config"
+        config.LogRoot = "logs"
+        config.RunRoot = "logs"
+
+        config.Memcached.Pools.Default.ClientEnabled = False
+        config.Memcached.Pools.Default.ServerEnabled = False
+        ClientFactory.allowTestCache = True
+        memcacher.Memcacher.allowTestCache = True
+        memcacher.Memcacher.memoryCacheInstance = None
+        config.DirectoryAddressBook.Enabled = False
+        config.UsePackageTimezones = True
+
+
+
+    def setUp(self):
+        super(TestCase, self).setUp()
+
+        # FIXME: this is only here to workaround circular imports
+        doBind()
+
+        self.serverRoot = self.mktemp()
+        os.mkdir(self.serverRoot)
+
+        self.configure()
+
+        if not os.path.exists(config.DataRoot):
+            os.makedirs(config.DataRoot)
+        if not os.path.exists(config.DocumentRoot):
+            os.makedirs(config.DocumentRoot)
+        if not os.path.exists(config.ConfigRoot):
+            os.makedirs(config.ConfigRoot)
+        if not os.path.exists(config.LogRoot):
+            os.makedirs(config.LogRoot)
+
 
 
 
