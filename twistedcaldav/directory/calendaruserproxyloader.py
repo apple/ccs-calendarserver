@@ -29,7 +29,6 @@ from twisted.internet.defer import inlineCallbacks
 from twext.python.log import Logger
 
 from twistedcaldav.config import config, fullServerPath
-from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.xmlutil import readXML
 
 log = Logger()
@@ -44,6 +43,7 @@ ELEMENT_MEMBER = "member"
 
 ATTRIBUTE_REPEAT = "repeat"
 
+
 class XMLCalendarUserProxyLoader(object):
     """
     XML calendar user proxy configuration file parser and loader.
@@ -52,10 +52,11 @@ class XMLCalendarUserProxyLoader(object):
         return "<%s %r>" % (self.__class__.__name__, self.xmlFile)
 
 
-    def __init__(self, xmlFile):
+    def __init__(self, xmlFile, service):
 
         self.items = []
         self.xmlFile = fullServerPath(config.DataRoot, xmlFile)
+        self.service = service
 
         # Read in XML
         try:
@@ -131,7 +132,7 @@ class XMLCalendarUserProxyLoader(object):
     @inlineCallbacks
     def updateProxyDB(self):
 
-        db = calendaruserproxy.ProxyDBService
+        db = self.service
         for item in self.items:
             guid, write_proxies, read_proxies = item
             yield db.setGroupMembers("%s#%s" % (guid, "calendar-proxy-write"), write_proxies)

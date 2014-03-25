@@ -26,14 +26,16 @@ from txdav.xml.parser import WebDAVDocument
 from txdav.caldav.datastore.index_file import db_basename
 
 from twistedcaldav.config import config
-# from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from txdav.caldav.datastore.scheduling.imip.mailgateway import MailGatewayTokensDatabase
 from twistedcaldav.upgrade import (
     xattrname, upgradeData, updateFreeBusySet,
-    removeIllegalCharacters, normalizeCUAddrs
+    removeIllegalCharacters, normalizeCUAddrs,
+    loadDelegatesFromXML, migrateDelegatesToStore
 )
 from twistedcaldav.test.util import StoreTestCase
+from txdav.who.delegates import delegatesOf
+from twistedcaldav.directory.calendaruserproxy import ProxySqliteDB
 
 
 
@@ -52,21 +54,6 @@ NEWPROXYFILE = "proxies.sqlite"
 
 
 class UpgradeTests(StoreTestCase):
-
-
-    # def setUpXMLDirectory(self):
-    #     xmlFile = os.path.join(os.path.dirname(os.path.dirname(__file__)),
-    #         "directory", "test", "accounts.xml")
-    #     config.DirectoryService.params.xmlFile = xmlFile
-
-    #     xmlAugmentsFile = os.path.join(os.path.dirname(os.path.dirname(__file__)),
-    #         "directory", "test", "augments.xml")
-    #     config.AugmentService.type = "twistedcaldav.directory.augment.AugmentXMLDB"
-    #     config.AugmentService.params.xmlFiles = (xmlAugmentsFile,)
-
-    #     resourceFile = os.path.join(os.path.dirname(os.path.dirname(__file__)),
-    #         "directory", "test", "resources.xml")
-    #     config.ResourceService.params.xmlFile = resourceFile
 
 
     def doUpgrade(self, config):
@@ -1564,6 +1551,46 @@ class UpgradeTests(StoreTestCase):
         # Ensure we only called principalForCalendarUserAddress 3 times.  It
         # would have been 8 times without the cuaCache.
         self.assertEquals(directory.count, 3)
+
+
+    @inlineCallbacks
+    def test_migrateDelegates(self):
+        store = self.storeUnderTest()
+        record = yield self.directory.recordWithUID(u"mercury")
+        txn = store.newTransaction()
+        writeDelegates = yield delegatesOf(txn, record, True)
+        self.assertEquals(len(writeDelegates), 0)
+        yield txn.commit()
+
+        # Load delegates from xml into sqlite
+        sqliteProxyService = ProxySqliteDB("proxies.sqlite")
+        proxyFile = os.path.join(config.DataRoot, "proxies.xml")
+        yield loadDelegatesFromXML(proxyFile, sqliteProxyService)
+
+        # Load delegates from sqlite into store
+        yield migrateDelegatesToStore(sqliteProxyService, store)
+
+        # Check delegates in store
+        txn = store.newTransaction()
+        writeDelegates = yield delegatesOf(txn, record, True)
+        self.assertEquals(len(writeDelegates), 1)
+        self.assertEquals(
+            set([d.uid for d in writeDelegates]),
+            set([u"left_coast"])
+        )
+
+        record = yield self.directory.recordWithUID(u"non_calendar_proxy")
+
+        readDelegates = yield delegatesOf(txn, record, False)
+        self.assertEquals(len(readDelegates), 1)
+        self.assertEquals(
+            set([d.uid for d in readDelegates]),
+            set([u"recursive2_coasts"])
+        )
+
+        yield txn.commit()
+
+
 
 
 normalizeEvent = """BEGIN:VCALENDAR

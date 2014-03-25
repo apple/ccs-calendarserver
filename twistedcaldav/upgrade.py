@@ -36,7 +36,6 @@ from txdav.xml import element
 from txweb2.dav.fileop import rmdir
 
 from twistedcaldav import caldavxml
-from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
 from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
@@ -63,7 +62,7 @@ from txdav.caldav.datastore.scheduling.imip.mailgateway import migrateTokensToSt
 from twext.who.idirectory import RecordType
 from txdav.who.idirectory import RecordType as CalRecordType
 from txdav.who.delegates import addDelegate
-
+from twistedcaldav.directory.calendaruserproxy import ProxySqliteDB
 
 
 deadPropertyXattrPrefix = namedAny(
@@ -1009,35 +1008,17 @@ def migrateAutoSchedule(config, directory):
             log.warn("Migrated %d auto-schedule settings" % (len(augmentRecords),))
 
 
-@inlineCallbacks
-def migrateDelegatesToStore(config, store):
-    """
-    If there is an sqlite file of delegates, migrate them into the store.
-    """
-    if config.ProxyDBService.type != "twistedcaldav.directory.calendaruserproxy.ProxySqliteDB":
-        returnValue(None)
-
-    dbPath = os.path.join(config.DataRoot, config.ProxyDBService.params.dbpath)
-    if not os.path.exists(dbPath):
-        returnValue(None)
-
-    proxyClass = namedClass(config.ProxyDBService.type)
-    try:
-        proxyService = proxyClass(**config.ProxyDBService.params)
-    except:
-        log.error("Could not migrate delegates to store")
-        returnValue(None)
-
-    yield _migrateDelegatesToStore(proxyService, store)
-    os.remove(dbPath)
+def loadDelegatesFromXML(xmlFile, service):
+    loader = XMLCalendarUserProxyLoader(xmlFile, service)
+    return loader.updateProxyDB()
 
 
 @inlineCallbacks
-def _migrateDelegatesToStore(oldProxyService, store):
+def migrateDelegatesToStore(service, store):
     directory = store.directoryService()
     txn = store.newTransaction()
     for groupName, memberUID in (
-        yield oldProxyService.query(
+        yield service.query(
             "select GROUPNAME, MEMBER from GROUPS"
         )
     ):
@@ -1132,12 +1113,23 @@ class PostDBImportStep(object):
             # directory = self.store.directoryService()
 
             # Load proxy assignments from XML if specified
-            if self.config.ProxyLoadFromFile:
-                proxydbClass = namedClass(self.config.ProxyDBService.type)
-                calendaruserproxy.ProxyDBService = proxydbClass(
-                    **self.config.ProxyDBService.params)
-                loader = XMLCalendarUserProxyLoader(self.config.ProxyLoadFromFile)
-                yield loader.updateProxyDB()
+            if (
+                self.config.ProxyLoadFromFile and
+                os.path.exists(self.config.ProxyLoadFromFile) and
+                not os.path.exists(
+                    os.path.join(
+                        self.config.DataRoot, "proxies.sqlite"
+                    )
+                )
+            ):
+                sqliteProxyService = ProxySqliteDB("proxies.sqlite")
+                yield loadDelegatesFromXML(
+                    self.config.ProxyLoadFromFile,
+                    sqliteProxyService
+                )
+            else:
+                sqliteProxyService = None
+
 
             # # Populate the group membership cache
             # if (self.config.GroupCaching.Enabled and
@@ -1171,7 +1163,9 @@ class PostDBImportStep(object):
             yield migrateTokensToStore(self.config.DataRoot, self.store)
 
             # Migrate delegate assignments from sqlite to store
-            yield migrateDelegatesToStore(self.config, self.store)
+            if sqliteProxyService is None:
+                sqliteProxyService = ProxySqliteDB("proxies.sqlite")
+            yield migrateDelegatesToStore(sqliteProxyService, self.store)
 
 
     @inlineCallbacks

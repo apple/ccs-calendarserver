@@ -19,4 +19,60 @@ limitations under the License.
 <!DOCTYPE accounts SYSTEM "../../../conf/auth/accounts.dtd">
 
 <directory realm="Test">
+  <record type="location">
+    <uid>mercury</uid>
+    <short-name>mercury</short-name>
+    <password>mercury</password>
+    <full-name>Mercury Seven</full-name>
+    <email>mercury@example.com</email>
+  </record>
+  <record type="location">
+    <uid>gemini</uid>
+    <short-name>gemini</short-name>
+    <password>gemini</password>
+    <full-name>Gemini Twelve</full-name>
+    <email>gemini@example.com</email>
+  </record>
+  <record type="location">
+    <uid>apollo</uid>
+    <short-name>apollo</short-name>
+    <password>apollo</password>
+    <full-name>Apollo Eleven</full-name>
+    <email>apollo@example.com</email>
+  </record>
+  <record type="location">
+    <uid>orion</uid>
+    <short-name>orion</short-name>
+    <password>orion</password>
+    <full-name>Orion</full-name>
+    <email>orion@example.com</email>
+  </record>
+  <record type="resource">
+    <uid>transporter</uid>
+    <short-name>transporter</short-name>
+    <password>transporter</password>
+    <full-name>Mass Transporter</full-name>
+    <email>transporter@example.com</email>
+  </record>
+  <record type="resource">
+    <uid>ftlcpu</uid>
+    <short-name>ftlcpu</short-name>
+    <password>ftlcpu</password>
+    <full-name>Faster-Than-Light Microprocessor</full-name>
+    <email>ftlcpu@example.com</email>
+  </record>
+  <record type="resource">
+    <uid>non_calendar_proxy</uid>
+    <short-name>non_calendar_proxy</short-name>
+    <password>non_calendar_proxy</password>
+    <full-name>Non-calendar proxy</full-name>
+    <email>non_calendar_proxy@example.com</email>
+  </record>
+  <record type="resource">
+    <uid>disabled</uid>
+    <short-name>disabled</short-name>
+    <password>disabled</password>
+    <full-name>Disabled Record</full-name>
+    <email>disabled@example.com</email>
+  </record>
 </directory>

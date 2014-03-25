@@ -186,6 +186,10 @@ class StoreTestCase(CommonCommonTests, txweb2.dav.test.util.TestCase):
         augments = FilePath(config.DataRoot).child("augments.xml")
         augments.setContent(augmentsFile.getContent())
 
+        proxies = FilePath(config.DataRoot).child("proxies.xml")
+        proxies.setContent(proxiesFile.getContent())
+
+
 
     def createHierarchy(self, structure, root=None):
         if root is None:
