@@ -1872,12 +1872,12 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
                     *[element.HRef(principal.principalURL()) for principal in results]
                 ))
 
-            elif name == "auto-schedule" and self.calendarsEnabled():
-                autoSchedule = self.getAutoSchedule()
-                returnValue(customxml.AutoSchedule("true" if autoSchedule else "false"))
+            # elif name == "auto-schedule" and self.calendarsEnabled():
+            #     autoSchedule = self.getAutoSchedule()
+            #     returnValue(customxml.AutoSchedule("true" if autoSchedule else "false"))
 
             elif name == "auto-schedule-mode" and self.calendarsEnabled():
-                autoScheduleMode = self.getAutoScheduleMode()
+                autoScheduleMode = yield self.getAutoScheduleMode()
                 returnValue(customxml.AutoScheduleMode(autoScheduleMode.description if autoScheduleMode else "default"))
 
         elif namespace == carddav_namespace and self.addressBooksEnabled():

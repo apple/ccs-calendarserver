@@ -15,18 +15,15 @@
 ##
 from __future__ import print_function
 
-import os
 from urllib import quote
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.cred.credentials import UsernamePassword
 
-from txweb2.dav.fileop import rmdir
 from txweb2.dav.resource import AccessDeniedError
 from txweb2.http import HTTPError
 from txweb2.test.test_server import SimpleRequest
 
-from txdav.common.datastore.file import CommonDataStore
 from txdav.xml import element as davxml
 
 from twistedcaldav import carddavxml
@@ -34,19 +31,14 @@ from twistedcaldav.cache import DisabledCacheNotifier
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.directory.addressbook import (
-    DirectoryAddressBookHomeProvisioningResource
-)
-from twistedcaldav.directory.calendar import (
-    DirectoryCalendarHomeProvisioningResource
-)
 from twistedcaldav.directory.principal import (
     DirectoryCalendarPrincipalResource,
     DirectoryPrincipalResource,
     DirectoryPrincipalTypeProvisioningResource,
 )
 from twistedcaldav.test.util import StoreTestCase
-
+from txdav.who.idirectory import AutoScheduleMode, RecordType as CalRecordType
+from twext.who.idirectory import RecordType
 
 
 class ProvisionedPrincipals(StoreTestCase):
@@ -80,7 +72,7 @@ class ProvisionedPrincipals(StoreTestCase):
             #print("\n -> %s" % (directory.__class__.__name__,))
             provisioningResource = self.principalRootResource
 
-            provisioningURL = "/" + self.directory.__class__.__name__ + "/"
+            provisioningURL = "/principals/"
             self.assertEquals(
                 provisioningURL,
                 provisioningResource.principalCollectionURL()
@@ -93,11 +85,18 @@ class ProvisionedPrincipals(StoreTestCase):
             )
 
             recordTypes = set((yield provisioningResource.listChildren()))
-            self.assertEquals(recordTypes, set(self.directory.recordTypes()))
+            self.assertEquals(
+                recordTypes,
+                set(
+                    [
+                        self.directory.recordTypeToOldName(rt) for rt in
+                        self.directory.recordTypes()
+                    ]
+                )
+            )
 
             for recordType in recordTypes:
-                #print("   -> %s" % (recordType,))
-                typeResource = provisioningResource.getChild(recordType)
+                typeResource = yield provisioningResource.getChild(recordType)
                 self.failUnless(
                     isinstance(
                         typeResource,
@@ -123,7 +122,9 @@ class ProvisionedPrincipals(StoreTestCase):
                 # Handle records with mulitple shortNames
                 expected = []
                 for r in (
-                    yield self.directory.recordsWithRecordType(recordType)
+                    yield self.directory.recordsWithRecordType(
+                        self.directory.oldNameToRecordType(recordType)
+                    )
                 ):
                     if r.uid != "disabled":
                         expected.extend(r.shortNames)
@@ -137,7 +138,7 @@ class ProvisionedPrincipals(StoreTestCase):
                     )
 
                     # shortName may be non-ascii
-                    recordURL = typeURL + quote(shortName) + "/"
+                    recordURL = typeURL + quote(shortName.encode("utf-8")) + "/"
                     self.assertIn(
                         recordURL,
                         (
@@ -298,7 +299,7 @@ class ProvisionedPrincipals(StoreTestCase):
                     self.failIf(principal is not None)
 
         # Explicitly check the disabled record
-        provisioningResource = self.principalRootResource
+        provisioningResource = yield self.actualRoot.getChild("principals")
 
         self.failUnlessIdentical(
             (
@@ -413,9 +414,9 @@ class ProvisionedPrincipals(StoreTestCase):
                 yield hasProperty(
                     (calendarserver_namespace, "calendar-proxy-write-for")
                 )
-                yield hasProperty(
-                    (calendarserver_namespace, "auto-schedule")
-                )
+                # yield hasProperty(
+                #     (calendarserver_namespace, "auto-schedule")
+                # )
             else:
                 yield doesNotHaveProperty(
                     (caldav_namespace, "calendar-home-set")
@@ -438,9 +439,9 @@ class ProvisionedPrincipals(StoreTestCase):
                 yield doesNotHaveProperty(
                     (calendarserver_namespace, "calendar-proxy-write-for")
                 )
-                yield doesNotHaveProperty(
-                    (calendarserver_namespace, "auto-schedule")
-                )
+                # yield doesNotHaveProperty(
+                #     (calendarserver_namespace, "auto-schedule")
+                # )
 
             if record.hasContacts:
                 yield hasProperty(carddavxml.AddressBookHomeSet.qname())
@@ -578,8 +579,7 @@ class ProvisionedPrincipals(StoreTestCase):
         for (
             provisioningResource, recordType, recordResource, record
         ) in (yield self._allRecords()):
-            if True:  # user.enabled:
-                self.assertEquals(record.guid, recordResource.principalUID())
+            self.assertEquals(record.uid, recordResource.principalUID())
 
 
     @inlineCallbacks
@@ -610,10 +610,21 @@ class ProvisionedPrincipals(StoreTestCase):
             provisioningResource, recordType, recordResource, record
         ) in (yield self._allRecords()):
             if record.hasCalendars:
-                self.failUnless(
-                    recordResource.canonicalCalendarUserAddress()
-                    .startswith("urn:uuid:")
-                )
+                if self.directory.fieldName.guid in record.fields:
+                    self.failUnless(
+                        recordResource.canonicalCalendarUserAddress()
+                        .startswith("urn:uuid:")
+                    )
+                elif self.directory.fieldName.emailAddresses in record.fields:
+                    self.failUnless(
+                        recordResource.canonicalCalendarUserAddress()
+                        .startswith("mailto:")
+                    )
+                else:
+                    self.failUnless(
+                        recordResource.canonicalCalendarUserAddress()
+                        .startswith("/principals/__uids__/")
+                    )
 
 
     @inlineCallbacks
@@ -621,27 +632,7 @@ class ProvisionedPrincipals(StoreTestCase):
         """
         DirectoryPrincipalResource.addressBookHomeURLs(),
         """
-        # No addressbook home provisioner should result in no addressbook
-        # homes.
-        for (
-            provisioningResource, recordType, recordResource, record
-        ) in (yield self._allRecords()):
-            if record.hasContacts:
-                self.failIf(tuple(recordResource.addressBookHomeURLs()))
 
-        path = os.path.join(self.docroot, self.directory.__class__.__name__)
-
-        if os.path.exists(path):
-            rmdir(path)
-        os.mkdir(path)
-
-        addressBookRootResource = DirectoryAddressBookHomeProvisioningResource(
-            self.directory,
-            "/addressbooks/",
-            self.storeUnderTest()
-        )
-
-        # AddressBook home provisioners should result in addressBook homes.
         for (
             provisioningResource, recordType, recordResource, record
         ) in (yield self._allRecords()):
@@ -655,6 +646,7 @@ class ProvisionedPrincipals(StoreTestCase):
                 self.failIf(tuple(recordResource.addressBookHomeURLs()))
                 record.hasContacts = True
 
+                addressBookRootResource = yield self.actualRoot.getChild("addressbooks")
                 addressBookRootURL = addressBookRootResource.url()
 
                 for homeURL in homeURLs:
@@ -668,36 +660,36 @@ class ProvisionedPrincipals(StoreTestCase):
         DirectoryPrincipalResource.scheduleInboxURL(),
         DirectoryPrincipalResource.scheduleOutboxURL()
         """
-        # No calendar home provisioner should result in no calendar homes.
-        for (
-            provisioningResource, recordType, recordResource, record
-        ) in (yield self._allRecords()):
-            if record.hasCalendars:
-                self.failIf(tuple(recordResource.calendarHomeURLs()))
-                self.failIf(recordResource.scheduleInboxURL())
-                self.failIf(recordResource.scheduleOutboxURL())
+        # # No calendar home provisioner should result in no calendar homes.
+        # for (
+        #     provisioningResource, recordType, recordResource, record
+        # ) in (yield self._allRecords()):
+        #     if record.hasCalendars:
+        #         self.failIf(tuple(recordResource.calendarHomeURLs()))
+        #         self.failIf(recordResource.scheduleInboxURL())
+        #         self.failIf(recordResource.scheduleOutboxURL())
 
-        # Need to create a calendar home provisioner for each service.
-        calendarRootResources = {}
+        # # Need to create a calendar home provisioner for each service.
+        # calendarRootResources = {}
 
-        path = os.path.join(self.docroot, self.directory.__class__.__name__)
+        # path = os.path.join(self.docroot, self.directory.__class__.__name__)
 
-        if os.path.exists(path):
-            rmdir(path)
-        os.mkdir(path)
+        # if os.path.exists(path):
+        #     rmdir(path)
+        # os.mkdir(path)
 
-        # Need a data store
-        _newStore = CommonDataStore(path, None, None, True, False)
+        # # Need a data store
+        # _newStore = CommonDataStore(path, None, None, True, False)
 
-        provisioningResource = DirectoryCalendarHomeProvisioningResource(
-            self.directory,
-            "/calendars/",
-            _newStore
-        )
+        # provisioningResource = DirectoryCalendarHomeProvisioningResource(
+        #     self.directory,
+        #     "/calendars/",
+        #     _newStore
+        # )
 
-        calendarRootResources[self.directory.__class__.__name__] = (
-            provisioningResource
-        )
+        # calendarRootResources[self.directory.__class__.__name__] = (
+        #     provisioningResource
+        # )
 
         # Calendar home provisioners should result in calendar homes.
         for (
@@ -713,11 +705,8 @@ class ProvisionedPrincipals(StoreTestCase):
                 self.failIf(tuple(recordResource.calendarHomeURLs()))
                 record.hasCalendars = True
 
-                calendarRootURL = (
-                    calendarRootResources[
-                        record.service.__class__.__name__
-                    ].url()
-                )
+                calendarRootResource = yield self.rootResource.getChild("calendars")
+                calendarRootURL = calendarRootResource.url()
 
                 inboxURL = recordResource.scheduleInboxURL()
                 outboxURL = recordResource.scheduleOutboxURL()
@@ -748,26 +737,31 @@ class ProvisionedPrincipals(StoreTestCase):
         DirectoryPrincipalResource.canAutoSchedule()
         """
 
-        # Set all resources and locations to auto-schedule, plus one user
-        for (
-            provisioningResource, recordType, recordResource, record
-        ) in (yield self._allRecords()):
-            if record.hasCalendars:
-                if (
-                    recordType in ("locations", "resources") or
-                    record.uid == "cdaboo"
-                ):
-                    recordResource.record.autoSchedule = True
+        # This test used to set the autoschedule mode in a separate loop, but
+        # the records aren't cached, so I've moved this into the later loop
+
+        # # Set all resources and locations to auto-schedule, plus one user
+        # for (
+        #     provisioningResource, recordType, recordResource, record
+        # ) in (yield self._allRecords()):
+        #     if record.hasCalendars:
+        #         print("before", record, record.recordType, record.uid)
+        #         if (
+        #             recordType in (CalRecordType.location, CalRecordType.resource) or
+        #             record.uid == "5A985493-EE2C-4665-94CF-4DFEA3A89500"
+        #         ):
+        #             record.fields[record.service.fieldName.lookupByName("autoScheduleMode")] = AutoScheduleMode.acceptIfFreeDeclineIfBusy
+        #             print("modifying", record, record.fields)
 
         # Default state - resources and locations, enabled, others not
         for (
             provisioningResource, recordType, recordResource, record
         ) in (yield self._allRecords()):
             if record.hasCalendars:
-                if recordType in ("locations", "resources"):
-                    self.assertTrue(recordResource.canAutoSchedule())
+                if recordType in (CalRecordType.location, CalRecordType.resource):
+                    self.assertTrue((yield recordResource.canAutoSchedule()))
                 else:
-                    self.assertFalse(recordResource.canAutoSchedule())
+                    self.assertFalse((yield recordResource.canAutoSchedule()))
 
         # Set config to allow users
         self.patch(config.Scheduling.Options.AutoSchedule, "AllowUsers", True)
@@ -776,12 +770,14 @@ class ProvisionedPrincipals(StoreTestCase):
         ) in (yield self._allRecords()):
             if record.hasCalendars:
                 if (
-                    recordType in ("locations", "resources") or
-                    record.uid == "cdaboo"
+                    recordType in (CalRecordType.location, CalRecordType.resource) or
+                    record.uid == "5A985493-EE2C-4665-94CF-4DFEA3A89500"
                 ):
-                    self.assertTrue(recordResource.canAutoSchedule())
+                    record.fields[record.service.fieldName.lookupByName("autoScheduleMode")] = AutoScheduleMode.acceptIfFreeDeclineIfBusy
+
+                    self.assertTrue((yield recordResource.canAutoSchedule()))
                 else:
-                    self.assertFalse(recordResource.canAutoSchedule())
+                    self.assertFalse((yield recordResource.canAutoSchedule()))
 
         # Set config to disallow all
         self.patch(config.Scheduling.Options.AutoSchedule, "Enabled", False)
@@ -789,7 +785,7 @@ class ProvisionedPrincipals(StoreTestCase):
             provisioningResource, recordType, recordResource, record
         ) in (yield self._allRecords()):
             if record.hasCalendars:
-                self.assertFalse(recordResource.canAutoSchedule())
+                self.assertFalse((yield recordResource.canAutoSchedule()))
 
 
     @inlineCallbacks
@@ -808,18 +804,22 @@ class ProvisionedPrincipals(StoreTestCase):
             if record.uid == "apollo":
 
                 # No organizer
-                self.assertFalse(recordResource.canAutoSchedule())
+                self.assertFalse((yield recordResource.canAutoSchedule()))
 
                 # Organizer in auto-accept group
                 self.assertTrue(
-                    recordResource.canAutoSchedule(
-                        organizer="mailto:wsanchez@example.com"
+                    (
+                        yield recordResource.canAutoSchedule(
+                            organizer="mailto:wsanchez@example.com"
+                        )
                     )
                 )
                 # Organizer not in auto-accept group
                 self.assertFalse(
-                    recordResource.canAutoSchedule(
-                        organizer="mailto:a@example.com"
+                    (
+                        yield recordResource.canAutoSchedule(
+                            organizer="mailto:a@example.com"
+                        )
                     )
                 )
 
@@ -883,34 +883,34 @@ class ProvisionedPrincipals(StoreTestCase):
         expected = (
             (
                 "DAV:", "displayname",
-                "morgen", "fullName", "morgen"
+                "morgen", "fullNames", "morgen"
             ),
             (
                 "urn:ietf:params:xml:ns:caldav", "calendar-user-type",
-                "INDIVIDUAL", "recordType", "users"
+                "INDIVIDUAL", "recordType", RecordType.user
             ),
             (
                 "urn:ietf:params:xml:ns:caldav", "calendar-user-type",
-                "GROUP", "recordType", "groups"
+                "GROUP", "recordType", RecordType.group
             ),
             (
                 "urn:ietf:params:xml:ns:caldav", "calendar-user-type",
-                "RESOURCE", "recordType", "resources"
+                "RESOURCE", "recordType", CalRecordType.resource
             ),
             (
                 "urn:ietf:params:xml:ns:caldav", "calendar-user-type",
-                "ROOM", "recordType", "locations"
+                "ROOM", "recordType", CalRecordType.location
             ),
             (
                 "urn:ietf:params:xml:ns:caldav", "calendar-user-address-set",
                 "/principals/__uids__/AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA/",
-                "guid", "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA"
+                "uid", "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA"
             ),
             (
                 "urn:ietf:params:xml:ns:caldav", "calendar-user-address-set",
                 "http://example.com:8008/principals/__uids__/"
                 "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA/",
-                "guid", "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA"
+                "uid", "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA"
             ),
             (
                 "urn:ietf:params:xml:ns:caldav", "calendar-user-address-set",

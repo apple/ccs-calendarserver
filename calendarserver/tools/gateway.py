@@ -383,90 +383,10 @@ class Runner(object):
     command_getAddressAttributes = command_getLocationAttributes
 
 
-
-
-
-    # @inlineCallbacks
-    # def _setAttributes(self, )
-    #     # Set autoSchedule prior to the updateRecord so that the right
-    #     # value ends up in memcached
-    #     principal = principalForPrincipalID(command['GeneratedUID'],
-    #         directory=self.dir)
-    #     (yield principal.setAutoSchedule(command.get('AutoSchedule', False)))
-    #     (yield principal.setAutoAcceptGroup(command.get('AutoAcceptGroup', "")))
-
-    #     kwargs = {}
-    #     for key, info in attrMap.iteritems():
-    #         if key in command:
-    #             kwargs[info['attr']] = command[key]
-    #     try:
-    #         record = (yield updateRecord(False, self.dir, "locations", **kwargs))
-    #     except DirectoryError, e:
-    #         self.respondWithError(str(e))
-    #         return
-
-    #     readProxies = command.get("ReadProxies", None)
-    #     writeProxies = command.get("WriteProxies", None)
-    #     principal = principalForPrincipalID(record.guid, directory=self.dir)
-    #     (yield setProxies(self.store, principal, readProxies, writeProxies, directory=self.dir))
-
-    #     yield self.command_getLocationAttributes(command)
-
-
-
     # Resources
 
     def command_getResourceList(self, command):
         self.respondWithRecordsOfTypes(self.dir, command, ["resources"])
-
-
-    # @inlineCallbacks
-    # def command_createResource(self, command):
-    #     kwargs = {}
-    #     for key, info in attrMap.iteritems():
-    #         if key in command:
-    #             kwargs[info['attr']] = command[key]
-
-    #     try:
-    #         record = (yield updateRecord(True, self.dir, "resources", **kwargs))
-    #     except DirectoryError, e:
-    #         self.respondWithError(str(e))
-    #         return
-
-    #     readProxies = command.get("ReadProxies", None)
-    #     writeProxies = command.get("WriteProxies", None)
-    #     principal = principalForPrincipalID(record.guid, directory=self.dir)
-    #     (yield setProxies(self.store, principal, readProxies, writeProxies, directory=self.dir))
-
-    #     self.respondWithRecordsOfTypes(self.dir, command, ["resources"])
-
-
-    # @inlineCallbacks
-    # def command_setResourceAttributes(self, command):
-
-    #     # Set autoSchedule prior to the updateRecord so that the right
-    #     # value ends up in memcached
-    #     principal = principalForPrincipalID(command['GeneratedUID'],
-    #         directory=self.dir)
-    #     (yield principal.setAutoSchedule(command.get('AutoSchedule', False)))
-    #     (yield principal.setAutoAcceptGroup(command.get('AutoAcceptGroup', "")))
-
-    #     kwargs = {}
-    #     for key, info in attrMap.iteritems():
-    #         if key in command:
-    #             kwargs[info['attr']] = command[key]
-    #     try:
-    #         record = (yield updateRecord(False, self.dir, "resources", **kwargs))
-    #     except DirectoryError, e:
-    #         self.respondWithError(str(e))
-    #         return
-
-    #     readProxies = command.get("ReadProxies", None)
-    #     writeProxies = command.get("WriteProxies", None)
-    #     principal = principalForPrincipalID(record.guid, directory=self.dir)
-    #     (yield setProxies(self.store, principal, readProxies, writeProxies, directory=self.dir))
-
-    #     yield self.command_getResourceAttributes(command)
 
 
     # deferred
@@ -478,40 +398,6 @@ class Runner(object):
 
     def command_getAddressList(self, command):
         return self.respondWithRecordsOfTypes(self.dir, command, ["addresses"])
-
-
-    # @inlineCallbacks
-    # def command_createAddress(self, command):
-    #     kwargs = {}
-    #     for key, info in attrMap.iteritems():
-    #         if key in command:
-    #             kwargs[info['attr']] = command[key]
-
-    #     try:
-    #         yield updateRecord(True, self.dir, "addresses", **kwargs)
-    #     except DirectoryError, e:
-    #         self.respondWithError(str(e))
-    #         return
-
-    #     self.respondWithRecordsOfTypes(self.dir, command, ["addresses"])
-
-
-
-
-    # @inlineCallbacks
-    # def command_setAddressAttributes(self, command):
-    #     kwargs = {}
-    #     for key, info in attrMap.iteritems():
-    #         if key in command:
-    #             kwargs[info['attr']] = command[key]
-    #     try:
-    #         yield updateRecord(False, self.dir, "addresses", **kwargs)
-    #     except DirectoryError, e:
-    #         self.respondWithError(str(e))
-    #         return
-
-    #     yield self.command_getAddressAttributes(command)
-
 
 
     @inlineCallbacks
@@ -647,76 +533,6 @@ class Runner(object):
         yield removeDelegate(txn, record, proxyRecord, (proxyType == "write"))
         yield txn.commit()
         yield self.respondWithProxies(command, record, proxyType)
-
-
-
-    # @inlineCallbacks
-    # def command_removeWriteProxy(self, command):
-    #     principal = principalForPrincipalID(command['Principal'], directory=self.dir)
-    #     if principal is None:
-    #         self.respondWithError("Principal not found: %s" % (command['Principal'],))
-    #         return
-    #     proxy = principalForPrincipalID(command['Proxy'], directory=self.dir)
-    #     if proxy is None:
-    #         self.respondWithError("Proxy not found: %s" % (command['Proxy'],))
-    #         return
-    #     try:
-    #         (yield removeProxy(self.root, self.dir, self.store, principal, proxy, proxyTypes=("write",)))
-    #     except ProxyError, e:
-    #         self.respondWithError(str(e))
-    #         return
-    #     except ProxyWarning, e:
-    #         pass
-    #     (yield self.respondWithProxies(self.dir, command, principal, "write"))
-
-
-    # @inlineCallbacks
-    # def command_listReadProxies(self, command):
-    #     principal = principalForPrincipalID(command['Principal'], directory=self.dir)
-    #     if principal is None:
-    #         self.respondWithError("Principal not found: %s" % (command['Principal'],))
-    #         return
-    #     (yield self.respondWithProxies(self.dir, command, principal, "read"))
-
-
-    # @inlineCallbacks
-    # def command_addReadProxy(self, command):
-    #     principal = principalForPrincipalID(command['Principal'], directory=self.dir)
-    #     if principal is None:
-    #         self.respondWithError("Principal not found: %s" % (command['Principal'],))
-    #         return
-    #     proxy = principalForPrincipalID(command['Proxy'], directory=self.dir)
-    #     if proxy is None:
-    #         self.respondWithError("Proxy not found: %s" % (command['Proxy'],))
-    #         return
-    #     try:
-    #         (yield addProxy(self.root, self.dir, self.store, principal, "read", proxy))
-    #     except ProxyError, e:
-    #         self.respondWithError(str(e))
-    #         return
-    #     except ProxyWarning, e:
-    #         pass
-    #     (yield self.respondWithProxies(self.dir, command, principal, "read"))
-
-
-    # @inlineCallbacks
-    # def command_removeReadProxy(self, command):
-    #     principal = principalForPrincipalID(command['Principal'], directory=self.dir)
-    #     if principal is None:
-    #         self.respondWithError("Principal not found: %s" % (command['Principal'],))
-    #         return
-    #     proxy = principalForPrincipalID(command['Proxy'], directory=self.dir)
-    #     if proxy is None:
-    #         self.respondWithError("Proxy not found: %s" % (command['Proxy'],))
-    #         return
-    #     try:
-    #         (yield removeProxy(self.root, self.dir, self.store, principal, proxy, proxyTypes=("read",)))
-    #     except ProxyError, e:
-    #         self.respondWithError(str(e))
-    #         return
-    #     except ProxyWarning, e:
-    #         pass
-    #     (yield self.respondWithProxies(self.dir, command, principal, "read"))
 
 
     @inlineCallbacks

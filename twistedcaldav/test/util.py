@@ -183,6 +183,8 @@ class StoreTestCase(CommonCommonTests, txweb2.dav.test.util.TestCase):
         resources = FilePath(config.DataRoot).child("resources.xml")
         resources.setContent(resourcesFile.getContent())
 
+        augments = FilePath(config.DataRoot).child("augments.xml")
+        augments.setContent(augmentsFile.getContent())
 
 
 class TestCase(txweb2.dav.test.util.TestCase):

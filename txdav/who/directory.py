@@ -27,7 +27,9 @@ from twext.who.expression import (
 from twext.who.idirectory import RecordType as BaseRecordType
 from twisted.cred.credentials import UsernamePassword
 from twisted.internet.defer import inlineCallbacks, returnValue
-from txdav.who.idirectory import RecordType as DAVRecordType
+from txdav.who.idirectory import (
+    RecordType as DAVRecordType, AutoScheduleMode
+)
 from txweb2.auth.digest import DigestedCredentials
 
 log = Logger()
@@ -249,9 +251,9 @@ class CalendarDirectoryRecordMixin(object):
         except AttributeError:
             # No guid
             pass
-        cuas.add("/principals/__uids__/{uid}/".format(uid=self.uid))
+        cuas.add(u"/principals/__uids__/{uid}/".format(uid=self.uid))
         for shortName in self.shortNames:
-            cuas.add("/principals/{rt}/{sn}/".format(
+            cuas.add(u"/principals/{rt}/{sn}/".format(
                 rt=self.service.recordTypeToOldName(self.recordType),
                 sn=shortName)
             )
@@ -341,15 +343,17 @@ class CalendarDirectoryRecordMixin(object):
 
 
     def enabledAsOrganizer(self):
-        # MOVE2WHO FIXME TO LOOK AT CONFIG
+        # FIXME:
+        from twistedcaldav.config import config
+
         if self.recordType == self.service.recordType.user:
             return True
         elif self.recordType == self.service.recordType.group:
-            return False  # config.Scheduling.Options.AllowGroupAsOrganizer
+            return config.Scheduling.Options.AllowGroupAsOrganizer
         elif self.recordType == self.service.recordType.location:
-            return False  # config.Scheduling.Options.AllowLocationAsOrganizer
+            return config.Scheduling.Options.AllowLocationAsOrganizer
         elif self.recordType == self.service.recordType.resource:
-            return False  # config.Scheduling.Options.AllowResourceAsOrganizer
+            return config.Scheduling.Options.AllowResourceAsOrganizer
         else:
             return False
 
@@ -363,18 +367,50 @@ class CalendarDirectoryRecordMixin(object):
         return self.loginAllowed
 
 
-    #MOVE2WHO
     def calendarsEnabled(self):
-        # In the old world, this *also* looked at config:
-        # return config.EnableCalDAV and self.enabledForCalendaring
-        return self.hasCalendars
+        # FIXME:
+        from twistedcaldav.config import config
+
+        return config.EnableCalDAV and self.hasCalendars
 
 
-    def getAutoScheduleMode(self, organizer):
-        # MOVE2WHO Fix this to take organizer into account:
-        return self.autoScheduleMode
 
-
+    @inlineCallbacks
     def canAutoSchedule(self, organizer=None):
-        # MOVE2WHO Fix this:
-        return True
+        # FIXME:
+        from twistedcaldav.config import config
+
+        if config.Scheduling.Options.AutoSchedule.Enabled:
+            if (
+                config.Scheduling.Options.AutoSchedule.Always or
+                self.autoScheduleMode not in (AutoScheduleMode.none, None) or  # right???
+                (
+                    yield self.autoAcceptFromOrganizer(organizer)
+                )
+            ):
+                if (
+                    self.getCUType() != "INDIVIDUAL" or
+                    config.Scheduling.Options.AutoSchedule.AllowUsers
+                ):
+                    returnValue(True)
+        returnValue(False)
+
+
+    @inlineCallbacks
+    def getAutoScheduleMode(self, organizer):
+        autoScheduleMode = self.autoScheduleMode
+        if (yield self.autoAcceptFromOrganizer(organizer)):
+            autoScheduleMode = AutoScheduleMode.acceptIfFreeDeclineIfBusy
+        returnValue(autoScheduleMode)
+
+
+    @inlineCallbacks
+    def autoAcceptFromOrganizer(self, organizer):
+        if organizer is not None and self.autoAcceptGroup is not None:
+            service = self.service
+            organizerRecord = yield service.recordWithCalendarUserAddress(organizer)
+            if organizerRecord is not None:
+                autoAcceptGroup = yield service.recordWithUID(self.autoAcceptGroup)
+                if organizerRecord.uid in (yield autoAcceptGroup.members()):
+                    returnValue(True)
+        returnValue(False)

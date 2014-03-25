@@ -434,9 +434,9 @@ class ImplicitProcessor(object):
 
             # Handle auto-reply behavior
             organizer = normalizeCUAddr(self.message.getOrganizer())
-            if self.recipient.principal.canAutoSchedule(organizer=organizer):
+            if (yield self.recipient.principal.canAutoSchedule(organizer=organizer)):
                 # auto schedule mode can depend on who the organizer is
-                mode = self.recipient.principal.getAutoScheduleMode(organizer=organizer)
+                mode = yield self.recipient.principal.getAutoScheduleMode(organizer=organizer)
                 send_reply, store_inbox, partstat = (yield self.checkAttendeeAutoReply(new_calendar, mode))
 
                 # Only store inbox item when reply is not sent or always for users
@@ -467,9 +467,9 @@ class ImplicitProcessor(object):
 
                 # Handle auto-reply behavior
                 organizer = normalizeCUAddr(self.message.getOrganizer())
-                if self.recipient.principal.canAutoSchedule(organizer=organizer) and not hasattr(self.txn, "doing_attendee_refresh"):
+                if (yield self.recipient.principal.canAutoSchedule(organizer=organizer)) and not hasattr(self.txn, "doing_attendee_refresh"):
                     # auto schedule mode can depend on who the organizer is
-                    mode = self.recipient.principal.getAutoScheduleMode(organizer=organizer)
+                    mode = yield self.recipient.principal.getAutoScheduleMode(organizer=organizer)
                     send_reply, store_inbox, partstat = (yield self.checkAttendeeAutoReply(new_calendar, mode))
 
                     # Only store inbox item when reply is not sent or always for users
@@ -548,7 +548,7 @@ class ImplicitProcessor(object):
             # inbox item on them even if auto-schedule is true so that they get a notification
             # of the cancel.
             organizer = normalizeCUAddr(self.message.getOrganizer())
-            autoprocessed = self.recipient.principal.canAutoSchedule(organizer=organizer)
+            autoprocessed = yield self.recipient.principal.canAutoSchedule(organizer=organizer)
             store_inbox = not autoprocessed or self.recipient.principal.getCUType() == "INDIVIDUAL"
 
             # Check to see if this is a cancel of the entire event

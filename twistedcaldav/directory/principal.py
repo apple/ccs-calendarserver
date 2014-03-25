@@ -1161,6 +1161,7 @@ class DirectoryPrincipalResource (
 
         @param organizer: the CUA of the organizer trying to schedule this principal
         @type organizer: C{str}
+        @return: C{Deferred} firing a C{bool}
         """
         return self.record.canAutoSchedule(organizer)
 
@@ -1184,9 +1185,8 @@ class DirectoryPrincipalResource (
 
         @param organizer: the CUA of the organizer scheduling this principal
         @type organizer: C{str}
-        @return: auto schedule mode; one of: none, accept-always, decline-always,
-            accept-if-free, decline-if-busy, automatic (see stdconfig.py)
-        @rtype: C{str}
+        @return: auto schedule mode
+        @rtype: C{Deferred} firing L{AutoScheduleMode}
         """
         return self.record.getAutoScheduleMode(organizer)
 
@@ -1222,7 +1222,7 @@ class DirectoryPrincipalResource (
         @type organizer: C{str}
         @return: True if the autoAcceptGroup is assigned, and the organizer is a member
             of that group.  False otherwise.
-        @rtype: C{bool}
+        @rtype: C{Deferred} firing C{bool}
         """
         return self.record.autoAcceptFromOrganizer()
 

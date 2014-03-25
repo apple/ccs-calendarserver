@@ -109,11 +109,11 @@ class TestCalendarStoreDirectoryRecord(TestStoreDirectoryRecord):
 
 
     def canAutoSchedule(self, organizer):
-        return False
+        return succeed(False)
 
 
     def getAutoScheduleMode(self, organizer):
-        return "automatic"
+        return succeed("automatic")
 
 
     def isProxyFor(self, other):
