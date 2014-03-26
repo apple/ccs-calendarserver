@@ -51,6 +51,9 @@ def directoryFromConfig(config, store=None):
     # MOVE2WHO FIXME: this needs to talk to its own separate database.  In
     # fact, don't pass store=None if you already have called storeFromConfig()
     # within this process.  Pass the existing store in here.
+
+    # TODO: use proxyForInterface to ensure we're only using the DPS related
+    # store API.  Also define an IDirectoryProxyStore Interface
     if store is None:
         pool, txnFactory = getDBPool(config)
         store = storeFromConfig(config, txnFactory, None)
