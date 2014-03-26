@@ -126,8 +126,7 @@ class ProvisionedPrincipals(StoreTestCase):
                         self.directory.oldNameToRecordType(recordType)
                     )
                 ):
-                    if r.uid != "disabled":
-                        expected.extend(r.shortNames)
+                    expected.extend(r.shortNames)
                 self.assertEquals(shortNames, set(expected))
 
                 for shortName in shortNames:
