@@ -79,7 +79,8 @@ class CalendarDirectoryServiceMixin(object):
                     uid = parts[3]
                     record = yield self.recordWithUID(uid)
                 else:
-                    recordType = self.fieldName.lookupByName(parts[2])
+                    # recordType = self.fieldName.lookupByName(parts[2])
+                    recordType = self.oldNameToRecordType(parts[2])
                     record = yield self.recordWithShortName(recordType, parts[3])
 
         returnValue(record if record and record.hasCalendars else None)
@@ -406,11 +407,19 @@ class CalendarDirectoryRecordMixin(object):
 
     @inlineCallbacks
     def autoAcceptFromOrganizer(self, organizer):
-        if organizer is not None and self.autoAcceptGroup is not None:
+        try:
+            autoAcceptGroup = self.autoAcceptGroup
+        except AttributeError:
+            autoAcceptGroup = None
+
+        if (
+            organizer is not None and
+            autoAcceptGroup is not None
+        ):
             service = self.service
             organizerRecord = yield service.recordWithCalendarUserAddress(organizer)
             if organizerRecord is not None:
-                autoAcceptGroup = yield service.recordWithUID(self.autoAcceptGroup)
+                autoAcceptGroup = yield service.recordWithUID(autoAcceptGroup)
                 if organizerRecord.uid in (yield autoAcceptGroup.members()):
                     returnValue(True)
         returnValue(False)

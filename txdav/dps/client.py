@@ -55,7 +55,6 @@ log = Logger()
 
 
 ## MOVE2WHO TODOs:
-## realm from primary/user directory service
 ## SACLs
 ## Wiki
 ## LDAP
@@ -83,12 +82,6 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
          txdav.who.idirectory.FieldName,
          txdav.who.augment.FieldName)
     )
-
-
-    # MOVE2WHO: we talked about passing these in instead:
-    # def __init__(self, fieldNames, recordTypes):
-    #     self.fieldName = fieldNames
-    #     self.recordType = recordTypes
 
 
     # MOVE2WHO needed?
@@ -151,11 +144,12 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
 
     @inlineCallbacks
     def _getConnection(self):
-        # TODO: make socket patch configurable
         # TODO: reconnect if needed
 
-        # path = config.DirectoryProxy.SocketPath
-        path = "data/Logs/state/directory-proxy.sock"
+        # FIXME:
+        from twistedcaldav.config import config
+        path = config.DirectoryProxy.SocketPath
+        # path = "data/Logs/state/directory-proxy.sock"
         if getattr(self, "_connection", None) is None:
             log.debug("Creating connection")
             connection = (yield ClientCreator(reactor, amp.AMP).connectUNIX(path))

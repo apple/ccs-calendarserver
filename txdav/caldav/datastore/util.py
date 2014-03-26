@@ -122,10 +122,14 @@ def normalizationLookup(cuaddr, recordFunction, config):
         # in a parameter value except as the start/end delimiters.
         # Single quotes are allowed, so we convert any double-quotes
         # to single-quotes.
+        try:
+            guid = record.guid
+        except AttributeError:
+            guid = None
         returnValue(
             (
                 record.displayName.replace('"', "'"),
-                record.uid,
+                guid,
                 record.calendarUserAddresses,
             )
         )

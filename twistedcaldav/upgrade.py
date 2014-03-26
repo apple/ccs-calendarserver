@@ -1110,8 +1110,6 @@ class PostDBImportStep(object):
     def stepWithResult(self, result):
         if self.doPostImport:
 
-            # directory = self.store.directoryService()
-
             # Load proxy assignments from XML if specified
             if (
                 self.config.ProxyLoadFromFile and

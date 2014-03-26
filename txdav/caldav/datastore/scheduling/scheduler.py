@@ -320,6 +320,10 @@ class Scheduler(object):
             # Verify that there is a single ATTENDEE property
             attendees = self.calendar.getAttendees()
 
+            # FIXME, how can this be None?
+            if attendees is None:
+                print("Attendees is None", self.calendar)
+
             # Must have only one
             if len(attendees) != 1:
                 log.error("Wrong number of ATTENDEEs in calendar data: %s" % (str(self.calendar),))

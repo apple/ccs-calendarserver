@@ -520,10 +520,13 @@ def normalizationLookup(cuaddr, principalFunction, config):
         # Single quotes are allowed, so we convert any double-quotes
         # to single-quotes.
         fullName = record.displayName.replace('"', "'")
-
         cuas = record.calendarUserAddresses
+        try:
+            guid = record.guid
+        except AttributeError:
+            guid = None
 
-        returnValue((fullName, record.uid, cuas))
+        returnValue((fullName, guid, cuas))
 
 
 

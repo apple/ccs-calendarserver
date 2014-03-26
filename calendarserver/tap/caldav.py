@@ -124,6 +124,8 @@ from calendarserver.tap.util import (
     pgServiceFromConfig, getDBPool, MemoryLimitService,
     storeFromConfig
 )
+from twisted.application.strports import service as strPortsService
+from txdav.dps.server import DirectoryProxyAMPFactory
 
 try:
     from calendarserver.version import version
@@ -536,7 +538,7 @@ class SlaveSpawnerService(Service):
             )
             self.monitor.addProcessObject(process, PARENT_ENVIRONMENT)
 
-        if (config.DirectoryProxy.SocketPath != ""):
+        if config.DirectoryProxy.Enabled:
             log.info("Adding directory proxy service")
 
             dpsArgv = [
@@ -1871,11 +1873,29 @@ class CalDAVServiceMaker (object):
 
             store.callWithNewTransactions(decorateTransaction)
 
+            # Set up AMP for DPS Server in the master instead of sidecar
+            if not config.DirectoryProxy.Enabled:
+                strPortsService(
+                    "unix:{path}:mode=660".format(
+                        path=config.DirectoryProxy.SocketPath
+                    ),
+                    DirectoryProxyAMPFactory(store.directoryService())
+                ).setServiceParent(multi)
+
             return multi
 
+        if config.DirectoryProxy.Enabled:
+            # If the master is to act as a DPS client, and talk to the
+            # DPS sidecar:
+            directory = DirectoryProxyClientService(
+                config.DirectoryRealmName
+            )
+        else:
+            # If the master is to act as the DPS server:
+            directory = None
+
         ssvc = self.storageService(
-            spawnerSvcCreator, None, uid, gid,
-            directory=DirectoryProxyClientService(config.DirectoryRealmName)
+            spawnerSvcCreator, None, uid, gid, directory=directory
         )
         ssvc.setServiceParent(s)
         return s

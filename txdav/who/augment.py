@@ -108,7 +108,7 @@ class AugmentedDirectoryService(
     def recordWithUID(self, uid):
         # MOVE2WHO, REMOVE THIS:
         if not isinstance(uid, unicode):
-            log.warn("Need to change uid to unicode")
+            # log.warn("Need to change uid to unicode")
             uid = uid.decode("utf-8")
 
         record = yield self._directory.recordWithUID(uid)
@@ -142,7 +142,7 @@ class AugmentedDirectoryService(
         # )
         # MOVE2WHO, REMOVE THIS:
         if not isinstance(shortName, unicode):
-            log.warn("Need to change shortName to unicode")
+            # log.warn("Need to change shortName to unicode")
             shortName = shortName.decode("utf-8")
 
         record = yield self._directory.recordWithShortName(
@@ -163,7 +163,7 @@ class AugmentedDirectoryService(
     def recordsWithEmailAddress(self, emailAddress):
         # MOVE2WHO, REMOVE THIS:
         if not isinstance(emailAddress, unicode):
-            log.warn("Need to change emailAddress to unicode")
+            # log.warn("Need to change emailAddress to unicode")
             emailAddress = emailAddress.decode("utf-8")
 
         records = yield self._directory.recordsWithEmailAddress(emailAddress)
