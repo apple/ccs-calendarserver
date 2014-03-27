@@ -15,12 +15,21 @@
     <enable-addressbook>true</enable-addressbook>
     <auto-schedule>true</auto-schedule>
   </record>
-  <record repeat="4">
+  <record repeat="3">
     <uid>resource%02d</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <auto-schedule>true</auto-schedule>
+  </record>
+  <record>
+    <uid>resource04</uid>
+    <enable>false</enable>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <enable-login>true</enable-login>
+    <auto-schedule>false</auto-schedule>
+    <auto-schedule-mode>none</auto-schedule-mode>
   </record>
   <record>
     <uid>resource05</uid>
