@@ -64,6 +64,7 @@ log = Logger()
 ## Separate store for DPS (augments and delegates separate from calendar data)
 ## calverify needs deferreds, including:
 ##    component.normalizeCalendarUserAddresses
+## Store autoAcceptGroups in the group db?
 
 @implementer(IDirectoryService, IStoreDirectoryService)
 class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):

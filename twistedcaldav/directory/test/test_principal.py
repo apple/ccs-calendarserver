@@ -541,13 +541,12 @@ class ProvisionedPrincipals(StoreTestCase):
         for (
             provisioningResource, recordType, recordResource, record
         ) in (yield self._allRecords()):
-            if True:  # user.enabled:
-                members = yield recordResource.groupMembers()
-                self.failUnless(
-                    set((yield record.members())).issubset(
-                        set(r.record for r in members)
-                    )
+            members = yield recordResource.groupMembers()
+            self.failUnless(
+                set((yield record.members())).issubset(
+                    set(r.record for r in members)
                 )
+            )
 
 
     @inlineCallbacks
@@ -770,9 +769,13 @@ class ProvisionedPrincipals(StoreTestCase):
             if record.hasCalendars:
                 if (
                     recordType in (CalRecordType.location, CalRecordType.resource) or
-                    record.uid == "5A985493-EE2C-4665-94CF-4DFEA3A89500"
+                    record.uid == u"5A985493-EE2C-4665-94CF-4DFEA3A89500"
                 ):
-                    record.fields[record.service.fieldName.lookupByName("autoScheduleMode")] = AutoScheduleMode.acceptIfFreeDeclineIfBusy
+                    record.fields[
+                        record.service.fieldName.lookupByName(
+                            "autoScheduleMode"
+                        )
+                    ] = AutoScheduleMode.acceptIfFreeDeclineIfBusy
 
                     self.assertTrue((yield recordResource.canAutoSchedule()))
                 else:
@@ -797,30 +800,34 @@ class ProvisionedPrincipals(StoreTestCase):
         # augments.xml, therefore any organizer in that group should be able to
         # auto schedule
 
-        for (
-            provisioningResource, recordType, recordResource, record
-        ) in (yield self._allRecords()):
-            if record.uid == "apollo":
+        record = yield self.directory.recordWithUID(u"apollo")
 
-                # No organizer
-                self.assertFalse((yield recordResource.canAutoSchedule()))
+        # Turn off this record's autoschedule
+        record.fields[
+            record.service.fieldName.lookupByName(
+                "autoScheduleMode"
+            )
+        ] = AutoScheduleMode.none
 
-                # Organizer in auto-accept group
-                self.assertTrue(
-                    (
-                        yield recordResource.canAutoSchedule(
-                            organizer="mailto:wsanchez@example.com"
-                        )
-                    )
+        # No organizer
+        self.assertFalse((yield record.canAutoSchedule()))
+
+        # Organizer in auto-accept group
+        self.assertTrue(
+            (
+                yield record.canAutoSchedule(
+                    organizer="mailto:wsanchez@example.com"
                 )
-                # Organizer not in auto-accept group
-                self.assertFalse(
-                    (
-                        yield recordResource.canAutoSchedule(
-                            organizer="mailto:a@example.com"
-                        )
-                    )
+            )
+        )
+        # Organizer not in auto-accept group
+        self.assertFalse(
+            (
+                yield record.canAutoSchedule(
+                    organizer="mailto:a@example.com"
                 )
+            )
+        )
 
 
     @inlineCallbacks

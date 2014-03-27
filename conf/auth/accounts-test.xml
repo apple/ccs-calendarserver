@@ -372,8 +372,8 @@ limitations under the License.
     <short-name>group02</short-name>
     <password>group02</password>
     <full-name>Group 02</full-name>
-      <member-uid type="users">user06</member-uid>
-      <member-uid type="users">user07</member-uid>
+      <member-uid >user06</member-uid>
+      <member-uid >user07</member-uid>
   </record>
   <record type="group">
     <uid>group03</uid>

@@ -40,7 +40,7 @@ from txdav.who.directory import (
     CalendarDirectoryRecordMixin, CalendarDirectoryServiceMixin,
 )
 from txdav.who.idirectory import (
-    AutoScheduleMode, FieldName
+    AutoScheduleMode, FieldName, RecordType as CalRecordType
 )
 
 log = Logger()
@@ -303,6 +303,14 @@ class AugmentedDirectoryService(
                 "decline-if-busy": AutoScheduleMode.declineIfBusy,
                 "automatic": AutoScheduleMode.acceptIfFreeDeclineIfBusy,
             }.get(augmentRecord.autoScheduleMode, None)
+
+            # Resources/Locations default to automatic
+            if record.recordType in (
+                CalRecordType.location,
+                CalRecordType.resource
+            ):
+                if autoScheduleMode is None:
+                    autoScheduleMode = AutoScheduleMode.acceptIfFreeDeclineIfBusy
 
             self._assignToField(
                 fields, "autoScheduleMode",

@@ -135,7 +135,7 @@ limitations under the License.
     <short-name>delegategroup</short-name>
     <uid>00599DAF-3E75-42DD-9DB7-52617E79943F</uid>
     <full-name>Delegate Group</full-name>
-    <member-uid>delegateviagroup</member-uid>
+    <member-uid>46D9D716-CBEE-490F-907A-66FA6C3767FF</member-uid>
   </record>
 
   <record type="user">
@@ -204,39 +204,39 @@ limitations under the License.
     <uid>9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1</uid>
     <password>managers</password>
     <full-name>Managers</full-name>
-      <member-uid>lecroy</member-uid>
+      <member-uid>8B4288F6-CC82-491D-8EF9-642EF4F3E7D0</member-uid>
   </record>
   <record type="group">
     <short-name>admin</short-name>
     <uid>admin</uid>
     <password>admin</password>
     <full-name>Administrators</full-name>
-      <member-uid>managers</member-uid>
+      <member-uid>9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1</member-uid>
   </record>
   <record type="group">
     <short-name>grunts</short-name>
     <uid>grunts</uid>
     <password>grunts</password>
     <full-name>We do all the work</full-name>
-      <member-uid>wsanchez</member-uid>
-      <member-uid>cdaboo</member-uid>
-      <member-uid>dreid</member-uid>
+      <member-uid>6423F94A-6B76-4A3A-815B-D52CFD77935D</member-uid>
+      <member-uid>5A985493-EE2C-4665-94CF-4DFEA3A89500</member-uid>
+      <member-uid>5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1</member-uid>
   </record>
   <record type="group">
     <short-name>right_coast</short-name>
     <uid>right_coast</uid>
     <password>right_coast</password>
     <full-name>East Coast</full-name>
-      <member-uid>cdaboo</member-uid>
+      <member-uid>5A985493-EE2C-4665-94CF-4DFEA3A89500</member-uid>
   </record>
   <record type="group">
     <short-name>left_coast</short-name>
     <uid>left_coast</uid>
     <password>left_coast</password>
     <full-name>West Coast</full-name>
-      <member-uid>wsanchez</member-uid>
-      <member-uid>lecroy</member-uid>
-      <member-uid>dreid</member-uid>
+      <member-uid>6423F94A-6B76-4A3A-815B-D52CFD77935D</member-uid>
+      <member-uid>8B4288F6-CC82-491D-8EF9-642EF4F3E7D0</member-uid>
+      <member-uid>5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1</member-uid>
   </record>
   <record type="group">
     <short-name>both_coasts</short-name>
@@ -252,7 +252,7 @@ limitations under the License.
     <password>recursive1_coasts</password>
     <full-name>Recursive1 Coasts</full-name>
       <member-uid>recursive2_coasts</member-uid>
-      <member-uid>wsanchez</member-uid>
+      <member-uid>6423F94A-6B76-4A3A-815B-D52CFD77935D</member-uid>
   </record>
   <record type="group">
     <short-name>recursive2_coasts</short-name>
@@ -260,15 +260,15 @@ limitations under the License.
     <password>recursive2_coasts</password>
     <full-name>Recursive2 Coasts</full-name>
       <member-uid>recursive1_coasts</member-uid>
-      <member-uid>cdaboo</member-uid>
+      <member-uid>5A985493-EE2C-4665-94CF-4DFEA3A89500</member-uid>
   </record>
   <record type="group">
     <short-name>non_calendar_group</short-name>
     <uid>non_calendar_group</uid>
     <password>non_calendar_group</password>
     <full-name>Non-calendar group</full-name>
-      <member-uid>cdaboo</member-uid>
-      <member-uid>lecroy</member-uid>
+      <member-uid>5A985493-EE2C-4665-94CF-4DFEA3A89500</member-uid>
+      <member-uid>8B4288F6-CC82-491D-8EF9-642EF4F3E7D0</member-uid>
   </record>
   <!--
   <location>

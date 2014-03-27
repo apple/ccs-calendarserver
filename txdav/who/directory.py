@@ -420,6 +420,23 @@ class CalendarDirectoryRecordMixin(object):
             organizerRecord = yield service.recordWithCalendarUserAddress(organizer)
             if organizerRecord is not None:
                 autoAcceptGroup = yield service.recordWithUID(autoAcceptGroup)
-                if organizerRecord.uid in (yield autoAcceptGroup.members()):
+                members = yield autoAcceptGroup.expandedMembers()
+                if organizerRecord.uid in ([m.uid for m in members]):
                     returnValue(True)
         returnValue(False)
+
+
+    @inlineCallbacks
+    def expandedMembers(self, members=None):
+
+        if members is None:
+            members = set()
+
+        for member in (yield self.members()):
+            if member.recordType == BaseRecordType.user:
+                if member not in members:
+                    members.add(member)
+            elif member.recordType == BaseRecordType.group:
+                yield member.expandedMembers(members)
+
+        returnValue(members)

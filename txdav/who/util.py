@@ -107,6 +107,7 @@ def directoryFromConfig(config, store=None):
 
         # Set the appropriate record types on each service
         types = []
+        fieldNames = []
         for recordTypeName in params.recordTypes:
             recordType = {
                 "users": RecordType.user,
@@ -127,7 +128,10 @@ def directoryFromConfig(config, store=None):
             types.append(recordType)
 
         directory.recordType = ConstantsContainer(types)
-        directory.fieldName = ConstantsContainer((FieldName, CalFieldName))
+        directory.fieldName = ConstantsContainer(
+            (directory.fieldName, CalFieldName)
+        )
+        fieldNames.append(directory.fieldName)
         aggregatedServices.append(directory)
 
     #
@@ -166,9 +170,11 @@ def directoryFromConfig(config, store=None):
         userDirectory.realmName, aggregatedServices
     )
     try:
+        fieldNames.append(CalFieldName)
         augmented = AugmentedDirectoryService(
             aggregateDirectory, store, augmentService
         )
+        augmented.fieldName = ConstantsContainer(fieldNames)
 
         # The delegate directory needs a way to look up user/group records
         # so hand it a reference to the augmented directory.

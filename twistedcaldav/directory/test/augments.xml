@@ -19,6 +19,23 @@ limitations under the License.
 <!DOCTYPE augments SYSTEM "../../../conf/auth/augments.dtd">
 
 <augments realm="Test">
+  <!--
+  <record>
+    <uid>Location-Default</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <auto-schedule-mode>automatic</auto-schedule-mode>
+  </record>
+  <record>
+    <uid>Resource-Default</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <auto-schedule-mode>automatic</auto-schedule-mode>
+  </record>
+  -->
+
   <record>
     <uid>D11F03A0-97EA-48AF-9A6C-FAC7F3975766</uid>
     <enable>true</enable>
@@ -140,12 +157,14 @@ limitations under the License.
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
   </record>
+  <!--
   <record>
     <uid>non_calendar_proxy</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
   </record>
+-->
   <record>
     <uid>disabled</uid>
     <enable>false</enable>
