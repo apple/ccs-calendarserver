@@ -160,7 +160,7 @@ class ManagePrincipalsTestCase(TestCase):
         )
         self.assertTrue(
             results.startswith(
-                'Auto-schedule mode for "New Resource" newresourceuid (resource) newresource is Default'
+                'Auto-schedule mode for "New Resource" newresourceuid (resource) newresource is accept if free, decline if busy'
             )
         )
 
@@ -262,7 +262,7 @@ class ManagePrincipalsTestCase(TestCase):
             "--get-auto-schedule-mode", "locations:location01"
         )
         self.assertTrue(
-            results.startswith('Auto-schedule mode for "Room 01" location01 (location) location01 is Default')
+            results.startswith('Auto-schedule mode for "Room 01" location01 (location) location01 is accept if free, decline if busy')
         )
 
         results = yield self.runCommand(
