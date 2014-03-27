@@ -231,8 +231,11 @@ class CalendarDirectoryRecordMixin(object):
 
     @property
     def calendarUserAddresses(self):
-        if not self.hasCalendars:
-            return frozenset()
+        try:
+            if not self.hasCalendars:
+                return frozenset()
+        except AttributeError:
+            pass
 
         try:
             cuas = set(
@@ -325,22 +328,23 @@ class CalendarDirectoryRecordMixin(object):
             Return a CUA for this record, preferring in this order:
             urn:uuid: form
             mailto: form
-            first in calendarUserAddresses list
+            /principals/__uids__/ form
+            first in calendarUserAddresses list (sorted)
         """
 
-        cua = ""
-        for candidate in self.calendarUserAddresses:
-            # Pick the first one, but urn:uuid: and mailto: can override
-            if not cua:
-                cua = candidate
-            # But always immediately choose the urn:uuid: form
-            if candidate.startswith("urn:uuid:"):
-                cua = candidate
-                break
-            # Prefer mailto: if no urn:uuid:
-            elif candidate.startswith("mailto:"):
-                cua = candidate
-        return cua
+        sortedCuas = sorted(self.calendarUserAddresses)
+
+        for prefix in (
+            "urn:uuid:",
+            "mailto:",
+            "/principals/__uids__/"
+        ):
+            for candidate in sortedCuas:
+                if candidate.startswith(prefix):
+                    return candidate
+
+        # fall back to using the first one
+        return sortedCuas[0]
 
 
     def enabledAsOrganizer(self):

@@ -322,7 +322,7 @@ class Scheduler(object):
 
             # FIXME, how can this be None?
             if attendees is None:
-                print("Attendees is None", self.calendar)
+                print("XYZZY Attendees is None", self.calendar)
 
             # Must have only one
             if len(attendees) != 1:

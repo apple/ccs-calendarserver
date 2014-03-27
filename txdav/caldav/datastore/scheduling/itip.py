@@ -951,6 +951,8 @@ class iTipGenerator(object):
     @staticmethod
     def generateAttendeeReply(original, attendee, changedRids=None, force_decline=False):
 
+        print("XYZZY generateAttendeeReply", original, attendee)
+
         # Start with a copy of the original as we may have to modify bits of it
         itip = original.duplicate()
         itip.replaceProperty(Property("PRODID", iCalendarProductID))
@@ -970,6 +972,7 @@ class iTipGenerator(object):
             if component.name() in ignoredComponents:
                 continue
             if not component.getAttendeeProperty((attendee,)):
+                print("XYZZY removing componeont", component, attendee)
                 itip.removeComponent(component)
 
         # No alarms
@@ -1015,6 +1018,7 @@ class iTipGenerator(object):
             if component.name() == "VPOLL":
                 iTipGenerator.generateVPOLLReply(component, attendee)
 
+        print("XYZZY AFTER", itip)
         return itip
 
 

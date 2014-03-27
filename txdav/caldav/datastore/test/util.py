@@ -72,19 +72,27 @@ class TestCalendarStoreDirectoryRecord(TestStoreDirectoryRecord):
 
 
     def canonicalCalendarUserAddress(self):
-        cua = ""
-        for candidate in self.calendarUserAddresses:
-            # Pick the first one, but urn:uuid: and mailto: can override
-            if not cua:
-                cua = candidate
-            # But always immediately choose the urn:uuid: form
-            if candidate.startswith("urn:uuid:"):
-                cua = candidate
-                break
-            # Prefer mailto: if no urn:uuid:
-            elif candidate.startswith("mailto:"):
-                cua = candidate
-        return cua
+        """
+            Return a CUA for this record, preferring in this order:
+            urn:uuid: form
+            mailto: form
+            /principals/__uids__/ form
+            first in calendarUserAddresses list (sorted)
+        """
+
+        sortedCuas = sorted(self.calendarUserAddresses)
+
+        for prefix in (
+            "urn:uuid:",
+            "mailto:",
+            "/principals/__uids__/"
+        ):
+            for candidate in sortedCuas:
+                if candidate.startswith(prefix):
+                    return candidate
+
+        # fall back to using the first one
+        return sortedCuas[0]
 
 
     def calendarsEnabled(self):
