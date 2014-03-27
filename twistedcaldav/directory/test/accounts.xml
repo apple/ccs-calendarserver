@@ -28,6 +28,7 @@ limitations under the License.
   <record type="user">
     <short-name>wsanchez</short-name>
     <uid>6423F94A-6B76-4A3A-815B-D52CFD77935D</uid>
+    <guid>6423F94A-6B76-4A3A-815B-D52CFD77935D</guid>
     <password>zehcnasw</password>
     <full-name>Wilfredo Sanchez</full-name>
     <email>wsanchez@example.com</email>
@@ -35,6 +36,7 @@ limitations under the License.
   <record type="user">
     <short-name>cdaboo</short-name>
     <uid>5A985493-EE2C-4665-94CF-4DFEA3A89500</uid>
+    <guid>5A985493-EE2C-4665-94CF-4DFEA3A89500</guid>
     <password>oobadc</password>
     <full-name>Cyrus Daboo</full-name>
     <email>cdaboo@example.com</email>
@@ -56,6 +58,7 @@ limitations under the License.
   <record type="user">
     <short-name>doublequotes</short-name>
     <uid>8E04787E-336D-41ED-A70B-D233AD0DCE6F</uid>
+    <guid>8E04787E-336D-41ED-A70B-D233AD0DCE6F</guid>
     <password>setouqelbuod</password>
     <full-name>Double "quotey" Quotes</full-name>
     <email>doublequotes@example.com</email>
