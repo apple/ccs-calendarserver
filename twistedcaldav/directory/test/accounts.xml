@@ -189,6 +189,69 @@ limitations under the License.
     <email>user06@example.com</email>
   </record>
 
+  <record type="user">
+    <uid>__wsanchez1__</uid>
+    <short-name>wsanchez1</short-name>
+    <short-name>wilfredo_sanchez</short-name>
+    <full-name>Wilfredo Sanchez</full-name>
+    <password>zehcnasw</password>
+    <email>wsanchez@bitbucket.calendarserver.org</email>
+    <email>wsanchez@devnull.twistedmatrix.com</email>
+  </record>
+
+  <record type="user">
+    <uid>__glyph1__</uid>
+    <short-name>glyph1</short-name>
+    <full-name>Glyph Lefkowitz</full-name>
+    <password>hpylg</password>
+    <email>glyph@bitbucket.calendarserver.org</email>
+    <email>glyph@devnull.twistedmatrix.com</email>
+  </record>
+
+  <record type="user">
+    <uid>__sagen1__</uid>
+    <short-name>sagen1</short-name>
+    <full-name>Morgen Sagen</full-name>
+    <password>negas</password>
+    <email>sagen@bitbucket.calendarserver.org</email>
+    <email>shared@example.com</email>
+  </record>
+
+  <record type="user">
+    <uid>__cdaboo1__</uid>
+    <short-name>cdaboo1</short-name>
+    <full-name>Cyrus Daboo</full-name>
+    <password>suryc</password>
+    <email>cdaboo@bitbucket.calendarserver.org</email>
+  </record>
+
+  <record type="user">
+    <uid>__dre1__</uid>
+    <short-name>dre1</short-name>
+    <full-name>Andre LaBranche</full-name>
+    <password>erd</password>
+    <email>dre@bitbucket.calendarserver.org</email>
+    <email>shared@example.com</email>
+  </record>
+
+  <record type="group">
+    <uid>__top_group_1__</uid>
+    <short-name>top-group-1</short-name>
+    <full-name>Top Group 1</full-name>
+    <email>topgroup1@example.com</email>
+    <member-uid>__wsanchez1__</member-uid>
+    <member-uid>__glyph1__</member-uid>
+    <member-uid>__sub_group_1__</member-uid>
+  </record>
+
+  <record type="group">
+    <uid>__sub_group_1__</uid>
+    <short-name>sub-group-1</short-name>
+    <full-name>Sub Group 1</full-name>
+    <email>subgroup1@example.com</email>
+    <member-uid>__sagen1__</member-uid>
+    <member-uid>__cdaboo1__</member-uid>
+  </record>
 
   <!-- Repeat is not (yet?) supported in twext.who.xml
   <user repeat="100">

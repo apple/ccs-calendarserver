@@ -18,9 +18,8 @@
 Group membership caching implementation tests
 """
 
-from txdav.who.groups import GroupCacher, expandedMembers, diffAssignments
+from txdav.who.groups import GroupCacher, diffAssignments
 from twext.who.idirectory import RecordType
-from twext.who.test.test_xml import xmlService
 from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.test.util import StoreTestCase
 from txdav.common.icommondatastore import NotFoundError
@@ -31,30 +30,7 @@ class GroupCacherTest(StoreTestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(GroupCacherTest, self).setUp()
-        self.xmlService = xmlService(self.mktemp(), xmlData=testXMLConfig)
-        self.groupCacher = GroupCacher(self.xmlService)
-
-
-    @inlineCallbacks
-    def test_expandedMembers(self):
-        """
-        Verify expandedMembers() returns a "flattened" set of records
-        belonging to a group (and does not return sub-groups themselves,
-        only their members)
-        """
-        record = yield self.xmlService.recordWithUID(u"__top_group_1__")
-        memberUIDs = set()
-        for member in (yield expandedMembers(record)):
-            memberUIDs.add(member.uid)
-        self.assertEquals(
-            memberUIDs,
-            set(["__cdaboo__", "__glyph__", "__sagen__", "__wsanchez__"])
-        )
-
-        # Non group records return an empty set() of members
-        record = yield self.xmlService.recordWithUID(u"__sagen__")
-        members = yield expandedMembers(record)
-        self.assertEquals(0, len(list(members)))
+        self.groupCacher = GroupCacher(self.directory)
 
 
     @inlineCallbacks
@@ -67,33 +43,33 @@ class GroupCacherTest(StoreTestCase):
         store = self.storeUnderTest()
         txn = store.newTransaction()
 
-        record = yield self.xmlService.recordWithUID(u"__top_group_1__")
+        record = yield self.directory.recordWithUID(u"__top_group_1__")
         yield self.groupCacher.refreshGroup(txn, record.uid)
 
         groupID, name, membershipHash = (yield txn.groupByUID(record.uid))
 
-        self.assertEquals(membershipHash, "f380860ff5e02c2433fbd4b5ed3e090c")
+        self.assertEquals(membershipHash, "553eb54e3bbb26582198ee04541dbee4")
 
         groupUID, name, membershipHash = (yield txn.groupByID(groupID))
         self.assertEquals(groupUID, record.uid)
         self.assertEquals(name, u"Top Group 1")
-        self.assertEquals(membershipHash, "f380860ff5e02c2433fbd4b5ed3e090c")
+        self.assertEquals(membershipHash, "553eb54e3bbb26582198ee04541dbee4")
 
         members = (yield txn.membersOfGroup(groupID))
         self.assertEquals(
-            set([u'__cdaboo__', u'__glyph__', u'__sagen__', u'__wsanchez__']),
+            set([u'__cdaboo1__', u'__glyph1__', u'__sagen1__', u'__wsanchez1__']),
             members
         )
 
         records = (yield self.groupCacher.cachedMembers(txn, groupID))
         self.assertEquals(
             set([r.shortNames[0] for r in records]),
-            set(["wsanchez", "cdaboo", "glyph", "sagen"])
+            set(["wsanchez1", "cdaboo1", "glyph1", "sagen1"])
         )
 
         # sagen is in the top group, even though it's actually one level
         # removed
-        record = yield self.xmlService.recordWithUID(u"__sagen__")
+        record = yield self.directory.recordWithUID(u"__sagen1__")
         groups = (yield self.groupCacher.cachedGroupsFor(txn, record.uid))
         self.assertEquals(set([u"__top_group_1__"]), groups)
 
@@ -116,9 +92,9 @@ class GroupCacherTest(StoreTestCase):
 
         # Remove two members, and add one member
         newSet = set()
-        for name in (u"wsanchez", u"cdaboo", u"dre"):
+        for name in (u"wsanchez1", u"cdaboo1", u"dre1"):
             record = (
-                yield self.xmlService.recordWithShortName(
+                yield self.directory.recordWithShortName(
                     RecordType.user,
                     name
                 )
@@ -134,7 +110,7 @@ class GroupCacherTest(StoreTestCase):
         records = (yield self.groupCacher.cachedMembers(txn, groupID))
         self.assertEquals(
             set([r.shortNames[0] for r in records]),
-            set(["wsanchez", "cdaboo", "dre"])
+            set(["wsanchez1", "cdaboo1", "dre1"])
         )
 
         # Remove all members
@@ -157,7 +133,7 @@ class GroupCacherTest(StoreTestCase):
         self.failUnlessFailure(txn.groupByID(42), NotFoundError)
 
         uid = u"__top_group_1__"
-        hash = "f380860ff5e02c2433fbd4b5ed3e090c"
+        hash = "553eb54e3bbb26582198ee04541dbee4"
         yield self.groupCacher.refreshGroup(txn, uid)
         groupID, name, membershipHash = (yield txn.groupByUID(uid))
         results = (yield txn.groupByID(groupID))
@@ -174,14 +150,14 @@ class GroupCacherTest(StoreTestCase):
         self.assertEquals(oldExternalAssignments, {})
 
         newAssignments = {
-            u"__wsanchez__": (None, u"__top_group_1__")
+            u"__wsanchez1__": (None, u"__top_group_1__")
         }
         yield self.groupCacher.applyExternalAssignments(txn, newAssignments)
         oldExternalAssignments = (yield txn.externalDelegates())
         self.assertEquals(
             oldExternalAssignments,
             {
-                u"__wsanchez__":
+                u"__wsanchez1__":
                 (
                     None,
                     u"__top_group_1__"
@@ -190,12 +166,12 @@ class GroupCacherTest(StoreTestCase):
         )
 
         newAssignments = {
-            u"__cdaboo__":
+            u"__cdaboo1__":
             (
                 u"__sub_group_1__",
                 None
             ),
-            u"__wsanchez__":
+            u"__wsanchez1__":
             (
                 u"__sub_group_1__",
                 u"__top_group_1__"
@@ -206,12 +182,12 @@ class GroupCacherTest(StoreTestCase):
         self.assertEquals(
             oldExternalAssignments,
             {
-                u"__wsanchez__":
+                u"__wsanchez1__":
                 (
                     u"__sub_group_1__",
                     u"__top_group_1__"
                 ),
-                u"__cdaboo__":
+                u"__cdaboo1__":
                 (
                     u"__sub_group_1__",
                     None
@@ -235,14 +211,14 @@ class GroupCacherTest(StoreTestCase):
 
         # Wilfredo should have Sagen and Daboo as read-only delegates
         delegates = (yield txn.delegates(
-            u"__wsanchez__", False, expanded=True)
+            u"__wsanchez1__", False, expanded=True)
         )
         self.assertEquals(
             delegates,
             set(
                 [
-                    u"__sagen__",
-                    u"__cdaboo__"
+                    u"__sagen1__",
+                    u"__cdaboo1__"
                 ]
             )
         )
@@ -252,16 +228,16 @@ class GroupCacherTest(StoreTestCase):
 
         # Wilfredo should have 4 users as read-write delegates
         delegates = (yield txn.delegates(
-            u"__wsanchez__", True, expanded=True)
+            u"__wsanchez1__", True, expanded=True)
         )
         self.assertEquals(
             delegates,
             set(
                 [
-                    u"__wsanchez__",
-                    u"__sagen__",
-                    u"__cdaboo__",
-                    u"__glyph__"
+                    u"__wsanchez1__",
+                    u"__sagen1__",
+                    u"__cdaboo1__",
+                    u"__glyph1__"
                 ]
             )
         )
@@ -271,7 +247,7 @@ class GroupCacherTest(StoreTestCase):
         # Now, remove some external assignments
         #
         newAssignments = {
-            u"__wsanchez__":
+            u"__wsanchez1__":
             (
                 u"__sub_group_1__",
                 None
@@ -282,7 +258,7 @@ class GroupCacherTest(StoreTestCase):
         self.assertEquals(
             oldExternalAssignments,
             {
-                u"__wsanchez__":
+                u"__wsanchez1__":
                 (
                     u"__sub_group_1__",
                     None
@@ -302,21 +278,21 @@ class GroupCacherTest(StoreTestCase):
 
         # Wilfredo should have Sagen and Daboo as read-only delegates
         delegates = (yield txn.delegates(
-            u"__wsanchez__", False, expanded=True)
+            u"__wsanchez1__", False, expanded=True)
         )
         self.assertEquals(
             delegates,
             set(
                 [
-                    u"__sagen__",
-                    u"__cdaboo__"
+                    u"__sagen1__",
+                    u"__cdaboo1__"
                 ]
             )
         )
 
         # Wilfredo should have no read-write delegates
         delegates = (yield txn.delegates(
-            u"__wsanchez__", True, expanded=True)
+            u"__wsanchez1__", True, expanded=True)
         )
         self.assertEquals(
             delegates,
@@ -413,74 +389,3 @@ class GroupCacherTest(StoreTestCase):
                 {"D": ("7", "8"), "C": ("4", "5"), "A": ("1", "2")},
             )
         )
-
-testXMLConfig = """<?xml version="1.0" encoding="utf-8"?>
-
-<directory realm="xyzzy">
-
-  <record type="user">
-    <uid>__wsanchez__</uid>
-    <short-name>wsanchez</short-name>
-    <short-name>wilfredo_sanchez</short-name>
-    <full-name>Wilfredo Sanchez</full-name>
-    <password>zehcnasw</password>
-    <email>wsanchez@bitbucket.calendarserver.org</email>
-    <email>wsanchez@devnull.twistedmatrix.com</email>
-  </record>
-
-  <record type="user">
-    <uid>__glyph__</uid>
-    <short-name>glyph</short-name>
-    <full-name>Glyph Lefkowitz</full-name>
-    <password>hpylg</password>
-    <email>glyph@bitbucket.calendarserver.org</email>
-    <email>glyph@devnull.twistedmatrix.com</email>
-  </record>
-
-  <record type="user">
-    <uid>__sagen__</uid>
-    <short-name>sagen</short-name>
-    <full-name>Morgen Sagen</full-name>
-    <password>negas</password>
-    <email>sagen@bitbucket.calendarserver.org</email>
-    <email>shared@example.com</email>
-  </record>
-
-  <record type="user">
-    <uid>__cdaboo__</uid>
-    <short-name>cdaboo</short-name>
-    <full-name>Cyrus Daboo</full-name>
-    <password>suryc</password>
-    <email>cdaboo@bitbucket.calendarserver.org</email>
-  </record>
-
-  <record type="user">
-    <uid>__dre__</uid>
-    <short-name>dre</short-name>
-    <full-name>Andre LaBranche</full-name>
-    <password>erd</password>
-    <email>dre@bitbucket.calendarserver.org</email>
-    <email>shared@example.com</email>
-  </record>
-
-  <record type="group">
-    <uid>__top_group_1__</uid>
-    <short-name>top-group-1</short-name>
-    <full-name>Top Group 1</full-name>
-    <email>topgroup1@example.com</email>
-    <member-uid>__wsanchez__</member-uid>
-    <member-uid>__glyph__</member-uid>
-    <member-uid>__sub_group_1__</member-uid>
-  </record>
-
-  <record type="group">
-    <uid>__sub_group_1__</uid>
-    <short-name>sub-group-1</short-name>
-    <full-name>Sub Group 1</full-name>
-    <email>subgroup1@example.com</email>
-    <member-uid>__sagen__</member-uid>
-    <member-uid>__cdaboo__</member-uid>
-  </record>
-
-</directory>
-"""

@@ -22,7 +22,6 @@ Group membership caching
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.syntax import Delete, Select
 from twext.enterprise.jobqueue import WorkItem, PeerConnectionPool
-from twext.who.idirectory import RecordType
 from twisted.internet.defer import inlineCallbacks, returnValue
 from txdav.common.datastore.sql_tables import schema
 import datetime
@@ -177,33 +176,6 @@ class GroupAttendeeReconciliationWork(
 
 
 
-@inlineCallbacks
-def expandedMembers(record, members=None, records=None):
-    """
-    Return the expanded set of member records.  Intermediate groups are not
-    returned in the results, but their members are.
-    """
-    if members is None:
-        members = set()
-    if records is None:
-        records = set()
-
-    if record not in records:
-        records.add(record)
-        for member in (yield record.members()):
-            if member not in records:
-                #MOVE2WHO
-                #TODO:  HACK for old-style XML. FIX
-                if (
-                    member.recordType != RecordType.group and
-                    str(member.recordType) != "groups"
-                ):
-                    members.add(member)
-                yield expandedMembers(member, members, records)
-
-    returnValue(members)
-
-
 
 def diffAssignments(old, new):
     """
@@ -329,7 +301,7 @@ class GroupCacher(object):
         else:
             self.log.debug("Got group record: {u}", u=record.uid)
             membershipHashContent = hashlib.md5()
-            members = (yield expandedMembers(record))
+            members = yield record.expandedMembers()
             members = list(members)
             members.sort(cmp=lambda x, y: cmp(x.uid, y.uid))
             for member in members:

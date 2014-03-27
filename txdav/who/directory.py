@@ -440,7 +440,6 @@ class CalendarDirectoryRecordMixin(object):
             if member.recordType == BaseRecordType.user:
                 if member not in members:
                     members.add(member)
-            elif member.recordType == BaseRecordType.group:
-                yield member.expandedMembers(members)
+            yield member.expandedMembers(members)
 
         returnValue(members)
