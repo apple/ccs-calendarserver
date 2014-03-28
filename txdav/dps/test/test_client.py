@@ -17,7 +17,7 @@
 import os
 
 from twext.who.expression import (
-    Operand, MatchType, MatchFlags, MatchExpression, CompoundExpression
+    Operand, MatchType, MatchFlags, MatchExpression
 )
 from twext.who.idirectory import RecordType, FieldName
 from twisted.cred.credentials import calcResponse, calcHA1, calcHA2
@@ -64,6 +64,11 @@ elif testMode == "od":
 
 
 class DPSClientSingleDirectoryTest(unittest.TestCase):
+    """
+    Tests the client against a single directory service (as opposed to the
+    augmented, aggregated structure you get from directoryFromConfig(), which
+    is tested in the class below)
+    """
 
     def setUp(self):
 
@@ -218,6 +223,8 @@ class DPSClientSingleDirectoryTest(unittest.TestCase):
         records = yield self.directory.recordsFromExpression(expression)
         self.assertEquals(len(records), 1)
 
+    test_recordsFromMatchExpression.todo = "Won't work until we can serialize expressions"
+
 
     @inlineCallbacks
     def test_verifyPlaintextPassword(self):
@@ -279,6 +286,10 @@ class DPSClientSingleDirectoryTest(unittest.TestCase):
 
 
 class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
+    """
+    Similar to the above tests, but in the context of the directory structure
+    that directoryFromConfig() returns
+    """
 
     wsanchezUID = u"6423F94A-6B76-4A3A-815B-D52CFD77935D"
 
@@ -437,6 +448,8 @@ class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
         )
         records = yield self.client.recordsFromExpression(expression)
         self.assertEquals(len(records), 1)
+
+    test_recordsFromMatchExpression.todo = "Won't work until we can serialize expressions"
 
 
     @inlineCallbacks

@@ -24,6 +24,9 @@ from twext.who.directory import DirectoryRecord
 from twext.who.idirectory import FieldName, RecordType
 from txdav.who.directory import CalendarDirectoryRecordMixin
 from uuid import UUID
+from twext.who.expression import (
+    MatchType, MatchFlags, MatchExpression
+)
 
 
 
@@ -96,3 +99,15 @@ class DirectoryTestCase(StoreTestCase):
             record.canonicalCalendarUserAddress(),
             u"urn:uuid:E2F6C57F-BB15-4EF9-B0AC-47A7578386F1"
         )
+
+
+    @inlineCallbacks
+    def test_recordsFromMatchExpression(self):
+        expression = MatchExpression(
+            FieldName.uid,
+            u"6423F94A-6B76-4A3A-815B-D52CFD77935D",
+            MatchType.equals,
+            MatchFlags.none
+        )
+        records = yield self.directory.recordsFromExpression(expression)
+        self.assertEquals(len(records), 1)

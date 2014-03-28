@@ -271,6 +271,8 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
         )
 
 
+    def recordsFromExpression(self, expression):
+        raise NotImplementedError("This won't work until expressions are serializable to send across AMP")
 
 
 
