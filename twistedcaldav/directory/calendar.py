@@ -38,7 +38,7 @@ from twistedcaldav.config import config
 from twistedcaldav.directory.common import uidsResourceName, \
     CommonUIDProvisioningResource, CommonHomeTypeProvisioningResource
 
-from twistedcaldav.directory.wiki import getWikiACL
+from txdav.who.wiki import getWikiACL
 from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVResource, \
     DAVResourceWithChildrenMixin
 from twistedcaldav.resource import CalendarHomeResource

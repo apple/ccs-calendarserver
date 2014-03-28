@@ -23,21 +23,28 @@ __all__ = [
     "WikiAccessLevel",
 ]
 
-from twisted.python.constants import Names, NamedConstant
-from twisted.internet.defer import inlineCallbacks, returnValue, succeed
-from twisted.web.error import Error as WebError
-
-from twext.python.log import Logger
+from calendarserver.platform.darwin.wiki import accessForUserToWiki
 from twext.internet.gaiendpoint import MultiFailure
-from .idirectory import FieldName
+from twext.python.log import Logger
 from twext.who.directory import (
     DirectoryService as BaseDirectoryService,
     DirectoryRecord as BaseDirectoryRecord
 )
+from twext.who.idirectory import FieldName as BaseFieldName
+from twext.who.util import ConstantsContainer
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+from twisted.python.constants import Names, NamedConstant
+from twisted.web.error import Error as WebError
+from txdav.who.idirectory import FieldName
+from txdav.who.directory import CalendarDirectoryRecordMixin
+from txdav.xml import element as davxml
 from txweb2 import responsecode
+from txweb2.auth.wrapper import UnauthorizedResponse
+from txweb2.dav.resource import TwistedACLInheritable
+from txweb2.http import HTTPError, StatusResponse
 
-from calendarserver.platform.darwin.wiki import accessForUserToWiki
 
+log = Logger()
 
 
 # FIXME: Should this be Flags?
@@ -59,13 +66,20 @@ class DirectoryService(BaseDirectoryService):
     Mac OS X Server Wiki directory service.
     """
 
-    uidPrefix = "[wiki]"
+    uidPrefix = u"[wiki]"
 
     recordType = RecordType
 
+    fieldName = ConstantsContainer((
+        BaseFieldName,
+        FieldName,
+    ))
 
-    def __init__(self):
-        BaseDirectoryService.__init__(self)
+
+    def __init__(self, realmName, wikiHost, wikiPort):
+        BaseDirectoryService.__init__(self, realmName)
+        self.wikiHost = wikiHost
+        self.wikiPort = wikiPort
         self._recordsByName = {}
 
 
@@ -91,9 +105,10 @@ class DirectoryService(BaseDirectoryService):
             record = DirectoryRecord(
                 self,
                 {
-                    FieldName.uid: "{}{}".format(self.uidPrefix, name),
-                    FieldName.recordType: RecordType.macOSXServerWiki,
-                    FieldName.shortNames: [name],
+                    self.fieldName.uid: u"{}{}".format(self.uidPrefix, name),
+                    self.fieldName.recordType: RecordType.macOSXServerWiki,
+                    self.fieldName.shortNames: [name],
+                    self.fieldName.fullNames: [u"Wiki: {}".format(name)],
                 }
             )
             self._recordsByName[name] = record
@@ -114,8 +129,12 @@ class DirectoryService(BaseDirectoryService):
         return succeed(None)
 
 
+    def recordsFromExpression(self, expression, records=None):
+        return succeed(())
 
-class DirectoryRecord(BaseDirectoryRecord):
+
+
+class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
     """
     Mac OS X Server Wiki directory record.
     """
@@ -133,9 +152,13 @@ class DirectoryRecord(BaseDirectoryRecord):
         """
         Look up the access level for a record in this wiki.
 
-        @param user: The record to check access for.
+        @param user: The record to check access for.  A value of None means
+            unauthenticated
         """
-        guid = record.guid
+        if record is None:
+            uid = u"unauthenticated"
+        else:
+            uid = record.uid
 
         try:
             # FIXME: accessForUserToWiki() API is lame.
@@ -145,7 +168,7 @@ class DirectoryRecord(BaseDirectoryRecord):
             # When we do that note: isn't there a getPage() in twisted.web?
 
             access = yield accessForUserToWiki(
-                guid, self.shortNames[0],
+                uid, self.shortNames[0],
                 host=self.service.wikiHost,
                 port=self.service.wikiPort,
             )
@@ -189,4 +212,124 @@ class DirectoryRecord(BaseDirectoryRecord):
 
         except KeyError:
             self.log.error("Unknown wiki access level: {level}", level=access)
-            return WikiAccessLevel.none
+            returnValue(WikiAccessLevel.none)
+
+
+@inlineCallbacks
+def getWikiACL(resource, request):
+    """
+    Ask the wiki server we're paired with what level of access the authnUser has.
+
+    Returns an ACL.
+
+    Wiki authentication is a bit tricky because the end-user accessing a group
+    calendar may not actually be enabled for calendaring.  Therefore in that
+    situation, the authzUser will have been replaced with the wiki principal
+    in locateChild( ), so that any changes the user makes will have the wiki
+    as the originator.  The authnUser will always be the end-user.
+    """
+    from twistedcaldav.directory.principal import DirectoryPrincipalResource
+
+    if (
+        not hasattr(resource, "record") or
+        resource.record.recordType != RecordType.macOSXServerWiki
+    ):
+        returnValue(None)
+
+    if hasattr(request, 'wikiACL'):
+        returnValue(request.wikiACL)
+
+    wikiRecord = resource.record
+    wikiID = wikiRecord.shortNames[0]
+    userRecord = None
+
+    try:
+        url = str(request.authnUser.children[0])
+        principal = (yield request.locateResource(url))
+        if isinstance(principal, DirectoryPrincipalResource):
+            userRecord = principal.record
+    except:
+        # TODO: better error handling
+        pass
+
+    try:
+        access = yield wikiRecord.accessForRecord(userRecord)
+
+        # The ACL we returns has ACEs for the end-user and the wiki principal
+        # in case authzUser is the wiki principal.
+        if access == WikiAccessLevel.read:
+            request.wikiACL = davxml.ACL(
+                davxml.ACE(
+                    request.authnUser,
+                    davxml.Grant(
+                        davxml.Privilege(davxml.Read()),
+                        davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+
+                        # We allow write-properties so that direct sharees can change
+                        # e.g. calendar color properties
+                        davxml.Privilege(davxml.WriteProperties()),
+                    ),
+                    TwistedACLInheritable(),
+                ),
+                davxml.ACE(
+                    davxml.Principal(
+                        davxml.HRef.fromString("/principals/wikis/%s/" % (wikiID,))
+                    ),
+                    davxml.Grant(
+                        davxml.Privilege(davxml.Read()),
+                        davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+                    ),
+                    TwistedACLInheritable(),
+                )
+            )
+            returnValue(request.wikiACL)
+
+        elif access in (WikiAccessLevel.write, WikiAccessLevel.admin):
+            request.wikiACL = davxml.ACL(
+                davxml.ACE(
+                    request.authnUser,
+                    davxml.Grant(
+                        davxml.Privilege(davxml.Read()),
+                        davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+                        davxml.Privilege(davxml.Write()),
+                    ),
+                    TwistedACLInheritable(),
+                ),
+                davxml.ACE(
+                    davxml.Principal(
+                        davxml.HRef.fromString("/principals/wikis/%s/" % (wikiID,))
+                    ),
+                    davxml.Grant(
+                        davxml.Privilege(davxml.Read()),
+                        davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+                        davxml.Privilege(davxml.Write()),
+                    ),
+                    TwistedACLInheritable(),
+                )
+            )
+            returnValue(request.wikiACL)
+
+        else:  # "no-access":
+
+            if userRecord is None:
+                # Return a 401 so they have an opportunity to log in
+                response = (yield UnauthorizedResponse.makeResponse(
+                    request.credentialFactories,
+                    request.remoteAddr,
+                ))
+                raise HTTPError(response)
+
+            raise HTTPError(
+                StatusResponse(
+                    responsecode.FORBIDDEN,
+                    "You are not allowed to access this wiki"
+                )
+            )
+
+    except HTTPError:
+        # pass through the HTTPError we might have raised above
+        raise
+
+    except Exception, e:
+        log.error("Wiki ACL lookup failed: %s" % (e,))
+        raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE, "Wiki ACL lookup failed"))

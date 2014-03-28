@@ -44,7 +44,7 @@ from twisted.internet.defer import succeed, inlineCallbacks, DeferredList, \
 from twistedcaldav import customxml, caldavxml
 from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.directory.wiki import WikiDirectoryService, getWikiAccess
+from txdav.who.wiki import RecordType as WikiRecordType, WikiAccessLevel
 from twistedcaldav.linkresource import LinkFollowerMixIn
 
 
@@ -269,15 +269,13 @@ class SharedResourceMixin(object):
         if self._newStoreObject.direct():
             owner = yield self.principalForUID(self._newStoreObject.ownerHome().uid())
             sharee = yield self.principalForUID(self._newStoreObject.viewerHome().uid())
-            if owner.record.recordType == WikiDirectoryService.recordType_wikis:
+            if owner.record.recordType == WikiRecordType.macOSXServerWiki:
                 # Access level comes from what the wiki has granted to the
                 # sharee
-                userID = sharee.record.guid
-                wikiID = owner.record.shortNames[0]
-                access = (yield getWikiAccess(userID, wikiID))
-                if access == "read":
+                access = (yield owner.record.accessForRecord(sharee.record))
+                if access == WikiAccessLevel.read:
                     returnValue("read-only")
-                elif access in ("write", "admin"):
+                elif access == WikiAccessLevel.write:
                     returnValue("read-write")
                 else:
                     returnValue(None)
@@ -502,7 +500,7 @@ class SharedResourceMixin(object):
 
 
     @inlineCallbacks
-    def inviteSingleUserToShare(self, userid, cn, ace, summary, request): #@UnusedVariable
+    def inviteSingleUserToShare(self, userid, cn, ace, summary, request):  #@UnusedVariable
 
         # We currently only handle local users
         sharee = yield self.principalForCalendarUserAddress(userid)

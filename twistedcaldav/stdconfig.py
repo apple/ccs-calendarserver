@@ -1257,7 +1257,13 @@ def _updateHostName(configDict, reloading=False):
 
     # Default DirectoryRealmName from ServerHostName
     if not configDict.DirectoryRealmName:
-        configDict.DirectoryRealmName = configDict.ServerHostName
+        # Use system-wide realm on OSX
+        try:
+            import ServerFoundation
+            realmName = ServerFoundation.XSAuthenticator.defaultRealm()
+            configDict.DirectoryRealmName = realmName
+        except ImportError:
+            configDict.DirectoryRealmName = configDict.ServerHostName
 
 
 

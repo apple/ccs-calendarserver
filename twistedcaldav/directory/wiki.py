@@ -250,8 +250,8 @@ def getWikiAccess(userID, wikiID, method=None):
 
 
 
-def getWikiACL(resource, request):
-    return succeed(None)
+# def getWikiACL(resource, request):
+#     return succeed(None)
 # @inlineCallbacks
 # def getWikiACL(resource, request):
 #     """

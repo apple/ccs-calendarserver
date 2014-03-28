@@ -19,29 +19,29 @@ __all__ = [
     "RootResource",
 ]
 
+from calendarserver.platform.darwin.wiki import uidForAuthToken
 from twext.python.log import Logger
-from txweb2 import responsecode
-from txweb2.auth.wrapper import UnauthorizedResponse
-from txdav.xml import element as davxml
-from txweb2.dav.xattrprops import xattrPropertyStore
-from txweb2.http import HTTPError, StatusResponse, RedirectResponse
-
+from twext.who.idirectory import RecordType
 from twisted.cred.error import LoginFailed, UnauthorizedLogin
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python.reflect import namedClass
-from twisted.web.xmlrpc import Proxy
 from twisted.web.error import Error as WebError
-
-from twistedcaldav.cache import _CachedResponseResource
-from twistedcaldav.cache import MemcacheResponseCache, MemcacheChangeNotifier
+from twisted.web.xmlrpc import Proxy
 from twistedcaldav.cache import DisabledCache
+from twistedcaldav.cache import MemcacheResponseCache, MemcacheChangeNotifier
+from twistedcaldav.cache import _CachedResponseResource
 from twistedcaldav.config import config
+from twistedcaldav.directory.principal import DirectoryPrincipalResource
 from twistedcaldav.extensions import DAVFile, CachingPropertyStore
 from twistedcaldav.extensions import DirectoryPrincipalPropertySearchMixIn
 from twistedcaldav.extensions import ReadOnlyResourceMixIn
 from twistedcaldav.resource import CalDAVComplianceMixIn
-from twistedcaldav.directory.principal import DirectoryPrincipalResource
-from calendarserver.platform.darwin.wiki import guidForAuthToken
+from txdav.who.wiki import DirectoryService as WikiDirectoryService
+from txdav.xml import element as davxml
+from txweb2 import responsecode
+from txweb2.auth.wrapper import UnauthorizedResponse
+from txweb2.dav.xattrprops import xattrPropertyStore
+from txweb2.http import HTTPError, StatusResponse, RedirectResponse
 
 log = Logger()
 
@@ -234,20 +234,20 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                     record = None
                     try:
                         if wikiConfig.LionCompatibility:
-                            guid = None
+                            uid = None
                             proxy = Proxy(wikiConfig["URL"])
                             username = (yield proxy.callRemote(wikiConfig["UserMethod"], token))
                             directory = request.site.resource.getDirectory()
-                            record = directory.recordWithShortName("users", username)
+                            record = yield directory.recordWithShortName(RecordType.user, username)
                             if record is not None:
-                                guid = record.guid
+                                uid = record.uid
                         else:
-                            guid = (yield guidForAuthToken(token))
-                            if guid == "unauthenticated":
-                                guid = None
+                            uid = (yield uidForAuthToken(token))
+                            if uid == "unauthenticated":
+                                uid = None
 
                     except WebError, w:
-                        guid = None
+                        uid = None
                         # FORBIDDEN status means it's an unknown token
                         if int(w.status) == responsecode.NOT_FOUND:
                             log.debug("Unknown wiki token: %s" % (token,))
@@ -257,18 +257,18 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
 
                     except Exception, e:
                         log.error("Failed to look up wiki token (%s)" % (e,))
-                        guid = None
+                        uid = None
 
-                    if guid is not None:
-                        log.debug("Wiki lookup returned guid: %s" % (guid,))
+                    if uid is not None:
+                        log.debug("Wiki lookup returned uid: %s" % (uid,))
                         principal = None
                         directory = request.site.resource.getDirectory()
-                        record = directory.recordWithGUID(guid)
+                        record = yield directory.recordWithUID(uid)
                         if record is not None:
                             username = record.shortNames[0]
                             log.debug("Wiki user record for user %s : %s" % (username, record))
                             for collection in self.principalCollections():
-                                principal = collection.principalForRecord(record)
+                                principal = yield collection.principalForRecord(record)
                                 if principal is not None:
                                     break
 
@@ -317,7 +317,7 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
         elif (len(segments) > 2 and segments[0] in ("calendars", "principals") and
             (
                 segments[1] == "wikis" or
-                (segments[1] == "__uids__" and segments[2].startswith("wiki-"))
+                (segments[1] == "__uids__" and segments[2].startswith(WikiDirectoryService.uidPrefix))
             )
         ):
             # This is a wiki-related calendar resource. SACLs are not checked.

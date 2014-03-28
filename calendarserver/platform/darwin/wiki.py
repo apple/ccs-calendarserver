@@ -27,16 +27,17 @@ import json
 
 log = Logger()
 
+
 @inlineCallbacks
-def guidForAuthToken(token, host="localhost", port=80):
+def uidForAuthToken(token, host="localhost", port=80):
     """
     Send a GET request to the web auth service to retrieve the user record
-    guid associated with the provided auth token.
+    uid associated with the provided auth token.
 
     @param token: An auth token, usually passed in via cookie when webcal
         makes a request.
     @type token: C{str}
-    @return: deferred returning a guid (C{str}) if successful, or
+    @return: deferred returning a uid (C{str}) if successful, or
         will raise WebAuthError otherwise.
     """
     url = "http://%s:%d/auth/verify?auth_token=%s" % (host, port, token,)
@@ -44,8 +45,10 @@ def guidForAuthToken(token, host="localhost", port=80):
     try:
         response = json.loads(jsonResponse)
     except Exception, e:
-        log.error("Error parsing JSON response from webauth: %s (%s)" %
-            (jsonResponse, str(e)))
+        log.error(
+            "Error parsing JSON response from webauth: {resp} {error}",
+            resp=jsonResponse, error=str(e)
+        )
         raise WebAuthError("Could not look up token: %s" % (token,))
     if response["succeeded"]:
         returnValue(response["generated_uid"])
@@ -57,10 +60,10 @@ def guidForAuthToken(token, host="localhost", port=80):
 def accessForUserToWiki(user, wiki, host="localhost", port=4444):
     """
     Send a GET request to the wiki collabd service to retrieve the access level
-    the given user (in GUID form) has to the given wiki (in wiki short-name
+    the given user (uid) has to the given wiki (in wiki short-name
     form).
 
-    @param user: The GUID of the user
+    @param user: The UID of the user
     @type user: C{str}
     @param wiki: The short name of the wiki
     @type wiki: C{str}
@@ -69,8 +72,9 @@ def accessForUserToWiki(user, wiki, host="localhost", port=4444):
         status FORBIDDEN will errBack; an unknown wiki will have a status
         of NOT_FOUND
     """
-    url = "http://%s:%s/cal/accessLevelForUserWikiCalendar/%s/%s" % (host, port,
-        user, wiki)
+    url = "http://%s:%s/cal/accessLevelForUserWikiCalendar/%s/%s" % (
+        host, port, user, wiki
+    )
     return _getPage(url, host, port)
 
 

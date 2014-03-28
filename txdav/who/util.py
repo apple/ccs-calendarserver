@@ -23,7 +23,7 @@ from txdav.who.augment import AugmentedDirectoryService
 
 from calendarserver.tap.util import getDBPool, storeFromConfig
 from twext.who.idirectory import (
-    RecordType, DirectoryConfigurationError, FieldName
+    RecordType, DirectoryConfigurationError
 )
 from twext.who.ldap import DirectoryService as LDAPDirectoryService
 from twext.who.util import ConstantsContainer
@@ -36,6 +36,7 @@ from txdav.who.idirectory import (
     FieldName as CalFieldName
 )
 from txdav.who.xml import DirectoryService as XMLDirectoryService
+from txdav.who.wiki import DirectoryService as WikiDirectoryService
 
 
 log = Logger()
@@ -160,15 +161,29 @@ def directoryFromConfig(config, store=None):
         log.error("No directory service set up for users")
         raise DirectoryConfigurationError
 
+    # Delegate service
     delegateDirectory = DelegateDirectoryService(
         userDirectory.realmName,
         store
     )
     aggregatedServices.append(delegateDirectory)
 
+    # Wiki service
+    if config.Authentication.Wiki.Enabled:
+        aggregatedServices.append(
+            WikiDirectoryService(
+                userDirectory.realmName,
+                config.Authentication.Wiki.CollabHost,
+                config.Authentication.Wiki.CollabPort
+            )
+        )
+
+    # Aggregate service
     aggregateDirectory = AggregateDirectoryService(
         userDirectory.realmName, aggregatedServices
     )
+
+    # Augment service
     try:
         fieldNames.append(CalFieldName)
         augmented = AugmentedDirectoryService(

@@ -15,83 +15,96 @@
 # limitations under the License.
 ##
 
-from pycalendar.datetime import DateTime
+import collections
+import hashlib
+import time
+from urlparse import urlsplit, urljoin
+import uuid
 
+from pycalendar.datetime import DateTime
 from twext.enterprise.locking import LockTimeout
 from twext.python.log import Logger
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue, maybeDeferred
+from twisted.internet.protocol import Protocol
+from twisted.python.hashlib import md5
+from twisted.python.util import FancyEqMixin
+from twistedcaldav import customxml, carddavxml, caldavxml, ical
+from twistedcaldav.caldavxml import (
+    caldav_namespace, MaxAttendeesPerInstance, MaxInstances, NoUIDConflict
+)
+from twistedcaldav.carddavxml import carddav_namespace, NoUIDConflict as NovCardUIDConflict
+from twistedcaldav.config import config
+from twistedcaldav.customxml import calendarserver_namespace
+from twistedcaldav.ical import (
+    Component as VCalendar, Property as VProperty, InvalidICalendarDataError,
+    iCalendarProductID, Component
+)
+from twistedcaldav.instance import (
+    InvalidOverriddenInstanceError, TooManyInstancesError
+)
+from twistedcaldav.memcachelock import MemcacheLockTimeoutError
+from twistedcaldav.notifications import NotificationCollectionResource, NotificationResource
+from twistedcaldav.resource import CalDAVResource, DefaultAlarmPropertyMixin
+from twistedcaldav.scheduling_store.caldav.resource import ScheduleInboxResource
+from twistedcaldav.sharing import (
+    invitationBindStatusToXMLMap, invitationBindModeToXMLMap
+)
+from twistedcaldav.util import bestAcceptType
+from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
+from txdav.base.propertystore.base import PropertyName
+from txdav.caldav.icalendarstore import (
+    QuotaExceeded, AttachmentStoreFailed,
+    AttachmentStoreValidManagedID, AttachmentRemoveFailed,
+    AttachmentDropboxNotAllowed, InvalidComponentTypeError,
+    TooManyAttendeesError, InvalidCalendarAccessError, ValidOrganizerError,
+    InvalidPerUserDataMerge,
+    AttendeeAllowedError, ResourceDeletedError, InvalidAttachmentOperation,
+    ShareeAllowedError, DuplicatePrivateCommentsError, InvalidSplit
+)
+from txdav.carddav.iaddressbookstore import (
+    KindChangeNotAllowedError, GroupWithUnsharedAddressNotAllowedError
+)
+from txdav.common.datastore.sql_tables import (
+    _BIND_MODE_READ, _BIND_MODE_WRITE,
+    _BIND_MODE_DIRECT, _BIND_STATUS_ACCEPTED
+)
+from txdav.common.icommondatastore import (
+    NoSuchObjectResourceError,
+    TooManyObjectResourcesError, ObjectResourceTooBigError,
+    InvalidObjectResourceError, ObjectResourceNameNotAllowedError,
+    ObjectResourceNameAlreadyExistsError, UIDExistsError,
+    UIDExistsElsewhereError, InvalidUIDError, InvalidResourceMove,
+    InvalidComponentForStoreError
+)
+from txdav.idav import PropertyChangeNotAllowedError
+from txdav.who.wiki import RecordType as WikiRecordType
+from txdav.xml import element as davxml, element
+from txdav.xml.base import dav_namespace, WebDAVUnknownElement, encodeXMLName
 from txweb2 import responsecode, http_headers, http
 from txweb2.dav.http import ErrorResponse, ResponseQueue, MultiStatusResponse
 from txweb2.dav.noneprops import NonePropertyStore
-from txweb2.dav.resource import TwistedACLInheritable, AccessDeniedError, \
-    davPrivilegeSet
+from txweb2.dav.resource import (
+    TwistedACLInheritable, AccessDeniedError, davPrivilegeSet
+)
 from txweb2.dav.util import parentForURL, allDataFromStream, joinURL, davXMLFromStream
 from txweb2.filter.location import addLocation
 from txweb2.http import HTTPError, StatusResponse, Response
 from txweb2.http_headers import ETag, MimeType, MimeDisposition
 from txweb2.iweb import IResponse
-from txweb2.responsecode import \
-    FORBIDDEN, NO_CONTENT, NOT_FOUND, CREATED, CONFLICT, PRECONDITION_FAILED, \
+from txweb2.responsecode import (
+    FORBIDDEN, NO_CONTENT, NOT_FOUND, CREATED, CONFLICT, PRECONDITION_FAILED,
     BAD_REQUEST, OK, INSUFFICIENT_STORAGE_SPACE, SERVICE_UNAVAILABLE
+)
 from txweb2.stream import ProducerStream, readStream, MemoryStream
 
-from twisted.internet.defer import succeed, inlineCallbacks, returnValue, maybeDeferred
-from twisted.internet.protocol import Protocol
-from twisted.python.hashlib import md5
-from twisted.python.util import FancyEqMixin
 
-from twistedcaldav import customxml, carddavxml, caldavxml, ical
-from twistedcaldav.caldavxml import caldav_namespace, MaxAttendeesPerInstance, \
-    MaxInstances, NoUIDConflict
-from twistedcaldav.carddavxml import carddav_namespace, NoUIDConflict as NovCardUIDConflict
-from twistedcaldav.config import config
-from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.directory.wiki import WikiDirectoryService, getWikiAccess
-from twistedcaldav.ical import Component as VCalendar, Property as VProperty, \
-    InvalidICalendarDataError, iCalendarProductID, Component
-from twistedcaldav.instance import InvalidOverriddenInstanceError, \
-    TooManyInstancesError
-from twistedcaldav.memcachelock import MemcacheLockTimeoutError
-from twistedcaldav.notifications import NotificationCollectionResource, NotificationResource
-from twistedcaldav.resource import CalDAVResource, DefaultAlarmPropertyMixin
-from twistedcaldav.scheduling_store.caldav.resource import ScheduleInboxResource
-from twistedcaldav.sharing import invitationBindStatusToXMLMap, \
-    invitationBindModeToXMLMap
-from twistedcaldav.util import bestAcceptType
-from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
-
-from txdav.base.propertystore.base import PropertyName
-from txdav.caldav.icalendarstore import QuotaExceeded, AttachmentStoreFailed, \
-    AttachmentStoreValidManagedID, AttachmentRemoveFailed, \
-    AttachmentDropboxNotAllowed, InvalidComponentTypeError, \
-    TooManyAttendeesError, InvalidCalendarAccessError, ValidOrganizerError, \
-    InvalidPerUserDataMerge, \
-    AttendeeAllowedError, ResourceDeletedError, InvalidAttachmentOperation, \
-    ShareeAllowedError, DuplicatePrivateCommentsError, InvalidSplit
-from txdav.carddav.iaddressbookstore import KindChangeNotAllowedError, \
-    GroupWithUnsharedAddressNotAllowedError
-from txdav.common.datastore.sql_tables import _BIND_MODE_READ, _BIND_MODE_WRITE, \
-    _BIND_MODE_DIRECT, _BIND_STATUS_ACCEPTED
-from txdav.common.icommondatastore import NoSuchObjectResourceError, \
-    TooManyObjectResourcesError, ObjectResourceTooBigError, \
-    InvalidObjectResourceError, ObjectResourceNameNotAllowedError, \
-    ObjectResourceNameAlreadyExistsError, UIDExistsError, \
-    UIDExistsElsewhereError, InvalidUIDError, InvalidResourceMove, \
-    InvalidComponentForStoreError
-from txdav.idav import PropertyChangeNotAllowedError
-from txdav.xml import element as davxml, element
-from txdav.xml.base import dav_namespace, WebDAVUnknownElement, encodeXMLName
-
-from urlparse import urlsplit, urljoin
-import collections
-import hashlib
-import time
-import uuid
 """
 Wrappers to translate between the APIs in L{txdav.caldav.icalendarstore} and
 L{txdav.carddav.iaddressbookstore} and those in L{twistedcaldav}.
 """
 
 log = Logger()
+
 
 class _NewStorePropertiesWrapper(object):
     """
@@ -1983,15 +1996,13 @@ class AttachmentsChildCollection(_GetChildHelper):
         """
         if invite.mode in (_BIND_MODE_DIRECT,):
             ownerUID = invite.ownerUID
-            owner = self.principalForUID(ownerUID)
+            owner = yield self.principalForUID(ownerUID)
             shareeUID = invite.shareeUID
-            if owner.record.recordType == WikiDirectoryService.recordType_wikis:
+            if owner.record.recordType == WikiRecordType.macOSXServerWiki:
                 # Access level comes from what the wiki has granted to the
                 # sharee
-                sharee = self.principalForUID(shareeUID)
-                userID = sharee.record.uid
-                wikiID = owner.record.shortNames[0]
-                access = (yield getWikiAccess(userID, wikiID))
+                sharee = yield self.principalForUID(shareeUID)
+                access = (yield owner.record.accessForRecord(sharee.record))
                 if access == "read":
                     returnValue("read-only")
                 elif access in ("write", "admin"):

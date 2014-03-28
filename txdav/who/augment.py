@@ -417,3 +417,7 @@ class AugmentedDirectoryRecord(DirectoryRecord, CalendarDirectoryRecordMixin):
 
     def verifyHTTPDigest(self, *args):
         return self._baseRecord.verifyHTTPDigest(*args)
+
+
+    def accessForRecord(self, record):
+        return self._baseRecord.accessForRecord(record)

@@ -28,7 +28,6 @@ __all__ = [
 
 import errno
 import os
-from time import sleep
 from socket import fromfd, AF_UNIX, SOCK_STREAM, socketpair
 import psutil
 
@@ -46,17 +45,13 @@ from twisted.internet.defer import inlineCallbacks, returnValue, Deferred, succe
 from twisted.internet import reactor as _reactor
 from twisted.internet.reactor import addSystemEventTrigger
 from twisted.internet.tcp import Connection
-from twisted.python.reflect import namedClass
-# from twisted.python.failure import Failure
 
 from twistedcaldav.bind import doBind
 from twistedcaldav.cache import CacheStoreNotifierFactory
-from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeProvisioningResource
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
-from twistedcaldav.directory.wiki import WikiDirectoryService
 from calendarserver.push.notifier import NotifierFactory
 from calendarserver.push.applepush import APNSubscriptionResource
 from twistedcaldav.directorybackedaddressbook import DirectoryBackedAddressBookResource
@@ -97,8 +92,6 @@ from txdav.common.datastore.upgrade.sql.upgrade import NotAllowedToUpgrade
 from twext.python.filepath import CachingFilePath
 from urllib import quote
 from twisted.python.usage import UsageError
-
-from txdav.dps.client import DirectoryService as DirectoryProxyClientService
 
 from twext.who.checker import UsernamePasswordCredentialChecker
 from twext.who.checker import HTTPDigestCredentialChecker
@@ -279,96 +272,6 @@ def storeFromConfig(config, txnFactory, directoryService):
         notifierFactory.store = store
     return store
 
-
-
-def REMOVEMEdirectoryFromConfig(config):
-    """
-    Create an L{AggregateDirectoryService} from the given configuration.
-    """
-
-    #
-    # Setup the Augment Service
-    #
-    if config.AugmentService.type:
-        augmentClass = namedClass(config.AugmentService.type)
-        log.info("Configuring augment service of type: {augmentClass}",
-            augmentClass=augmentClass)
-        try:
-            augmentService = augmentClass(**config.AugmentService.params)
-        except IOError:
-            log.error("Could not start augment service")
-            raise
-    else:
-        augmentService = None
-
-    #
-    # Setup the group membership cacher
-    #
-    if config.GroupCaching.Enabled:
-        groupMembershipCache = GroupMembershipCache(
-            config.GroupCaching.MemcachedPool,
-            expireSeconds=config.GroupCaching.ExpireSeconds)
-    else:
-        groupMembershipCache = None
-
-    #
-    # Setup the Directory
-    #
-    directories = []
-
-    directoryClass = namedClass(config.DirectoryService.type)
-    principalResourceClass = DirectoryPrincipalProvisioningResource
-
-    log.info("Configuring directory service of type: {directoryType}",
-        directoryType=config.DirectoryService.type)
-
-    config.DirectoryService.params.augmentService = augmentService
-    config.DirectoryService.params.groupMembershipCache = groupMembershipCache
-    baseDirectory = directoryClass(config.DirectoryService.params)
-
-    # Wait for the directory to become available
-    while not baseDirectory.isAvailable():
-        sleep(5)
-
-    directories.append(baseDirectory)
-
-    #
-    # Setup the Locations and Resources Service
-    #
-    if config.ResourceService.Enabled:
-        resourceClass = namedClass(config.ResourceService.type)
-
-        log.info("Configuring resource service of type: {resourceClass}",
-            resourceClass=resourceClass)
-
-        config.ResourceService.params.augmentService = augmentService
-        config.ResourceService.params.groupMembershipCache = groupMembershipCache
-        resourceDirectory = resourceClass(config.ResourceService.params)
-        resourceDirectory.realmName = baseDirectory.realmName
-        directories.append(resourceDirectory)
-
-    #
-    # Add wiki directory service
-    #
-    if config.Authentication.Wiki.Enabled:
-        wikiDirectory = WikiDirectoryService()
-        wikiDirectory.realmName = baseDirectory.realmName
-        directories.append(wikiDirectory)
-
-    directory = AggregateDirectoryService(directories, groupMembershipCache)
-
-    #
-    # Use system-wide realm on OSX
-    #
-    try:
-        import ServerFoundation
-        realmName = ServerFoundation.XSAuthenticator.defaultRealm().encode("utf-8")
-        directory.setRealm(realmName)
-    except ImportError:
-        pass
-    log.info("Setting up principal collection: {cls}", cls=principalResourceClass)
-    principalResourceClass("/principals/", directory)
-    return directory
 
 
 # MOVE2WHO -- should we move this class somewhere else?

@@ -48,7 +48,7 @@ from twistedcaldav.directory.util import NotFoundResource
 from twistedcaldav.directory.util import (
     formatLink, formatLinks, formatPrincipals, formatList
 )
-from twistedcaldav.directory.wiki import getWikiACL
+from txdav.who.wiki import getWikiACL
 from twistedcaldav.extensions import (
     ReadOnlyResourceMixIn, DAVPrincipalResource, DAVResourceWithChildrenMixin
 )
@@ -1308,6 +1308,7 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
         Return a CUA for this principal, preferring in this order:
             urn:uuid: form
             mailto: form
+            /principal/__uids__/ form
             first in calendarUserAddresses( ) list
         """
         return self.record.canonicalCalendarUserAddress()

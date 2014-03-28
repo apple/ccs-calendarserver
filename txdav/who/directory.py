@@ -178,6 +178,7 @@ class CalendarDirectoryServiceMixin(object):
         "location": "locations",
         "resource": "resources",
         "user": "users",
+        "macOSXServerWiki": "wikis",
         "readDelegateGroup": "readDelegateGroups",
         "writeDelegateGroup": "writeDelegateGroups",
         "readDelegatorGroup": "readDelegatorGroups",

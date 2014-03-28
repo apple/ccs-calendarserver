@@ -81,6 +81,7 @@ recordTypesMap = {
     "locations": "Location",
     "resources": "Resource",
     "addresses": "Address",
+    "wikis": "Wiki",
 }
 
 
