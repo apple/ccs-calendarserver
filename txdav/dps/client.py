@@ -44,6 +44,7 @@ from txdav.who.directory import (
 import txdav.who.augment
 import txdav.who.delegates
 import txdav.who.idirectory
+import txdav.who.wiki
 from zope.interface import implementer
 
 log = Logger()
@@ -72,10 +73,13 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
     Client side of directory proxy
     """
 
+    # FIXME: somehow these should come from the actual directory:
+
     recordType = ConstantsContainer(
         (twext.who.idirectory.RecordType,
          txdav.who.idirectory.RecordType,
-         txdav.who.delegates.RecordType)
+         txdav.who.delegates.RecordType,
+         txdav.who.wiki.RecordType)
     )
 
     fieldName = ConstantsContainer(
