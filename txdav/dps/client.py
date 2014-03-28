@@ -29,7 +29,9 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.internet.protocol import ClientCreator
 from twisted.protocols import amp
 from twisted.python.constants import Names, NamedConstant
-from txdav.caldav.icalendardirectoryservice import ICalendarStoreDirectoryRecord
+from txdav.caldav.icalendardirectoryservice import (
+    ICalendarStoreDirectoryRecord
+)
 from txdav.common.idirectoryservice import IStoreDirectoryService
 from txdav.dps.commands import (
     RecordWithShortNameCommand, RecordWithUIDCommand, RecordWithGUIDCommand,
@@ -61,7 +63,8 @@ log = Logger()
 ## LDAP
 ## Tests from old twistedcaldav/directory
 ## Cmd line tools
-## Store based directory service (records in the store, i.e. locations/resources)
+## Store based directory service (records in the store, i.e.
+##    locations/resources)
 ## Separate store for DPS (augments and delegates separate from calendar data)
 ## calverify needs deferreds, including:
 ##    component.normalizeCalendarUserAddresses
@@ -157,7 +160,9 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
         # path = "data/Logs/state/directory-proxy.sock"
         if getattr(self, "_connection", None) is None:
             log.debug("Creating connection")
-            connection = (yield ClientCreator(reactor, amp.AMP).connectUNIX(path))
+            connection = (
+                yield ClientCreator(reactor, amp.AMP).connectUNIX(path)
+            )
             self._connection = connection
         else:
             log.debug("Already have connection")
@@ -241,8 +246,9 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
         )
 
 
-    def recordsMatchingTokens(self, tokens, context=None, limitResults=50,
-                              timeoutSeconds=10):
+    def recordsMatchingTokens(
+        self, tokens, context=None, limitResults=50, timeoutSeconds=10
+    ):
         return self._call(
             RecordsMatchingTokensCommand,
             self._processMultipleRecords,
@@ -251,8 +257,9 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
         )
 
 
-    def recordsMatchingFields(self, fields, operand=Operand.OR, recordType=None):
-
+    def recordsMatchingFields(
+        self, fields, operand=Operand.OR, recordType=None
+    ):
         newFields = []
         for fieldName, searchTerm, matchFlags, matchType in fields:
             newFields.append(
@@ -276,7 +283,10 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
 
 
     def recordsFromExpression(self, expression):
-        raise NotImplementedError("This won't work until expressions are serializable to send across AMP")
+        raise NotImplementedError(
+            "This won't work until expressions are serializable to send "
+            "across AMP"
+        )
 
 
 
@@ -370,19 +380,25 @@ def makeEvenBetterRequest():
     if record:
         authenticated = (yield record.verifyPlaintextPassword("negas"))
         print("plain auth: {a}".format(a=authenticated))
-    """
-    record = (yield ds.recordWithUID("__dre__"))
-    print("uid: {r}".format(r=record))
-    if record:
-        authenticated = (yield record.verifyPlaintextPassword("erd"))
-        print("plain auth: {a}".format(a=authenticated))
-    record = (yield ds.recordWithGUID("A3B1158F-0564-4F5B-81E4-A89EA5FF81B0"))
-    print("guid: {r}".format(r=record))
-    records = (yield ds.recordsWithRecordType(RecordType.user))
-    print("recordType: {r}".format(r=records))
-    records = (yield ds.recordsWithEmailAddress("cdaboo@bitbucket.calendarserver.org"))
-    print("emailAddress: {r}".format(r=records))
-    """
+
+    # record = (yield ds.recordWithUID("__dre__"))
+    # print("uid: {r}".format(r=record))
+    # if record:
+    #     authenticated = (yield record.verifyPlaintextPassword("erd"))
+    #     print("plain auth: {a}".format(a=authenticated))
+
+    # record = yield ds.recordWithGUID(
+    #     "A3B1158F-0564-4F5B-81E4-A89EA5FF81B0"
+    # )
+    # print("guid: {r}".format(r=record))
+
+    # records = yield ds.recordsWithRecordType(RecordType.user)
+    # print("recordType: {r}".format(r=records))
+
+    # records = yield ds.recordsWithEmailAddress(
+    #     "cdaboo@bitbucket.calendarserver.org"
+    # )
+    # print("emailAddress: {r}".format(r=records))
 
 
 
