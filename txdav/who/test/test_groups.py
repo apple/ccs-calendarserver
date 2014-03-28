@@ -63,8 +63,8 @@ class GroupCacherTest(StoreTestCase):
 
         records = (yield self.groupCacher.cachedMembers(txn, groupID))
         self.assertEquals(
-            set([r.shortNames[0] for r in records]),
-            set(["wsanchez1", "cdaboo1", "glyph1", "sagen1"])
+            set([r.uid for r in records]),
+            set([u'__cdaboo1__', u'__glyph1__', u'__sagen1__', u'__wsanchez1__'])
         )
 
         # sagen is in the top group, even though it's actually one level
