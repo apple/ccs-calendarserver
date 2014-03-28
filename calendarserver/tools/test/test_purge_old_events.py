@@ -18,25 +18,22 @@
 Tests for calendarserver.tools.purge
 """
 
-from calendarserver.tools.purge import PurgeOldEventsService, PurgeAttachmentsService, \
-    PurgePrincipalService
+import os
 
+from calendarserver.tools.purge import (
+    PurgeOldEventsService, PurgeAttachmentsService, PurgePrincipalService
+)
 from pycalendar.datetime import DateTime
 from pycalendar.timezone import Timezone
-
 from twext.enterprise.dal.syntax import Update, Delete
-from txweb2.http_headers import MimeType
-
 from twisted.internet.defer import inlineCallbacks, returnValue
-
 from twistedcaldav.config import config
 from twistedcaldav.test.util import StoreTestCase
 from twistedcaldav.vcard import Component as VCardComponent
-
 from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.test.util import populateCalendarsFrom
+from txweb2.http_headers import MimeType
 
-import os
 
 
 now = DateTime.getToday().getYear()
@@ -415,16 +412,16 @@ class PurgeOldEventsTests(StoreTestCase):
         # Turn off delayed indexing option so we can have some useful tests
         self.patch(config, "FreeBusyIndexDelayedExpand", False)
 
-        self.patch(config.DirectoryService.params, "xmlFile",
-            os.path.join(
-                os.path.dirname(__file__), "purge", "accounts.xml"
-            )
-        )
-        self.patch(config.ResourceService.params, "xmlFile",
-            os.path.join(
-                os.path.dirname(__file__), "purge", "resources.xml"
-            )
-        )
+        # self.patch(config.DirectoryService.params, "xmlFile",
+        #     os.path.join(
+        #         os.path.dirname(__file__), "purge", "accounts.xml"
+        #     )
+        # )
+        # self.patch(config.ResourceService.params, "xmlFile",
+        #     os.path.join(
+        #         os.path.dirname(__file__), "purge", "resources.xml"
+        #     )
+        # )
 
 
     @inlineCallbacks
@@ -679,9 +676,9 @@ class PurgeOldEventsTests(StoreTestCase):
         (yield txn.commit())
 
         # Purge home1
-        total, ignored = (yield PurgePrincipalService.purgeUIDs(self._sqlCalendarStore, self.directory,
+        total = yield PurgePrincipalService.purgeUIDs(self._sqlCalendarStore, self.directory,
             self.rootResource, ("home1",), verbose=False, proxies=False,
-            when=DateTime(now, 4, 1, 12, 0, 0, 0, Timezone(utc=True))))
+            when=DateTime(now, 4, 1, 12, 0, 0, 0, Timezone(utc=True)))
 
         # 4 items deleted: 3 events and 1 vcard
         self.assertEquals(total, 4)
@@ -716,8 +713,8 @@ class PurgeOldEventsTests(StoreTestCase):
         (yield txn.commit())
 
         # Purge home1 completely
-        total, ignored = (yield PurgePrincipalService.purgeUIDs(self._sqlCalendarStore, self.directory,
-            self.rootResource, ("home1",), verbose=False, proxies=False, completely=True))
+        total = yield PurgePrincipalService.purgeUIDs(self._sqlCalendarStore, self.directory,
+            self.rootResource, ("home1",), verbose=False, proxies=False, completely=True)
 
         # 9 items deleted: 8 events and 1 vcard
         self.assertEquals(total, 9)

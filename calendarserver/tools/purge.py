@@ -168,7 +168,7 @@ class PurgeOldEventsService(WorkerService):
         service.batchSize = batchSize
         service.dryrun = dryrun
         service.verbose = verbose
-        result = (yield service.doWork())
+        result = yield service.doWork()
         returnValue(result)
 
 
@@ -179,7 +179,7 @@ class PurgeOldEventsService(WorkerService):
             if self.verbose:
                 print("(Dry run) Searching for old events...")
             txn = self.store.newTransaction(label="Find old events")
-            oldEvents = (yield txn.eventsOlderThan(self.cutoff))
+            oldEvents = yield txn.eventsOlderThan(self.cutoff)
             eventCount = len(oldEvents)
             if self.verbose:
                 if eventCount == 0:
@@ -197,8 +197,8 @@ class PurgeOldEventsService(WorkerService):
         totalRemoved = 0
         while numEventsRemoved:
             txn = self.store.newTransaction(label="Remove old events")
-            numEventsRemoved = (yield txn.removeOldEvents(self.cutoff, batchSize=self.batchSize))
-            (yield txn.commit())
+            numEventsRemoved = yield txn.removeOldEvents(self.cutoff, batchSize=self.batchSize)
+            yield txn.commit()
             if numEventsRemoved:
                 totalRemoved += numEventsRemoved
                 if self.verbose:
@@ -358,7 +358,7 @@ class PurgeAttachmentsService(WorkerService):
         service.batchSize = limit
         service.dryrun = dryrun
         service.verbose = verbose
-        result = (yield service.doWork())
+        result = yield service.doWork()
         returnValue(result)
 
 
@@ -366,20 +366,20 @@ class PurgeAttachmentsService(WorkerService):
     def doWork(self):
 
         if self.dryrun:
-            orphans = (yield self._orphansDryRun())
+            orphans = yield self._orphansDryRun()
             if self.cutoff is not None:
-                dropbox = (yield self._dropboxDryRun())
-                managed = (yield self._managedDryRun())
+                dropbox = yield self._dropboxDryRun()
+                managed = yield self._managedDryRun()
             else:
                 dropbox = ()
                 managed = ()
 
             returnValue(self._dryRunSummary(orphans, dropbox, managed))
         else:
-            total = (yield self._orphansPurge())
+            total = yield self._orphansPurge()
             if self.cutoff is not None:
-                total += (yield self._dropboxPurge())
-                total += (yield self._managedPurge())
+                total += yield self._dropboxPurge()
+                total += yield self._managedPurge()
             returnValue(total)
 
 
@@ -389,7 +389,7 @@ class PurgeAttachmentsService(WorkerService):
         if self.verbose:
             print("(Dry run) Searching for orphaned attachments...")
         txn = self.store.newTransaction(label="Find orphaned attachments")
-        orphans = (yield txn.orphanedAttachments(self.uuid))
+        orphans = yield txn.orphanedAttachments(self.uuid)
         returnValue(orphans)
 
 
@@ -399,7 +399,7 @@ class PurgeAttachmentsService(WorkerService):
         if self.verbose:
             print("(Dry run) Searching for old dropbox attachments...")
         txn = self.store.newTransaction(label="Find old dropbox attachments")
-        cutoffs = (yield txn.oldDropboxAttachments(self.cutoff, self.uuid))
+        cutoffs = yield txn.oldDropboxAttachments(self.cutoff, self.uuid)
         yield txn.commit()
 
         returnValue(cutoffs)
@@ -411,7 +411,7 @@ class PurgeAttachmentsService(WorkerService):
         if self.verbose:
             print("(Dry run) Searching for old managed attachments...")
         txn = self.store.newTransaction(label="Find old managed attachments")
-        cutoffs = (yield txn.oldManagedAttachments(self.cutoff, self.uuid))
+        cutoffs = yield txn.oldManagedAttachments(self.cutoff, self.uuid)
         yield txn.commit()
 
         returnValue(cutoffs)
@@ -493,7 +493,7 @@ class PurgeAttachmentsService(WorkerService):
         totalRemoved = 0
         while numOrphansRemoved:
             txn = self.store.newTransaction(label="Remove orphaned attachments")
-            numOrphansRemoved = (yield txn.removeOrphanedAttachments(self.uuid, batchSize=self.batchSize))
+            numOrphansRemoved = yield txn.removeOrphanedAttachments(self.uuid, batchSize=self.batchSize)
             yield txn.commit()
             if numOrphansRemoved:
                 totalRemoved += numOrphansRemoved
@@ -524,7 +524,7 @@ class PurgeAttachmentsService(WorkerService):
         totalRemoved = 0
         while numOldRemoved:
             txn = self.store.newTransaction(label="Remove old dropbox attachments")
-            numOldRemoved = (yield txn.removeOldDropboxAttachments(self.cutoff, self.uuid, batchSize=self.batchSize))
+            numOldRemoved = yield txn.removeOldDropboxAttachments(self.cutoff, self.uuid, batchSize=self.batchSize)
             yield txn.commit()
             if numOldRemoved:
                 totalRemoved += numOldRemoved
@@ -555,7 +555,7 @@ class PurgeAttachmentsService(WorkerService):
         totalRemoved = 0
         while numOldRemoved:
             txn = self.store.newTransaction(label="Remove old managed attachments")
-            numOldRemoved = (yield txn.removeOldManagedAttachments(self.cutoff, self.uuid, batchSize=self.batchSize))
+            numOldRemoved = yield txn.removeOldManagedAttachments(self.cutoff, self.uuid, batchSize=self.batchSize)
             yield txn.commit()
             if numOldRemoved:
                 totalRemoved += numOldRemoved
@@ -695,7 +695,7 @@ class PurgePrincipalService(WorkerService):
         service.doimplicit = doimplicit
         service.proxies = proxies
         service.when = when
-        result = (yield service.doWork())
+        result = yield service.doWork()
         returnValue(result)
 
 
@@ -710,7 +710,7 @@ class PurgePrincipalService(WorkerService):
         total = 0
 
         for uid in self.uids:
-            count = (yield self._purgeUID(uid))
+            count = yield self._purgeUID(uid)
             total += count
 
         if self.verbose:
@@ -749,7 +749,7 @@ class PurgePrincipalService(WorkerService):
 
         # See if calendar home is provisioned
         txn = self.store.newTransaction()
-        storeCalHome = (yield txn.calendarHomeWithUID(uid))
+        storeCalHome = yield txn.calendarHomeWithUID(uid)
         calHomeProvisioned = storeCalHome is not None
 
         # If in "completely" mode, unshare collections, remove notifications
@@ -761,14 +761,14 @@ class PurgePrincipalService(WorkerService):
         count = 0
 
         if calHomeProvisioned:
-            count = (yield self._cancelEvents(txn, uid, cua))
+            count = yield self._cancelEvents(txn, uid, cua)
 
         # Remove empty calendar collections (and calendar home if no more
         # calendars)
         yield self._removeCalendarHome(uid)
 
         # Remove VCards
-        count += (yield self._removeAddressbookHome(uid))
+        count += yield self._removeAddressbookHome(uid)
 
         if self.proxies and not self.dryrun:
             if self.verbose:
@@ -790,13 +790,13 @@ class PurgePrincipalService(WorkerService):
                 else:
                     print("Unsharing: %s" % (child.name(),))
             if not self.dryrun:
-                (yield child.unshare())
+                yield child.unshare()
 
         if not self.dryrun:
-            (yield storeCalHome.removeUnacceptedShares())
-            notificationHome = (yield txn.notificationsWithUID(storeCalHome.uid()))
+            yield storeCalHome.removeUnacceptedShares()
+            notificationHome = yield txn.notificationsWithUID(storeCalHome.uid())
             if notificationHome is not None:
-                (yield notificationHome.remove())
+                yield notificationHome.remove()
 
 
     @inlineCallbacks
@@ -817,15 +817,15 @@ class PurgePrincipalService(WorkerService):
 
         count = 0
         txn = self.store.newTransaction()
-        storeCalHome = (yield txn.calendarHomeWithUID(uid))
-        calendarNames = (yield storeCalHome.listCalendars())
+        storeCalHome = yield txn.calendarHomeWithUID(uid)
+        calendarNames = yield storeCalHome.listCalendars()
         yield txn.commit()
 
         for calendarName in calendarNames:
 
             txn = self.store.newTransaction()
-            storeCalHome = (yield txn.calendarHomeWithUID(uid))
-            calendar = (yield storeCalHome.calendarWithName(calendarName))
+            storeCalHome = yield txn.calendarHomeWithUID(uid)
+            calendar = yield storeCalHome.calendarWithName(calendarName)
             childNames = []
 
             if self.completely:
@@ -841,17 +841,17 @@ class PurgePrincipalService(WorkerService):
             for childName in childNames:
 
                 txn = self.store.newTransaction()
-                storeCalHome = (yield txn.calendarHomeWithUID(uid))
-                calendar = (yield storeCalHome.calendarWithName(calendarName))
+                storeCalHome = yield txn.calendarHomeWithUID(uid)
+                calendar = yield storeCalHome.calendarWithName(calendarName)
 
                 try:
-                    childResource = (yield calendar.calendarObjectWithName(childName))
+                    childResource = yield calendar.calendarObjectWithName(childName)
 
                     # Always delete inbox items
                     if self.completely or calendar.isInbox():
                         action = self.CANCELEVENT_SHOULD_DELETE
                     else:
-                        event = (yield childResource.componentForUser())
+                        event = yield childResource.componentForUser()
                         action = self._cancelEvent(event, self.when, cua)
 
                     uri = "/calendars/__uids__/%s/%s/%s" % (storeCalHome.uid(), calendar.name(), childName)
@@ -912,7 +912,7 @@ class PurgePrincipalService(WorkerService):
 
             # Remove empty calendar collections (and calendar home if no more
             # calendars)
-            storeCalHome = (yield txn.calendarHomeWithUID(uid))
+            storeCalHome = yield txn.calendarHomeWithUID(uid)
             if storeCalHome is not None:
                 calendars = list((yield storeCalHome.calendars()))
                 remainingCalendars = len(calendars)
@@ -926,7 +926,7 @@ class PurgePrincipalService(WorkerService):
                             else:
                                 print("Deleting calendar: %s" % (calendarName,))
                         if not self.dryrun:
-                            (yield storeCalHome.removeChildWithName(calendarName))
+                            yield storeCalHome.removeChildWithName(calendarName)
 
                 if not remainingCalendars:
                     if self.verbose:
@@ -935,7 +935,7 @@ class PurgePrincipalService(WorkerService):
                         else:
                             print("Deleting calendar home")
                     if not self.dryrun:
-                        (yield storeCalHome.remove())
+                        yield storeCalHome.remove()
 
             # Commit
             yield txn.commit()
@@ -954,7 +954,7 @@ class PurgePrincipalService(WorkerService):
 
         try:
             # Remove VCards
-            storeAbHome = (yield txn.addressbookHomeWithUID(uid))
+            storeAbHome = yield txn.addressbookHomeWithUID(uid)
             if storeAbHome is not None:
                 for abColl in list((yield storeAbHome.addressbooks())):
                     for card in list((yield abColl.addressbookObjects())):
@@ -966,7 +966,7 @@ class PurgePrincipalService(WorkerService):
                             else:
                                 print("Deleting: %s" % (uri,))
                         if not self.dryrun:
-                            (yield card.remove())
+                            yield card.remove()
                         count += 1
                     if self.verbose:
                         abName = abColl.name()
@@ -976,7 +976,7 @@ class PurgePrincipalService(WorkerService):
                             print("Deleting addressbook: %s" % (abName,))
                     if not self.dryrun:
                         # Also remove the addressbook collection itself
-                        (yield storeAbHome.removeChildWithName(abColl.name()))
+                        yield storeAbHome.removeChildWithName(abColl.name())
 
                 if self.verbose:
                     if self.dryrun:
@@ -984,7 +984,7 @@ class PurgePrincipalService(WorkerService):
                     else:
                         print("Deleting addressbook home")
                 if not self.dryrun:
-                    (yield storeAbHome.remove())
+                    yield storeAbHome.remove()
 
             # Commit
             yield txn.commit()
