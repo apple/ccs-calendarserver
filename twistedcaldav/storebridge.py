@@ -1613,7 +1613,7 @@ class CalendarObjectDropbox(_GetChildHelper):
         cuas = (yield self._newStoreCalendarObject.component()).getAttendees()
         newACEs = []
         for calendarUserAddress in cuas:
-            principal = self.principalForCalendarUserAddress(
+            principal = yield self.principalForCalendarUserAddress(
                 calendarUserAddress
             )
             if principal is None:
@@ -1683,7 +1683,7 @@ class CalendarObjectDropbox(_GetChildHelper):
             proxyprivs = list(userprivs)
             proxyprivs.remove(davxml.Privilege(davxml.ReadACL()))
 
-            principal = self.principalForUID(invite.shareeUID)
+            principal = yield self.principalForUID(invite.shareeUID)
             aces += (
                 # Inheritable specific access for the resource's associated principal.
                 davxml.ACE(
@@ -1941,7 +1941,7 @@ class AttachmentsChildCollection(_GetChildHelper):
         cuas = (yield self._newStoreCalendarObject.component()).getAttendees()
         newACEs = []
         for calendarUserAddress in cuas:
-            principal = self.principalForCalendarUserAddress(
+            principal = yield self.principalForCalendarUserAddress(
                 calendarUserAddress
             )
             if principal is None:
@@ -2038,7 +2038,7 @@ class AttachmentsChildCollection(_GetChildHelper):
             if access in ("read-only", "read-write",):
                 userprivs.extend(privileges)
 
-            principal = self.principalForUID(invite.shareeUID)
+            principal = yield self.principalForUID(invite.shareeUID)
             aces += (
                 # Inheritable specific access for the resource's associated principal.
                 davxml.ACE(
@@ -3707,7 +3707,7 @@ class AddressBookObjectResource(_CommonObjectResource):
         else:
             userprivs.append(davxml.Privilege(davxml.WriteProperties()))
 
-        sharee = self.principalForUID(self._newStoreObject.viewerHome().uid())
+        sharee = yield self.principalForUID(self._newStoreObject.viewerHome().uid())
         aces = (
             # Inheritable specific access for the resource's associated principal.
             davxml.ACE(
@@ -3909,7 +3909,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
         assert ignored is None, "This is a notification object, not a notification"
         jsondata = (yield self._newStoreObject.notificationData())
         if jsondata["notification-type"] == "invite-notification":
-            ownerPrincipal = self.principalForUID(jsondata["owner"])
+            ownerPrincipal = yield self.principalForUID(jsondata["owner"])
             ownerCN = ownerPrincipal.displayName()
             ownerHomeURL = ownerPrincipal.calendarHomeURLs()[0] if jsondata["shared-type"] == "calendar" else ownerPrincipal.addressBookHomeURLs()[0]
 
@@ -3919,7 +3919,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
             else:
                 owner = "urn:uuid:" + ownerPrincipal.principalUID()
 
-            shareePrincipal = self.principalForUID(jsondata["sharee"])
+            shareePrincipal = yield self.principalForUID(jsondata["sharee"])
 
             if "supported-components" in jsondata:
                 comps = jsondata["supported-components"]
@@ -3954,10 +3954,10 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
                 ),
             )
         elif jsondata["notification-type"] == "invite-reply":
-            ownerPrincipal = self.principalForUID(jsondata["owner"])
+            ownerPrincipal = yield self.principalForUID(jsondata["owner"])
             ownerHomeURL = ownerPrincipal.calendarHomeURLs()[0] if jsondata["shared-type"] == "calendar" else ownerPrincipal.addressBookHomeURLs()[0]
 
-            shareePrincipal = self.principalForUID(jsondata["sharee"])
+            shareePrincipal = yield self.principalForUID(jsondata["sharee"])
 
             # FIXME:  use urn:uuid always?
             if jsondata["shared-type"] == "calendar":
@@ -3985,8 +3985,8 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
                     customxml.InReplyTo.fromString(jsondata["in-reply-to"]),
                     customxml.InviteSummary.fromString(jsondata["summary"]) if jsondata["summary"] else None,
                     customxml.CommonName.fromString(commonName) if commonName else None,
-                    customxml.FirstNameProperty(record.firstName) if record.firstName else None,
-                    customxml.LastNameProperty(record.lastName) if record.lastName else None,
+                    # customxml.FirstNameProperty(record.firstName) if record.firstName else None,
+                    # customxml.LastNameProperty(record.lastName) if record.lastName else None,
                     #**typeAttr
                 ),
             )
