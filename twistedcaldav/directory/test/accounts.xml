@@ -242,6 +242,7 @@ limitations under the License.
 
   <record type="user">
     <uid>__sagen1__</uid>
+    <short-name>sagen</short-name>
     <short-name>sagen1</short-name>
     <full-name>Morgen Sagen</full-name>
     <password>negas</password>
@@ -259,6 +260,7 @@ limitations under the License.
   <record type="user">
     <uid>__dre1__</uid>
     <short-name>dre1</short-name>
+    <short-name>dre</short-name>
     <full-name>Andre LaBranche</full-name>
     <password>erd</password>
     <email>dre@bitbucket.calendarserver.org</email>

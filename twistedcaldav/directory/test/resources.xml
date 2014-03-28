@@ -75,4 +75,9 @@ limitations under the License.
     <full-name>Disabled Record</full-name>
     <email>disabled@example.com</email>
   </record>
+  <record type="location">
+    <uid>__sanchezoffice__</uid>
+    <short-name>sanchezoffice</short-name>
+    <full-name>Sanchez Office</full-name>
+  </record>
 </directory>
