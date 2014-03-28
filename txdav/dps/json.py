@@ -35,7 +35,8 @@ from twext.who.expression import (
 
 
 def expressionAsJSONText(expression):
-    return to_json_text(expressionAsJSON(expression))
+    json = expressionAsJSON(expression)
+    return to_json_text(json)
 
 
 def expressionAsJSON(expression):
@@ -70,11 +71,69 @@ def matchExpressionAsJSON(expression):
 
 
 def expressionFromJSONText(jsonText):
-    Operand
-    MatchType, MatchFlags
-    from_json_text
+    json = from_json_text(jsonText)
+    return expressionFromJSON(json)
+
+
+def expressionFromJSON(json):
+    if not isinstance(json, dict):
+        raise TypeError("JSON expression must be a dict.")
+
+    try:
+        json_type = json["type"]
+    except KeyError as e:
+        raise ValueError("JSON expression must have {!r} key.".format(e[0]))
+
+    if json_type == "CompoundExpression":
+        return compoundExpressionFromJSON(json)
+
+    if json_type == "MatchExpression":
+        return matchExpressionFromJSON(json)
+
+    raise NotImplementedError(
+        "Unknown expression type: {}".format(json_type)
+    )
+
+
+def compoundExpressionFromJSON(json):
+    try:
+        expressions_json = json["expressions"]
+        operand_json = json["operand"]
+    except KeyError as e:
+        raise ValueError(
+            "JSON compound expression must have {!r} key.".format(e[0])
+        )
+
+    expressions = tuple(expressionFromJSON(e) for e in expressions_json)
+    operand = Operand.lookupByName(operand_json)
+
+    return CompoundExpression(expressions, operand)
+
+
+def matchExpressionFromJSON(json):
+    try:
+        field_json = json["field"]
+        value_json = json["value"]
+        match_json = json["match"]
+        flags_json = json["flags"]
+    except KeyError as e:
+        raise ValueError(
+            "JSON match expression must have {!r} key.".format(e[0])
+        )
+
     raise NotImplementedError()
 
+    fieldName = NotImplemented, field_json   # Need service...
+    fieldValue = NotImplemented, value_json  # Need to cast to correct value
+    matchType = MatchType.lookupByName(match_json)
+    flags = NotImplemented, flags_json       # Need to handle composite flags
+
+    MatchFlags  # Shh, flakes
+
+    return MatchExpression(
+        fieldName, fieldValue,
+        matchType=matchType, flags=flags,
+    )
 
 
 def to_json_text(obj):
