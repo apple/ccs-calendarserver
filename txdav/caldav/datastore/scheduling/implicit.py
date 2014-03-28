@@ -1502,7 +1502,7 @@ class ImplicitScheduler(object):
                     oldattendess = self.oldcalendar.getAllUniqueAttendees()
                     found_old = False
                     for attendee in oldattendess:
-                        attendeePrincipal = self.calendar_home.directoryService().recordWithCalendarUserAddress(attendee)
+                        attendeePrincipal = yield self.calendar_home.directoryService().recordWithCalendarUserAddress(attendee)
                         if attendeePrincipal and attendeePrincipal.uid == self.calendar_home.uid():
                             found_old = True
                             break
