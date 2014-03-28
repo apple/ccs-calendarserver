@@ -20,11 +20,10 @@ Delegates implementation tests
 
 from txdav.who.delegates import (
     addDelegate, removeDelegate, delegatesOf, delegatedTo,
-    DirectoryService, RecordType as DelegateRecordType
+    RecordType as DelegateRecordType
 )
 from txdav.who.groups import GroupCacher
 from twext.who.idirectory import RecordType
-from twext.who.test.test_xml import xmlService
 from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.test.util import StoreTestCase
 
@@ -35,69 +34,63 @@ class DelegationTest(StoreTestCase):
     def setUp(self):
         yield super(DelegationTest, self).setUp()
         self.store = self.storeUnderTest()
-        self.xmlService = xmlService(self.mktemp(), xmlData=testXMLConfig)
-        self.groupCacher = GroupCacher(self.xmlService)
-        self.delegateService = DirectoryService(
-            self.xmlService.realmName,
-            self.store
-        )
-        self.delegateService.setMasterDirectory(self.xmlService)
+        self.groupCacher = GroupCacher(self.directory)
 
 
     @inlineCallbacks
     def test_directDelegation(self):
         txn = self.store.newTransaction()
 
-        delegator = yield self.xmlService.recordWithUID(u"__wsanchez__")
-        delegate1 = yield self.xmlService.recordWithUID(u"__sagen__")
-        delegate2 = yield self.xmlService.recordWithUID(u"__cdaboo__")
+        delegator = yield self.directory.recordWithUID(u"__wsanchez1__")
+        delegate1 = yield self.directory.recordWithUID(u"__sagen1__")
+        delegate2 = yield self.directory.recordWithUID(u"__cdaboo1__")
 
         # Add 1 delegate
         yield addDelegate(txn, delegator, delegate1, True)
         delegates = (yield delegatesOf(txn, delegator, True))
-        self.assertEquals(["__sagen__"], [d.uid for d in delegates])
+        self.assertEquals([u"__sagen1__"], [d.uid for d in delegates])
         delegators = (yield delegatedTo(txn, delegate1, True))
-        self.assertEquals(["__wsanchez__"], [d.uid for d in delegators])
+        self.assertEquals([u"__wsanchez1__"], [d.uid for d in delegators])
 
         yield txn.commit()  # So delegateService will see the changes
         txn = self.store.newTransaction()
 
         # The "proxy-write" pseudoGroup will have one member
-        pseudoGroup = yield self.delegateService.recordWithShortName(
+        pseudoGroup = yield self.directory.recordWithShortName(
             DelegateRecordType.writeDelegateGroup,
-            u"__wsanchez__"
+            u"__wsanchez1__"
         )
-        self.assertEquals(pseudoGroup.uid, u"__wsanchez__#calendar-proxy-write")
+        self.assertEquals(pseudoGroup.uid, u"__wsanchez1__#calendar-proxy-write")
         self.assertEquals(
             [r.uid for r in (yield pseudoGroup.members())],
-            [u"__sagen__"]
+            [u"__sagen1__"]
         )
         # The "proxy-read" pseudoGroup will have no members
-        pseudoGroup = yield self.delegateService.recordWithShortName(
+        pseudoGroup = yield self.directory.recordWithShortName(
             DelegateRecordType.readDelegateGroup,
-            u"__wsanchez__"
+            u"__wsanchez1__"
         )
-        self.assertEquals(pseudoGroup.uid, u"__wsanchez__#calendar-proxy-read")
+        self.assertEquals(pseudoGroup.uid, u"__wsanchez1__#calendar-proxy-read")
         self.assertEquals(
             [r.uid for r in (yield pseudoGroup.members())],
             []
         )
         # The "proxy-write-for" pseudoGroup will have one member
-        pseudoGroup = yield self.delegateService.recordWithShortName(
+        pseudoGroup = yield self.directory.recordWithShortName(
             DelegateRecordType.writeDelegatorGroup,
-            u"__sagen__"
+            u"__sagen1__"
         )
-        self.assertEquals(pseudoGroup.uid, u"__sagen__#calendar-proxy-write-for")
+        self.assertEquals(pseudoGroup.uid, u"__sagen1__#calendar-proxy-write-for")
         self.assertEquals(
             [r.uid for r in (yield pseudoGroup.members())],
-            [u"__wsanchez__"]
+            [u"__wsanchez1__"]
         )
         # The "proxy-read-for" pseudoGroup will have no members
-        pseudoGroup = yield self.delegateService.recordWithShortName(
+        pseudoGroup = yield self.directory.recordWithShortName(
             DelegateRecordType.readDelegatorGroup,
-            u"__sagen__"
+            u"__sagen1__"
         )
-        self.assertEquals(pseudoGroup.uid, u"__sagen__#calendar-proxy-read-for")
+        self.assertEquals(pseudoGroup.uid, u"__sagen1__#calendar-proxy-read-for")
         self.assertEquals(
             [r.uid for r in (yield pseudoGroup.members())],
             []
@@ -107,16 +100,16 @@ class DelegationTest(StoreTestCase):
         yield addDelegate(txn, delegator, delegate2, True)
         delegates = (yield delegatesOf(txn, delegator, True))
         self.assertEquals(
-            set(["__sagen__", "__cdaboo__"]),
+            set([u"__sagen1__", u"__cdaboo1__"]),
             set([d.uid for d in delegates])
         )
         delegators = (yield delegatedTo(txn, delegate2, True))
-        self.assertEquals(["__wsanchez__"], [d.uid for d in delegators])
+        self.assertEquals([u"__wsanchez1__"], [d.uid for d in delegators])
 
         # Remove 1 delegate
         yield removeDelegate(txn, delegator, delegate1, True)
         delegates = (yield delegatesOf(txn, delegator, True))
-        self.assertEquals(["__cdaboo__"], [d.uid for d in delegates])
+        self.assertEquals([u"__cdaboo1__"], [d.uid for d in delegates])
         delegators = (yield delegatedTo(txn, delegate1, True))
         self.assertEquals(0, len(delegators))
 
@@ -130,9 +123,9 @@ class DelegationTest(StoreTestCase):
         yield txn.commit()  # So delegateService will see the changes
 
         # Now set delegate assignments by using pseudoGroup.setMembers()
-        pseudoGroup = yield self.delegateService.recordWithShortName(
+        pseudoGroup = yield self.directory.recordWithShortName(
             DelegateRecordType.writeDelegateGroup,
-            u"__wsanchez__"
+            u"__wsanchez1__"
         )
         yield pseudoGroup.setMembers([delegate1, delegate2])
 
@@ -140,7 +133,7 @@ class DelegationTest(StoreTestCase):
         txn = self.store.newTransaction()
         delegates = (yield delegatesOf(txn, delegator, True))
         self.assertEquals(
-            set(["__sagen__", "__cdaboo__"]),
+            set([u"__sagen1__", u"__cdaboo1__"]),
             set([d.uid for d in delegates])
         )
         yield txn.commit()
@@ -152,7 +145,7 @@ class DelegationTest(StoreTestCase):
         txn = self.store.newTransaction()
         delegates = (yield delegatesOf(txn, delegator, True))
         self.assertEquals(
-            set(["__cdaboo__"]),
+            set([u"__cdaboo1__"]),
             set([d.uid for d in delegates])
         )
         yield txn.commit()
@@ -162,10 +155,10 @@ class DelegationTest(StoreTestCase):
     def test_indirectDelegation(self):
         txn = self.store.newTransaction()
 
-        delegator = yield self.xmlService.recordWithUID(u"__wsanchez__")
-        delegate1 = yield self.xmlService.recordWithUID(u"__sagen__")
-        group1 = yield self.xmlService.recordWithUID(u"__top_group_1__")
-        group2 = yield self.xmlService.recordWithUID(u"__sub_group_1__")
+        delegator = yield self.directory.recordWithUID(u"__wsanchez1__")
+        delegate1 = yield self.directory.recordWithUID(u"__sagen1__")
+        group1 = yield self.directory.recordWithUID(u"__top_group_1__")
+        group2 = yield self.directory.recordWithUID(u"__sub_group_1__")
 
         # Add group delegate, but before the group membership has been
         # pulled in
@@ -186,11 +179,11 @@ class DelegationTest(StoreTestCase):
         yield self.groupCacher.refreshGroup(txn, group2.uid)
         delegates = (yield delegatesOf(txn, delegator, True, expanded=True))
         self.assertEquals(
-            set(["__sagen__", "__cdaboo__", "__glyph__"]),
+            set([u"__sagen1__", u"__cdaboo1__", u"__glyph1__"]),
             set([d.uid for d in delegates])
         )
         delegators = (yield delegatedTo(txn, delegate1, True))
-        self.assertEquals(["__wsanchez__"], [d.uid for d in delegators])
+        self.assertEquals([u"__wsanchez1__"], [d.uid for d in delegators])
 
         # Verify we can ask for all delegated-to groups
         yield addDelegate(txn, delegator, group2, True)
@@ -203,15 +196,15 @@ class DelegationTest(StoreTestCase):
         yield addDelegate(txn, delegator, delegate1, True)
         delegates = (yield delegatesOf(txn, delegator, True, expanded=True))
         self.assertEquals(
-            set(["__sagen__", "__cdaboo__", "__glyph__"]),
+            set([u"__sagen1__", u"__cdaboo1__", u"__glyph1__"]),
             set([d.uid for d in delegates])
         )
 
         # Add a member to the group; they become a delegate
         newSet = set()
-        for name in (u"wsanchez", u"cdaboo", u"sagen", u"glyph", u"dre"):
+        for name in (u"wsanchez1", u"cdaboo1", u"sagen1", u"glyph1", u"dre1"):
             record = (
-                yield self.xmlService.recordWithShortName(RecordType.user, name)
+                yield self.directory.recordWithShortName(RecordType.user, name)
             )
             newSet.add(record.uid)
         groupID, name, membershipHash = (yield txn.groupByUID(group1.uid))
@@ -220,7 +213,7 @@ class DelegationTest(StoreTestCase):
         )
         delegates = (yield delegatesOf(txn, delegator, True, expanded=True))
         self.assertEquals(
-            set(["__sagen__", "__cdaboo__", "__glyph__", "__dre__"]),
+            set([u"__sagen1__", u"__cdaboo1__", u"__glyph1__", u"__dre1__"]),
             set([d.uid for d in delegates])
         )
 
@@ -228,7 +221,7 @@ class DelegationTest(StoreTestCase):
         yield removeDelegate(txn, delegator, group1, True)
         delegates = (yield delegatesOf(txn, delegator, True, expanded=True))
         self.assertEquals(
-            set(["__sagen__", "__cdaboo__"]),
+            set([u"__sagen1__", u"__cdaboo1__"]),
             set([d.uid for d in delegates])
         )
 
@@ -236,89 +229,7 @@ class DelegationTest(StoreTestCase):
         yield removeDelegate(txn, delegator, group2, True)
         delegates = (yield delegatesOf(txn, delegator, True, expanded=True))
         self.assertEquals(
-            set(["__sagen__"]),
+            set([u"__sagen1__"]),
             set([d.uid for d in delegates])
         )
         yield txn.commit()
-
-
-
-
-
-testXMLConfig = """<?xml version="1.0" encoding="utf-8"?>
-
-<directory realm="xyzzy">
-
-  <record type="user">
-    <uid>__wsanchez__</uid>
-    <guid>3BDCB954-84D5-4F6D-8035-EAC19A6D6E1F</guid>
-    <short-name>wsanchez</short-name>
-    <short-name>wilfredo_sanchez</short-name>
-    <full-name>Wilfredo Sanchez</full-name>
-    <password>zehcnasw</password>
-    <email>wsanchez@bitbucket.calendarserver.org</email>
-    <email>wsanchez@devnull.twistedmatrix.com</email>
-  </record>
-
-  <record type="user">
-    <uid>__glyph__</uid>
-    <guid>9064DF91-1DBC-4E07-9C2B-6839B0953876</guid>
-    <short-name>glyph</short-name>
-    <full-name>Glyph Lefkowitz</full-name>
-    <password>hpylg</password>
-    <email>glyph@bitbucket.calendarserver.org</email>
-    <email>glyph@devnull.twistedmatrix.com</email>
-  </record>
-
-  <record type="user">
-    <uid>__sagen__</uid>
-    <guid>4AD155CB-AE9B-475F-986C-E08A7537893E</guid>
-    <short-name>sagen</short-name>
-    <full-name>Morgen Sagen</full-name>
-    <password>negas</password>
-    <email>sagen@bitbucket.calendarserver.org</email>
-    <email>shared@example.com</email>
-  </record>
-
-  <record type="user">
-    <uid>__cdaboo__</uid>
-    <guid>7D45CB10-479E-456B-B54D-528958C5734B</guid>
-    <short-name>cdaboo</short-name>
-    <full-name>Cyrus Daboo</full-name>
-    <password>suryc</password>
-    <email>cdaboo@bitbucket.calendarserver.org</email>
-  </record>
-
-  <record type="user">
-    <uid>__dre__</uid>
-    <guid>CFC88493-DBFF-42B9-ADC7-9B3DA0B0769B</guid>
-    <short-name>dre</short-name>
-    <full-name>Andre LaBranche</full-name>
-    <password>erd</password>
-    <email>dre@bitbucket.calendarserver.org</email>
-    <email>shared@example.com</email>
-  </record>
-
-  <record type="group">
-    <uid>__top_group_1__</uid>
-    <guid>49B350C6-9611-477B-94D9-5516B13856AB</guid>
-    <short-name>top-group-1</short-name>
-    <full-name>Top Group 1</full-name>
-    <email>topgroup1@example.com</email>
-    <member-uid>__wsanchez__</member-uid>
-    <member-uid>__glyph__</member-uid>
-    <member-uid>__sub_group_1__</member-uid>
-  </record>
-
-  <record type="group">
-    <uid>__sub_group_1__</uid>
-    <guid>86144F73-345A-4097-82F1-B782672087C7</guid>
-    <short-name>sub-group-1</short-name>
-    <full-name>Sub Group 1</full-name>
-    <email>subgroup1@example.com</email>
-    <member-uid>__sagen__</member-uid>
-    <member-uid>__cdaboo__</member-uid>
-  </record>
-
-</directory>
-"""
