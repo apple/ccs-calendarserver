@@ -35,6 +35,7 @@ from twext.python.filepath import CachingFilePath as FilePath
 from twext.python.log import Logger
 from txweb2.auth.basic import BasicCredentialFactory
 from txweb2.dav import auth
+from txweb2.dav.util import joinURL
 from txweb2.http_headers import Headers
 from txweb2.resource import Resource
 from txweb2.static import File as FileResource
@@ -46,25 +47,25 @@ from twisted.internet import reactor as _reactor
 from twisted.internet.reactor import addSystemEventTrigger
 from twisted.internet.tcp import Connection
 
+from calendarserver.push.applepush import APNSubscriptionResource
+from calendarserver.push.notifier import NotifierFactory
+from twext.enterprise.adbapi2 import ConnectionPool, ConnectionPoolConnection
+from twext.enterprise.ienterprise import ORACLE_DIALECT
+from twext.enterprise.ienterprise import POSTGRES_DIALECT
 from twistedcaldav.bind import doBind
 from twistedcaldav.cache import CacheStoreNotifierFactory
 from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeProvisioningResource
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
-from calendarserver.push.notifier import NotifierFactory
-from calendarserver.push.applepush import APNSubscriptionResource
 from twistedcaldav.directorybackedaddressbook import DirectoryBackedAddressBookResource
 from twistedcaldav.resource import AuthenticationWrapper
-from txdav.caldav.datastore.scheduling.ischedule.dkim import DKIMUtils, DomainKeyResource
-from txdav.caldav.datastore.scheduling.ischedule.resource import IScheduleInboxResource
 from twistedcaldav.simpleresource import SimpleResource, SimpleRedirectResource
 from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav.timezoneservice import TimezoneServiceResource
 from twistedcaldav.timezonestdservice import TimezoneStdServiceResource
-from twext.enterprise.ienterprise import POSTGRES_DIALECT
-from twext.enterprise.ienterprise import ORACLE_DIALECT
-from twext.enterprise.adbapi2 import ConnectionPool, ConnectionPoolConnection
+from txdav.caldav.datastore.scheduling.ischedule.dkim import DKIMUtils, DomainKeyResource
+from txdav.caldav.datastore.scheduling.ischedule.resource import IScheduleInboxResource
 
 
 try:
@@ -237,9 +238,9 @@ def storeFromConfig(config, txnFactory, directoryService):
         quota = None
     if txnFactory is not None:
         if config.EnableSSL:
-            uri = "https://%s:%s" % (config.ServerHostName, config.SSLPort,)
+            uri = "https://{config.ServerHostName}:{config.SSLPort}".format(config=config)
         else:
-            uri = "http://%s:%s" % (config.ServerHostName, config.HTTPPort,)
+            uri = "https://{config.ServerHostName}:{config.HTTPPort}".format(config=config)
         attachments_uri = uri + "/calendars/__uids__/%(home)s/dropbox/%(dropbox_id)s/%(name)s"
         store = CommonSQLDataStore(
             txnFactory, notifierFactories,
@@ -283,7 +284,11 @@ class PrincipalCredentialChecker(object):
         credentials = IPrincipalCredentials(credentials)
 
         if credentials.authnPrincipal is None:
-            raise UnauthorizedLogin("No such user: %s" % (credentials.credentials.username,))
+            raise UnauthorizedLogin(
+                "No such user: {user}".format(
+                    user=credentials.credentials.username
+                )
+        )
 
         # See if record is enabledForLogin
         if not credentials.authnPrincipal.record.isLoginEnabled():
@@ -321,7 +326,12 @@ class PrincipalCredentialChecker(object):
                     )
                 )
             else:
-                raise UnauthorizedLogin("Incorrect credentials for %s" % (credentials.credentials.username,))
+                raise UnauthorizedLogin(
+                    "Incorrect credentials for user: {user}".format(
+                        user=credentials.credentials.username
+                    )
+                )
+
 
 
 def getRootResource(config, newStore, resources=None):
@@ -468,13 +478,14 @@ def getRootResource(config, newStore, resources=None):
             newStore,
         )
 
-        directoryPath = os.path.join(config.DocumentRoot, config.DirectoryAddressBook.name)
         if config.DirectoryAddressBook.Enabled and config.EnableSearchAddressBook:
             log.info("Setting up directory address book: {cls}",
                 cls=directoryBackedAddressBookResourceClass)
 
             directoryBackedAddressBookCollection = directoryBackedAddressBookResourceClass(
-                principalCollections=(principalCollection,)
+                principalCollections=(principalCollection,),
+                principalDirectory=directory,
+                uri=joinURL("/", config.DirectoryAddressBook.name, "/")
             )
             if _reactor._started:
                 directoryBackedAddressBookCollection.provisionDirectory()
@@ -482,6 +493,7 @@ def getRootResource(config, newStore, resources=None):
                 addSystemEventTrigger("after", "startup", directoryBackedAddressBookCollection.provisionDirectory)
         else:
             # remove /directory from previous runs that may have created it
+            directoryPath = os.path.join(config.DocumentRoot, config.DirectoryAddressBook.name)
             try:
                 FilePath(directoryPath).remove()
                 log.info("Deleted: {path}", path=directoryPath)

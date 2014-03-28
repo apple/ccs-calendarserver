@@ -577,7 +577,7 @@
 
     <!-- Log levels -->
     <key>DefaultLogLevel</key>
-    <string>info</string> <!-- debug, info, warn, error -->
+    <string>debug</string> <!-- debug, info, warn, error -->
 
     <!-- Log level overrides for specific functionality -->
     <key>LogLevels</key>
@@ -1017,6 +1017,8 @@
       <string>en</string>
     </dict>
 
-
+    <!-- Directory Address Book -->
+    <key>EnableSearchAddressBook</key>
+    <true/>
   </dict>
 </plist>
