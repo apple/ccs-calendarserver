@@ -19,7 +19,6 @@ from __future__ import print_function
 
 from calendarserver.tools import tables
 from calendarserver.tools.cmdline import utilityMain, WorkerService
-from calendarserver.tools.util import removeProxy
 
 from getopt import getopt, GetoptError
 
@@ -33,7 +32,6 @@ from twistedcaldav import caldavxml
 # from twistedcaldav.directory.directory import DirectoryRecord
 
 from txdav.caldav.datastore.query.filter import Filter
-from txdav.xml import element as davxml
 
 
 import collections
@@ -711,10 +709,8 @@ class PurgePrincipalService(WorkerService):
 
         total = 0
 
-        allAssignments = {}
-
         for uid in self.uids:
-            count, allAssignments[uid] = (yield self._purgeUID(uid))
+            count = (yield self._purgeUID(uid))
             total += count
 
         if self.verbose:
@@ -724,7 +720,7 @@ class PurgePrincipalService(WorkerService):
             else:
                 print("Modified or deleted %s" % (amount,))
 
-        returnValue((total, allAssignments,))
+        returnValue(total)
 
 
     @inlineCallbacks
@@ -734,7 +730,7 @@ class PurgePrincipalService(WorkerService):
             self.when = DateTime.getNowUTC()
 
         # Does the record exist?
-        record = self.directory.recordWithUID(uid)
+        record = yield self.directory.recordWithUID(uid)
         # if record is None:
             # The user has already been removed from the directory service.  We
             # need to fashion a temporary, fake record
@@ -746,14 +742,10 @@ class PurgePrincipalService(WorkerService):
             # self.directory._tmpRecords["uids"][uid] = record
 
         # Override augments settings for this record
-        record.enabled = True
-        record.enabledForCalendaring = True
-        record.enabledForAddressBooks = True
+        record.hasCalendars = True
+        record.hasContacts = True
 
-        cua = "urn:uuid:%s" % (uid,)
-
-        principalCollection = self.directory.principalCollection
-        principal = principalCollection.principalForRecord(record)
+        cua = record.canonicalCalendarUserAddress()
 
         # See if calendar home is provisioned
         txn = self.store.newTransaction()
@@ -767,7 +759,6 @@ class PurgePrincipalService(WorkerService):
         yield txn.commit()
 
         count = 0
-        assignments = []
 
         if calHomeProvisioned:
             count = (yield self._cancelEvents(txn, uid, cua))
@@ -782,9 +773,9 @@ class PurgePrincipalService(WorkerService):
         if self.proxies and not self.dryrun:
             if self.verbose:
                 print("Deleting any proxy assignments")
-            assignments = (yield self._purgeProxyAssignments(principal))
+            yield self._purgeProxyAssignments(self.store, record)
 
-        returnValue((count, assignments))
+        returnValue(count)
 
 
     @inlineCallbacks
@@ -1107,22 +1098,10 @@ class PurgePrincipalService(WorkerService):
 
 
     @inlineCallbacks
-    def _purgeProxyAssignments(self, principal):
+    def _purgeProxyAssignments(self, store, record):
 
-        assignments = []
-
-        for proxyType in ("read", "write"):
-
-            proxyFor = (yield principal.proxyFor(proxyType == "write"))
-            for other in proxyFor:
-                assignments.append((principal.record.uid, proxyType, other.record.uid))
-                (yield removeProxy(self.root, self.directory, self.store, other, principal))
-
-            subPrincipal = principal.getChild("calendar-proxy-" + proxyType)
-            proxies = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
-            for other in proxies.children:
-                assignments.append((str(other).split("/")[3], proxyType, principal.record.uid))
-
-            (yield subPrincipal.writeProperty(davxml.GroupMemberSet(), None))
-
-        returnValue(assignments)
+        txn = store.newTransaction()
+        for readWrite in (True, False):
+            yield txn.removeDelegates(record.uid, readWrite)
+            yield txn.removeDelegateGroupss(record.uid, readWrite)
+        yield txn.commit()

@@ -63,6 +63,38 @@ limitations under the License.
     <full-name>Double "quotey" Quotes</full-name>
     <email>doublequotes@example.com</email>
   </record>
+
+  <record type="user">
+    <short-name>example</short-name>
+    <uid>C76DB741-5A2A-4239-8112-10CF152AFCA4</uid>
+    <guid>C76DB741-5A2A-4239-8112-10CF152AFCA4</guid>
+    <password>example</password>
+    <full-name>Example</full-name>
+    <email>example@example.com</email>
+  </record>
+  <record type="user">
+    <short-name>example2</short-name>
+    <uid>FFED7B62-2E08-496E-BD32-B2F95FFDDB6B</uid>
+    <guid>FFED7B62-2E08-496E-BD32-B2F95FFDDB6B</guid>
+    <password>example2</password>
+    <full-name>Example Two</full-name>
+    <email>example2@example.com</email>
+  </record>
+  <record type="user">
+    <short-name>home1</short-name>
+    <uid>home1</uid>
+    <password>home1</password>
+    <full-name>Home One</full-name>
+    <email>home1@example.com</email>
+  </record>
+  <record type="user">
+    <short-name>home2</short-name>
+    <uid>home2</uid>
+    <password>home2</password>
+    <full-name>Home Two</full-name>
+    <email>home2@example.com</email>
+  </record>
+
   <record type="user">
     <short-name>nocalendar</short-name>
     <uid>543D28BA-F74F-4D5F-9243-B3E3A61171E5</uid>
@@ -214,7 +246,6 @@ limitations under the License.
     <full-name>Morgen Sagen</full-name>
     <password>negas</password>
     <email>sagen@bitbucket.calendarserver.org</email>
-    <email>shared@example.com</email>
   </record>
 
   <record type="user">
@@ -231,7 +262,6 @@ limitations under the License.
     <full-name>Andre LaBranche</full-name>
     <password>erd</password>
     <email>dre@bitbucket.calendarserver.org</email>
-    <email>shared@example.com</email>
   </record>
 
   <record type="group">
