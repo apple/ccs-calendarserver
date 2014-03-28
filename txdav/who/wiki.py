@@ -284,7 +284,7 @@ def getWikiACL(resource, request):
             )
             returnValue(request.wikiACL)
 
-        elif access in (WikiAccessLevel.write, WikiAccessLevel.admin):
+        elif access == WikiAccessLevel.write:
             request.wikiACL = davxml.ACL(
                 davxml.ACE(
                     request.authnUser,
