@@ -21,12 +21,10 @@ __all__ = [
 
 from calendarserver.platform.darwin.wiki import uidForAuthToken
 from twext.python.log import Logger
-from twext.who.idirectory import RecordType
 from twisted.cred.error import LoginFailed, UnauthorizedLogin
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python.reflect import namedClass
 from twisted.web.error import Error as WebError
-from twisted.web.xmlrpc import Proxy
 from twistedcaldav.cache import DisabledCache
 from twistedcaldav.cache import MemcacheResponseCache, MemcacheChangeNotifier
 from twistedcaldav.cache import _CachedResponseResource
@@ -233,18 +231,9 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
 
                     record = None
                     try:
-                        if wikiConfig.LionCompatibility:
+                        uid = (yield uidForAuthToken(token))
+                        if uid == "unauthenticated":
                             uid = None
-                            proxy = Proxy(wikiConfig["URL"])
-                            username = (yield proxy.callRemote(wikiConfig["UserMethod"], token))
-                            directory = request.site.resource.getDirectory()
-                            record = yield directory.recordWithShortName(RecordType.user, username)
-                            if record is not None:
-                                uid = record.uid
-                        else:
-                            uid = (yield uidForAuthToken(token))
-                            if uid == "unauthenticated":
-                                uid = None
 
                     except WebError, w:
                         uid = None
