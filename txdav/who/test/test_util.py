@@ -34,6 +34,10 @@ from txdav.who.delegates import (
 )
 from twext.who.idirectory import RecordType
 from txdav.who.idirectory import RecordType as CalRecordType
+from txdav.who.wiki import (
+    DirectoryService as WikiDirectoryService,
+    RecordType as WikiRecordType,
+)
 
 
 class StubStore(object):
@@ -71,6 +75,13 @@ class UtilTest(TestCase):
         config = ConfigDict(
             {
                 "DataRoot": self.dataRoot,
+                "Authentication": {
+                    "Wiki": {
+                        "Enabled": True,
+                        "CollabHost": "localhost",
+                        "CollabPort": 4444,
+                    },
+                },
                 "DirectoryService": {
                     "Enabled": True,
                     "type": "XML",
@@ -104,7 +115,7 @@ class UtilTest(TestCase):
         # Inspect the directory service structure
         self.assertTrue(isinstance(service, AugmentedDirectoryService))
         self.assertTrue(isinstance(service._directory, AggregateDirectoryService))
-        self.assertEquals(len(service._directory.services), 3)
+        self.assertEquals(len(service._directory.services), 4)
         self.assertTrue(
             isinstance(service._directory.services[0], XMLDirectoryService)
         )
@@ -139,6 +150,14 @@ class UtilTest(TestCase):
                 ]
             )
         )
+        self.assertTrue(
+            isinstance(service._directory.services[3], WikiDirectoryService)
+        )
+        self.assertEquals(
+            set(service._directory.services[3].recordTypes()),
+            set([WikiRecordType.macOSXServerWiki])
+        )
+
 
         # And make sure it's functional:
         record = yield service.recordWithUID("group07")
