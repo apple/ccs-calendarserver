@@ -2012,7 +2012,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 if hasattr(self._txn, "_authz_uid"):
                     authz = yield self.directoryService().recordWithUID(self._txn._authz_uid.decode("utf-8"))
                     prop = Property("X-CALENDARSERVER-MODIFIED-BY", authz.canonicalCalendarUserAddress())
-                    prop.setParameter("CN", authz.displayName())
+                    prop.setParameter("CN", authz.displayName)
                     for candidate in authz.calendarUserAddresses():
                         if candidate.startswith("mailto:"):
                             prop.setParameter("EMAIL", candidate[7:])

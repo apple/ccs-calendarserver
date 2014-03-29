@@ -397,7 +397,7 @@ def _internalGenerateFreeBusyInfo(
                 # See if we have a UID match
                 if (excludeuid == uid):
                     test_organizer = calendar.getOrganizer()
-                    test_record = calresource.principalForCalendarUserAddress(test_organizer) if test_organizer else None
+                    test_record = (yield calresource.principalForCalendarUserAddress(test_organizer)) if test_organizer else None
                     test_uid = test_record.principalUID() if test_record else ""
 
                     # Check that ORGANIZER's match (security requirement)
