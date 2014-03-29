@@ -20,6 +20,7 @@ from calendarserver.tools.cmdline import utilityMain, WorkerService
 from argparse import ArgumentParser
 from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks
+from twext.who.idirectory import RecordType
 import time
 
 log = Logger()
@@ -59,7 +60,7 @@ def main():
 def displayAPNSubscriptions(store, directory, root, users):
     for user in users:
         print
-        record = directory.recordWithShortName("users", user)
+        record = yield directory.recordWithShortName(RecordType.user, user)
         if record is not None:
             print("User %s (%s)..." % (user, record.uid))
             txn = store.newTransaction(label="Display APN Subscriptions")
@@ -81,7 +82,7 @@ def displayAPNSubscriptions(store, directory, root, users):
                     else:
                         uid = path
                         collection = None
-                    record = directory.recordWithUID(uid)
+                    record = yield directory.recordWithUID(uid)
                     user = record.shortNames[0]
                     if collection:
                         print("...is subscribed to a share from %s's %s home" % (user, resource),)
