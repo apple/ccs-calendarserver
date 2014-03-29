@@ -186,19 +186,20 @@ class DirectoryProvisioningResource (
         return self.principalForShortName(self.directory.recordType.lookupByName("user"), user)
 
 
+    @inlineCallbacks
     def principalForAuthID(self, user):
         # Basic/Digest creds -> just lookup user name
         if isinstance(user, UsernamePassword) or isinstance(user, DigestedCredentials):
-            return self.principalForUser(user.username)
+            returnValue((yield self.principalForUser(user.username)))
         elif NegotiateCredentials is not None and isinstance(user, NegotiateCredentials):
             authID = "Kerberos:%s" % (user.principal,)
-            principal = self.principalForRecord(self.directory.recordWithAuthID(authID))
+            principal = yield self.principalForRecord((yield self.directory.recordWithAuthID(authID)))
             if principal:
-                return principal
+                returnValue(principal)
             elif user.username:
-                return self.principalForUser(user.username)
+                returnValue((yield self.principalForUser(user.username)))
 
-        return None
+        returnValue(None)
 
 
     def principalForUID(self, uid):
@@ -414,29 +415,6 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
 
     def principalCollections(self):
         return (self,)
-
-
-    ##
-    # Proxy callback from directory service
-    ##
-
-    def isProxyFor(self, record1, record2):
-        """
-        Test whether the principal identified by directory record1 is a proxy for the principal identified by
-        record2.
-
-        @param record1: directory record for a user
-        @type record1: L{DirectoryRecord}
-        @param record2: directory record to test with
-        @type record2: L{DirectoryRercord}
-
-        @return: C{True} if record1 is a proxy for record2, otherwise C{False}
-        @rtype: C{bool}
-        """
-
-        principal1 = self.principalForUID(record1.uid)
-        principal2 = self.principalForUID(record2.uid)
-        return principal1.isProxyFor(principal2)
 
 
 
