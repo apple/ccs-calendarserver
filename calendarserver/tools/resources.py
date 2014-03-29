@@ -226,7 +226,7 @@ def migrateResources(sourceService, destService, autoSchedules=None,
             if guid and fullName:
                 if not recordName:
                     recordName = guid
-                record = destService.recordWithGUID(guid)
+                record = yield destService.recordWithGUID(guid)
                 if record is None:
                     if verbose:
                         print("Migrating %s (%s)" % (fullName, recordType))
