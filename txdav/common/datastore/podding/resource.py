@@ -88,12 +88,13 @@ class ConduitResource(ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildrenMix
         return False
 
 
+    @inlineCallbacks
     def principalForCalendarUserAddress(self, address):
         for principalCollection in self.principalCollections():
-            principal = principalCollection.principalForCalendarUserAddress(address)
+            principal = yield principalCollection.principalForCalendarUserAddress(address)
             if principal is not None:
-                return principal
-        return None
+                returnValue(principal)
+        returnValue(None)
 
 
     def render(self, request):
