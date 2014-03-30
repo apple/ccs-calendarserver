@@ -55,6 +55,14 @@ find_header () {
   fi;
 
   # Check for presence of a header of specified version
+  # First do an exit-status test without capturing output; if we try to get output with tail
+  # and cc exits non-zero, tail would eat the exit status.
+  printf "#include <${sys_header}>\n${version_macro}\n" | cc -x c -E - &> /dev/null;
+  if [ $? -ne 0 ]; then
+    return 1;
+  fi;
+
+  # Again, this time capture output.
   local found_version="$(printf "#include <${sys_header}>\n${version_macro}\n" | cc -x c -E - | tail -1)";
 
   if [ "${found_version}" == "${version_macro}" ]; then
