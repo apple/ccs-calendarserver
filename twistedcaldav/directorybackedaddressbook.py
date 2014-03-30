@@ -26,7 +26,7 @@ __all__ = [
 from twext.python.log import Logger
 from twext.who.expression import Operand, MatchType, MatchFlags, \
     MatchExpression, CompoundExpression
-from twext.who.idirectory import FieldName, RecordType
+from twext.who.idirectory import FieldName
 from twisted.internet.defer import deferredGenerator
 from twisted.internet.defer import succeed, inlineCallbacks, maybeDeferred, \
     returnValue
@@ -37,8 +37,8 @@ from twistedcaldav.resource import CalDAVResource
 from txdav.carddav.datastore.query.filter import IsNotDefined, TextMatch, \
     ParameterFilter
 from txdav.who.idirectory import FieldName as CalFieldName
-from txdav.who.vcard import recordTypeToVCardKindMap, vCardPropToParamMap, \
-    vCardConstantProperties, vCardFromRecord
+from txdav.who.vcard import recordTypeToVCardKindMap, vCardKindToRecordTypeMap, \
+    vCardPropToParamMap, vCardConstantProperties, vCardFromRecord
 from txdav.xml import element as davxml
 from txdav.xml.base import twisted_dav_namespace, dav_namespace, parse_date, \
     twisted_private_namespace
@@ -70,6 +70,8 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
 
 
     def makeChild(self, name):
+        from twistedcaldav.simpleresource import SimpleCalDAVResource
+        return SimpleCalDAVResource(principalCollections=self.principalCollections())
         return self.directory
 
 
@@ -154,7 +156,7 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
 
 
     @inlineCallbacks
-    def doAddressBookDirectoryQuery(self, addressBookFilter, addressBookQuery, maxResults):
+    def doAddressBookDirectoryQuery(self, addressBookFilter, addressBookQuery, maxResults, defaultKind=None):
         """
         Get vCards for a given addressBookFilter and addressBookQuery
         """
@@ -165,46 +167,42 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
         limited = False
         maxQueryRecords = 0
 
-        searchableFields = {
-            RecordType.user: {
-                "FN": FieldName.fullNames,
-                "N": FieldName.fullNames,
-                "EMAIL": FieldName.emailAddresses,
-                "UID": FieldName.uid,
-                "ADR": (
-                        CalFieldName.streetAddress,
-                        CalFieldName.floor,
-                        )
-             },
-            RecordType.group: {
-                "FN": FieldName.fullNames,
-                "N": FieldName.fullNames,
-                "EMAIL": FieldName.emailAddresses,
-                "UID": FieldName.uid,
-                "ADR": (
-                        CalFieldName.streetAddress,
-                        CalFieldName.floor,
-                        )
-                # LATER "X-ADDRESSBOOKSERVER-MEMBER": FieldName.membersUIDs,
-             },
+        vcardPropToRecordFieldMap = {
+            "FN": FieldName.fullNames,
+            "N": FieldName.fullNames,
+            "EMAIL": FieldName.emailAddresses,
+            "UID": FieldName.uid,
+            "ADR": (
+                    CalFieldName.streetAddress,
+                    CalFieldName.floor,
+                    ),
+            "KIND": FieldName.recordType,
+            # LATER "X-ADDRESSBOOKSERVER-MEMBER": FieldName.membersUIDs,
         }
 
-        allowedRecordTypes = set(self.directory.recordTypes()) & set(recordTypeToVCardKindMap.keys()) & set(searchableFields.keys())
+        allowedRecordTypes = set(self.directory.recordTypes()) & set(recordTypeToVCardKindMap.keys())
         log.debug("doAddressBookDirectoryQuery: allowedRecordTypes={allowedRecordTypes}", allowedRecordTypes=allowedRecordTypes,)
 
+        '''
         expressions = []
         for recordType in allowedRecordTypes:
 
             #log.debug("doAddressBookDirectoryQuery: recordType={recordType}", recordType=recordType,)
 
-            vcardPropToRecordFieldMap = searchableFields[recordType]
             kind = recordTypeToVCardKindMap[recordType]
             constantProperties = vCardConstantProperties.copy()
             constantProperties["KIND"] = kind
             # add KIND as constant so that query can be skipped if addressBookFilter needs a different kind
 
-            propNames, expression = expressionFromABFilter(addressBookFilter, vcardPropToRecordFieldMap, recordType=recordType, constantProperties=constantProperties)
+            propNames, expression = expressionFromABFilter(addressBookFilter, vcardPropToRecordFieldMap, constantProperties=constantProperties)
             #log.debug("doAddressBookDirectoryQuery: recordType={recordType}, expression={expression!r}, propNames={propNames}", recordType=recordType, expression=expression, propNames=propNames)
+        if expression:
+            recordTypeExpression = MatchExpression(FieldName.recordType, recordType, MatchType.equals)
+            if expression is True:
+                expression = recordTypeExpression
+            else:
+                expression = CompoundExpression((expression, recordTypeExpression,), Operand.AND)
+
             if expression:
                 expressions.append(expression)
 
@@ -213,7 +211,35 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
                 expression = CompoundExpression(expressions, Operand.OR)
             else:
                 expression = expressions[0]
+        '''
 
+        propNames, expression = expressionFromABFilter(
+            addressBookFilter, vcardPropToRecordFieldMap, vCardConstantProperties
+        )
+
+        if expression:
+            if defaultKind and "KIND" not in propNames:
+                defaultRecordExpression = MatchExpression(
+                    FieldName.recordType, 
+                    vCardKindToRecordTypeMap[defaultKind], 
+                    MatchType.equals
+                )
+                if expression is True:
+                    expression = defaultRecordExpression
+                else:
+                    expression = CompoundExpression(
+                        (expression, defaultRecordExpression,),
+                        Operand.AND
+                    )
+            elif expression is True: # True means all records
+                expression = CompoundExpression(
+                    [
+                        MatchExpression(FieldName.recordType, recordType, MatchType.equals)
+                            for recordType in self.directory.recordTypes()
+                    ], Operand.OR
+                )
+
+            log.debug("doAddressBookDirectoryQuery: expression={expression!r}, propNames={propNames}", expression=expression, propNames=propNames)
             maxRecords = int(maxResults * 1.2)
 
             # keep trying query till we get results based on filter.  Especially when doing "all results" query
@@ -225,7 +251,7 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
                 log.debug("doAddressBookDirectoryQuery: #records={n}, records={records!r}", n=len(records), records=records)
                 queryLimited = False
 
-                vCardsResults = [ABDirectoryQueryResult(self, record) for record in records]
+                vCardsResults = [(yield ABDirectoryQueryResult(self).generate(record)) for record in records]
 
                 filteredResults = []
                 for vCardResult in vCardsResults:
@@ -286,7 +312,7 @@ def propertiesInAddressBookQuery(addressBookQuery):
 
 
 
-def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, recordType, constantProperties={}):
+def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, constantProperties={}):
     """
     Convert the supplied addressbook-query into a ds expression tree.
 
@@ -347,16 +373,33 @@ def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, rec
             @return: (filterProperyNames, expressions) tuple.  expression==True means list all results, expression==False means no results
             """
 
+            def matchExpression(fieldName, matchString, matchType, matchFlags):
+                # special case recordType field
+                if fieldName == FieldName.recordType:
+                    # change kind to record type
+                    uMatchString = vCardKindToRecordTypeMap.get(matchString)
+                    if uMatchString is None:
+                        uMatchString = NamedConstant()
+                        uMatchString.description = u""
+
+                    # change types and flags
+                    matchFlags &= ~MatchFlags.caseInsensitive
+                    matchType = MatchType.equals
+                else:
+                    uMatchString = matchString.decode("utf-8")
+
+                return MatchExpression(fieldName, uMatchString, matchType, matchFlags)
+
+
             def definedExpression(defined, allOf):
-                if constant or propFilter.filter_name in ("N" , "FN", "UID", "SOURCE",):
+                if constant or propFilter.filter_name in ("N" , "FN", "UID", "SOURCE", "KIND",):
                     return defined  # all records have this property so no records do not have it
                 else:
-                    if defined:
-                        matchList = [MatchExpression(fieldName, u"", MatchType.startsWith) for fieldName in searchableFields]
-                    else:
-                        # this may generate inefficient LDAP query stirng
-                        matchList = [MatchExpression(fieldName, u"", MatchType.startsWith, MatchFlags.NOT) for fieldName in searchableFields]
+                    # this may generate inefficient LDAP query string
+                    matchFlags = MatchFlags.NOT & MatchFlags.caseInsensitive if defined else MatchFlags.NOT
+                    matchList = [matchExpression(fieldName, "", MatchType.startsWith, matchFlags) for fieldName in searchableFields]
                     return andOrExpression(allOf, matchList)
+
 
             def andOrExpression(propFilterAllOf, matchList):
                 matchList = list(set(matchList))
@@ -448,10 +491,17 @@ def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, rec
 
                         matchList = []
                         for matchString in matchStrings:
-                            if textMatchElement.negate:
-                                matchList = [MatchExpression(fieldName, matchString.decode("utf-8"), matchType, MatchFlags.NOT) for fieldName in searchableFields]
+                            matchFlags = None
+                            if textMatchElement.collation == "i;unicode-casemap" and textMatchElement.negate:
+                                matchFlags = MatchFlags.caseInsensitive | MatchFlags.NOT
+                            elif textMatchElement.collation == "i;unicode-casemap":
+                                matchFlags = MatchFlags.caseInsensitive
+                            elif textMatchElement.negate:
+                                matchFlags = MatchFlags.NOT
                             else:
-                                matchList = [MatchExpression(fieldName, matchString.decode("utf-8"), matchType) for fieldName in searchableFields]
+                                matchFlags = MatchFlags.NOT & MatchFlags.caseInsensitive # MatchFlags.none
+
+                            matchList = [matchExpression(fieldName, matchString.decode("utf-8"), matchType, matchFlags) for fieldName in searchableFields]
                             matchList.extend(matchList)
                         return andOrExpression(propFilterAllOf, matchList)
 
@@ -541,14 +591,6 @@ def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, rec
         else:
             expression = not filterAllOf
 
-    #log.debug("expressionFromABFilter: recordType={rdn!r}, expression={q!r}, properties={pn}", rdn=recordType, q=expression, pn=properties)
-    if expression:
-        recordTypeExpression = MatchExpression(FieldName.recordType, recordType, MatchType.equals)
-        if expression is True:
-            expression = recordTypeExpression
-        else:
-            expression = CompoundExpression((expression, recordTypeExpression,), Operand.AND)
-
     #log.debug("expressionFromABFilter: expression={q!r}, properties={pn}", q=expression, pn=properties)
     return((properties, expression))
 
@@ -559,14 +601,10 @@ class ABDirectoryQueryResult(DAVPropertyMixIn):
     Result from ab query report or multiget on directory
     """
 
-    def __init__(self, directoryBackedAddressBook, record,
-                 kind=None,
-                 addProps=None,
-                 ):
+    def __init__(self, directoryBackedAddressBook,):
 
         self._directoryBackedAddressBook = directoryBackedAddressBook
-        #generate a vCard here.  May throw an exception
-        self._vCard = vCardFromRecord(record, kind, addProps, directoryBackedAddressBook.uri)
+        #self._vCard = None
 
 
     def __repr__(self):
@@ -585,12 +623,18 @@ class ABDirectoryQueryResult(DAVPropertyMixIn):
         return hash(s)
     '''
 
+    @inlineCallbacks
+    def generate(self, record, kind=None, addProps=None,):
+        self._vCard = yield vCardFromRecord(record, kind, addProps, None)
+        returnValue(self)
+
+
     def vCard(self):
         return self._vCard
 
 
     def vCardText(self):
-        return str(self.vCard())
+        return str(self._vCard)
 
 
     def uri(self):

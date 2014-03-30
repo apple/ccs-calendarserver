@@ -26,6 +26,7 @@ from pycalendar.vcard.adr import Adr
 from pycalendar.vcard.n import N
 from twext.python.log import Logger
 from twext.who.idirectory import FieldName, RecordType
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twistedcaldav.config import config
 from twistedcaldav.vcard import Component, Property, vCardProductID
 from txdav.who.idirectory import FieldName as CalFieldName, \
@@ -40,6 +41,14 @@ recordTypeToVCardKindMap = {
    RecordType.group: "group",
    CalRecordType.location: "location",
    CalRecordType.resource: "device",
+}
+
+vCardKindToRecordTypeMap = {
+   "individual" : RecordType.user,
+   "group": RecordType.group,
+   "org": RecordType.group,
+   "location": CalRecordType.location,
+   "device": CalRecordType.resource,
 }
 
 
@@ -72,6 +81,7 @@ vCardConstantProperties = {
 }
 
 
+@inlineCallbacks
 def vCardFromRecord(record, kind=None, addProps=None, parentURI=None):
 
     def isUniqueProperty(newProperty, ignoredParameters={}):
@@ -296,13 +306,9 @@ def vCardFromRecord(record, kind=None, addProps=None, parentURI=None):
         vcard.addProperty(Property("X-ADDRESSBOOKSERVER-KIND", kind))
 
     # add members
-    # FIXME:  members() is a deferred.  I really want non-deferred FieldName.memberUIDs
-    if record.members():
-        pass
-        '''
-        for memberRecord in (yield record.members()):
-            vcard.addProperty(Property("X-ADDRESSBOOKSERVER-MEMBER", "urn:uuid:" + memberRecord.fields[FieldName.uid].encode("utf-8")))
-        '''
+    # FIXME:  members() is a deferred, so all of vCardFromRecord is deferred.
+    for memberRecord in (yield record.members()):
+        vcard.addProperty(Property("X-ADDRESSBOOKSERVER-MEMBER", "urn:uuid:" + memberRecord.fields[FieldName.uid].encode("utf-8")))
 
     #===================================================================
     # vCard 4.0  http://tools.ietf.org/html/rfc6350
@@ -321,4 +327,4 @@ def vCardFromRecord(record, kind=None, addProps=None, parentURI=None):
         vcard.addProperty(Property("X-ABShowAs", "COMPANY"))
 
     log.debug("vCardFromRecord: vcard=\n{vcard}", vcard=vcard)
-    return vcard
+    returnValue(vcard)
