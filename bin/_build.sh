@@ -505,9 +505,12 @@ c_dependencies () {
       using_system "libffi";
     fi;
   else
+    local p="libffi-3.0.13"
     c_dependency -m "45f3b6dbc9ee7c7dfbbbc5feba571529" \
-      "libffi" "libffi-3.0.13" \
-      "ftp://sourceware.org/pub/libffi/libffi-3.0.13.tar.gz"
+      "libffi" "${p}" \
+      "ftp://sourceware.org/pub/libffi/${p}.tar.gz"
+    export CPPFLAGS="-I${dev_roots}/libffi/lib/${p}/include ${CPPFLAGS}"
+    export C_INCLUDE_PATH="${dev_roots}/libffi/lib/${p}/include:${C_INCLUDE_PATH}"
   fi;
 
   ruler;
@@ -540,6 +543,8 @@ c_dependencies () {
       "cyrus-sasl" "${p}" \
       "ftp://ftp.cyrusimap.org/cyrus-sasl/${p}.tar.gz" \
       --disable-macos-framework;
+    export CPPFLAGS="-I${dev_roots}/${n}/include/sasl ${CPPFLAGS}"
+    export C_INCLUDE_PATH="${dev_roots}/${n}/include/sasl:${C_INCLUDE_PATH}"
   fi;
 
   ruler;
