@@ -22,7 +22,7 @@ set -u
 
 wd="$(cd "$(dirname "$0")" && pwd)/..";
 
-tmp="$(mktemp -d -t foo)";
+tmp="$(mktemp -d -t fooXXXX)";
 cd "${tmp}";
 
 
