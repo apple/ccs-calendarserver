@@ -57,28 +57,6 @@ def uidForAuthToken(token, host="localhost", port=80):
 
 
 
-def accessForUserToWiki(user, wiki, host="localhost", port=4444):
-    """
-    Send a GET request to the wiki collabd service to retrieve the access level
-    the given user (uid) has to the given wiki (in wiki short-name
-    form).
-
-    @param user: The UID of the user
-    @type user: C{str}
-    @param wiki: The short name of the wiki
-    @type wiki: C{str}
-    @return: deferred returning a access level (C{str}) if successful, or
-        if the user is not recognized a twisted.web.error.Error with
-        status FORBIDDEN will errBack; an unknown wiki will have a status
-        of NOT_FOUND
-    """
-    url = "http://%s:%s/cal/accessLevelForUserWikiCalendar/%s/%s" % (
-        host, port, user, wiki
-    )
-    return _getPage(url, host, port)
-
-
-
 def _getPage(url, host, port):
     """
     Fetch the body of the given url via HTTP, connecting to the given host

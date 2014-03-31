@@ -23,7 +23,8 @@ __all__ = [
     "WikiAccessLevel",
 ]
 
-from calendarserver.platform.darwin.wiki import accessForUserToWiki
+from twext.internet.adaptendpoint import connect
+from twext.internet.gaiendpoint import GAIEndpoint
 from twext.internet.gaiendpoint import MultiFailure
 from twext.python.log import Logger
 from twext.who.directory import (
@@ -32,11 +33,13 @@ from twext.who.directory import (
 )
 from twext.who.idirectory import FieldName as BaseFieldName
 from twext.who.util import ConstantsContainer
+from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python.constants import Names, NamedConstant
+from twisted.web.client import HTTPPageGetter, HTTPClientFactory
 from twisted.web.error import Error as WebError
-from txdav.who.idirectory import FieldName
 from txdav.who.directory import CalendarDirectoryRecordMixin
+from txdav.who.idirectory import FieldName
 from txdav.xml import element as davxml
 from txweb2 import responsecode
 from txweb2.auth.wrapper import UnauthorizedResponse
@@ -340,3 +343,47 @@ def getWikiACL(resource, request):
         raise HTTPError(StatusResponse(
             responsecode.SERVICE_UNAVAILABLE, "Wiki ACL lookup failed"
         ))
+
+
+
+def accessForUserToWiki(user, wiki, host="localhost", port=4444):
+    """
+    Send a GET request to the wiki collabd service to retrieve the access level
+    the given user (uid) has to the given wiki (in wiki short-name
+    form).
+
+    @param user: The UID of the user
+    @type user: C{str}
+    @param wiki: The short name of the wiki
+    @type wiki: C{str}
+    @return: deferred returning a access level (C{str}) if successful, or
+        if the user is not recognized a twisted.web.error.Error with
+        status FORBIDDEN will errBack; an unknown wiki will have a status
+        of NOT_FOUND
+    """
+    url = "http://%s:%s/cal/accessLevelForUserWikiCalendar/%s/%s" % (
+        host, port, user, wiki
+    )
+    return _getPage(url, host, port)
+
+
+
+# FIXME: Why don't we use twisted.web.
+def _getPage(url, host, port):
+    """
+    Fetch the body of the given url via HTTP, connecting to the given host
+    and port.
+
+    @param url: The URL to GET
+    @type url: C{str}
+    @param host: The hostname to connect to
+    @type host: C{str}
+    @param port: The port number to connect to
+    @type port: C{int}
+    @return: A deferred; upon 200 success the body of the response is returned,
+        otherwise a twisted.web.error.Error is the result.
+    """
+    factory = HTTPClientFactory(url)
+    factory.protocol = HTTPPageGetter
+    connect(GAIEndpoint(reactor, host, port), factory)
+    return factory.deferred
