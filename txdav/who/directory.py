@@ -30,6 +30,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from txdav.who.idirectory import (
     RecordType as DAVRecordType, AutoScheduleMode
 )
+from txdav.who.delegates import RecordType as DelegateRecordType
 from txweb2.auth.digest import DigestedCredentials
 
 log = Logger()
@@ -64,8 +65,12 @@ class CalendarDirectoryServiceMixin(object):
         address = normalizeCUAddr(address)
         record = None
         if address.startswith("urn:uuid:"):
-            guid = address[9:]
-            record = yield self.recordWithGUID(uuid.UUID(guid))
+            try:
+                guid = uuid.UUID(address[9:])
+            except ValueError:
+                log.info("Invalid GUID: {guid}", guid=address[9:])
+                returnValue(None)
+            record = yield self.recordWithGUID(guid)
         elif address.startswith("mailto:"):
             records = yield self.recordsWithEmailAddress(address[7:])
             if records:
@@ -201,6 +206,10 @@ class CalendarDirectoryServiceMixin(object):
 
 
 class CalendarDirectoryRecordMixin(object):
+    """
+    Calendar (and Contacts) specific logic for directory records lives in this
+    class
+    """
 
 
     @inlineCallbacks
@@ -364,7 +373,7 @@ class CalendarDirectoryRecordMixin(object):
             return False
 
 
-    #MOVE2WHO
+    # FIXME:
     def thisServer(self):
         return True
 
@@ -444,3 +453,18 @@ class CalendarDirectoryRecordMixin(object):
             yield member.expandedMembers(members)
 
         returnValue(members)
+
+
+    # For scheduling/freebusy
+    @inlineCallbacks
+    def isProxyFor(self, other):
+        for recordType in (
+            DelegateRecordType.readDelegatorGroup,
+            DelegateRecordType.writeDelegatorGroup,
+        ):
+            delegatorGroup = yield self.service.recordWithShortName(
+                recordType, self.uid
+            )
+            if delegatorGroup:
+                if other in (yield delegatorGroup.members()):
+                    returnValue(True)

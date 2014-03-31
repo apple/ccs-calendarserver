@@ -357,7 +357,7 @@ class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
         records = (yield self.client.recordsWithRecordType(
             RecordType.user
         ))
-        self.assertEquals(len(records), 31)
+        self.assertEquals(len(records), 35)
 
 
     @inlineCallbacks

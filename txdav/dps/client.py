@@ -352,21 +352,6 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
         )
 
 
-    # For scheduling/freebusy
-    # FIXME: doesn't this need to happen in the DPS?
-    @inlineCallbacks
-    def isProxyFor(self, other):
-        for recordType in (
-            txdav.who.delegates.RecordType.readDelegatorGroup,
-            txdav.who.delegates.RecordType.writeDelegatorGroup,
-        ):
-            delegatorGroup = yield self.service.recordWithShortName(
-                recordType, self.uid
-            )
-            if delegatorGroup:
-                if other in (yield delegatorGroup.members()):
-                    returnValue(True)
-
 
 
 # Test client:

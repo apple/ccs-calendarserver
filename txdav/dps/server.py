@@ -19,7 +19,6 @@ import uuid
 
 from twext.python.log import Logger
 from twext.who.expression import MatchType, MatchFlags, Operand
-from twext.who.idirectory import RecordType
 from twisted.application import service
 from twisted.application.strports import service as strPortsService
 from twisted.internet.defer import inlineCallbacks, returnValue

@@ -4,27 +4,23 @@
 <augments>
   <record>
     <uid>Default</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
   </record>
   <record repeat="10">
     <uid>location%02d</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <auto-schedule>true</auto-schedule>
   </record>
   <record repeat="3">
     <uid>resource%02d</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <auto-schedule>true</auto-schedule>
   </record>
   <record>
     <uid>resource04</uid>
-    <enable>false</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <enable-login>true</enable-login>
@@ -33,7 +29,6 @@
   </record>
   <record>
     <uid>resource05</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <auto-schedule>true</auto-schedule>
@@ -41,7 +36,6 @@
   </record>
   <record>
     <uid>resource06</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <auto-schedule>true</auto-schedule>
@@ -49,7 +43,6 @@
   </record>
   <record>
     <uid>resource07</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <auto-schedule>true</auto-schedule>
@@ -57,7 +50,6 @@
   </record>
   <record>
     <uid>resource08</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <auto-schedule>true</auto-schedule>
@@ -65,7 +57,6 @@
   </record>
   <record>
     <uid>resource09</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <auto-schedule>true</auto-schedule>
@@ -73,7 +64,6 @@
   </record>
   <record>
     <uid>resource10</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <auto-schedule>true</auto-schedule>
@@ -81,31 +71,20 @@
   </record>
   <record>
     <uid>resource11</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <auto-schedule>true</auto-schedule>
     <auto-schedule-mode>decline-always</auto-schedule-mode>
     <auto-accept-group>group01</auto-accept-group>
   </record>
-  <record repeat="10">
-    <uid>group%02d</uid>
-    <enable>true</enable>
-  </record>
-  <record>
-    <uid>disabledgroup</uid>
-    <enable>false</enable>
-  </record>
   <record>
     <uid>delegatedroom</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>false</enable-addressbook>
     <auto-schedule>false</auto-schedule>
   </record>
   <record>
     <uid>03DFF660-8BCC-4198-8588-DD77F776F518</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <enable-login>true</enable-login>
@@ -113,7 +92,6 @@
   </record>
   <record>
     <uid>80689D41-DAF8-4189-909C-DB017B271892</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <enable-login>true</enable-login>
@@ -122,7 +100,6 @@
   </record>
   <record>
     <uid>C38BEE7A-36EE-478C-9DCB-CBF4612AFE65</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <enable-login>true</enable-login>
@@ -132,7 +109,6 @@
   </record>
   <record>
     <uid>CCE95217-A57B-481A-AC3D-FEC9AB6CE3A9</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <enable-login>true</enable-login>
@@ -140,7 +116,6 @@
   </record>
   <record>
     <uid>0CE0BF31-5F9E-4801-A489-8C70CF287F5F</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <enable-login>true</enable-login>
@@ -148,7 +123,6 @@
   </record>
   <record>
     <uid>6F9EE33B-78F6-481B-9289-3D0812FF0D64</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <enable-login>true</enable-login>
@@ -157,7 +131,6 @@
   </record>
   <record>
     <uid>76E7ECA6-08BC-4AE7-930D-F2E7453993A5</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <enable-login>true</enable-login>
@@ -166,7 +139,6 @@
   </record>
   <record>
     <uid>63A2F949-2D8D-4C8D-B8A5-DCF2A94610F3</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <enable-login>true</enable-login>
@@ -175,7 +147,6 @@
   </record>
   <record>
     <uid>06E3BDCB-9C19-485A-B14E-F146A80ADDC6</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <enable-login>true</enable-login>
@@ -184,7 +155,6 @@
   </record>
   <record>
     <uid>4D66A20A-1437-437D-8069-2F14E8322234</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <enable-login>true</enable-login>

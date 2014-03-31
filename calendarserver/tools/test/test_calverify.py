@@ -931,24 +931,6 @@ class CalVerifyMismatchTestsBase(StoreTestCase):
     uuid3 = "AC478592-7783-44D1-B2AE-52359B4E8415"
     uuidl1 = "75EA36BE-F71B-40F9-81F9-CF59BF40CA8F"
 
-    def configure(self):
-        super(CalVerifyMismatchTestsBase, self).configure()
-        self.patch(config.DirectoryService.params, "xmlFile",
-            os.path.join(
-                os.path.dirname(__file__), "calverify", "accounts.xml"
-            )
-        )
-        self.patch(config.ResourceService.params, "xmlFile",
-            os.path.join(
-                os.path.dirname(__file__), "calverify", "resources.xml"
-            )
-        )
-        self.patch(config.AugmentService.params, "xmlFiles",
-            [os.path.join(
-                os.path.dirname(__file__), "calverify", "augments.xml"
-            ), ]
-        )
-
 
     @inlineCallbacks
     def populate(self):
