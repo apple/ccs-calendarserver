@@ -3971,7 +3971,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
                 cua = "urn:uuid:" + shareePrincipal.principalUID()
 
             commonName = shareePrincipal.displayName()
-            record = shareePrincipal.record
+            # record = shareePrincipal.record
 
             typeAttr = {"shared-type": jsondata["shared-type"]}
             xmldata = customxml.Notification(

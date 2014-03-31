@@ -35,7 +35,6 @@ from twistedcaldav.test.util import StoreTestCase
 from txdav.common.datastore.test.util import populateCalendarsFrom
 
 from StringIO import StringIO
-import os
 
 
 OK_ICS = """BEGIN:VCALENDAR

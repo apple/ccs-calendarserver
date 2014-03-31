@@ -41,9 +41,8 @@ __all__ = [
     "bindMethods",
 ]
 
-import urllib
 from urlparse import urlsplit, urlunsplit
-import posixpath # Careful; this module is not documented as public API
+import posixpath  # Careful; this module is not documented as public API
 
 from twisted.python.failure import Failure
 from twisted.internet.defer import succeed

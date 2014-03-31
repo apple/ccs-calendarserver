@@ -35,24 +35,18 @@ from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 
 
-from twisted.python.filepath import FilePath
-from twisted.python.reflect import namedClass
 from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from txdav.xml import element as davxml
 
-from calendarserver.provision.root import RootResource
 
 from twistedcaldav import memcachepool
-from twistedcaldav.directory import calendaruserproxy
-# from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from txdav.who.groups import schedulePolledGroupCachingUpdate
-from calendarserver.push.notifier import NotifierFactory
 
-from txdav.common.datastore.file import CommonDataStore
 
 log = Logger()
+
 
 def loadConfig(configFileName):
     """
