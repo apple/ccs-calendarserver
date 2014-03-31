@@ -37,8 +37,8 @@ from twistedcaldav.resource import CalDAVResource
 from txdav.carddav.datastore.query.filter import IsNotDefined, TextMatch, \
     ParameterFilter
 from txdav.who.idirectory import FieldName as CalFieldName
-from txdav.who.vcard import recordTypeToVCardKindMap, vCardKindToRecordTypeMap, \
-    vCardPropToParamMap, vCardConstantProperties, vCardFromRecord
+from txdav.who.vcard import vCardKindToRecordTypeMap, vCardPropToParamMap, \
+    vCardConstantProperties, vCardFromRecord
 from txdav.xml import element as davxml
 from txdav.xml.base import twisted_dav_namespace, dav_namespace, parse_date, \
     twisted_private_namespace
@@ -54,6 +54,7 @@ import uuid
 
 log = Logger()
 
+MatchFlags_none = MatchFlags.NOT & ~MatchFlags.NOT  # can't import MatchFlags_none
 
 class DirectoryBackedAddressBookResource (CalDAVResource):
     """
@@ -180,39 +181,6 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
             # LATER "X-ADDRESSBOOKSERVER-MEMBER": FieldName.membersUIDs,
         }
 
-        allowedRecordTypes = set(self.directory.recordTypes()) & set(recordTypeToVCardKindMap.keys())
-        log.debug("doAddressBookDirectoryQuery: allowedRecordTypes={allowedRecordTypes}", allowedRecordTypes=allowedRecordTypes,)
-
-        '''
-        expressions = []
-        for recordType in allowedRecordTypes:
-
-            #log.debug("doAddressBookDirectoryQuery: recordType={recordType}", recordType=recordType,)
-
-            kind = recordTypeToVCardKindMap[recordType]
-            constantProperties = vCardConstantProperties.copy()
-            constantProperties["KIND"] = kind
-            # add KIND as constant so that query can be skipped if addressBookFilter needs a different kind
-
-            propNames, expression = expressionFromABFilter(addressBookFilter, vcardPropToRecordFieldMap, constantProperties=constantProperties)
-            #log.debug("doAddressBookDirectoryQuery: recordType={recordType}, expression={expression!r}, propNames={propNames}", recordType=recordType, expression=expression, propNames=propNames)
-        if expression:
-            recordTypeExpression = MatchExpression(FieldName.recordType, recordType, MatchType.equals)
-            if expression is True:
-                expression = recordTypeExpression
-            else:
-                expression = CompoundExpression((expression, recordTypeExpression,), Operand.AND)
-
-            if expression:
-                expressions.append(expression)
-
-        if expressions:
-            if expressions > 1:
-                expression = CompoundExpression(expressions, Operand.OR)
-            else:
-                expression = expressions[0]
-        '''
-
         propNames, expression = expressionFromABFilter(
             addressBookFilter, vcardPropToRecordFieldMap, vCardConstantProperties
         )
@@ -220,8 +188,8 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
         if expression:
             if defaultKind and "KIND" not in propNames:
                 defaultRecordExpression = MatchExpression(
-                    FieldName.recordType, 
-                    vCardKindToRecordTypeMap[defaultKind], 
+                    FieldName.recordType,
+                    vCardKindToRecordTypeMap[defaultKind],
                     MatchType.equals
                 )
                 if expression is True:
@@ -239,13 +207,12 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
                     ], Operand.OR
                 )
 
-            log.debug("doAddressBookDirectoryQuery: expression={expression!r}, propNames={propNames}", expression=expression, propNames=propNames)
             maxRecords = int(maxResults * 1.2)
 
             # keep trying query till we get results based on filter.  Especially when doing "all results" query
             while True:
 
-                log.debug("doAddressBookDirectoryQuery: expression={expression!r}, ", expression=expression)
+                log.debug("doAddressBookDirectoryQuery: expression={expression!r}, propNames={propNames}", expression=expression, propNames=propNames)
 
                 records = yield self.directory.recordsFromExpression(expression)
                 log.debug("doAddressBookDirectoryQuery: #records={n}, records={records!r}", n=len(records), records=records)
@@ -385,6 +352,10 @@ def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, con
                     # change types and flags
                     matchFlags &= ~MatchFlags.caseInsensitive
                     matchType = MatchType.equals
+                elif fieldName == FieldName.uid:
+                    # special case uid until I figure out how to do a case-sens collation
+                    matchFlags &= ~MatchFlags.caseInsensitive
+                    uMatchString = matchString.decode("utf-8")
                 else:
                     uMatchString = matchString.decode("utf-8")
 
@@ -396,7 +367,7 @@ def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, con
                     return defined  # all records have this property so no records do not have it
                 else:
                     # this may generate inefficient LDAP query string
-                    matchFlags = MatchFlags.NOT & MatchFlags.caseInsensitive if defined else MatchFlags.NOT
+                    matchFlags = MatchFlags_none if defined else MatchFlags.NOT
                     matchList = [matchExpression(fieldName, "", MatchType.startsWith, matchFlags) for fieldName in searchableFields]
                     return andOrExpression(allOf, matchList)
 
@@ -499,7 +470,7 @@ def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, con
                             elif textMatchElement.negate:
                                 matchFlags = MatchFlags.NOT
                             else:
-                                matchFlags = MatchFlags.NOT & MatchFlags.caseInsensitive # MatchFlags.none
+                                matchFlags = MatchFlags_none
 
                             matchList = [matchExpression(fieldName, matchString.decode("utf-8"), matchType, matchFlags) for fieldName in searchableFields]
                             matchList.extend(matchList)
