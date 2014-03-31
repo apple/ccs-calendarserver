@@ -2277,23 +2277,23 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             for attendee in sub.getAllAttendeeProperties():
                 if attendee.parameterValue("CUTYPE") == "ROOM":
                     value = attendee.value()
+                    # FIXME: this should use recordWithCalendarUserAddress(), right?
                     if value.startswith("urn:uuid:"):
                         guid = value[9:]
                         loc = yield self.directoryService().recordWithGUID(guid)
                         if loc is not None:
-                            guid = loc.extras.get("associatedAddress",
-                                None)
-                            if guid is not None:
-                                addr = yield self.directoryService().recordWithGUID(guid)
+                            uid = getattr(loc, "associatedAddress", "")
+                            if uid:
+                                addr = yield self.directoryService().recordWithUID(uid)
                                 if addr is not None:
-                                    street = addr.extras.get("streetAddress", "")
-                                    geo = addr.extras.get("geo", "")
+                                    street = getattr(addr, "streetAddress", "")
+                                    geo = getattr(addr, "geographicLocation", "")
                                     if street and geo:
                                         title = attendee.parameterValue("CN")
                                         params = {
-                                            "X-ADDRESS" : street,
-                                            "X-APPLE-RADIUS" : "71",
-                                            "X-TITLE" : title,
+                                            "X-ADDRESS": street,
+                                            "X-APPLE-RADIUS": "71",
+                                            "X-TITLE": title,
                                         }
                                         structured = Property("X-APPLE-STRUCTURED-LOCATION",
                                             "geo:%s" % (geo,), params=params,
