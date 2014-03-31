@@ -124,7 +124,7 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
 
     def resourceID(self):
         if self.directory:
-            resource_id = uuid.uuid5(uuid.UUID("5AAD67BF-86DD-42D7-9161-6AF977E4DAA3"), self.directory.baseGUID).urn
+            resource_id = uuid.uuid5(uuid.UUID("5AAD67BF-86DD-42D7-9161-6AF977E4DAA3"), self.directory.guid).urn
         else:
             resource_id = "tag:unknown"
         return resource_id
