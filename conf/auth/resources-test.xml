@@ -3,9 +3,7 @@
     <short-name>fantastic</short-name>
     <uid>4D66A20A-1437-437D-8069-2F14E8322234</uid>
     <full-name>Fantastic Conference Room</full-name>
-    <extras>
-      <associatedAddress>63A2F949-2D8D-4C8D-B8A5-DCF2A94610F3</associatedAddress>
-    </extras>
+    <associatedAddress>63A2F949-2D8D-4C8D-B8A5-DCF2A94610F3</associatedAddress>
   </record>
   <record type="location">
     <short-name>jupiter</short-name>
@@ -86,9 +84,7 @@
     <short-name>sharissroom</short-name>
     <uid>80689D41-DAF8-4189-909C-DB017B271892</uid>
     <full-name>Shari's Room</full-name>
-    <extras>
-      <associatedAddress>6F9EE33B-78F6-481B-9289-3D0812FF0D64</associatedAddress>
-    </extras>
+    <associatedAddress>6F9EE33B-78F6-481B-9289-3D0812FF0D64</associatedAddress>
   </record>
   <record type="location">
     <short-name>pluto</short-name>
@@ -109,9 +105,7 @@
     <short-name>pretend</short-name>
     <uid>06E3BDCB-9C19-485A-B14E-F146A80ADDC6</uid>
     <full-name>Pretend Conference Room</full-name>
-    <extras>
-      <associatedAddress>76E7ECA6-08BC-4AE7-930D-F2E7453993A5</associatedAddress>
-    </extras>
+    <associatedAddress>76E7ECA6-08BC-4AE7-930D-F2E7453993A5</associatedAddress>
   </record>
   <record type="location">
     <short-name>neptune</short-name>
@@ -247,27 +241,21 @@
     <short-name>testaddress1</short-name>
     <uid>6F9EE33B-78F6-481B-9289-3D0812FF0D64</uid>
     <full-name>Test Address One</full-name>
-    <extras>
-      <streetAddress>20300 Stevens Creek Blvd, Cupertino, CA 95014</streetAddress>
-      <geo>37.322281,-122.028345</geo>
-    </extras>
+    <streetAddress>20300 Stevens Creek Blvd, Cupertino, CA 95014</streetAddress>
+    <geographicLocation>37.322281,-122.028345</geographicLocation>
   </record>
   <record type="address">
     <short-name>il2</short-name>
     <uid>63A2F949-2D8D-4C8D-B8A5-DCF2A94610F3</uid>
     <full-name>IL2</full-name>
-    <extras>
-      <streetAddress>2 Infinite Loop, Cupertino, CA 95014</streetAddress>
-      <geo>37.332633,-122.030502</geo>
-    </extras>
+    <streetAddress>2 Infinite Loop, Cupertino, CA 95014</streetAddress>
+    <geographicLocation>37.332633,-122.030502</geographicLocation>
   </record>
   <record type="address">
     <short-name>il1</short-name>
     <uid>76E7ECA6-08BC-4AE7-930D-F2E7453993A5</uid>
     <full-name>IL1</full-name>
-    <extras>
-      <streetAddress>1 Infinite Loop, Cupertino, CA 95014</streetAddress>
-      <geo>37.331741,-122.030333</geo>
-    </extras>
+    <streetAddress>1 Infinite Loop, Cupertino, CA 95014</streetAddress>
+    <geographicLocation>37.331741,-122.030333</geographicLocation>
   </record>
 </directory>

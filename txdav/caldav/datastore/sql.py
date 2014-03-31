@@ -2277,30 +2277,28 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             for attendee in sub.getAllAttendeeProperties():
                 if attendee.parameterValue("CUTYPE") == "ROOM":
                     value = attendee.value()
-                    # FIXME: this should use recordWithCalendarUserAddress(), right?
-                    if value.startswith("urn:uuid:"):
-                        guid = value[9:]
-                        loc = yield self.directoryService().recordWithGUID(guid)
-                        if loc is not None:
-                            uid = getattr(loc, "associatedAddress", "")
-                            if uid:
-                                addr = yield self.directoryService().recordWithUID(uid)
-                                if addr is not None:
-                                    street = getattr(addr, "streetAddress", "")
-                                    geo = getattr(addr, "geographicLocation", "")
-                                    if street and geo:
-                                        title = attendee.parameterValue("CN")
-                                        params = {
-                                            "X-ADDRESS": street,
-                                            "X-APPLE-RADIUS": "71",
-                                            "X-TITLE": title,
-                                        }
-                                        structured = Property("X-APPLE-STRUCTURED-LOCATION",
-                                            "geo:%s" % (geo,), params=params,
-                                            valuetype=Value.VALUETYPE_URI)
-                                        sub.replaceProperty(structured)
-                                        sub.replaceProperty(Property("LOCATION",
-                                            "%s\n%s" % (title, street)))
+                    loc = yield self.directoryService().recordWithCalendarUserAddress(value)
+                    if loc is not None:
+                        uid = getattr(loc, "associatedAddress", "")
+                        if uid:
+                            addr = yield self.directoryService().recordWithUID(uid)
+                            if addr is not None:
+                                street = getattr(addr, "streetAddress", "")
+                                geo = getattr(addr, "geographicLocation", "")
+                                if street and geo:
+                                    title = attendee.parameterValue("CN")
+                                    params = {
+                                        "X-ADDRESS": street,
+                                        "X-APPLE-RADIUS": "71",
+                                        "X-TITLE": title,
+                                    }
+                                    structured = Property("X-APPLE-STRUCTURED-LOCATION",
+                                        "geo:%s" % (geo.encode("utf-8"),), params=params,
+                                        valuetype=Value.VALUETYPE_URI)
+                                    sub.replaceProperty(structured)
+                                    newLocProperty = Property("LOCATION",
+                                        "%s\n%s" % (title, street.encode("utf-8")))
+                                    sub.replaceProperty(newLocProperty)
 
 
     @inlineCallbacks
