@@ -19,10 +19,11 @@ Mac OS X Server Wiki directory service.
 """
 
 __all__ = [
-    "DirectoryService",
     "WikiAccessLevel",
+    "DirectoryService",
 ]
 
+import json
 from twext.internet.adaptendpoint import connect
 from twext.internet.gaiendpoint import GAIEndpoint
 from twext.internet.gaiendpoint import MultiFailure
@@ -343,6 +344,42 @@ def getWikiACL(resource, request):
         raise HTTPError(StatusResponse(
             responsecode.SERVICE_UNAVAILABLE, "Wiki ACL lookup failed"
         ))
+
+
+
+class WebAuthError(RuntimeError):
+    """
+    Error in web auth
+    """
+
+
+
+@inlineCallbacks
+def uidForAuthToken(token, host="localhost", port=80):
+    """
+    Send a GET request to the web auth service to retrieve the user record
+    uid associated with the provided auth token.
+
+    @param token: An auth token, usually passed in via cookie when webcal
+        makes a request.
+    @type token: C{str}
+    @return: deferred returning a uid (C{str}) if successful, or
+        will raise WebAuthError otherwise.
+    """
+    url = "http://%s:%d/auth/verify?auth_token=%s" % (host, port, token,)
+    jsonResponse = (yield _getPage(url, host, port))
+    try:
+        response = json.loads(jsonResponse)
+    except Exception, e:
+        log.error(
+            "Error parsing JSON response from webauth: {resp} {error}",
+            resp=jsonResponse, error=str(e)
+        )
+        raise WebAuthError("Could not look up token: %s" % (token,))
+    if response["succeeded"]:
+        returnValue(response["generated_uid"])
+    else:
+        raise WebAuthError("Could not look up token: %s" % (token,))
 
 
 

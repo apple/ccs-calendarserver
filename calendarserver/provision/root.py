@@ -19,7 +19,7 @@ __all__ = [
     "RootResource",
 ]
 
-from calendarserver.platform.darwin.wiki import uidForAuthToken
+from txdav.who.wiki import uidForAuthToken
 from twext.python.log import Logger
 from twisted.cred.error import LoginFailed, UnauthorizedLogin
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
