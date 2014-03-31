@@ -218,7 +218,8 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
 @inlineCallbacks
 def getWikiACL(resource, request):
     """
-    Ask the wiki server we're paired with what level of access the authnUser has.
+    Ask the wiki server we're paired with what level of access the authnUser
+    has.
 
     Returns an ACL.
 
@@ -265,15 +266,17 @@ def getWikiACL(resource, request):
                         davxml.Privilege(davxml.Read()),
                         davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
 
-                        # We allow write-properties so that direct sharees can change
-                        # e.g. calendar color properties
+                        # We allow write-properties so that direct sharees can
+                        # change e.g. calendar color properties
                         davxml.Privilege(davxml.WriteProperties()),
                     ),
                     TwistedACLInheritable(),
                 ),
                 davxml.ACE(
                     davxml.Principal(
-                        davxml.HRef.fromString("/principals/wikis/%s/" % (wikiID,))
+                        davxml.HRef.fromString(
+                            "/principals/wikis/{}/".format(wikiID)
+                        )
                     ),
                     davxml.Grant(
                         davxml.Privilege(davxml.Read()),
@@ -297,7 +300,9 @@ def getWikiACL(resource, request):
                 ),
                 davxml.ACE(
                     davxml.Principal(
-                        davxml.HRef.fromString("/principals/wikis/%s/" % (wikiID,))
+                        davxml.HRef.fromString(
+                            "/principals/wikis/{}/".format(wikiID)
+                        )
                     ),
                     davxml.Grant(
                         davxml.Privilege(davxml.Read()),
@@ -330,6 +335,8 @@ def getWikiACL(resource, request):
         # pass through the HTTPError we might have raised above
         raise
 
-    except Exception, e:
-        log.error("Wiki ACL lookup failed: %s" % (e,))
-        raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE, "Wiki ACL lookup failed"))
+    except Exception as e:
+        log.error("Wiki ACL lookup failed: {error}", error=e)
+        raise HTTPError(StatusResponse(
+            responsecode.SERVICE_UNAVAILABLE, "Wiki ACL lookup failed"
+        ))
