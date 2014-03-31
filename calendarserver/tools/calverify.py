@@ -75,7 +75,9 @@ from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
 from txdav.caldav.datastore.sql import CalendarStoreFeatures
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 from txdav.common.icommondatastore import InternalDataStoreError
-from txdav.who.idirectory import RecordType as CalRecordType
+from txdav.who.idirectory import (
+    RecordType as CalRecordType, AutoScheduleMode
+)
 from calendarserver.tools.cmdline import utilityMain, WorkerService
 
 from calendarserver.tools import tables
@@ -1194,7 +1196,7 @@ class BadDataService(CalVerifyService):
                 component.validOrganizerForScheduling(doFix=False)
                 if component.hasDuplicateAlarms(doFix=False):
                     raise InvalidICalendarDataError("Duplicate VALARMS")
-            self.noPrincipalPathCUAddresses(component, doFix=False)
+            yield self.noPrincipalPathCUAddresses(component, doFix=False)
             if self.options["ical"]:
                 self.attendeesWithoutOrganizer(component, doFix=False)
 
@@ -1215,15 +1217,17 @@ class BadDataService(CalVerifyService):
         returnValue((result, message,))
 
 
+    @inlineCallbacks
     def noPrincipalPathCUAddresses(self, component, doFix):
 
-        def lookupFunction(cuaddr, principalFunction, conf):
+        @inlineCallbacks
+        def lookupFunction(cuaddr, recordFunction, conf):
 
             # Return cached results, if any.
             if cuaddr in self.cuaCache:
-                return self.cuaCache[cuaddr]
+                returnValue(self.cuaCache[cuaddr])
 
-            result = normalizationLookup(cuaddr, principalFunction, conf)
+            result = yield normalizationLookup(cuaddr, recordFunction, conf)
             _ignore_name, guid, _ignore_cuaddrs = result
             if guid is None:
                 if cuaddr.find("__uids__") != -1:
@@ -1232,7 +1236,7 @@ class BadDataService(CalVerifyService):
 
             # Cache the result
             self.cuaCache[cuaddr] = result
-            return result
+            returnValue(result)
 
         for subcomponent in component.subcomponents():
             if subcomponent.name() in ignoredComponents:
@@ -1244,13 +1248,13 @@ class BadDataService(CalVerifyService):
                 # http(s) principals need to be converted to urn:uuid
                 if cuaddr.startswith("http"):
                     if doFix:
-                        component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().principalForCalendarUserAddress)
+                        yield component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().recordWithCalendarUserAddress)
                     else:
                         raise InvalidICalendarDataError("iCalendar ORGANIZER starts with 'http(s)'")
                 elif cuaddr.startswith("mailto:"):
-                    if lookupFunction(cuaddr, self.directoryService().principalForCalendarUserAddress, self.config)[1] is not None:
+                    if (yield lookupFunction(cuaddr, self.directoryService().recordWithCalendarUserAddress, self.config))[1] is not None:
                         if doFix:
-                            component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().principalForCalendarUserAddress)
+                            yield component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().recordWithCalendarUserAddress)
                         else:
                             raise InvalidICalendarDataError("iCalendar ORGANIZER starts with 'mailto:' and record exists")
                 else:
@@ -1258,7 +1262,7 @@ class BadDataService(CalVerifyService):
                         if doFix:
                             # Add back in mailto: then re-normalize to urn:uuid if possible
                             organizer.setValue("mailto:%s" % (cuaddr,))
-                            component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().principalForCalendarUserAddress)
+                            yield component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().recordWithCalendarUserAddress)
 
                             # Remove any SCHEDULE-AGENT=NONE
                             if organizer.parameterValue("SCHEDULE-AGENT", "SERVER") == "NONE":
@@ -1281,13 +1285,13 @@ class BadDataService(CalVerifyService):
                 # http(s) principals need to be converted to urn:uuid
                 if cuaddr.startswith("http"):
                     if doFix:
-                        component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().principalForCalendarUserAddress)
+                        yield component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().recordWithCalendarUserAddress)
                     else:
                         raise InvalidICalendarDataError("iCalendar ATTENDEE starts with 'http(s)'")
                 elif cuaddr.startswith("mailto:"):
-                    if lookupFunction(cuaddr, self.directoryService().principalForCalendarUserAddress, self.config)[1] is not None:
+                    if (yield lookupFunction(cuaddr, self.directoryService().recordWithCalendarUserAddress, self.config))[1] is not None:
                         if doFix:
-                            component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().principalForCalendarUserAddress)
+                            yield component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().recordWithCalendarUserAddress)
                         else:
                             raise InvalidICalendarDataError("iCalendar ATTENDEE starts with 'mailto:' and record exists")
                 else:
@@ -1295,7 +1299,7 @@ class BadDataService(CalVerifyService):
                         if doFix:
                             # Add back in mailto: then re-normalize to urn:uuid if possible
                             attendee.setValue("mailto:%s" % (cuaddr,))
-                            component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().principalForCalendarUserAddress)
+                            yield component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().recordWithCalendarUserAddress)
                         else:
                             raise InvalidICalendarDataError("iCalendar ATTENDEE missing mailto:")
 
@@ -1347,7 +1351,7 @@ class BadDataService(CalVerifyService):
                 component.validCalendarForCalDAV(methodAllowed=isinbox)
                 component.validOrganizerForScheduling(doFix=True)
                 component.hasDuplicateAlarms(doFix=True)
-            self.noPrincipalPathCUAddresses(component, doFix=True)
+            yield self.noPrincipalPathCUAddresses(component, doFix=True)
             if self.options["ical"]:
                 self.attendeesWithoutOrganizer(component, doFix=True)
         except ValueError:
@@ -1978,7 +1982,8 @@ class SchedulingMismatchService(CalVerifyService):
 
             # Need to know whether the attendee is a location or resource with auto-accept set
             record = yield self.directoryService().recordWithUID(attendee)
-            if record.autoSchedule:
+            autoScheduleMode = getattr(record, "autoScheduleMode", None)
+            if autoScheduleMode not in (None, AutoScheduleMode.none):
                 # Log details about the event so we can have a human manually process
                 self.fixedAutoAccepts.append(details)
 
@@ -2176,7 +2181,7 @@ class DoubleBookingService(CalVerifyService):
                 continue
 
             rname = record.displayName
-            auto = record.autoSchedule
+            autoScheduleMode = getattr(record, "autoSchedule", AutoScheduleMode.none)
 
             if len(uuids) > 1 and not self.options["summary"]:
                 self.output.write("\n\n-----------------------------\n")
@@ -2202,7 +2207,7 @@ class DoubleBookingService(CalVerifyService):
             if not self.options["summary"]:
                 self.logResult("UUID to process", uuid)
                 self.logResult("Record name", rname)
-                self.logResult("Auto-schedule", "True" if auto else "False")
+                self.logResult("Auto-schedule-mode", autoScheduleMode.description)
                 self.addSummaryBreak()
                 self.logResult("Number of events to process", self.total)
 
@@ -2213,7 +2218,7 @@ class DoubleBookingService(CalVerifyService):
             else:
                 doubled = False
 
-            self.uuid_details.append(UUIDDetails(uuid, rname, auto, doubled))
+            self.uuid_details.append(UUIDDetails(uuid, rname, autoScheduleMode, doubled))
 
             if not self.options["summary"]:
                 self.printSummary()
@@ -2231,7 +2236,7 @@ class DoubleBookingService(CalVerifyService):
                 table.addRow((
                     item.uuid,
                     item.rname,
-                    item.auto,
+                    item.autoScheduleMode,
                     item.doubled,
                 ))
                 doubled += 1
@@ -2599,9 +2604,10 @@ class DarkPurgeService(CalVerifyService):
                 if self.options["no-organizer"]:
                     fail = True
             else:
-                principal = self.directoryService().principalForCalendarUserAddress(organizer)
+                principal = yield self.directoryService().recordWithCalendarUserAddress(organizer)
+                # FIXME: Why the mix of records and principals here?
                 if principal is None and organizer.startswith("urn:uuid:"):
-                    principal = self.directoryService().principalCollection.principalForUID(organizer[9:])
+                    principal = yield self.directoryService().principalCollection.principalForUID(organizer[9:])
                 if principal is None:
                     if self.options["invalid-organizer"]:
                         fail = True

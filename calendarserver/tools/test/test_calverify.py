@@ -471,19 +471,6 @@ class CalVerifyDataTests(StoreTestCase):
 
     number_to_process = len(requirements["home1"]["calendar_1"])
 
-    def configure(self):
-        super(CalVerifyDataTests, self).configure()
-        self.patch(config.DirectoryService.params, "xmlFile",
-            os.path.join(
-                os.path.dirname(__file__), "calverify", "accounts.xml"
-            )
-        )
-        self.patch(config.ResourceService.params, "xmlFile",
-            os.path.join(
-                os.path.dirname(__file__), "calverify", "resources.xml"
-            )
-        )
-
 
     @inlineCallbacks
     def populate(self):
