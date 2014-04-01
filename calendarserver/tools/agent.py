@@ -26,127 +26,35 @@ authenticated by OpenDirectory.
 
 from __future__ import print_function
 
+__all__ = [
+    "makeAgentService",
+]
+
 import cStringIO
+from plistlib import readPlistFromString, writePlistToString
 import socket
 
 from calendarserver.tap.util import getRootResource
-from plistlib import readPlistFromString, writePlistToString
+from twext.python.launchd import getLaunchDSocketFDs
+from twext.python.log import Logger
+from twext.who.checker import HTTPDigestCredentialChecker
+from twext.who.opendirectory import (
+    DirectoryService as OpenDirectoryDirectoryService,
+    NoQOPDigestCredentialFactory
+)
 from twisted.application.internet import StreamServerEndpointService
-from twisted.cred.checkers import ICredentialsChecker
-from twisted.cred.credentials import IUsernameHashedPassword
-from twisted.cred.error import UnauthorizedLogin
 from twisted.cred.portal import IRealm, Portal
-from twisted.internet.defer import inlineCallbacks, returnValue, succeed, fail
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.endpoints import AdoptedStreamServerEndpoint
 from twisted.internet.protocol import Factory
 from twisted.protocols import amp
-from twisted.web.guard import HTTPAuthSessionWrapper, DigestCredentialFactory
+from twisted.web.guard import HTTPAuthSessionWrapper
 from twisted.web.resource import IResource, Resource, ForbiddenResource
 from twisted.web.server import Site, NOT_DONE_YET
 from zope.interface import implements
-from twext.python.launchd import getLaunchDSocketFDs
-from twext.python.log import Logger
+
 
 log = Logger()
-
-
-
-class DirectoryServiceChecker(object):
-    """
-    A checker that knows how to ask OpenDirectory to authenticate via Digest
-    """
-    implements(ICredentialsChecker)
-
-    credentialInterfaces = (IUsernameHashedPassword,)
-
-    from calendarserver.platform.darwin.od import opendirectory
-    directoryModule = opendirectory
-
-    def __init__(self, node):
-        """
-        @param node: the name of the OpenDirectory node to use, e.g.
-            C{"/Local/Default"}
-        """
-        self.node = node
-        self.directory = self.directoryModule.odInit(node)
-
-
-    def requestAvatarId(self, credentials):
-        record = self.directoryModule.getUserRecord(
-            self.directory, credentials.username
-        )
-
-        if record is not None:
-            try:
-                if "algorithm" not in credentials.fields:
-                    credentials.fields["algorithm"] = "md5"
-
-                challenge = (
-                    'Digest realm="{realm}", nonce="{nonce}", '
-                    'algorithm={algorithm}'
-                    .format(**credentials.fields)
-                )
-
-                response = (
-                    'Digest username="{username}", '
-                    'realm="{realm}", '
-                    'nonce="{nonce}", '
-                    'uri="{uri}", '
-                    'response="{response}",'
-                    'algorithm={algorithm}'
-                ).format(**credentials.fields)
-
-            except KeyError as e:
-                log.error(
-                    "OpenDirectory (node={checker.node}) error while "
-                    "performing digest authentication for user "
-                    "{credentials.username}: missing digest response field: "
-                    "{field} in: {credentials.fields}"
-                    .format(
-                        checker=self, credentials=credentials, field=e
-                    )
-                )
-                return fail(UnauthorizedLogin())
-
-            try:
-                if self.directoryModule.authenticateUserDigest(
-                    self.directory,
-                    self.node,
-                    credentials.username,
-                    challenge,
-                    response,
-                    credentials.method
-                ):
-                    return succeed(credentials.username)
-                else:
-                    log.error(
-                        "Failed digest auth with response: {response}",
-                        response=response
-                    )
-                    return fail(UnauthorizedLogin())
-            except Exception as e:
-                log.error(
-                    "OpenDirectory error while performing digest "
-                    "authentication for user {credentials.username}: "
-                    "{error}",
-                    credentials=credentials, error=e
-                )
-                return fail(UnauthorizedLogin())
-
-        else:
-            return fail(UnauthorizedLogin())
-
-
-
-class CustomDigestCredentialFactory(DigestCredentialFactory):
-    """
-    DigestCredentialFactory without qop, to interop with OD.
-    """
-
-    def getChallenge(self, address):
-        result = DigestCredentialFactory.getChallenge(self, address)
-        del result["qop"]
-        return result
 
 
 
@@ -277,12 +185,15 @@ def makeAgentService(store):
         )
     )
 
-    realmName = "/Local/Default"
+    directory = OpenDirectoryDirectoryService("/Local/Default")
+
     portal = Portal(
         AgentRealm(root, ["com.apple.calendarserver"]),
-        [DirectoryServiceChecker(realmName)]
+        [HTTPDigestCredentialChecker(directory)]
     )
-    credentialFactory = CustomDigestCredentialFactory("md5", realmName)
+    credentialFactory = NoQOPDigestCredentialFactory(
+        "md5", "CalendarServer Agent Realm"
+    )
     wrapper = HTTPAuthSessionWrapper(portal, [credentialFactory])
 
     site = Site(wrapper)
