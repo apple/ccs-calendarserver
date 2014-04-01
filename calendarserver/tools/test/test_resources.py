@@ -20,9 +20,8 @@ try:
     from twisted.internet.defer import inlineCallbacks, succeed
     from twistedcaldav.directory.directory import DirectoryService
     from twistedcaldav.test.util import TestCase
-    import dsattributes
-    strGUID = dsattributes.kDS1AttrGeneratedUID
-    strName = dsattributes.kDS1AttrDistinguishedName
+    strGUID = "dsAttrTypeStandard:GeneratedUID"
+    strName = "dsAttrTypeStandard:RealName"
     RUN_TESTS = True
 except ImportError:
     RUN_TESTS = False
@@ -92,7 +91,7 @@ if RUN_TESTS:
         def test_migrateResources(self):
 
             data = {
-                    dsattributes.kDSStdRecordTypeResources :
+                    "dsRecTypeStandard:Resources":
                     [
                         ['projector1', {
                             strGUID : '6C99E240-E915-4012-82FA-99E0F638D7EF',
@@ -103,7 +102,7 @@ if RUN_TESTS:
                             strName : 'Projector 2'
                         }],
                     ],
-                    dsattributes.kDSStdRecordTypePlaces :
+                    "dsRecTypeStandard:Places":
                     [
                         ['office1', {
                             strGUID : '8C99E240-E915-4012-82FA-99E0F638D7EF',
@@ -131,13 +130,13 @@ if RUN_TESTS:
             #
             # Add more to OD and re-migrate
             #
-            data[dsattributes.kDSStdRecordTypeResources].append(
+            data["dsRecTypeStandard:Resources"].append(
                 ['projector3', {
                     strGUID : '9C99E240-E915-4012-82FA-99E0F638D7EF',
                     strName : 'Projector 3'
                 }]
             )
-            data[dsattributes.kDSStdRecordTypePlaces].append(
+            data["dsRecTypeStandard:Places"].append(
                 ['office2', {
                     strGUID : 'AC99E240-E915-4012-82FA-99E0F638D7EF',
                     strName : 'Office 2'
