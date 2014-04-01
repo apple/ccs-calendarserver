@@ -2273,15 +2273,16 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         X-APPLE-STRUCTURED-LOCATION property and update the LOCATION property
         to contain the name and street address.
         """
+        dir = self.directoryService()
         for sub in component.subcomponents():
             for attendee in sub.getAllAttendeeProperties():
                 if attendee.parameterValue("CUTYPE") == "ROOM":
                     value = attendee.value()
-                    loc = yield self.directoryService().recordWithCalendarUserAddress(value)
+                    loc = yield dir.recordWithCalendarUserAddress(value)
                     if loc is not None:
                         uid = getattr(loc, "associatedAddress", "")
                         if uid:
-                            addr = yield self.directoryService().recordWithUID(uid)
+                            addr = yield dir.recordWithUID(uid)
                             if addr is not None:
                                 street = getattr(addr, "streetAddress", "")
                                 geo = getattr(addr, "geographicLocation", "")

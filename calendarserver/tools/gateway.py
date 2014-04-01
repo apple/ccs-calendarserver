@@ -287,6 +287,10 @@ class Runner(object):
 
                 fields[field] = value
 
+        if FieldName.shortNames not in fields:
+            # No short names were provided, so copy from uid
+            fields[FieldName.shortNames] = [fields[FieldName.uid]]
+
         record = DirectoryRecord(self.dir, fields)
         yield self.dir.updateRecords([record], create=create)
 

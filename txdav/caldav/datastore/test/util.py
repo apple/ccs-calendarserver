@@ -63,12 +63,20 @@ class TestCalendarStoreDirectoryRecord(TestStoreDirectoryRecord):
         cutype="INDIVIDUAL",
         thisServer=True,
         server=None,
-        extras={},
+        associatedAddress=None,
+        streetAddress=None,
+        geographicLocation=None
     ):
 
-        super(TestCalendarStoreDirectoryRecord, self).__init__(uid, shortNames, fullName, thisServer, server, extras=extras)
+        super(TestCalendarStoreDirectoryRecord, self).__init__(
+            uid, shortNames, fullName, thisServer, server,
+        )
         self.calendarUserAddresses = calendarUserAddresses
         self.cutype = cutype
+        self.associatedAddress = associatedAddress
+        self.streetAddress = streetAddress
+        self.geographicLocation = geographicLocation
+
 
 
     def canonicalCalendarUserAddress(self):
@@ -169,31 +177,23 @@ def buildDirectory(homes=None):
     # Structured Locations
     directory.addRecord(TestCalendarStoreDirectoryRecord(
         "il1", ("il1",), "1 Infinite Loop", [],
-        extras={
-            "geo" : "37.331741,-122.030333",
-            "streetAddress" : "1 Infinite Loop, Cupertino, CA 95014",
-        }
+        geographicLocation="37.331741,-122.030333",
+        streetAddress="1 Infinite Loop, Cupertino, CA 95014"
     ))
     directory.addRecord(TestCalendarStoreDirectoryRecord(
         "il2", ("il2",), "2 Infinite Loop", [],
-        extras={
-            "geo" : "37.332633,-122.030502",
-            "streetAddress" : "2 Infinite Loop, Cupertino, CA 95014",
-        }
+        geographicLocation="37.332633,-122.030502",
+        streetAddress="2 Infinite Loop, Cupertino, CA 95014"
     ))
     directory.addRecord(TestCalendarStoreDirectoryRecord(
         "room1", ("room1",), "Conference Room One",
         frozenset(("urn:uuid:room1",)),
-        extras={
-            "associatedAddress" : "il1",
-        }
+        associatedAddress="il1",
     ))
     directory.addRecord(TestCalendarStoreDirectoryRecord(
         "room2", ("room2",), "Conference Room Two",
         frozenset(("urn:uuid:room2",)),
-        extras={
-            "associatedAddress" : "il2",
-        }
+        associatedAddress="il2",
     ))
 
     return directory
