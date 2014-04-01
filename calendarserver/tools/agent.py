@@ -18,10 +18,10 @@
 
 """
 A service spawned on-demand by launchd, meant to handle configuration requests
-from Server.app.  When a request comes in on the socket specified in the launchd
-agent.plist, launchd will run "caldavd -t Agent" which ends up creating this
-service.  Requests are made using HTTP POSTS to /gateway, and are authenticated
-by OpenDirectory.
+from Server.app.  When a request comes in on the socket specified in the
+launchd agent.plist, launchd will run "caldavd -t Agent" which ends up creating
+this service.  Requests are made using HTTP POSTS to /gateway, and are
+authenticated by OpenDirectory.
 """
 
 from __future__ import print_function
@@ -51,7 +51,7 @@ log = Logger()
 
 
 
-class DirectoryServiceChecker:
+class DirectoryServiceChecker(object):
     """
     A checker that knows how to ask OpenDirectory to authenticate via Digest
     """
@@ -64,41 +64,53 @@ class DirectoryServiceChecker:
 
     def __init__(self, node):
         """
-        @param node: the name of the OpenDirectory node to use, e.g. /Local/Default
+        @param node: the name of the OpenDirectory node to use, e.g.
+            C{"/Local/Default"}
         """
         self.node = node
         self.directory = self.directoryModule.odInit(node)
 
 
     def requestAvatarId(self, credentials):
-        record = self.directoryModule.getUserRecord(self.directory, credentials.username)
+        record = self.directoryModule.getUserRecord(
+            self.directory, credentials.username
+        )
 
         if record is not None:
             try:
                 if "algorithm" not in credentials.fields:
                     credentials.fields["algorithm"] = "md5"
 
-                challenge = 'Digest realm="%(realm)s", nonce="%(nonce)s", algorithm=%(algorithm)s' % credentials.fields
+                challenge = (
+                    'Digest realm="{realm}", nonce="{nonce}", '
+                    'algorithm={algorithm}'
+                    .format(**credentials.fields)
+                )
 
                 response = (
-                    'Digest username="%(username)s", '
-                    'realm="%(realm)s", '
-                    'nonce="%(nonce)s", '
-                    'uri="%(uri)s", '
-                    'response="%(response)s",'
-                    'algorithm=%(algorithm)s'
-                ) % credentials.fields
+                    'Digest username="{username}", '
+                    'realm="{realm}", '
+                    'nonce="{nonce}", '
+                    'uri="{uri}", '
+                    'response="{response}",'
+                    'algorithm={algorithm}'
+                ).format(**credentials.fields)
 
             except KeyError as e:
                 log.error(
-                    "OpenDirectory (node=%s) error while performing digest authentication for user %s: "
-                    "missing digest response field: %s in: %s"
-                    % (self.node, credentials.username, e, credentials.fields)
+                    "OpenDirectory (node={directory.node}) error while "
+                    "performing digest authentication for user "
+                    "{credentials.username}: missing digest response field: "
+                    "{field} in: {credentials.fields}"
+                    .format(
+                        directory=self, credentials=credentials, field=e
+                    )
                 )
                 return fail(UnauthorizedLogin())
 
             try:
-                if self.directoryModule.authenticateUserDigest(self.directory,
+                if self.directoryModule.authenticateUserDigest(
+                    self.directory,
                     self.node,
                     credentials.username,
                     challenge,
@@ -107,12 +119,17 @@ class DirectoryServiceChecker:
                 ):
                     return succeed(credentials.username)
                 else:
-                    log.error("Failed digest auth with response: %s" % (response,))
+                    log.error(
+                        "Failed digest auth with response: {response}",
+                        response=response
+                    )
                     return fail(UnauthorizedLogin())
             except Exception as e:
                 log.error(
-                    "OpenDirectory error while performing digest authentication for user %s: %s"
-                    % (credentials.username, e)
+                    "OpenDirectory error while performing digest "
+                    "authentication for user {credentials.username}: "
+                    "{error}",
+                    credentials=credentials, error=e
                 )
                 return fail(UnauthorizedLogin())
 
@@ -161,7 +178,8 @@ class AgentRealm(object):
 
 class AgentGatewayResource(Resource):
     """
-    The gateway resource which forwards incoming requests through gateway.Runner.
+    The gateway resource which forwards incoming requests through
+    gateway.Runner.
     """
     isLeaf = True
 
@@ -202,10 +220,10 @@ class AgentGatewayResource(Resource):
             tbString = tbStringIO.getvalue()
             tbStringIO.close()
             error = {
-                "Error" : message,
-                "Traceback" : tbString,
+                "Error": message,
+                "Traceback": tbString,
             }
-            log.error("command failed %s" % (failure,))
+            log.error("command failed {error}", error=failure)
             request.write(writePlistToString(error))
             request.finish()
 
@@ -213,8 +231,10 @@ class AgentGatewayResource(Resource):
         body = request.content.read()
         command = readPlistFromString(body)
         output = cStringIO.StringIO()
-        runner = Runner(self.davRootResource, self.directory, self.store,
-            [command], output=output)
+        runner = Runner(
+            self.davRootResource, self.directory, self.store,
+            [command], output=output
+        )
         d = runner.run()
         d.addCallback(onSuccess, output)
         d.addErrback(onError)
@@ -246,15 +266,22 @@ def makeAgentService(store):
         log.warn("Agent inactive; shutting down")
         reactor.stop()
 
-    inactivityDetector = InactivityDetector(reactor,
-        config.AgentInactivityTimeoutSeconds, becameInactive)
+    inactivityDetector = InactivityDetector(
+        reactor, config.AgentInactivityTimeoutSeconds, becameInactive
+    )
     root = Resource()
-    root.putChild("gateway", AgentGatewayResource(store,
-        davRootResource, directory, inactivityDetector))
+    root.putChild(
+        "gateway",
+        AgentGatewayResource(
+            store, davRootResource, directory, inactivityDetector
+        )
+    )
 
     realmName = "/Local/Default"
-    portal = Portal(AgentRealm(root, ["com.apple.calendarserver"]),
-        [DirectoryServiceChecker(realmName)])
+    portal = Portal(
+        AgentRealm(root, ["com.apple.calendarserver"]),
+        [DirectoryServiceChecker(realmName)]
+    )
     credentialFactory = CustomDigestCredentialFactory("md5", realmName)
     wrapper = HTTPAuthSessionWrapper(portal, [credentialFactory])
 
@@ -283,8 +310,10 @@ class InactivityDetector(object):
         self._becameInactive = becameInactive
 
         if self._timeoutSeconds > 0:
-            self._delayedCall = self._reactor.callLater(self._timeoutSeconds,
-                self._inactivityThresholdReached)
+            self._delayedCall = self._reactor.callLater(
+                self._timeoutSeconds,
+                self._inactivityThresholdReached
+            )
 
 
     def _inactivityThresholdReached(self):
@@ -304,8 +333,10 @@ class InactivityDetector(object):
             if self._delayedCall.active():
                 self._delayedCall.reset(self._timeoutSeconds)
             else:
-                self._delayedCall = self._reactor.callLater(self._timeoutSeconds,
-                    self._inactivityThresholdReached)
+                self._delayedCall = self._reactor.callLater(
+                    self._timeoutSeconds,
+                    self._inactivityThresholdReached
+                )
 
 
     def stop(self):
@@ -361,17 +392,17 @@ class GatewayAMPProtocol(amp.AMP):
         command = readPlistFromString(command)
         output = cStringIO.StringIO()
         from calendarserver.tools.gateway import Runner
-        runner = Runner(self.davRootResource, self.directory, self.store,
-            [command], output=output)
+        runner = Runner(
+            self.davRootResource, self.directory, self.store,
+            [command], output=output
+        )
 
         try:
             yield runner.run()
             result = output.getvalue()
             output.close()
         except Exception as e:
-            error = {
-                "Error" : str(e),
-            }
+            error = {"Error": str(e)}
             result = writePlistToString(error)
 
         output.close()
@@ -396,8 +427,9 @@ class GatewayAMPFactory(Factory):
 
 
     def buildProtocol(self, addr):
-        return GatewayAMPProtocol(self.store, self.davRootResource,
-            self.directory)
+        return GatewayAMPProtocol(
+            self.store, self.davRootResource, self.directory
+        )
 
 
 
@@ -406,13 +438,15 @@ class GatewayAMPFactory(Factory):
 #
 
 command = """<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN"
+ "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
         <key>command</key>
         <string>getLocationAndResourceList</string>
 </dict>
 </plist>"""
+
 
 def getList():
     # For the sample client, below:
