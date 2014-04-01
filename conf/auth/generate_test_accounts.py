@@ -42,7 +42,7 @@ out.write('<directory realm="Test Realm">\n')
 for uid, fullName, guid in (
     ("admin", "Super User", "0C8BDE62-E600-4696-83D3-8B5ECABDFD2E"),
     ("apprentice", "Apprentice Super User", "29B6C503-11DF-43EC-8CCA-40C7003149CE"),
-    ("i18nuser", u"\ud83d\udca3".encode("utf-8"), "860B3EE9-6D7C-4296-9639-E6B998074A78"),
+    ("i18nuser", u"\u307e\u3060".encode("utf-8"), "860B3EE9-6D7C-4296-9639-E6B998074A78"),
 ):
     out.write("""<record>
     <uid>{guid}</uid>

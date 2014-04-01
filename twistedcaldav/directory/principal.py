@@ -632,13 +632,13 @@ class DirectoryPrincipalDetailElement(Element):
             emailAddresses = []
         return tag.fillSlots(
             directoryGUID=str(record.service.guid),
-            realm=str(record.service.realmName),
+            realm=record.service.realmName.encode("utf-8"),
             principalGUID=guid,
             recordType=record.service.recordTypeToOldName(record.recordType),
-            shortNames=",".join(record.shortNames),
+            shortNames=",".join([n.encode("utf-8") for n in record.shortNames]),
             # MOVE2WHO: need this?
             # securityIDs=",".join(record.authIDs),
-            fullName=str(record.displayName),
+            fullName=record.displayName.encode("utf-8"),
             # MOVE2WHO: need this?
             # firstName=str(record.firstName),
             # MOVE2WHO: need this?
