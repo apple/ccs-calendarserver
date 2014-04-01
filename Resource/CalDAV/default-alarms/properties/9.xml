@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<D:propertyupdate xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+<D:set>
+<D:prop>
+    <C:default-alarm-vevent-datetime><![CDATA[BEGIN:VALARM
+UID:D9D1AC84-F629-4B9D-9B6B-4A6CA9A11FEA
+ACTION:NONE
+END:VALARM
+]]></C:default-alarm-vevent-datetime>
+</D:prop>
+</D:set>
+</D:propertyupdate>

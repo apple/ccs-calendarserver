@@ -1,0 +1,1311 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<description>Test ACLs on the server</description>
+
+	<require-feature>
+		<feature>ACL Method</feature>
+		<feature>caldav</feature>
+	</require-feature>
+
+	<start>
+		<request end-delete="yes">
+			<method>PUT</method>
+			<ruri>$calendarpath1:/1.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/delete/1.txt</filepath>
+			</data>
+		</request>
+		<request end-delete="yes">
+			<method>PUT</method>
+			<ruri>$calendarpath1:/2.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/delete/2.txt</filepath>
+			</data>
+		</request>
+		<request end-delete="yes">
+			<method>PUT</method>
+			<ruri>$taskspath1:/1todo.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/todo/1.txt</filepath>
+			</data>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>MKCALENDAR</method>
+			<ruri>$calendarhome2:/visibletouser01/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>ACL</method>
+			<ruri>$calendarhome2:/visibletouser01/</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/acls/3.xml</filepath>
+			</data>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>PUT</method>
+			<ruri>$calendarhome2:/visibletouser01/hidden1.ics</ruri>
+			<data generate="yes">
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/acls/16.ics</filepath>
+			</data>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>PUT</method>
+			<ruri>$calendarhome2:/visibletouser01/visible2.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/acls/17.ics</filepath>
+			</data>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>MKCALENDAR</method>
+			<ruri>$calendarhome2:/notvisibletouser01/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>ACL</method>
+			<ruri>$calendarhome2:/notvisibletouser01/</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/acls/4.xml</filepath>
+			</data>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>PUT</method>
+			<ruri>$calendarhome2:/notvisibletouser01/hidden1.ics</ruri>
+			<data generate="yes">
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/acls/16.ics</filepath>
+			</data>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>MKCALENDAR</method>
+			<ruri>$calendarhome2:/writeabletouser01/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>ACL</method>
+			<ruri>$calendarhome2:/writeabletouser01/</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/acls/13.xml</filepath>
+			</data>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>MKCALENDAR</method>
+			<ruri>$calendarhome2:/calreadtoauth/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>ACL</method>
+			<ruri>$calendarhome2:/calreadtoauth/</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/acls/18.xml</filepath>
+			</data>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>PUT</method>
+			<ruri>$calendarhome2:/calreadtoauth/1.ics</ruri>
+			<data generate="yes">
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/acls/16.ics</filepath>
+			</data>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<method>MKCOL</method>
+			<ruri>$calendarhome2:/colreadtoauth/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<method>ACL</method>
+			<ruri>$calendarhome2:/colreadtoauth/</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/acls/18.xml</filepath>
+			</data>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<method>PUT</method>
+			<ruri>$calendarhome2:/colreadtoauth/1.ics</ruri>
+			<data generate="yes">
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/acls/16.ics</filepath>
+			</data>
+		</request>
+	</start>
+	
+	<test-suite name='Read ACLs' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>PROPFIND existing VEVENT</description>
+			<request print-response='yes' user='$useradmin:' pswd='$pswdadmin:'>
+				<method>PROPFIND</method>
+				<ruri>$calendars:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}getcontentlength</value>
+						<value>{DAV:}getcontenttype</value>
+						<value>{DAV:}resourcetype</value>
+						<value>{DAV:}getetag</value>
+						<value>{DAV:}displayname</value>
+						<value>{DAV:}supported-privilege-set</value>
+						<value>{DAV:}current-user-privilege-set</value>
+						<value>{DAV:}acl</value>
+						<value>{DAV:}acl-restrictions</value>
+						<value>{DAV:}inherited-acl-set</value>
+						<value>{DAV:}principal-collection-set</value>
+					</arg>
+					<arg>
+						<name>badprops</name>
+						<value>{DAV:}owner</value>
+						<value>{DAV:}group</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>PROPFIND without DAV:read-acl or DAV:read-current-user-privilege-set</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendars:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}getcontentlength</value>
+						<value>{DAV:}getcontenttype</value>
+						<value>{DAV:}resourcetype</value>
+						<value>{DAV:}getetag</value>
+						<value>{DAV:}displayname</value>
+						<value>{DAV:}current-user-privilege-set</value>
+						<value>{DAV:}supported-privilege-set</value>
+						<value>{DAV:}acl-restrictions</value>
+						<value>{DAV:}inherited-acl-set</value>
+						<value>{DAV:}principal-collection-set</value>
+					</arg>
+					<arg>
+						<name>badprops</name>
+						<value>{DAV:}acl</value>
+						<value>{DAV:}owner</value>
+						<value>{DAV:}group</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>Check for schedule privilege on iTIP Inbox</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$inboxpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>aclItems</callback>
+					<arg>
+						<name>granted</name>
+						<value>{DAV:}read</value>
+						<value>{DAV:}write</value>
+						<value>{DAV:}write-acl</value>
+						<value>{DAV:}read-current-user-privilege-set</value>
+						<value>{urn:ietf:params:xml:ns:caldav}schedule</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Check for schedule privilege on iTIP Outbox</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$outboxpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>aclItems</callback>
+					<arg>
+						<name>granted</name>
+						<value>{DAV:}read</value>
+						<value>{DAV:}write</value>
+						<value>{DAV:}write-acl</value>
+						<value>{DAV:}read-current-user-privilege-set</value>
+						<value>{urn:ietf:params:xml:ns:caldav}schedule</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>Check for lack of schedule privilege on regular calendar</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>aclItems</callback>
+					<arg>
+						<name>granted</name>
+						<value>{DAV:}read</value>
+						<value>{DAV:}write</value>
+						<value>{DAV:}write-acl</value>
+						<value>{DAV:}read-current-user-privilege-set</value>
+					</arg>
+					<arg>
+						<name>denied</name>
+						<value>{urn:ietf:params:xml:ns:caldav}schedule</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='PROPFIND interaction with ACL' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>PROPFIND all calendars</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome2:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>PROPFIND: prinicpal-collection-set test</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/14.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value><![CDATA[{DAV:}principal-collection-set$<href xmlns="DAV:">$principalcollection:</href>]]></value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='ACL method preconditions' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>Failure when DAV:write-acl not granted</description>
+			<request print-response='no'>
+				<method>ACL</method>
+				<ruri>$calendarhome2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>405</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<require-feature>
+				<feature>per-object-ACLs</feature>
+			</require-feature>
+			<description>DAV:no-ace-conflict precondition failure - attempt to set protected ACE</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>ACL</method>
+				<ruri>$calendarhome2:/visibletouser01/hidden1.ics</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/20.xml</filepath>
+				</data>
+			</request>
+			<request print-response='no'>
+				<method>ACL</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/5.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{DAV:}no-ace-conflict</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<require-feature>
+				<feature>per-object-ACLs</feature>
+			</require-feature>
+			<description>DAV:no-ace-conflict precondition failure - attempt to set inherited ACE</description>
+			<request print-response='no'>
+				<method>ACL</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/6.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{DAV:}no-ace-conflict</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<require-feature>
+				<feature>per-object-ACLs</feature>
+			</require-feature>
+			<description>DAV:no-protected-ace-conflict precondition failure - attempt to change protected ACE</description>
+			<request print-response='no'>
+				<method>ACL</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/7.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{DAV:}no-protected-ace-conflict</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<require-feature>
+				<feature>per-object-ACLs</feature>
+			</require-feature>
+			<description>DAV:no-inherited-ace-conflict precondition failure - attempt to change inherited ACE</description>
+			<request print-response='no'>
+				<method>ACL</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/8.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{DAV:}no-inherited-ace-conflict</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<require-feature>
+				<feature>per-object-ACLs</feature>
+			</require-feature>
+			<description>DAV:deny-before-grant precondition failure - attempt to deny before grant a set of ACEs</description>
+			<request print-response='no'>
+				<method>ACL</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/9.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{DAV:}deny-before-grant</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<require-feature>
+				<feature>per-object-ACLs</feature>
+			</require-feature>
+			<description>DAV:not-supported-privilege precondition failure - attempt to use unsupported privilege</description>
+			<request print-response='no'>
+				<method>ACL</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/10.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{DAV:}not-supported-privilege</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8' ignore='no'>
+			<require-feature>
+				<feature>per-object-ACLs</feature>
+			</require-feature>
+			<description>DAV:recognized-principal precondition failure - attempt to use unknown principal</description>
+			<request print-response='no'>
+				<method>ACL</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/11.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{DAV:}recognized-principal</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='9' ignore='no'>
+			<require-feature>
+				<feature>per-object-ACLs</feature>
+			</require-feature>
+			<description>Valid command</description>
+			<request print-response='no'>
+				<method>ACL</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/12.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{DAV:}recognized-principal</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='10' ignore='no'>
+			<require-feature>
+				<feature>per-object-ACLs</feature>
+			</require-feature>
+			<description>Valid command</description>
+			<request print-response='no'>
+				<method>ACL</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/22.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{DAV:}recognized-principal</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='COPY/MOVE interaction with ACL' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>COPY to non-writeable shared calendar</description>
+			<request print-response='no'>
+				<method>COPY</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarhome2:/visibletouser01/copy1.ics</value>
+				</header>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>COPY to non-visible shared calendar</description>
+			<request print-response='no'>
+				<method>COPY</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarhome2:/notvisibletouser01/copy1.ics</value>
+				</header>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>COPY to non-visible shared calendar with overwrite</description>
+			<request print-response='no'>
+				<method>COPY</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarhome2:/notvisibletouser01/hidden1.ics</value>
+				</header>
+				<header>
+					<name>Overwrite</name>
+					<value>T</value>
+				</header>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>COPY to visible with no overwrite shared calendar</description>
+			<request print-response='no'>
+				<method>COPY</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarhome2:/writeabletouser01/1.ics</value>
+				</header>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>COPY to writeable shared calendar</description>
+			<request print-response='no'>
+				<method>COPY</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarhome2:/writeabletouser01/copy1.ics</value>
+				</header>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>MOVE to non-writeable shared calendar</description>
+			<request print-response='no'>
+				<method>MOVE</method>
+				<ruri>$calendarpath1:/2.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarhome2:/visibletouser01/move2.ics</value>
+				</header>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>MOVE to non-visible shared calendar</description>
+			<request print-response='no'>
+				<method>MOVE</method>
+				<ruri>$calendarpath1:/2.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarhome2:/notvisibletouser01/move2.ics</value>
+				</header>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8' ignore='no'>
+			<description>MOVE to non-visible shared calendar with overwrite</description>
+			<request print-response='no'>
+				<method>MOVE</method>
+				<ruri>$calendarpath1:/2.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarhome2:/notvisibletouser01/hidden1.ics</value>
+				</header>
+				<header>
+					<name>Overwrite</name>
+					<value>T</value>
+				</header>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='9' ignore='no'>
+			<description>MOVE to writeable shared calendar</description>
+			<request print-response='no'>
+				<method>MOVE</method>
+				<ruri>$calendarpath1:/2.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarhome2:/writeabletouser01/move2.ics</value>
+				</header>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='Principal Properties' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>PROPFIND principal VEVENT</description>
+			<request print-response='no' user='$useradmin:' pswd='$pswdadmin:'>
+				<method>PROPFIND</method>
+				<ruri>$principal1:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/15.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}alternate-URI-set</value>
+						<value><![CDATA[{DAV:}principal-URL$<href xmlns="DAV:">$principaluri1:</href>]]></value>
+						<value>{DAV:}group-member-set</value>
+						<value>{DAV:}group-membership</value>
+						<value>{DAV:}displayname$$username1:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Check for proper capability in DAV header</description>
+			<request>
+				<method>OPTIONS</method>
+				<ruri>$principal1:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>*DAV$.*access-control.*</value>
+						<value>*DAV$.*calendar-access.*</value>
+						<value>*DAV$.*calendar-schedule.*</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Directory list access' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>Get calendar home collection</description>
+			<request print-response='no'>
+				<method>GET</method>
+				<ruri>$calendarhome2:/</ruri>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>notcontains</name>
+						<value>visibletouser01/</value>
+						<value>$inbox:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<require-feature>
+				<feature>per-object-ACLs</feature>
+			</require-feature>
+			<description>Get calendar collection</description>
+			<request print-response='no'>
+				<method>GET</method>
+				<ruri>$calendarhome2:/visibletouser01/</ruri>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>VTODO</value>
+					</arg>
+					<arg>
+						<name>notcontains</name>
+						<value>VEVENT</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='ACL calendar collection inheritance' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>Check that read is not set</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome2:/calreadtoauth/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Check that read is not inherited</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome2:/calreadtoauth/1.ics</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>Set read on collection only</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>ACL</method>
+				<ruri>$calendarhome2:/calreadtoauth/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/19.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Check that read is set</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome2:/calreadtoauth/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>aclItems</callback>
+					<arg>
+						<name>granted</name>
+						<value>{urn:ietf:params:xml:ns:caldav}read-free-busy</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>Check that read is inherited</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome2:/calreadtoauth/1.ics</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>aclItems</callback>
+					<arg>
+						<name>granted</name>
+						<value>{urn:ietf:params:xml:ns:caldav}read-free-busy</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='ACL regular collection no inheritance' ignore='no'>
+		<require-feature>
+			<feature>regular-collection</feature>
+		</require-feature>
+		<test name='1' ignore='no'>
+			<description>Check that read is not set</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome2:/colreadtoauth/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Check that read is not inherited</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome2:/colreadtoauth/1.ics</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>Set read on collection only</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>ACL</method>
+				<ruri>$calendarhome2:/colreadtoauth/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/19.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Check that read is set</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome2:/colreadtoauth/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>aclItems</callback>
+					<arg>
+						<name>granted</name>
+						<value>{urn:ietf:params:xml:ns:caldav}read-free-busy</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>Check that read is inherited</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome2:/colreadtoauth/1.ics</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='ACL calendar home' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>Set read/read-current-user-privilege-set on home only</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>ACL</method>
+				<ruri>$calendarhome2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/23.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>405</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Check for current-user-privilege-set on calendar home as user01</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome2:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/24.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>Check that calendar privileges are still inherited for user02</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome2:/calreadtoauth/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/24.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}current-user-privilege-set</value>
+						<value>{DAV:}acl</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Remove read/read-current-user-privilege-set on home only</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>ACL</method>
+				<ruri>$calendarhome2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/25.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>405</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>Check property access on calendar home as user01</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome2:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/24.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Check that calendar privileges are still inherited for user02</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome2:/calreadtoauth/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/acls/24.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}current-user-privilege-set</value>
+						<value>{DAV:}acl</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Tests on missing resources' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>Get on non-existent inaccessible resource</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>GET</method>
+				<ruri>$calendarpath1:/1bogus.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Get on existing inaccessible resource</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/delete/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>Unauthenticated get on non-existent inaccessible resource</description>
+			<request auth="no">
+				<method>GET</method>
+				<ruri>$calendarhome1:/calendar-bogus/1.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>401</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Unauthenticated get on existing inaccessible resource</description>
+			<request auth="no">
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>401</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>Bogus authenticated get on non-existent inaccessible resource</description>
+			<request user="$useradmin:" pswd="foobar">
+				<method>GET</method>
+				<ruri>$calendarhome1:/calendar-bogus/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>401</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Bogus authenticated get on existing inaccessible resource</description>
+			<request user="$useradmin:" pswd="foobar">
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>401</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<end>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>DELETE</method>
+			<ruri>$calendarhome2:/visibletouser01/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>DELETE</method>
+			<ruri>$calendarhome2:/notvisibletouser01/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>DELETE</method>
+			<ruri>$calendarhome2:/writeabletouser01/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>DELETE</method>
+			<ruri>$calendarhome2:/calreadtoauth/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>DELETE</method>
+			<ruri>$calendarhome2:/colreadtoauth/</ruri>
+		</request>
+	</end>
+	
+</caldavtest>

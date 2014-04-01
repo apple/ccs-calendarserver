@@ -1,0 +1,1051 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<description>Test ACLs on the server</description>
+
+	<require-feature>
+		<feature>caldav</feature>
+	</require-feature>
+
+	<start>
+		<request>
+			<method>PROPPATCH</method>
+			<ruri>$calendarpath1:/</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/aclreports/10.xml</filepath>
+			</data>
+		</request>
+		<request end-delete="yes">
+			<method>MKCALENDAR</method>
+			<ruri>$calendarhome1:/calendar2/</ruri>
+		</request>
+		<request>
+			<method>PROPPATCH</method>
+			<ruri>$calendarhome1:/calendar2/</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/aclreports/9.xml</filepath>
+			</data>
+		</request>
+		<request end-delete="yes">
+			<method>MKCALENDAR</method>
+			<ruri>$calendarhome1:/calendar3/</ruri>
+		</request>
+	</start>
+	
+	<test-suite name='acl-principal-prop-set REPORT' ignore='no'>
+
+		<require-feature>
+			<feature>acl-principal-prop-set REPORT</feature>
+		</require-feature>
+
+		<test name='1' ignore='no'>
+			<description>Wrong Depth</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Wrong Depth</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>infinity</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>No DAV:prop</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Too many DAV:prop</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>No DAV:read-acl privilege</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarhome2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Valid report</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value></value>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>$principaluri1:</value>
+						<value>$principaluri1:calendar-proxy-read/</value>
+						<value>$principaluri1:calendar-proxy-write/</value>
+						<value>$principaluri_admin:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='principal-match REPORT' ignore='no'>
+
+		<require-feature>
+			<feature>principal-match REPORT</feature>
+		</require-feature>
+
+		<test name='1' ignore='no'>
+			<description>Wrong Depth</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$principals_users:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Wrong Depth</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$principals_users:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>infinity</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>Too many DAV:prop</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$principals_users:</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/6.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+						<value>500</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Valid self report with DAV:prop</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$principals_users:</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value></value>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>$principal1:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>Valid self report without DAV:prop</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$principals_users:</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/5.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value></value>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>$principal1:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Valid principal-search report with DAV:prop</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/7.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>calendar2/</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>Valid principal-search report without DAV:prop</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/8.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>calendar2/</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8' ignore='no'>
+			<description>principal-search with inaccessible property</description>
+			<request print-response='no' user='$userid2:' pswd='$pswd2:'>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/11.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='principal-property-search REPORT' ignore='no'>
+
+		<require-feature>
+			<feature>principal-property-search REPORT</feature>
+		</require-feature>
+
+		<test name='1' ignore='no'>
+			<description>Wrong Depth</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$principals_users:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/12.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Wrong Depth</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$principals_users:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>infinity</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/12.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>Valid non-apply-to report with DAV:prop</description>
+			<request print-response='no' user='$useradmin:' pswd='$pswdadmin:'>
+				<method>REPORT</method>
+				<ruri>$principals_users:</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/12.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value></value>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>$publicprincipaluri1:</value>
+						<value>$principaluri1:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Valid non-apply-to report without DAV:prop</description>
+			<request print-response='no' user='$useradmin:' pswd='$pswdadmin:'>
+				<method>REPORT</method>
+				<ruri>$principals_users:</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/13.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value></value>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>$publicprincipaluri2:</value>
+						<value>$principaluri2:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>Valid apply-to report with DAV:prop</description>
+			<request print-response='no' user='$useradmin:' pswd='$pswdadmin:'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/14.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>$publicprincipaluri1:</value>
+						<value>$principaluri1:</value>
+						<value>$gprincipaluri1:</value>
+						<value>$rprincipaluri1:</value>
+						<value>$lprincipaluri1:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Valid non-apply-to report without DAV:prop</description>
+			<request print-response='no' user='$useradmin:' pswd='$pswdadmin:'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/15.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>$publicprincipaluri2:</value>
+						<value>$principaluri2:</value>
+						<value>$rprincipaluri2:</value>
+						<value>$lprincipaluri2:</value>
+						<value>$gprincipaluri2:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Extended principal-property-search REPORT' ignore='no'>
+
+		<require-feature>
+			<feature>extended-principal-search</feature>
+		</require-feature>
+
+		<test name='1' ignore='no'>
+			<description>Valid INDIVIDUAL first-name AND last-name search report</description>
+			<request print-response='no' user='$useradmin:' pswd='$pswdadmin:'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/21.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>$principaluri_apprentice:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Valid INDIVIDUAL first-name OR last-name search report</description>
+			<request print-response='no' user='$useradmin:' pswd='$pswdadmin:'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/22.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>$principaluri_admin:</value>
+						<value>$principaluri_apprentice:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>Valid ROOM displayname search report</description>
+			<request print-response='no' user='$useradmin:' pswd='$pswdadmin:'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/23.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>$lprincipaluri3:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Valid RESOURCE displayname search report</description>
+			<request print-response='no' user='$useradmin:' pswd='$pswdadmin:'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/24.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>$rprincipaluri3:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>Valid INDIVIDUAL first-name OR last-name search report - limit 1</description>
+			<request print-response='no' user='$useradmin:' pswd='$pswdadmin:'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/25.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>responsecount</name>
+						<value>2</value>
+					</arg>
+					<arg>
+						<name>badhrefs</name>
+						<value>$calendarpath1:/</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>507</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Invalid INDIVIDUAL first-name OR last-name search report - limit bogus</description>
+			<request print-response='no' user='$useradmin:' pswd='$pswdadmin:'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/26.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>Invalid INDIVIDUAL first-name OR last-name search report - limit bogus</description>
+			<request print-response='no' user='$useradmin:' pswd='$pswdadmin:'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/27.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8' ignore='no'>
+			<description>Invalid search report - test attribute bogus</description>
+			<request print-response='no' user='$useradmin:' pswd='$pswdadmin:'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/28.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='9' ignore='no'>
+			<description>Invalid search report - type attribute bogus</description>
+			<request print-response='no' user='$useradmin:' pswd='$pswdadmin:'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/29.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='10' ignore='no'>
+			<description>Invalid search report - caseless attribute bogus</description>
+			<request print-response='no' user='$useradmin:' pswd='$pswdadmin:'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/30.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='11' ignore='no'>
+			<description>Invalid search report - match-type attribute bogus</description>
+			<request print-response='no' user='$useradmin:' pswd='$pswdadmin:'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/31.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='12' ignore='no'>
+			<description>Valid INDIVIDUAL first-name search report - limit 5</description>
+			<request print-response='no' user='$useradmin:' pswd='$pswdadmin:'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/32.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>4</value> <!-- limit - 1 -->
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>507</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='13' ignore='no'>
+			<description>"equals" calendar-user-address-set REPORT</description>
+			<request print-response='no' user='$useradmin:' pswd='$pswdadmin:'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/33.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>$principaluri1:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='14' ignore='no'>
+			<description>Invalid CUA in calendar-user-address-set REPORT</description>
+			<request print-response='no' user='$useradmin:' pswd='$pswdadmin:'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/34.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='principal-search-property-set REPORT' ignore='no'>
+
+		<require-feature>
+			<feature>principal-search-property-set REPORT</feature>
+		</require-feature>
+
+		<test name='1' ignore='no'>
+			<description>Wrong Depth</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$principals_users:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/16.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Wrong Depth</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$principals_users:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>infinity</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/16.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>Report on non-principal collection</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/16.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{DAV:}supported-report</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Valid report</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$principals_users:</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/16.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>dataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/aclreports/18.xml</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='supported-report-set property' ignore='no'>
+
+		<test name='1' ignore='no'>
+			<description>Regular resource</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/17.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>207</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>acl-principal-prop-set</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>principal-match</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>principal-property-search</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>expand-property</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>calendar-query</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>calendar-multiget</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Regular resource</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$principals_users:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/aclreports/17.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>207</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>acl-principal-prop-set</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>principal-match</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>principal-property-search</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>expand-property</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>calendar-query</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>calendar-multiget</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>free-busy-query</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>principal-search-property-set</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<end/>
+	
+</caldavtest>

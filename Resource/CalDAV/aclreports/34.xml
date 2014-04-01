@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<D:principal-property-search xmlns:D="DAV:" xmlns:c="http://calendarserver.org/ns/" xmlns:cd="urn:ietf:params:xml:ns:caldav" test="anyof" type="INDIVIDUAL">
+ <D:apply-to-principal-collection-set/>
+ <D:property-search>
+   <D:prop>
+     <cd:calendar-user-address-set/>
+   </D:prop>
+   <D:match match-type="starts-with">invalid</D:match>
+ </D:property-search>
+ <D:prop>
+   <D:displayname/>
+ </D:prop>
+</D:principal-property-search>

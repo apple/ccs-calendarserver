@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<C:addressbook-multiget xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">
+<D:prop>
+<D:getetag/>
+<C:address-data/>
+</D:prop>
+<D:href>$addressbookpath1:/1.vcf</D:href>
+<D:href>$addressbookpath1:/2.vcf</D:href>
+<D:href>$addressbookpath1:/3.vcf</D:href>
+<D:href>$addressbookpath1:/4.vcf</D:href>
+<D:href>$addressbookpath1:/11.vcf</D:href>
+<D:href>$addressbookpath1:/12.vcf</D:href>
+</C:addressbook-multiget>

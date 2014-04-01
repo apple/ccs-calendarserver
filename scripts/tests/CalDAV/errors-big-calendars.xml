@@ -1,0 +1,100 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest ignore-all="yes">
+	<description>Tests of various pre-/post-conditions with large calendars</description>
+
+	<require-feature>
+		<feature>caldav</feature>
+	</require-feature>
+
+	<start/>
+	
+	<test-suite name='REPORT/too big' ignore='no'>
+		<test name='1'>
+			<description>add one event to make it a 1001 event calendar</description>
+			<request user="$userid9:" pswd="$pswd9:" end-delete="yes" print-response='no'>
+				<method>PUT</method>
+				<ruri>$calendarhome9:/calendar.1000/abc.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/6.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$userid9:" pswd="$pswd9:" print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarhome9:/calendar.1000/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/23.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{DAV:}number-of-matches-within-limits</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>multiget with too many results</description>
+			<request user="$userid9:" pswd="$pswd9:" print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarhome9:/calendar.1000/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/24.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{DAV:}number-of-matches-within-limits</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>free-busy with too many results</description>
+			<request user="$userid9:" pswd="$pswd9:" print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarhome9:/calendar.1000/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/25.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{DAV:}number-of-matches-within-limits</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<end/>
+	
+</caldavtest>

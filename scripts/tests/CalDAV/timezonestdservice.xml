@@ -1,0 +1,1017 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<description>Test standard timezone service</description>
+
+	<require-feature>
+		<feature>caldav</feature>
+		<feature>timezone-std-service</feature>
+	</require-feature>
+
+	<start/>
+	
+	<test-suite name='GET well-known'>
+		<test name='1'>
+			<description>GET on well-known resource</description>
+			<request>
+				<method>GET</method>
+				<ruri>/.well-known/timezone</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>301</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Non-query GET/POST'>
+		<test name='1'>
+			<description>GET on resource</description>
+			<request>
+				<method>GET</method>
+				<ruri>$timezonestdservice:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>200</value>
+						<value>400</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>PROPFIND on resource</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$timezonestdservice:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/propfinds/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>207</value>
+						<value>403</value>
+						<value>405</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>POST on resource</description>
+			<request>
+				<method>POST</method>
+				<ruri>$timezonestdservice:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>200</value>
+						<value>400</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>PUT on resource - fails</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$timezonestdservice:</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/recurrenceput/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+						<value>405</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>DELETE on resource - fails</description>
+			<request>
+				<method>DELETE</method>
+				<ruri>$timezonestdservice:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+						<value>405</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='Query bogus parameters'>
+		<test name='1'>
+			<description>GET on resource - invalid parameter</description>
+			<request>
+				<method>GET</method>
+				<ruri>$timezonestdservice:?query=true</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$invalid-action</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>POST on resource - invalid parameter</description>
+			<request>
+				<method>POST</method>
+				<ruri>$timezonestdservice:?query=true</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$invalid-action</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>GET on resource - invalid action</description>
+			<request>
+				<method>GET</method>
+				<ruri>$timezonestdservice:?action=true</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$invalid-action</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>POST on resource - invalid action</description>
+			<request>
+				<method>POST</method>
+				<ruri>$timezonestdservice:?action=true</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$invalid-action</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>GET on resource - multiple actions</description>
+			<request>
+				<method>GET</method>
+				<ruri>$timezonestdservice:?action=list&amp;action=list</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$invalid-action</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>POST on resource - multiple methods</description>
+			<request>
+				<method>POST</method>
+				<ruri>$timezonestdservice:?action=list&amp;action=list</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$invalid-action</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='Query method=list'>
+		<test name='1'>
+			<description>GET on resource</description>
+			<request>
+				<method>GET</method>
+				<ruri>$timezonestdservice:?action=list</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>/dtstamp</value>
+						<value>/timezones/./tzid~$America/New_York</value>
+						<value>/timezones/./tzid~$America/Phoenix</value>
+						<value>/timezones/./aliases/.~$GB</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>POST on resource</description>
+			<request>
+				<method>POST</method>
+				<ruri>$timezonestdservice:?action=list</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>/dtstamp</value>
+						<value>/timezones/./tzid~$America/New_York</value>
+						<value>/timezones/./tzid~$America/Phoenix</value>
+						<value>/timezones/./aliases/.~$GB</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='Invalid query action=get'>
+		<test name='1'>
+			<description>GET on resource - no tzid</description>
+			<request>
+				<method>GET</method>
+				<ruri>$timezonestdservice:?action=get</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$invalid-tzid</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>POST on resource - no tzid</description>
+			<request>
+				<method>POST</method>
+				<ruri>$timezonestdservice:?action=get</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$invalid-tzid</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>GET on resource - multiple tzid</description>
+			<request>
+				<method>GET</method>
+				<ruri>$timezonestdservice:?action=get&amp;tzid=America/New_York&amp;tzid=America/Los_Angeles</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$invalid-tzid</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>POST on resource - multiple tzid</description>
+			<request>
+				<method>POST</method>
+				<ruri>$timezonestdservice:?action=get&amp;tzid=America/New_York&amp;tzid=America/Los_Angeles</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$invalid-tzid</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>GET on resource - invalid tzid</description>
+			<request>
+				<method>GET</method>
+				<ruri>$timezonestdservice:?action=get&amp;tzid=America/Pittsburgh</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>404</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$tzid-not-found</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>POST on resource - invalid tzid</description>
+			<request>
+				<method>POST</method>
+				<ruri>$timezonestdservice:?action=get&amp;tzid=America/Pittsburgh</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>404</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$tzid-not-found</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='Query action=get'>
+		<test name='1'>
+			<description>GET on resource</description>
+			<request>
+				<method>GET</method>
+				<ruri>$timezonestdservice:?action=get&amp;tzid=America/New_York</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>doTimezones</name>
+						<value>true</value>
+					</arg>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/timezonestdservice/New_York.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>POST on resource</description>
+			<request>
+				<method>POST</method>
+				<ruri>$timezonestdservice:?action=get&amp;tzid=America/New_York</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>doTimezones</name>
+						<value>true</value>
+					</arg>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/timezonestdservice/New_York.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>GET on resource</description>
+			<request>
+				<method>GET</method>
+				<ruri>$timezonestdservice:?action=get&amp;tzid=Europe/London</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>doTimezones</name>
+						<value>true</value>
+					</arg>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/timezonestdservice/London.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>POST on resource</description>
+			<request>
+				<method>POST</method>
+				<ruri>$timezonestdservice:?action=get&amp;tzid=Europe/London</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>doTimezones</name>
+						<value>true</value>
+					</arg>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/timezonestdservice/London.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>GET on resource</description>
+			<request>
+				<method>GET</method>
+				<ruri>$timezonestdservice:?action=get&amp;tzid=GB</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>doTimezones</name>
+						<value>true</value>
+					</arg>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/timezonestdservice/GB.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>POST on resource</description>
+			<request>
+				<method>POST</method>
+				<ruri>$timezonestdservice:?action=get&amp;tzid=GB</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>doTimezones</name>
+						<value>true</value>
+					</arg>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/timezonestdservice/GB.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='Invalid query action=expand'>
+		<test name='1'>
+			<description>GET on resource - no tzid</description>
+			<request>
+				<method>GET</method>
+				<ruri>$timezonestdservice:?action=expand</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$invalid-tzid</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>POST on resource - no tzid</description>
+			<request>
+				<method>POST</method>
+				<ruri>$timezonestdservice:?action=expand</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$invalid-tzid</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>GET on resource - multiple tzid</description>
+			<request>
+				<method>GET</method>
+				<ruri>$timezonestdservice:?action=expand&amp;tzid=America/New_York&amp;tzid=America/Los_Angeles</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$invalid-tzid</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>POST on resource - multiple tzid</description>
+			<request>
+				<method>POST</method>
+				<ruri>$timezonestdservice:?action=expand&amp;tzid=America/New_York&amp;tzid=America/Los_Angeles</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$invalid-tzid</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>GET on resource - invalid tzid</description>
+			<request>
+				<method>GET</method>
+				<ruri>$timezonestdservice:?action=expand&amp;tzid=America/Pittsburgh</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>404</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$tzid-not-found</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>POST on resource - invalid tzid</description>
+			<request>
+				<method>POST</method>
+				<ruri>$timezonestdservice:?action=expand&amp;tzid=America/Pittsburgh</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>404</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$tzid-not-found</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='7'>
+			<description>GET on resource - too many start</description>
+			<request>
+				<method>GET</method>
+				<ruri>$timezonestdservice:?action=expand&amp;tzid=America/New_York&amp;start=2008&amp;start=2009</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$invalid-start</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8'>
+			<description>POST on resource - too many start</description>
+			<request>
+				<method>POST</method>
+				<ruri>$timezonestdservice:?action=expand&amp;tzid=America/New_York&amp;start=2008&amp;start=2009</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$invalid-start</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='9'>
+			<description>GET on resource - invalid start</description>
+			<request>
+				<method>GET</method>
+				<ruri>$timezonestdservice:?action=expand&amp;tzid=America/New_York&amp;start=20070101</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$invalid-start</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='10'>
+			<description>POST on resource - invalid start</description>
+			<request>
+				<method>POST</method>
+				<ruri>$timezonestdservice:?action=expand&amp;tzid=America/New_York&amp;start=20070101</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$invalid-start</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='11'>
+			<description>GET on resource - too many end</description>
+			<request>
+				<method>GET</method>
+				<ruri>$timezonestdservice:?action=expand&amp;tzid=America/New_York&amp;start=2008&amp;end=2009&amp;end=2009</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$invalid-end</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='12'>
+			<description>POST on resource - too many end</description>
+			<request>
+				<method>POST</method>
+				<ruri>$timezonestdservice:?action=expand&amp;tzid=America/New_York&amp;start=2008&amp;end=2009&amp;end=2009</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$invalid-end</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='13'>
+			<description>GET on resource - invalid end</description>
+			<request>
+				<method>GET</method>
+				<ruri>$timezonestdservice:?action=expand&amp;tzid=America/New_York&amp;start=2008&amp;end=20090101</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$invalid-end</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='14'>
+			<description>POST on resource - invalid end</description>
+			<request>
+				<method>POST</method>
+				<ruri>$timezonestdservice:?action=expand&amp;tzid=America/New_York&amp;start=2008&amp;end=20090101</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$invalid-end</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='15'>
+			<description>GET on resource - start > end</description>
+			<request>
+				<method>GET</method>
+				<ruri>$timezonestdservice:?action=expand&amp;tzid=America/New_York&amp;start=2009&amp;end=2008</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$invalid-end</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='16'>
+			<description>POST on resource - start > end</description>
+			<request>
+				<method>POST</method>
+				<ruri>$timezonestdservice:?action=expand&amp;tzid=America/New_York&amp;start=2009&amp;end=2008</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$invalid-end</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='17'>
+			<description>GET on resource - start == end</description>
+			<request>
+				<method>GET</method>
+				<ruri>$timezonestdservice:?action=expand&amp;tzid=America/New_York&amp;start=2008&amp;end=2008</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$invalid-end</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='18'>
+			<description>POST on resource - start == end</description>
+			<request>
+				<method>POST</method>
+				<ruri>$timezonestdservice:?action=expand&amp;tzid=America/New_York&amp;start=2008&amp;end=2008</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>/error~$invalid-end</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name="Expand">
+		<test name='1'>
+			<description>GET on resource - simple range</description>
+			<request>
+				<method>GET</method>
+				<ruri>$timezonestdservice:?action=expand&amp;tzid=America/New_York&amp;start=2008&amp;end=2009</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>/dtstamp</value>
+						<value>/observances/./onset~$2008-01-01T00:00:00</value>
+						<value>/observances/./onset~$2008-03-09T02:00:00</value>
+						<value>/observances/./onset~$2008-11-02T02:00:00</value>
+						<value>/observances/./utc-offset-from~$-18000</value>
+						<value>/observances/./utc-offset-to~$-18000</value>
+						<value>/observances/./utc-offset-from~$-14400</value>
+						<value>/observances/./utc-offset-to~$-14400</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>POST on resource - simple range</description>
+			<request>
+				<method>POST</method>
+				<ruri>$timezonestdservice:?action=expand&amp;tzid=America/New_York&amp;start=2008&amp;end=2009</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>/dtstamp</value>
+						<value>/observances/./onset~$2008-01-01T00:00:00</value>
+						<value>/observances/./onset~$2008-03-09T02:00:00</value>
+						<value>/observances/./onset~$2008-11-02T02:00:00</value>
+						<value>/observances/./utc-offset-from~$-18000</value>
+						<value>/observances/./utc-offset-to~$-18000</value>
+						<value>/observances/./utc-offset-from~$-14400</value>
+						<value>/observances/./utc-offset-to~$-14400</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>GET on resource - complex range</description>
+			<request>
+				<method>GET</method>
+				<ruri>$timezonestdservice:?action=expand&amp;tzid=America/New_York&amp;start=2006&amp;end=2008</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>/dtstamp</value>
+						<value>/observances/./onset~$2006-01-01T00:00:00</value>
+						<value>/observances/./onset~$2006-04-02T02:00:00</value>
+						<value>/observances/./onset~$2006-10-29T02:00:00</value>
+						<value>/observances/./onset~$2007-03-11T02:00:00</value>
+						<value>/observances/./onset~$2007-11-04T02:00:00</value>
+						<value>/observances/./utc-offset-from~$-18000</value>
+						<value>/observances/./utc-offset-to~$-18000</value>
+						<value>/observances/./utc-offset-from~$-14400</value>
+						<value>/observances/./utc-offset-to~$-14400</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>POST on resource - complex range</description>
+			<request>
+				<method>POST</method>
+				<ruri>$timezonestdservice:?action=expand&amp;tzid=America/New_York&amp;start=2006&amp;end=2008</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>/dtstamp</value>
+						<value>/observances/./onset~$2006-01-01T00:00:00</value>
+						<value>/observances/./onset~$2006-04-02T02:00:00</value>
+						<value>/observances/./onset~$2006-10-29T02:00:00</value>
+						<value>/observances/./onset~$2007-03-11T02:00:00</value>
+						<value>/observances/./onset~$2007-11-04T02:00:00</value>
+						<value>/observances/./utc-offset-from~$-18000</value>
+						<value>/observances/./utc-offset-to~$-18000</value>
+						<value>/observances/./utc-offset-from~$-14400</value>
+						<value>/observances/./utc-offset-to~$-14400</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>GET on resource - no DST</description>
+			<request>
+				<method>GET</method>
+				<ruri>$timezonestdservice:?action=expand&amp;tzid=America/Phoenix&amp;start=2006&amp;end=2009</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>2006-01-01T00:00:00</value>
+						<value>-25200</value>
+					</arg>
+					<arg>
+						<name>notcontains</name>
+						<value>2007</value>
+						<value>2008</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>POST on resource - start == end</description>
+			<request>
+				<method>POST</method>
+				<ruri>$timezonestdservice:?action=expand&amp;tzid=America/Phoenix&amp;start=2006&amp;end=2009</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>2006-01-01T00:00:00</value>
+						<value>-25200</value>
+					</arg>
+					<arg>
+						<name>notcontains</name>
+						<value>2007</value>
+						<value>2008</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='7'>
+			<description>POST on resource trailing slash - simple range</description>
+			<request>
+				<method>POST</method>
+				<ruri>$timezonestdservice:/?action=expand&amp;tzid=America/New_York&amp;start=2008&amp;end=2009</ruri>
+				<verify>
+					<callback>jsonPointerMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>/dtstamp</value>
+						<value>/observances/./onset~$2008-01-01T00:00:00</value>
+						<value>/observances/./onset~$2008-03-09T02:00:00</value>
+						<value>/observances/./onset~$2008-11-02T02:00:00</value>
+						<value>/observances/./utc-offset-from~$-18000</value>
+						<value>/observances/./utc-offset-to~$-18000</value>
+						<value>/observances/./utc-offset-from~$-14400</value>
+						<value>/observances/./utc-offset-to~$-14400</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<end/>
+	
+</caldavtest>

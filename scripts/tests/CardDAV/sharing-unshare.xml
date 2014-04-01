@@ -1,0 +1,2273 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<description>Test addressbook sharing unshare/delete behavior</description>
+
+	<require-feature>
+		<feature>carddav</feature>
+		<feature>shared-addressbooks</feature>
+	</require-feature>
+
+	<start>
+		<request user="$useradmin:" pswd="$pswdadmin:">
+			<method>DELETEALL</method>
+			<ruri>$addressbookhome1:/</ruri>
+			<ruri>$addressbookhome2:/</ruri>
+			<ruri>$notificationpath1:/</ruri>
+			<ruri>$notificationpath2:/</ruri>
+		</request>
+	</start>
+	
+	<test-suite name='share addressbook, sharee decline' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>POST invitation</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/8.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Check Sharee notification collection</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath2:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/9.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>DELETE</method>
+				<ruri>$notificationpath2:/$inviteuid:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Sharee replies ACCEPTED</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookhome2:/</ruri>
+				<data substitutions='yes'>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/7.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{DAV:}href</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{DAV:}href</name>
+					<variable>$shareeaddressbook:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Check accept status</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$addressbookpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/10.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Check Sharer notification collection</description>
+			<request>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/6.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+					</arg>
+				</verify>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Sharee replies DECLINED</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookhome2:/</ruri>
+				<data substitutions='yes'>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/unshare/shareedecline/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>No more shared addressbook</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$shareeaddressbook:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/resourcetype.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>404</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8'>
+			<description>Check Sharer notification collection</description>
+			<request>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/unshare/shareedecline/1.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+					</arg>
+				</verify>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='reshare addressbook, sharee delete' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>POST invitation</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/8.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Check Sharee notification collection</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath2:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/9.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>DELETE</method>
+				<ruri>$notificationpath2:/$inviteuid:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Sharee replies ACCEPTED</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookhome2:/</ruri>
+				<data substitutions='yes'>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/7.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{DAV:}href</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{DAV:}href</name>
+					<variable>$shareeaddressbook:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Check accept status</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$addressbookpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/10.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Check Sharer notification collection</description>
+			<request>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/6.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+					</arg>
+				</verify>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Sharee deletes shared addressbook</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>DELETE</method>
+				<ruri>$shareeaddressbook:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>infinity</value>
+				</header>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>No more shared addressbook</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$shareeaddressbook:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/resourcetype.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>404</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8'>
+			<description>Check Sharer notification collection</description>
+			<request>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/unshare/shareedecline/1.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+					</arg>
+				</verify>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='reshare addressbook, sharee delete addressbook group' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>POST invitation</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/8.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Check Sharee notification collection</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath2:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/9.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>DELETE</method>
+				<ruri>$notificationpath2:/$inviteuid:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Sharee replies ACCEPTED</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookhome2:/</ruri>
+				<data substitutions='yes'>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/7.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{DAV:}href</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{DAV:}href</name>
+					<variable>$shareeaddressbook:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Check accept status</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$addressbookpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/10.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Check Sharer notification collection</description>
+			<request>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/6.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+					</arg>
+				</verify>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Sharee deletes shared addressbook</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>DELETE</method>
+				<ruri>$shareeaddressbook:/addressbook.vcf</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>No more shared addressbook</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$shareeaddressbook:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/resourcetype.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>404</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8'>
+			<description>Check Sharer notification collection</description>
+			<request>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/unshare/shareedecline/1.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+					</arg>
+				</verify>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='reshare addressbook, sharer uninvite' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>POST invitation</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/8.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Check Sharee notification collection</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath2:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/9.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>DELETE</method>
+				<ruri>$notificationpath2:/$inviteuid:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Sharee replies ACCEPTED</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookhome2:/</ruri>
+				<data substitutions='yes'>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/7.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{DAV:}href</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{DAV:}href</name>
+					<variable>$shareeaddressbook:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Check accept status</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$addressbookpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/10.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Check Sharer notification collection</description>
+			<request>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/6.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+					</arg>
+				</verify>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>POST uninvitation</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/unshare/shareruninvite/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>No more shared addressbook</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$shareeaddressbook:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/resourcetype.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>404</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8'>
+			<description>Check Sharee notification collection</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath2:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/unshare/shareruninvite/2.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>DELETE</method>
+				<ruri>$notificationpath2:/$inviteuid:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='reshare addressbook, sharer delete' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>POST invitation</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/8.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Check Sharee notification collection</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath2:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/9.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>DELETE</method>
+				<ruri>$notificationpath2:/$inviteuid:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Sharee replies ACCEPTED</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookhome2:/</ruri>
+				<data substitutions='yes'>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/7.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{DAV:}href</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{DAV:}href</name>
+					<variable>$shareeaddressbook:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Check accept status</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$addressbookpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/10.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Check Sharer notification collection</description>
+			<request>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/6.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+					</arg>
+				</verify>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>sharer deletes address book</description>
+			<request print-response='no'>
+				<method>DELETE</method>
+				<ruri>$addressbookpath1:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>No more shared addressbook</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$shareeaddressbook:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/resourcetype.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>404</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8'>
+			<description>Check Sharee notification collection</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath2:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/unshare/shareruninvite/2.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>DELETE</method>
+				<ruri>$notificationpath2:/$inviteuid:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='create and share group, sharee decline' ignore='no'>
+		<test name='0' ignore='no'>
+			<description>cleanup and initialize</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<ruri>$addressbookhome2:/</ruri>
+				<ruri>$notificationpath1:/</ruri>
+				<ruri>$notificationpath2:/</ruri>
+			</request>
+			<request user="$userid1:" pswd="$pswd1:">
+				<method>PUT</method>
+				<ruri>$addressbookpath1:/1.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/setup/1.vcf</filepath>
+				</data>
+			</request>
+			<request user="$userid1:" pswd="$pswd1:">
+				<method>PUT</method>
+				<ruri>$addressbookpath1:/2.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/setup/2.vcf</filepath>
+				</data>
+			</request>
+			<request user="$userid1:" pswd="$pswd1:">
+				<method>PUT</method>
+				<ruri>$addressbookpath1:/3.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/setup/3.vcf</filepath>
+				</data>
+			</request>
+			<request user="$userid1:" pswd="$pswd1:">
+				<method>PUT</method>
+				<ruri>$addressbookpath1:/g123.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/setup/g123.vcf</filepath>
+				</data>
+			</request>
+		</test>
+
+		<test name='1' ignore='no'>
+			<description>POST invitation</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookpath1:/g123.vcf</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/11.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Check Sharee notification collection</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath2:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/12.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>DELETE</method>
+				<ruri>$notificationpath2:/$inviteuid:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Sharee replies ACCEPTED</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookhome2:/</ruri>
+				<data substitutions='yes'>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/13.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/7.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{DAV:}href</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{DAV:}href</name>
+					<variable>$shareegroup:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Check accept status</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$addressbookpath1:/g123.vcf</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/14.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Check Sharer notification collection</description>
+			<request>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/15.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+					</arg>
+				</verify>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Sharee replies DECLINED</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookhome2:/</ruri>
+				<data substitutions='yes'>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/unshare/shareedecline/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>No more shared addressbook</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome2:/$userguid1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/resourcetype.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>404</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8'>
+			<description>Check Sharer notification collection</description>
+			<request>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/unshare/shareedecline/3.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+					</arg>
+				</verify>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>	
+
+	<test-suite name='reshare group, sharee delete addressbook' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>POST invitation</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookpath1:/g123.vcf</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/11.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Check Sharee notification collection</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath2:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/12.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>DELETE</method>
+				<ruri>$notificationpath2:/$inviteuid:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Sharee replies ACCEPTED</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookhome2:/</ruri>
+				<data substitutions='yes'>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/13.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/7.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{DAV:}href</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{DAV:}href</name>
+					<variable>$shareegroup:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Check accept status</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$addressbookpath1:/g123.vcf</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/14.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Check Sharer notification collection</description>
+			<request>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/15.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+					</arg>
+				</verify>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Sharee deletes shared addressbook</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>DELETE</method>
+				<ruri>$addressbookhome2:/$userguid1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>infinity</value>
+				</header>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>No more shared addressbook</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome2:/$userguid1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/resourcetype.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>404</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8'>
+			<description>Check Sharer notification collection</description>
+			<request>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/unshare/shareedecline/3.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+					</arg>
+				</verify>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>	
+
+	<test-suite name='rehare group, sharee delete group' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>POST invitation</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookpath1:/g123.vcf</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/11.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Check Sharee notification collection</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath2:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/12.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>DELETE</method>
+				<ruri>$notificationpath2:/$inviteuid:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Sharee replies ACCEPTED</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookhome2:/</ruri>
+				<data substitutions='yes'>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/13.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/7.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{DAV:}href</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{DAV:}href</name>
+					<variable>$shareegroup:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Check accept status</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$addressbookpath1:/g123.vcf</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/14.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Check Sharer notification collection</description>
+			<request>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/15.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+					</arg>
+				</verify>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Sharee deletes shared group</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>DELETE</method>
+				<ruri>$shareegroup:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>infinity</value>
+				</header>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>No more shared addressbook</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome2:/$userguid1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/resourcetype.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>404</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8'>
+			<description>Check Sharer notification collection</description>
+			<request>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/unshare/shareedecline/3.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+					</arg>
+				</verify>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>	
+
+	<test-suite name='reshare group, sharer uninvite' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>POST invitation</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookpath1:/g123.vcf</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/11.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Check Sharee notification collection</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath2:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/12.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>DELETE</method>
+				<ruri>$notificationpath2:/$inviteuid:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Sharee replies ACCEPTED</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookhome2:/</ruri>
+				<data substitutions='yes'>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/13.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/7.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{DAV:}href</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{DAV:}href</name>
+					<variable>$shareegroup:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Check accept status</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$addressbookpath1:/g123.vcf</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/14.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Check Sharer notification collection</description>
+			<request>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/15.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+					</arg>
+				</verify>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Sharee replies DECLINED</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookhome2:/</ruri>
+				<data substitutions='yes'>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/unshare/shareedecline/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>No more shared addressbook</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome2:/$userguid1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/resourcetype.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>404</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8'>
+			<description>Check Sharer notification collection</description>
+			<request>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/unshare/shareedecline/3.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+					</arg>
+				</verify>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>	
+
+	<test-suite name='reshare group, sharer delete group' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>POST invitation</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookpath1:/g123.vcf</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/11.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Check Sharee notification collection</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath2:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/12.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>DELETE</method>
+				<ruri>$notificationpath2:/$inviteuid:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Sharee replies ACCEPTED</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookhome2:/</ruri>
+				<data substitutions='yes'>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/13.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/7.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{DAV:}href</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{DAV:}href</name>
+					<variable>$shareegroup:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Check accept status</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$addressbookpath1:/g123.vcf</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/14.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Check Sharer notification collection</description>
+			<request>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/15.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+					</arg>
+				</verify>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>sharer deletes address book</description>
+			<request print-response='no'>
+				<method>DELETE</method>
+				<ruri>$addressbookpath1:/g123.vcf</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>No more shared addressbook</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome2:/$userguid1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/resourcetype.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>404</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8'>
+			<description>Check Sharee notification collection</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath2:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/unshare/shareruninvite/3.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>DELETE</method>
+				<ruri>$notificationpath2:/$inviteuid:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>	
+
+	<test-suite name='recreate and share group, sharer delete addressbook' ignore='no'>
+		<test name='0' ignore='no'>
+			<request user="$userid1:" pswd="$pswd1:">
+				<method>PUT</method>
+				<ruri>$addressbookpath1:/g123.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/setup/g123.vcf</filepath>
+				</data>
+			</request>
+		</test>
+
+		<test name='1' ignore='no'>
+			<description>POST invitation</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookpath1:/g123.vcf</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/11.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Check Sharee notification collection</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath2:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/12.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>DELETE</method>
+				<ruri>$notificationpath2:/$inviteuid:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Sharee replies ACCEPTED</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookhome2:/</ruri>
+				<data substitutions='yes'>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/13.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/7.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{DAV:}href</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{DAV:}href</name>
+					<variable>$shareegroup:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Check accept status</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$addressbookpath1:/g123.vcf</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/14.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Check Sharer notification collection</description>
+			<request>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/15.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+					</arg>
+				</verify>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>sharer deletes address book</description>
+			<request print-response='no'>
+				<method>DELETE</method>
+				<ruri>$addressbookpath1:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>No more shared addressbook</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome2:/$userguid1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/resourcetype.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>404</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8'>
+			<description>Check Sharee notification collection</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath2:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/unshare/shareruninvite/3.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>DELETE</method>
+				<ruri>$notificationpath2:/$inviteuid:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>	
+	<end>
+		<request user="$useradmin:" pswd="$pswdadmin:">
+			<method>DELETEALL</method>
+			<ruri>$addressbookhome1:/</ruri>
+			<ruri>$addressbookhome2:/</ruri>
+			<ruri>$notificationpath1:/</ruri>
+			<ruri>$notificationpath2:/</ruri>
+		</request>
+	</end>
+
+</caldavtest>

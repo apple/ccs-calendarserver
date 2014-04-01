@@ -1,0 +1,121 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest ignore-all="no">
+	<description>Test Quota support on the server</description>
+
+	<require-feature>
+		<feature>caldav</feature>
+		<feature>limits</feature>
+	</require-feature>
+
+	<start/>
+	
+	<test-suite name='Limits in properties' ignore='no'>
+		<test name='1'>
+			<description>max-collections property</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/max-collections.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{http://calendarserver.org/ns/}max-collections[=50]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>max-resources property</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$addressbookpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/max-resources.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{http://calendarserver.org/ns/}max-resources[=10000]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+<!--
+	<test-suite name='Collection limit' ignore='yes'>
+		<test name='1' count='49' ignore='no'>
+			<description>Create collections to one below the limit</description>
+			<request end-delete='yes' print-response='no'>
+				<method>MKCOL</method>
+				<ruri>$addressbookhome1:/adbktest-##/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/mkcol/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>201</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Create collections to one below the limit</description>
+			<request print-response='no'>
+				<method>MKCOL</method>
+				<ruri>$addressbookhome1:/adbktest-50/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/mkcol/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{http://calendarserver.org/ns/}max-collections</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+-->
+
+	<end/>
+	
+</caldavtest>

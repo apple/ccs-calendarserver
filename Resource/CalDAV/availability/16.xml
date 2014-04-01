@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<D:propertyupdate xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+<D:set>
+<D:prop>
+<CS:calendar-availability>This is not a calendar!</CS:calendar-availability>
+</D:prop>
+</D:set>
+</D:propertyupdate>

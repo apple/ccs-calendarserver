@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<D:acl xmlns:D="DAV:">
+	<D:ace>
+		<D:principal>
+			<D:href>$principaluri2:/xyz</D:href>
+		</D:principal>
+		<D:grant>
+			<D:privilege><D:read/></D:privilege>
+		</D:grant>
+	</D:ace>
+</D:acl>

@@ -1,0 +1,724 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<description>Test implicit scheduling for auto-accept location, not recurring</description>
+
+	<require-feature>
+		<feature>caldav</feature>
+		<feature>auto-accept</feature>
+		<feature>implicit-scheduling</feature>
+	</require-feature>
+
+	<start/>
+	
+	<test-suite name='#1 Recurring Master' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>Create new event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/auto2/suite1/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>One item in user01 Inbox</description>
+			<request print-response="no">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>One item in user01 Calendar</description>
+			<request print-response="no">
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/auto2/suite1/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>No items in resource01 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$rinboxpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/auto2/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>One item in resource01 Calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>GETNEW</method>
+				<ruri>$rcalendarpath1:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/auto2/suite1/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Clean-up inboxes</description>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$rinboxpath1:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='#2 Modify one instance' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>Update event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/auto2/suite2/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>One item in user01 Inbox</description>
+			<request print-response="no">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>One item in user01 Calendar</description>
+			<request print-response="no">
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/auto2/suite2/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>No items in resource01 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$rinboxpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/auto2/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>One item in resource01 Calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>GETNEW</method>
+				<ruri>$rcalendarpath1:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/auto2/suite2/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Clean-up inboxes</description>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$rinboxpath1:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='#3 Modify two instances' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>Update event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/auto2/suite3/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>One item in user01 Inbox</description>
+			<request print-response="no">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>One item in user01 Calendar</description>
+			<request print-response="no">
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/auto2/suite3/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>No items in resource01 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$rinboxpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/auto2/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>One item in resource01 Calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>GETNEW</method>
+				<ruri>$rcalendarpath1:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/auto2/suite3/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Clean-up inboxes</description>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$rinboxpath1:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='#4 Recurring - one instance' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>Create new event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/2.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/auto2/suite4/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>One item in user01 Inbox</description>
+			<request print-response="no">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>One item in user01 Calendar</description>
+			<request print-response="no">
+				<method>GET</method>
+				<ruri>$calendarpath1:/2.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/auto2/suite4/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>No items in resource01 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$rinboxpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/auto2/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>One item in resource01 Calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>GETNEW</method>
+				<ruri>$rcalendarpath1:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/auto2/suite4/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Clean-up inboxes</description>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$rinboxpath1:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='#5 Recurring - add another instance' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>Create new event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/2.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/auto2/suite5/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>One item in user01 Inbox</description>
+			<request print-response="no">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>One item in user01 Calendar</description>
+			<request print-response="no">
+				<method>GET</method>
+				<ruri>$calendarpath1:/2.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/auto2/suite5/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>No items in resource01 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$rinboxpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/auto2/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>One item in resource01 Calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>GETNEW</method>
+				<ruri>$rcalendarpath1:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/auto2/suite5/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Clean-up inboxes</description>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$rinboxpath1:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='#6 Recurring - update instance with conflict' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>Create new event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/2.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/auto2/suite6/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>One item in user01 Inbox</description>
+			<request print-response="no">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>One item in user01 Calendar</description>
+			<request print-response="no">
+				<method>GET</method>
+				<ruri>$calendarpath1:/2.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/auto2/suite6/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>No items in resource01 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$rinboxpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/auto2/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>One item in resource01 Calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>GETNEW</method>
+				<ruri>$rcalendarpath1:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/auto2/suite6/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Clean-up inboxes</description>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$rinboxpath1:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='#7 Recurring Master - one exdate' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>Create new event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/3.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/auto2/suite7/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>One item in user01 Inbox</description>
+			<request print-response="no">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>One item in user01 Calendar</description>
+			<request print-response="no">
+				<method>GET</method>
+				<ruri>$calendarpath1:/3.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/auto2/suite7/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>No items in resource01 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$rinboxpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/auto2/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>One item in resource01 Calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>GETNEW</method>
+				<ruri>$rcalendarpath1:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/auto2/suite7/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Clean-up inboxes</description>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$rinboxpath1:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='#8 Recurring Master - another exdate' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>Create new event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/3.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/auto2/suite8/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>One item in user01 Inbox</description>
+			<request print-response="no">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>One item in user01 Calendar</description>
+			<request print-response="no">
+				<method>GET</method>
+				<ruri>$calendarpath1:/3.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/auto2/suite8/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>No items in resource01 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$rinboxpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/auto2/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>One item in resource01 Calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>GETNEW</method>
+				<ruri>$rcalendarpath1:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/auto2/suite8/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Clean-up inboxes</description>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$rinboxpath1:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+	
+	<end>
+		<request>
+			<method>DELETEALL</method>
+			<ruri>$inboxpath1:/</ruri>
+			<ruri>$calendarpath1:/</ruri>
+		</request>
+		<request user="$useradmin:" pswd="$pswdadmin:">
+			<method>WAITCOUNT 0</method>
+			<ruri>$rcalendarpath1:/</ruri>
+		</request>
+	</end>
+	
+</caldavtest>

@@ -1,0 +1,11 @@
+BEGIN:VCARD
+VERSION:3.0
+N:Picture;With;;;
+FN:With Picture
+EMAIL;type=INTERNET;type=WORK;type=pref:withpicture@example.com
+TEL;type=WORK;type=pref:777-777-7777
+TEL;type=CELL:8888888888
+item1.ADR;type=WORK;type=pref:;;1234 Golly Street;Sunnyside;CA;99999;USA
+item1.X-ABADR:us
+UID:934731C6-1C95-4C40-BE1F-FA4215B2307B
+END:VCARD

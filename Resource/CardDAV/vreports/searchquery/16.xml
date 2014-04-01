@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" ?>
+   <C:addressbook-query xmlns:D="DAV:"
+                     xmlns:C="urn:ietf:params:xml:ns:carddav">
+     <D:prop>
+       <C:address-data/>
+     </D:prop>
+     <C:filter test="allof">
+       <C:prop-filter name="KIND">
+         <C:text-match collation="i;unicode-casemap"
+                       match-type="equals"
+         >group</C:text-match>
+       </C:prop-filter>
+       <C:prop-filter name="X-ADDRESSBOOKSERVER-MEMBER">
+         <C:text-match collation="i;unicode-casemap"
+                       match-type="contains"
+         >group</C:text-match>
+       </C:prop-filter>
+     </C:filter>
+   </C:addressbook-query>

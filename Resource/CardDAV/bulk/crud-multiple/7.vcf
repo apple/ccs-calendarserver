@@ -1,0 +1,10 @@
+BEGIN:VCARD
+VERSION:3.0
+N:01;User;;;
+FN:User 01
+EMAIL;type=INTERNET;type=WORK;type=pref:user01@example.com
+TEL;type=WORK;type=pref:1-555-555-5555
+TEL;type=CELL:1-444-444-4444
+ADR;type=WORK;type=pref:;;1245-2 Test;Sesame Street;California;11111;USA
+UID:user01-uid01
+END:VCARD

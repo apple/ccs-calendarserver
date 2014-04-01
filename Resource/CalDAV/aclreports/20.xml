@@ -1,0 +1,53 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<multistatus xmlns='DAV:'>
+  <response>
+    <href>$principals_users:</href>
+    <propstat>
+      <prop>
+        <supported-report-set>
+          <supported-report>
+            <report>
+              <acl-principal-prop-set/>
+            </report>
+          </supported-report>
+          <supported-report>
+            <report>
+              <principal-match/>
+            </report>
+          </supported-report>
+          <supported-report>
+            <report>
+              <principal-property-search/>
+            </report>
+          </supported-report>
+          <supported-report>
+            <report>
+              <expand-property/>
+            </report>
+          </supported-report>
+          <supported-report>
+            <report>
+              <calendar-query xmlns='urn:ietf:params:xml:ns:caldav'/>
+            </report>
+          </supported-report>
+          <supported-report>
+            <report>
+              <calendar-multiget xmlns='urn:ietf:params:xml:ns:caldav'/>
+            </report>
+          </supported-report>
+          <supported-report>
+            <report>
+              <free-busy-query xmlns='urn:ietf:params:xml:ns:caldav'/>
+            </report>
+          </supported-report>
+          <supported-report>
+            <report>
+              <principal-search-property-set/>
+            </report>
+          </supported-report>
+        </supported-report-set>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+  </response>
+</multistatus>

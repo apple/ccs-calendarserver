@@ -1,0 +1,636 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<description>Test sharing address books</description>
+
+	<require-feature>
+		<feature>carddav</feature>
+		<feature>shared-addressbooks</feature>
+	</require-feature>
+
+	<start>
+		<request user="$useradmin:" pswd="$pswdadmin:">
+			<method>DELETEALL</method>
+			<ruri>$addressbookhome1:/</ruri>
+			<ruri>$addressbookhome2:/</ruri>
+			<ruri>$notificationpath1:/</ruri>
+			<ruri>$notificationpath2:/</ruri>
+		</request>
+	</start>
+	
+	<test-suite name='Read-write address book' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>POST invitation</description>
+			<request print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/addressbooks/read-write/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Check sharee notification collection for and get invite uid </description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>GETNEW</method>
+				<ruri>$notificationpath2:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/addressbooks/read-write/2.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>Sharee replies ACCEPTED</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookhome2:/</ruri>
+				<data substitutions="yes">
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/addressbooks/read-write/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<grabelement>
+					<name>{DAV:}href</name>
+					<variable>$sharedaddressbook:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Shared address book exists</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$sharedaddressbook:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/addressbooks/read-write/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}owner/{DAV:}href[=$principaluri1:]</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{DAV:}collection</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{urn:ietf:params:xml:ns:carddav}addressbook</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{http://calendarserver.org/ns/}shared</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}read</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}write</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}bind</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}unbind</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}admin</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}all</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>Shared address book exists Depth:1</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome2:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/addressbooks/read-write/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>parent</name>
+						<value>$multistatus-response-prefix:[^{DAV:}href=$sharedaddressbook:/]</value>
+					</arg>
+					<arg>
+						<name>exists</name>
+						<value>$verify-response-prefix:/{DAV:}owner/{DAV:}href[=$principaluri1:]</value>
+						<value>$verify-response-prefix:/{DAV:}resourcetype/{DAV:}collection</value>
+						<value>$verify-response-prefix:/{DAV:}resourcetype/{urn:ietf:params:xml:ns:carddav}addressbook</value>
+						<value>$verify-response-prefix:/{DAV:}resourcetype/{http://calendarserver.org/ns/}shared</value>
+						<value>$verify-response-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}read</value>
+						<value>$verify-response-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}write</value>
+						<value>$verify-response-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}bind</value>
+						<value>$verify-response-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}unbind</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}admin</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}all</value>
+					</arg>
+				</verify>
+			</request>
+		</test><test name='6' ignore='no'>
+			<description>Sharee creates vcard</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>PUT</method>
+				<ruri>$sharedaddressbook:/1.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/addressbooks/read-write/5.vcf</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>Sharer sees vcard</description>
+			<request print-response="no">
+				<method>GET</method>
+				<ruri>$addressbookpath1:/1.vcf</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/addressbooks/read-write/5.vcf</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8' ignore='no'>
+			<description>Sharer changes vcard</description>
+			<request print-response="no">
+				<method>PUT</method>
+				<ruri>$addressbookpath1:/1.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/addressbooks/read-write/6.vcf</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='9' ignore='no'>
+			<description>Sharee sees changed vcard</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>GET</method>
+				<ruri>$sharedaddressbook:/1.vcf</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/addressbooks/read-write/6.vcf</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='10' ignore='no'>
+			<description>Sharer creates vcard</description>
+			<request print-response="no">
+				<method>PUT</method>
+				<ruri>$addressbookpath1:/2.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/addressbooks/read-write/7.vcf</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='11' ignore='no'>
+			<description>Sharee sees new vcard</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>GET</method>
+				<ruri>$sharedaddressbook:/2.vcf</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/addressbooks/read-write/7.vcf</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='12' ignore='no'>
+			<description>Sharee changes vcard</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>PUT</method>
+				<ruri>$sharedaddressbook:/2.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/addressbooks/read-write/8.vcf</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='13' ignore='no'>
+			<description>Sharer sees changed event</description>
+			<request print-response="no">
+				<method>GET</method>
+				<ruri>$addressbookpath1:/2.vcf</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/addressbooks/read-write/8.vcf</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='14' ignore='no'>
+			<description>Sharee sees group for shared address book</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>GET</method>
+				<ruri>$sharedaddressbook:/addressbook.vcf</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/addressbooks/read-write/9.vcf</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>UID</value>
+						<value>N</value>
+						<value>FN</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='Shared address book cannot be default address' ignore='no'>
+		<require-feature>
+			<feature>default-addressbook</feature>
+		</require-feature>
+		<test name='1'>
+			<description>Set property on home</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>PROPPATCH</method>
+				<ruri>$addressbookhome2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/addressbooks/defaultaddressbook/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>badprops</name>
+						<value>{urn:ietf:params:xml:ns:carddav}default-addressbook-URL</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Verify property on home</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome2:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/addressbooks/defaultaddressbook/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value><![CDATA[{urn:ietf:params:xml:ns:carddav}default-addressbook-URL$<href xmlns="DAV:">$addressbookpath2:/</href>]]></value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Change to read-only address book' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>POST invitation</description>
+			<request print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/addressbooks/read-only/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Check Sharee notification collection</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>GETNEW</method>
+				<ruri>$notificationpath2:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/addressbooks/read-only/2.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>DELETE</method>
+				<ruri>$notificationpath2:/$inviteuid:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Sharee replies ACCEPTED</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookhome2:/</ruri>
+				<data substitutions='yes'>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/addressbooks/read-only/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<grabelement>
+					<name>{DAV:}href</name>
+					<variable>$sharedaddressbook:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='4'>
+			<description>Shared address book exists</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$sharedaddressbook:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/addressbooks/read-only/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}owner/{DAV:}href[=$principaluri1:]</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{DAV:}collection</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{urn:ietf:params:xml:ns:carddav}addressbook</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{http://calendarserver.org/ns/}shared</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}read</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}write</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}bind</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}unbind</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}admin</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}all</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Create vcard</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>PUT</method>
+				<ruri>$sharedaddressbook:/3.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/addressbooks/read-only/5.vcf</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>Sharer creates vcard</description>
+			<request print-response="no">
+				<method>PUT</method>
+				<ruri>$addressbookpath1:/4.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/addressbooks/read-only/6.vcf</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='7'>
+			<description>Sharee sees new vcard</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>GET</method>
+				<ruri>$sharedaddressbook:/4.vcf</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/addressbooks/read-only/6.vcf</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8'>
+			<description>Sharee cannot change vcard</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>PUT</method>
+				<ruri>$sharedaddressbook:/4.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/addressbooks/read-write/8.vcf</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='Reshare after sharee DELETE shared addressbook' ignore='no'>
+		<test name='0' ignore='no'>
+			<description>Delete address book group</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>DELETE</method>
+				<ruri>$sharedaddressbook:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+		</test>
+		<test name='1' ignore='no'>
+			<description>POST invitation</description>
+			<request print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/addressbooks/read-write/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Check sharee notification collection for and get invite uid </description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>GETNEW</method>
+				<ruri>$notificationpath2:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/addressbooks/read-write/2.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>Sharee replies ACCEPTED</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookhome2:/</ruri>
+				<data substitutions="yes">
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/addressbooks/read-write/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<grabelement>
+					<name>{DAV:}href</name>
+					<variable>$sharedaddressbook:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Shared address book exists</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$sharedaddressbook:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/addressbooks/read-write/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}owner/{DAV:}href[=$principaluri1:]</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{DAV:}collection</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{urn:ietf:params:xml:ns:carddav}addressbook</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{http://calendarserver.org/ns/}shared</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}read</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}write</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}bind</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}unbind</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}admin</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}all</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	<end>
+		<request user="$useradmin:" pswd="$pswdadmin:">
+			<method>DELETEALL</method>
+			<ruri>$addressbookhome1:/</ruri>
+			<ruri>$addressbookhome2:/</ruri>
+			<ruri>$notificationpath1:/</ruri>
+			<ruri>$notificationpath2:/</ruri>
+		</request>
+	</end>
+
+</caldavtest>

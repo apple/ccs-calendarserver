@@ -1,0 +1,1582 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<description>Test sharing address books</description>
+
+	<require-feature>
+		<feature>carddav</feature>
+		<feature>shared-addressbooks</feature>
+	</require-feature>
+
+	<start>
+		<!-- clean up old data -->
+		<request user="$useradmin:" pswd="$pswdadmin:">
+			<method>DELETEALL</method>
+			<ruri>$addressbookhome1:/</ruri>
+			<ruri>$addressbookhome2:/</ruri>
+			<ruri>$notificationpath1:/</ruri>
+			<ruri>$notificationpath2:/</ruri>
+		</request>
+
+		<!-- add 5 persons and 2 groups to user2 address book -->
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>PUT</method>
+			<ruri>$addressbookpath2:/1.vcf</ruri>
+			<data>
+				<content-type>text/vcard; charset=utf-8</content-type>
+				<filepath>Resource/CardDAV/sharing/access/setup/1.vcf</filepath>
+			</data>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>PUT</method>
+			<ruri>$addressbookpath2:/2.vcf</ruri>
+			<data>
+				<content-type>text/vcard; charset=utf-8</content-type>
+				<filepath>Resource/CardDAV/sharing/access/setup/2.vcf</filepath>
+			</data>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>PUT</method>
+			<ruri>$addressbookpath2:/3.vcf</ruri>
+			<data>
+				<content-type>text/vcard; charset=utf-8</content-type>
+				<filepath>Resource/CardDAV/sharing/access/setup/3.vcf</filepath>
+			</data>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>PUT</method>
+			<ruri>$addressbookpath2:/4.vcf</ruri>
+			<data>
+				<content-type>text/vcard; charset=utf-8</content-type>
+				<filepath>Resource/CardDAV/sharing/access/setup/4.vcf</filepath>
+			</data>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>PUT</method>
+			<ruri>$addressbookpath2:/5.vcf</ruri>
+			<data>
+				<content-type>text/vcard; charset=utf-8</content-type>
+				<filepath>Resource/CardDAV/sharing/access/setup/5.vcf</filepath>
+			</data>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>PUT</method>
+			<ruri>$addressbookpath2:/g123.vcf</ruri>
+			<data>
+				<content-type>text/vcard; charset=utf-8</content-type>
+				<filepath>Resource/CardDAV/sharing/access/setup/g123.vcf</filepath>
+			</data>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>PUT</method>
+			<ruri>$addressbookpath2:/g345.vcf</ruri>
+			<data>
+				<content-type>text/vcard; charset=utf-8</content-type>
+				<filepath>Resource/CardDAV/sharing/access/setup/g345.vcf</filepath>
+			</data>
+		</request>
+	</start>
+	
+
+	<test-suite name='fully-shared read-write addressbook' ignore='no'>
+		<test name='0' ignore='no'>
+			<description>reset user1 home and share user2 addressbook read-write</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<!-- user2 POSTs invitation -->
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/addressbook/1.xml</filepath>
+				</data>
+			</request>
+			<!-- Check user1 notification collection and get invite uid -->
+			<request print-response="no">
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response="no">
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<!-- user1 replies ACCEPTED and deletes notification -->
+			<request print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<data substitutions="yes">
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/addressbook/2.xml</filepath>
+				</data>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$notificationpath1:/$inviteuid:</ruri>
+			</request>
+		</test>
+		<test name='1' ignore='no'>
+			<description>Sharee shared address book is read-write</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome1:/$userguid2:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/addressbook/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}owner/{DAV:}href[=$principaluri2:]</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{DAV:}collection</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{urn:ietf:params:xml:ns:carddav}addressbook</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{http://calendarserver.org/ns/}shared</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}read</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}write</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}bind</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}unbind</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}admin</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}all</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Group for shared address book is read-only</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome1:/$userguid2:/addressbook.vcf</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/addressbook/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}owner/{DAV:}href[=$principaluri2:]</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}read</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{urn:ietf:params:xml:ns:carddav}addressbook</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{DAV:}collection</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{http://calendarserver.org/ns/}shared</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}admin</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}all</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}write</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}bind</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}unbind</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>vCard in shared address book is read-write</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome1:/$userguid2:/2.vcf</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/addressbook/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}owner/{DAV:}href[=$principaluri2:]</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}read</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}write</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}bind</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}unbind</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{urn:ietf:params:xml:ns:carddav}addressbook</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{DAV:}collection</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{http://calendarserver.org/ns/}shared</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}admin</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}all</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Cannot change group address book</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$addressbookhome1:/$userguid2:/addressbook.vcf</ruri>
+				<data substitutions="yes">
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/setup/gAddressBook.vcf</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>add vCard</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$addressbookhome1:/$userguid2:/6.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/setup/6.vcf</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>New vCard is member of addressbook group</description>
+			<request>
+				<method>GET</method>
+				<ruri>$addressbookhome1:/$userguid2:/addressbook.vcf</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/access/setup/gAddressBook6.vcf</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>UID</value>
+						<value>N</value>
+						<value>FN</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>Clean up</description>
+			<request>
+				<method>DELETE</method>
+				<ruri>$addressbookhome1:/$userguid2:/6.vcf</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='fully-shared read-only addressbook' ignore='no'>
+		<test name='0' ignore='no'>
+			<description>reset user1 home and share user2 addressbook read-only</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<ruri>$notificationpath1:/</ruri>
+				<ruri>$notificationpath2:/</ruri>
+			</request>
+			<!-- user2 POSTs invitation -->
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/addressbook/4.xml</filepath>
+				</data>
+			</request>
+			<!-- Check user1 notification collection and get invite uid -->
+			<request print-response="no">
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response="no">
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<!-- user1 replies ACCEPTED and deletes notification -->
+			<request print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<data substitutions="yes">
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/addressbook/2.xml</filepath>
+				</data>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$notificationpath1:/$inviteuid:</ruri>
+			</request>
+		</test>
+		<test name='1' ignore='no'>
+			<description>shared address book is read-only</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome1:/$userguid2:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/addressbook/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}owner/{DAV:}href[=$principaluri2:]</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{DAV:}collection</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{urn:ietf:params:xml:ns:carddav}addressbook</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{http://calendarserver.org/ns/}shared</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}read</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}admin</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}all</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}write</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}bind</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}unbind</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Group for shared address book is read-only</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome1:/$userguid2:/addressbook.vcf</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/addressbook/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}owner/{DAV:}href[=$principaluri2:]</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}read</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{urn:ietf:params:xml:ns:carddav}addressbook</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{DAV:}collection</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{http://calendarserver.org/ns/}shared</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}admin</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}all</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}write</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}bind</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}unbind</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>vCard in shared address book is read-only</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome1:/$userguid2:/2.vcf</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/addressbook/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}owner/{DAV:}href[=$principaluri2:]</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}read</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{urn:ietf:params:xml:ns:carddav}addressbook</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{DAV:}collection</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{http://calendarserver.org/ns/}shared</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}admin</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}all</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}write</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}bind</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}unbind</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>vCard in shared address book cannot be deleted</description>
+			<request>
+				<method>DELETE</method>
+				<ruri>$addressbookhome1:/$userguid2:/2.vcf</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>vCard in shared address book cannot be modified</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$addressbookhome1:/$userguid2:/2.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/setup/2.vcf</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+
+	<test-suite name='read-write shared group' ignore='no'>
+		<test name='0' ignore='no'>
+			<description>reset user1 home and share user2 group read-write</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<!-- user2 POSTs invitation -->
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookpath2:/g123.vcf</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/groups/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<!-- Check user1 notification collection and get invite uid -->
+			<request print-response="no">
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response="no">
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<!-- user1 replies ACCEPTED and deletes notification -->
+			<request print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<data substitutions="yes">
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/groups/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$notificationpath1:/$inviteuid:</ruri>
+			</request>
+		</test>
+		<test name='1' ignore='no'>
+			<description>Sharee shared address book is read-write</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome1:/$userguid2:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/addressbook/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}owner/{DAV:}href[=$principaluri2:]</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{DAV:}collection</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{urn:ietf:params:xml:ns:carddav}addressbook</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{http://calendarserver.org/ns/}shared</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}read</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}write</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}bind</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}unbind</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}admin</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}all</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>vCard for shared group is read-write</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome1:/$userguid2:/g123.vcf</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/addressbook/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}owner/{DAV:}href[=$principaluri2:]</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}read</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}write</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}bind</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}unbind</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}admin</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}all</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>vCard in shared group is read-write</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome1:/$userguid2:/2.vcf</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/addressbook/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}owner/{DAV:}href[=$principaluri2:]</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}read</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}write</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}bind</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}unbind</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}admin</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}all</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>vCard in shared group can be deleted</description>
+			<request>
+				<method>DELETE</method>
+				<ruri>$addressbookhome1:/$userguid2:/2.vcf</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>vCard with new UID shared read-write group can be added</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$addressbookhome1:/$userguid2:/6.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/setup/6.vcf</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>New vCard is member of shared group</description>
+			<request>
+				<method>GET</method>
+				<ruri>$addressbookhome1:/$userguid2:/g123.vcf</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/access/setup/g136.vcf</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1' ignore='no'>
+			<description>restore group membership</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>PUT</method>
+				<ruri>$addressbookpath2:/2.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/setup/2.vcf</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>PUT</method>
+				<ruri>$addressbookpath2:/g123.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/setup/g123.vcf</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<!-- delete added vCard -->
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>DELETE</method>
+				<ruri>$addressbookpath2:/6.vcf</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<!-- add back removed vCard -->
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>PUT</method>
+				<ruri>$addressbookpath2:/2.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/setup/2.vcf</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+
+	<test-suite name='read-only shared group' ignore='no'>
+		<test name='0' ignore='no'>
+			<description>reset user1 home and share user2 group 345 read-only</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<ruri>$notificationpath1:/</ruri>
+				<ruri>$notificationpath2:/</ruri>
+			</request>
+			<!-- user2 POSTs invitation -->
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookpath2:/g345.vcf</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/groups/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<!-- Check user1 notification collection and get invite uid -->
+			<request print-response="no">
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response="no">
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<!-- user1 replies ACCEPTED and deletes notification -->
+			<request print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<data substitutions="yes">
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/groups/5.xml</filepath>
+				</data>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$notificationpath1:/$inviteuid:</ruri>
+			</request>
+		</test>
+		<test name='1' ignore='no'>
+			<description>Sharee shared address book is read-write</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome1:/$userguid2:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/addressbook/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}owner/{DAV:}href[=$principaluri2:]</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{DAV:}collection</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{urn:ietf:params:xml:ns:carddav}addressbook</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{http://calendarserver.org/ns/}shared</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}read</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}write</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}bind</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}unbind</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}admin</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}all</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>vCard for shared read-only group is read-only</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome1:/$userguid2:/g345.vcf</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/addressbook/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}owner/{DAV:}href[=$principaluri2:]</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}read</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}admin</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}all</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}write</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}bind</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}unbind</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>vCard in shared read-only group is read-only</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome1:/$userguid2:/4.vcf</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/addressbook/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}owner/{DAV:}href[=$principaluri2:]</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}read</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}admin</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}all</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}write</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}bind</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}unbind</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>vCard in shared read-only group cannot be deleted</description>
+			<request>
+				<method>DELETE</method>
+				<ruri>$addressbookhome1:/$userguid2:/4.vcf</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>vCard in shared read-only group cannot be modified</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$addressbookhome1:/$userguid2:/4.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/setup/4.vcf</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='overlapping read-only, read-write shared group' ignore='no'>
+		<test name='0' ignore='no'>
+			<description>reset user1 home and share user2 group g123 read-write, group 345 read-only</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<!-- user2 POSTs read-write invitation to group -->
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookpath2:/g123.vcf</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/groups/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<!-- Check user1 notification collection and get invite uid -->
+			<request print-response="no">
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response="no">
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<!-- user1 replies ACCEPTED and deletes notification -->
+			<request print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<data substitutions="yes">
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/groups/2.xml</filepath>
+				</data>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$notificationpath1:/$inviteuid:</ruri>
+			</request>
+			<!-- user2 POSTs invitation read-only to group -->
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookpath2:/g345.vcf</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/groups/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<!-- Check user1 notification collection and get invite uid -->
+			<request print-response="no">
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response="no">
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<!-- user1 replies ACCEPTED and deletes notification -->
+			<request print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<data substitutions="yes">
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/groups/5.xml</filepath>
+				</data>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$notificationpath1:/$inviteuid:</ruri>
+			</request>
+		</test>
+		<test name='1' ignore='no'>
+			<description>Sharee shared address book is read-write</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome1:/$userguid2:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/addressbook/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}owner/{DAV:}href[=$principaluri2:]</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{DAV:}collection</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{urn:ietf:params:xml:ns:carddav}addressbook</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{http://calendarserver.org/ns/}shared</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}read</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}write</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}bind</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}unbind</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}admin</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}all</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>vCard for shared read-write group is read-write</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome1:/$userguid2:/g123.vcf</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/addressbook/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}owner/{DAV:}href[=$principaluri2:]</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}read</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}write</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}bind</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}unbind</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}admin</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}all</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>vCard for shared read-only group is read-only</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome1:/$userguid2:/g345.vcf</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/addressbook/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}owner/{DAV:}href[=$principaluri2:]</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}read</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}admin</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}all</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}write</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}bind</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}unbind</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>vCard in read-write group is read-write</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome1:/$userguid2:/2.vcf</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/addressbook/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}owner/{DAV:}href[=$principaluri2:]</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}read</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}write</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}bind</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}unbind</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}admin</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}all</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>vCard in read-only and read-write group is read-write</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome1:/$userguid2:/3.vcf</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/addressbook/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}owner/{DAV:}href[=$principaluri2:]</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}read</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}write</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}bind</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}unbind</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}admin</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}all</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>vCard in shared read-only group is read-only</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome1:/$userguid2:/4.vcf</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/addressbook/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}owner/{DAV:}href[=$principaluri2:]</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}read</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}admin</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}all</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}write</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}bind</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}unbind</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>add vCard</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$addressbookhome1:/$userguid2:/6.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/setup/6.vcf</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='8' ignore='no'>
+			<description>New vCard is member of shared read-write group</description>
+			<request>
+				<method>GET</method>
+				<ruri>$addressbookhome1:/$userguid2:/g123.vcf</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/access/setup/g1236.vcf</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='9' ignore='no'>
+			<description>New vCard is not member of read-only group</description>
+			<request>
+				<method>GET</method>
+				<ruri>$addressbookhome1:/$userguid2:/g345.vcf</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/access/setup/g345.vcf</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1' ignore='no'>
+			<description>Clean up</description>
+			<request>
+				<method>DELETE</method>
+				<ruri>$addressbookhome1:/$userguid2:/6.vcf</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='overlapping read-only, read-write shared groups, read-write addressbook' ignore='no'>
+		<test name='0' ignore='no'>
+			<description>share user2 addressbook read-write</description>
+			<!-- user2 POSTs invitation -->
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/addressbook/1.xml</filepath>
+				</data>
+			</request>
+			<!-- Check user1 notification collection and get invite uid -->
+			<request print-response="no">
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response="no">
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<!-- user1 replies ACCEPTED and deletes notification -->
+			<request print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<data substitutions="yes">
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/addressbook/2.xml</filepath>
+				</data>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$notificationpath1:/$inviteuid:</ruri>
+			</request>
+		</test>
+		<test name='1' ignore='no'>
+			<description>vCard in read-only group is read-write</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome1:/$userguid2:/4.vcf</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/addressbook/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}owner/{DAV:}href[=$principaluri2:]</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}read</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}write</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}bind</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}unbind</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}admin</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}all</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>add vCard</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$addressbookhome1:/$userguid2:/6.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/setup/6.vcf</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>New vCard is NOT member of shared read-write group</description>
+			<request>
+				<method>GET</method>
+				<ruri>$addressbookhome1:/$userguid2:/g123.vcf</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/access/setup/g123.vcf</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>New vCard is not member of read-only group</description>
+			<request>
+				<method>GET</method>
+				<ruri>$addressbookhome1:/$userguid2:/g345.vcf</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/access/setup/g345.vcf</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>New vCard is member of addressbook group</description>
+			<request>
+				<method>GET</method>
+				<ruri>$addressbookhome1:/$userguid2:/addressbook.vcf</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/access/setup/gAddressBook6.vcf</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>UID</value>
+						<value>N</value>
+						<value>FN</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1' ignore='no'>
+			<description>Clean up</description>
+			<request>
+				<method>DELETE</method>
+				<ruri>$addressbookhome1:/$userguid2:/6.vcf</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='overlapping read-only, read-write shared groups, read-only addressbook' ignore='no'>
+		<test name='0' ignore='no'>
+			<description>share user2 addressbook read-only</description>
+			<!-- user2 POSTs invitation -->
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/addressbook/4.xml</filepath>
+				</data>
+			</request>
+			<!-- Check user1 notification collection and get invite uid -->
+			<request print-response="no">
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response="no">
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<!-- user1 replies ACCEPTED and deletes notification -->
+			<request print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<data substitutions="yes">
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/addressbook/2.xml</filepath>
+				</data>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$notificationpath1:/$inviteuid:</ruri>
+			</request>
+		</test>
+		<test name='1' ignore='no'>
+			<description>shared address book is read-only</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome1:/$userguid2:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/addressbook/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}owner/{DAV:}href[=$principaluri2:]</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{DAV:}collection</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{urn:ietf:params:xml:ns:carddav}addressbook</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{http://calendarserver.org/ns/}shared</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}read</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}admin</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}all</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}write</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}bind</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}unbind</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>vCard in shared read-only group is read-only</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome1:/$userguid2:/4.vcf</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/addressbook/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}owner/{DAV:}href[=$principaluri2:]</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}read</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}admin</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}all</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}write</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}bind</value>
+						<value>$verify-property-prefix:/{DAV:}current-user-privilege-set/{DAV:}privilege/{DAV:}unbind</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='add to ab with two read-write shared groups' ignore='no'>
+		<test name='0' ignore='no'>
+			<description>unshare address book, share 345 read-write</description>
+			<request>
+				<method>DELETE</method>
+				<ruri>$addressbookhome1:/$userguid2:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<!-- user2 POSTs invitation read-write to group 345 -->
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookpath2:/g345.vcf</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/groups/6.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<!-- Check user1 notification collection and get invite uid -->
+			<request print-response="no">
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response="no">
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<!-- user1 replies ACCEPTED and deletes notification -->
+			<request print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<data substitutions="yes">
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/groups/7.xml</filepath>
+				</data>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$notificationpath1:/$inviteuid:</ruri>
+			</request>
+		</test>
+		<test name='1' ignore='no'>
+			<description>vCard with new UID shared read-write group can be added</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$addressbookhome1:/$userguid2:/6.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/access/setup/6.vcf</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>New vCard is member of shared group</description>
+			<request>
+				<method>GET</method>
+				<ruri>$addressbookhome1:/$userguid2:/g123.vcf</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/access/setup/g1236.vcf</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>New vCard is member of shared group</description>
+			<request>
+				<method>GET</method>
+				<ruri>$addressbookhome1:/$userguid2:/g345.vcf</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/access/setup/g3456.vcf</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<end>
+		<request user="$useradmin:" pswd="$pswdadmin:">
+			<method>DELETEALL</method>
+			<ruri>$addressbookpath1:/</ruri>
+			<ruri>$addressbookpath2:/</ruri>
+			<ruri>$notificationpath1:/</ruri>
+			<ruri>$notificationpath2:/</ruri>
+		</request>
+	</end>
+
+</caldavtest>

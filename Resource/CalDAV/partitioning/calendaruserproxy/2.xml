@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<D:propertyupdate xmlns:D="DAV:">
+<D:set>
+<D:prop>
+<D:group-member-set><D:href>$otherprincipaluri2:</D:href></D:group-member-set>
+</D:prop>
+</D:set>
+</D:propertyupdate>

@@ -1,0 +1,1610 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<description>Test proxy user features</description>
+
+	<require-feature>
+		<feature>caldav</feature>
+		<feature>proxy</feature>
+	</require-feature>
+
+	<start>
+		<request end-delete="yes">
+			<method>PUT</method>
+			<ruri>$calendarpath1:/1.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/delete/1.txt</filepath>
+			</data>
+		</request>
+	</start>
+	
+	<test-suite name='OPTIONS header'>
+		<test name='1'>
+			<description>Look for options header tag</description>
+			<request print-response="no">
+				<method>OPTIONS</method>
+				<ruri>$principal1:</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>*DAV$.*calendar-proxy.*</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Principal resources'>
+		<test name='1'>
+			<description>Look for proxy principals</description>
+			<request print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$principal1:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value></value>
+						<value>calendar-proxy-read/</value>
+						<value>calendar-proxy-write/</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Check resource type of read-only proxy principal</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$principal1:calendar-proxy-read/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{DAV:}principal</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{DAV:}collection</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{http://calendarserver.org/ns/}calendar-proxy-read</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Check resource type of read-write proxy principal</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$principal1:calendar-proxy-write/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{DAV:}principal</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{DAV:}collection</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{http://calendarserver.org/ns/}calendar-proxy-write</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='Group membership'>
+		<test name='1'>
+			<description>Verify no group memberships right now</description>
+			<request print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$principal1:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}group-member-set[|]</value>
+						<value>$verify-property-prefix:/{DAV:}group-membership[|]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Verify no group memberships right now</description>
+			<request print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$principal2:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}group-member-set[|]</value>
+						<value>$verify-property-prefix:/{DAV:}group-membership[|]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Verify no access to resource</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>Add user02 as read proxy for user01</description>
+			<request print-response="no">
+				<method>PROPPATCH</method>
+				<ruri>$principal1:calendar-proxy-read/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}group-member-set</value>
+					</arg>
+				</verify>
+			</request>
+			<request print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$principal1:calendar-proxy-read/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}group-member-set/{DAV:}href[=$principaluri2:]</value>
+						<value>$verify-property-prefix:/{DAV:}group-membership[|]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Verify no group memberships right now</description>
+			<request print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$principal1:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}group-member-set[|]</value>
+						<value>$verify-property-prefix:/{DAV:}group-membership[|]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>Verify single group membership</description>
+			<request print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$principal2:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}group-membership/{DAV:}href[=$principaluri1:calendar-proxy-read/]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='7'>
+			<description>Verify access to resource</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>200</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8'>
+			<description>Verify no access for scheduling</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/9.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='9'>
+			<description>Clear user02 as read-only proxy for user01</description>
+			<request print-response="no">
+				<method>PROPPATCH</method>
+				<ruri>$principal1:calendar-proxy-read/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}group-member-set</value>
+					</arg>
+				</verify>
+			</request>
+			<request print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$principal1:calendar-proxy-read/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}group-member-set[|]</value>
+						<value>$verify-property-prefix:/{DAV:}group-membership[|]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='10'>
+			<description>Verify no group memberships right now</description>
+			<request print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$principal1:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}group-member-set[|]</value>
+						<value>$verify-property-prefix:/{DAV:}group-membership[|]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='11'>
+			<description>Verify no group memberships right now</description>
+			<request print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$principal2:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}group-member-set[|]</value>
+						<value>$verify-property-prefix:/{DAV:}group-membership[|]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='12'>
+			<description>Verify no access to resource</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='13'>
+			<description>Add user02 as read-write proxy for user01</description>
+			<request print-response="no">
+				<method>PROPPATCH</method>
+				<ruri>$principal1:calendar-proxy-write/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}group-member-set</value>
+					</arg>
+				</verify>
+			</request>
+			<request print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$principal1:calendar-proxy-write/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}group-member-set/{DAV:}href[=$principaluri2:]</value>
+						<value>$verify-property-prefix:/{DAV:}group-membership[|]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='14'>
+			<description>Verify no group memberships right now</description>
+			<request print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$principal1:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}group-member-set[|]</value>
+						<value>$verify-property-prefix:/{DAV:}group-membership[|]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='15'>
+			<description>Verify single group membership</description>
+			<request print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$principal2:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}group-member-set[|]</value>
+						<value>$verify-property-prefix:/{DAV:}group-membership/{DAV:}href[$principaluri1:calendar-proxy-write/]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='16'>
+			<description>Verify access to resource</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>200</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='17'>
+			<description>Verify access to resource</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/delete/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='18'>
+			<description>Verify access for scheduling</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/9.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='19'>
+			<description>Verify no access for scheduling</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/13.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='20'>
+			<description>Clear user02 as read-write proxy for user01</description>
+			<request print-response="no">
+				<method>PROPPATCH</method>
+				<ruri>$principal1:calendar-proxy-write/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}group-member-set</value>
+					</arg>
+				</verify>
+			</request>
+			<request print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$principal1:calendar-proxy-write/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}group-member-set[|]</value>
+						<value>$verify-property-prefix:/{DAV:}group-membership[|]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='21'>
+			<description>Verify no group memberships right now</description>
+			<request print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$principal1:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}group-member-set[|]</value>
+						<value>$verify-property-prefix:/{DAV:}group-membership[|]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='22'>
+			<description>Verify no group memberships right now</description>
+			<request print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$principal2:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}group-member-set[|]</value>
+						<value>$verify-property-prefix:/{DAV:}group-membership[|]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='23'>
+			<description>Verify no access to resource</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='24'>
+			<description>Try to add user02 and a bogus user as read-write proxy for user01</description>
+			<request print-response="no">
+				<method>PROPPATCH</method>
+				<ruri>$principal1:calendar-proxy-write/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/7.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>badprops</name>
+						<value>{DAV:}group-member-set</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='25' ignore='yes'>
+			<description>Verify no change to locked membership</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>PROPPATCH</method>
+				<ruri>$rprincipal1:calendar-proxy-write/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>badprops</name>
+						<value>{DAV:}group-member-set</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='26'>
+			<description>Verify group memberships</description>
+			<request print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$rprincipal1:calendar-proxy-write/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}group-member-set/{DAV:}href[$principaluri1:]</value>
+						<value>$verify-property-prefix:/{DAV:}group-membership[|]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='27'>
+			<description>Verify group memberships</description>
+			<request print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$principal1:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}group-membership/{DAV:}href[$rprincipaluri1:calendar-proxy-write/]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='28'>
+			<description>Verify read-only group memberships</description>
+			<request print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$rprincipal1:calendar-proxy-read/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}group-member-set/{DAV:}href[=$principaluri3:]</value>
+						<value>$verify-property-prefix:/{DAV:}group-membership[|]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='29'>
+			<description>Verify group memberships</description>
+			<request print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$principal3:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}group-membership/{DAV:}href[=$rprincipaluri1:calendar-proxy-read/]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Principal report'>
+		<test name='1'>
+			<description>Add user02 and user03 as read-write proxy for user01</description>
+			<request print-response="no">
+				<method>PROPPATCH</method>
+				<ruri>$principal1:calendar-proxy-write/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/5.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}group-member-set</value>
+					</arg>
+				</verify>
+			</request>
+			<request print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$principal1:calendar-proxy-write/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}group-member-set/{DAV:}href[=$principaluri2:]</value>
+						<value>$verify-property-prefix:/{DAV:}group-member-set/{DAV:}href[=$principaluri3:]</value>
+						<value>$verify-property-prefix:/{DAV:}group-membership[|]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Valid self report with DAV:prop</description>
+			<request user='$userid2:' pswd='$pswd2:' print-response='no'>
+				<method>REPORT</method>
+				<ruri>$principals_users:</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/6.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value></value>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>$principal2:</value>
+						<value>$principal1:calendar-proxy-write/</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Reset read-write proxy for user01</description>
+			<request print-response="no">
+				<method>PROPPATCH</method>
+				<ruri>$principal1:calendar-proxy-write/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/8.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}group-member-set</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='Proxy For properties'>
+		<test name='1'>
+			<description>Default setup</description>
+			<request print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$principal1:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/10.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{http://calendarserver.org/ns/}calendar-proxy-read-for[|]</value>
+						<value>$verify-property-prefix:/{http://calendarserver.org/ns/}calendar-proxy-write-for[|]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Change proxy state and test</description>
+			<request user='$userid2:' pswd='$pswd2:' print-response="no">
+				<method>PROPPATCH</method>
+				<ruri>$principal2:calendar-proxy-read/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/11.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}group-member-set</value>
+					</arg>
+				</verify>
+			</request>
+			<request user='$userid3:' pswd='$pswd3:' print-response="no">
+				<method>PROPPATCH</method>
+				<ruri>$principal3:calendar-proxy-write/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/11.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}group-member-set</value>
+					</arg>
+				</verify>
+			</request>
+			<request print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$principal1:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/10.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{http://calendarserver.org/ns/}calendar-proxy-read-for/{DAV:}href[=$principaluri2:]</value>
+						<value>$verify-property-prefix:/{http://calendarserver.org/ns/}calendar-proxy-write-for/{DAV:}href[=$principaluri3:]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Reset proxies and test</description>
+			<request user='$userid2:' pswd='$pswd2:' print-response="no">
+				<method>PROPPATCH</method>
+				<ruri>$principal2:calendar-proxy-read/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/8.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}group-member-set</value>
+					</arg>
+				</verify>
+			</request>
+			<request user='$userid3:' pswd='$pswd3:' print-response="no">
+				<method>PROPPATCH</method>
+				<ruri>$principal3:calendar-proxy-write/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/8.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}group-member-set</value>
+					</arg>
+				</verify>
+			</request>
+			<request print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$principal1:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/10.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{http://calendarserver.org/ns/}calendar-proxy-read-for[|]</value>
+						<value>$verify-property-prefix:/{http://calendarserver.org/ns/}calendar-proxy-write-for[|]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='Expand properties'>
+		<test name='1'>
+			<description>OK property query</description>
+			<request print-response="no">
+				<method>REPORT</method>
+				<ruri>$principal1:</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/12.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value>-</value>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>$principal1:</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>notcontains</name>
+						<value>$username2:</value>
+						<value>$username3:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Change proxy state and test</description>
+			<request user='$userid2:' pswd='$pswd2:' print-response="no">
+				<method>PROPPATCH</method>
+				<ruri>$principal2:calendar-proxy-read/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/11.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}group-member-set</value>
+					</arg>
+				</verify>
+			</request>
+			<request user='$userid3:' pswd='$pswd3:' print-response="no">
+				<method>PROPPATCH</method>
+				<ruri>$principal3:calendar-proxy-write/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/11.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}group-member-set</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>OK property query</description>
+			<request print-response="no">
+				<method>REPORT</method>
+				<ruri>$principal1:</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/12.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value>-</value>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>$principal1:</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>$username2:</value>
+						<value>$username3:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>Reset proxies</description>
+			<request user='$userid2:' pswd='$pswd2:' print-response="no">
+				<method>PROPPATCH</method>
+				<ruri>$principal2:calendar-proxy-read/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/8.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}group-member-set</value>
+					</arg>
+				</verify>
+			</request>
+			<request user='$userid3:' pswd='$pswd3:' print-response="no">
+				<method>PROPPATCH</method>
+				<ruri>$principal3:calendar-proxy-write/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/8.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}group-member-set</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Calendar Home cache invalidation'>
+		<test name='1'>
+			<description>Cannot access user2 calendar home</description>
+			<request print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$calendarhome2:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/14.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Change proxy state and test</description>
+			<request user='$userid2:' pswd='$pswd2:' print-response="no">
+				<method>PROPPATCH</method>
+				<ruri>$principal2:calendar-proxy-read/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/11.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}group-member-set</value>
+					</arg>
+				</verify>
+			</request>
+			<request print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$calendarhome2:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/14.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>207</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Reset proxies and test</description>
+			<request user='$userid2:' pswd='$pswd2:' print-response="no">
+				<method>PROPPATCH</method>
+				<ruri>$principal2:calendar-proxy-read/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/8.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}group-member-set</value>
+					</arg>
+				</verify>
+			</request>
+			<request print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$calendarhome2:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/14.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='Calendar Home properties'>
+		<test name='1'>
+			<description>Cannot access user2 calendar home</description>
+			<request print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$calendarhome2:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/15.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Change proxy state and test</description>
+			<request user='$userid2:' pswd='$pswd2:' print-response="no">
+				<method>PROPPATCH</method>
+				<ruri>$principal2:calendar-proxy-read/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/11.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}group-member-set</value>
+					</arg>
+				</verify>
+			</request>
+			<request print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$calendarhome2:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/15.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}current-user-privilege-set</value>
+					</arg>
+					<arg>
+						<name>badprops</name>
+						<value>{DAV:}acl</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Reset proxies and test</description>
+			<request user='$userid2:' pswd='$pswd2:' print-response="no">
+				<method>PROPPATCH</method>
+				<ruri>$principal2:calendar-proxy-read/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/8.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}group-member-set</value>
+					</arg>
+				</verify>
+			</request>
+			<request print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$calendarhome2:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/15.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Drop Box Collection ACLs'>
+		<require-feature>
+			<feature>dropbox</feature>
+		</require-feature>
+		<test name='1'>
+			<description>Add user02 as read-write proxy for user01</description>
+			<request print-response="no">
+				<method>PROPPATCH</method>
+				<ruri>$principal1:calendar-proxy-write/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}group-member-set</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Add user04 as read proxy for user03</description>
+			<request user="$userid3:" pswd="$pswd3:" print-response="no">
+				<method>PROPPATCH</method>
+				<ruri>$principal3:calendar-proxy-read/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/16.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}group-member-set</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Create drop box</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>PUT</method>
+				<ruri>$calendarpath1:/dropbox-abcefg.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/dropbox/4.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>201</value>
+					</arg>
+				</verify>
+			</request>
+			<request user='$userid2:' pswd='$pswd2:'>
+				<method>MKCOL</method>
+				<ruri>$dropboxpath1:/ABCEFG/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>201</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>Create drop box resource</description>
+			<request user='$userid2:' pswd='$pswd2:'>
+				<method>PUT</method>
+				<ruri>$dropboxpath1:/ABCEFG/test.xml</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/dropbox/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Verify that user01 can read it</description>
+			<request>
+				<method>GET</method>
+				<ruri>$dropboxpath1:/ABCEFG/test.xml</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>Verify that user03 cannot read it</description>
+			<request user='$userid3:' pswd='$pswd3:'>
+				<method>GET</method>
+				<ruri>$dropboxpath1:/ABCEFG/test.xml</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='7'>
+			<description>Verify that user04 cannot read it</description>
+			<request user='$userid4:' pswd='$pswd4:'>
+				<method>GET</method>
+				<ruri>$dropboxpath1:/ABCEFG/test.xml</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8'>
+			<description>Add user03 as attendee for dropbox</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>PUT</method>
+				<ruri>$calendarpath1:/dropbox-abcefg.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/dropbox/3.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>204</value>
+					</arg>
+				</verify>
+			</request>
+			<request user='$userid2:' pswd='$pswd2:' >
+				<method>ACL</method>
+				<ruri>$dropboxpath1:/ABCEFG/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/dropbox/10.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='9'>
+			<description>Verify that user03 can now read it</description>
+			<request user='$userid3:' pswd='$pswd3:'>
+				<method>GET</method>
+				<ruri>$dropboxpath1:/ABCEFG/test.xml</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='10'>
+			<description>Verify that user04 can now read it</description>
+			<request user='$userid4:' pswd='$pswd4:'>
+				<method>GET</method>
+				<ruri>$dropboxpath1:/ABCEFG/test.xml</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='11'>
+			<description>Delete drop box</description>
+			<request user='$userid2:' pswd='$pswd2:'>
+				<method>DELETE</method>
+				<ruri>$dropboxpath1:/ABCEFG/test.xml</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user='$userid2:' pswd='$pswd2:'>
+				<method>DELETE</method>
+				<ruri>$dropboxpath1:/ABCEFG/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user='$userid2:' pswd='$pswd2:'>
+				<method>DELETE</method>
+				<ruri>$calendarpath1:/dropbox-abcefg.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='12'>
+			<description>Clear user02 as read-write proxy for user01</description>
+			<request print-response="no">
+				<method>PROPPATCH</method>
+				<ruri>$principal1:calendar-proxy-write/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}group-member-set</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='13'>
+			<description>Clear user04 as read-write proxy for user03</description>
+			<request user="$userid3:" pswd="$pswd3:" print-response="no">
+				<method>PROPPATCH</method>
+				<ruri>$principal3:calendar-proxy-read/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/calendaruserproxy/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}group-member-set</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Location/Resource tracking'>
+		<require-feature>
+			<feature>location-resource-tracking</feature>
+		</require-feature>
+		<test name='1'>
+			<description>Store in resource collections</description>
+			<request end-delete="yes">
+				<method>PUT</method>
+				<ruri>$rcalendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/put/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Store in resource collections</description>
+			<request print-response="no">
+				<method>GET</method>
+				<ruri>$rcalendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/put/12.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<end>
+		<request>
+			<method>DELETEALL</method>
+			<ruri>$calendarpath1:/</ruri>
+			<ruri>$inboxpath1:/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>DELETEALL</method>
+			<ruri>$calendarpath2:/</ruri>
+			<ruri>$inboxpath2:/</ruri>
+		</request>
+		<request user="$userid3:" pswd="$pswd3:">
+			<method>DELETEALL</method>
+			<ruri>$calendarpath3:/</ruri>
+			<ruri>$inboxpath3:/</ruri>
+		</request>
+	</end>
+
+</caldavtest>

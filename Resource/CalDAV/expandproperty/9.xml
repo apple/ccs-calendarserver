@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<D:expand-property xmlns:D="DAV:">
+	<D:property name="group-member-set">
+		<D:property name="displayname"/>
+		<D:property name="principal-URL"/>
+	</D:property>
+</D:expand-property>

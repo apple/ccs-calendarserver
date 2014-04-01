@@ -1,0 +1,430 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<description>Test implicit scheduling done by proxies</description>
+
+	<require-feature>
+		<feature>caldav</feature>
+		<feature>proxy</feature>
+		<feature>implicit-scheduling</feature>
+	</require-feature>
+
+	<start>
+		<request user="$userid1:" pswd="$pswd1:">
+			<method>GET</method>
+			<ruri>$calendarpath1:/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>GET</method>
+			<ruri>$calendarpath2:/</ruri>
+		</request>
+		<request user="$userid3:" pswd="$pswd3:">
+			<method>GET</method>
+			<ruri>$calendarpath3:/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:" print-response="no">
+			<method>PROPPATCH</method>
+			<ruri>$principal2:calendar-proxy-write/</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/implicit/proxy/1.xml</filepath>
+			</data>
+		</request>
+		<request user="$userid3:" pswd="$pswd3:" print-response="no">
+			<method>PROPPATCH</method>
+			<ruri>$principal3:calendar-proxy-write/</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/implicit/proxy/1.xml</filepath>
+			</data>
+		</request>
+	</start>
+	
+	<test-suite name='Proxy as Organizer' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>Proxy creates new event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath2:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/proxy/3.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>No items in user02 Inbox</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$inboxpath2:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/proxy/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>One item in user02 Calendar</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>GET</method>
+				<ruri>$calendarpath2:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/proxy/5.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>One item in user03 Inbox</description>
+			<request user="$userid3:" pswd="$pswd3:" print-response="no">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath3:/</ruri>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>One item in user03 calendar</description>
+			<request user="$userid3:" pswd="$pswd3:" print-response="no">
+				<method>GETNEW</method>
+				<ruri>$calendarpath3:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/proxy/6.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='Proxy as Attendee' ignore='no'>
+		<test name='2' ignore='no'>
+			<description>Proxy updates event</description>
+			<request print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$calendarpath3:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request print-response='no'>
+				<method>PUT</method>
+				<ruri>$</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/proxy/7.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>One item in user02 Inbox</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>One item in user02 Calendar</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>GET</method>
+				<ruri>$calendarpath2:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/proxy/8.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>No item in user03 Inbox</description>
+			<request user="$userid3:" pswd="$pswd3:" print-response="no">
+				<method>PROPFIND</method>
+				<ruri>$inboxpath3:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/proxy/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>One item in user03 calendar</description>
+			<request user="$userid3:" pswd="$pswd3:" print-response="no">
+				<method>GETNEW</method>
+				<ruri>$calendarpath3:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/proxy/9.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name="Undo proxy, set ACL">
+		<test name="Undo proxy setting">
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>PROPPATCH</method>
+				<ruri>$principal2:calendar-proxy-write/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/proxy/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$userid3:" pswd="$pswd3:" print-response="no">
+				<method>PROPPATCH</method>
+				<ruri>$principal3:calendar-proxy-write/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/proxy/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name="Set ACLs" ignore="yes">
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>ACL</method>
+				<ruri>$calendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/proxy/10.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$userid3:" pswd="$pswd3:" print-response="no">
+				<method>ACL</method>
+				<ruri>$calendarpath3:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/proxy/10.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Writer as organizer - no scheduling' ignore='yes'>
+		<test name='1' ignore='no'>
+			<description>Writer can read existing event</description>
+			<request print-response="no">
+				<method>GET</method>
+				<ruri>$calendarpath2:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/proxy/8.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Writer creates non schedule new event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath2:/2.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/proxy/12.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>Writer tries to create new event</description>
+			<request print-response='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath2:/3.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/proxy/13.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>need-privileges</value>
+						<value>schedule</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Writer as attendee - no scheduling' ignore='yes'>
+		<test name='1' ignore='no'>
+			<description>Writer can read existing item</description>
+			<request print-response="no">
+				<method>GETNEW</method>
+				<ruri>$calendarpath3:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/proxy/9.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Writer creates non schedule new event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath3:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/proxy/12.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>Writer updates event</description>
+			<request print-response='no'>
+				<method>PUT</method>
+				<ruri>$</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/proxy/15.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>need-privileges</value>
+						<value>schedule</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<end>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>DELETEALL</method>
+			<ruri>$calendarpath2:/</ruri>
+			<ruri>$inboxpath2:/</ruri>
+		</request>
+		<request user="$userid3:" pswd="$pswd3:">
+			<method>WAITDELETEALL 1</method>
+			<ruri>$inboxpath3:/</ruri>
+		</request>
+		<request user="$userid3:" pswd="$pswd3:">
+			<method>DELETEALL</method>
+			<ruri>$calendarpath3:/</ruri>
+		</request>
+
+		<request user="$userid2:" pswd="$pswd2:" print-response="no">
+			<method>PROPPATCH</method>
+			<ruri>$principal2:calendar-proxy-write/</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/implicit/proxy/2.xml</filepath>
+			</data>
+		</request>
+		<request user="$userid3:" pswd="$pswd3:" print-response="no">
+			<method>PROPPATCH</method>
+			<ruri>$principal3:calendar-proxy-write/</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/implicit/proxy/2.xml</filepath>
+			</data>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:" print-response="no">
+			<method>ACL</method>
+			<ruri>$calendarpath2:/</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/implicit/proxy/11.xml</filepath>
+			</data>
+		</request>
+		<request user="$userid3:" pswd="$pswd3:" print-response="no">
+			<method>ACL</method>
+			<ruri>$calendarpath3:/</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/implicit/proxy/11.xml</filepath>
+			</data>
+		</request>
+	</end>
+	
+</caldavtest>

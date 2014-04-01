@@ -1,0 +1,412 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<description>Test managed attachments dropbox compatibility</description>
+
+	<require-feature>
+		<feature>caldav</feature>
+		<feature>managed-attachments</feature>
+		<feature>prefer-representation</feature>
+	</require-feature>
+
+	<start/>
+	
+	<test-suite name='Principal properties'>
+		<test name='1'>
+			<description>Look for properties</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$principal1:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/managedattachments/dropbox/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value><![CDATA[{http://calendarserver.org/ns/}dropbox-home-URL$<href xmlns="DAV:">$dropboxpath1:/</href>]]></value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Collection properties'>
+		<test name='1'>
+			<description>Look for properties</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$dropboxpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/managedattachments/dropbox/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{DAV:}collection</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{http://calendarserver.org/ns/}dropbox-home</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Create managed attachment'>
+		<test name='1'>
+			<description>No dropboxes to start</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$dropboxpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/count.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>PUT event</description>
+			<request end-delete='yes'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/managedattachments/dropbox/3.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/dropbox/3.ics</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>ETag</name>
+					<variable>$etag:</variable>
+				</grabheader>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>Add attachment (with prefer)</description>
+			<request>
+				<method>POST</method>
+				<ruri>$calendarpath1:/1.ics?action=attachment-add</ruri>
+				<header>
+					<name>Content-Disposition</name>
+					<value>attachment;filename=test.txt</value>
+				</header>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/plain</content-type>
+					<filepath>Resource/CalDAV/managedattachments/dropbox/4.txt</filepath>
+				</data>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/dropbox/3.ics</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>ATTACH</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>unwrap</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>contains</name>
+						<value>ATTACH</value>
+						<value>;FILENAME=</value>
+						<value>;FMTTYPE=</value>
+						<value>;SIZE=</value>
+						<value>;MANAGED-ID=</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>Cal-Managed-ID</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>Location</name>
+					<variable>$location:</variable>
+				</grabheader>
+				<grabheader>
+					<name>Cal-Managed-ID</name>
+					<variable>$managed-id:</variable>
+				</grabheader>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$location:</ruri>
+				<verify>
+					<callback>dataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/dropbox/4.txt</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>One dropbox</description>
+			<request print-response="yes">
+				<method>FINDNEW</method>
+				<ruri>$dropboxpath1:/</ruri>
+				<graburi>$dropboxchild1:</graburi>
+			</request>
+		</test>
+		<test name='6'>
+			<description>Scan dropbox</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$dropboxchild1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/count.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>1</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Drop Box Collection Create'>
+		<test name='1'>
+			<description>Create drop box - fails</description>
+			<request end-delete='yes' user="$userid1:" pswd="$pswd1:">
+				<method>MKCOL</method>
+				<ruri>$dropboxpath1:/ABCEFG/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Look for properties</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$dropboxpath1:/ABCEFG/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/count.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Drop Box Home Restrictions'>
+		<test name='1'>
+			<description>Try to create a calendar</description>
+			<request end-delete="yes">
+				<method>MKCALENDAR</method>
+				<ruri>$dropboxpath1:/calendar/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore="no">
+			<description>Try to create a resource</description>
+			<request end-delete="yes">
+				<method>PUT</method>
+				<ruri>$dropboxpath1:/test.xml</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/managedattachments/dropbox/4.txt</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Drop Box Restrictions'>
+		<test name='1'>
+			<description>Try to create a calendar - non-existent dropbox</description>
+			<request end-delete="yes">
+				<method>MKCALENDAR</method>
+				<ruri>$dropboxpath1:/ABCEFG/calendar/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Try to create a collection</description>
+			<request end-delete="yes">
+				<method>MKCOL</method>
+				<ruri>$dropboxpath1:/ABCEFG/calendar/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Try to create a resource - non-existent dropbox</description>
+			<request end-delete="yes">
+				<method>PUT</method>
+				<ruri>$dropboxpath1:/ABCEFG/xyz.txt</ruri>
+				<data>
+					<content-type>text/plain</content-type>
+					<filepath>Resource/CalDAV/managedattachments/dropbox/4.txt</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>Try to create a calendar - existing dropbox</description>
+			<request end-delete="yes">
+				<method>MKCALENDAR</method>
+				<ruri>$dropboxchild1:/calendar/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>405</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Try to create a collection - existing dropbox</description>
+			<request end-delete="yes">
+				<method>MKCOL</method>
+				<ruri>$dropboxchild1:/calendar/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>405</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>Try to create a resource - existing dropbox</description>
+			<request end-delete="yes">
+				<method>PUT</method>
+				<ruri>$dropboxchild1:/xyz.txt</ruri>
+				<data>
+					<content-type>text/plain</content-type>
+					<filepath>Resource/CalDAV/managedattachments/dropbox/4.txt</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<end/>
+
+</caldavtest>

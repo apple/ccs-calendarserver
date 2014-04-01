@@ -1,0 +1,1023 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2012-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<require-feature>
+		<feature>caldav</feature>
+		<feature>prefer</feature>
+	</require-feature>
+
+	<start>
+		<request user="$userid1:" pswd="$pswd1:">
+			<method>DELETEALL</method>
+			<ruri>$calendarpath1:/</ruri>
+			<ruri>$inboxpath1:/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>DELETEALL</method>
+			<ruri>$calendarpath2:/</ruri>
+			<ruri>$inboxpath2:/</ruri>
+		</request>
+		<request>
+			<method>PUT</method>
+			<ruri>$calendarpath1:/1.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/reports/put/1.txt</filepath>
+			</data>
+		</request>
+	</start>
+	
+	<test-suite name='minimal: propfind'>
+		<require-feature>
+			<feature>prefer-minimal</feature>
+		</require-feature>
+		<test name='1'>
+			<description>PROPFIND depth=0 no Prefer</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/minimal/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+					</arg>
+					<arg>
+						<name>badprops</name>
+						<value>{DAV:}bogus</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>PROPFIND depth=0 with Prefer=x-foo</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<header>
+					<name>Prefer</name>
+					<value>x-foo</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/minimal/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+					</arg>
+					<arg>
+						<name>badprops</name>
+						<value>{DAV:}bogus</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>PROPFIND depth=0 with Prefer:return=minimal</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<header>
+					<name>Prefer</name>
+					<value>return=minimal</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/minimal/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>PROPFIND depth=0 with Prefer:return=minimal nothing returned</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<header>
+					<name>Prefer</name>
+					<value>return=minimal</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/minimal/5.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='minimal: multiget'>
+		<require-feature>
+			<feature>prefer-minimal</feature>
+		</require-feature>
+		<test name='1'>
+			<description>REPORT no prefer</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/minimal/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+					</arg>
+					<arg>
+						<name>badprops</name>
+						<value>{DAV:}bogus</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>REPORT with Prefer=x-foo</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>x-foo</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/minimal/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+					</arg>
+					<arg>
+						<name>badprops</name>
+						<value>{DAV:}bogus</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>REPORT with Prefer=return=minimal</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=minimal</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/minimal/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>REPORT with Prefer=return=minimal no results</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=minimal</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/minimal/6.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='minimal: query'>
+		<require-feature>
+			<feature>prefer-minimal</feature>
+		</require-feature>
+		<test name='1'>
+			<description>REPORT no prefer</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/minimal/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+					</arg>
+					<arg>
+						<name>badprops</name>
+						<value>{DAV:}bogus</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>REPORT with Prefer=x-foo</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>x-foo</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/minimal/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+					</arg>
+					<arg>
+						<name>badprops</name>
+						<value>{DAV:}bogus</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>REPORT with Prefer=return=minimal</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=minimal</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/minimal/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>REPORT with Prefer=return=minimal no results</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=minimal</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/minimal/7.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='minimal: proppatch'>
+		<require-feature>
+			<feature>prefer-minimal</feature>
+		</require-feature>
+		<test name='1'>
+			<description>PROPPATCH no prefer</description>
+			<request print-response='no'>
+				<method>PROPPATCH</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/minimal/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}details</value>
+						<value>{DAV:}details2</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>PROPPATCH with Prefer=x-foo</description>
+			<request print-response='no'>
+				<method>PROPPATCH</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>x-foo</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/minimal/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}details</value>
+						<value>{DAV:}details2</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>PROPPATCH with Prefer:return=minimal</description>
+			<request print-response='no'>
+				<method>PROPPATCH</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=minimal</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/minimal/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>200</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='noroot: propfind'>
+		<require-feature>
+			<feature>prefer-noroot</feature>
+		</require-feature>
+		<test name='1'>
+			<description>PROPFIND depth=0 with Prefer</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<header>
+					<name>Prefer</name>
+					<value>depth-noroot</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/minimal/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value></value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>PROPFIND depth=1 with Prefer=x-foo</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<header>
+					<name>Prefer</name>
+					<value>x-foo</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/minimal/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value></value>
+						<value>1.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>PROPFIND depth=1 with Prefer:depth-noroot</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<header>
+					<name>Prefer</name>
+					<value>depth-noroot</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/minimal/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='representation no schedule PUT'>
+		<require-feature>
+			<feature>prefer-representation</feature>
+		</require-feature>
+		<test name='1'>
+			<description>PUT without Prefer</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/2.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/return/2.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>201</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>empty</name>
+						<value/>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>PUT with Prefer=x-foo</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/3.ics</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>x-foo</value>
+				</header>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/return/3.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>201</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>empty</name>
+						<value/>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>PUT with Prefer=return=representation</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/4.ics</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/return/4.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>201</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/prefer/return/4.ics</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>content-location</name>
+						<value>$calendarpath1:/4.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>PUT with Prefer=return=representation</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/4.ics</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/return/5.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>200</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/prefer/return/5.ics</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>content-location</name>
+						<value>$calendarpath1:/4.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>PUT with Prefer=return=representation pre-condition fail</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/4.ics</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<header>
+					<name>If-Match</name>
+					<value>1234</value>
+				</header>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/return/5.ics</filepath>
+				</data>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/prefer/return/5.ics</value>
+					</arg>
+					<arg>
+						<name>status</name>
+						<value>412</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>content-location</name>
+						<value>$calendarpath1:/4.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='representation schedule PUT'>
+		<require-feature>
+			<feature>prefer-representation</feature>
+		</require-feature>
+		<test name='1'>
+			<description>PUT without Prefer</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/5.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/return/6.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>201</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>empty</name>
+						<value/>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>PUT with Prefer=x-foo</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/6.ics</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>x-foo</value>
+				</header>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/return/7.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>201</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>empty</name>
+						<value/>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>PUT with Prefer=return=representation</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/7.ics</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/return/8.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>201</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/prefer/return/9.ics</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>content-location</name>
+						<value>$calendarpath1:/4.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>PUT with Prefer=return=representation</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/7.ics</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/return/10.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>200</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/prefer/return/11.ics</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>content-location</name>
+						<value>$calendarpath1:/4.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>PUT with Prefer=return=representation If-Schedule-Tag-Match failure</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/7.ics</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<header>
+					<name>If-Schedule-Tag-Match</name>
+					<value>1234</value>
+				</header>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/return/10.ics</filepath>
+				</data>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/prefer/return/11.ics</value>
+					</arg>
+					<arg>
+						<name>status</name>
+						<value>412</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>content-location</name>
+						<value>$calendarpath1:/4.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='representation POST add-member'>
+		<require-feature>
+			<feature>prefer-representation</feature>
+			<feature>add-member</feature>
+		</require-feature>
+		<test name='1'>
+			<description>POST without Prefer</description>
+			<request>
+				<method>POST</method>
+				<ruri>$calendarpath1:/$add-member:</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/return/12.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>201</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>Location</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>!Content-Location</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>empty</name>
+						<value/>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>POST with Prefer=x-foo</description>
+			<request>
+				<method>POST</method>
+				<ruri>$calendarpath1:/$add-member:</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>x-foo</value>
+				</header>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/return/13.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>201</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>Location</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>!Content-Location</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>empty</name>
+						<value/>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>POST with Prefer=return=representation</description>
+			<request>
+				<method>POST</method>
+				<ruri>$calendarpath1:/$add-member:</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/prefer/return/14.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>201</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/prefer/return/14.ics</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>content-location</name>
+						<value>$calendarpath1:/4.ics</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>Location</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>Content-Location</name>
+					<variable>$content-posted:</variable>
+				</grabheader>
+				<grabheader>
+					<name>Location</name>
+					<variable>$posted:</variable>
+				</grabheader>
+			</request>
+			<request>
+				<method>GET</method>
+				<ruri>$content-posted:</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/prefer/return/14.ics</value>
+					</arg>
+				</verify>
+			</request>
+			<request>
+				<method>GET</method>
+				<ruri>$posted:</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/prefer/return/14.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<end>
+		<request user="$userid1:" pswd="$pswd1:">
+			<method>DELETEALL</method>
+			<ruri>$calendarpath1:/</ruri>
+			<ruri>$inboxpath1:/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>DELETEALL</method>
+			<ruri>$calendarpath2:/</ruri>
+			<ruri>$inboxpath2:/</ruri>
+		</request>
+	</end>
+	
+</caldavtest>

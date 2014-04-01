@@ -1,0 +1,21 @@
+<?xml version='1.0' encoding='UTF-8'?><multistatus xmlns='DAV:'>
+  <response>
+    <href>$calendarhome1:/shared/</href>
+    <propstat>
+      <prop>
+        <invite xmlns='http://calendarserver.org/ns/'>
+          <user>
+            <uid></uid>
+            <href xmlns='DAV:'>$pcuaddrurn2:</href>
+            <common-name>Puser 02</common-name>
+            <access>
+              <read-write/>
+            </access>
+            <invite-declined/>
+          </user>
+        </invite>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+  </response>
+</multistatus>

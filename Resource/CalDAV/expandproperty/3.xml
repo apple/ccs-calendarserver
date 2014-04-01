@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<D:expand-property xmlns:D="DAV:">
+	<D:property name="group-memberset">
+		<D:property name="displayname"/>
+	</D:property>
+	<D:property name="group-memberships">
+		<D:property name="displayname"/>
+	</D:property>
+</D:expand-property>

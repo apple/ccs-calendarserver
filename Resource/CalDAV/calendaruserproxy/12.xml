@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<D:expand-property xmlns:D="DAV:">
+	<D:property name="calendar-proxy-write-for" namespace="http://calendarserver.org/ns/">
+		<D:property name="displayname"/>
+	</D:property>
+	<D:property name="calendar-proxy-read-for" namespace="http://calendarserver.org/ns/">
+		<D:property name="displayname"/>
+	</D:property>
+</D:expand-property>

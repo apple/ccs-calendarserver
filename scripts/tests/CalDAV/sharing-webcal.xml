@@ -1,0 +1,492 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<description>Test internet calendar subscription behavior with sharing</description>
+
+	<require-feature>
+		<feature>caldav</feature>
+		<feature>webcal</feature>
+		<feature>shared-calendars</feature>
+	</require-feature>
+
+	<start>
+		<request user="$userid1:" pswd="$pswd1:">
+			<method>DELETEALL</method>
+			<ruri>$notificationpath1:/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>DELETEALL</method>
+			<ruri>$notificationpath2:/</ruri>
+		</request>
+		<request end-delete="yes">
+			<method>MKCALENDAR</method>
+			<ruri>$calendarhome1:/shared/</ruri>
+			<verify>
+				<callback>statusCode</callback>
+			</verify>
+		</request>
+	</start>
+	
+	<test-suite name='Setup two sharees'>
+		<test name='1' ignore='no'>
+			<description>POST invitation</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$calendarhome1:/shared/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/POST/sharinginvite23.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Check Sharee 2 notification collection</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath2:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid2:</variable>
+				</grabelement>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}hosturl/{DAV:}href</name>
+					<variable>$hosturl2:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Sharee 2 replies ACCEPTED</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>POST</method>
+				<ruri>$calendarhome2:/</ruri>
+				<data substitutions='yes'>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/POST/sharingreply2.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<grabelement>
+					<name>{DAV:}href</name>
+					<variable>$shareecalendar2:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='4'>
+			<description>Check Sharee 3 notification collection</description>
+			<request user="$userid3:" pswd="$pswd3:" print-response='no'>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath3:/</ruri>
+			</request>
+			<request user="$userid3:" pswd="$pswd3:" print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath3:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid3:</variable>
+				</grabelement>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}hosturl/{DAV:}href</name>
+					<variable>$hosturl3:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Sharee 3 replies ACCEPTED</description>
+			<request user="$userid3:" pswd="$pswd3:" print-response='no'>
+				<method>POST</method>
+				<ruri>$calendarhome3:/</ruri>
+				<data substitutions='yes'>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/POST/sharingreply3.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<grabelement>
+					<name>{DAV:}href</name>
+					<variable>$shareecalendar3:</variable>
+				</grabelement>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='GET on empty calendar collection'>
+		<test name='1'>
+			<description>GET on empty calendar collection</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarhome1:/shared/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/sharing/webcal/rolled/1.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>GET on empty calendar collection - 2nd time from cache</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarhome1:/shared/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/sharing/webcal/rolled/1.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>GET on empty calendar collection</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>GET</method>
+				<ruri>$shareecalendar2:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/sharing/webcal/rolled/1.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>GET on empty calendar collection - 2nd time from cache</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>GET</method>
+				<ruri>$shareecalendar2:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/sharing/webcal/rolled/1.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>GET on empty calendar collection</description>
+			<request user="$userid3:" pswd="$pswd3:">
+				<method>GET</method>
+				<ruri>$shareecalendar3:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/sharing/webcal/rolled/1.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>GET on empty calendar collection - 2nd time from cache</description>
+			<request user="$userid3:" pswd="$pswd3:">
+				<method>GET</method>
+				<ruri>$shareecalendar3:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/sharing/webcal/rolled/1.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='GET on calendar collection after initial PUT'>
+		<test name='1'>
+			<description>GET on calendar collection after initial PUT</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarhome1:/shared/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/sharing/webcal/rolled/2.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarhome1:/shared/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/sharing/webcal/rolled/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>GET on calendar collection after initial PUT - 2nd time from cache</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarhome1:/shared/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/sharing/webcal/rolled/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>GET on calendar collection after initial PUT</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>GET</method>
+				<ruri>$shareecalendar2:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/sharing/webcal/rolled/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>GET on calendar collection after initial PUT - 2nd time from cache</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>GET</method>
+				<ruri>$shareecalendar2:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/sharing/webcal/rolled/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>GET on calendar collection after initial PUT</description>
+			<request user="$userid3:" pswd="$pswd3:">
+				<method>GET</method>
+				<ruri>$shareecalendar3:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/sharing/webcal/rolled/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>GET on calendar collection after initial PUT - 2nd time from cache</description>
+			<request user="$userid3:" pswd="$pswd3:">
+				<method>GET</method>
+				<ruri>$shareecalendar3:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/sharing/webcal/rolled/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='GET on calendar collection after sharee PUT'>
+		<test name='1'>
+			<description>GET on calendar collection after sharee PUT</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>PUT</method>
+				<ruri>$shareecalendar2:/2.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/sharing/webcal/rolled/4.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request print-response="no">
+				<method>GET</method>
+				<ruri>$calendarhome1:/shared/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/sharing/webcal/rolled/5.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>GET on calendar collection after sharee PUT - 2nd time from cache</description>
+			<request print-response="no">
+				<method>GET</method>
+				<ruri>$calendarhome1:/shared/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/sharing/webcal/rolled/5.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>GET on calendar collection after sharee PUT</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>GET</method>
+				<ruri>$shareecalendar2:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/sharing/webcal/rolled/6.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>GET on calendar collection after sharee PUT - 2nd time from cache</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>GET</method>
+				<ruri>$shareecalendar2:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/sharing/webcal/rolled/6.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>GET on calendar collection after sharee PUT</description>
+			<request user="$userid3:" pswd="$pswd3:">
+				<method>GET</method>
+				<ruri>$shareecalendar3:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/sharing/webcal/rolled/7.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>GET on calendar collection after sharee PUT - 2nd time from cache</description>
+			<request user="$userid3:" pswd="$pswd3:">
+				<method>GET</method>
+				<ruri>$shareecalendar3:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/sharing/webcal/rolled/7.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<end>
+		<request user="$useradmin:" pswd="$pswdadmin:">
+			<method>DELETEALL</method>
+			<ruri>$notificationpath1:/</ruri>
+			<ruri>$notificationpath2:/</ruri>
+			<ruri>$notificationpath3:/</ruri>
+			<ruri>$notificationpath4:/</ruri>
+		</request>
+	</end>
+
+</caldavtest>

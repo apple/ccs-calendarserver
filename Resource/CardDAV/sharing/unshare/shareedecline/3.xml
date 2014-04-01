@@ -1,0 +1,14 @@
+<?xml version='1.0' encoding='UTF-8'?><notification xmlns='http://calendarserver.org/ns/'>
+  <dtstamp></dtstamp>
+  <invite-reply xmlns='http://calendarserver.org/ns/'>
+    <href xmlns='DAV:'>$cuaddrurn2:</href>
+    <invite-declined/>
+    <hosturl>
+      <href xmlns='DAV:'>$addressbookpath1:/g123.vcf</href>
+    </hosturl>
+    <in-reply-to>$inviteuid:</in-reply-to>
+    <common-name>$username2:</common-name>
+    <first-name>$firstname2:</first-name>
+    <last-name>$lastname2:</last-name>
+  </invite-reply>
+</notification>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" ?>
+   <C:addressbook-query xmlns:D="DAV:"
+                     xmlns:C="urn:ietf:params:xml:ns:carddav">
+     <D:prop>
+       <C:address-data>
+         <C:prop name="UID"/>
+         <C:prop name="FN"/>
+         <C:prop name="X-AIM"/>
+       </C:address-data>
+     </D:prop>
+     <C:filter>
+       <C:prop-filter name="ADR">
+			<C:is-not-defined/>
+       </C:prop-filter>
+     </C:filter>
+   </C:addressbook-query>

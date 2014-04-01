@@ -1,0 +1,111 @@
+BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+METHOD:REQUEST
+BEGIN:VFREEBUSY
+UID:20060110T231240Z-4011c71-187-6f73-fb
+ORGANIZER;CN=$username1::$cuaddr1:
+ATTENDEE;CN=$username2::$cuaddr2:
+ATTENDEE;CN=$username3::$cuaddr3:
+ATTENDEE;CN=User 04:/principals/user/user04
+ATTENDEE;CN=User 05:/principals/user/user05
+ATTENDEE;CN=User 06:/principals/user/user06
+ATTENDEE;CN=User 07:/principals/user/user07
+ATTENDEE;CN=User 08:/principals/user/user08
+ATTENDEE;CN=User 09:/principals/user/user09
+ATTENDEE;CN=User 10:/principals/user/user10
+ATTENDEE;CN=User 11:/principals/user/user11
+ATTENDEE;CN=User 12:/principals/user/user12
+ATTENDEE;CN=User 13:/principals/user/user13
+ATTENDEE;CN=User 14:/principals/user/user14
+ATTENDEE;CN=User 15:/principals/user/user15
+ATTENDEE;CN=User 16:/principals/user/user16
+ATTENDEE;CN=User 17:/principals/user/user17
+ATTENDEE;CN=User 18:/principals/user/user18
+ATTENDEE;CN=User 19:/principals/user/user19
+ATTENDEE;CN=User 20:/principals/user/user20
+ATTENDEE;CN=User 21:/principals/user/user21
+ATTENDEE;CN=User 22:/principals/user/user22
+ATTENDEE;CN=User 23:/principals/user/user23
+ATTENDEE;CN=User 24:/principals/user/user24
+ATTENDEE;CN=User 25:/principals/user/user25
+ATTENDEE;CN=User 26:/principals/user/user26
+ATTENDEE;CN=User 27:/principals/user/user27
+ATTENDEE;CN=User 28:/principals/user/user28
+ATTENDEE;CN=User 29:/principals/user/user29
+ATTENDEE;CN=User 30:/principals/user/user30
+ATTENDEE;CN=User 31:/principals/user/user31
+ATTENDEE;CN=User 32:/principals/user/user32
+ATTENDEE;CN=User 33:/principals/user/user33
+ATTENDEE;CN=User 34:/principals/user/user34
+ATTENDEE;CN=User 35:/principals/user/user35
+ATTENDEE;CN=User 36:/principals/user/user36
+ATTENDEE;CN=User 37:/principals/user/user37
+ATTENDEE;CN=User 38:/principals/user/user38
+ATTENDEE;CN=User 39:/principals/user/user39
+ATTENDEE;CN=User 40:/principals/user/user40
+ATTENDEE;CN=User 41:/principals/user/user41
+ATTENDEE;CN=User 42:/principals/user/user42
+ATTENDEE;CN=User 43:/principals/user/user43
+ATTENDEE;CN=User 44:/principals/user/user44
+ATTENDEE;CN=User 45:/principals/user/user45
+ATTENDEE;CN=User 46:/principals/user/user46
+ATTENDEE;CN=User 47:/principals/user/user47
+ATTENDEE;CN=User 48:/principals/user/user48
+ATTENDEE;CN=User 49:/principals/user/user49
+ATTENDEE;CN=User 50:/principals/user/user50
+ATTENDEE;CN=User 51:/principals/user/user51
+ATTENDEE;CN=User 52:/principals/user/user52
+ATTENDEE;CN=User 53:/principals/user/user53
+ATTENDEE;CN=User 54:/principals/user/user54
+ATTENDEE;CN=User 55:/principals/user/user55
+ATTENDEE;CN=User 56:/principals/user/user56
+ATTENDEE;CN=User 57:/principals/user/user57
+ATTENDEE;CN=User 58:/principals/user/user58
+ATTENDEE;CN=User 59:/principals/user/user59
+ATTENDEE;CN=User 60:/principals/user/user60
+ATTENDEE;CN=User 61:/principals/user/user61
+ATTENDEE;CN=User 62:/principals/user/user62
+ATTENDEE;CN=User 63:/principals/user/user63
+ATTENDEE;CN=User 64:/principals/user/user64
+ATTENDEE;CN=User 65:/principals/user/user65
+ATTENDEE;CN=User 66:/principals/user/user66
+ATTENDEE;CN=User 67:/principals/user/user67
+ATTENDEE;CN=User 68:/principals/user/user68
+ATTENDEE;CN=User 69:/principals/user/user69
+ATTENDEE;CN=User 70:/principals/user/user70
+ATTENDEE;CN=User 71:/principals/user/user71
+ATTENDEE;CN=User 72:/principals/user/user72
+ATTENDEE;CN=User 73:/principals/user/user73
+ATTENDEE;CN=User 74:/principals/user/user74
+ATTENDEE;CN=User 75:/principals/user/user75
+ATTENDEE;CN=User 76:/principals/user/user76
+ATTENDEE;CN=User 77:/principals/user/user77
+ATTENDEE;CN=User 78:/principals/user/user78
+ATTENDEE;CN=User 79:/principals/user/user79
+ATTENDEE;CN=User 80:/principals/user/user80
+ATTENDEE;CN=User 81:/principals/user/user81
+ATTENDEE;CN=User 82:/principals/user/user82
+ATTENDEE;CN=User 83:/principals/user/user83
+ATTENDEE;CN=User 84:/principals/user/user84
+ATTENDEE;CN=User 85:/principals/user/user85
+ATTENDEE;CN=User 86:/principals/user/user86
+ATTENDEE;CN=User 87:/principals/user/user87
+ATTENDEE;CN=User 88:/principals/user/user88
+ATTENDEE;CN=User 89:/principals/user/user89
+ATTENDEE;CN=User 90:/principals/user/user90
+ATTENDEE;CN=User 91:/principals/user/user91
+ATTENDEE;CN=User 92:/principals/user/user92
+ATTENDEE;CN=User 93:/principals/user/user93
+ATTENDEE;CN=User 94:/principals/user/user94
+ATTENDEE;CN=User 95:/principals/user/user95
+ATTENDEE;CN=User 96:/principals/user/user96
+ATTENDEE;CN=User 97:/principals/user/user97
+ATTENDEE;CN=User 98:/principals/user/user98
+ATTENDEE;CN=User 99:/principals/user/user99
+DTSTART:$now.year.1:0101T000000Z
+DTSTAMP:20060309T185105Z
+DTEND:20060102T000000Z
+END:VFREEBUSY
+END:VCALENDAR

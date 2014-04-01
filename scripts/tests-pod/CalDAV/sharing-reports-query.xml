@@ -1,0 +1,2989 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<require-feature>
+		<feature>caldav</feature>
+	</require-feature>
+
+	<start>
+		<request user="$userid1:" pswd="$pswd1:">
+			<method>DELETEALL</method>
+			<ruri>$notificationpath1:/</ruri>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>DELETEALL</method>
+			<ruri>$pnotificationpath2:/</ruri>
+		</request>
+		<request end-delete="yes">
+			<method>MKCALENDAR</method>
+			<ruri>$calendarhome1:/shared/</ruri>
+			<verify>
+				<callback>statusCode</callback>
+			</verify>
+		</request>
+		<request end-delete="yes">
+			<method>MKCALENDAR</method>
+			<ruri>$calendarhome1:/shared-tasks/</ruri>
+			<data>
+				<content-type>application/xml; charset=utf-8</content-type>
+				<filepath>Resource/Common/MKCALENDAR/vtodo.xml</filepath>
+			</data>
+			<verify>
+				<callback>statusCode</callback>
+			</verify>
+		</request>
+		<request>
+			<method>POST</method>
+			<ruri>$calendarhome1:/shared/</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/Common/POST/sharinginvite2-pod.xml</filepath>
+			</data>
+			<verify>
+				<callback>statusCode</callback>
+			</verify>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>WAITCOUNT 1</method>
+			<ruri>$pnotificationpath2:/</ruri>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>GETNEW</method>
+			<ruri>$pnotificationpath2:/</ruri>
+			<verify>
+				<callback>statusCode</callback>
+			</verify>
+			<grabelement>
+				<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+				<variable>$inviteuid2:</variable>
+			</grabelement>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>POST</method>
+			<ruri>$pcalendarhome2:/</ruri>
+			<data substitutions='yes'>
+				<content-type>application/xml; charset=utf-8</content-type>
+				<filepath>Resource/Common/POST/sharingreply2-pod.xml</filepath>
+			</data>
+			<verify>
+				<callback>statusCode</callback>
+			</verify>
+			<grabelement>
+				<name>{DAV:}href</name>
+				<variable>basename($shareecalendar2:)</variable>
+			</grabelement>
+			<grabelement>
+				<name>{DAV:}href</name>
+				<variable>$shareecalendarpath2:</variable>
+			</grabelement>
+		</request>
+		<request>
+			<method>POST</method>
+			<ruri>$calendarhome1:/shared-tasks/</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/Common/POST/sharinginvite2-pod.xml</filepath>
+			</data>
+			<verify>
+				<callback>statusCode</callback>
+			</verify>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>WAITCOUNT 2</method>
+			<ruri>$pnotificationpath2:/</ruri>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>GETNEW</method>
+			<ruri>$pnotificationpath2:/</ruri>
+			<verify>
+				<callback>statusCode</callback>
+			</verify>
+			<grabelement>
+				<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+				<variable>$inviteuid2:</variable>
+			</grabelement>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>POST</method>
+			<ruri>$pcalendarhome2:/</ruri>
+			<data substitutions='yes'>
+				<content-type>application/xml; charset=utf-8</content-type>
+				<filepath>Resource/Common/POST/sharingreply2-pod.xml</filepath>
+			</data>
+			<verify>
+				<callback>statusCode</callback>
+			</verify>
+			<grabelement>
+				<name>{DAV:}href</name>
+				<variable>basename($shareetasks2:)</variable>
+			</grabelement>
+			<grabelement>
+				<name>{DAV:}href</name>
+				<variable>$shareetaskspath2:</variable>
+			</grabelement>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>PUT</method>
+			<ruri>$shareecalendarpath2:/1.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/reports/put/1.txt</filepath>
+			</data>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>PUT</method>
+			<ruri>$shareecalendarpath2:/2.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/reports/put/2.txt</filepath>
+			</data>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>PUT</method>
+			<ruri>$shareecalendarpath2:/3.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/reports/put/3.txt</filepath>
+			</data>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>PUT</method>
+			<ruri>$shareecalendarpath2:/4.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/reports/put/4.txt</filepath>
+			</data>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>PUT</method>
+			<ruri>$shareecalendarpath2:/5.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/reports/put/5.txt</filepath>
+			</data>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>PUT</method>
+			<ruri>$shareecalendarpath2:/6.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/reports/put/6.txt</filepath>
+			</data>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>PUT</method>
+			<ruri>$shareecalendarpath2:/7.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/reports/put/7.txt</filepath>
+			</data>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>PUT</method>
+			<ruri>$shareecalendarpath2:/8.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/reports/put/8.txt</filepath>
+			</data>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>PUT</method>
+			<ruri>$shareecalendarpath2:/9.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/reports/put/9.txt</filepath>
+			</data>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>PUT</method>
+			<ruri>$shareecalendarpath2:/10.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/reports/put/10.txt</filepath>
+			</data>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>PUT</method>
+			<ruri>$shareecalendarpath2:/11.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/reports/put/11.txt</filepath>
+			</data>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>PUT</method>
+			<ruri>$shareecalendarpath2:/12.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/reports/put/12.txt</filepath>
+			</data>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>PUT</method>
+			<ruri>$shareecalendarpath2:/13.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/reports/put/13.txt</filepath>
+			</data>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>PUT</method>
+			<ruri>$shareecalendarpath2:/14.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/reports/put/14.txt</filepath>
+			</data>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<exclude-feature>
+				<feature>split-calendars</feature>
+			</exclude-feature>
+			<method>PUT</method>
+			<ruri>$shareecalendarpath2:/15.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/reports/put/15.txt</filepath>
+			</data>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>PUT</method>
+			<ruri>$shareecalendarpath2:/18.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/reports/put/18.txt</filepath>
+			</data>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>PUT</method>
+			<ruri>$shareecalendarpath2:/19.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/reports/put/19.txt</filepath>
+			</data>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>PUT</method>
+			<ruri>$shareecalendarpath2:/20.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/reports/put/20.txt</filepath>
+			</data>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>PUT</method>
+			<ruri>$shareecalendarpath2:/21.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/reports/put/21.txt</filepath>
+			</data>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>PUT</method>
+			<ruri>$shareecalendarpath2:/22.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/reports/put/22.txt</filepath>
+			</data>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>PUT</method>
+			<ruri>$shareecalendarpath2:/27.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/reports/put/27.ics</filepath>
+			</data>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>PUT</method>
+			<ruri>$shareetaskspath2:/101.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/reports/put/101.txt</filepath>
+			</data>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>PUT</method>
+			<ruri>$shareetaskspath2:/102.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/reports/put/102.txt</filepath>
+			</data>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>PUT</method>
+			<ruri>$shareetaskspath2:/103.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/reports/put/103.txt</filepath>
+			</data>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>PUT</method>
+			<ruri>$shareetaskspath2:/104.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/reports/put/104.txt</filepath>
+			</data>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>PUT</method>
+			<ruri>$shareetaskspath2:/105.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/reports/put/105.txt</filepath>
+			</data>
+		</request>
+		<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+			<method>PUT</method>
+			<ruri>$shareetaskspath2:/106.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/reports/put/106.txt</filepath>
+			</data>
+		</request>
+	</start>
+	
+	<test-suite name='basic query reports' ignore='no'>
+		<test name='1a' ignore='no'>
+			<description>query for resources with VCALENDAR &amp; VEVENT defined</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+						<value>2.ics</value>
+						<value>3.ics</value>
+						<value>4.ics</value>
+						<value>5.ics</value>
+						<value>6.ics</value>
+						<value>7.ics</value>
+						<value>8.ics</value>
+						<value>9.ics</value>
+						<value>10.ics</value>
+						<value>11.ics</value>
+						<value>12.ics</value>
+						<value>13.ics</value>
+						<value>14.ics</value>
+						<value>18.ics</value>
+						<value>19.ics</value>
+						<value>20.ics</value>
+						<value>21.ics</value>
+						<value>22.ics</value>
+						<value>27.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='1b' ignore='no'>
+			<require-feature>
+				<feature>split-calendars</feature>
+			</require-feature>
+			<description>query for resources with VCALENDAR &amp; VEVENT defined</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareetaskspath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2a' ignore='no'>
+			<description>query for resources with VCALENDAR &amp; VEVENT not defined</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/8.txt</filepath>
+				</data>
+				<verify>
+					<exclude-feature>
+						<feature>split-calendars</feature>
+					</exclude-feature>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>15.ics</value>
+						<value>101.ics</value>
+						<value>102.ics</value>
+						<value>103.ics</value>
+						<value>104.ics</value>
+						<value>105.ics</value>
+						<value>106.ics</value>
+					</arg>
+				</verify>
+				<verify>
+					<require-feature>
+						<feature>split-calendars</feature>
+					</require-feature>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2b' ignore='no'>
+			<require-feature>
+				<feature>split-calendars</feature>
+			</require-feature>
+			<description>query for resources with VCALENDAR &amp; VEVENT not defined</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareetaskspath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/8.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>101.ics</value>
+						<value>102.ics</value>
+						<value>103.ics</value>
+						<value>104.ics</value>
+						<value>105.ics</value>
+						<value>106.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>query for resources where the SUMMARY in a VEVENT contains the character '1'</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/2.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+						<value>10.ics</value>
+						<value>11.ics</value>
+						<value>12.ics</value>
+						<value>13.ics</value>
+						<value>14.ics</value>
+						<value>18.ics</value>
+						<value>20.ics</value>
+						<value>21.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>query for resources where the SUMMARY in a VEVENT does not contain the character '1'</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/7.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>2.ics</value>
+						<value>3.ics</value>
+						<value>4.ics</value>
+						<value>5.ics</value>
+						<value>6.ics</value>
+						<value>7.ics</value>
+						<value>8.ics</value>
+						<value>9.ics</value>
+						<value>19.ics</value>
+						<value>22.ics</value>
+						<value>27.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>query for resources where the DESCRIPTION property exists in a VEVENT</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/3.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>2.ics</value>
+						<value>6.ics</value>
+						<value>7.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>query for resources where the DESCRIPTION property does not exist in a VEVENT</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/9.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+						<value>3.ics</value>
+						<value>4.ics</value>
+						<value>5.ics</value>
+						<value>6.ics</value>
+						<value>7.ics</value>
+						<value>8.ics</value>
+						<value>9.ics</value>
+						<value>10.ics</value>
+						<value>11.ics</value>
+						<value>12.ics</value>
+						<value>13.ics</value>
+						<value>14.ics</value>
+						<value>18.ics</value>
+						<value>19.ics</value>
+						<value>20.ics</value>
+						<value>21.ics</value>
+						<value>22.ics</value>
+						<value>27.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>query for resources that have a DTSTART in a VEVENT that contains a TZID parameter containing the text 'Paci'</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/4.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8' ignore='no'>
+			<description>query for resources that have a DTSTART in a VEVENT that contains a TZID parameter not containing the text 'Paci'</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/10.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+						<value>2.ics</value>
+						<value>4.ics</value>
+						<value>5.ics</value>
+						<value>6.ics</value>
+						<value>7.ics</value>
+						<value>8.ics</value>
+						<value>9.ics</value>
+						<value>10.ics</value>
+						<value>11.ics</value>
+						<value>12.ics</value>
+						<value>13.ics</value>
+						<value>14.ics</value>
+						<value>19.ics</value>
+						<value>20.ics</value>
+						<value>21.ics</value>
+						<value>22.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='9' ignore='no'>
+			<description>query for resources that have a DTSTART in a VEVENT that contains a TZID parameter containing the text 'Paci' and 'Moun'</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/5.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='10' ignore='no'>
+			<require-feature>
+				<feature>query-extended</feature>
+			</require-feature>
+			<description>query for resources that have a DTSTART in a VEVENT that contains a TZID parameter containing the text 'Paci' or 'Moun'</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/16.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>2.ics</value>
+						<value>3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='11' ignore='no'>
+			<description>query for resources where the SUMMARY in a VEVENT contains the character '4' and has a DTSTART in a VEVENT that contains a TZID parameter containing the text 'East'</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/6.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>12.ics</value>
+						<value>22.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='12' ignore='no'>
+			<require-feature>
+				<feature>query-extended</feature>
+			</require-feature>
+			<description>query for resources where the SUMMARY in a VEVENT contains the character '2' or has a DTSTART in a VEVENT that contains a TZID parameter containing the text 'East'</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/17.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+						<value>2.ics</value>
+						<value>4.ics</value>
+						<value>5.ics</value>
+						<value>6.ics</value>
+						<value>7.ics</value>
+						<value>8.ics</value>
+						<value>9.ics</value>
+						<value>10.ics</value>
+						<value>11.ics</value>
+						<value>12.ics</value>
+						<value>13.ics</value>
+						<value>14.ics</value>
+						<value>19.ics</value>
+						<value>20.ics</value>
+						<value>21.ics</value>
+						<value>22.ics</value>
+						<value>27.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='13' ignore='no'>
+			<description>query for resources where the RECURRENCE-ID in a VEVENT does not contain a RANGE parameter</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/11.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>6.ics</value>
+						<value>22.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='14a' ignore='no'>
+			<description>query for resources with VCALENDAR &amp; VTODO defined</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/101.txt</filepath>
+				</data>
+				<verify>
+					<exclude-feature>
+						<feature>split-calendars</feature>
+					</exclude-feature>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>101.ics</value>
+						<value>102.ics</value>
+						<value>103.ics</value>
+						<value>104.ics</value>
+						<value>105.ics</value>
+						<value>106.ics</value>
+					</arg>
+				</verify>
+				<verify>
+					<require-feature>
+						<feature>split-calendars</feature>
+					</require-feature>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='14b' ignore='no'>
+			<require-feature>
+				<feature>split-calendars</feature>
+			</require-feature>
+			<description>query for resources with VCALENDAR &amp; VTODO defined</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareetaskspath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/101.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>101.ics</value>
+						<value>102.ics</value>
+						<value>103.ics</value>
+						<value>104.ics</value>
+						<value>105.ics</value>
+						<value>106.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='15' ignore='no'>
+			<description>query for resources where the SUMMARY in a VTODO contains the character '1'</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareetaskspath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/102.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>101.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='16' ignore='no'>
+			<description>query for resources that have a DUE in a VTODO that contains a TZID parameter containing the text 'East'</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareetaskspath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/103.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>102.ics</value>
+						<value>104.ics</value>
+						<value>106.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='17a' ignore='no'>
+			<description>query for resources with VCALENDAR &amp; VEVENT and VTODO defined</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/201.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='17b' ignore='no'>
+			<require-feature>
+				<feature>split-calendars</feature>
+			</require-feature>
+			<description>query for resources with VCALENDAR &amp; VEVENT and VTODO defined</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareetaskspath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/201.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='18a' ignore='no'>
+			<require-feature>
+				<feature>query-extended</feature>
+			</require-feature>
+			<description>query for resources with VCALENDAR &amp; VEVENT or VTODO defined</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/204.xml</filepath>
+				</data>
+				<verify>
+					<exclude-feature>
+						<feature>split-calendars</feature>
+					</exclude-feature>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+						<value>2.ics</value>
+						<value>3.ics</value>
+						<value>4.ics</value>
+						<value>5.ics</value>
+						<value>6.ics</value>
+						<value>7.ics</value>
+						<value>8.ics</value>
+						<value>9.ics</value>
+						<value>10.ics</value>
+						<value>11.ics</value>
+						<value>12.ics</value>
+						<value>13.ics</value>
+						<value>14.ics</value>
+						<value>18.ics</value>
+						<value>19.ics</value>
+						<value>20.ics</value>
+						<value>21.ics</value>
+						<value>22.ics</value>
+						<value>101.ics</value>
+						<value>102.ics</value>
+						<value>103.ics</value>
+						<value>104.ics</value>
+						<value>105.ics</value>
+						<value>106.ics</value>
+					</arg>
+				</verify>
+				<verify>
+					<require-feature>
+						<feature>split-calendars</feature>
+					</require-feature>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+						<value>2.ics</value>
+						<value>3.ics</value>
+						<value>4.ics</value>
+						<value>5.ics</value>
+						<value>6.ics</value>
+						<value>7.ics</value>
+						<value>8.ics</value>
+						<value>9.ics</value>
+						<value>10.ics</value>
+						<value>11.ics</value>
+						<value>12.ics</value>
+						<value>13.ics</value>
+						<value>14.ics</value>
+						<value>18.ics</value>
+						<value>19.ics</value>
+						<value>20.ics</value>
+						<value>21.ics</value>
+						<value>22.ics</value>
+						<value>27.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='18b' ignore='no'>
+			<require-feature>
+				<feature>query-extended</feature>
+				<feature>split-calendars</feature>
+			</require-feature>
+			<description>query for resources with VCALENDAR &amp; VEVENT or VTODO defined</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareetaskspath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/204.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>101.ics</value>
+						<value>102.ics</value>
+						<value>103.ics</value>
+						<value>104.ics</value>
+						<value>105.ics</value>
+						<value>106.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='19a' ignore='no'>
+			<description>query for resources where the SUMMARY in a VEVENT and VTODO contains the character '1'</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/202.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='19b' ignore='no'>
+			<require-feature>
+				<feature>split-calendars</feature>
+			</require-feature>
+			<description>query for resources where the SUMMARY in a VEVENT and VTODO contains the character '1'</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareetaskspath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/202.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='20a' ignore='no'>
+			<require-feature>
+				<feature>query-extended</feature>
+			</require-feature>
+			<description>query for resources where the SUMMARY in a VEVENT or VTODO contains the character '1'</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/205.xml</filepath>
+				</data>
+				<verify>
+					<exclude-feature>
+						<feature>split-calendars</feature>
+					</exclude-feature>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+						<value>10.ics</value>
+						<value>11.ics</value>
+						<value>12.ics</value>
+						<value>13.ics</value>
+						<value>14.ics</value>
+						<value>18.ics</value>
+						<value>20.ics</value>
+						<value>21.ics</value>
+						<value>101.ics</value>
+					</arg>
+				</verify>
+				<verify>
+					<require-feature>
+						<feature>split-calendars</feature>
+					</require-feature>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+						<value>10.ics</value>
+						<value>11.ics</value>
+						<value>12.ics</value>
+						<value>13.ics</value>
+						<value>14.ics</value>
+						<value>18.ics</value>
+						<value>20.ics</value>
+						<value>21.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='20b' ignore='no'>
+			<require-feature>
+				<feature>query-extended</feature>
+				<feature>split-calendars</feature>
+			</require-feature>
+			<description>query for resources where the SUMMARY in a VEVENT or VTODO contains the character '1'</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareetaskspath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/205.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>101.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='21' ignore='no'>
+			<description>query for resources that have a DTSTART in a VEVENT with TZID containg 'Paci' and a DUE in a VTODO with TZID containing 'East'</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareetaskspath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/203.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='22a' ignore='no'>
+			<require-feature>
+				<feature>query-extended</feature>
+			</require-feature>
+			<description>query for resources that have a DTSTART in a VEVENT with TZID containg 'Paci' or a DUE in a VTODO with TZID containing 'East'</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/206.xml</filepath>
+				</data>
+				<verify>
+					<exclude-feature>
+						<feature>split-calendars</feature>
+					</exclude-feature>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>3.ics</value>
+						<value>102.ics</value>
+						<value>104.ics</value>
+						<value>106.ics</value>
+					</arg>
+				</verify>
+				<verify>
+					<require-feature>
+						<feature>split-calendars</feature>
+					</require-feature>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='22b' ignore='no'>
+			<require-feature>
+				<feature>query-extended</feature>
+				<feature>split-calendars</feature>
+			</require-feature>
+			<description>query for resources that have a DTSTART in a VEVENT with TZID containg 'Paci' or a DUE in a VTODO with TZID containing 'East'</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareetaskspath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/206.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>102.ics</value>
+						<value>104.ics</value>
+						<value>106.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='23' ignore='no'>
+			<description>query for VEVENTs that do not contain VALARMs</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/12.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+						<value>2.ics</value>
+						<value>3.ics</value>
+						<value>6.ics</value>
+						<value>8.ics</value>
+						<value>9.ics</value>
+						<value>10.ics</value>
+						<value>11.ics</value>
+						<value>12.ics</value>
+						<value>13.ics</value>
+						<value>14.ics</value>
+						<value>18.ics</value>
+						<value>19.ics</value>
+						<value>20.ics</value>
+						<value>21.ics</value>
+						<value>22.ics</value>
+						<value>27.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='24' ignore='no'>
+			<description>query for VEVENTs that contain a CATEGORY and filter by CATEGORY</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/13.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+						<value>2.ics</value>
+						<value>4.ics</value>
+						<value>5.ics</value>
+						<value>6.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='25' ignore='no'>
+			<description>query for VEVENTs that contain a CATEGORY but test with uppercase string</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/14.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+						<value>2.ics</value>
+						<value>4.ics</value>
+						<value>5.ics</value>
+						<value>6.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='26' ignore='no'>
+			<description>empty query</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/15.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='27' ignore='no'>
+			<require-feature>
+				<feature>query-extended</feature>
+			</require-feature>
+			<description>query for VEVENTs that contain a UID starts with</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/18.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>4.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='28' ignore='no'>
+			<require-feature>
+				<feature>query-extended</feature>
+			</require-feature>
+			<description>query for VEVENTs that contain a UID ends with</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/19.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>14.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='29' ignore='no'>
+			<require-feature>
+				<feature>query-extended</feature>
+			</require-feature>
+			<description>query for VEVENTs that contain a UID equals</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/20.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='30' ignore='no'>
+			<require-feature>
+				<feature>query-extended</feature>
+			</require-feature>
+			<description>query for VEVENTs that contain a UID contains</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/21.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>10.ics</value>
+						<value>11.ics</value>
+						<value>12.ics</value>
+						<value>13.ics</value>
+						<value>14.ics</value>
+						<value>20.ics</value>
+						<value>21.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='31' ignore='no'>
+			<require-feature>
+				<feature>query-extended</feature>
+			</require-feature>
+			<description>query for VEVENTs that contain a SUMMARY starts with</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/22.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+						<value>10.ics</value>
+						<value>11.ics</value>
+						<value>12.ics</value>
+						<value>13.ics</value>
+						<value>14.ics</value>
+						<value>18.ics</value>
+						<value>20.ics</value>
+						<value>21.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='32' ignore='no'>
+			<require-feature>
+				<feature>query-extended</feature>
+			</require-feature>
+			<description>query for VEVENTs that contain a SUMMARY ends with</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/23.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+						<value>11.ics</value>
+						<value>18.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='33' ignore='no'>
+			<require-feature>
+				<feature>query-extended</feature>
+			</require-feature>
+			<description>query for VEVENTs that contain a SUMMARY equals</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/24.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='34' ignore='no'>
+			<require-feature>
+				<feature>query-extended</feature>
+			</require-feature>
+			<description>query for VEVENTs that contain a SUMMARY contains</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/25.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>2.ics</value>
+						<value>22.ics</value>
+						<value>27.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='query reports with filtered data' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>query for resources with VCALENDAR &amp; VEVENT defined - return filtered data</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/filtereddata/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>notcontains</name>
+						<value>DTSTAMP</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>query for resources with VCALENDAR &amp; VEVENT defined - return filtered data</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/filtereddata/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>notcontains</name>
+						<value>DTSTAMP</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='time-range query reports' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>query for VEVENTs within time range</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>5.ics</value>
+						<value>6.ics</value>
+						<value>7.ics</value>
+						<value>19.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>query for VEVENT and VFREEBUSYs that have a CREATED/DTSTAMP within time range</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/2.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<require-feature>
+				<feature>query-extended</feature>
+			</require-feature>
+			<description>query for VEVENT or VFREEBUSYs that have a CREATED/DTSTAMP within time range</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/14.xml</filepath>
+				</data>
+				<verify>
+					<exclude-feature>
+						<feature>split-calendars</feature>
+					</exclude-feature>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+						<value>2.ics</value>
+						<value>3.ics</value>
+						<value>4.ics</value>
+						<value>8.ics</value>
+						<value>9.ics</value>
+						<value>10.ics</value>
+						<value>11.ics</value>
+						<value>12.ics</value>
+						<value>13.ics</value>
+						<value>14.ics</value>
+						<value>15.ics</value>
+					</arg>
+				</verify>
+				<verify>
+					<require-feature>
+						<feature>split-calendars</feature>
+					</require-feature>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+						<value>2.ics</value>
+						<value>3.ics</value>
+						<value>4.ics</value>
+						<value>8.ics</value>
+						<value>9.ics</value>
+						<value>10.ics</value>
+						<value>11.ics</value>
+						<value>12.ics</value>
+						<value>13.ics</value>
+						<value>14.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>query for VEVENTs within time range with specific SUMMARY text</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/3.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>query for VEVENT recurrence instance within time range</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/4.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>6.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>query for overridden VEVENT instance within time range</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/5.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>6.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>query for overridden VEVENT not within time range</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/6.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='8' ignore='no'>
+			<description>query for overridden this-and-future VEVENT within time range</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/7.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>7.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='9' ignore='no'>
+			<description>query for VTODOs within time range</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareetaskspath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/101.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>101.ics</value>
+						<value>102.ics</value>
+						<value>103.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='10' ignore='no'>
+			<description>query for VTODOs within time range with specific SUMMARY text</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareetaskspath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/102.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>102.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='11' ignore='no'>
+			<description>query for VTODO recurrence instance within time range</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareetaskspath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/103.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>101.ics</value>
+						<value>105.ics</value>
+						<value>106.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='12' ignore='no'>
+			<description>Invalid VTIMEZONE check</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/104.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-data</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='13' ignore='no'>
+			<description>query for VEVENTs within time range in distant future</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/8.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>19.ics</value>
+						<value>20.ics</value>
+						<value>21.ics</value>
+						<value>22.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='14' ignore='no'>
+			<description>query for VEVENTs within time range - no end</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/9.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>5.ics</value>
+						<value>6.ics</value>
+						<value>7.ics</value>
+						<value>8.ics</value>
+						<value>9.ics</value>
+						<value>10.ics</value>
+						<value>11.ics</value>
+						<value>12.ics</value>
+						<value>13.ics</value>
+						<value>14.ics</value>
+						<value>18.ics</value>
+						<value>19.ics</value>
+						<value>20.ics</value>
+						<value>21.ics</value>
+						<value>22.ics</value>
+						<value>27.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='15' ignore='no'>
+			<description>query for VEVENTs within time range - no start</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/10.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+						<value>2.ics</value>
+						<value>3.ics</value>
+						<value>4.ics</value>
+						<value>5.ics</value>
+						<value>6.ics</value>
+						<value>7.ics</value>
+						<value>19.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='16' ignore='no'>
+			<description>query for VEVENTs within time range - no start and no end</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/11.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='17' ignore='yes'> <!-- RRULE's now truncated -->
+			<description>query for VEVENTs within time range - too many</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/12.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}number-of-recurrences-within-limits</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='18' ignore='no'>
+			<description>query for free busy with overlapping and consecutive events</description>
+			<request end-delete="yes">
+				<method>PUT</method>
+				<ruri>$calendarhome1:/shared/23.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/put/23.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/13.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>23.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='19a' ignore='no'>
+			<description>query for VEVENTS and VTODOs within time range</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/201.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='19b' ignore='no'>
+			<require-feature>
+				<feature>split-calendars</feature>
+			</require-feature>
+			<description>query for VEVENTS and VTODOs within time range</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareetaskspath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/201.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='20a' ignore='no'>
+			<require-feature>
+				<feature>query-extended</feature>
+			</require-feature>
+			<description>query for VEVENTS or VTODOs within time range</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/204.xml</filepath>
+				</data>
+				<verify>
+					<exclude-feature>
+						<feature>split-calendars</feature>
+					</exclude-feature>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>5.ics</value>
+						<value>6.ics</value>
+						<value>7.ics</value>
+						<value>19.ics</value>
+						<value>101.ics</value>
+						<value>102.ics</value>
+						<value>103.ics</value>
+					</arg>
+				</verify>
+				<verify>
+					<require-feature>
+						<feature>split-calendars</feature>
+					</require-feature>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>5.ics</value>
+						<value>6.ics</value>
+						<value>7.ics</value>
+						<value>19.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='20b' ignore='no'>
+			<require-feature>
+				<feature>query-extended</feature>
+				<feature>split-calendars</feature>
+			</require-feature>
+			<description>query for VEVENTS or VTODOs within time range</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareetaskspath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/204.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>101.ics</value>
+						<value>102.ics</value>
+						<value>103.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='21a' ignore='no'>
+			<description>query for VEVENTS and VTODOs with start only</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/202.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='21b' ignore='no'>
+			<require-feature>
+				<feature>split-calendars</feature>
+			</require-feature>
+			<description>query for VEVENTS and VTODOs with start only</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareetaskspath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/202.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='22a' ignore='no'>
+			<require-feature>
+				<feature>query-extended</feature>
+			</require-feature>
+			<description>query for VEVENTS or VTODOs with start only</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/205.xml</filepath>
+				</data>
+				<verify>
+					<exclude-feature>
+						<feature>split-calendars</feature>
+					</exclude-feature>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>5.ics</value>
+						<value>6.ics</value>
+						<value>7.ics</value>
+						<value>8.ics</value>
+						<value>9.ics</value>
+						<value>10.ics</value>
+						<value>11.ics</value>
+						<value>12.ics</value>
+						<value>13.ics</value>
+						<value>14.ics</value>
+						<value>18.ics</value>
+						<value>19.ics</value>
+						<value>20.ics</value>
+						<value>21.ics</value>
+						<value>22.ics</value>
+						<value>23.ics</value>
+						<value>27.ics</value>
+						<value>101.ics</value>
+						<value>104.ics</value>
+						<value>105.ics</value>
+						<value>106.ics</value>
+					</arg>
+				</verify>
+				<verify>
+					<require-feature>
+						<feature>split-calendars</feature>
+					</require-feature>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>5.ics</value>
+						<value>6.ics</value>
+						<value>7.ics</value>
+						<value>8.ics</value>
+						<value>9.ics</value>
+						<value>10.ics</value>
+						<value>11.ics</value>
+						<value>12.ics</value>
+						<value>13.ics</value>
+						<value>14.ics</value>
+						<value>18.ics</value>
+						<value>19.ics</value>
+						<value>20.ics</value>
+						<value>21.ics</value>
+						<value>22.ics</value>
+						<value>23.ics</value>
+						<value>27.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='22b' ignore='no'>
+			<require-feature>
+				<feature>query-extended</feature>
+				<feature>split-calendars</feature>
+			</require-feature>
+			<description>query for VEVENTS or VTODOs with start only</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareetaskspath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/205.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>101.ics</value>
+						<value>104.ics</value>
+						<value>105.ics</value>
+						<value>106.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='23a' ignore='no'>
+			<description>query for VEVENTS with start only and all VTODOs</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/203.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='23b' ignore='no'>
+			<require-feature>
+				<feature>split-calendars</feature>
+			</require-feature>
+			<description>query for VEVENTS with start only and all VTODOs</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareetaskspath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/203.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='24a' ignore='no'>
+			<require-feature>
+				<feature>query-extended</feature>
+			</require-feature>
+			<description>query for VEVENTS with start only or all VTODOs</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/206.xml</filepath>
+				</data>
+				<verify>
+					<exclude-feature>
+						<feature>split-calendars</feature>
+					</exclude-feature>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>5.ics</value>
+						<value>6.ics</value>
+						<value>7.ics</value>
+						<value>8.ics</value>
+						<value>9.ics</value>
+						<value>10.ics</value>
+						<value>11.ics</value>
+						<value>12.ics</value>
+						<value>13.ics</value>
+						<value>14.ics</value>
+						<value>18.ics</value>
+						<value>19.ics</value>
+						<value>20.ics</value>
+						<value>21.ics</value>
+						<value>22.ics</value>
+						<value>23.ics</value>
+						<value>27.ics</value>
+						<value>101.ics</value>
+						<value>102.ics</value>
+						<value>103.ics</value>
+						<value>104.ics</value>
+						<value>105.ics</value>
+						<value>106.ics</value>
+					</arg>
+				</verify>
+				<verify>
+					<require-feature>
+						<feature>split-calendars</feature>
+					</require-feature>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>5.ics</value>
+						<value>6.ics</value>
+						<value>7.ics</value>
+						<value>8.ics</value>
+						<value>9.ics</value>
+						<value>10.ics</value>
+						<value>11.ics</value>
+						<value>12.ics</value>
+						<value>13.ics</value>
+						<value>14.ics</value>
+						<value>18.ics</value>
+						<value>19.ics</value>
+						<value>20.ics</value>
+						<value>21.ics</value>
+						<value>22.ics</value>
+						<value>23.ics</value>
+						<value>27.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='24b' ignore='no'>
+			<require-feature>
+				<feature>query-extended</feature>
+				<feature>split-calendars</feature>
+			</require-feature>
+			<description>query for VEVENTS with start only or all VTODOs</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareetaskspath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/206.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>101.ics</value>
+						<value>102.ics</value>
+						<value>103.ics</value>
+						<value>104.ics</value>
+						<value>105.ics</value>
+						<value>106.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='25' ignore='no'>
+			<require-feature>
+				<feature>timerange-low-limit</feature>
+			</require-feature>
+			<description>query with both start/end below lower limit</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/15.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}min-date-time</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='26' ignore='no'>
+			<require-feature>
+				<feature>timerange-low-limit</feature>
+			</require-feature>
+			<description>query with start only below lower limit</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/16.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}min-date-time</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='27' ignore='no'>
+			<require-feature>
+				<feature>timerange-low-limit</feature>
+			</require-feature>
+			<description>query with end only below lower limit</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/17.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}min-date-time</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='28' ignore='no'>
+			<require-feature>
+				<feature>timerange-high-limit</feature>
+			</require-feature>
+			<description>query with both start/end above upper limit</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/18.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}max-date-time</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='29' ignore='no'>
+			<require-feature>
+				<feature>timerange-high-limit</feature>
+			</require-feature>
+			<description>query with start only above upper limit</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/19.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}max-date-time</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='30' ignore='no'>
+			<require-feature>
+				<feature>timerange-high-limit</feature>
+			</require-feature>
+			<description>query with end only above upper limit</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/20.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}max-date-time</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='31' ignore='no'>
+			<require-feature>
+				<feature>timerange-high-limit</feature>
+			</require-feature>
+			<description>query with start lower, end above upper limit</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/timerangequery/18.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}max-date-time</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='alarm time-range query reports' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>query for VALARMS within time range</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/alarmtimerangequery/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>4.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>query for repeating VALARMS within time range</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/alarmtimerangequery/2.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>4.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>query for recurring VALARMS within time range</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/alarmtimerangequery/3.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>5.ics</value>
+						<value>7.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>query for recurring/overridden VALARMS within time range</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/alarmtimerangequery/4.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>5.ics</value>
+						<value>6.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>query for VALARMS on VTODO within time range</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareetaskspath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/alarmtimerangequery/5.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>102.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='free-busy reports' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>query for free busy with time range</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/freebusy/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>freeBusy</callback>
+					<arg>
+						<name>busy</name>
+						<value>$now.year.1:0101T150000Z/$now.year.1:0101T160000Z</value>
+						<value>$now.year.1:0101T180000Z/$now.year.1:0101T190000Z</value>
+						<value>$now.year.1:0101T210000Z/$now.year.1:0101T220000Z</value>
+						<value>$now.year.1:0101T230000Z/$now.year.1:0102T000000Z</value>
+						<value>$now.year.1:0102T150000Z/$now.year.1:0102T160000Z</value>
+						<value>$now.year.1:0103T150000Z/$now.year.1:0103T160000Z</value>
+						<value>$now.year.1:0104T150000Z/$now.year.1:0104T160000Z</value>
+						<value>$now.year.1:0102T190000Z/$now.year.1:0102T200000Z</value>
+						<value>$now.year.1:0103T190000Z/$now.year.1:0103T200000Z</value>
+						<value>$now.year.1:0104T210000Z/$now.year.1:0104T220000Z</value>
+						<value>$now.year.1:0102T230000Z/$now.year.1:0103T000000Z</value>
+						<value>$now.year.1:0103T230000Z/$now.year.1:0104T000000Z</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>notcontains</name>
+						<value>METHOD:REPLY</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>query for free busy with overlapping and consecutive events</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/freebusy/2.txt</filepath>
+				</data>
+				<verify>
+					<exclude-feature>
+						<feature>split-calendars</feature>
+					</exclude-feature>
+					<callback>freeBusy</callback>
+					<arg>
+						<name>busy</name>
+						<value>$now.year.1:0107T010000Z/$now.year.1:0107T020000Z</value>
+						<value>$now.year.1:0107T150000Z/$now.year.1:0107T163000Z</value>
+						<value>$now.year.1:0108T150000Z/$now.year.1:0108T180000Z</value>
+						<value>$now.year.1:0108T190000Z/$now.year.1:0108T193000Z</value>
+					</arg>
+					<arg>
+						<name>unavailable</name>
+						<value>$now.year.1:0108T130000Z/$now.year.1:0108T150000Z</value>
+					</arg>
+					<arg>
+						<name>tentative</name>
+						<value>$now.year.1:0108T160000Z/$now.year.1:0108T170000Z</value>
+						<value>$now.year.1:0108T210000Z/$now.year.1:0108T213000Z</value>
+					</arg>
+				</verify>
+				<verify>
+					<require-feature>
+						<feature>split-calendars</feature>
+					</require-feature>
+					<callback>freeBusy</callback>
+					<arg>
+						<name>busy</name>
+						<value>$now.year.1:0107T010000Z/$now.year.1:0107T020000Z</value>
+						<value>$now.year.1:0107T150000Z/$now.year.1:0107T163000Z</value>
+						<value>$now.year.1:0108T150000Z/$now.year.1:0108T170000Z</value>
+					</arg>
+					<arg>
+						<name>tentative</name>
+						<value>$now.year.1:0108T160000Z/$now.year.1:0108T170000Z</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='limit/expand recurrence in reports' ignore='no'>
+		<test name='1' ignore='yes'>
+			<description>time-range query with limit over same range</description>
+			<request print-response='yes'>
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/limitexpand/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>5.ics</value>
+						<value>6.ics</value>
+						<value>7.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='yes'>
+			<description>time-range query with limit over different range</description>
+			<request print-response='yes'>
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/limitexpand/2.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>5.ics</value>
+						<value>6.ics</value>
+						<value>7.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>time-range query with expand over same range</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/limitexpand/3.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>5.ics</value>
+						<value>6.ics</value>
+						<value>7.ics</value>
+						<value>19.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>time-range query with expand over different range</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/limitexpand/4.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>5.ics</value>
+						<value>6.ics</value>
+						<value>7.ics</value>
+						<value>19.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>query with limit-freebusy-set</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/limitexpand/5.txt</filepath>
+				</data>
+				<verify>
+					<exclude-feature>
+						<feature>split-calendars</feature>
+					</exclude-feature>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>15.ics</value>
+					</arg>
+				</verify>
+				<verify>
+					<require-feature>
+						<feature>split-calendars</feature>
+					</require-feature>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>query with expand all-day - no timezone no match</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/limitexpand/6.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>query with expand all-day non-recurring - no timezone match</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/limitexpand/12.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>27.ics</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>VEVENT</value>
+						<value>DTSTART;VALUE=DATE:$now.year.2:1015</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8' ignore='no'>
+			<description>query with expand all-day recurring - no timezone match</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/limitexpand/13.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>18.ics</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>VEVENT</value>
+						<value>DTSTART;VALUE=DATE:$now.year.2:1017</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='9' ignore='no'>
+			<description>query with expand all-day - timezone</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/limitexpand/7.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>18.ics</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>VEVENT</value>
+						<value>DTSTART;VALUE=DATE:$now.year.2:1017</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='10' ignore='no'>
+			<description>query with expand all-day - recurrence</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/limitexpand/10.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>18.ics</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>VEVENT</value>
+						<value>DTSTART;VALUE=DATE:$now.year.2:1017</value>
+						<value>DTSTART;VALUE=DATE:$now.year.2:1018</value>
+						<value>RECURRENCE-ID;VALUE=DATE:$now.year.2:1018</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='11' ignore='no'>
+			<description>time-range query with expand for one event - DURATION test</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/limitexpand/8.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>6.ics</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>DTSTART:$now.year.1:0102T190000Z</value>
+						<value>DURATION:PT1H</value>
+						<value>RECURRENCE-ID:$now.year.1:0103T190000Z</value>
+						<value>DTSTART:$now.year.1:0103T190000Z</value>
+						<value>RECURRENCE-ID:$now.year.1:0104T190000Z</value>
+						<value>DTSTART:$now.year.1:0104T210000Z</value>
+					</arg>
+					<arg>
+						<name>notcontains</name>
+						<value>VTIMEZONE</value>
+						<value>DTSTART:$now.year.1:0104T190000Z</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='12' ignore='no'>
+			<description>time-range query with expand for one recurring event skipping cancelled first instance</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:" end-delete="yes">
+				<method>PUT</method>
+				<ruri>$shareecalendarpath2:/24.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/put/24.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:" end-delete="yes">
+				<method>PUT</method>
+				<ruri>$shareecalendarpath2:/25.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/put/25.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/limitexpand/9.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>19.ics</value>
+						<value>24.ics</value>
+						<value>25.ics</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>RECURRENCE-ID:$now.year.3:0102T170000Z</value>
+						<value>RECURRENCE-ID:$now.year.3:0103T170000Z</value>
+						<value>RECURRENCE-ID:$now.year.3:0104T170000Z</value>
+						<value>RECURRENCE-ID:$now.year.3:0102T190000Z</value>
+					</arg>
+					<arg>
+						<name>notcontains</name>
+						<value>DTSTART:$now.year.3:0101T170000Z</value>
+						<value>RECURRENCE-ID:$now.year.3:0101T170000Z</value>
+						<value>RECURRENCE-ID:$now.year.3:0101T190000Z</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='13' ignore='no'>
+			<description>time-range query with expand for one recurring event shifted into time-range</description>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:" end-delete="yes">
+				<method>PUT</method>
+				<ruri>$shareecalendarpath2:/26.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/put/26.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request host2="yes" user="$puserid2:" pswd="$ppswd2:">
+				<method>REPORT</method>
+				<ruri>$shareecalendarpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/limitexpand/11.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>ignoremissing</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>26.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<end/>
+	
+</caldavtest>

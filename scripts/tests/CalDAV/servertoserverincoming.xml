@@ -1,0 +1,346 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest ignore-all="yes">
+	<description>Test POST method in CalDAV</description>
+
+	<require-feature>
+		<feature>caldav</feature>
+	</require-feature>
+
+	<start>
+		<request>
+			<method>DELETEALL</method>
+			<ruri>$outboxpath1:/</ruri>
+		</request>
+		<request>
+			<method>DELETEALL</method>
+			<ruri>$inboxpath1:/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>DELETEALL</method>
+			<ruri>$outboxpath2:/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>DELETEALL</method>
+			<ruri>$inboxpath2:/</ruri>
+		</request>
+		<request end-delete="yes">
+			<method>PUT</method>
+			<ruri>$calendarpath1:/1.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/servertoserver/1.ics</filepath>
+			</data>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:" end-delete="yes">
+			<method>PUT</method>
+			<ruri>$calendarpath2:/1.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/servertoserver/2.ics</filepath>
+			</data>
+		</request>
+	</start>
+	
+	<test-suite name="POST free-busy" ignore='no'>
+		<test name='1'>
+			<description>POST free busy one valid user</description>
+			<request auth='no' print-response='no'>
+				<method>POST</method>
+				<ruri>$servertoserver:</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/servertoserver/3.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>FREEBUSY;FBTYPE=BUSY:20060101T150000Z/PT1H</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>POST free busy two valid users</description>
+			<request auth='no' print-response='no'>
+				<method>POST</method>
+				<ruri>$servertoserver:</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/servertoserver/3.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>FREEBUSY;FBTYPE=BUSY:20060101T150000Z/PT1H</value>
+						<value>FREEBUSY;FBTYPE=BUSY:20060101T170000Z/PT1H</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name="POST invite one user" ignore='no'>
+		<test name='1'>
+			<description>POST invite to one valid user</description>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request auth='no' print-response='no'>
+				<method>POST</method>
+				<ruri>$servertoserver:</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/servertoserver/6.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>2.0;Success</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>One item in user01 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>GETNEW</method>
+				<ruri>$inboxpath1:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/servertoserver/6.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name="POST invite two users" ignore='no'>
+		<test name='1'>
+			<description>POST invite to two valid users</description>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request auth='no' print-response='no'>
+				<method>POST</method>
+				<ruri>$servertoserver:</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/servertoserver/7.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>2.0;Success</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>One item in user01 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>GETNEW</method>
+				<ruri>$inboxpath1:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/servertoserver/7.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>One item in user02 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>GETNEW</method>
+				<ruri>$inboxpath2:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/servertoserver/7.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name="POST Errors" ignore='no'>
+		<test name='1'>
+			<description>POST authenticated</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$servertoserver:</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/servertoserver/3.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>POST local originator</description>
+			<request auth='no' print-response='no'>
+				<method>POST</method>
+				<ruri>$servertoserver:</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/servertoserver/3.ics</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}originator-allowed</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>POST invalid local recipient</description>
+			<request auth='no' print-response='no'>
+				<method>POST</method>
+				<ruri>$servertoserver:</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/servertoserver/3.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>3.7;Invalid Calendar User</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>POST remote recipient</description>
+			<request auth='no' print-response='no'>
+				<method>POST</method>
+				<ruri>$servertoserver:</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/servertoserver/3.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>3.7;Invalid Calendar User</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>POST local organizer</description>
+			<request auth='no' print-response='no'>
+				<method>POST</method>
+				<ruri>$servertoserver:</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/servertoserver/4.ics</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}organizer-allowed</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>POST local attendee reply</description>
+			<request auth='no' print-response='no'>
+				<method>POST</method>
+				<ruri>$servertoserver:</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/servertoserver/3.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>FREEBUSY;FBTYPE=BUSY:20060101T150000Z/PT1H</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<end>
+		<request>
+			<method>DELETEALL</method>
+			<ruri>$outboxpath1:/</ruri>
+		</request>
+		<request>
+			<method>DELETEALL</method>
+			<ruri>$inboxpath1:/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>DELETEALL</method>
+			<ruri>$outboxpath2:/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>DELETEALL</method>
+			<ruri>$inboxpath2:/</ruri>
+		</request>
+	</end>
+	
+</caldavtest>

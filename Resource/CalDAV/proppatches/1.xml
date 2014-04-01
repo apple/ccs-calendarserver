@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<D:propertyupdate xmlns:D="DAV:">
+<D:set>
+<D:prop>
+<D:details>My Name</D:details>
+<D:details2>My Name 2</D:details2>
+</D:prop>
+</D:set>
+</D:propertyupdate>

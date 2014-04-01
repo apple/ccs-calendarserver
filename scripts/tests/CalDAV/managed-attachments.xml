@@ -1,0 +1,2585 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2012-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<description>Test managed attachments</description>
+
+	<require-feature>
+		<feature>caldav</feature>
+		<feature>managed-attachments</feature>
+		<feature>prefer-representation</feature>
+	</require-feature>
+
+	<start/>
+	
+	<test-suite name='OPTIONS header'>
+		<test name='1'>
+			<description>Look for options header tag on principal</description>
+			<request print-response="no">
+				<method>OPTIONS</method>
+				<ruri>$principal1:</ruri>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>*DAV$.*calendar-managed-attachments*</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Look for options header tag on calendar</description>
+			<request print-response="no">
+				<method>OPTIONS</method>
+				<ruri>$calendarpath1:/</ruri>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>*DAV$.*calendar-managed-attachments*</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name="Privileges on Attachments Collection">
+		<require-feature>
+			<feature>attachments-collection</feature>
+		</require-feature>
+		<test name='1' ignore='no'>
+			<description>Check for schedule privilege on iTIP Inbox</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome1:/$attachments:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/current-user-privilege-set.xml</filepath>
+				</data>
+				<verify>
+					<callback>aclItems</callback>
+					<arg>
+						<name>granted</name>
+						<value>{DAV:}read</value>
+						<value>{DAV:}read-current-user-privilege-set</value>
+					</arg>
+					<arg>
+						<name>denied</name>
+						<value>{DAV:}write</value>
+						<value>{DAV:}write-acl</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Simple non-recurring, non-scheduled add attachment no prefer'>
+		<test name='1' ignore='no'>
+			<description>PUT event</description>
+			<request end-delete='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>ETag</name>
+					<variable>$etag:</variable>
+				</grabheader>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Add attachment (no prefer)</description>
+			<request>
+				<method>POST</method>
+				<ruri>$calendarpath1:/1.ics?action=attachment-add</ruri>
+				<header>
+					<name>Content-Disposition</name>
+					<value>attachment;filename=test.txt</value>
+				</header>
+				<data>
+					<content-type>text/plain</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/2.txt</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>Cal-Managed-ID</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>Location</name>
+					<variable>$location:</variable>
+				</grabheader>
+				<grabheader>
+					<name>Cal-Managed-ID</name>
+					<variable>$managed-id:</variable>
+				</grabheader>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>Check for ATTACH property</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>ETag!$etag:</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>ATTACH</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>unwrap</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>contains</name>
+						<value>ATTACH</value>
+						<value>;FILENAME=</value>
+						<value>;FMTTYPE=</value>
+						<value>;SIZE=</value>
+						<value>;MANAGED-ID=$managed-id:</value>
+						<value>:$location:</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>ETag</name>
+					<variable>$etag:</variable>
+				</grabheader>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$location:</ruri>
+				<verify>
+					<callback>dataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/2.txt</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>No access for anyone else</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>GET</method>
+				<ruri>$location:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>No access for anyone else</description>
+			<request auth="no">
+				<method>GET</method>
+				<ruri>$location:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>401</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>Remove attachment (no prefer)</description>
+			<request>
+				<method>POST</method>
+				<ruri>$calendarpath1:/1.ics?action=attachment-remove&amp;managed-id=$managed-id:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='8' ignore='no'>
+			<description>Check for no ATTACH property</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>ETag!$etag:</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='9' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$location:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='10' ignore='no'>
+			<description>Delete calendar data</description>
+			<request>
+				<method>DELETE</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Simple non-recurring, non-scheduled add attachment with prefer'>
+		<test name='1' ignore='no'>
+			<description>PUT event</description>
+			<request end-delete='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>ETag</name>
+					<variable>$etag:</variable>
+				</grabheader>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Add attachment (with prefer)</description>
+			<request>
+				<method>POST</method>
+				<ruri>$calendarpath1:/1.ics?action=attachment-add</ruri>
+				<header>
+					<name>Content-Disposition</name>
+					<value>attachment;filename=test.txt</value>
+				</header>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/plain</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/2.txt</filepath>
+				</data>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>ATTACH</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>unwrap</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>contains</name>
+						<value>ATTACH</value>
+						<value>;FILENAME=</value>
+						<value>;FMTTYPE=</value>
+						<value>;SIZE=</value>
+						<value>;MANAGED-ID=</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>Cal-Managed-ID</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>Location</name>
+					<variable>$location:</variable>
+				</grabheader>
+				<grabheader>
+					<name>Cal-Managed-ID</name>
+					<variable>$managed-id:</variable>
+				</grabheader>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>Check for ATTACH property</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>ETag!$etag:</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>ATTACH</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>unwrap</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>contains</name>
+						<value>ATTACH</value>
+						<value>;FILENAME=</value>
+						<value>;FMTTYPE=</value>
+						<value>;SIZE=</value>
+						<value>;MANAGED-ID=$managed-id:</value>
+						<value>:$location:</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>ETag</name>
+					<variable>$etag:</variable>
+				</grabheader>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$location:</ruri>
+				<verify>
+					<callback>dataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/2.txt</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>Remove attachment (with prefer)</description>
+			<request>
+				<method>POST</method>
+				<ruri>$calendarpath1:/1.ics?action=attachment-remove&amp;managed-id=$managed-id:</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Check for no ATTACH property</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>ETag!$etag:</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$location:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8' ignore='no'>
+			<description>Delete calendar data</description>
+			<request>
+				<method>DELETE</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Simple non-recurring, non-scheduled resource with attachment removal'>
+		<test name='1' ignore='no'>
+			<description>PUT event</description>
+			<request end-delete='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>ETag</name>
+					<variable>$etag:</variable>
+				</grabheader>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Add attachment</description>
+			<request>
+				<method>POST</method>
+				<ruri>$calendarpath1:/1.ics?action=attachment-add</ruri>
+				<header>
+					<name>Content-Disposition</name>
+					<value>attachment;filename=test.txt</value>
+				</header>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/plain</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/2.txt</filepath>
+				</data>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>ATTACH</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>unwrap</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>contains</name>
+						<value>ATTACH</value>
+						<value>;FILENAME=</value>
+						<value>;FMTTYPE=</value>
+						<value>;SIZE=</value>
+						<value>;MANAGED-ID=</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>Cal-Managed-ID</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>Location</name>
+					<variable>$location:</variable>
+				</grabheader>
+				<grabheader>
+					<name>Cal-Managed-ID</name>
+					<variable>$managed-id:</variable>
+				</grabheader>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$location:</ruri>
+				<verify>
+					<callback>dataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/2.txt</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Delete calendar data</description>
+			<request>
+				<method>DELETE</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$location:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Simple non-recurring, non-scheduled remove attachment'>
+		<test name='1' ignore='no'>
+			<description>PUT event</description>
+			<request end-delete='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>ETag</name>
+					<variable>$etag:</variable>
+				</grabheader>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Add attachment</description>
+			<request>
+				<method>POST</method>
+				<ruri>$calendarpath1:/1.ics?action=attachment-add</ruri>
+				<header>
+					<name>Content-Disposition</name>
+					<value>attachment;filename=test.txt</value>
+				</header>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/plain</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/2.txt</filepath>
+				</data>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>ATTACH</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>unwrap</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>contains</name>
+						<value>ATTACH</value>
+						<value>;FILENAME=</value>
+						<value>;FMTTYPE=</value>
+						<value>;SIZE=</value>
+						<value>;MANAGED-ID=</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>Cal-Managed-ID</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>Location</name>
+					<variable>$location:</variable>
+				</grabheader>
+				<grabheader>
+					<name>Cal-Managed-ID</name>
+					<variable>$managed-id:</variable>
+				</grabheader>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$location:</ruri>
+				<verify>
+					<callback>dataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/2.txt</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Remove attachment</description>
+			<request>
+				<method>POST</method>
+				<ruri>$calendarpath1:/1.ics?action=attachment-remove&amp;managed-id=$managed-id:</ruri>
+				<header>
+					<name>Content-Disposition</name>
+					<value>attachment;filename=test2.txt</value>
+				</header>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>!Cal-Managed-ID:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$location:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Delete calendar data</description>
+			<request>
+				<method>DELETE</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$location:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Simple non-recurring, non-scheduled remove attachment invalid'>
+		<test name='1' ignore='no'>
+			<description>PUT event</description>
+			<request end-delete='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>ETag</name>
+					<variable>$etag:</variable>
+				</grabheader>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Add attachment</description>
+			<request>
+				<method>POST</method>
+				<ruri>$calendarpath1:/1.ics?action=attachment-add</ruri>
+				<header>
+					<name>Content-Disposition</name>
+					<value>attachment;filename=test.txt</value>
+				</header>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/plain</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/2.txt</filepath>
+				</data>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>ATTACH</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>unwrap</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>contains</name>
+						<value>ATTACH</value>
+						<value>;FILENAME=</value>
+						<value>;FMTTYPE=</value>
+						<value>;SIZE=</value>
+						<value>;MANAGED-ID=</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>Cal-Managed-ID</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>Location</name>
+					<variable>$location:</variable>
+				</grabheader>
+				<grabheader>
+					<name>Cal-Managed-ID</name>
+					<variable>$managed-id:</variable>
+				</grabheader>
+				<grabheader>
+					<name>ETag</name>
+					<variable>$etag:</variable>
+				</grabheader>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$location:</ruri>
+				<verify>
+					<callback>dataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/2.txt</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Remove attachment fails</description>
+			<request>
+				<method>POST</method>
+				<ruri>$calendarpath1:/1.ics?action=attachment-remove&amp;managed-id=12345</ruri>
+				<header>
+					<name>Content-Disposition</name>
+					<value>attachment;filename=test2.txt</value>
+				</header>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-managed-id-parameter</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>Check for unchanged ATTACH property</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>ETag$$etag:</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>ATTACH</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>unwrap</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>contains</name>
+						<value>ATTACH</value>
+						<value>;FILENAME=</value>
+						<value>;FMTTYPE=</value>
+						<value>;SIZE=</value>
+						<value>;MANAGED-ID=$managed-id:</value>
+						<value>:$location:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$location:</ruri>
+				<verify>
+					<callback>dataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/2.txt</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>Delete calendar data</description>
+			<request>
+				<method>DELETE</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='8' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$location:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Simple non-recurring, non-scheduled update attachment'>
+		<test name='1' ignore='no'>
+			<description>PUT event</description>
+			<request end-delete='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>ETag</name>
+					<variable>$etag:</variable>
+				</grabheader>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Add attachment</description>
+			<request>
+				<method>POST</method>
+				<ruri>$calendarpath1:/1.ics?action=attachment-add</ruri>
+				<header>
+					<name>Content-Disposition</name>
+					<value>attachment;filename=test.txt</value>
+				</header>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/plain</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/2.txt</filepath>
+				</data>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>ATTACH</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>unwrap</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>contains</name>
+						<value>ATTACH</value>
+						<value>;FILENAME=test.txt</value>
+						<value>;FMTTYPE=text/plain</value>
+						<value>;SIZE=</value>
+						<value>;MANAGED-ID=</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>Cal-Managed-ID</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>Location</name>
+					<variable>$location:</variable>
+				</grabheader>
+				<grabheader>
+					<name>Cal-Managed-ID</name>
+					<variable>$managed-id:</variable>
+				</grabheader>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$location:</ruri>
+				<verify>
+					<callback>dataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/2.txt</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Update attachment</description>
+			<request>
+				<method>POST</method>
+				<ruri>$calendarpath1:/1.ics?action=attachment-update&amp;managed-id=$managed-id:</ruri>
+				<header>
+					<name>Content-Disposition</name>
+					<value>attachment;filename=test2.txt</value>
+				</header>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/plain</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/3.txt</filepath>
+				</data>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>ATTACH</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>unwrap</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>contains</name>
+						<value>ATTACH</value>
+						<value>;FILENAME=test2.txt</value>
+						<value>;FMTTYPE=text/plain</value>
+						<value>;SIZE=</value>
+						<value>;MANAGED-ID=</value>
+					</arg>
+					<arg>
+						<name>notcontains</name>
+						<value>;MANAGED-ID=$managed-id:</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>Cal-Managed-ID!$managed-id:</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>Location</name>
+					<variable>$location2:</variable>
+				</grabheader>
+				<grabheader>
+					<name>Cal-Managed-ID</name>
+					<variable>$managed-id:</variable>
+				</grabheader>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$location2:</ruri>
+				<verify>
+					<callback>dataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/3.txt</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Delete calendar data</description>
+			<request>
+				<method>DELETE</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$location:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$location2:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Simple non-recurring, non-scheduled update attachment invalid'>
+		<test name='1' ignore='no'>
+			<description>PUT event</description>
+			<request end-delete='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>ETag</name>
+					<variable>$etag:</variable>
+				</grabheader>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Add attachment</description>
+			<request>
+				<method>POST</method>
+				<ruri>$calendarpath1:/1.ics?action=attachment-add</ruri>
+				<header>
+					<name>Content-Disposition</name>
+					<value>attachment;filename=test.txt</value>
+				</header>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/plain</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/2.txt</filepath>
+				</data>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>ATTACH</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>unwrap</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>contains</name>
+						<value>ATTACH</value>
+						<value>;FILENAME=test.txt</value>
+						<value>;FMTTYPE=text/plain</value>
+						<value>;SIZE=</value>
+						<value>;MANAGED-ID=</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>Cal-Managed-ID</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>ETag</name>
+					<variable>$etag:</variable>
+				</grabheader>
+				<grabheader>
+					<name>Location</name>
+					<variable>$location:</variable>
+				</grabheader>
+				<grabheader>
+					<name>Cal-Managed-ID</name>
+					<variable>$managed-id:</variable>
+				</grabheader>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$location:</ruri>
+				<verify>
+					<callback>dataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/2.txt</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Update attachment fails</description>
+			<request>
+				<method>POST</method>
+				<ruri>$calendarpath1:/1.ics?action=attachment-update&amp;managed-id=12345</ruri>
+				<header>
+					<name>Content-Disposition</name>
+					<value>attachment;filename=test2.txt</value>
+				</header>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/plain</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/3.txt</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-managed-id-parameter</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>Check for unchanged ATTACH property</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>ETag$$etag:</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>ATTACH</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>unwrap</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>contains</name>
+						<value>ATTACH</value>
+						<value>;FILENAME=</value>
+						<value>;FMTTYPE=</value>
+						<value>;SIZE=</value>
+						<value>;MANAGED-ID=$managed-id:</value>
+						<value>:$location:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$location:</ruri>
+				<verify>
+					<callback>dataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/2.txt</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>Delete calendar data</description>
+			<request>
+				<method>DELETE</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='8' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$location:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Simple non-recurring, non-scheduled add attachment - invalid managed-id'>
+		<test name='1' ignore='no'>
+			<description>PUT event</description>
+			<request end-delete='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/5.ics</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-managed-id</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Simple non-recurring, non-scheduled add attachment - someone elses managed-id'>
+		<test name='1' ignore='no'>
+			<description>PUT event</description>
+			<request end-delete='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>ETag</name>
+					<variable>$etag1:</variable>
+				</grabheader>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Add attachment</description>
+			<request>
+				<method>POST</method>
+				<ruri>$calendarpath1:/1.ics?action=attachment-add</ruri>
+				<header>
+					<name>Content-Disposition</name>
+					<value>attachment;filename=test.txt</value>
+				</header>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/plain</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/2.txt</filepath>
+				</data>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>ATTACH</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>unwrap</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>contains</name>
+						<value>ATTACH</value>
+						<value>;FILENAME=test.txt</value>
+						<value>;FMTTYPE=text/plain</value>
+						<value>;SIZE=</value>
+						<value>;MANAGED-ID=</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>Cal-Managed-ID</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>Location</name>
+					<variable>$location:</variable>
+				</grabheader>
+				<grabcalproperty>
+					<name>VEVENT/ATTACH</name>
+					<variable>$attach1:</variable>
+				</grabcalproperty>
+				<grabcalparameter>
+					<name>VEVENT/ATTACH/MANAGED-ID</name>
+					<variable>$managed_id1:</variable>
+				</grabcalparameter>
+				<grabcalparameter>
+					<name>VEVENT/ATTACH/FILENAME</name>
+					<variable>$filename1:</variable>
+				</grabcalparameter>
+				<grabcalparameter>
+					<name>VEVENT/ATTACH/FMTTYPE</name>
+					<variable>$fmttype1:</variable>
+				</grabcalparameter>
+				<grabcalparameter>
+					<name>VEVENT/ATTACH/SIZE</name>
+					<variable>$size1:</variable>
+				</grabcalparameter>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$location:</ruri>
+				<verify>
+					<callback>dataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/2.txt</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>PUT event by other user</description>
+			<request user="$userid2:" pswd="$pswd2:" end-delete='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath2:/2.ics</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/4.ics</filepath>
+				</data>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/9.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$attach1:</ruri>
+				<verify>
+					<callback>dataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/2.txt</value>
+					</arg>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>GET</method>
+				<ruri>$attach1:</ruri>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{DAV:}need-privileges</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Delete calendar data</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>DELETE</method>
+				<ruri>$calendarpath2:/2.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$attach1:</ruri>
+				<verify>
+					<callback>dataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/2.txt</value>
+					</arg>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>GET</method>
+				<ruri>$attach1:</ruri>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{DAV:}need-privileges</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8' ignore='no'>
+			<description>Delete original calendar data</description>
+			<request>
+				<method>DELETE</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='9' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$attach1:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Simple non-recurring, non-scheduled add attachment existing managed-id'>
+		<test name='1' ignore='no'>
+			<description>PUT event</description>
+			<request end-delete='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>ETag</name>
+					<variable>$etag1:</variable>
+				</grabheader>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Add attachment</description>
+			<request>
+				<method>POST</method>
+				<ruri>$calendarpath1:/1.ics?action=attachment-add</ruri>
+				<header>
+					<name>Content-Disposition</name>
+					<value>attachment;filename=test.txt</value>
+				</header>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/plain</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/2.txt</filepath>
+				</data>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>ATTACH</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>unwrap</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>contains</name>
+						<value>ATTACH</value>
+						<value>;FILENAME=test.txt</value>
+						<value>;FMTTYPE=text/plain</value>
+						<value>;SIZE=</value>
+						<value>;MANAGED-ID=</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>Cal-Managed-ID</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>Location</name>
+					<variable>$location:</variable>
+				</grabheader>
+				<grabcalproperty>
+					<name>VEVENT/ATTACH</name>
+					<variable>$attach1:</variable>
+				</grabcalproperty>
+				<grabcalparameter>
+					<name>VEVENT/ATTACH/MANAGED-ID</name>
+					<variable>$managed_id1:</variable>
+				</grabcalparameter>
+				<grabcalparameter>
+					<name>VEVENT/ATTACH/FILENAME</name>
+					<variable>$filename1:</variable>
+				</grabcalparameter>
+				<grabcalparameter>
+					<name>VEVENT/ATTACH/FMTTYPE</name>
+					<variable>$fmttype1:</variable>
+				</grabcalparameter>
+				<grabcalparameter>
+					<name>VEVENT/ATTACH/SIZE</name>
+					<variable>$size1:</variable>
+				</grabcalparameter>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$location:</ruri>
+				<verify>
+					<callback>dataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/2.txt</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>PUT another event</description>
+			<request end-delete='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/2.ics</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/4.ics</filepath>
+				</data>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/4.ics</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>ATTACH</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>unwrap</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>contains</name>
+						<value>;MANAGED-ID=$managed_id1:</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>ETag</name>
+					<variable>$etag2:</variable>
+				</grabheader>
+				<grabcalproperty>
+					<name>VEVENT/ATTACH</name>
+					<variable>$attach2:</variable>
+				</grabcalproperty>
+				<grabcalparameter>
+					<name>VEVENT/ATTACH/MANAGED-ID</name>
+					<variable>$managed_id2:</variable>
+				</grabcalparameter>
+				<grabcalparameter>
+					<name>VEVENT/ATTACH/FILENAME</name>
+					<variable>$filename2:</variable>
+				</grabcalparameter>
+				<grabcalparameter>
+					<name>VEVENT/ATTACH/FMTTYPE</name>
+					<variable>$fmttype2:</variable>
+				</grabcalparameter>
+				<grabcalparameter>
+					<name>VEVENT/ATTACH/SIZE</name>
+					<variable>$size2:</variable>
+				</grabcalparameter>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$attach2:</ruri>
+				<verify>
+					<callback>dataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/2.txt</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Update original attachment</description>
+			<request>
+				<method>POST</method>
+				<ruri>$calendarpath1:/1.ics?action=attachment-update&amp;managed-id=$managed_id1:</ruri>
+				<header>
+					<name>Content-Disposition</name>
+					<value>attachment;filename=test2.txt</value>
+				</header>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/plain</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/3.txt</filepath>
+				</data>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>ATTACH</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>unwrap</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>contains</name>
+						<value>ATTACH</value>
+						<value>;FILENAME=test2.txt</value>
+						<value>;FMTTYPE=text/plain</value>
+						<value>;SIZE=</value>
+					</arg>
+					<arg>
+						<name>notcontains</name>
+						<value>;MANAGED-ID=$managed_id1:</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>Location</name>
+					<variable>$location2:</variable>
+				</grabheader>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$location2:</ruri>
+				<verify>
+					<callback>dataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/3.txt</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$attach2:</ruri>
+				<verify>
+					<callback>dataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/2.txt</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='9' ignore='no'>
+			<description>Delete original calendar data</description>
+			<request>
+				<method>DELETE</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='10' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$attach2:</ruri>
+				<verify>
+					<callback>dataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/2.txt</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='11' ignore='no'>
+			<description>Delete calendar data</description>
+			<request>
+				<method>DELETE</method>
+				<ruri>$calendarpath1:/2.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='12' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$location:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='13' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$location2:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Simple non-recurring, non-scheduled add attachment on update - invalid managed-id'>
+		<test name='1' ignore='no'>
+			<description>PUT event</description>
+			<request end-delete='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>PUT event</description>
+			<request end-delete='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/5.ics</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-managed-id</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Simple non-recurring, non-scheduled add attachment update existing managed-id'>
+		<test name='1' ignore='no'>
+			<description>PUT event</description>
+			<request end-delete='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>ETag</name>
+					<variable>$etag1:</variable>
+				</grabheader>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Add attachment</description>
+			<request>
+				<method>POST</method>
+				<ruri>$calendarpath1:/1.ics?action=attachment-add</ruri>
+				<header>
+					<name>Content-Disposition</name>
+					<value>attachment;filename=test.txt</value>
+				</header>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/plain</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/2.txt</filepath>
+				</data>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>ATTACH</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>unwrap</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>contains</name>
+						<value>ATTACH</value>
+						<value>;FILENAME=test.txt</value>
+						<value>;FMTTYPE=text/plain</value>
+						<value>;SIZE=</value>
+						<value>;MANAGED-ID=</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>Cal-Managed-ID</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>Location</name>
+					<variable>$location:</variable>
+				</grabheader>
+				<grabcalproperty>
+					<name>VEVENT/ATTACH</name>
+					<variable>$attach1:</variable>
+				</grabcalproperty>
+				<grabcalparameter>
+					<name>VEVENT/ATTACH/MANAGED-ID</name>
+					<variable>$managed_id1:</variable>
+				</grabcalparameter>
+				<grabcalparameter>
+					<name>VEVENT/ATTACH/FILENAME</name>
+					<variable>$filename1:</variable>
+				</grabcalparameter>
+				<grabcalparameter>
+					<name>VEVENT/ATTACH/FMTTYPE</name>
+					<variable>$fmttype1:</variable>
+				</grabcalparameter>
+				<grabcalparameter>
+					<name>VEVENT/ATTACH/SIZE</name>
+					<variable>$size1:</variable>
+				</grabcalparameter>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$location:</ruri>
+				<verify>
+					<callback>dataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/2.txt</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>PUT event another event without attachment</description>
+			<request end-delete='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/2.ics</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/6.ics</filepath>
+				</data>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/6.ics</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>ETag</name>
+					<variable>$etag1:</variable>
+				</grabheader>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>PUT update other event to add attachment</description>
+			<request end-delete='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/2.ics</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/4.ics</filepath>
+				</data>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/4.ics</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>ATTACH</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>unwrap</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>contains</name>
+						<value>;MANAGED-ID=$managed_id1:</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>ETag</name>
+					<variable>$etag2:</variable>
+				</grabheader>
+				<grabcalproperty>
+					<name>VEVENT/ATTACH</name>
+					<variable>$attach2:</variable>
+				</grabcalproperty>
+				<grabcalparameter>
+					<name>VEVENT/ATTACH/MANAGED-ID</name>
+					<variable>$managed_id2:</variable>
+				</grabcalparameter>
+				<grabcalparameter>
+					<name>VEVENT/ATTACH/FILENAME</name>
+					<variable>$filename2:</variable>
+				</grabcalparameter>
+				<grabcalparameter>
+					<name>VEVENT/ATTACH/FMTTYPE</name>
+					<variable>$fmttype2:</variable>
+				</grabcalparameter>
+				<grabcalparameter>
+					<name>VEVENT/ATTACH/SIZE</name>
+					<variable>$size2:</variable>
+				</grabcalparameter>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$attach2:</ruri>
+				<verify>
+					<callback>dataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/2.txt</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>PUT to remove original attachment</description>
+			<request end-delete='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$attach1:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='9' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$attach2:</ruri>
+				<verify>
+					<callback>dataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/2.txt</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='10' ignore='no'>
+			<description>Delete original calendar data</description>
+			<request>
+				<method>DELETE</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='11' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$attach2:</ruri>
+				<verify>
+					<callback>dataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/2.txt</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='12' ignore='no'>
+			<description>Delete calendar data</description>
+			<request>
+				<method>DELETE</method>
+				<ruri>$calendarpath1:/2.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='13' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$location:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Simple non-recurring, non-scheduled add attachment update trying to change property'>
+		<test name='1' ignore='no'>
+			<description>PUT event</description>
+			<request end-delete='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>ETag</name>
+					<variable>$etag1:</variable>
+				</grabheader>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Add attachment</description>
+			<request>
+				<method>POST</method>
+				<ruri>$calendarpath1:/1.ics?action=attachment-add</ruri>
+				<header>
+					<name>Content-Disposition</name>
+					<value>attachment;filename=test.txt</value>
+				</header>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/plain</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/2.txt</filepath>
+				</data>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/1.ics</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>ATTACH</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>unwrap</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>contains</name>
+						<value>ATTACH</value>
+						<value>;FILENAME=test.txt</value>
+						<value>;FMTTYPE=text/plain</value>
+						<value>;SIZE=</value>
+						<value>;MANAGED-ID=</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>Cal-Managed-ID</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>Location</name>
+					<variable>$location:</variable>
+				</grabheader>
+				<grabcalproperty>
+					<name>VEVENT/ATTACH</name>
+					<variable>$attach1:</variable>
+				</grabcalproperty>
+				<grabcalparameter>
+					<name>VEVENT/ATTACH/MANAGED-ID</name>
+					<variable>$managed_id1:</variable>
+				</grabcalparameter>
+				<grabcalparameter>
+					<name>VEVENT/ATTACH/FILENAME</name>
+					<variable>$filename1:</variable>
+				</grabcalparameter>
+				<grabcalparameter>
+					<name>VEVENT/ATTACH/FMTTYPE</name>
+					<variable>$fmttype1:</variable>
+				</grabcalparameter>
+				<grabcalparameter>
+					<name>VEVENT/ATTACH/SIZE</name>
+					<variable>$size1:</variable>
+				</grabcalparameter>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$location:</ruri>
+				<verify>
+					<callback>dataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/2.txt</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>PUT update other event to change attachment</description>
+			<request end-delete='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/managedattachments/simple/7.ics</filepath>
+				</data>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/8.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$attach1:</ruri>
+				<verify>
+					<callback>dataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/managedattachments/simple/2.txt</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Delete original calendar data</description>
+			<request>
+				<method>DELETE</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>Check for attachment</description>
+			<request>
+				<method>GET</method>
+				<ruri>$location:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<end/>
+
+</caldavtest>

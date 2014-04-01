@@ -1,0 +1,933 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<description>Test bulk POST method in CardDAV</description>
+
+	<require-feature>
+		<feature>carddav</feature>
+		<feature>bulk-post</feature>
+		<feature>shared-addressbooks</feature>
+	</require-feature>
+
+	<start>
+	</start>
+	
+	<test-suite name='POST with circular groups' ignore='no'>
+		<test name='0' ignore='no'>
+			<description>clean up old data</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<ruri>$addressbookhome2:/</ruri>
+				<ruri>$notificationpath1:/</ruri>
+				<ruri>$notificationpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>PUT</method>
+				<ruri>$addressbookpath2:/1.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/bulk/1.vcf</filepath>
+				</data>
+			</request>
+			<description>user2 POSTs invitation</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookpath2:/1.vcf</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/bulk/9.xml</filepath>
+				</data>
+			</request>
+			<description>Check user1 notification collection and get invite uid</description>
+			<request print-response="no">
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response="no">
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<description>user1 replies ACCEPTED and deletes notification</description>
+			<request print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<data substitutions="yes">
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/bulk/10.xml</filepath>
+				</data>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$notificationpath1:/$inviteuid:</ruri>
+			</request>
+		</test>
+		<test name='1' ignore='no'>
+			<description>POST multiple new vcards</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookhome1:/$userguid2:/</ruri>
+				<data substitutions='yes'>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/bulk/7.vcf</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}getetag</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{urn:ietf:params:xml:ns:carddav}address-data</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>$multistatus-href-prefix:</name>
+					<variable>$href1:</variable>
+					<variable>$href2:</variable>
+					<variable>$href3:</variable>
+					<variable>$href4:</variable>
+					<variable>$href5:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Check valid data</description>
+			<request>
+				<method>GET</method>
+				<ruri>$href1:</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/bulk/2.vcf</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>ETag</name>
+						<value>$etag1:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>Check valid data</description>
+			<request>
+				<method>GET</method>
+				<ruri>$href2:</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/bulk/3.vcf</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>ETag</name>
+						<value>$etag2:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Check valid data</description>
+			<request>
+				<method>GET</method>
+				<ruri>$href3:</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/bulk/4.vcf</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>ETag</name>
+						<value>$etag3:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>Check valid data</description>
+			<request>
+				<method>GET</method>
+				<ruri>$href4:</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/bulk/5.vcf</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>ETag</name>
+						<value>$etag4:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Check valid data</description>
+			<request>
+				<method>GET</method>
+				<ruri>$href5:</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/bulk/6.vcf</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>ETag</name>
+						<value>$etag5:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1' ignore='no'>
+			<description>Clean up</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>DELETEALL</method>
+				<ruri>$href1:</ruri>
+				<ruri>$href2:</ruri>
+				<ruri>$href3:</ruri>
+				<ruri>$href4:</ruri>
+				<ruri>$href5:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='POST with circular groups and one bad reference' ignore='no'>
+		<test name='0' ignore='no'>
+			<description>clean up old data</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<ruri>$addressbookhome2:/</ruri>
+				<ruri>$notificationpath1:/</ruri>
+				<ruri>$notificationpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>PUT</method>
+				<ruri>$addressbookpath2:/1.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/bulk/1.vcf</filepath>
+				</data>
+			</request>
+			<description>user2 POSTs invitation</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookpath2:/1.vcf</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/bulk/9.xml</filepath>
+				</data>
+			</request>
+			<description>Check user1 notification collection and get invite uid</description>
+			<request print-response="no">
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response="no">
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<description>user1 replies ACCEPTED and deletes notification</description>
+			<request print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<data substitutions="yes">
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/bulk/10.xml</filepath>
+				</data>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$notificationpath1:/$inviteuid:</ruri>
+			</request>
+		</test>
+		<test name='1' ignore='no'>
+			<description>POST multiple new vcards</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookhome1:/$userguid2:/</ruri>
+				<data substitutions='yes'>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/bulk/8.vcf</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}getetag</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{urn:ietf:params:xml:ns:carddav}address-data</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>$multistatus-href-prefix:</name>
+					<variable>$href1:</variable>
+					<variable>$href2:</variable>
+					<variable>$href3:</variable>
+					<variable>$href4:</variable>
+					<variable>$href5:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='2' ignore='yes'>
+			<description>Check valid data</description>
+			<request>
+				<method>GET</method>
+				<ruri>$href1:</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/bulk/2.vcf</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>ETag</name>
+						<value>$etag1:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='yes'>
+			<description>Check valid data</description>
+			<request>
+				<method>GET</method>
+				<ruri>$href2:</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/bulk/3.vcf</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>ETag</name>
+						<value>$etag2:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Check valid data</description>
+			<request>
+				<method>GET</method>
+				<ruri>$href3:</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/bulk/4.vcf</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>ETag</name>
+						<value>$etag3:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>Check valid data</description>
+			<request>
+				<method>GET</method>
+				<ruri>$href4:</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/bulk/5.vcf</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>ETag</name>
+						<value>$etag4:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Check valid data</description>
+			<request>
+				<method>GET</method>
+				<ruri>$href5:</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/bulk/6.vcf</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>ETag</name>
+						<value>$etag5:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='CRUD POST with circular groups' ignore='no'>
+		<test name='0' ignore='no'>
+			<description>clean up old data</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<ruri>$addressbookhome2:/</ruri>
+				<ruri>$notificationpath1:/</ruri>
+				<ruri>$notificationpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>PUT</method>
+				<ruri>$addressbookpath2:/1.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/bulk/1.vcf</filepath>
+				</data>
+			</request>
+			<description>user2 POSTs invitation</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookpath2:/1.vcf</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/bulk/9.xml</filepath>
+				</data>
+			</request>
+			<description>Check user1 notification collection and get invite uid</description>
+			<request print-response="no">
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response="no">
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<description>user1 replies ACCEPTED and deletes notification</description>
+			<request print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<data substitutions="yes">
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/bulk/10.xml</filepath>
+				</data>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$notificationpath1:/$inviteuid:</ruri>
+			</request>
+		</test>
+		<test name='1' ignore='no'>
+			<description>POST multiple new vcards</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookhome1:/$userguid2:/</ruri>
+				<data substitutions='yes'>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/bulk/11.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}getetag</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{urn:ietf:params:xml:ns:carddav}address-data</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>$multistatus-href-prefix:</name>
+					<variable>$href1:</variable>
+					<variable>$href2:</variable>
+					<variable>$href3:</variable>
+					<variable>$href4:</variable>
+					<variable>$href5:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Check valid data</description>
+			<request>
+				<method>GET</method>
+				<ruri>$href1:</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/bulk/2.vcf</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>ETag</name>
+						<value>$etag1:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>Check valid data</description>
+			<request>
+				<method>GET</method>
+				<ruri>$href2:</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/bulk/3.vcf</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>ETag</name>
+						<value>$etag2:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Check valid data</description>
+			<request>
+				<method>GET</method>
+				<ruri>$href3:</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/bulk/4.vcf</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>ETag</name>
+						<value>$etag3:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>Check valid data</description>
+			<request>
+				<method>GET</method>
+				<ruri>$href4:</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/bulk/5.vcf</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>ETag</name>
+						<value>$etag4:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>Check valid data</description>
+			<request>
+				<method>GET</method>
+				<ruri>$href5:</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/bulk/6.vcf</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>ETag</name>
+						<value>$etag5:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='crud POST with circular groups and one bad reference' ignore='no'>
+		<test name='0' ignore='no'>
+			<description>clean up old data</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<ruri>$addressbookhome2:/</ruri>
+				<ruri>$notificationpath1:/</ruri>
+				<ruri>$notificationpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>PUT</method>
+				<ruri>$addressbookpath2:/1.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/bulk/1.vcf</filepath>
+				</data>
+			</request>
+			<description>user2 POSTs invitation</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookpath2:/1.vcf</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/bulk/9.xml</filepath>
+				</data>
+			</request>
+			<description>Check user1 notification collection and get invite uid</description>
+			<request print-response="no">
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response="no">
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<description>user1 replies ACCEPTED and deletes notification</description>
+			<request print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<data substitutions="yes">
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/bulk/10.xml</filepath>
+				</data>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$notificationpath1:/$inviteuid:</ruri>
+			</request>
+		</test>
+		<test name='1' ignore='no'>
+			<description>POST multiple new vcards</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookhome1:/$userguid2:/</ruri>
+				<data substitutions='yes'>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/bulk/12.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}getetag</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{urn:ietf:params:xml:ns:carddav}address-data</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>$multistatus-href-prefix:</name>
+					<variable>$href1:</variable>
+					<variable>$href2:</variable>
+					<variable>$href3:</variable>
+					<variable>$href4:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='2' ignore='yes'>
+			<description>Check valid data</description>
+			<request>
+				<method>GET</method>
+				<ruri>$href1:</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/bulk/2.vcf</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>ETag</name>
+						<value>$etag1:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='yes'>
+			<description>Check valid data</description>
+			<request>
+				<method>GET</method>
+				<ruri>$href2:</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/bulk/3.vcf</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>ETag</name>
+						<value>$etag2:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Check valid data</description>
+			<request>
+				<method>GET</method>
+				<ruri>$href3:</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/bulk/4.vcf</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>ETag</name>
+						<value>$etag3:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>Check valid data</description>
+			<request>
+				<method>GET</method>
+				<ruri>$href4:</ruri>
+				<verify>
+					<callback>addressDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/bulk/5.vcf</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>ETag</name>
+						<value>$etag4:</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='crud POST delete cannot delete (unshare) read-write shared group' ignore='no'>
+		<test name='0' ignore='no'>
+			<description>clean up old data</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<ruri>$addressbookhome2:/</ruri>
+				<ruri>$notificationpath1:/</ruri>
+				<ruri>$notificationpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>PUT</method>
+				<ruri>$addressbookpath2:/1.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/bulk/1.vcf</filepath>
+				</data>
+			</request>
+			<description>user2 POSTs invitation</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookpath2:/1.vcf</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/bulk/9.xml</filepath>
+				</data>
+			</request>
+			<description>Check user1 notification collection and get invite uid</description>
+			<request print-response="no">
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response="no">
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+			<description>user1 replies ACCEPTED and deletes notification</description>
+			<request print-response="no">
+				<method>POST</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<data substitutions="yes">
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/bulk/10.xml</filepath>
+				</data>
+			</request>
+			<request>
+				<method>DELETE</method>
+				<ruri>$notificationpath1:/$inviteuid:</ruri>
+			</request>
+		</test>
+		<test name='1' ignore='no'>
+			<description>POST multiple new vcards</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookhome1:/$userguid2:/</ruri>
+				<data substitutions='yes'>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/bulk/11.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}getetag</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{urn:ietf:params:xml:ns:carddav}address-data</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>$multistatus-href-prefix:</name>
+					<variable>$href1:</variable>
+					<variable>$href2:</variable>
+					<variable>$href3:</variable>
+					<variable>$href4:</variable>
+					<variable>$href5:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Delete shared group and other group</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookhome1:/$userguid2:/</ruri>
+				<data substitutions='yes'>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/bulk/13.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{urn:ietf:params:xml:ns:carddav}address-data</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>$multistatus-href-prefix:</name>
+					<variable>$href1:</variable>
+					<variable>$href2:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>group still here</description>
+			<request>
+				<method>GET</method>
+				<ruri>$addressbookhome1:/$userguid2:/1.vcf</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Data gone</description>
+			<request>
+				<method>GET</method>
+				<ruri>$href2:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>404</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<end>
+		<description>clean up old data</description>
+		<request user="$useradmin:" pswd="$pswdadmin:">
+			<method>DELETEALL</method>
+			<ruri>$addressbookhome1:/</ruri>
+			<ruri>$addressbookhome2:/</ruri>
+			<ruri>$notificationpath1:/</ruri>
+			<ruri>$notificationpath2:/</ruri>
+		</request>
+	</end>
+	
+</caldavtest>

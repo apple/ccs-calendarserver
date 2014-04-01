@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<D:propertyupdate xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+<D:set>
+<D:prop>
+<C:calendar-free-busy-set><D:href>$calendarpath1:</D:href><D:href>$calendarhome1:/test1/</D:href><D:href>$calendarhome1:/test2/</D:href></C:calendar-free-busy-set>
+</D:prop>
+</D:set>
+</D:propertyupdate>

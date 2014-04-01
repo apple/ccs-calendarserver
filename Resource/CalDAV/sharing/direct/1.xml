@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<D:propertyupdate xmlns:D="DAV:" xmlns:IC="http://apple.com/ns/ical/">
+<D:set>
+<D:prop>
+<IC:calendar-color>#00112233</IC:calendar-color>
+</D:prop>
+</D:set>
+</D:propertyupdate>

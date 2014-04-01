@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<D:propfind xmlns:D="DAV:" xmlns:MM="http://me.com/_namespace/">
+<D:prop>
+<MM:bulk-requests/>
+</D:prop>
+</D:propfind>

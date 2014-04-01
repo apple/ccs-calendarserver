@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<D:propertyupdate xmlns:D="DAV:">
+<D:set>
+<D:prop>
+<D:details1><D:href>$calendarpath1:</D:href></D:details1>
+<D:details2><D:href>$calendarpath2:</D:href></D:details2>
+</D:prop>
+</D:set>
+</D:propertyupdate>

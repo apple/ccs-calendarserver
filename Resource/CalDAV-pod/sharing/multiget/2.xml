@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<C:calendar-multiget xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+<D:prop>
+<D:getetag/>
+<C:calendar-data>
+<C:comp name="VCALENDAR">
+<C:allprop/>
+</C:comp>
+</C:calendar-data>
+</D:prop>
+<D:href>$shareecalendarpath2:/1.ics</D:href>
+<D:href>$shareecalendarpath2:/2.ics</D:href>
+<D:href>$shareecalendarpath2:/3.ics</D:href>
+<D:href>$shareecalendarpath2:/4.ics</D:href>
+</C:calendar-multiget>

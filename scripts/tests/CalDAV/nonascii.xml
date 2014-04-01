@@ -1,0 +1,586 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<description>Test use of UTF-8 for HTTP and calendar data</description>
+
+	<require-feature>
+		<feature>caldav</feature>
+	</require-feature>
+
+	<start>
+		<request end-delete="yes">
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<method>MKCOL</method>
+			<ruri>$calendarhome1:/collection/</ruri>
+		</request>
+	</start>
+	
+	<test-suite name='MKCALENDAR' ignore="yes">
+		<test name='1'>
+			<description>MKCALENDAR with non-ascii</description>
+			<request end-delete="yes">
+				<method>MKCALENDAR</method>
+				<ruri>$calendarhome1:/Te%cc%81st/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>MKCALENDAR with non-ascii - duplicate</description>
+			<request>
+				<method>MKCALENDAR</method>
+				<ruri>$calendarhome1:/T%c3%a9st/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>GET with non-ascii</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarhome1:/Te%cc%81st/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>GET with non-ascii</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarhome1:/T%c3%a9st/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='Non-ascii resource URI' ignore="yes">
+		<test name='1'>
+			<description>PUT with non-ascii</description>
+			<request end-delete="yes">
+				<method>PUT</method>
+				<ruri>$calendarhome1:/Te%cc%81st/te%cc%81st.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/nonascii/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>PUT with non-ascii</description>
+			<request end-delete="yes">
+				<method>PUT</method>
+				<ruri>$calendarhome1:/Te%cc%81st/t%c3%a9st.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/nonascii/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>GET with non-ascii</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarhome1:/Te%cc%81st/te%cc%81st.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>GET with non-ascii</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarhome1:/Te%cc%81st/t%c3%a9st.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>DELETE with non-ascii</description>
+			<request>
+				<method>DELETE</method>
+				<ruri>$calendarhome1:/Te%cc%81st/t%c3%a9st.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='Multiget on-ascii resource URI' ignore="yes">
+		<test name='1'>
+			<description>PUT with non-ascii</description>
+			<request end-delete="yes">
+				<method>PUT</method>
+				<ruri>$calendarhome1:/Te%cc%81st/te%cc%81st.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/nonascii/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>REPORT with non-ascii - match parent and child</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/Te%cc%81st/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/nonascii/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>te%cc%81st.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>REPORT with non-ascii - match parent, different child</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/Te%cc%81st/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/nonascii/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>t%c3%a9st.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>REPORT with non-ascii - different parent, match child</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/Te%cc%81st/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/nonascii/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>te%cc%81st.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>REPORT with non-ascii - different parent, different child</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/Te%cc%81st/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/nonascii/5.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>t%c3%a9st.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>REPORT with non-ascii - match parent, match child</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/T%c3%a9st/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/nonascii/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>te%cc%81st.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='7'>
+			<description>REPORT with non-ascii - match parent, different child</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/T%c3%a9st/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/nonascii/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>t%c3%a9st.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8'>
+			<description>REPORT with non-ascii - different parent, match child</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/T%c3%a9st/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/nonascii/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>te%cc%81st.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='9'>
+			<description>REPORT with non-ascii - different parent, different child</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/T%c3%a9st/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/nonascii/5.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>t%c3%a9st.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='Non-ascii calendar data' ignore="no">
+		<test name='1'>
+			<description>PUT with non-ascii data</description>
+			<request end-delete="yes">
+				<method>PUT</method>
+				<ruri>$calendarpath1:/nonascii.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/nonascii/6.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>GET with non-ascii data</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/nonascii.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Basic query with non-ascii data</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/nonascii/7.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>nonascii.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>Text query with ascii data</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/nonascii/8.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>nonascii.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Text query with non-ascii data</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/nonascii/9.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>nonascii.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='Non-utf-8 calendar data' ignore="no">
+		<test name='1'>
+			<description>PUT with non-utf-8 data without charset</description>
+			<request end-delete="yes">
+				<method>PUT</method>
+				<ruri>$calendarpath1:/nonutf8.ics</ruri>
+				<data>
+					<content-type>text/calendar</content-type>
+					<filepath>Resource/CalDAV/nonascii/10.ics</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-data</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>PUT with non-utf-8 data with utf-8 charset</description>
+			<request end-delete="yes">
+				<method>PUT</method>
+				<ruri>$calendarpath1:/nonutf8.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/nonascii/10.ics</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-data</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>PUT with non-utf-8 data with non-utf-8 charset</description>
+			<request end-delete="yes">
+				<method>PUT</method>
+				<ruri>$calendarpath1:/nonutf8.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=iso-8859-1</content-type>
+					<filepath>Resource/CalDAV/nonascii/10.ics</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-data</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Copy/Move Non-utf-8 calendar data' ignore="no">
+		<require-feature>
+			<feature>regular-collection</feature>
+		</require-feature>
+		<test name='1'>
+			<description>PUT with non-utf-8 data to regular collection</description>
+			<request end-delete="yes">
+				<method>PUT</method>
+				<ruri>$calendarhome1:/collection/nonutf8.ics</ruri>
+				<data>
+					<content-type>text/calendar</content-type>
+					<filepath>Resource/CalDAV/nonascii/10.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>COPY non-utf-8 data to calendar collection</description>
+			<request end-delete="yes">
+				<method>COPY</method>
+				<ruri>$calendarhome1:/collection/nonutf8.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/copy1.ics</value>
+				</header>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-data</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>MOVE non-utf-8 data to calendar collection</description>
+			<request end-delete="yes">
+				<method>MOVE</method>
+				<ruri>$calendarhome1:/collection/nonutf8.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/copy1.ics</value>
+				</header>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-data</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name="POSTs" ignore='no'>
+		<test name='1'>
+			<description>POST with utf-8 data</description>
+			<request>
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<header>
+					<name>Originator</name>
+					<value>$cuaddralt1:</value>
+				</header>
+				<header>
+					<name>Recipient</name>
+					<value>$cuaddralt2:</value>
+				</header>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/nonascii/12.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>POST with non-utf-8 data</description>
+			<request>
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/nonascii/11.ics</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-data</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name="PUT with CN re-write" ignore='no'>
+		<test name='1'>
+			<description>PUT without CN</description>
+			<request user="$i18nid:" pswd="$i18npswd:" end-delete="yes">
+				<method>PUT</method>
+				<ruri>$i18ncalendarpath:/cntest.ics</ruri>
+				<data substitutions='yes'>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/nonascii/13.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Check valid CN</description>
+			<request user="$i18nid:" pswd="$i18npswd:">
+				<method>GET</method>
+				<ruri>$i18ncalendarpath:/cntest.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/nonascii/14.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<end>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>DELETEALL</method>
+			<ruri>$calendarhome2:/outbox/</ruri>
+		</request>
+	</end>
+	
+</caldavtest>

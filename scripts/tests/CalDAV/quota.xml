@@ -1,0 +1,634 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest ignore-all="no">
+	<description>Test Quota support on the server</description>
+
+	<require-feature>
+		<feature>caldav</feature>
+		<feature>quota</feature>
+	</require-feature>
+
+	<start/>
+	
+	<test-suite name='Quota enabled by default on calendar home and below only' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>props on /calendars/</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendars:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/quota/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+					</arg>
+					<arg>
+						<name>badprops</name>
+						<value>{DAV:}quota-available-bytes</value>
+						<value>{DAV:}quota-used-bytes</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>props on /calendars/users/</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendars_users:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/quota/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+					</arg>
+					<arg>
+						<name>badprops</name>
+						<value>{DAV:}quota-available-bytes</value>
+						<value>{DAV:}quota-used-bytes</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>props on home</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome2:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/quota/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+						<value>{DAV:}quota-available-bytes$104857600</value>
+						<value>{DAV:}quota-used-bytes$0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>props on calendar</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarpath2:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/quota/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+						<value>{DAV:}quota-available-bytes$104857600</value>
+						<value>{DAV:}quota-used-bytes$0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>props on /principals/</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$principalcollection:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/quota/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+					</arg>
+					<arg>
+						<name>badprops</name>
+						<value>{DAV:}quota-available-bytes</value>
+						<value>{DAV:}quota-used-bytes</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>props on /principals/users/</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$principals_users:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/quota/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+					</arg>
+					<arg>
+						<name>badprops</name>
+						<value>{DAV:}quota-available-bytes</value>
+						<value>{DAV:}quota-used-bytes</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>props on principal</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$principaluri2:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/quota/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+					</arg>
+					<arg>
+						<name>badprops</name>
+						<value>{DAV:}quota-available-bytes</value>
+						<value>{DAV:}quota-used-bytes</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Quota after collection create' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>Create new calendar</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>MKCALENDAR</method>
+				<ruri>$calendarhome2:/newcalendar/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Quota check</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome2:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/quota/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+						<value>{DAV:}quota-available-bytes$104857600</value>
+						<value>{DAV:}quota-used-bytes$0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Quota after empty collection delete' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>Create new calendar</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>DELETE</method>
+				<ruri>$calendarhome2:/newcalendar/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Quota check</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome2:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/quota/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+						<value>{DAV:}quota-available-bytes$104857600</value>
+						<value>{DAV:}quota-used-bytes$0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Quota after collection create, and PUT' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>Create new calendar</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>MKCALENDAR</method>
+				<ruri>$calendarhome2:/newcalendar/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>PUT</method>
+				<ruri>$calendarhome2:/newcalendar/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/quota/2.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>Quota check</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<require-feature>
+					<feature>quota-on-resources</feature>
+				</require-feature>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome2:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/quota/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+						<value>{DAV:}quota-available-bytes$104856758</value>
+						<value>{DAV:}quota-used-bytes$842</value>
+					</arg>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<exclude-feature>
+					<feature>quota-on-resources</feature>
+				</exclude-feature>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome2:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/quota/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+						<value>{DAV:}quota-available-bytes$104857600</value>
+						<value>{DAV:}quota-used-bytes$0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Quota after non-empty collection delete' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>Delete the calendar</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>DELETE</method>
+				<ruri>$calendarhome2:/newcalendar/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>Quota check</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome2:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/quota/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+						<value>{DAV:}quota-available-bytes$104857600</value>
+						<value>{DAV:}quota-used-bytes$0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Quota on dropbox' ignore='no'>
+		<require-feature>
+			<feature>dropbox</feature>
+		</require-feature>
+		<test name='1' ignore='no'>
+			<description>Create event with attachment</description>
+			<request end-delete='yes'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/dropbox/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Create drop box</description>
+			<request end-delete='yes'>
+				<method>MKCOL</method>
+				<ruri>$dropboxpath1:/ABCEFG/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>201</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>Quota check</description>
+			<request print-response='no'>
+				<require-feature>
+					<feature>quota-on-resources</feature>
+				</require-feature>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/quota/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+						<value>{DAV:}quota-available-bytes$104856385</value>
+						<value>{DAV:}quota-used-bytes$1215</value>
+					</arg>
+				</verify>
+			</request>
+			<request print-response='no'>
+				<exclude-feature>
+					<feature>quota-on-resources</feature>
+				</exclude-feature>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/quota/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+						<value>{DAV:}quota-available-bytes$104857600</value>
+						<value>{DAV:}quota-used-bytes$0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>Create drop box resource</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$dropboxpath1:/ABCEFG/test.xml</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/dropbox/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>Quota check</description>
+			<request print-response='no'>
+				<require-feature>
+					<feature>quota-on-resources</feature>
+				</require-feature>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/quota/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+						<value>{DAV:}quota-available-bytes$104856266</value>
+						<value>{DAV:}quota-used-bytes$1334</value>
+					</arg>
+				</verify>
+			</request>
+			<request print-response='no'>
+				<exclude-feature>
+					<feature>quota-on-resources</feature>
+				</exclude-feature>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/quota/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+						<value>{DAV:}quota-available-bytes$104857481</value>
+						<value>{DAV:}quota-used-bytes$119</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>DELETE attachment</description>
+			<request>
+				<method>DELETE</method>
+				<ruri>$dropboxpath1:/ABCEFG/test.xml</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>Quota check</description>
+			<request print-response='no'>
+				<require-feature>
+					<feature>quota-on-resources</feature>
+				</require-feature>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/quota/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+						<value>{DAV:}quota-available-bytes$104856385</value>
+						<value>{DAV:}quota-used-bytes$1215</value>
+					</arg>
+				</verify>
+			</request>
+			<request print-response='no'>
+				<exclude-feature>
+					<feature>quota-on-resources</feature>
+				</exclude-feature>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/quota/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+						<value>{DAV:}quota-available-bytes$104857600</value>
+						<value>{DAV:}quota-used-bytes$0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<end>
+		<request>
+			<method>DELETEALL</method>
+			<ruri>$calendarpath1:/</ruri>
+			<ruri>$inboxpath1:/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>DELETEALL</method>
+			<ruri>$calendarpath2:/</ruri>
+			<ruri>$inboxpath2:/</ruri>
+		</request>
+		<request user="$userid3:" pswd="$pswd3:">
+			<method>DELETEALL</method>
+			<ruri>$calendarpath3:/</ruri>
+			<ruri>$inboxpath3:/</ruri>
+		</request>
+	</end>
+	
+</caldavtest>

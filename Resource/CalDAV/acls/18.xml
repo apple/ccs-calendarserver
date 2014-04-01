@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<D:acl xmlns:D="DAV:">
+	<D:ace>
+		<D:principal>
+			<D:authenticated/>
+		</D:principal>
+		<D:grant>
+			<D:privilege><D:read-current-user-privilege-set/></D:privilege>
+		</D:grant>
+	</D:ace>
+</D:acl>

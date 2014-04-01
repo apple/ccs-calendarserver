@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+    <CS:set>
+        <D:href>$cuaddr2:</D:href>
+        <CS:common-name>Display Name 02</CS:common-name>
+        <CS:summary>My Shared Calendar</CS:summary>
+        <CS:read-write/>
+    </CS:set>
+</CS:share>

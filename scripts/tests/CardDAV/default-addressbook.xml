@@ -1,0 +1,186 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<require-feature>
+		<feature>carddav</feature>
+		<feature>default-addressbook</feature>
+	</require-feature>
+
+	<start/>
+	
+	<test-suite name='Existing property'>
+		<test name='1'>
+			<description>PROPFIND on home</description>
+			<request end-delete='yes'>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/default-addressbook/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value><![CDATA[{urn:ietf:params:xml:ns:carddav}default-addressbook-URL$<href xmlns="DAV:">$addressbookpath1:/</href>]]></value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Change property' ignore='no'>
+		<test name='2'>
+			<description>Set invalid property on home</description>
+			<request print-response='no'>
+				<method>PROPPATCH</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/default-addressbook/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>badprops</name>
+						<value>{urn:ietf:params:xml:ns:carddav}default-addressbook-URL</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Set property on home</description>
+			<request print-response='no'>
+				<method>PROPPATCH</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/default-addressbook/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{urn:ietf:params:xml:ns:carddav}default-addressbook-URL</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>PROPFIND on home</description>
+			<request end-delete='yes'>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/default-addressbook/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value><![CDATA[{urn:ietf:params:xml:ns:carddav}default-addressbook-URL$<href xmlns="DAV:">$addressbookpath1:/</href>]]></value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='No default delete'>
+<!--  
+		<test name='1' ignore='yes'>
+			<description>DELETE</description>
+			<request end-delete='yes'>
+				<method>DELETE</method>
+				<ruri>$addressbookhome1:/adbktest2/</ruri>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:carddav}default-addressbook-delete-allowed</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+-->
+		<test name='2'>
+			<description>Set property on home</description>
+			<request print-response='no'>
+				<method>PROPPATCH</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/default-addressbook/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{urn:ietf:params:xml:ns:carddav}default-addressbook-URL</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>DELETE</description>
+			<request end-delete='yes'>
+				<method>DELETE</method>
+				<ruri>$addressbookpath1:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>PROPFIND on home</description>
+			<request end-delete='yes'>
+				<method>PROPFIND</method>
+				<ruri>$addressbookhome1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/default-addressbook/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value><![CDATA[{urn:ietf:params:xml:ns:carddav}default-addressbook-URL$<href xmlns="DAV:">$addressbookpath1:/</href>]]></value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<end/>
+
+</caldavtest>

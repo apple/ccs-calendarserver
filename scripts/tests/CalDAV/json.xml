@@ -1,0 +1,1067 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<description>Test PUT method in CalDAV</description>
+
+	<require-feature>
+		<feature>caldav</feature>
+		<feature>json-data</feature>
+	</require-feature>
+
+	<start/>
+	
+	<test-suite name='PUT iCal/GET json'>
+		<test name='1'>
+			<description>PUT iCalendar</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/json/get/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>GET jCal</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<header>
+					<name>Accept</name>
+					<value>application/calendar+json</value>
+				</header>
+				<verify>
+					<callback>jcalDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/json/get/2.json</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1'>
+			<request>
+				<method>DELETE</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='PUT json/GET json/icalendar + Accept/q'>
+		<test name='1'>
+			<description>PUT jCal</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>application/calendar+json; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/json/put/1.json</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>GET jCal</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<header>
+					<name>Accept</name>
+					<value>application/calendar+json</value>
+				</header>
+				<verify>
+					<callback>jcalDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/json/put/1.json</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>GET iCalendar - with accept</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<header>
+					<name>Accept</name>
+					<value>text/calendar</value>
+				</header>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/json/put/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>GET iCalendar - no accept</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/json/put/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>GET - preferred Accept - response can be either iCal or jCal</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<header>
+					<name>Accept</name>
+					<value>application/calendar+json, text/calendar</value>
+				</header>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>GET jCal - q= preferred Accept</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<header>
+					<name>Accept</name>
+					<value>text/calendar;q=0.2, application/calendar+json;q=0.5</value>
+				</header>
+				<verify>
+					<callback>jcalDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/json/put/1.json</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1'>
+			<request>
+				<method>DELETE</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='PUT + return-rep'>
+		<test name='1'>
+			<description>PUT jCal/return jCal - no Accept</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>application/calendar+json; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/json/put/1.json</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>jcalDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/json/put/1.json</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>PUT jCal/return jCal - with Accept</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<header>
+					<name>Accept</name>
+					<value>application/calendar+json</value>
+				</header>
+				<data>
+					<content-type>application/calendar+json; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/json/put/1.json</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>jcalDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/json/put/1.json</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>PUT jCal/return iCalendar - with Accept</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<header>
+					<name>Accept</name>
+					<value>text/calendar</value>
+				</header>
+				<data>
+					<content-type>application/calendar+json; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/json/put/1.json</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/json/put/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>PUT iCalendar/return iCalendar - no Accept</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/json/put/2.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/json/put/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>PUT iCalendar/return iCalendar - with Accept</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<header>
+					<name>Accept</name>
+					<value>text/calendar</value>
+				</header>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/json/put/2.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/json/put/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>PUT iCalendar/return jCal - with Accept</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<header>
+					<name>Accept</name>
+					<value>application/calendar+json</value>
+				</header>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/json/put/2.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>jcalDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/json/put/1.json</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1'>
+			<request>
+				<method>DELETE</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Multiget json'>
+		<test name='1'>
+			<description>PUT iCalendar</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/json/multiget/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>multiget jCal</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/json/multiget/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}getetag</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[@content-type="application/calendar+json"]</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[json]</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[*vcalendar]</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[*vevent]</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[*valarm]</value>
+					</arg>
+				</verify>
+				<verify>
+					<exclude-feature>
+						<feature>timezones-by-reference</feature>
+					</exclude-feature>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[*vtimezone]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>multiget with filtered jCal</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/json/multiget/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}getetag</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[@content-type="application/calendar+json"]</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[json]</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[*vcalendar]</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[$vevent]</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[$valarm]</value>
+					</arg>
+				</verify>
+				<verify>
+					<exclude-feature>
+						<feature>timezones-by-reference</feature>
+					</exclude-feature>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[*vtimezone]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1'>
+			<request>
+				<method>DELETE</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Query json'>
+		<test name='1'>
+			<description>PUT iCalendar</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/json/query/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>query jCal</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/json/query/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}getetag</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[@content-type="application/calendar+json"]</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[json]</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[*vcalendar]</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[*vevent]</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[*valarm]</value>
+					</arg>
+				</verify>
+				<verify>
+					<exclude-feature>
+						<feature>timezones-by-reference</feature>
+					</exclude-feature>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[*vtimezone]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>query with expanded jCal</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/json/query/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}getetag</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[@content-type="application/calendar+json"]</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[json]</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[*vcalendar]</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[$vtimezone]</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[$US/Eastern]</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[*vevent]</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[*valarm]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1'>
+			<request>
+				<method>DELETE</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Freebusy json'>
+		<test name='1'>
+			<description>PUT iCalendar</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/json/freebusy/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>POST json - get back json</description>
+			<request>
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data>
+					<content-type>application/calendar+json; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/json/freebusy/2.json</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>{$CALDAV}schedule-response/{$CALDAV:}response/{$CALDAV:}calendar-data[@content-type="application/calendar+json"]</value>
+						<value>{$CALDAV}schedule-response/{$CALDAV:}response/{$CALDAV:}calendar-data[json]</value>
+						<value>{$CALDAV}schedule-response/{$CALDAV:}response/{$CALDAV:}calendar-data[*vcalendar]</value>
+						<value>{$CALDAV}schedule-response/{$CALDAV:}response/{$CALDAV:}calendar-data[*vfreebusy]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1'>
+			<request>
+				<method>DELETE</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='POST;add-member'>
+		<require-feature>
+			<feature>add-member</feature>
+		</require-feature>
+		<test name='1'>
+			<description>POST;add-member jCal</description>
+			<request>
+				<method>POST</method>
+				<ruri>$calendarpath1:/$add-member:</ruri>
+				<data>
+					<content-type>application/calendar+json; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/json/put/1.json</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<grabheader>
+					<name>Location</name>
+					<variable>$posted:</variable>
+				</grabheader>
+			</request>
+		</test>
+		<test name='2'>
+			<description>GET jCal</description>
+			<request>
+				<method>GET</method>
+				<ruri>$posted:</ruri>
+				<header>
+					<name>Accept</name>
+					<value>application/calendar+json</value>
+				</header>
+				<verify>
+					<callback>jcalDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/json/put/1.json</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>GET iCalendar</description>
+			<request>
+				<method>GET</method>
+				<ruri>$posted:</ruri>
+				<header>
+					<name>Accept</name>
+					<value>text/calendar</value>
+				</header>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/json/put/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1'>
+			<request>
+				<method>DELETE</method>
+				<ruri>$posted:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='POST;add-member - return'>
+		<require-feature>
+			<feature>add-member</feature>
+		</require-feature>
+		<test name='1'>
+			<description>POST;add-member jCal</description>
+			<request>
+				<method>POST</method>
+				<ruri>$calendarpath1:/$add-member:</ruri>
+				<header>
+					<name>Prefer</name>
+					<value>return=representation</value>
+				</header>
+				<header>
+					<name>Accept</name>
+					<value>application/calendar+json</value>
+				</header>
+				<data>
+					<content-type>application/calendar+json; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/json/put/1.json</filepath>
+				</data>
+				<verify>
+					<callback>jcalDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/json/put/1.json</value>
+					</arg>
+				</verify>
+				<grabheader>
+					<name>Location</name>
+					<variable>$posted:</variable>
+				</grabheader>
+			</request>
+		</test>
+		<test name='2'>
+			<description>GET jCal</description>
+			<request>
+				<method>GET</method>
+				<ruri>$posted:</ruri>
+				<header>
+					<name>Accept</name>
+					<value>application/calendar+json</value>
+				</header>
+				<verify>
+					<callback>jcalDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/json/put/1.json</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>GET iCalendar</description>
+			<request>
+				<method>GET</method>
+				<ruri>$posted:</ruri>
+				<header>
+					<name>Accept</name>
+					<value>text/calendar</value>
+				</header>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/json/put/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1'>
+			<request>
+				<method>DELETE</method>
+				<ruri>$posted:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Simple BULK json - no return'>
+		<require-feature>
+			<feature>bulk-post</feature>
+		</require-feature>
+		<test name='1'>
+			<description>POST jCal</description>
+			<request>
+				<method>POST</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>application/calendar+json; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/json/simple-bulk/1.json</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}getetag</value>
+						<value>$verify-property-prefix:/{http://calendarserver.org/ns/}uid[=user01-uid1]</value>
+						<value>$verify-property-prefix:/{http://calendarserver.org/ns/}uid[=user01-uid2]</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{urn:ietf:params:xml:ns:caldav}calendar-data</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>$multistatus-href-prefix:</name>
+					<variable>$href1:</variable>
+					<variable>$href2:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='2'>
+			<description>GET iCalendar</description>
+			<request>
+				<method>GET</method>
+				<ruri>$href1:</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/json/simple-bulk/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>GET iCalendar</description>
+			<request>
+				<method>GET</method>
+				<ruri>$href2:</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/json/simple-bulk/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1'>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$calendarpath1:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Simple BULK json - return'>
+		<require-feature>
+			<feature>bulk-post</feature>
+		</require-feature>
+		<test name='1'>
+			<description>POST jCal</description>
+			<request>
+				<method>POST</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>X-MobileMe-DAV-Options</name>
+					<value>return-changed-data</value>
+				</header>
+				<data>
+					<content-type>application/calendar+json; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/json/simple-bulk/1.json</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}getetag</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[@content-type="application/calendar+json"]</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[json]</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[*vcalendar]</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[*vevent]</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[*user01-uid1]</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-data[*user01-uid2]</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>$multistatus-href-prefix:</name>
+					<variable>$href1:</variable>
+					<variable>$href2:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='2'>
+			<description>GET iCalendar</description>
+			<request>
+				<method>GET</method>
+				<ruri>$href1:</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/json/simple-bulk/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>GET iCalendar</description>
+			<request>
+				<method>GET</method>
+				<ruri>$href2:</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/json/simple-bulk/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1'>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$calendarpath1:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='CRUD json'>
+		<require-feature>
+			<feature>bulk-post</feature>
+		</require-feature>
+		<test name='1'>
+			<description>POST jCal</description>
+			<request>
+				<method>POST</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/json/crud-bulk/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}getetag</value>
+						<value>$verify-property-prefix:/{http://calendarserver.org/ns/}uid[=user01-uid1]</value>
+						<value>$verify-property-prefix:/{http://calendarserver.org/ns/}uid[=user01-uid2]</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{urn:ietf:params:xml:ns:caldav}calendar-data</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>$multistatus-href-prefix:</name>
+					<variable>$href1:</variable>
+					<variable>$href2:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='2'>
+			<description>GET iCalendar</description>
+			<request>
+				<method>GET</method>
+				<ruri>$href1:</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/json/crud-bulk/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>GET iCalendar</description>
+			<request>
+				<method>GET</method>
+				<ruri>$href2:</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/json/crud-bulk/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1'>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$calendarpath1:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Timezone prop json'>
+		<test name='1'>
+			<description>PROPPATCH jCal</description>
+			<request>
+				<method>PROPPATCH</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/json/timezone-prop/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>PROPFIND jCal</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/json/timezone-prop/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-timezone[@content-type="application/calendar+json"]</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-timezone[json]</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-timezone[*vcalendar]</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-timezone[*vtimezone]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>GET iCalendar - with accept</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/json/timezone-prop/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-timezone[icalendar]</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-timezone[*BEGIN:VCALENDAR]</value>
+						<value>$verify-property-prefix:/{$CALDAV:}calendar-timezone[*BEGIN:VTIMEZONE]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>PROPPATCH remove timezone</description>
+			<request>
+				<method>PROPPATCH</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/json/timezone-prop/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Timezone service json'>
+	</test-suite>
+
+	<end/>
+	
+</caldavtest>

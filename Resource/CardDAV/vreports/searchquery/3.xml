@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" ?>
+   <C:addressbook-query xmlns:D="DAV:"
+                     xmlns:C="urn:ietf:params:xml:ns:carddav">
+     <D:prop>
+       <C:address-data>
+         <C:prop name="VERSION"/>
+         <C:prop name="UID"/>
+         <C:prop name="FN"/>
+       </C:address-data>
+     </D:prop>
+     <C:filter>
+       <C:prop-filter name="EMAIL">
+        <C:text-match negate-condition='yes'>b</C:text-match>
+       </C:prop-filter>
+     </C:filter>
+   </C:addressbook-query>

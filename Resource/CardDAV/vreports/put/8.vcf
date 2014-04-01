@@ -1,0 +1,11 @@
+BEGIN:VCARD
+VERSION:3.0
+N:Śuteri;HiAscii;;;
+FN:HiAscii Śuteri
+EMAIL;type=INTERNET;type=WORK;type=pref:hiascii@example.com
+TEL;type=WORK;type=pref:33-1-12345678
+TEL;type=CELL:33-6-12345678
+item1.ADR;type=WORK;type=pref:;;1 ïlena;Paris;Paris;77777;France
+item1.X-ABADR:us
+UID:44EE78BF-8814-4471-899C-92280CEFB098:ABPerson
+END:VCARD

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<C:calendar-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+<D:prop>
+<D:getetag/>
+<C:calendar-data>
+<C:comp name="VCALENDAR">
+<C:allprop/>
+<C:comp name="VEVENT">
+<C:prop name="UID"/>
+<C:prop name="SUMMARY"/>
+<C:prop name="LOCATION"/>
+<C:prop name="ORGANIZER"/>
+<C:prop name="ATTENDEE"/>
+<C:allcomp/>
+</C:comp>
+</C:comp>
+</C:calendar-data>
+</D:prop>
+<C:filter>
+<C:comp-filter name="VCALENDAR">
+<C:prop-filter name="X-CALENDARSERVER-ACCESS">
+<C:text-match>CONFIDENTIAL</C:text-match>
+</C:prop-filter>
+</C:comp-filter>
+</C:filter>
+</C:calendar-query>

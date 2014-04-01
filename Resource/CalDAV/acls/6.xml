@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<D:acl xmlns:D="DAV:">
+	<D:ace>
+		<D:principal>
+			<D:href>$principaluri2:</D:href>
+		</D:principal>
+		<D:grant>
+			<D:privilege><D:read/></D:privilege>
+		</D:grant>
+		<D:inherited><D:href>$calendarhome2:</D:href></D:inherited>
+	</D:ace>
+</D:acl>

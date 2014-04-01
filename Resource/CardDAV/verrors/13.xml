@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<C:addressbook-multiget xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">
+<D:prop>
+<D:getetag/>
+<C:address-data content-type="text/vcard" version="4.0"/>
+</D:prop>
+<C:filter>
+<C:comp-filter name="NICKNAME">
+<C:comp-filter name="FN">
+</C:comp-filter>
+</C:comp-filter>
+</C:filter>
+</C:addressbook-multiget>

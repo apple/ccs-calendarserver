@@ -1,0 +1,420 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<require-feature>
+		<feature>caldav</feature>
+		<feature>brief</feature>
+	</require-feature>
+
+	<start>
+		<request end-delete="yes">
+			<method>PUT</method>
+			<ruri>$calendarpath1:/1.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/reports/put/1.txt</filepath>
+			</data>
+		</request>
+	</start>
+	
+	<test-suite name='regular prop finds'>
+		<test name='1'>
+			<description>PROPFIND depth=0 no brief</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/brief/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+					</arg>
+					<arg>
+						<name>badprops</name>
+						<value>{DAV:}bogus</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>PROPFIND depth=0 with brief=f</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<header>
+					<name>Brief</name>
+					<value>f</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/brief/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+					</arg>
+					<arg>
+						<name>badprops</name>
+						<value>{DAV:}bogus</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>PROPFIND depth=0 with brief=t</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<header>
+					<name>Brief</name>
+					<value>t</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/brief/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>PROPFIND depth=0 with bad brief</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<header>
+					<name>Brief</name>
+					<value>bad</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/brief/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+					</arg>
+					<arg>
+						<name>badprops</name>
+						<value>{DAV:}bogus</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>PROPFIND depth=0 with brief=t no results</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<header>
+					<name>Brief</name>
+					<value>t</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/brief/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='multiget'>
+		<test name='1'>
+			<description>REPORT no brief</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/brief/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+					</arg>
+					<arg>
+						<name>badprops</name>
+						<value>{DAV:}bogus</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>REPORT with brief=f</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Brief</name>
+					<value>f</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/brief/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+					</arg>
+					<arg>
+						<name>badprops</name>
+						<value>{DAV:}bogus</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>REPORT with brief=t</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Brief</name>
+					<value>t</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/brief/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>REPORT with bad brief</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Brief</name>
+					<value>bad</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/brief/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+					</arg>
+					<arg>
+						<name>badprops</name>
+						<value>{DAV:}bogus</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>REPORT with brief=t no results</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Brief</name>
+					<value>t</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/brief/5.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='query'>
+		<test name='1'>
+			<description>REPORT no brief</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/brief/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+					</arg>
+					<arg>
+						<name>badprops</name>
+						<value>{DAV:}bogus</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>REPORT with brief=f</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Brief</name>
+					<value>f</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/brief/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+					</arg>
+					<arg>
+						<name>badprops</name>
+						<value>{DAV:}bogus</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>REPORT with brief=t</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Brief</name>
+					<value>t</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/brief/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>REPORT with bad brief</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Brief</name>
+					<value>bad</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/brief/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resourcetype</value>
+					</arg>
+					<arg>
+						<name>badprops</name>
+						<value>{DAV:}bogus</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>REPORT with brief=t no results</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Brief</name>
+					<value>t</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/brief/6.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<end/>
+	
+</caldavtest>

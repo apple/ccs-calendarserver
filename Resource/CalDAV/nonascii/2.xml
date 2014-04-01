@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<C:calendar-multiget xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+<D:prop>
+<D:getetag/>
+</D:prop>
+<D:href>$calendarhome1:/Te%cc%81st/te%cc%81st.ics</D:href>
+</C:calendar-multiget>

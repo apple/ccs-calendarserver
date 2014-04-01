@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<invite-reply xmlns='http://calendarserver.org/ns/'>
+  <href xmlns='DAV:'>mailto:$email4:</href>
+  <invite-accepted/>
+  <hosturl>
+    <href xmlns='DAV:'>$hosturl24:</href>
+  </hosturl>
+  <in-reply-to>$inviteuid24:</in-reply-to>
+  <summary>The Shared Calendar</summary>
+  <common-name>$username4:</common-name>
+  <first-name>$firstname4:</first-name>
+  <last-name>$lastname4:</last-name>
+</invite-reply>

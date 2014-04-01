@@ -1,0 +1,13 @@
+BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VTODO
+DTSTAMP:20060313T145240Z
+STATUS;REASON={com.example}delivery-success;MODIFIED=20130212T120000Z;GROUP=G1:COMPLETE
+SUMMARY:Test Task #5
+UID:561244C9-7352-463E-9EAD-B0D8BBA18390
+LINK;LINK-TYPE={com.example}signature-image:http://images.example.com/mikes-signature.png
+LINK;LINK-TYPE={com.example}signer-image:http://images.example.com/mikes-headshot.png
+END:VTODO
+END:VCALENDAR

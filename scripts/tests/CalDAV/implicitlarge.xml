@@ -1,0 +1,321 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<description>Very large attendee list</description>
+
+	<require-feature>
+		<feature>caldav</feature>
+		<feature>implicit-scheduling</feature>
+	</require-feature>
+
+	<start>
+		<request user="$userid1:" pswd="$pswd1:">
+			<method>GET</method>
+			<ruri>$calendarpath1:/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>GET</method>
+			<ruri>$calendarpath2:/</ruri>
+		</request>
+		<request>
+			<method>DELETEALL</method>
+			<ruri>$inboxpath1:/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>DELETEALL</method>
+			<ruri>$inboxpath2:/</ruri>
+		</request>
+	</start>
+	
+	<test-suite name='#1 Large invite' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>Create new event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/large/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>One item in user01 Calendar</description>
+			<request print-response="no">
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/large/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>One item in user02 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>One item in user02 calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>GETNEW</method>
+				<ruri>$calendarpath2:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/large/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>One item in user10 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath10:/</ruri>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>One item in user10 calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>GETNEW</method>
+				<ruri>$calendarpath10:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/large/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>One item in user20 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath20:/</ruri>
+			</request>
+		</test>
+		<test name='8' ignore='no'>
+			<description>One item in user20 calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>GETNEW</method>
+				<ruri>$calendarpath20:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/large/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='9' ignore='no'>
+			<description>One item in user30 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath30:/</ruri>
+			</request>
+		</test>
+		<test name='10' ignore='no'>
+			<description>One item in user30 calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>GETNEW</method>
+				<ruri>$calendarpath30:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/large/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='11' ignore='no'>
+			<description>One item in user40 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath40:/</ruri>
+			</request>
+		</test>
+		<test name='12' ignore='no'>
+			<description>One item in user40 calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" print-response="no">
+				<method>GETNEW</method>
+				<ruri>$calendarpath40:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/large/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='13' ignore='no'>
+			<description>Clean-up inboxes</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$inboxpath1:/</ruri>
+				<ruri>$inboxpath2:/</ruri>
+				<ruri>$inboxpath3:/</ruri>
+				<ruri>$inboxpath4:/</ruri>
+				<ruri>$inboxpath5:/</ruri>
+				<ruri>$inboxpath6:/</ruri>
+				<ruri>$inboxpath7:/</ruri>
+				<ruri>$inboxpath8:/</ruri>
+				<ruri>$inboxpath9:/</ruri>
+				<ruri>$inboxpath10:/</ruri>
+				<ruri>$inboxpath11:/</ruri>
+				<ruri>$inboxpath12:/</ruri>
+				<ruri>$inboxpath13:/</ruri>
+				<ruri>$inboxpath14:/</ruri>
+				<ruri>$inboxpath15:/</ruri>
+				<ruri>$inboxpath16:/</ruri>
+				<ruri>$inboxpath17:/</ruri>
+				<ruri>$inboxpath18:/</ruri>
+				<ruri>$inboxpath19:/</ruri>
+				<ruri>$inboxpath20:/</ruri>
+				<ruri>$inboxpath21:/</ruri>
+				<ruri>$inboxpath22:/</ruri>
+				<ruri>$inboxpath23:/</ruri>
+				<ruri>$inboxpath24:/</ruri>
+				<ruri>$inboxpath25:/</ruri>
+				<ruri>$inboxpath26:/</ruri>
+				<ruri>$inboxpath27:/</ruri>
+				<ruri>$inboxpath28:/</ruri>
+				<ruri>$inboxpath29:/</ruri>
+				<ruri>$inboxpath30:/</ruri>
+				<ruri>$inboxpath31:/</ruri>
+				<ruri>$inboxpath32:/</ruri>
+				<ruri>$inboxpath33:/</ruri>
+				<ruri>$inboxpath34:/</ruri>
+				<ruri>$inboxpath35:/</ruri>
+				<ruri>$inboxpath36:/</ruri>
+				<ruri>$inboxpath37:/</ruri>
+				<ruri>$inboxpath38:/</ruri>
+				<ruri>$inboxpath39:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+	
+	<end>
+		<request>
+			<method>DELETEALL</method>
+			<ruri>$inboxpath1:/</ruri>
+			<ruri>$calendarpath1:/</ruri>
+		</request>
+		<request user="$useradmin:" pswd="$pswdadmin:">
+			<method>WAITDELETEALL 1</method>
+			<ruri>$inboxpath2:/</ruri>
+			<ruri>$inboxpath3:/</ruri>
+			<ruri>$inboxpath4:/</ruri>
+			<ruri>$inboxpath5:/</ruri>
+			<ruri>$inboxpath6:/</ruri>
+			<ruri>$inboxpath7:/</ruri>
+			<ruri>$inboxpath8:/</ruri>
+			<ruri>$inboxpath9:/</ruri>
+			<ruri>$inboxpath10:/</ruri>
+			<ruri>$inboxpath11:/</ruri>
+			<ruri>$inboxpath12:/</ruri>
+			<ruri>$inboxpath13:/</ruri>
+			<ruri>$inboxpath14:/</ruri>
+			<ruri>$inboxpath15:/</ruri>
+			<ruri>$inboxpath16:/</ruri>
+			<ruri>$inboxpath17:/</ruri>
+			<ruri>$inboxpath18:/</ruri>
+			<ruri>$inboxpath19:/</ruri>
+			<ruri>$inboxpath20:/</ruri>
+			<ruri>$inboxpath21:/</ruri>
+			<ruri>$inboxpath22:/</ruri>
+			<ruri>$inboxpath23:/</ruri>
+			<ruri>$inboxpath24:/</ruri>
+			<ruri>$inboxpath25:/</ruri>
+			<ruri>$inboxpath26:/</ruri>
+			<ruri>$inboxpath27:/</ruri>
+			<ruri>$inboxpath28:/</ruri>
+			<ruri>$inboxpath29:/</ruri>
+			<ruri>$inboxpath30:/</ruri>
+			<ruri>$inboxpath31:/</ruri>
+			<ruri>$inboxpath32:/</ruri>
+			<ruri>$inboxpath33:/</ruri>
+			<ruri>$inboxpath34:/</ruri>
+			<ruri>$inboxpath35:/</ruri>
+			<ruri>$inboxpath36:/</ruri>
+			<ruri>$inboxpath37:/</ruri>
+			<ruri>$inboxpath38:/</ruri>
+			<ruri>$inboxpath39:/</ruri>
+			<ruri>$inboxpath40:/</ruri>
+		</request>
+		<request user="$useradmin:" pswd="$pswdadmin:">
+			<method>DELETEALL</method>
+			<ruri>$calendarpath2:/</ruri>
+			<ruri>$calendarpath3:/</ruri>
+			<ruri>$calendarpath4:/</ruri>
+			<ruri>$calendarpath5:/</ruri>
+			<ruri>$calendarpath6:/</ruri>
+			<ruri>$calendarpath7:/</ruri>
+			<ruri>$calendarpath8:/</ruri>
+			<ruri>$calendarpath9:/</ruri>
+			<ruri>$calendarpath10:/</ruri>
+			<ruri>$calendarpath11:/</ruri>
+			<ruri>$calendarpath12:/</ruri>
+			<ruri>$calendarpath13:/</ruri>
+			<ruri>$calendarpath14:/</ruri>
+			<ruri>$calendarpath15:/</ruri>
+			<ruri>$calendarpath16:/</ruri>
+			<ruri>$calendarpath17:/</ruri>
+			<ruri>$calendarpath18:/</ruri>
+			<ruri>$calendarpath19:/</ruri>
+			<ruri>$calendarpath20:/</ruri>
+			<ruri>$calendarpath21:/</ruri>
+			<ruri>$calendarpath22:/</ruri>
+			<ruri>$calendarpath23:/</ruri>
+			<ruri>$calendarpath24:/</ruri>
+			<ruri>$calendarpath25:/</ruri>
+			<ruri>$calendarpath26:/</ruri>
+			<ruri>$calendarpath27:/</ruri>
+			<ruri>$calendarpath28:/</ruri>
+			<ruri>$calendarpath29:/</ruri>
+			<ruri>$calendarpath30:/</ruri>
+			<ruri>$calendarpath31:/</ruri>
+			<ruri>$calendarpath32:/</ruri>
+			<ruri>$calendarpath33:/</ruri>
+			<ruri>$calendarpath34:/</ruri>
+			<ruri>$calendarpath35:/</ruri>
+			<ruri>$calendarpath36:/</ruri>
+			<ruri>$calendarpath37:/</ruri>
+			<ruri>$calendarpath38:/</ruri>
+			<ruri>$calendarpath39:/</ruri>
+			<ruri>$calendarpath40:/</ruri>
+		</request>
+	</end>
+	
+</caldavtest>

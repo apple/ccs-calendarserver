@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<invite-reply xmlns='http://calendarserver.org/ns/'>
+  <href xmlns='DAV:'>$cuaddrurn1:</href>
+  <invite-accepted/>
+  <hosturl>
+    <href xmlns='DAV:'>$addressbookpath2:/g345.vcf</href>
+  </hosturl>
+  <in-reply-to>$inviteuid:</in-reply-to>
+  <summary>Read-Only Group345</summary>
+  <common-name>$username1:</common-name>
+  <first-name>$firstname1:</first-name>
+  <last-name>$lastname1:</last-name>
+</invite-reply>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<D:acl xmlns:D="DAV:">
+	<D:ace>
+		<D:principal>
+			<D:href>$principaluri3:</D:href>
+		</D:principal>
+		<D:deny>
+			<D:privilege><D:write-acl/></D:privilege>
+		</D:deny>
+	</D:ace>
+	<D:ace>
+		<D:principal>
+			<D:href>$principaluri3:</D:href>
+		</D:principal>
+		<D:grant>
+			<D:privilege><D:read/></D:privilege>
+		</D:grant>
+	</D:ace>
+</D:acl>

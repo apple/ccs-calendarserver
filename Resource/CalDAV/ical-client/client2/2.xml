@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<x0:propfind xmlns:x0="DAV:" xmlns:x3="http://apple.com/ns/ical/" xmlns:x1="http://calendarserver.org/ns/" xmlns:x2="urn:ietf:params:xml:ns:caldav">
+ <x0:prop>
+  <x1:xmpp-server/>
+  <x1:xmpp-uri/>
+  <x1:getctag/>
+  <x0:displayname/>
+  <x2:calendar-description/>
+  <x3:calendar-color/>
+  <x3:calendar-order/>
+  <x2:supported-calendar-component-set/>
+  <x0:resourcetype/>
+  <x0:owner/>
+  <x2:calendar-free-busy-set/>
+  <x2:schedule-calendar-transp/>
+  <x2:schedule-default-calendar-URL/>
+  <x0:quota-available-bytes/>
+  <x0:quota-used-bytes/>
+  <x2:calendar-timezone/>
+  <x0:current-user-privilege-set/>
+  <x1:source/>
+  <x1:subscribed-strip-alarms/>
+  <x1:subscribed-strip-attachments/>
+  <x1:subscribed-strip-todos/>
+  <x3:refreshrate/>
+  <x1:push-transports/>
+  <x1:pushkey/>
+  <x1:publish-url/>
+  <x1:allowed-sharing-modes/>
+ </x0:prop>
+</x0:propfind>

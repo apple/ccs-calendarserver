@@ -1,0 +1,576 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<require-feature>
+		<feature>caldav</feature>
+	</require-feature>
+
+	<start/>
+	
+	<test-suite name='MKCALENDAR without body'>
+		<test name='1'>
+			<description>Simple MKCALENDAR</description>
+			<request end-delete='yes'>
+				<method>MKCALENDAR</method>
+				<ruri>$calendarhome1:/caltest1/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>201</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>MKCALENDAR on existing resource</description>
+			<request>
+				<method>MKCALENDAR</method>
+				<ruri>$calendarhome1:/caltest1/</ruri>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{DAV:}resource-must-be-null</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>MKCALENDAR inside another calendar</description>
+			<request>
+				<method>MKCALENDAR</method>
+				<ruri>$calendarhome1:/caltest1/caltest2/</ruri>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}calendar-collection-location-ok</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>MKCOL inside a calendar</description>
+			<request>
+				<method>MKCOL</method>
+				<ruri>$calendarhome1:/caltest1/collection/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='MKCALENDAR with body'>
+		<test name='1'>
+			<description>MKCALENDAR with correct request body</description>
+			<request end-delete='yes'>
+				<method>MKCALENDAR</method>
+				<ruri>$calendarhome1:/caltest2/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/mkcalendar/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>201</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>MKCALENDAR with correct request body on existing resource</description>
+			<request>
+				<method>MKCALENDAR</method>
+				<ruri>$calendarhome1:/caltest2/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/mkcalendar/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{DAV:}resource-must-be-null</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>MKCALENDAR with incorrect request body</description>
+			<request end-delete='yes'>
+				<method>MKCALENDAR</method>
+				<ruri>$calendarhome1:/caltest3/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/mkcalendar/2.txt</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>badprops</name>
+						<value>{DAV:}getetag</value>
+						<value>{DAV:}displayname</value>
+						<value>{urn:ietf:params:xml:ns:caldav}calendar-description</value>
+					</arg>
+				</verify>
+			</request>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarhome1:/caltest3/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>404</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>MKCALENDAR with incorrect request body on existing resource</description>
+			<request>
+				<method>MKCALENDAR</method>
+				<ruri>$calendarhome1:/caltest2/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/mkcalendar/2.txt</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{DAV:}resource-must-be-null</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='MKCALENDAR read-free-busy privilege'>
+		<test name='1'>
+			<description>MKCALENDAR</description>
+			<request end-delete='yes'>
+				<method>MKCALENDAR</method>
+				<ruri>$calendarhome1:/caltest3/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>201</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>REPORT free-busy on new collection as another user</description>
+			<request user='$userid2:' pswd='$pswd2:'>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/caltest3/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/mkcalendar/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>200</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='MKCALENDAR supported-component-set'>
+		<test name='1'>
+			<description>MKCALENDAR with VEVENT only</description>
+			<request end-delete='yes'>
+				<method>MKCALENDAR</method>
+				<ruri>$calendarhome1:/vevent-only/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/mkcalendar/restrictions/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>201</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>PUT vevent</description>
+			<request end-delete='yes'>
+				<method>PUT</method>
+				<ruri>$calendarhome1:/vevent-only/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/mkcalendar/restrictions/2.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>PUT vtodo</description>
+			<request end-delete='yes'>
+				<method>PUT</method>
+				<ruri>$calendarhome1:/vevent-only/2.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/mkcalendar/restrictions/3.ics</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}supported-calendar-component</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>MKCALENDAR with VTODO only</description>
+			<request end-delete='yes'>
+				<method>MKCALENDAR</method>
+				<ruri>$calendarhome1:/vtodo-only/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/mkcalendar/restrictions/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>201</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>PUT vevent</description>
+			<request end-delete='yes'>
+				<method>PUT</method>
+				<ruri>$calendarhome1:/vtodo-only/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/mkcalendar/restrictions/5.ics</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}supported-calendar-component</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>PUT vtodo</description>
+			<request end-delete='yes'>
+				<method>PUT</method>
+				<ruri>$calendarhome1:/vtodo-only/2.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/mkcalendar/restrictions/6.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='7'>
+			<description>MKCALENDAR with VEVENT and VTODO</description>
+			<request end-delete='yes'>
+				<method>MKCALENDAR</method>
+				<ruri>$calendarhome1:/vevent-vtodo/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/mkcalendar/restrictions/7.xml</filepath>
+				</data>
+				<verify>
+					<exclude-feature>
+						<feature>split-calendars</feature>
+					</exclude-feature>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>201</value>
+					</arg>
+				</verify>
+				<verify>
+					<require-feature>
+						<feature>split-calendars</feature>
+					</require-feature>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>badprops</name>
+						<value>{urn:ietf:params:xml:ns:caldav}supported-calendar-component-set</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8'>
+			<exclude-feature>
+				<feature>split-calendars</feature>
+			</exclude-feature>
+			<description>PUT vevent</description>
+			<request end-delete='yes'>
+				<method>PUT</method>
+				<ruri>$calendarhome1:/vevent-vtodo/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/mkcalendar/restrictions/8.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='9'>
+			<exclude-feature>
+				<feature>split-calendars</feature>
+			</exclude-feature>
+			<description>PUT vtodo</description>
+			<request end-delete='yes'>
+				<method>PUT</method>
+				<ruri>$calendarhome1:/vevent-vtodo/2.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/mkcalendar/restrictions/9.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='supported-component-sets'>
+		<require-feature>
+			<feature>supported-component-sets</feature>
+		</require-feature>
+		<test name='1'>
+			<description>Check calendar home for property</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/mkcalendar/supported-component-sets/1.xml</filepath>
+				</data>
+				<verify>
+					<exclude-feature>
+						<feature>supported-component-sets-one</feature>
+					</exclude-feature>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{urn:ietf:params:xml:ns:caldav}supported-calendar-component-sets$</value>
+					</arg>
+				</verify>
+				<verify>
+					<require-feature>
+						<feature>supported-component-sets-one</feature>
+					</require-feature>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{urn:ietf:params:xml:ns:caldav}supported-calendar-component-sets/{urn:ietf:params:xml:ns:caldav}supported-calendar-component-set/{urn:ietf:params:xml:ns:caldav}comp[@name="VEVENT"]</value>
+						<value>$verify-property-prefix:/{urn:ietf:params:xml:ns:caldav}supported-calendar-component-sets/{urn:ietf:params:xml:ns:caldav}supported-calendar-component-set/{urn:ietf:params:xml:ns:caldav}comp[@name="VTODO"]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='Single component calendars'>
+		<require-feature>
+			<feature>split-calendars</feature>
+		</require-feature>
+		<test name='1'>
+			<description>Calendar for VEVENTs only</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/mkcalendar/single-components/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{urn:ietf:params:xml:ns:caldav}supported-calendar-component-set/{urn:ietf:params:xml:ns:caldav}comp[@name="VEVENT"]</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{urn:ietf:params:xml:ns:caldav}supported-calendar-component-set/{urn:ietf:params:xml:ns:caldav}comp[@name="VTODO"]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Calendar for VTODOs only</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$taskspath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/mkcalendar/single-components/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{urn:ietf:params:xml:ns:caldav}supported-calendar-component-set/{urn:ietf:params:xml:ns:caldav}comp[@name="VTODO"]</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{urn:ietf:params:xml:ns:caldav}supported-calendar-component-set/{urn:ietf:params:xml:ns:caldav}comp[@name="VEVENT"]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Calendar Home checkj</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/mkcalendar/single-components/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindValues</callback>
+					<arg>
+						<name>only</name>
+						<value>$calendarpath1:/</value>
+					</arg>
+					<arg>
+						<name>props</name>
+						<value>{urn:ietf:params:xml:ns:caldav}supported-calendar-component-set$.*VEVENT.*</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>propfindValues</callback>
+					<arg>
+						<name>only</name>
+						<value>$calendarpath1:/</value>
+					</arg>
+					<arg>
+						<name>props</name>
+						<value>{urn:ietf:params:xml:ns:caldav}supported-calendar-component-set!.*VTODO.*</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>propfindValues</callback>
+					<arg>
+						<name>only</name>
+						<value>$taskspath1:/</value>
+					</arg>
+					<arg>
+						<name>props</name>
+						<value>{urn:ietf:params:xml:ns:caldav}supported-calendar-component-set!.*VEVENT.*</value>
+					</arg>
+				</verify>
+				<verify>
+					<callback>propfindValues</callback>
+					<arg>
+						<name>only</name>
+						<value>$taskspath1:/</value>
+					</arg>
+					<arg>
+						<name>props</name>
+						<value>{urn:ietf:params:xml:ns:caldav}supported-calendar-component-set$.*VTODO.*</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>Simple MKCALENDAR</description>
+			<request end-delete='yes'>
+				<method>MKCALENDAR</method>
+				<ruri>$calendarhome1:/nobody/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>201</value>
+					</arg>
+				</verify>
+			</request>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome1:/nobody/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/mkcalendar/single-components/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{urn:ietf:params:xml:ns:caldav}supported-calendar-component-set/{urn:ietf:params:xml:ns:caldav}comp[@name="VEVENT"]</value>
+					</arg>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{urn:ietf:params:xml:ns:caldav}supported-calendar-component-set/{urn:ietf:params:xml:ns:caldav}comp[@name="VTODO"]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<end/>
+	
+</caldavtest>

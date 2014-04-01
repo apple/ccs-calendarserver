@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<MM:multiput xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav" xmlns:MM="http://me.com/_namespace/">
+<MM:resource>
+<D:href>$href1:</D:href>
+<MM:if-match>
+<D:getetag>$etag1:1</D:getetag>
+</MM:if-match>
+<D:set>
+<D:prop>
+<C:address-data><![CDATA[BEGIN:VCARD
+VERSION:3.0
+N:01;User;;;
+FN:User 01
+EMAIL;type=INTERNET;type=WORK;type=pref:user01@example.com
+TEL;type=WORK;type=pref:1-555-555-5555
+TEL;type=CELL:1-444-444-4444
+ADR;type=WORK;type=pref:;;1245-2 Test;Sesame Street;California;11111;USA
+UID:user01-uid01
+END:VCARD
+]]>
+</C:address-data>
+</D:prop>
+</D:set>
+</MM:resource>
+<MM:resource>
+<D:href>$href2:</D:href>
+<MM:if-match>
+<D:getetag>$etag2:2</D:getetag>
+</MM:if-match>
+<MM:delete/>
+</MM:resource>
+<MM:resource>
+<D:set>
+<D:prop>
+<C:address-data><![CDATA[BEGIN:VCARD
+VERSION:3.0
+N:03;User;;;
+FN:User 03
+EMAIL;type=INTERNET;type=WORK;type=pref:user03@example.com
+TEL;type=WORK;type=pref:1-555-555-5555
+TEL;type=CELL:1-444-444-4444
+ADR;type=WORK;type=pref:;;1245 Test;Sesame Street;California;11111;USA
+UID:user01-uid03
+END:VCARD
+]]>
+</C:address-data>
+</D:prop>
+</D:set>
+</MM:resource>
+</MM:multiput>

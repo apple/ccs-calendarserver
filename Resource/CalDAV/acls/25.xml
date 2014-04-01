@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<D:acl xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav" xmlns:T="http://twistedmatrix.com/xml_namespace/dav/">
+	<D:ace>
+		<D:principal>
+			<D:authenticated/>
+		</D:principal>
+		<D:grant>
+			<D:privilege><D:read/></D:privilege>
+		</D:grant>
+	</D:ace>
+	<D:ace>
+		<D:principal>
+			<D:authenticated/>
+		</D:principal>
+		<D:grant>
+			<D:privilege><C:read-free-busy/></D:privilege>
+		</D:grant>
+		<T:inheritable/>
+	</D:ace>
+</D:acl>

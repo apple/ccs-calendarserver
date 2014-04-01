@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<D:principal-property-search xmlns:D="DAV:" xmlns:c="http://calendarserver.org/ns/" test="anyof" type="INDIVIDUAL">
+ <D:apply-to-principal-collection-set/>
+ <D:property-search>
+   <D:prop>
+     <c:first-name/>
+   </D:prop>
+   <D:match match-type="bogus">appren</D:match>
+ </D:property-search>
+ <D:property-search>
+   <D:prop>
+     <c:last-name/>
+   </D:prop>
+   <D:match match-type="contains">user</D:match>
+ </D:property-search>
+ <D:prop>
+   <D:displayname/>
+   <c:first-name/>
+   <c:last-name/>
+   <c:email-address-set/>
+ </D:prop>
+ <c:limit><c:nresults>1</c:nresults></c:limit>
+</D:principal-property-search>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8" ?>
+   <C:addressbook-query xmlns:D="DAV:"
+                     xmlns:C="urn:ietf:params:xml:ns:carddav">
+     <D:prop>
+       <D:getetag/>
+       <C:address-data>
+         <C:prop name="ADR"/>
+         <C:prop name="X-JABBER"/>
+         <C:prop name="URL"/>
+         <C:prop name="FN"/>
+       </C:address-data>
+     </D:prop>
+     <C:filter test="anyof">
+       <C:prop-filter name="URL" test="anyof">
+         <C:text-match collation="i;unicode-casemap"
+                       match-type="endswith"
+         >jp</C:text-match>
+       </C:prop-filter>
+       <C:prop-filter name="ADR" test="anyof">
+         <C:text-match collation="i;unicode-casemap"
+                       match-type="contains"
+         >Japan</C:text-match>
+       </C:prop-filter>
+      </C:filter>
+   </C:addressbook-query>

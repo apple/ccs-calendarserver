@@ -1,0 +1,679 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<description>Test POST method in CalDAV</description>
+
+	<require-feature>
+		<feature>caldav</feature>
+	</require-feature>
+
+	<start>
+		<request user="$userid1:" pswd="$pswd1:">
+			<method>DELETEALL</method>
+			<ruri>$calendarpath1:/</ruri>
+		</request>
+		<request user="$userid1:" pswd="$pswd1:">
+			<method>DELETEALL</method>
+			<ruri>$inboxpath1:/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>DELETEALL</method>
+			<ruri>$calendarpath2:/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>DELETEALL</method>
+			<ruri>$inboxpath2:/</ruri>
+		</request>
+		<request user="$userid3:" pswd="$pswd3:">
+			<method>DELETEALL</method>
+			<ruri>$calendarpath3:/</ruri>
+		</request>
+		<request user="$userid3:" pswd="$pswd3:">
+			<method>DELETEALL</method>
+			<ruri>$inboxpath3:/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:" end-delete="yes">
+			<method>PUT</method>
+			<ruri>$calendarpath2:/1.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/schedule/7.ics</filepath>
+			</data>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:" end-delete="yes">
+			<method>PUT</method>
+			<ruri>$calendarpath2:/2.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/schedule/8.ics</filepath>
+			</data>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:" end-delete="yes">
+			<method>PUT</method>
+			<ruri>$calendarpath2:/3.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/schedule/10.ics</filepath>
+			</data>
+		</request>
+		<request user="$userid3:" pswd="$pswd3:" end-delete="yes">
+			<method>PUT</method>
+			<ruri>$calendarpath3:/1.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/schedule/9.ics</filepath>
+			</data>
+		</request>
+		<request user="$userid3:" pswd="$pswd3:" end-delete="yes">
+			<method>PUT</method>
+			<ruri>$calendarpath3:/2.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/schedule/10.ics</filepath>
+			</data>
+		</request>
+		<request>
+			<method>DELETEALL</method>
+			<ruri>$outboxpath1:/</ruri>
+		</request>
+		<request>
+			<method>DELETEALL</method>
+			<ruri>$inboxpath1:/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>DELETEALL</method>
+			<ruri>$outboxpath2:/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>DELETEALL</method>
+			<ruri>$inboxpath2:/</ruri>
+		</request>
+		<request user="$userid3:" pswd="$pswd3:">
+			<method>DELETEALL</method>
+			<ruri>$outboxpath3:/</ruri>
+		</request>
+		<request user="$userid3:" pswd="$pswd3:">
+			<method>DELETEALL</method>
+			<ruri>$inboxpath3:/</ruri>
+		</request>
+	</start>
+	
+	<test-suite name='POST Errors' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>POST on invalid outbox</description>
+			<request print-response="no">
+				<method>POST</method>
+				<ruri>$inboxpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedule/3.txt</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>POST with invalid content</description>
+			<request>
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedule/3.txt</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}supported-calendar-data</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>POST with invalid calendar data</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedule/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-data</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>POST without METHOD property</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedule/2.txt</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-data</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>POST with invalid iTIP object</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedule/5.txt</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-data</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>POST without Recipient:</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedule/22.ics</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}recipient-specified</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore='no'>
+			<description>POST with non-authorized Organizer:</description>
+			<request>
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedule/4.txt</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}organizer-allowed</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8' ignore='no'>
+			<description>POST reply with too many Attendees:</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>POST</method>
+				<ruri>$outboxpath2:/</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedule/17.txt</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-data</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='9' ignore='no'>
+			<description>POST reply with non-authorized Attendee:</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>POST</method>
+				<ruri>$outboxpath2:/</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedule/18.txt</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}attendee-allowed</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='10' ignore='no'>
+			<description>POST reply with disabled Attendee:</description>
+			<request>
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedule/20.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>notcontains</name>
+						<value><![CDATA[<recipient-exists xmlns='urn:ietf:params:xml:ns:caldav'/>]]></value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='11' ignore='no'>
+			<description>POST reply with disabled Organizer:</description>
+			<request>
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedule/21.ics</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}organizer-allowed</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name="POSTs" ignore='no'>
+		<test name='1'>
+			<description>POST which should work</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedule/3.txt</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Make sure no resource exists</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$outboxpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedule/11.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>$outboxpath1:/</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Make sure resource exists and properties are set</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$inboxpath2:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedule/12.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>ignore</name>
+						<value>$inboxpath2:/</value>
+					</arg>
+					<arg>
+						<name>okprops</name>
+						<value><![CDATA[{urn:ietf:params:xml:ns:caldav}originator$<href xmlns="DAV:">$cuaddr1:</href>]]></value>
+						<value><![CDATA[{urn:ietf:params:xml:ns:caldav}recipient$<href xmlns="DAV:">$cuaddr2:</href>]]></value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>Make sure resource exists and properties are set</description>
+			<request  user="$userid3:" pswd="$pswd3:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$inboxpath3:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedule/12.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>ignore</name>
+						<value>$inboxpath3:/</value>
+					</arg>
+					<arg>
+						<name>okprops</name>
+						<value><![CDATA[{urn:ietf:params:xml:ns:caldav}originator$<href xmlns="DAV:">$cuaddr1:</href>]]></value>
+						<value><![CDATA[{urn:ietf:params:xml:ns:caldav}recipient$<href xmlns="DAV:">$cuaddr3:</href>]]></value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>POST which should work (using relative principal addressing)</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedule/3.txt</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore="no">
+			<description>POST which should work (using absolute principal addressing)</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedule/3.txt</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name="Reports on Inbox/Outbox" ignore='no'>
+		<test name='1'>
+			<description>Simple calendar-query for VEVENTs</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedule/13.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>207</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Simple calendar-query for VEVENTs</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>REPORT</method>
+				<ruri>$inboxpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedule/13.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>207</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Simple calendar-multiget for VEVENTs</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data substitutions='yes'>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedule/14.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>badhrefs</name>
+						<value>1.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>Simple calendar-multiget for VEVENTs</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>REPORT</method>
+				<ruri>$inboxpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedule/15.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>badhrefs</name>
+						<value>$inboxpath1:/1.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>free-busy-query failure</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedule/16.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{DAV:}supported-report</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>free-busy-query failure</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>REPORT</method>
+				<ruri>$inboxpath2:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedule/16.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{DAV:}supported-report</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name="POSTs free busy" ignore='no'>
+		<test name='1'>
+			<description>POST free busy</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedule/6.txt</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>METHOD:REPLY</value>
+						<value>FREEBUSY;FBTYPE=BUSY:$now.year.1:0101T170000Z/PT1H,$now.year.1:0101T190000Z/PT1H,$now.year.1:0101T220000Z/PT1H</value>
+						<value>FREEBUSY;FBTYPE=BUSY:$now.year.1:0101T190000Z/PT2H,$now.year.1:0101T220000Z/PT1H</value>
+					</arg>
+					<arg>
+						<name>unwrap</name>
+						<value/>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>POST free busy - recipients with failure</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedule/23.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value><![CDATA[<recipient-exists xmlns='urn:ietf:params:xml:ns:caldav'/>]]></value>
+						<value>FREEBUSY;FBTYPE=BUSY:$now.year.1:0101T190000Z/PT2H,$now.year.1:0101T220000Z/PT1H</value>
+					</arg>
+					<arg>
+						<name>unwrap</name>
+						<value/>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>POST free busy - check ATTENDEE presence</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedule/19.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>ATTENDEE;CN=$username2::$cuaddraltnoslash2:</value>
+					</arg>
+					<arg>
+						<name>unwrap</name>
+						<value/>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>POST free busy - check ATTENDEE limit</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedule/24.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>ATTENDEE:$cuaddr30:</value>
+					</arg>
+					<arg>
+						<name>contains</name>
+						<value><![CDATA[<request-status>5.1;Service unavailable</request-status>]]></value>
+					</arg>
+					<arg>
+						<name>notcontains</name>
+						<value>ATTENDEE:$cuaddr31:</value>
+					</arg>
+					<arg>
+						<name>unwrap</name>
+						<value/>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<end/>
+	
+</caldavtest>

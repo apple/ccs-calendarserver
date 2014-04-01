@@ -1,0 +1,354 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<description>Test normal POST operations in CalDAV</description>
+
+	<require-feature>
+		<feature>caldav</feature>
+		<feature>maskuid</feature>
+	</require-feature>
+
+	<start/>
+	
+	<test-suite name="Initialize state" ignore='no'>
+		<test name="1">
+			<description>Blocking event user 2</description>
+			<request user="$userid2:" pswd="$pswd2:" end-delete="yes">
+				<method>PUT</method>
+				<ruri>$calendarpath2:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedulemaskuid/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name="2">
+			<description>Blocking event user 2</description>
+			<request user="$userid2:" pswd="$pswd2:" end-delete="yes">
+				<method>PUT</method>
+				<ruri>$calendarpath2:/2.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedulemaskuid/2.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>DELAY</method>
+				<ruri>1</ruri>
+			</request>
+		</test>
+		<test name="3">
+			<description>Invite user 1 -> user 2</description>
+			<request end-delete="yes">
+				<method>PUT</method>
+				<ruri>$calendarpath1:/3.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedulemaskuid/3.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+		</test>
+		<test name="4">
+			<description>User 2 -> accepted</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>GETNEW</method>
+				<ruri>$calendarpath2:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>PUT</method>
+				<ruri>$</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedulemaskuid/12.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name="5">
+			<description>Invite user 1 -> user 2</description>
+			<request end-delete="yes">
+				<method>PUT</method>
+				<ruri>$calendarpath1:/4.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedulemaskuid/4.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+		</test>
+		<test name="6">
+			<description>User 2 -> accepted</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>GETNEW</method>
+				<ruri>$calendarpath2:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>PUT</method>
+				<ruri>$</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedulemaskuid/13.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name="7">
+			<description>Invite user 3 -> user 2</description>
+			<request user="$userid3:" pswd="$pswd3:" end-delete="yes">
+				<method>PUT</method>
+				<ruri>$calendarpath3:/5.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedulemaskuid/5.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+		</test>
+		<test name="8">
+			<description>User 2 -> accepted</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>GETNEW</method>
+				<ruri>$calendarpath2:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>PUT</method>
+				<ruri>$</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedulemaskuid/14.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$userid3:" pswd="$pswd3:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath3:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name="POSTs free busy" ignore='no'>
+		<test name='1'>
+			<description>POST free busy - no mask</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedulemaskuid/6.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>FREEBUSY;FBTYPE=BUSY:$now.year.1:0101T150000Z/PT1H,$now.year.1:0101T170000Z/PT1H,$now.year.1:0101T
+ 190000Z/PT1H,$now.year.1:0101T210000Z/PT1H,$now.year.1:0101T230000Z/PT1H</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>POST free busy - ok mask</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedulemaskuid/7.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>FREEBUSY;FBTYPE=BUSY:$now.year.1:0101T150000Z/PT1H,$now.year.1:0101T170000Z/PT1H,$now.year.1:0101T
+ 210000Z/PT1H,$now.year.1:0101T230000Z/PT1H</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>POST free busy - bad mask - no organizer</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedulemaskuid/8.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>FREEBUSY;FBTYPE=BUSY:$now.year.1:0101T150000Z/PT1H,$now.year.1:0101T170000Z/PT1H,$now.year.1:0101T
+ 190000Z/PT1H,$now.year.1:0101T210000Z/PT1H,$now.year.1:0101T230000Z/PT1H</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>POST free busy - bad mask - wrong organizer</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedulemaskuid/9.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>FREEBUSY;FBTYPE=BUSY:$now.year.1:0101T150000Z/PT1H,$now.year.1:0101T170000Z/PT1H,$now.year.1:0101T
+ 190000Z/PT1H,$now.year.1:0101T210000Z/PT1H,$now.year.1:0101T230000Z/PT1H</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+		
+	<test-suite name="POSTs free busy - mask no ORGANIZER" ignore='no'>
+		<test name='1' ignore='no'>
+			<description>POST free busy - ok mask bad organizer</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedulemaskuid/10.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>FREEBUSY;FBTYPE=BUSY:$now.year.1:0101T150000Z/PT1H,$now.year.1:0101T170000Z/PT1H,$now.year.1:0101T
+ 190000Z/PT1H,$now.year.1:0101T210000Z/PT1H,$now.year.1:0101T230000Z/PT1H</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>POST free busy - ok mask no organizer</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>POST</method>
+				<ruri>$outboxpath2:/</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/schedulemaskuid/11.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>FREEBUSY;FBTYPE=BUSY:$now.year.1:0101T170000Z/PT1H,$now.year.1:0101T190000Z/PT1H,$now.year.1:0101T
+ 210000Z/PT1H,$now.year.1:0101T230000Z/PT1H</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+		
+	<end>
+		<request user="$userid1:" pswd="$pswd1:">
+			<method>DELETEALL</method>
+			<ruri>$calendarpath1:/</ruri>
+			<ruri>$inboxpath1:/</ruri>
+		</request>
+		<request user="$userid3:" pswd="$pswd3:">
+			<method>DELETEALL</method>
+			<ruri>$calendarpath3:/</ruri>
+			<ruri>$inboxpath3:/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>WAITDELETEALL 3</method>
+			<ruri>$inboxpath2:/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>DELETEALL</method>
+			<ruri>$calendarpath2:/</ruri>
+		</request>
+	</end>
+	
+</caldavtest>

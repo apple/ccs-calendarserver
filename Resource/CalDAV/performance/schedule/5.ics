@@ -1,0 +1,23 @@
+BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+METHOD:REQUEST
+BEGIN:VFREEBUSY
+UID:20060110T231240Z-4011c71-187-6f73-fb
+ORGANIZER;CN=$username1::$cuaddr1:
+ATTENDEE;CN=$username2::$cuaddr2:
+ATTENDEE;CN=$username3::$cuaddr3:
+ATTENDEE;CN=User 04:/principals/user/user04
+ATTENDEE;CN=User 05:/principals/user/user05
+ATTENDEE;CN=User 06:/principals/user/user06
+ATTENDEE;CN=User 07:/principals/user/user07
+ATTENDEE;CN=User 08:/principals/user/user08
+ATTENDEE;CN=User 09:/principals/user/user09
+ATTENDEE;CN=User 10:/principals/user/user10
+ATTENDEE;CN=User 11:/principals/user/user11
+DTSTART:$now.year.1:0101T000000Z
+DTSTAMP:20060309T185105Z
+DTEND:20060102T000000Z
+END:VFREEBUSY
+END:VCALENDAR

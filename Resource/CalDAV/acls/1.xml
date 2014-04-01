@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<D:propfind xmlns:D="DAV:">
+<D:prop>
+<D:getcontentlength/>
+<D:getcontenttype/>
+<D:resourcetype/>
+<D:getetag/>
+<D:displayname/>
+<D:owner/>
+<D:group/>
+<D:supported-privilege-set/>
+<D:current-user-privilege-set/>
+<D:acl/>
+<D:acl-restrictions/>
+<D:inherited-acl-set/>
+<D:principal-collection-set/>
+</D:prop>
+</D:propfind>

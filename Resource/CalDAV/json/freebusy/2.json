@@ -1,0 +1,25 @@
+[
+  "vcalendar",
+  [
+    ["calscale", {}, "text", "GREGORIAN"],
+    ["prodid", {}, "text", "-//Example Inc.//Example Calendar//EN"],
+    ["method", {}, "text", "REQUEST"],
+    ["version", {}, "text", "2.0"]
+  ],
+  [
+    [
+      "vfreebusy",
+      [
+        ["uid", {}, "text", "20060110T231240Z-4011c71-187-6f73-fb"],
+        ["organizer", {"cn": "$username1:"}, "cal-address", "$cuaddr1:"],
+        ["attendee", {"cn": "$username1:"}, "cal-address", "$cuaddr1:"],
+        ["attendee", {"cn": "$username2:"}, "cal-address", "$cuaddr2:"],
+        ["dtstart", {}, "date-time", "$now.year.1:0101T000000Z"],
+        ["dtstamp", {}, "date-time", "20060309T185105Z"],
+        ["dtend", {}, "date-time", "$now.year.1:0102T000000Z"]
+      ],
+      [
+      ]
+    ]
+  ]
+]

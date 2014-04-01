@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<MM:multiput xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav" xmlns:MM="http://me.com/_namespace/">
+<MM:resource>
+<D:href>$addressbookhome1:/$userguid2:/1.vcf</D:href>
+<MM:delete/>
+</MM:resource>
+<MM:resource>
+<D:href>$href1:</D:href>
+<MM:delete/>
+</MM:resource>
+</MM:multiput>

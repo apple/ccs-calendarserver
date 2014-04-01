@@ -1,0 +1,22 @@
+<?xml version='1.0' encoding='UTF-8'?><notification xmlns='http://calendarserver.org/ns/'>
+  <dtstamp></dtstamp>
+  <invite-notification shared-type='calendar'>
+    <uid></uid>
+    <href xmlns='DAV:'>$pcuaddrurn2:</href>
+    <invite-noresponse/>
+    <access>
+      <read-write/>
+    </access>
+    <hosturl>
+      <href xmlns='DAV:'>$host:$calendarhome1:/shared3</href>
+    </hosturl>
+    <organizer>
+      <href xmlns='DAV:'>$principaluri1:</href>
+      <common-name>User 01</common-name>
+    </organizer>
+    <summary>My Shared Calendar</summary>
+    <supported-calendar-component-set xmlns='urn:ietf:params:xml:ns:caldav'>
+      <comp name="VEVENT" />
+    </supported-calendar-component-set>
+  </invite-notification>
+</notification>

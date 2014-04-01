@@ -1,0 +1,546 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<description>Test all-day/floating tests for timezone proeprty</description>
+
+	<require-feature>
+		<feature>caldav</feature>
+	</require-feature>
+
+	<start>
+		<request end-delete="yes">
+			<method>MKCALENDAR</method>
+			<ruri>$calendarhome1:/calendar-none/</ruri>
+		</request>
+		<request>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/calendar-none/1.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/floating/put/1.txt</filepath>
+			</data>
+		</request>
+		<request>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/calendar-none/2.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/floating/put/2.txt</filepath>
+			</data>
+		</request>
+		<request>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/calendar-none/3.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/floating/put/3.txt</filepath>
+			</data>
+		</request>
+		<request>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/calendar-none/4.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/floating/put/4.txt</filepath>
+			</data>
+		</request>
+		<request>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/calendar-none/5.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/floating/put/5.txt</filepath>
+			</data>
+		</request>
+		<request>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/calendar-none/6.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/floating/put/6.txt</filepath>
+			</data>
+		</request>
+		<request>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/calendar-none/7.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/floating/put/7.txt</filepath>
+			</data>
+		</request>
+		<request end-delete="yes">
+			<method>MKCALENDAR</method>
+			<ruri>$calendarhome1:/calendar-us/</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/floating/put/8.txt</filepath>
+			</data>
+		</request>
+		<request>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/calendar-us/1.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/floating/put/9.ics</filepath>
+			</data>
+		</request>
+		<request>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/calendar-us/2.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/floating/put/10.ics</filepath>
+			</data>
+		</request>
+		<request>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/calendar-us/3.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/floating/put/11.ics</filepath>
+			</data>
+		</request>
+		<request>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/calendar-us/4.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/floating/put/12.ics</filepath>
+			</data>
+		</request>
+		<request>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/calendar-us/5.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/floating/put/13.ics</filepath>
+			</data>
+		</request>
+		<request>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/calendar-us/6.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/floating/put/14.ics</filepath>
+			</data>
+		</request>
+		<request>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/calendar-us/7.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/floating/put/15.ics</filepath>
+			</data>
+		</request>
+	</start>
+	
+	<test-suite name='REPORT floating behaviour - calendar without timezone'>
+		<test name='1' ignore='no'>
+			<description>REPORT on non-recurring timed/floating events: US/Eastern</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/calendar-none/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/floating/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value>$calendarhome1:/calendar-none/</value>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+						<value>3.ics</value>
+						<value>5.ics</value>
+						<value>6.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>REPORT on non-recurring timed/floating events: US/Pacific</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/calendar-none/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/floating/2.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value>$calendarhome1:/calendar-none/</value>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+						<value>3.ics</value>
+						<value>6.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>REPORT on non-recurring timed/floating events: US/Pacific</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/calendar-none/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/floating/3.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value>$calendarhome1:/calendar-none/</value>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+						<value>3.ics</value>
+						<value>5.ics</value>
+						<value>6.ics</value>
+						<value>7.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='REPORT floating behaviour - calendar with timezone'>
+		<test name='1' ignore='no'>
+			<description>REPORT on non-recurring timed/floating events: no timezone</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/calendar-us/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/floating/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value>$calendarhome1:/calendar-us/</value>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+						<value>3.ics</value>
+						<value>5.ics</value>
+						<value>6.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>REPORT on non-recurring timed/floating events: US/Eastern</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/calendar-us/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/floating/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value>$calendarhome1:/calendar-us/</value>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+						<value>3.ics</value>
+						<value>5.ics</value>
+						<value>6.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>REPORT on non-recurring timed/floating events: US/Pacific</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/calendar-us/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/floating/2.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value>$calendarhome1:/calendar-us/</value>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+						<value>3.ics</value>
+						<value>6.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='REPORT floating behaviour - collection'>
+		<test name='1' ignore='no'>
+			<description>REPORT on non-recurring timed/floating events: no timezone</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/floating/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value>$calendarhome1:/</value>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>calendar-none/1.ics</value>
+						<value>calendar-none/3.ics</value>
+						<value>calendar-none/5.ics</value>
+						<value>calendar-none/6.ics</value>
+						<value>calendar-us/1.ics</value>
+						<value>calendar-us/3.ics</value>
+						<value>calendar-us/5.ics</value>
+						<value>calendar-us/6.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>REPORT on non-recurring timed/floating events: US/Eastern</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/floating/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value>$calendarhome1:/</value>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>calendar-none/1.ics</value>
+						<value>calendar-none/3.ics</value>
+						<value>calendar-none/5.ics</value>
+						<value>calendar-none/6.ics</value>
+						<value>calendar-us/1.ics</value>
+						<value>calendar-us/3.ics</value>
+						<value>calendar-us/5.ics</value>
+						<value>calendar-us/6.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>REPORT on non-recurring timed/floating events: US/Pacific</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/floating/2.txt</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value>$calendarhome1:/</value>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>calendar-none/1.ics</value>
+						<value>calendar-none/3.ics</value>
+						<value>calendar-none/6.ics</value>
+						<value>calendar-us/1.ics</value>
+						<value>calendar-us/3.ics</value>
+						<value>calendar-us/6.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='REPORT floating behaviour - expand'>
+		<test name='1' ignore='no'>
+			<description>REPORT on non-recurring timed/floating events: no timezone</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/floating/6.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value>$calendarhome1:/</value>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>calendar-none/1.ics</value>
+						<value>calendar-none/2.ics</value>
+						<value>calendar-none/4.ics</value>
+						<value>calendar-us/1.ics</value>
+						<value>calendar-us/2.ics</value>
+						<value>calendar-us/4.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='REPORT free-busy floating behaviour'>
+		<test name='1' ignore='no'>
+			<description>free-busy on collection without timezone</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/calendar-none/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/floating/5.txt</filepath>
+				</data>
+				<verify>
+					<callback>freeBusy</callback>
+					<arg>
+						<name>busy</name>
+						<value>$now.year.1:0101T000000Z/$now.year.1:0101T020000Z</value>
+						<value>$now.year.1:0101T050000Z/$now.year.1:0101T060000Z</value>
+						<value>$now.year.1:0101T080000Z/$now.year.1:0101T090000Z</value>
+					</arg>
+					<arg>
+						<name>tentative</name>
+						<value>$now.year.1:0101T000000Z/$now.year.1:0102T000000Z</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>free-busy on collection with timezone</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/calendar-us/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/floating/5.txt</filepath>
+				</data>
+				<verify>
+					<callback>freeBusy</callback>
+					<arg>
+						<name>busy</name>
+						<value>$now.year.1:0101T000000Z/$now.year.1:0101T010000Z</value>
+						<value>$now.year.1:0101T050000Z/$now.year.1:0101T070000Z</value>
+						<value>$now.year.1:0101T080000Z/$now.year.1:0101T090000Z</value>
+					</arg>
+					<arg>
+						<name>tentative</name>
+						<value>$now.year.1:0101T050000Z/$now.year.1:0102T000000Z</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>free-busy on multiple collections with/without timezone</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/floating/5.txt</filepath>
+				</data>
+				<verify>
+					<callback>freeBusy</callback>
+					<arg>
+						<name>busy</name>
+						<value>$now.year.1:0101T000000Z/$now.year.1:0101T020000Z</value>
+						<value>$now.year.1:0101T050000Z/$now.year.1:0101T070000Z</value>
+						<value>$now.year.1:0101T080000Z/$now.year.1:0101T090000Z</value>
+					</arg>
+					<arg>
+						<name>tentative</name>
+						<value>$now.year.1:0101T000000Z/$now.year.1:0102T000000Z</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='Floating DTSTART with RRULE:UNTIL' ignore='no'>
+		<test name='1'>
+			<description>Store resource</description>
+			<request print-response='no' end-delete="yes">
+				<method>PUT</method>
+				<ruri>$calendarpath1:/7.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/floating/7.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<end/>
+	
+</caldavtest>

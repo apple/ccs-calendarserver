@@ -1,0 +1,4 @@
+This is a text file being used
+as a test of managed attachment
+support in calendarserver.
+It has been updated.

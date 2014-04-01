@@ -1,0 +1,973 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<description>Test implicit scheduling for one attendee, not recurring</description>
+
+	<require-feature>
+		<feature>caldav</feature>
+		<feature>implicit-scheduling</feature>
+		<feature>schedule-changes</feature>
+	</require-feature>
+
+	<start>
+		<request user="$userid1:" pswd="$pswd1:">
+			<method>GET</method>
+			<ruri>$calendarpath1:/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>GET</method>
+			<ruri>$calendarpath2:/</ruri>
+		</request>
+	</start>
+	
+	<test-suite name='Organizer Changes'>
+		<test name='1'>
+			<description>Organizer invites Attendee</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/organizerchange/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Attendee Inbox Item</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>WAITCOUNT 1</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>GETNEW</method>
+				<ruri>$inboxpath2:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>PROPFIND</method>
+				<ruri>$</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/organizerchange/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}create</value>
+					</arg>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>DELETEALL</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Organizer changes Summary</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/organizerchange/4.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>Attendee Inbox Item</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>WAITCOUNT 1</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>GETNEW</method>
+				<ruri>$inboxpath2:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='yes'>
+				<method>PROPFIND</method>
+				<ruri>$</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/organizerchange/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}update/{$CS:}recurrence/{$CS:}master</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}update/{$CS:}recurrence/{$CS:}changes/{$CS:}changed-property[@name="SUMMARY"]</value>
+					</arg>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>DELETEALL</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Organizer changes Time</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/organizerchange/5.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>Attendee Inbox Item</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>WAITCOUNT 1</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>GETNEW</method>
+				<ruri>$inboxpath2:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>PROPFIND</method>
+				<ruri>$</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/organizerchange/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}update/{$CS:}recurrence/{$CS:}master</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}update/{$CS:}recurrence/{$CS:}changes/{$CS:}changed-property[@name="DTSTART"]</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}update/{$CS:}recurrence/{$CS:}changes/{$CS:}changed-property[@name="DTEND"]</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}update/{$CS:}recurrence/{$CS:}changes/{$CS:}changed-property/{$CS:}changed-parameter[@name="TZID"]</value>
+					</arg>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>DELETEALL</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+		</test>
+		<test name='7'>
+			<description>Organizer changes to all day</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/organizerchange/6.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='8'>
+			<description>Attendee Inbox Item</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>WAITCOUNT 1</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>GETNEW</method>
+				<ruri>$inboxpath2:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>PROPFIND</method>
+				<ruri>$</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/organizerchange/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}update/{$CS:}recurrence/{$CS:}master</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}update/{$CS:}recurrence/{$CS:}changes/{$CS:}changed-property[@name="DTSTART"]</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}update/{$CS:}recurrence/{$CS:}changes/{$CS:}changed-property[@name="DTEND"]</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}update/{$CS:}recurrence/{$CS:}changes/{$CS:}changed-property/{$CS:}changed-parameter[@name="TZID"]</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}update/{$CS:}recurrence/{$CS:}changes/{$CS:}changed-property/{$CS:}changed-parameter[@name="VALUE"]</value>
+					</arg>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>DELETEALL</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+		</test>
+		<test name='-1'>
+			<description>Clean-up</description>
+			<request user="$userid1:" pswd="$pswd1:">
+				<method>DELETEALL</method>
+				<ruri>$calendarpath1:/</ruri>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>DELETEALL</method>
+				<ruri>$calendarpath2:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='Private Comment'>
+		<test name='1'>
+			<description>Organizer invites Attendee</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/organizerchange/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Attendee Inbox Item</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>WAITCOUNT 1</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>GETNEW</method>
+				<ruri>$inboxpath2:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>PROPFIND</method>
+				<ruri>$</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/organizerchange/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}create</value>
+					</arg>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>DELETEALL</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Attendee 1 -> Accepted with comment</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>GETNEW</method>
+				<ruri>$calendarpath2:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>PUT</method>
+				<ruri>$</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/organizerchange/7.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>Organizer Inbox Item</description>
+			<request>
+				<method>WAITCOUNT 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request>
+				<method>GETNEW</method>
+				<ruri>$inboxpath1:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/organizerchange/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}reply/{$CS:}attendee[=$cuaddrurn2:]</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}reply/{$CS:}recurrence/{$CS:}master</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}reply/{$CS:}recurrence/{$CS:}changes/{$CS:}changed-property[@name="ATTENDEE"]</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}reply/{$CS:}recurrence/{$CS:}changes/{$CS:}changed-property/{$CS:}changed-parameter[@name="PARTSTAT"]</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}reply/{$CS:}recurrence/{$CS:}changes/{$CS:}changed-property[@name="X-CALENDARSERVER-PRIVATE-COMMENT"]</value>
+					</arg>
+				</verify>
+			</request>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Organizer changes summary</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/organizerchange/8.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>Attendee Inbox Item</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>WAITCOUNT 1</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>GETNEW</method>
+				<ruri>$inboxpath2:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>PROPFIND</method>
+				<ruri>$</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/organizerchange/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}update/{$CS:}recurrence/{$CS:}master</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}update/{$CS:}recurrence/{$CS:}changes/{$CS:}changed-property[@name="ATTENDEE"]</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}update/{$CS:}recurrence/{$CS:}changes/{$CS:}changed-property[@name="SUMMARY"]</value>
+					</arg>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>DELETEALL</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+		</test>
+		<test name='-1'>
+			<description>Clean-up</description>
+			<request user="$userid1:" pswd="$pswd1:">
+				<method>DELETEALL</method>
+				<ruri>$calendarpath1:/</ruri>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>DELETEALL</method>
+				<ruri>$calendarpath2:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Attendee instance change'>
+		<test name='1'>
+			<description>Organizer invites Attendee</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/attendeeinstance/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Attendee Inbox Item</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>WAITCOUNT 1</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>GETNEW</method>
+				<ruri>$inboxpath2:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>PROPFIND</method>
+				<ruri>$</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/attendeeinstance/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}create</value>
+					</arg>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>DELETEALL</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Attendee 1 -> Accepted with comment on one instance</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>GETNEW</method>
+				<ruri>$calendarpath2:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>PUT</method>
+				<ruri>$</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/attendeeinstance/4.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>Organizer Inbox Item</description>
+			<request>
+				<method>WAITCOUNT 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request>
+				<method>GETNEW</method>
+				<ruri>$inboxpath1:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request print-response='yes'>
+				<method>PROPFIND</method>
+				<ruri>$</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/attendeeinstance/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}reply/{$CS:}attendee[=$cuaddrurn2:]</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}reply/{$CS:}recurrence/{$CS:}recurrenceid[=$now.year.1:0102T150000Z]</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}reply/{$CS:}recurrence/{$CS:}changes/{$CS:}changed-property[@name="ATTENDEE"]</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}reply/{$CS:}recurrence/{$CS:}changes/{$CS:}changed-property/{$CS:}changed-parameter[@name="PARTSTAT"]</value>
+					</arg>
+				</verify>
+			</request>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name='-1'>
+			<description>Clean-up</description>
+			<request user="$userid1:" pswd="$pswd1:">
+				<method>DELETEALL</method>
+				<ruri>$calendarpath1:/</ruri>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>DELETEALL</method>
+				<ruri>$calendarpath2:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Multi-instance change'>
+		<test name='1'>
+			<description>Organizer invites Attendee</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/multiinstance/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Attendee Inbox Item</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>WAITCOUNT 1</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>GETNEW</method>
+				<ruri>$inboxpath2:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>PROPFIND</method>
+				<ruri>$</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}create</value>
+					</arg>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>DELETEALL</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Attendee 1 -> Accepted</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>GETNEW</method>
+				<ruri>$calendarpath2:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>PUT</method>
+				<ruri>$</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/multiinstance/2.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>Organizer Inbox Item</description>
+			<request>
+				<method>WAITCOUNT 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request>
+				<method>GETNEW</method>
+				<ruri>$inboxpath1:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}reply/{$CS:}attendee[=$cuaddrurn2:]</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}reply/{$CS:}recurrence/{$CS:}master</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}reply/{$CS:}recurrence/{$CS:}recurrenceid[=$now.year.1:0102T150000Z]</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}reply/{$CS:}recurrence/{$CS:}recurrenceid[=$now.year.1:0104T150000Z]</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}reply/{$CS:}recurrence/{$CS:}changes/{$CS:}changed-property[@name="ATTENDEE"]</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}reply/{$CS:}recurrence/{$CS:}changes/{$CS:}changed-property/{$CS:}changed-parameter[@name="PARTSTAT"]</value>
+					</arg>
+				</verify>
+			</request>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Organizer changes multiple instances</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/multiinstance/3.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>Attendee Inbox Item</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>WAITCOUNT 1</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>GETNEW</method>
+				<ruri>$inboxpath2:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>PROPFIND</method>
+				<ruri>$</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}update/{$CS:}recurrence/{$CS:}master</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}update/{$CS:}recurrence/{$CS:}recurrenceid[=$now.year.1:0102T150000Z]</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}update/{$CS:}recurrence/{$CS:}recurrenceid[=$now.year.1:0104T150000Z]</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}update/{$CS:}recurrence/{$CS:}changes/{$CS:}changed-property[@name="SUMMARY"]</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}update/{$CS:}recurrence/{$CS:}changes/{$CS:}changed-property[@name="DTSTART"]</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}update/{$CS:}recurrence/{$CS:}changes/{$CS:}changed-property[@name="DTEND"]</value>
+					</arg>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>DELETEALL</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+		</test>
+		<test name='-1'>
+			<description>Clean-up</description>
+			<request user="$userid1:" pswd="$pswd1:">
+				<method>DELETEALL</method>
+				<ruri>$calendarpath1:/</ruri>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>DELETEALL</method>
+				<ruri>$calendarpath2:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Master only reply'>
+		<test name='1'>
+			<description>Organizer invites Attendee</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/masteronly/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Attendee Inbox Item</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>WAITCOUNT 1</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>GETNEW</method>
+				<ruri>$inboxpath2:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>PROPFIND</method>
+				<ruri>$</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}create</value>
+					</arg>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>DELETEALL</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Attendee 1 -> Accepted all</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>GETNEW</method>
+				<ruri>$calendarpath2:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>PUT</method>
+				<ruri>$</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/masteronly/2.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>Organizer Inbox Item</description>
+			<request>
+				<method>WAITCOUNT 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request>
+				<method>GETNEW</method>
+				<ruri>$inboxpath1:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request print-response='yes'>
+				<method>PROPFIND</method>
+				<ruri>$</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}reply/{$CS:}attendee[=$cuaddrurn2:]</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}reply/{$CS:}recurrence/{$CS:}master</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}reply/{$CS:}recurrence/{$CS:}recurrenceid[=$now.year.1:0101T150000Z]</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}reply/{$CS:}recurrence/{$CS:}recurrenceid[=$now.year.1:0104T150000Z]</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}reply/{$CS:}recurrence/{$CS:}changes/{$CS:}changed-property[@name="ATTENDEE"]</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}reply/{$CS:}recurrence/{$CS:}changes/{$CS:}changed-property/{$CS:}changed-parameter[@name="PARTSTAT"]</value>
+					</arg>
+				</verify>
+			</request>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Attendee 1 -> Change master only</description>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>GETNEW</method>
+				<ruri>$calendarpath2:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>PUT</method>
+				<ruri>$</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/masteronly/3.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>Organizer Inbox Item</description>
+			<request>
+				<method>WAITCOUNT 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request>
+				<method>GETNEW</method>
+				<ruri>$inboxpath1:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request print-response='yes'>
+				<method>PROPFIND</method>
+				<ruri>$</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/schedulechanges/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}reply/{$CS:}attendee[=$cuaddrurn2:]</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}reply/{$CS:}recurrence/{$CS:}master</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}reply/{$CS:}recurrence/{$CS:}changes/{$CS:}changed-property[@name="ATTENDEE"]</value>
+						<value>$verify-property-prefix:/{$CS:}schedule-changes/{$CS:}action/{$CS:}reply/{$CS:}recurrence/{$CS:}changes/{$CS:}changed-property/{$CS:}changed-parameter[@name="PARTSTAT"]</value>
+					</arg>
+				</verify>
+			</request>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name='7'>
+			<description>Clean-up</description>
+			<request user="$userid1:" pswd="$pswd1:">
+				<method>DELETEALL</method>
+				<ruri>$calendarpath1:/</ruri>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:">
+				<method>DELETEALL</method>
+				<ruri>$calendarpath2:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+
+	<end/>
+	
+</caldavtest>

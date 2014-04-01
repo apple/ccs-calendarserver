@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<D:expand-property xmlns:D="DAV:">
+	<D:property name="calendar-home-set" namespace="urn:ietf:params:xml:ns:caldav">
+		<D:property name="displayname"/>
+	</D:property>
+</D:expand-property>

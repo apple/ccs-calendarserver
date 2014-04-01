@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<D:principal-property-search xmlns:D="DAV:">
+<D:property-search>
+<D:prop>
+<D:displayname/>
+</D:prop>
+<D:match>02</D:match>
+</D:property-search>
+<D:apply-to-principal-collection-set/>
+</D:principal-property-search>

@@ -1,0 +1,409 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<description>Test per-user WebDAV properties</description>
+
+	<require-feature>
+		<feature>carddav</feature>
+		<feature>shared-addressbooks</feature>
+	</require-feature>
+
+	<start>
+		<request user="$useradmin:" pswd="$pswdadmin:">
+			<method>DELETEALL</method>
+			<ruri>$addressbookhome1:/</ruri>
+			<ruri>$addressbookhome2:/</ruri>
+			<ruri>$notificationpath1:/</ruri>
+			<ruri>$notificationpath2:/</ruri>
+		</request>
+	</start>
+	
+	<test-suite name='Set up share' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>POST invitation</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Check Sharee notification collection</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath2:/</ruri>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath2:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/2.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{http://calendarserver.org/ns/}invite-notification/{http://calendarserver.org/ns/}uid</name>
+					<variable>$inviteuid:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Sharee replies ACCEPTED</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>POST</method>
+				<ruri>$addressbookhome2:/</ruri>
+				<data substitutions='yes'>
+					<content-type>application/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/7.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{DAV:}href</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>{DAV:}href</name>
+					<variable>$shareeaddressbook:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>Check accept status</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$addressbookpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/setup/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/5.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}uid</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Check Sharer notification collection</description>
+			<request>
+				<method>WAITCOUNT 1</method>
+				<ruri>$notificationpath1:/</ruri>
+			</request>
+			<request print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$notificationpath1:/</ruri>
+				<verify>
+					<callback>xmlDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CardDAV/sharing/setup/6.xml</value>
+					</arg>
+					<arg>
+						<name>filter</name>
+						<value>{http://calendarserver.org/ns/}dtstamp</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='prop patches - non-global' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>PROPPATCH of displayname</description>
+			<request print-response='no'>
+				<method>PROPPATCH</method>
+				<ruri>$addressbookpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/peruser-properties/nonglobal/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}displayname</value>
+					</arg>
+				</verify>
+			</request>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$addressbookpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/peruser-properties/nonglobal/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}displayname$Changed Name #1</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>PROPFIND of shared displayname</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$shareeaddressbook:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/peruser-properties/nonglobal/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>badprops</name>
+						<value>{DAV:}displayname</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>PROPPATCH of displayname</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPPATCH</method>
+				<ruri>$shareeaddressbook:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/peruser-properties/nonglobal/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}displayname</value>
+					</arg>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$shareeaddressbook:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/peruser-properties/nonglobal/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}displayname$Shared Name #2</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>PROPFIND of shared displayname</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$addressbookpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/peruser-properties/nonglobal/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}displayname$Changed Name #1</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='prop patches - shadowable' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>PROPPATCH of addressbook-description</description>
+			<request print-response='no'>
+				<method>PROPPATCH</method>
+				<ruri>$addressbookpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/peruser-properties/shadowable/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{urn:ietf:params:xml:ns:carddav}addressbook-description</value>
+					</arg>
+				</verify>
+			</request>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$addressbookpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/peruser-properties/shadowable/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{urn:ietf:params:xml:ns:carddav}addressbook-description$Description #1</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>PROPFIND of shared addressbook-description</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$shareeaddressbook:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/peruser-properties/shadowable/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{urn:ietf:params:xml:ns:carddav}addressbook-description$Description #1</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>PROPPATCH of addressbook-description</description>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPPATCH</method>
+				<ruri>$shareeaddressbook:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/peruser-properties/shadowable/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{urn:ietf:params:xml:ns:carddav}addressbook-description</value>
+					</arg>
+				</verify>
+			</request>
+			<request user="$userid2:" pswd="$pswd2:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$shareeaddressbook:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/peruser-properties/shadowable/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{urn:ietf:params:xml:ns:carddav}addressbook-description$Sharee Description #2</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>PROPFIND of shared addressbook-description</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$addressbookpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/sharing/peruser-properties/shadowable/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{urn:ietf:params:xml:ns:carddav}addressbook-description$Description #1</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<end>
+		<request user="$useradmin:" pswd="$pswdadmin:">
+			<method>DELETEALL</method>
+			<ruri>$addressbookhome1:/</ruri>
+			<ruri>$addressbookhome2:/</ruri>
+			<ruri>$notificationpath1:/</ruri>
+			<ruri>$notificationpath2:/</ruri>
+		</request>
+	</end>
+
+</caldavtest>

@@ -1,0 +1,133 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<description>Test GET on collections to ensure proper directory listing</description>
+	
+	<require-feature>
+		<feature>carddav</feature>
+	</require-feature>
+
+	<start/>
+
+	<test-suite name='GET on collections'>
+		<test name='1'>
+			<description>GET on root collection</description>
+			<request>
+				<method>GET</method>
+				<ruri>$root:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>GET on principals collection</description>
+			<request>
+				<method>GET</method>
+				<ruri>$principalcollection:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>GET on user principals collection</description>
+			<request>
+				<method>GET</method>
+				<ruri>$principals_users:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>GET on group principals collection</description>
+			<request>
+				<method>GET</method>
+				<ruri>$principals_groups:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>	
+		<test name='5'>
+			<description>GET on __uids__ principals collection</description>
+			<request>
+				<method>GET</method>
+				<ruri>$principals_uids:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>GET on addressbooks collection</description>
+			<request>
+				<method>GET</method>
+				<ruri>$addressbooks:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='7'>
+			<description>GET on user addressbooks collection</description>
+			<request>
+				<method>GET</method>
+				<ruri>$addressbooks_users:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='8'>
+			<description>GET on group addressbooks collection</description>
+			<request>
+				<method>GET</method>
+				<ruri>$addressbooks_groups:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='9'>
+			<description>GET on __uids__ addressbooks collection</description>
+			<request>
+				<method>GET</method>
+				<ruri>$addressbooks_uids:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<end/>
+	
+</caldavtest>

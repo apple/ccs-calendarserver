@@ -1,0 +1,12 @@
+BEGIN:VCARD
+VERSION:3.0
+N:バイト;ダブル;;;
+FN:ダブル バイト
+EMAIL;type=INTERNET;type=WORK;type=pref:doublebytes@example.com
+TEL;type=WORK;type=pref:81-123456789
+TEL;type=CELL:81-123456789
+item1.ADR;type=WORK;type=pref:;;1-23-4 Iroh #1;Tokyo;Japan;33-3333;Japan
+item1.X-ABADR:us
+NOTE:日本ですよ。
+UID:8424B7F0-C878-4722-B522-EBB07CF48AD7:ABPerson
+END:VCARD

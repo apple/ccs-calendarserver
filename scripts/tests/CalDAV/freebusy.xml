@@ -1,0 +1,118 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<description>Test POST method in CalDAV</description>
+
+	<require-feature>
+		<feature>caldav</feature>
+	</require-feature>
+
+	<start>
+		<request user="$userid1:" pswd="$pswd1:">
+			<method>DELETEALL</method>
+			<ruri>$calendarpath1:/</ruri>
+			<ruri>$inboxpath1:/</ruri>
+		</request>
+		<request user="$userid2:" pswd="$pswd2:">
+			<method>DELETEALL</method>
+			<ruri>$calendarpath2:/</ruri>
+			<ruri>$inboxpath2:/</ruri>
+		</request>
+	</start>
+	
+	<test-suite name='Freebusy - mixed timed and all-day' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>PUT timed event</description>
+			<request end-delete='yes'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data substitutions='yes'>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/freebusy/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>PUT all-day event</description>
+			<request end-delete='yes'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/2.ics</ruri>
+				<data substitutions='yes'>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/freebusy/2.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>POST free busy</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data substitutions='yes'>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/freebusy/3.ics</filepath>
+				</data>
+				<verify>
+					<callback>postFreeBusy</callback>
+					<arg>
+						<name>attendee</name>
+						<value>$cuaddr1:</value>
+					</arg>
+					<arg>
+						<name>busy</name>
+						<value>$now.0:T000000Z/$now.1:T000000Z</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>POST free busy - again from cache</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data substitutions='yes'>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/freebusy/3.ics</filepath>
+				</data>
+				<verify>
+					<callback>postFreeBusy</callback>
+					<arg>
+						<name>attendee</name>
+						<value>$cuaddr1:</value>
+					</arg>
+					<arg>
+						<name>busy</name>
+						<value>$now.0:T000000Z/$now.1:T000000Z</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<end/>
+	
+</caldavtest>

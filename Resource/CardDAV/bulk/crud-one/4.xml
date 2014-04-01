@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<MM:multiput xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav" xmlns:MM="http://me.com/_namespace/">
+<MM:resource>
+<D:set>
+<C:address-data><![CDATA[BEGIN:VCARD
+VERSION:3.0
+N:02;User;;;
+FN:User 02
+EMAIL;type=INTERNET;type=WORK;type=pref:user02@example.com
+TEL;type=WORK;type=pref:1-555-555-5555
+TEL;type=CELL:1-444-444-4444
+ADR;type=WORK;type=pref:;;1245 Test;Sesame Street;California;11111;USA
+UID:user01-uid02
+END:VCARD
+]]>
+</C:address-data>
+</D:set>
+</MM:resource>
+</MM:multiput>

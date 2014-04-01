@@ -1,0 +1,140 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<description>Test GET on collections to ensure proper directory listing</description>
+	
+	<require-feature>
+		<feature>carddav</feature>
+		<feature>directory-gateway</feature>
+	</require-feature>
+
+	<start/>
+
+	<test-suite name='Find the gateway'>
+		<test name='1'>
+			<description>PROPFIND of principal for gateway</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$principal1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/directory-gateway/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{urn:ietf:params:xml:ns:carddav}directory-gateway</value>
+					</arg>
+				</verify>
+				<grabelement>
+					<name>/{DAV:}multistatus/{DAV:}response/{DAV:}propstat/{DAV:}prop/{urn:ietf:params:xml:ns:carddav}directory-gateway/{DAV:}href</name>
+					<variable>$gateway1:</variable>
+				</grabelement>
+			</request>
+		</test>
+		<test name='2'>
+			<description>PROPFIND of gateway</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$gateway1:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/resourcetype.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{DAV:}collection</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{urn:ietf:params:xml:ns:carddav}addressbook</value>
+						<value>$verify-property-prefix:/{DAV:}resourcetype/{urn:ietf:params:xml:ns:carddav}directory</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>PROPFIND of gateway: DAV:resource-id</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$gateway1:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/resourceid.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{DAV:}resource-id</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>PROPFIND of gateway: no sync report</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$gateway1:</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/supported-report-set.xml</filepath>
+				</data>
+				<verify>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>notexists</name>
+						<value>$verify-property-prefix:/{DAV:}supported-report-set/{DAV:}supported-report/{DAV:}report/{DAV:}sync-collection</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>GET of gateway</description>
+			<request print-response='no'>
+				<method>GET</method>
+				<ruri>$directory:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<end/>
+	
+</caldavtest>

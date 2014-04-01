@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<C:free-busy-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+<C:time-range start="$now.year.1:0101T000000Z" end="$now.year.1:0102T000000Z"/>
+</C:free-busy-query>

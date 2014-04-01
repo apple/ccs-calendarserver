@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<C:mkcalendar xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav"  xmlns:S="http://calendarserver.org/ns/">
+<D:set>
+<D:prop>
+<D:displayname>A Calendar</D:displayname>
+<C:calendar-description xml:lang="en">First CalDAV calendar.</C:calendar-description>
+<D:resourcetype><D:collection/><C:calendar/><S:shared-owner/></D:resourcetype>
+</D:prop>
+</D:set>
+</C:mkcalendar>

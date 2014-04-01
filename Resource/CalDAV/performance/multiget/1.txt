@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<C:calendar-multiget xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+<D:prop>
+<D:getcontentlength/>
+<D:getcontenttype/>
+<D:resourcetype/>
+<D:getetag/>
+<D:displayname/>
+</D:prop>
+<D:href>$calendarhome1:/calendar.10/1b5b7348a80950dcf567e904943949d3.ics</D:href>
+<D:href>$calendarhome1:/calendar.10/24204e8682b99527cbda64d7423acda7.ics</D:href>
+<D:href>$calendarhome1:/calendar.10/2dc69bdb048b56b81697c87093f4d115.ics</D:href>
+<D:href>$calendarhome1:/calendar.10/61038c41bd02ae5daf9f7fe9d54199fd.ics</D:href>
+<D:href>$calendarhome1:/calendar.10/6d9700c01f2f360adb285ce7b4c0dab3.ics</D:href>
+<D:href>$calendarhome1:/calendar.10/84be58ced1f1bb34057e1bd7e602c9c8.ics</D:href>
+<D:href>$calendarhome1:/calendar.10/acc1015b7dc300c1b5665f6833960994.ics</D:href>
+<D:href>$calendarhome1:/calendar.10/b0d5785f275c064117ffd1fc20f4ed40.ics</D:href>
+<D:href>$calendarhome1:/calendar.10/b495c5dd5aa53392078eb43b1f906a80.ics</D:href>
+<D:href>$calendarhome1:/calendar.10/b88dd50941e4a31520ee396fd7894c96.ics</D:href>
+</C:calendar-multiget>

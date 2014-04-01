@@ -1,0 +1,523 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<description>Test PUT method in CalDAV</description>
+
+	<require-feature>
+		<feature>caldav</feature>
+		<feature>vavailability</feature>
+	</require-feature>
+
+	<start>
+		<!-- Commented out as we do not support VAVAILABILITY components
+		     stored directly in calendars.
+		<request end-delete="yes">
+			<method>PUT</method>
+			<ruri>$calendarpath1:/1.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/availability/1.ics</filepath>
+			</data>
+		</request>
+		<request end-delete="yes">
+			<method>PUT</method>
+			<ruri>$calendarpath1:/2.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/availability/2.ics</filepath>
+			</data>
+		</request>
+		<request end-delete="yes">
+			<method>PUT</method>
+			<ruri>$calendarpath1:/3.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/availability/3.ics</filepath>
+			</data>
+		</request>
+		-->
+		<request end-delete="yes">
+			<method>PUT</method>
+			<ruri>$calendarpath1:/4.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/availability/4.ics</filepath>
+			</data>
+		</request>
+	</start>
+	
+	<test-suite name='Capabilities' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>Check for proper capability in DAV header</description>
+			<request>
+				<method>OPTIONS</method>
+				<ruri>$calendarpath1:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>*DAV$.*calendar-availability.*</value>
+						<value>*DAV$.*inbox-availability.*</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>VAVAILABILITY and VJOURNAL are not supported components</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/availability/1.xml</filepath>
+				</data>
+				<verify>
+					<exclude-feature>
+						<feature>split-calendars</feature>
+					</exclude-feature>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{urn:ietf:params:xml:ns:caldav}supported-calendar-component-set/{urn:ietf:params:xml:ns:caldav}comp[@name="VEVENT"]</value>
+						<value>$verify-property-prefix:/{urn:ietf:params:xml:ns:caldav}supported-calendar-component-set/{urn:ietf:params:xml:ns:caldav}comp[@name="VTODO"]</value>
+						<value>$verify-property-prefix:/{urn:ietf:params:xml:ns:caldav}supported-calendar-component-set/{urn:ietf:params:xml:ns:caldav}comp[@name="VTIMEZONE"]</value>
+						<value>$verify-property-prefix:/{urn:ietf:params:xml:ns:caldav}supported-calendar-component-set/{urn:ietf:params:xml:ns:caldav}comp[@name="VFREEBUSY"]</value>
+					</arg>
+				</verify>
+				<verify>
+					<require-feature>
+						<feature>split-calendars</feature>
+					</require-feature>
+					<callback>xmlElementMatch</callback>
+					<arg>
+						<name>exists</name>
+						<value>$verify-property-prefix:/{urn:ietf:params:xml:ns:caldav}supported-calendar-component-set/{urn:ietf:params:xml:ns:caldav}comp[@name="VEVENT"]</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<!--
+	<test-suite name='Verify PUT VAVAILABILITY' ignore='yes'>
+		<test name='1' ignore='no'>
+			<description>PUT availability</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/availability/1.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='basic query reports' ignore='yes'>
+		<test name='1' ignore='no'>
+			<description>query for resources with VCALENDAR &amp; VAVAILABILITY defined</description>
+			<request>
+				<method>REPORT</method>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/availability/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+						<value>2.ics</value>
+						<value>3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>query for resources with VCALENDAR &amp; VEVENT defined</description>
+			<request>
+				<method>REPORT</method>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/availability/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>4.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>query for resources with VCALENDAR &amp; VEVENT or VAVAILABILITY defined</description>
+			<request>
+				<method>REPORT</method>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/availability/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+						<value>2.ics</value>
+						<value>3.ics</value>
+						<value>4.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='time-range query reports' ignore='yes'>
+		<test name='1' ignore='no'>
+			<description>query for VAVAILABILITYs within time range</description>
+			<request>
+				<method>REPORT</method>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/availability/5.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+						<value>2.ics</value>
+						<value>3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>query for VAVAILABILITYs within time range</description>
+			<request>
+				<method>REPORT</method>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/availability/6.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>query for VAVAILABILITYs within time range</description>
+			<request>
+				<method>REPORT</method>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/availability/7.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>query for VAVAILABILITYs within time range</description>
+			<request>
+				<method>REPORT</method>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/availability/8.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore='no'>
+			<description>query for VEVENTs within time range</description>
+			<request>
+				<method>REPORT</method>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/availability/9.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>4.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore='no'>
+			<description>query for VEVENTs and VAVAILABILITYs within time range</description>
+			<request>
+				<method>REPORT</method>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/availability/10.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>1.ics</value>
+						<value>4.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='free-busy reports' ignore='yes'>
+		<test name='1' ignore='no'>
+			<description>query for free busy with time range</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/availability/11.xml</filepath>
+				</data>
+				<verify>
+					<callback>freeBusy</callback>
+					<arg>
+						<name>busy</name>
+						<value>$now.year.1:0102T170000Z/$now.year.1:0102T180000Z</value>
+					</arg>
+					<arg>
+						<name>unavailable</name>
+						<value>$now.year.1:0101T000000Z/$now.year.1:0102T140000Z</value>
+						<value>$now.year.1:0102T170000Z/$now.year.1:0104T140000Z</value>
+						<value>$now.year.1:0104T170000Z/$now.year.1:0105T000000Z</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>query for free busy with time range with an overridden available component</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/availability/12.xml</filepath>
+				</data>
+				<verify>
+					<callback>freeBusy</callback>
+					<arg>
+						<name>unavailable</name>
+						<value>$now.year.1:0104T000000Z/$now.year.1:0104T140000Z</value>
+						<value>$now.year.1:0104T170000Z/$now.year.1:0106T170000Z</value>
+						<value>$now.year.1:0106T220000Z/$now.year.1:0108T000000Z</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>query for free busy with time range unbounded start availability</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/availability/13.xml</filepath>
+				</data>
+				<verify>
+					<callback>freeBusy</callback>
+					<arg>
+						<name>unavailable</name>
+						<value>20050501T000000Z/20050502T130000Z</value>
+						<value>20050502T210000Z/20050503T130000Z</value>
+						<value>20050503T210000Z/20050504T130000Z</value>
+						<value>20050504T210000Z/20050505T130000Z</value>
+						<value>20050505T210000Z/20050506T130000Z</value>
+						<value>20050506T210000Z/20050508T000000Z</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore='no'>
+			<description>query for free busy with time range unbounded end availability</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/availability/14.xml</filepath>
+				</data>
+				<verify>
+					<callback>freeBusy</callback>
+					<arg>
+						<name>unavailable</name>
+						<value>$now.year.1:1001T000000Z/$now.year.1:1002T130000Z</value>
+						<value>$now.year.1:1002T210000Z/$now.year.1:1003T130000Z</value>
+						<value>$now.year.1:1003T210000Z/$now.year.1:1004T130000Z</value>
+						<value>$now.year.1:1004T210000Z/$now.year.1:1005T130000Z</value>
+						<value>$now.year.1:1005T210000Z/$now.year.1:1006T130000Z</value>
+						<value>$now.year.1:1006T210000Z/$now.year.1:1008T000000Z</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	-->
+
+	<test-suite name='Verify cannot PUT VAVAILABILITY'>
+		<test name='1' ignore='no'>
+			<description>PUT availability fails</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/availability/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='PROPPATCH VAVAILABILITY' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>PROPFIND no availability</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$inboxpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/availability/15.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>badprops</name>
+						<value>{http://calendarserver.org/ns/}calendar-availability</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>PROPPATCH invalid availability</description>
+			<request>
+				<method>PROPPATCH</method>
+				<ruri>$inboxpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/availability/16.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>badprops</name>
+						<value>{http://calendarserver.org/ns/}calendar-availability</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>PROPPATCH valid availability</description>
+			<request print-response="no">
+				<method>PROPPATCH</method>
+				<ruri>$inboxpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/availability/17.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>okprops</name>
+						<value>{http://calendarserver.org/ns/}calendar-availability</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='free-busy reports' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>query for free busy with time range</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/availability/19.ics</filepath>
+				</data>
+				<verify>
+					<callback>dataString</callback>
+					<arg>
+						<name>contains</name>
+						<value>FREEBUSY;FBTYPE=BUSY:$now.year.1:0102T170000Z/PT1H</value>
+						<value>FREEBUSY;FBTYPE=BUSY-UNAVAILABLE:$now.year.1:0102T000000Z/$now.year.1:0102T140000Z,$now.year.1:010
+ 2T220000Z/$now.year.1:0103T000000Z</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<end>
+		<request print-response="no">
+			<method>PROPPATCH</method>
+			<ruri>$inboxpath1:/</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/availability/18.xml</filepath>
+			</data>
+			<verify>
+				<callback>propfindItems</callback>
+				<arg>
+					<name>okprops</name>
+					<value>{http://calendarserver.org/ns/}calendar-availability</value>
+				</arg>
+			</verify>
+		</request>
+	</end>	
+</caldavtest>

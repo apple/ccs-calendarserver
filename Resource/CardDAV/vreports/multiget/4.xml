@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<C:addressbook-multiget xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">
+<D:propname/>
+<D:href>$addressbookpath1:/12.vcf</D:href>
+<D:href>$addressbookpath1:/13.vcf</D:href>
+<D:href>$addressbookpath1:/14.vcf</D:href>
+<D:href>$addressbookpath1:/15.vcf</D:href>
+</C:addressbook-multiget>

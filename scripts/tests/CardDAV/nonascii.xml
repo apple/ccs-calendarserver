@@ -1,0 +1,550 @@
+﻿<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<description>Test use of UTF-8 for HTTP and address data</description>
+	
+	<require-feature>
+		<feature>carddav</feature>
+	</require-feature>
+
+	<start/>
+
+<!--
+	<test-suite name='non-ascii' ignore="yes">
+		<test name='1' ignore="no">
+			<description>MKCOL with high-ascii</description>
+			<request print-response="no">
+				<method>MKCOL</method>
+				<ruri>$addressbookhome1:/T%c3%a9st/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/MKCOL/addressbook.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore="yes">
+			<description>MKCOL with non-ascii - duplicate</description>
+			<request print-response="no">
+				<method>MKCOL</method>
+				<ruri>$addressbookhome1:/T%c3%a9st/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/MKCOL/addressbook.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore="no">
+			<description>GET with non-ascii</description>
+			<request print-response="no">
+				<method>GET</method>
+				<ruri>$addressbookhome1:/T%c3%a9st/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore="no">
+			<description>DELETE with non-ascii</description>
+			<request print-response="no">
+				<method>DELETE</method>
+				<ruri>$addressbookhome1:/T%c3%a9st/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+ -->
+	
+<!--
+	<test-suite name='double byte' ignore="yes">
+		<test name='1' ignore="no">
+			<description>MKCOL with double byte</description>
+			<request end-delete="no">
+				<method>MKCOL</method>
+				<ruri>$addressbookhome1:/%E5%88%9D%E6%97%A5/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/MKCOL/addressbook.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore="no">
+			<description>MKCOL with non-ascii - duplicate</description>
+			<request print-response="no">
+				<method>MKCOL</method>
+				<ruri>$addressbookhome1:/%E5%88%9D%E6%97%A5/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/MKCOL/addressbook.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>GET with non-ascii</description>
+			<request print-response="no">
+				<method>GET</method>
+				<ruri>$addressbookhome1:/%E5%88%9D%E6%97%A5/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore="no">
+			<description>DELETE with non-ascii</description>
+			<request print-response="no">
+				<method>DELETE</method>
+				<ruri>$addressbookhome1:/%E5%88%9D%E6%97%A5/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+ -->
+<!--
+	<test-suite name='Non-ascii resource URI' ignore="no">
+		<test name='1' ignore="no">
+			<description>PUT with high-ascii</description>
+			<request end-delete="yes">
+				<method>PUT</method>
+				<ruri>$addressbookhome1:/T%c3%a9st/te%cc%81st.vcf</ruri>
+				<data>
+					<content-type>text/vcf; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/vnonascii/1.vcf</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore="no">
+			<description>PUT with high-ascii</description>
+			<request end-delete="yes">
+				<method>PUT</method>
+				<ruri>$addressbookhome1:/Te%cc%81st/t%c3%a9st.vcf</ruri>
+				<data>
+					<content-type>text/vcf; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/vnonascii/1.vcf</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore="no">
+			<description>GET with high-ascii</description>
+			<request print-response="no">
+				<method>GET</method>
+				<ruri>$addressbookhome1:/T%c3%a9st/te%cc%81st.vcf</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore="no">
+			<description>GET with high-ascii</description>
+			<request print-response="no">
+				<method>GET</method>
+				<ruri>$addressbookhome1:/Te%cc%81st/t%c3%a9st.vcf</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore="no">
+			<description>DELETE with high-ascii</description>
+			<request print-response="no">
+				<method>DELETE</method>
+				<ruri>$addressbookhome1:/Te%cc%81st/t%c3%a9st.vcf</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	<test-suite name='Multiget on-ascii resource URI' ignore="no">
+		<test name='1' ignore="no">
+			<description>MKCOL with high-ascii</description>
+			<request end-delete="yes">
+				<method>MKCOL</method>
+				<ruri>$addressbookhome1:/Tást/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore="no">
+			<description>REPORT with high-ascii - match parent and child</description>
+			<request print-response="no">
+				<method>REPORT</method>
+				<ruri>$addressbookhome1:/Tást/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/vnonascii/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value></value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore="no">
+			<description>DELETE with high-ascii</description>
+			<request print-response="no">
+				<method>DELETE</method>
+				<ruri>$addressbookhome1:/Tást/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore="no">
+			<description>REPORT with non-ascii - match parent, different child</description>
+			<request print-response="no">
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/Tást/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/nonascii/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>t%c3%a9st.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore="no">
+			<description>REPORT with non-ascii - different parent, match child</description>
+			<request print-response="no">
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/Te%cc%81st/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/nonascii/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>te%cc%81st.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5' ignore="no">
+			<description>REPORT with non-ascii - different parent, different child</description>
+			<request print-response="no">
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/Te%cc%81st/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/nonascii/5.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>t%c3%a9st.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6' ignore="no">
+			<description>REPORT with non-ascii - match parent, match child</description>
+			<request print-response="no">
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/T%c3%a9st/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/nonascii/2.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>te%cc%81st.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='7' ignore="no">
+			<description>REPORT with non-ascii - match parent, different child</description>
+			<request print-response="no">
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/T%c3%a9st/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/nonascii/3.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>t%c3%a9st.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8' ignore="no">
+			<description>REPORT with non-ascii - different parent, match child</description>
+			<request print-response="no">
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/T%c3%a9st/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/nonascii/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>te%cc%81st.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='9' ignore="no">
+			<description>REPORT with non-ascii - different parent, different child</description>
+			<request print-response="no">
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/T%c3%a9st/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/nonascii/5.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>t%c3%a9st.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	-->
+	<test-suite name='high-ascii addressbook data' ignore="no">
+		<test name='1' ignore="no">
+			<description>PUT with high-ascii data</description>
+			<request end-delete="yes">
+				<method>PUT</method>
+				<ruri>$addressbookpath1:/highascii.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/vnonascii/8.vcf</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore="no">
+			<description>GET with non-ascii data</description>
+			<request print-response="no">
+				<method>GET</method>
+				<ruri>$addressbookpath1:/highascii.vcf</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore="no">
+			<description>Basic query with high-ascii data</description>
+			<request print-response="no">
+				<method>REPORT</method>
+				<ruri>$addressbookpath1:/</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/vnonascii/7.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>highascii.vcf</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4' ignore="no">
+			<description>Text query with ascii data</description>
+			<request print-response="no">
+				<method>REPORT</method>
+				<ruri>$addressbookpath1:/</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/vnonascii/9.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>highascii.vcf</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	<test-suite name='Non-utf-8 address data' ignore="no">
+		<test name='1' ignore="no">
+			<description>PUT with non-utf-8 data without charset</description>
+			<request end-delete="yes">
+				<method>PUT</method>
+				<ruri>$addressbookpath1:/nonutf8.vcf</ruri>
+				<data>
+					<content-type>text/vcard</content-type>
+					<filepath>Resource/CardDAV/vnonascii/2.vcf</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:carddav}valid-addressbook-object-resource</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore="no">
+			<description>PUT with non-utf-8 data with utf-8 charset</description>
+			<request end-delete="yes">
+				<method>PUT</method>
+				<ruri>$addressbookpath1:/nonutf8.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=utf-8</content-type>
+					<filepath>Resource/CardDAV/vnonascii/2.vcf</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:carddav}valid-addressbook-object-resource</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore="no">
+			<description>PUT with non-utf-8 data with non-utf-8 charset</description>
+			<request end-delete="yes">
+				<method>PUT</method>
+				<ruri>$addressbookpath1:/nonutf8.vcf</ruri>
+				<data>
+					<content-type>text/vcard; charset=iso-8859-1</content-type>
+					<filepath>Resource/CardDAV/vnonascii/2.vcf</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:carddav}valid-addressbook-object-resource</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+<!--
+	<test-suite name='Copy/Move Non-utf-8 calendar data' ignore="no">
+		<test name='1' ignore="no">
+			<description>PUT with non-utf-8 data to regular collection</description>
+			<request end-delete="yes">
+				<method>PUT</method>
+				<ruri>$calendarhome1:/collection/nonutf8.ics</ruri>
+				<data>
+					<content-type>text/calendar</content-type>
+					<filepath>Resource/CardDAV/nonascii/10.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore="no">
+			<description>COPY non-utf-8 data to calendar collection</description>
+			<request end-delete="yes">
+				<method>COPY</method>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/copy1.ics</value>
+				</header>
+				<ruri>$calendarhome1:/collection/nonutf8.ics</ruri>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-data</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore="no">
+			<description>MOVE non-utf-8 data to calendar collection</description>
+			<request end-delete="yes">
+				<method>MOVE</method>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/copy1.ics</value>
+				</header>
+				<ruri>$calendarhome1:/collection/nonutf8.ics</ruri>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-data</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+-->
+	<end/>
+	
+</caldavtest>

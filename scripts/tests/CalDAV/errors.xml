@@ -1,0 +1,1616 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<description>Tests of various pre-/post-conditions</description>
+
+	<require-feature>
+		<feature>caldav</feature>
+	</require-feature>
+
+	<start>
+		<request end-delete="yes">
+			<method>PUT</method>
+			<ruri>$calendarpath1:/1.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/errors/6.ics</filepath>
+			</data>
+		</request>
+		<request end-delete="yes">
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<method>MKCOL</method>
+			<ruri>$calendarhome1:/collection/</ruri>
+		</request>
+		<request end-delete="yes">
+			<method>MKCALENDAR</method>
+			<ruri>$calendarhome1:/calendar2/</ruri>
+		</request>
+		<request>
+			<exclude-feature>
+				<feature>no-duplicate-uids</feature>
+			</exclude-feature>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/calendar2/6.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/errors/6.ics</filepath>
+			</data>
+		</request>
+		<request>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/calendar2/7.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/errors/7.ics</filepath>
+			</data>
+		</request>
+		<request end-delete="yes">
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/1.xml</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/errors/1.xml</filepath>
+			</data>
+		</request>
+		<request end-delete="yes">
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/2.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/errors/2.ics</filepath>
+			</data>
+		</request>
+		<request end-delete="yes">
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/3.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/errors/3.ics</filepath>
+			</data>
+		</request>
+		<request end-delete="yes">
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/4.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/errors/4.ics</filepath>
+			</data>
+		</request>
+		<request end-delete="yes">
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/5.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/errors/5.ics</filepath>
+			</data>
+		</request>
+		<request end-delete="yes">
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/6.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/errors/6.ics</filepath>
+			</data>
+		</request>
+		<request end-delete="yes">
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/7.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/errors/7.ics</filepath>
+			</data>
+		</request>
+		<request end-delete="yes">
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/8.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/errors/8.ics</filepath>
+			</data>
+		</request>
+		<request end-delete="yes">
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/9.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/errors/9.ics</filepath>
+			</data>
+		</request>
+	</start>
+	
+	<test-suite name='PUT'>
+		<test name='1'>
+			<description>PUT non-calendar data</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/2.ics</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}supported-calendar-data</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>PUT invalid calendar data</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/2.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/2.ics</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-data</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>PUT with multiple component types</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/2.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/3.ics</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-object-resource</value>
+					</arg>
+					<arg>
+						<name>ignoreextras</name>
+						<value>true</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>PUT with METHOD property</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/2.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/4.ics</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-object-resource</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>PUT with different uids in same resource</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/2.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/5.ics</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-object-resource</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>PUT with duplicate uids</description>
+			<request print-response='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/2.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/6.ics</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}no-uid-conflict</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='7'>
+			<description>PUT with different uid onto existing resource</description>
+			<request print-response='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/7.ics</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}no-uid-conflict</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8' ignore="yes"> <!-- RRULE's now truncated -->
+			<description>PUT with too many recurrence instances to new resource</description>
+			<request print-response='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/2.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/8.ics</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}number-of-recurrences-within-limits</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='9' ignore="yes"> <!-- RRULE's now truncated -->
+			<description>PUT with too many recurrence instances to existing resource</description>
+			<request print-response='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/9.ics</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}number-of-recurrences-within-limits</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='10'>
+			<exclude-feature>
+				<feature>timezones-by-reference</feature>
+			</exclude-feature>
+			<description>PUT without timezone</description>
+			<request print-response='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/28.ics</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-object-resource</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='11'>
+			<description>PUT invalid RRULE</description>
+			<request end-delete="yes" print-response='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/33.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/33.ics</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-data</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='12' ignore='yes'> <!-- PyCalendar merges similar components for now -->
+			<description>PUT duplicate RECURRENCE-ID</description>
+			<request end-delete="yes" print-response='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/34.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/34.ics</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-object-resource</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='13'>
+			<description>PUT bad escape sequence</description>
+			<request end-delete="yes" print-response='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/34.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/36.ics</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-data</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='14' ignore="yes"> <!-- Test disabled for Leopard iCal workaround -->
+			<description>PUT invalid master/Recurrence-ID</description>
+			<request end-delete="yes" print-response='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/37.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/37.ics</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-object-resource</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='15' ignore="yes"> <!-- Test disabled for Leopard iCal workaround -->
+			<description>PUT invalid master/Recurrence-ID</description>
+			<request end-delete="yes" print-response='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/38.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/38.ics</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-object-resource</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='16'>
+			<description>PUT with too many attendees to new resource</description>
+			<request print-response='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/2.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/39.ics</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}max-attendees-per-instance</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='17'>
+			<description>PUT with invalid recurrence id</description>
+			<request print-response='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/3.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/40.ics</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-data</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<!-- Disabled because we accept any Organizer now but mark the property as invalid
+		     in the calendar data.
+		<test name='18'>
+			<description>PUT with bad organizer property</description>
+			<request print-response='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/4.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/41.ics</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-attendee-change</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		 -->
+		<test name='19'>
+			<description>Illegal controls</description>
+			<request end-delete="yes">
+				<method>PUT</method>
+				<ruri>$calendarpath1:/4.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/42.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>					
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='20'>
+			<description>Illegal \n parameter value</description>
+			<request end-delete="yes">
+				<method>PUT</method>
+				<ruri>$calendarpath1:/5.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/43.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/5.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='21'>
+			<description>Illegal REQUEST-STATUS value</description>
+			<request end-delete="yes">
+				<method>PUT</method>
+				<ruri>$calendarpath1:/6.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/44.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/6.ics</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='22'>
+			<description>Invalid RECURRENCE-ID</description>
+			<request end-delete="yes">
+				<method>PUT</method>
+				<ruri>$calendarpath1:/10.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/45.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/10.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/errors/46.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='23'>
+			<description>CREATED leading space - fixed</description>
+			<request end-delete="yes">
+				<method>PUT</method>
+				<ruri>$calendarpath1:/11.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/47.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/11.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/errors/48.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='COPY'>
+		<require-feature>
+			<feature>COPY Method</feature>
+		</require-feature>
+		<test name='1'>
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<description>COPY non-calendar data</description>
+			<request>
+				<method>COPY</method>
+				<ruri>$calendarhome1:/1.xml</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/copy1.ics</value>
+				</header>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}supported-calendar-data</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<description>COPY invalid calendar data</description>
+			<request>
+				<method>COPY</method>
+				<ruri>$calendarhome1:/2.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/copy1.ics</value>
+				</header>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-data</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<description>COPY with multiple component types</description>
+			<request>
+				<method>COPY</method>
+				<ruri>$calendarhome1:/3.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/copy1.ics</value>
+				</header>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-object-resource</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<description>COPY with METHOD property</description>
+			<request>
+				<method>COPY</method>
+				<ruri>$calendarhome1:/4.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/copy1.ics</value>
+				</header>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-object-resource</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<description>COPY with different uids in same resource</description>
+			<request>
+				<method>COPY</method>
+				<ruri>$calendarhome1:/5.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/copy1.ics</value>
+				</header>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-object-resource</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<description>COPY with duplicate uids</description>
+			<request print-response='no'>
+				<method>COPY</method>
+				<ruri>$calendarhome1:/6.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/copy1.ics</value>
+				</header>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}no-uid-conflict</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='7'>
+			<exclude-feature>
+				<feature>no-duplicate-uids</feature>
+			</exclude-feature>
+			<description>COPY from calendar with duplicate uids</description>
+			<request print-response='no'>
+				<method>COPY</method>
+				<ruri>$calendarhome1:/calendar2/6.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/copy1.ics</value>
+				</header>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}no-uid-conflict</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8'>
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<description>COPY with different uid onto existing resource</description>
+			<request print-response='no'>
+				<method>COPY</method>
+				<ruri>$calendarhome1:/7.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/1.ics</value>
+				</header>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}no-uid-conflict</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='9' ignore="yes">
+			<description>COPY from calendar with different uid onto existing resource</description>
+			<request print-response='no'>
+				<method>COPY</method>
+				<ruri>$calendarhome1:/calendar2/7.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/1.ics</value>
+				</header>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}no-uid-conflict</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='10' ignore="yes"> <!-- RRULE's now truncated -->
+			<description>COPY with too many recurrence instances to new resource</description>
+			<request print-response='no'>
+				<method>COPY</method>
+				<ruri>$calendarhome1:/8.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/2.ics</value>
+				</header>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}number-of-recurrences-within-limits</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='11' ignore="yes"> <!-- RRULE's now truncated -->
+			<description>COPY with too many recurrence instances to existing resource</description>
+			<request print-response='no'>
+				<method>COPY</method>
+				<ruri>$calendarhome1:/9.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/1.ics</value>
+				</header>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}number-of-recurrences-within-limits</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='12'>
+			<description>COPY calendar into calendar</description>
+			<request>
+				<method>COPY</method>
+				<ruri>$calendarhome1:/calendar2/</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/calendar2/</value>
+				</header>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='13'>
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<description>COPY collection into calendar</description>
+			<request>
+				<method>COPY</method>
+				<ruri>$calendarhome1:/collection/</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/collection/</value>
+				</header>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='MOVE'>
+		<require-feature>
+			<feature>MOVE Method</feature>
+		</require-feature>
+		<test name='1'>
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<description>MOVE non-calendar data</description>
+			<request>
+				<method>MOVE</method>
+				<ruri>$calendarhome1:/1.xml</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/move1.ics</value>
+				</header>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}supported-calendar-data</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<description>MOVE invalid calendar data</description>
+			<request>
+				<method>MOVE</method>
+				<ruri>$calendarhome1:/2.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/move1.ics</value>
+				</header>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-data</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<description>MOVE with multiple component types</description>
+			<request>
+				<method>MOVE</method>
+				<ruri>$calendarhome1:/3.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/move1.ics</value>
+				</header>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-object-resource</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<description>MOVE with METHOD property</description>
+			<request>
+				<method>MOVE</method>
+				<ruri>$calendarhome1:/4.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/move1.ics</value>
+				</header>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-object-resource</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<description>MOVE with different uids in same resource</description>
+			<request>
+				<method>MOVE</method>
+				<ruri>$calendarhome1:/5.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/move1.ics</value>
+				</header>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-object-resource</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<description>MOVE with duplicate uids</description>
+			<request print-response='no'>
+				<method>MOVE</method>
+				<ruri>$calendarhome1:/6.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/move1.ics</value>
+				</header>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}no-uid-conflict</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='7'>
+			<exclude-feature>
+				<feature>no-duplicate-uids</feature>
+			</exclude-feature>
+			<description>MOVE from calendar with duplicate uids</description>
+			<request print-response='no'>
+				<method>MOVE</method>
+				<ruri>$calendarhome1:/calendar2/6.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/move1.ics</value>
+				</header>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}no-uid-conflict</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8'>
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<description>MOVE with different uid onto existing resource</description>
+			<request print-response='no'>
+				<method>MOVE</method>
+				<ruri>$calendarhome1:/7.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/1.ics</value>
+				</header>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}no-uid-conflict</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='9'>
+			<description>MOVE from calendar with different uid onto existing resource</description>
+			<request print-response='no'>
+				<method>MOVE</method>
+				<ruri>$calendarhome1:/calendar2/7.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/1.ics</value>
+				</header>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='10' ignore="yes"> <!-- RRULE's now truncated -->
+			<description>MOVE with too many recurrence instances to new resource</description>
+			<request print-response='no'>
+				<method>MOVE</method>
+				<ruri>$calendarhome1:/8.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/2.ics</value>
+				</header>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}number-of-recurrences-within-limits</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='11' ignore="yes"> <!-- RRULE's now truncated -->
+			<description>MOVE with too many recurrence instances to existing resource</description>
+			<request print-response='no'>
+				<method>MOVE</method>
+				<ruri>$calendarhome1:/9.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/1.ics</value>
+				</header>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}number-of-recurrences-within-limits</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='12'>
+			<description>MOVE calendar into calendar</description>
+			<request>
+				<method>MOVE</method>
+				<ruri>$calendarhome1:/calendar2/</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/calendar2/</value>
+				</header>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='13'>
+			<require-feature>
+				<feature>regular-collection</feature>
+			</require-feature>
+			<description>MOVE collection into calendar</description>
+			<request>
+				<method>MOVE</method>
+				<ruri>$calendarhome1:/collection/</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarpath1:/collection/</value>
+				</header>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='REPORT/calendar-data'>
+		<test name='1'>
+			<description>query with invalid calendar-data content-type</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/10.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}supported-calendar-data</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>query with invalid calendar-data version</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/11.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}supported-calendar-data</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>multiget with invalid calendar-data content-type</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/12.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}supported-calendar-data</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>multiget with invalid calendar-data version</description>
+			<request>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/13.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}supported-calendar-data</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='REPORT/filter'>
+		<test name='1'>
+			<description>query with invalid filter</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/14.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-filter</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>query with invalid filter</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/15.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-filter</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>query with invalid filter</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/16.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-filter</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>query with invalid filter</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/17.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-filter</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>query with invalid filter</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/18.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-filter</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>query with invalid filter</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/19.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-filter</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='7'>
+			<description>query with invalid filter</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/20.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-filter</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8'>
+			<description>query with invalid filter</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/21.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-filter</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='9'>
+			<description>query with invalid filter</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/22.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-filter</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='10'>
+			<description>query with invalid time-range (dates)</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/29.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-filter</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='11'>
+			<description>query with invalid time-range (floating)</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/30.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-filter</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='12'>
+			<description>free-busy with invalid time-range (dates)</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/31.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='13'>
+			<description>free-busy with invalid time-range (floating)</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/32.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>400</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Invalid CalDAV:timezone'>
+		<test name='1'>
+			<description>query with invalid timezone</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/26.xml</filepath>
+				</data>
+				<verify>
+					<callback>prepostcondition</callback>
+					<arg>
+						<name>error</name>
+						<value>{urn:ietf:params:xml:ns:caldav}valid-calendar-data</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>proppatch with invalid timezone</description>
+			<request print-response='no'>
+				<method>PROPPATCH</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/27.xml</filepath>
+				</data>
+				<verify>
+					<callback>propfindItems</callback>
+					<arg>
+						<name>badprops</name>
+						<value>{urn:ietf:params:xml:ns:caldav}calendar-timezone</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Invalid urn: calendar user address'>
+		<test name='1'>
+			<description>POST free busy</description>
+			<request print-response='no'>
+				<method>POST</method>
+				<ruri>$outboxpath1:/</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/errors/35.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Root resource'>
+		<test name='1'>
+			<description>DELETE /</description>
+			<request print-response='no'>
+				<method>DELETE</method>
+				<ruri>$root:</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>COPY /</description>
+			<request print-response='no'>
+				<method>COPY</method>
+				<ruri>$root:</ruri>
+				<header>
+					<name>Destination</name>
+					<value>/copy/</value>
+				</header>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>MOVE /</description>
+			<request print-response='no'>
+				<method>MOVE</method>
+				<ruri>$root:</ruri>
+				<header>
+					<name>Destination</name>
+					<value>/move/</value>
+				</header>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>403</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>GET //</description>
+			<request print-response='no'>
+				<method>GET</method>
+				<ruri>$root://</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='Unauthenticated versus Forbidden'>
+		<test name='1'>
+			<description>Existing user with incorrect password</description>
+			<request user="$userid1:" pswd="bogus" print-response='no'>
+				<method>GET</method>
+				<ruri>$calendarpath1:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>401</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Non-Existing user</description>
+			<request user="bogus" pswd="bogus" print-response='no'>
+				<method>GET</method>
+				<ruri>$calendarpath1:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+					<arg>
+						<name>status</name>
+						<value>401</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	<end/>
+	
+</caldavtest>

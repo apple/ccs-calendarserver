@@ -1,0 +1,312 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<require-feature>
+		<feature>ACL Method</feature>
+		<feature>per-object-ACLs</feature>
+		<feature>regular-collection</feature>
+		<feature>caldav</feature>
+	</require-feature>
+
+	<start>
+		<request end-delete="yes">
+			<method>MKCOL</method>
+			<ruri>$calendarhome1:/top-collection/</ruri>
+		</request>
+		<request>
+			<method>ACL</method>
+			<ruri>$calendarhome1:/top-collection/</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/depthreportsacl/1.xml</filepath>
+			</data>
+		</request>
+		<!--  Calendar with DAV:read only -->
+		<request>
+			<method>MKCALENDAR</method>
+			<ruri>$calendarhome1:/top-collection/calendar1/</ruri>
+		</request>
+		<request>
+			<method>ACL</method>
+			<ruri>$calendarhome1:/top-collection/calendar1/</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/depthreportsacl/1.xml</filepath>
+			</data>
+		</request>
+		<request>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/top-collection/calendar1/1.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/depthreportsacl/cal1.ics</filepath>
+			</data>
+		</request>
+		<request>
+			<method>ACL</method>
+			<ruri>$calendarhome1:/top-collection/calendar1/1.ics</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/depthreportsacl/1.xml</filepath>
+			</data>
+		</request>
+		<request>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/top-collection/calendar1/2.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/depthreportsacl/cal2.ics</filepath>
+			</data>
+		</request>
+		<request>
+			<method>ACL</method>
+			<ruri>$calendarhome1:/top-collection/calendar1/2.ics</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/depthreportsacl/2.xml</filepath>
+			</data>
+		</request>
+		<request>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/top-collection/calendar1/3.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/depthreportsacl/cal3.ics</filepath>
+			</data>
+		</request>
+		<request>
+			<method>ACL</method>
+			<ruri>$calendarhome1:/top-collection/calendar1/3.ics</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/depthreportsacl/3.xml</filepath>
+			</data>
+		</request>
+		<!--  Calendar with no privileges -->
+		<request>
+			<method>MKCALENDAR</method>
+			<ruri>$calendarhome1:/top-collection/calendar2/</ruri>
+		</request>
+		<request>
+			<method>ACL</method>
+			<ruri>$calendarhome1:/top-collection/calendar2/</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/depthreportsacl/2.xml</filepath>
+			</data>
+		</request>
+		<request>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/top-collection/calendar2/1.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/depthreportsacl/cal4.ics</filepath>
+			</data>
+		</request>
+		<request>
+			<method>ACL</method>
+			<ruri>$calendarhome1:/top-collection/calendar2/1.ics</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/depthreportsacl/1.xml</filepath>
+			</data>
+		</request>
+		<request>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/top-collection/calendar2/2.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/depthreportsacl/cal5.ics</filepath>
+			</data>
+		</request>
+		<request>
+			<method>ACL</method>
+			<ruri>$calendarhome1:/top-collection/calendar2/2.ics</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/depthreportsacl/2.xml</filepath>
+			</data>
+		</request>
+		<request>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/top-collection/calendar2/3.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/depthreportsacl/cal6.ics</filepath>
+			</data>
+		</request>
+		<request>
+			<method>ACL</method>
+			<ruri>$calendarhome1:/top-collection/calendar2/3.ics</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/depthreportsacl/3.xml</filepath>
+			</data>
+		</request>
+		<!--  Calendar with CALDAV:read-free-busy only -->
+		<request>
+			<method>MKCALENDAR</method>
+			<ruri>$calendarhome1:/top-collection/calendar3/</ruri>
+		</request>
+		<request>
+			<method>ACL</method>
+			<ruri>$calendarhome1:/top-collection/calendar3/</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/depthreportsacl/3.xml</filepath>
+			</data>
+		</request>
+		<request>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/top-collection/calendar3/1.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/depthreportsacl/cal7.ics</filepath>
+			</data>
+		</request>
+		<request>
+			<method>ACL</method>
+			<ruri>$calendarhome1:/top-collection/calendar3/1.ics</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/depthreportsacl/1.xml</filepath>
+			</data>
+		</request>
+		<request>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/top-collection/calendar3/2.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/depthreportsacl/cal8.ics</filepath>
+			</data>
+		</request>
+		<request>
+			<method>ACL</method>
+			<ruri>$calendarhome1:/top-collection/calendar3/2.ics</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/depthreportsacl/2.xml</filepath>
+			</data>
+		</request>
+		<request>
+			<method>PUT</method>
+			<ruri>$calendarhome1:/top-collection/calendar3/3.ics</ruri>
+			<data>
+				<content-type>text/calendar; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/depthreportsacl/cal9.ics</filepath>
+			</data>
+		</request>
+		<request>
+			<method>ACL</method>
+			<ruri>$calendarhome1:/top-collection/calendar3/3.ics</ruri>
+			<data>
+				<content-type>text/xml; charset=utf-8</content-type>
+				<filepath>Resource/CalDAV/depthreportsacl/3.xml</filepath>
+			</data>
+		</request>
+	</start>
+	
+	<test-suite name='Reports' ignore='no'>
+		<test name='1' ignore='no'>
+			<description>multiget on top collection</description>
+			<request user='$userid2:' pswd='$pswd2:' print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/top-collection/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>infinity</value>
+				</header>
+				<data substitutions='yes'>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/depthreportsacl/4.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>calendar1/1.ics</value>
+					</arg>
+					<arg>
+						<name>badhrefs</name>
+						<value>calendar1/2.ics</value>
+						<value>calendar1/3.ics</value>
+						<value>calendar2/1.ics</value>
+						<value>calendar2/2.ics</value>
+						<value>calendar2/3.ics</value>
+						<value>calendar3/1.ics</value>
+						<value>calendar3/2.ics</value>
+						<value>calendar3/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2' ignore='no'>
+			<description>query on top collection</description>
+			<request user='$userid2:' pswd='$pswd2:' print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/top-collection/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>infinity</value>
+				</header>
+				<data substitutions='yes'>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/depthreportsacl/5.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>calendar1/1.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3' ignore='no'>
+			<description>query for free busy on collection with Depth infinity</description>
+			<request user='$userid2:' pswd='$pswd2:' print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/top-collection/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>infinity</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/depthreportsacl/6.xml</filepath>
+				</data>
+				<verify>
+					<callback>freeBusy</callback>
+					<arg>
+						<name>busy</name>
+						<value>20060101T060000Z/20060101T070000Z</value>
+						<value>20060101T100000Z/20060101T110000Z</value>
+						<value>20060101T180000Z/20060101T190000Z</value>
+						<value>20060101T220000Z/20060101T230000Z</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<end/>
+	
+</caldavtest>

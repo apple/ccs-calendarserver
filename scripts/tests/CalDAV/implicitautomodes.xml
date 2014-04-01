@@ -1,0 +1,2013 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<description>Test implicit scheduling for auto-accept location, not recurring</description>
+
+	<require-feature>
+		<feature>caldav</feature>
+		<feature>auto-accept</feature>
+		<feature>auto-accept-modes</feature>
+		<feature>implicit-scheduling</feature>
+	</require-feature>
+
+	<start>
+		<request user="$userid1:" pswd="$pswd1:">
+			<method>GET</method>
+			<ruri>$calendarpath1:/</ruri>
+		</request>
+		<request>
+			<method>DELETEALL</method>
+			<ruri>$inboxpath1:/</ruri>
+		</request>
+		<request user="$useradmin:" pswd="$pswdadmin:">
+			<method>DELETEALL</method>
+			<ruri>$rcalendarpath5:/</ruri>
+			<ruri>$rinboxpath5:/</ruri>
+			<ruri>$rcalendarpath6:/</ruri>
+			<ruri>$rinboxpath6:/</ruri>
+			<ruri>$rcalendarpath7:/</ruri>
+			<ruri>$rinboxpath7:/</ruri>
+			<ruri>$rcalendarpath8:/</ruri>
+			<ruri>$rinboxpath8:/</ruri>
+			<ruri>$rcalendarpath9:/</ruri>
+			<ruri>$rinboxpath9:/</ruri>
+			<ruri>$rcalendarpath10:/</ruri>
+			<ruri>$rinboxpath10:/</ruri>
+		</request>
+	</start>
+	
+	<test-suite name='#1 Mode none: Non-recurring free'>
+		<test name='1'>
+			<description>Blocking event resource05</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" end-delete="yes">
+				<method>PUT</method>
+				<ruri>$rcalendarpath5:/block.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/data/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>DELAY</method>
+				<ruri>1</ruri>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Create new event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/none-free/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>No items in user01 Inbox</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$inboxpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/count.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>One item in user01 Calendar</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/none-free/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>One item in resource05 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$rinboxpath5:/</ruri>
+			</request>
+		</test>
+		<test name='6'>
+			<description>One item in resource05 Calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>GETNEW</method>
+				<ruri>$rcalendarpath5:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/none-free/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1'>
+			<description>Clean-up</description>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$calendarpath1:/</ruri>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$rcalendarpath5:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$rinboxpath5:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+		
+	<test-suite name='#2 Mode none: Non-recurring busy'>
+		<test name='1'>
+			<description>Blocking event resource05</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" end-delete="yes">
+				<method>PUT</method>
+				<ruri>$rcalendarpath5:/block.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/data/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>DELAY</method>
+				<ruri>1</ruri>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Create new event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/none-busy/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>WAITCOUNT 1</method>
+				<ruri>$rinboxpath5:/</ruri>
+			</request>
+		</test>
+		<test name='3'>
+			<description>No items in user01 Inbox</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$inboxpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/count.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>One item in user01 Calendar</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/none-busy/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>One item in resource05 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$rinboxpath5:/</ruri>
+			</request>
+		</test>
+		<test name='6'>
+			<description>One item in resource05 Calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>GETNEW</method>
+				<ruri>$rcalendarpath5:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/none-busy/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1'>
+			<description>Clean-up</description>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$calendarpath1:/</ruri>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$rcalendarpath5:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$rinboxpath5:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+		
+	<test-suite name='#3 Mode none: Recurring'>
+		<test name='1'>
+			<description>Blocking event resource05</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" end-delete="yes">
+				<method>PUT</method>
+				<ruri>$rcalendarpath5:/block.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/data/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>DELAY</method>
+				<ruri>1</ruri>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Create new event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/none-recurring/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>No items in user01 Inbox</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$inboxpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/count.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>One item in user01 Calendar</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/none-recurring/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>One item in resource05 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$rinboxpath5:/</ruri>
+			</request>
+		</test>
+		<test name='6'>
+			<description>One item in resource05 Calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>GETNEW</method>
+				<ruri>$rcalendarpath5:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/none-recurring/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1'>
+			<description>Clean-up</description>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$calendarpath1:/</ruri>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$rcalendarpath5:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$rinboxpath5:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+		
+	<test-suite name='#4 Mode accept-always: Non-recurring free'>
+		<test name='1'>
+			<description>Blocking event resource06</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" end-delete="yes">
+				<method>PUT</method>
+				<ruri>$rcalendarpath6:/block.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/data/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>DELAY</method>
+				<ruri>1</ruri>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Create new event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/accept-always-free/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>One item in user01 Inbox</description>
+			<request>
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name='4'>
+			<description>One item in user01 Calendar</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/accept-always-free/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Zero items in resource06 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>PROPFIND</method>
+				<ruri>$rinboxpath6:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/count.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>One item in resource06 Calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>GETNEW</method>
+				<ruri>$rcalendarpath6:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/accept-always-free/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1'>
+			<description>Clean-up</description>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$calendarpath1:/</ruri>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$rcalendarpath6:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$rinboxpath6:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+		
+	<test-suite name='#5 Mode accept-always: Non-recurring busy'>
+		<test name='1'>
+			<description>Blocking event resource06</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" end-delete="yes">
+				<method>PUT</method>
+				<ruri>$rcalendarpath6:/block.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/data/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>DELAY</method>
+				<ruri>1</ruri>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Create new event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/accept-always-busy/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>One item in user01 Inbox</description>
+			<request>
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name='4'>
+			<description>One item in user01 Calendar</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/accept-always-busy/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Zero items in resource06 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>PROPFIND</method>
+				<ruri>$rinboxpath6:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/count.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>One item in resource06 Calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>GETNEW</method>
+				<ruri>$rcalendarpath6:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/accept-always-busy/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1'>
+			<description>Clean-up</description>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$calendarpath1:/</ruri>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$rcalendarpath6:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$rinboxpath6:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+		
+	<test-suite name='#6 Mode accept-always: Recurring'>
+		<test name='1'>
+			<description>Blocking event resource06</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" end-delete="yes">
+				<method>PUT</method>
+				<ruri>$rcalendarpath6:/block.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/data/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>DELAY</method>
+				<ruri>1</ruri>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Create new event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/accept-always-recurring/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>One item in user01 Inbox</description>
+			<request>
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name='4'>
+			<description>One item in user01 Calendar</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/accept-always-recurring/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Zero items in resource06 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>PROPFIND</method>
+				<ruri>$rinboxpath6:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/count.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>One item in resource06 Calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>GETNEW</method>
+				<ruri>$rcalendarpath6:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/accept-always-recurring/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1'>
+			<description>Clean-up</description>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$calendarpath1:/</ruri>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$rcalendarpath6:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$rinboxpath6:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+		
+	<test-suite name='#7 Mode decline-always: Non-recurring free'>
+		<test name='1'>
+			<description>Blocking event resource07</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" end-delete="yes">
+				<method>PUT</method>
+				<ruri>$rcalendarpath7:/block.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/data/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>DELAY</method>
+				<ruri>1</ruri>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Create new event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/decline-always-free/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>One item in user01 Inbox</description>
+			<request>
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name='4'>
+			<description>One item in user01 Calendar</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/decline-always-free/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Zero items in resource07 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>PROPFIND</method>
+				<ruri>$rinboxpath7:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/count.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>One item in resource07 Calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>GETNEW</method>
+				<ruri>$rcalendarpath7:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/decline-always-free/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1'>
+			<description>Clean-up</description>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$calendarpath1:/</ruri>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$rcalendarpath7:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$rinboxpath7:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+		
+	<test-suite name='#8 Mode decline-always Non-recurring busy'>
+		<test name='1'>
+			<description>Blocking event resource07</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" end-delete="yes">
+				<method>PUT</method>
+				<ruri>$rcalendarpath7:/block.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/data/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>DELAY</method>
+				<ruri>1</ruri>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Create new event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/decline-always-busy/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>One item in user01 Inbox</description>
+			<request>
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name='4'>
+			<description>One item in user01 Calendar</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/decline-always-busy/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Zero items in resource06 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>PROPFIND</method>
+				<ruri>$rinboxpath6:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/count.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>One item in resource06 Calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>GETNEW</method>
+				<ruri>$rcalendarpath7:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/decline-always-busy/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1'>
+			<description>Clean-up</description>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$calendarpath1:/</ruri>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$rcalendarpath7:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$rinboxpath6:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+		
+	<test-suite name='#9 Mode decline-always Recurring'>
+		<test name='1'>
+			<description>Blocking event resource07</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" end-delete="yes">
+				<method>PUT</method>
+				<ruri>$rcalendarpath7:/block.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/data/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>DELAY</method>
+				<ruri>1</ruri>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Create new event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/decline-always-recurring/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>One item in user01 Inbox</description>
+			<request>
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name='4'>
+			<description>One item in user01 Calendar</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/decline-always-recurring/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Zero items in resource07 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>PROPFIND</method>
+				<ruri>$rinboxpath7:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/count.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>One item in resource07 Calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>GETNEW</method>
+				<ruri>$rcalendarpath7:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/decline-always-recurring/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1'>
+			<description>Clean-up</description>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$calendarpath1:/</ruri>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$rcalendarpath7:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$rinboxpath6:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+		
+	<test-suite name='#10 Mode accept-if-free: Non-recurring free'>
+		<test name='1'>
+			<description>Blocking event resource08</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" end-delete="yes">
+				<method>PUT</method>
+				<ruri>$rcalendarpath8:/block.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/data/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>DELAY</method>
+				<ruri>1</ruri>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Create new event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/accept-if-free-free/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>One item in user01 Inbox</description>
+			<request>
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name='4'>
+			<description>One item in user01 Calendar</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/accept-if-free-free/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Zero items in resource08 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>PROPFIND</method>
+				<ruri>$rinboxpath8:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/count.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>One item in resource08 Calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>GETNEW</method>
+				<ruri>$rcalendarpath8:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/accept-if-free-free/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1'>
+			<description>Clean-up</description>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$calendarpath1:/</ruri>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$rcalendarpath8:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$rinboxpath8:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+		
+	<test-suite name='#11 Mode accept-if-free: Non-recurring busy'>
+		<test name='1'>
+			<description>Blocking event resource08</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" end-delete="yes">
+				<method>PUT</method>
+				<ruri>$rcalendarpath8:/block.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/data/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>DELAY</method>
+				<ruri>1</ruri>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Create new event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/accept-if-free-busy/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Zero items in user01 Inbox</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$inboxpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/count.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>One item in user01 Calendar</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/accept-if-free-busy/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>One item in resource08 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$rinboxpath8:/</ruri>
+			</request>
+		</test>
+		<test name='6'>
+			<description>One item in resource08 Calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>GETNEW</method>
+				<ruri>$rcalendarpath8:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/accept-if-free-busy/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1'>
+			<description>Clean-up</description>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$calendarpath1:/</ruri>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$rcalendarpath8:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$rinboxpath8:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+		
+	<test-suite name='#12 Mode accept-if-free: Recurring'>
+		<test name='1'>
+			<description>Blocking event resource08</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" end-delete="yes">
+				<method>PUT</method>
+				<ruri>$rcalendarpath8:/block.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/data/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>DELAY</method>
+				<ruri>1</ruri>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Create new event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/accept-if-free-recurring/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>One item in user01 Inbox</description>
+			<request>
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name='4'>
+			<description>One item in user01 Calendar</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/accept-if-free-recurring/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>One item in resource08 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$rinboxpath8:/</ruri>
+			</request>
+		</test>
+		<test name='6'>
+			<description>One item in resource08 Calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>GETNEW</method>
+				<ruri>$rcalendarpath8:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/accept-if-free-recurring/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1'>
+			<description>Clean-up</description>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$calendarpath1:/</ruri>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$rcalendarpath8:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$rinboxpath8:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+		
+	<test-suite name='#13 Mode decline-if-busy: Non-recurring free'>
+		<test name='1'>
+			<description>Blocking event resource09</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" end-delete="yes">
+				<method>PUT</method>
+				<ruri>$rcalendarpath9:/block.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/data/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>DELAY</method>
+				<ruri>1</ruri>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Create new event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/decline-if-busy-free/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Zero items in user01 Inbox</description>
+			<request>
+				<method>PROPFIND</method>
+				<ruri>$inboxpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/count.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<description>One item in user01 Calendar</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/decline-if-busy-free/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>One item in resource09 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$rinboxpath9:/</ruri>
+			</request>
+		</test>
+		<test name='6'>
+			<description>One item in resource09 Calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>GETNEW</method>
+				<ruri>$rcalendarpath9:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/decline-if-busy-free/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1'>
+			<description>Clean-up</description>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$calendarpath1:/</ruri>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$rcalendarpath9:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$rinboxpath9:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+		
+	<test-suite name='#14 Mode decline-if-busy: Non-recurring busy'>
+		<test name='1'>
+			<description>Blocking event resource09</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" end-delete="yes">
+				<method>PUT</method>
+				<ruri>$rcalendarpath9:/block.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/data/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>DELAY</method>
+				<ruri>1</ruri>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Create new event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/decline-if-busy-busy/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>One item in user01 Inbox</description>
+			<request>
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name='4'>
+			<description>One item in user01 Calendar</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/decline-if-busy-busy/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>No items in resource09 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>PROPFIND</method>
+				<ruri>$rinboxpath9:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/count.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>One item in resource09 Calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>GETNEW</method>
+				<ruri>$rcalendarpath9:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/decline-if-busy-busy/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1'>
+			<description>Clean-up</description>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$calendarpath1:/</ruri>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$rcalendarpath9:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$rinboxpath9:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+		
+	<test-suite name='#15 Mode decline-if-busy: Recurring'>
+		<test name='1'>
+			<description>Blocking event resource09</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" end-delete="yes">
+				<method>PUT</method>
+				<ruri>$rcalendarpath9:/block.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/data/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>DELAY</method>
+				<ruri>1</ruri>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Create new event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/decline-if-busy-recurring/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>One item in user01 Inbox</description>
+			<request>
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name='4'>
+			<description>One item in user01 Calendar</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/decline-if-busy-recurring/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>No items in resource09 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>PROPFIND</method>
+				<ruri>$rinboxpath9:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/count.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>1</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>One item in resource09 Calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>GETNEW</method>
+				<ruri>$rcalendarpath9:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/decline-if-busy-recurring/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1'>
+			<description>Clean-up</description>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$calendarpath1:/</ruri>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$rcalendarpath9:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$rinboxpath9:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+		
+	<test-suite name='#16 Mode automatic: Non-recurring free'>
+		<test name='1'>
+			<description>Blocking event resource10</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" end-delete="yes">
+				<method>PUT</method>
+				<ruri>$rcalendarpath10:/block.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/data/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>DELAY</method>
+				<ruri>1</ruri>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Create new event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/automatic-free/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>One item in user01 Inbox</description>
+			<request>
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name='4'>
+			<description>One item in user01 Calendar</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/automatic-free/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Zero items in resource10 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>PROPFIND</method>
+				<ruri>$rinboxpath10:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/count.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>One item in resource10 Calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>GETNEW</method>
+				<ruri>$rcalendarpath10:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/automatic-free/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1'>
+			<description>Clean-up</description>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$calendarpath1:/</ruri>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$rcalendarpath10:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$rinboxpath10:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+		
+	<test-suite name='#17 Mode automatic: Non-recurring busy'>
+		<test name='1'>
+			<description>Blocking event resource10</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" end-delete="yes">
+				<method>PUT</method>
+				<ruri>$rcalendarpath10:/block.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/data/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>DELAY</method>
+				<ruri>1</ruri>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Create new event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/automatic-busy/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>One item in user01 Inbox</description>
+			<request>
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name='4'>
+			<description>One item in user01 Calendar</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/automatic-busy/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Zero items in resource10 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>PROPFIND</method>
+				<ruri>$rinboxpath10:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/count.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>One item in resource10 Calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>GETNEW</method>
+				<ruri>$rcalendarpath10:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/automatic-busy/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1'>
+			<description>Clean-up</description>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$calendarpath1:/</ruri>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$rcalendarpath10:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$rinboxpath10:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+		
+	<test-suite name='#18 Mode automatic: Recurring'>
+		<test name='1'>
+			<description>Blocking event resource10</description>
+			<request user="$useradmin:" pswd="$pswdadmin:" end-delete="yes">
+				<method>PUT</method>
+				<ruri>$rcalendarpath10:/block.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/data/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request>
+				<method>DELAY</method>
+				<ruri>1</ruri>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Create new event</description>
+			<request>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/implicit/automodes/automatic-recurring/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>One item in user01 Inbox</description>
+			<request>
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name='4'>
+			<description>One item in user01 Calendar</description>
+			<request>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/automatic-recurring/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<description>Zero items in resource10 Inbox</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>PROPFIND</method>
+				<ruri>$rinboxpath10:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/Common/PROPFIND/count.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>One item in resource10 Calendar</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>GETNEW</method>
+				<ruri>$rcalendarpath10:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/implicit/automodes/automatic-recurring/3.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='-1'>
+			<description>Clean-up</description>
+			<request>
+				<method>DELETEALL</method>
+				<ruri>$calendarpath1:/</ruri>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>WAITDELETEALL 1</method>
+				<ruri>$rcalendarpath10:/</ruri>
+			</request>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$rinboxpath10:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+		
+	<end>
+		<request>
+			<method>DELETEALL</method>
+			<ruri>$inboxpath1:/</ruri>
+			<ruri>$calendarpath1:/</ruri>
+		</request>
+		<request user="$useradmin:" pswd="$pswdadmin:">
+			<method>DELETEALL</method>
+			<ruri>$rcalendarpath5:/</ruri>
+			<ruri>$rinboxpath5:/</ruri>
+			<ruri>$rcalendarpath6:/</ruri>
+			<ruri>$rinboxpath6:/</ruri>
+			<ruri>$rcalendarpath7:/</ruri>
+			<ruri>$rinboxpath7:/</ruri>
+			<ruri>$rcalendarpath8:/</ruri>
+			<ruri>$rinboxpath8:/</ruri>
+			<ruri>$rcalendarpath9:/</ruri>
+			<ruri>$rinboxpath9:/</ruri>
+			<ruri>$rcalendarpath10:/</ruri>
+			<ruri>$rinboxpath10:/</ruri>
+		</request>
+	</end>
+	
+</caldavtest>

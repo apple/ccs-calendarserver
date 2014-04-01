@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<D:propertyupdate xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+<D:set>
+<D:prop>
+    <C:default-alarm-vtodo-datetime><![CDATA[BEGIN:VALARM
+UID:E9D1AC84-F629-4B9D-9B6B-4A6CA9A11FEF
+DESCRIPTION:Todo reminder
+TRIGGER:-PT30M
+ACTION:DISPLAY
+END:VALARM
+]]></C:default-alarm-vtodo-datetime>
+</D:prop>
+</D:set>
+</D:propertyupdate>

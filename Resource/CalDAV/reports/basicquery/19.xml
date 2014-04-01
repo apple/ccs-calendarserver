@@ -1,0 +1,16 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<calendar-query xmlns='urn:ietf:params:xml:ns:caldav'>
+<prop xmlns='DAV:'>
+<getetag/>
+<calendar-data xmlns='urn:ietf:params:xml:ns:caldav'/>
+</prop>
+<filter>
+<comp-filter name='VCALENDAR'>
+<comp-filter name='VEVENT'>
+<prop-filter name='UID'>
+<text-match match-type='ends-with'>--</text-match>
+</prop-filter>
+</comp-filter>
+</comp-filter>
+</filter>
+</calendar-query>

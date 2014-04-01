@@ -1,0 +1,30 @@
+#!/bin/bash
+#
+##
+# Copyright (c) 2009-2013 Apple Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+##
+#
+# Runs a subset of tests as a quick check that the server is functional.
+#
+
+export PYTHONPATH=/usr/share/caldavd/lib/python:/Applications/Server.app/Contents/ServerRoot/usr/share/caldavd/lib/python/
+./testcaldav.py $@ --ssl --print-details-onfail -s scripts/server/serverinfo-caldav.xml -o cdt.txt \
+	CalDAV/caldavIOP.xml \
+	CalDAV/errors.xml \
+	CalDAV/get.xml \
+	CalDAV/ical-client.xml \
+	CalDAV/propfind.xml \
+	CalDAV/put.xml \
+	CalDAV/reports.xml

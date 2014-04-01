@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<D:propfind xmlns:D="DAV:">
+<D:prop>
+<D:alternate-URI-set/>
+<D:principal-URL/>
+<D:group-member-set/>
+<D:group-membership/>
+<D:displayname/>
+</D:prop>
+</D:propfind>

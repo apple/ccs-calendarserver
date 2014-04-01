@@ -1,0 +1,10 @@
+BEGIN:VCARD
+VERSION:3.0
+N:And;John;;;
+FN:John And
+ORG:;72430056
+EMAIL;type=INTERNET;type=WORK;type=pref:john_apple@example.com
+item1.X-JABBER;type=pref:john_apple@example.com
+item1.X-ABLabel:_$!<Other>!$_
+UID:4D3D5898-4091-43CA-8D08-03130FC05513:ABPerson
+END:VCARD

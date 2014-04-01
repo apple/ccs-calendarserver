@@ -1,0 +1,286 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<description>Partitioning with auto-accept test</description>
+
+	<require-feature>
+		<feature>caldav</feature>
+		<feature>implicit-scheduling</feature>
+		<feature>partitioning</feature>
+	</require-feature>
+
+	<start>
+		<request user="$useradmin:" pswd="$pswdadmin:">
+			<method>DELETEALL</method>
+			<ruri>$inboxpath1:/</ruri>
+			<ruri>$otherinboxpath1:/</ruri>
+			<ruri>$otherinboxpath1:/</ruri>
+		</request>
+	</start>
+	
+	<test-suite name='#1 refresh across nodes' ignore='no'>
+		<test name='1'>
+			<description>Organizer invites Attendees</description>
+			<request print-response='no'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/partitioning/scheduleimplicit/suite1/1.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>Organizer checks data</description>
+			<request print-response='no'>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/partitioning/scheduleimplicit/suite1/2.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>Attendee Inbox Items</description>
+			<request user="$otherid1:" pswd="$otherpswd1:" print-response='no'>
+				<method>WAITDELETEALL 1</method>
+				<ruri>$otherinboxpath1:/</ruri>
+			</request>
+			<request user="$otherid2:" pswd="$otherpswd2:" print-response='no'>
+				<method>WAITDELETEALL 1</method>
+				<ruri>$otherinboxpath2:/</ruri>
+			</request>
+		</test>
+		<test name='4'>
+			<description>Attendees have data</description>
+			<request user="$otherid1:" pswd="$otherpswd1:" print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$othercalendarpath1:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/partitioning/scheduleimplicit/suite1/4.ics</value>
+					</arg>
+				</verify>
+			</request>
+			<request user="$otherid2:" pswd="$otherpswd2:" print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$othercalendarpath2:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/partitioning/scheduleimplicit/suite1/4.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<description>Attendee 1 -> Accepted</description>
+			<request user="$otherid1:" pswd="$otherpswd1:" print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$othercalendarpath1:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$otherid1:" pswd="$otherpswd1:" print-response='no'>
+				<method>PUT</method>
+				<ruri>$</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/partitioning/scheduleimplicit/suite1/5.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='7'>
+			<description>Organizer Inbox Item</description>
+			<request print-response='no'>
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name='8'>
+			<description>Organizer data changed</description>
+			<request print-response='no'>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/partitioning/scheduleimplicit/suite1/6.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='10'>
+			<description>Attendee 2 no Inbox Item</description>
+			<request user="$otherid2:" pswd="$otherpswd2:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$otherinboxpath2:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/partitioning/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='11'>
+			<description>Attendee 2 data changed</description>
+			<request user="$otherid2:" pswd="$otherpswd2:" print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$othercalendarpath2:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/partitioning/scheduleimplicit/suite1/7.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='12'>
+			<description>Attendee 2 -> Decline</description>
+			<request user="$otherid2:" pswd="$otherpswd2:" print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$othercalendarpath2:/</ruri>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+			<request user="$otherid2:" pswd="$otherpswd2:" print-response='no'>
+				<method>PUT</method>
+				<ruri>$</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/partitioning/scheduleimplicit/suite1/8.ics</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+		<test name='13'>
+			<description>Organizer Inbox Item</description>
+			<request print-response='no'>
+				<method>WAITDELETEALL 1</method>
+				<ruri>$inboxpath1:/</ruri>
+			</request>
+		</test>
+		<test name='14'>
+			<description>Organizer data changed</description>
+			<request print-response='no'>
+				<method>GET</method>
+				<ruri>$calendarpath1:/1.ics</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/partitioning/scheduleimplicit/suite1/9.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='16'>
+			<description>Attendee 1 no Inbox Item</description>
+			<request user="$otherid1:" pswd="$otherpswd1:" print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$otherinboxpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/partitioning/1.xml</filepath>
+				</data>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>count</name>
+						<value>0</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='17'>
+			<description>Attendee 1 data changed</description>
+			<request user="$otherid1:" pswd="$otherpswd1:" print-response='no'>
+				<method>GETNEW</method>
+				<ruri>$othercalendarpath1:/</ruri>
+				<verify>
+					<callback>calendarDataMatch</callback>
+					<arg>
+						<name>filepath</name>
+						<value>Resource/CalDAV/partitioning/scheduleimplicit/suite1/10.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='18'>
+			<description>Clean-up</description>
+			<request user="$useradmin:" pswd="$pswdadmin:">
+				<method>DELETEALL</method>
+				<ruri>$calendarpath1:/</ruri>
+				<ruri>$inboxpath1:/</ruri>
+				<ruri>$othercalendarpath1:/</ruri>
+				<ruri>$otherinboxpath1:/</ruri>
+				<ruri>$othercalendarpath2:/</ruri>
+				<ruri>$otherinboxpath2:/</ruri>
+			</request>
+		</test>
+	</test-suite>
+
+	<end>
+		<request user="$useradmin:" pswd="$pswdadmin:">
+			<method>DELETEALL</method>
+			<ruri>$otherinboxpath1:/</ruri>
+			<ruri>$othercalendarpath1:/</ruri>
+			<ruri>$inboxpath2:/</ruri>
+			<ruri>$calendarpath2:/</ruri>
+			<ruri>$rinboxpath1:/</ruri>
+			<ruri>$rcalendarpath1:/</ruri>
+		</request>
+	</end>
+	
+</caldavtest>

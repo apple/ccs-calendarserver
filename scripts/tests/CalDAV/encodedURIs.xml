@@ -1,0 +1,746 @@
+<?xml version="1.0" standalone="no"?>
+
+<!DOCTYPE caldavtest SYSTEM "caldavtest.dtd">
+
+<!--
+ Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<caldavtest>
+	<require-feature>
+		<feature>caldav</feature>
+	</require-feature>
+
+	<start>
+		<request end-delete='yes'>
+			<method>MKCALENDAR</method>
+			<ruri>$calendarhome1:/calendar 2/</ruri>
+		</request>
+		<request end-delete='yes'>
+			<method>MKCALENDAR</method>
+			<ruri>$calendarhome1:/calendar 3/</ruri>
+		</request>
+	</start>
+
+	<test-suite name='regular resource'>
+		<require-feature>
+			<feature>regular-collection</feature>
+		</require-feature>
+		<test name='1'>
+			<description>PUT</description>
+			<request end-delete='yes'>
+				<method>MKCOL</method>
+				<ruri>$calendarhome1:/collection 1/</ruri>
+			</request>
+			<request print-response='no' end-delete='yes'>
+				<method>PUT</method>
+				<ruri>$calendarhome1:/collection 1/2 a.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/recurrenceput/2.txt</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>!Location</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+
+		<test name='2'>
+			<require-feature>
+				<feature>COPY Method</feature>
+			</require-feature>
+			<description>COPY</description>
+			<request print-response='no' end-delete='yes'>
+				<method>COPY</method>
+				<ruri>$calendarhome1:/collection 1/2 a.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarhome1:/collection 1/2_2 a.ics</value>
+				</header>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>Location$$host:$calendarhome1:/collection 1/2_2 a.ics</value>
+					</arg>
+				</verify>
+			</request>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome1:/collection 1/2_2 a.ics</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/propfinds/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>$calendarhome1:/collection 1/2_2 a.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<require-feature>
+				<feature>MOVE Method</feature>
+			</require-feature>
+			<description>MOVE</description>
+			<request print-response='no' end-delete='yes'>
+				<method>MOVE</method>
+				<ruri>$calendarhome1:/collection 1/2 a.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarhome1:/collection 1/2_3 a.ics</value>
+				</header>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>Location$$host:$calendarhome1:/collection 1/2_3 a.ics</value>
+					</arg>
+				</verify>
+			</request>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome1:/collection 1/2_2 a.ics</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/propfinds/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>$calendarhome1:/collection 1/2_2 a.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+
+	<test-suite name='calendar resource'>
+		<test name='1'>
+			<description>PUT</description>
+			<request print-response='no' end-delete='yes'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/2 a.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/recurrenceput/2.txt</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>!Location</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>PROPFIND</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/propfinds/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value></value>
+						<value>2 a.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>multiget REPORT</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/encodedURIs/encoded1.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>2 a.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<require-feature>
+				<feature>COPY Method</feature>
+			</require-feature>
+			<exclude-feature>
+				<feature>no-duplicate-uids</feature>
+			</exclude-feature>
+			<description>COPY</description>
+			<request print-response='no' end-delete='yes'>
+				<method>COPY</method>
+				<ruri>$calendarpath1:/2 a.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarhome1:/calendar 2/2_2 a.ics</value>
+				</header>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>Location$$host:$calendarhome1:/calendar 2/2_2 a.ics</value>
+					</arg>
+				</verify>
+			</request>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome1:/calendar 2/2_2 a.ics</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/propfinds/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>$calendarhome1:/calendar 2/2_2 a.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<require-feature>
+				<feature>MOVE Method</feature>
+			</require-feature>
+			<description>MOVE</description>
+			<request print-response='no' end-delete='yes'>
+				<method>MOVE</method>
+				<ruri>$calendarpath1:/2 a.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarhome1:/calendar 3/2_3 a.ics</value>
+				</header>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>Location$$host:$calendarhome1:/calendar 3/2_3 a.ics</value>
+					</arg>
+				</verify>
+			</request>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome1:/calendar 3/2_3 a.ics</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/propfinds/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>$calendarhome1:/calendar 3/2_3 a.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<require-feature>
+				<feature>MOVE Method</feature>
+			</require-feature>
+			<description>multiget REPORT on encoded calendar collection path</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/calendar 3/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/multiget/encoded2.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>2_3 a.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='7'>
+			<require-feature>
+				<feature>MOVE Method</feature>
+			</require-feature>
+			<description>multiget REPORT on encoded calendar resource path</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/calendar 3/2_3 a.ics</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/multiget/encoded2.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value></value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8'>
+			<require-feature>
+				<feature>MOVE Method</feature>
+			</require-feature>
+			<description>multiget REPORT on encoded collection path</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/multiget/encoded2.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>calendar 3/2_3 a.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='9'>
+			<require-feature>
+				<feature>MOVE Method</feature>
+			</require-feature>
+			<description>query REPORT on encoded calendar path</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/calendar 3/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>2_3 a.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='10'>
+			<require-feature>
+				<feature>MOVE Method</feature>
+			</require-feature>
+			<description>free-busy REPORT on encoded calendar path</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/calendar 3/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/freebusy/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<test-suite name='calendar resource double-encoded'>
+		<test name='1'>
+			<description>PUT</description>
+			<request print-response='no' end-delete='yes'>
+				<method>PUT</method>
+				<ruri>$calendarpath1:/3%20a.ics</ruri>
+				<data>
+					<content-type>text/calendar; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/recurrenceput/3.txt</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>!Location</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='2'>
+			<description>PROPFIND</description>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarpath1:/</ruri>
+				<header>
+					<name>Depth</name>
+					<value>1</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/propfinds/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value></value>
+						<value>3%20a.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='3'>
+			<description>multiget REPORT</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarpath1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/encodedURIs/doubleencoded1.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>3%20a.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='4'>
+			<require-feature>
+				<feature>COPY Method</feature>
+			</require-feature>
+			<exclude-feature>
+				<feature>no-duplicate-uids</feature>
+			</exclude-feature>
+			<description>COPY</description>
+			<request print-response='no' end-delete='yes'>
+				<method>COPY</method>
+				<ruri>$calendarpath1:/3%20a.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarhome1:/calendar 2/3_2%2520a.ics</value>
+				</header>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>Location$$host:$calendarhome1:/calendar 2/3_2%2520a.ics</value>
+					</arg>
+				</verify>
+			</request>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome1:/calendar 2/3_2%20a.ics</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/propfinds/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>$calendarhome1:/calendar 2/3_2%20a.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='5'>
+			<require-feature>
+				<feature>MOVE Method</feature>
+			</require-feature>
+			<description>MOVE</description>
+			<request print-response='no' end-delete='yes'>
+				<method>MOVE</method>
+				<ruri>$calendarpath1:/3%20a.ics</ruri>
+				<header>
+					<name>Destination</name>
+					<value>$host:$calendarhome1:/calendar 3/3_3%2520a.ics</value>
+				</header>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>header</callback>
+					<arg>
+						<name>header</name>
+						<value>Location$$host:$calendarhome1:/calendar 3/3_3%2520a.ics</value>
+					</arg>
+				</verify>
+			</request>
+			<request print-response='no'>
+				<method>PROPFIND</method>
+				<ruri>$calendarhome1:/calendar 3/3_3%20a.ics</ruri>
+				<header>
+					<name>Depth</name>
+					<value>0</value>
+				</header>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/propfinds/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>prefix</name>
+						<value/>
+					</arg>
+					<arg>
+						<name>okhrefs</name>
+						<value>$calendarhome1:/calendar 3/3_3%20a.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='6'>
+			<require-feature>
+				<feature>MOVE Method</feature>
+			</require-feature>
+			<description>multiget REPORT on encoded calendar collection path</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/calendar 3/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/multiget/doubleencoded2.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>3_3%20a.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='7'>
+			<require-feature>
+				<feature>MOVE Method</feature>
+			</require-feature>
+			<description>multiget REPORT on encoded calendar resource path</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/calendar 3/3_3%20a.ics</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/multiget/doubleencoded2.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value></value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='8'>
+			<require-feature>
+				<feature>MOVE Method</feature>
+			</require-feature>
+			<description>multiget REPORT on encoded collection path</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/multiget/doubleencoded2.xml</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>calendar 3/3_3%20a.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='9'>
+			<require-feature>
+				<feature>MOVE Method</feature>
+			</require-feature>
+			<description>query REPORT on encoded calendar path</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/calendar 3/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/basicquery/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+				<verify>
+					<callback>multistatusItems</callback>
+					<arg>
+						<name>okhrefs</name>
+						<value>2_3 a.ics</value>
+						<value>3_3%20a.ics</value>
+					</arg>
+				</verify>
+			</request>
+		</test>
+		<test name='10'>
+			<require-feature>
+				<feature>MOVE Method</feature>
+			</require-feature>
+			<description>free-busy REPORT on encoded calendar path</description>
+			<request print-response='no'>
+				<method>REPORT</method>
+				<ruri>$calendarhome1:/calendar 3/</ruri>
+				<data>
+					<content-type>text/xml; charset=utf-8</content-type>
+					<filepath>Resource/CalDAV/reports/freebusy/1.txt</filepath>
+				</data>
+				<verify>
+					<callback>statusCode</callback>
+				</verify>
+			</request>
+		</test>
+	</test-suite>
+	
+	<end/>
+	
+</caldavtest>

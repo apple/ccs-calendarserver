@@ -1,0 +1,16 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<calendar-query xmlns='urn:ietf:params:xml:ns:caldav'>
+<prop xmlns='DAV:'>
+<getetag/>
+<calendar-data xmlns='urn:ietf:params:xml:ns:caldav'>
+<expand start='$now.year.1:0109T050000Z' end='$now.year.1:0110T050000Z'/>
+</calendar-data>
+</prop>
+<filter>
+<comp-filter name='VCALENDAR'>
+<comp-filter name='VEVENT'>
+<time-range start='$now.year.1:0109T050000Z' end='$now.year.1:0110T050000Z'/>
+</comp-filter>
+</comp-filter>
+</filter>
+</calendar-query>

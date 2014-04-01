@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<x0:propfind xmlns:x2="http://calendarserver.org/ns/" xmlns:x1="urn:ietf:params:xml:ns:caldav" xmlns:x0="DAV:">
+ <x0:prop>
+  <x1:calendar-home-set/>
+  <x1:calendar-user-address-set/>
+  <x1:schedule-inbox-URL/>
+  <x1:schedule-outbox-URL/>
+  <x2:dropbox-home-URL/>
+  <x2:notifications-URL/>
+  <x0:displayname/>
+ </x0:prop>
+</x0:propfind>

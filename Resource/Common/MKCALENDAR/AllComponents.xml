@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<C:mkcalendar xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+<D:set>
+<D:prop>
+<C:supported-calendar-component-set>
+<C:comp name="VEVENT"/>
+<C:comp name="VTODO"/>
+<C:comp name="VFREEBUSY"/>
+</C:supported-calendar-component-set>
+</D:prop>
+</D:set>
+</C:mkcalendar>
