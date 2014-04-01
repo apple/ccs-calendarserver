@@ -683,6 +683,7 @@ class ImplicitScheduler(object):
             if self.split_details is None:
                 log.debug("Implicit - organizer '{organizer}' is creating UID: '{uid}'", organizer=self.organizer, uid=self.uid)
                 self.coerceAttendeesPartstatOnCreate()
+
             else:
                 log.debug("Implicit - organizer '{organizer}' is creating a split UID: '{uid}'", organizer=self.organizer, uid=self.uid)
                 self.needs_sequence_change = False
@@ -695,7 +696,16 @@ class ImplicitScheduler(object):
         # If processing a queue item, actually execute the scheduling operations, else queue it.
         # Note a split is always queued, so we do not need to re-queue
         if queued or not config.Scheduling.Options.WorkQueues.Enabled or self.split_details is not None:
-            if self.needs_sequence_change:
+            if self.action == "create":
+                if self.split_details is None:
+                    # We need to handle the case where an organizer "restores" a previously delete event that has a sequence
+                    # lower than the one used in the cancel that attendees may still have. In this case what we need to do
+                    # is force the sequence to a new value that is significantly higher than the highest one present.
+                    seqs = map(lambda x: x.value(), self.calendar.getAllPropertiesInAnyComponent("SEQUENCE", depth=1))
+                    maxseq = max(seqs) if seqs else 0
+                    if maxseq != 0:
+                        self.calendar.replacePropertyInAllComponents(Property("SEQUENCE", maxseq + 1000))
+            elif self.needs_sequence_change:
                 self.calendar.bumpiTIPInfo(oldcalendar=self.oldcalendar, doSequence=True)
 
             yield self.scheduleWithAttendees()
@@ -1063,7 +1073,17 @@ class ImplicitScheduler(object):
         # We bump the sequence AFTER storing the work item data to make sure that the sequence
         # change does not cause unchanged components to be treated as changed when the work
         # item executes.
-        if self.needs_sequence_change:
+
+        if self.action == "create":
+            # We need to handle the case where an organizer "restores" a previously delete event that has a sequence
+            # lower than the one used in the cancel that attendees may still have. In this case what we need to do
+            # is force the sequence to a new value that is significantly higher than the highest one present.
+            seqs = map(lambda x: x.value(), self.calendar.getAllPropertiesInAnyComponent("SEQUENCE", depth=1))
+            maxseq = max(seqs) if seqs else 0
+            if maxseq != 0:
+                self.calendar.replacePropertyInAllComponents(Property("SEQUENCE", maxseq + 1000))
+
+        elif self.needs_sequence_change:
             self.calendar.bumpiTIPInfo(oldcalendar=self.oldcalendar, doSequence=True)
 
         # First process cancelled attendees
