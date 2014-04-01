@@ -32,19 +32,20 @@ out.write(prefix)
 out.write('<directory realm="Test Realm">\n')
 
 
-for uid, fullName in (
-    ("admin", "Super User"),
-    ("apprentice", "Apprentice Super User"),
-    ("i18nuser", u"\ud83d\udca3".encode("utf-8")),
+for uid, fullName, guid in (
+    ("admin", "Super User", "0C8BDE62-E600-4696-83D3-8B5ECABDFD2E"),
+    ("apprentice", "Apprentice Super User", "29B6C503-11DF-43EC-8CCA-40C7003149CE"),
+    ("i18nuser", u"\ud83d\udca3".encode("utf-8"), "860B3EE9-6D7C-4296-9639-E6B998074A78"),
 ):
     out.write("""<record>
     <uid>{uid}</uid>
+    <guid>{guid}</guid>
     <short-name>{uid}</short-name>
     <password>{uid}</password>
     <full-name>{fullName}</full-name>
     <email>{uid}@example.com</email>
 </record>
-""".format(uid=uid, fullName=fullName))
+""".format(uid=uid, guid=guid, fullName=fullName))
 
 # user01-100
 for i in xrange(1, 101):

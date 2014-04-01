@@ -19,6 +19,7 @@ limitations under the License.
 <directory realm="Test Realm">
 <record>
     <uid>admin</uid>
+    <guid>0C8BDE62-E600-4696-83D3-8B5ECABDFD2E</guid>
     <short-name>admin</short-name>
     <password>admin</password>
     <full-name>Super User</full-name>
@@ -26,6 +27,7 @@ limitations under the License.
 </record>
 <record>
     <uid>apprentice</uid>
+    <guid>29B6C503-11DF-43EC-8CCA-40C7003149CE</guid>
     <short-name>apprentice</short-name>
     <password>apprentice</password>
     <full-name>Apprentice Super User</full-name>
@@ -33,6 +35,7 @@ limitations under the License.
 </record>
 <record>
     <uid>i18nuser</uid>
+    <guid>860B3EE9-6D7C-4296-9639-E6B998074A78</guid>
     <short-name>i18nuser</short-name>
     <password>i18nuser</password>
     <full-name>💣</full-name>
