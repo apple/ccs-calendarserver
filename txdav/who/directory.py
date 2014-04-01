@@ -27,11 +27,13 @@ from twext.who.expression import (
 from twext.who.idirectory import RecordType as BaseRecordType
 from twisted.cred.credentials import UsernamePassword
 from twisted.internet.defer import inlineCallbacks, returnValue
+from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers
+from txdav.who.delegates import RecordType as DelegateRecordType
 from txdav.who.idirectory import (
     RecordType as DAVRecordType, AutoScheduleMode
 )
-from txdav.who.delegates import RecordType as DelegateRecordType
 from txweb2.auth.digest import DigestedCredentials
+
 
 log = Logger()
 
@@ -373,9 +375,35 @@ class CalendarDirectoryRecordMixin(object):
             return False
 
 
-    # FIXME:
+    def serverURI(self):
+        """
+        URL of the server hosting this record. Return None if hosted on this server.
+        """
+        # FIXME:
+        from twistedcaldav.config import config
+
+        if config.Servers.Enabled and getattr(self, "serviceNodeUID", None):
+            return Servers.getServerURIById(self.serviceNodeUID)
+        else:
+            return None
+
+
+    def server(self):
+        """
+        Server hosting this record. Return None if hosted on this server.
+        """
+        # FIXME:
+        from twistedcaldav.config import config
+
+        if config.Servers.Enabled and getattr(self, "serviceNodeUID", None):
+            return Servers.getServerById(self.serviceNodeUID)
+        else:
+            return None
+
+
     def thisServer(self):
-        return True
+        s = self.server()
+        return s.thisServer if s is not None else True
 
 
     def isLoginEnabled(self):
