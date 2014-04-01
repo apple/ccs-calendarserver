@@ -625,7 +625,7 @@ class ImplicitProcessor(object):
                 "automatic": AutoScheduleMode.acceptIfFreeDeclineIfBusy,
             }.get(
                 config.Scheduling.Options.AutoSchedule.DefaultMode,
-                "automatic"
+                AutoScheduleMode.acceptIfFreeDeclineIfBusy
             )
 
         log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - checking for auto-reply with mode: %s" % (self.recipient.cuaddr, self.uid, automode.name,))
