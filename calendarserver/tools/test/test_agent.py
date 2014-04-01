@@ -48,12 +48,12 @@ if RUN_TESTS:
             c.directoryModule = fakeOpenDirectory
 
             fields = {
-                "username" : "foo",
-                "realm" : "/Local/Default",
-                "nonce" : 1,
-                "uri" : "/gateway",
-                "response" : "abc",
-                "algorithm" : "md5",
+                "username": "foo",
+                "realm": "/Local/Default",
+                "nonce": 1,
+                "uri": "/gateway",
+                "response": "abc",
+                "algorithm": "md5",
             }
             creds = FakeCredentials("foo", fields)
 
@@ -98,11 +98,15 @@ if RUN_TESTS:
             realm = AgentRealm("root", ["abc"])
 
             # Valid avatar
-            _ignore_interface, resource, ignored = realm.requestAvatar("abc", None, IResource)
+            _ignore_interface, resource, ignored = realm.requestAvatar(
+                "abc", None, IResource
+            )
             self.assertEquals(resource, "root")
 
             # Not allowed avatar
-            _ignore_interface, resource, ignored = realm.requestAvatar("def", None, IResource)
+            _ignore_interface, resource, ignored = realm.requestAvatar(
+                "def", None, IResource
+            )
             self.assertTrue(isinstance(resource, ForbiddenResource))
 
             # Interface unhandled
@@ -120,6 +124,7 @@ if RUN_TESTS:
             clock = Clock()
 
             self.inactivityReached = False
+
             def becameInactive():
                 self.inactivityReached = True
 
@@ -162,8 +167,9 @@ if RUN_TESTS:
         def returnThisAuthResponse(self, response):
             self.authResponse = response
 
-        def authenticateUserDigest(self, ignored, node, username, challenge, response,
-            method):
+        def authenticateUserDigest(
+            self, ignored, node, username, challenge, response, method
+        ):
             return self.authResponse
 
         ODNSerror = "Error"
