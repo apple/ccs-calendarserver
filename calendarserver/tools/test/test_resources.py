@@ -22,16 +22,16 @@ try:
     from twistedcaldav.test.util import TestCase
     strGUID = "dsAttrTypeStandard:GeneratedUID"
     strName = "dsAttrTypeStandard:RealName"
-    RUN_TESTS = True
+
 except ImportError:
-    RUN_TESTS = False
+    pass
 
-
-
-if RUN_TESTS:
+else:
     class StubDirectoryRecord(object):
 
-        def __init__(self, recordType, guid=None, shortNames=None, fullName=None):
+        def __init__(
+            self, recordType, guid=None, shortNames=None, fullName=None
+        ):
             self.recordType = recordType
             self.guid = guid
             self.shortNames = shortNames
@@ -50,13 +50,16 @@ if RUN_TESTS:
         def createRecords(self, data):
             for recordType, recordData in data:
                 guid = recordData["guid"]
-                record = StubDirectoryRecord(recordType, guid=guid,
-                    shortNames=recordData['shortNames'],
-                    fullName=recordData['fullName'])
+                record = StubDirectoryRecord(
+                    recordType, guid=guid,
+                    shortNames=recordData["shortNames"],
+                    fullName=recordData["fullName"]
+                )
                 self.records[guid] = record
 
-        def updateRecord(self, recordType, guid=None, shortNames=None,
-            fullName=None):
+        def updateRecord(
+            self, recordType, guid=None, shortNames=None, fullName=None
+        ):
             pass
 
 
@@ -91,35 +94,46 @@ if RUN_TESTS:
         def test_migrateResources(self):
 
             data = {
-                    "dsRecTypeStandard:Resources":
-                    [
-                        ['projector1', {
-                            strGUID : '6C99E240-E915-4012-82FA-99E0F638D7EF',
-                            strName : 'Projector 1'
-                        }],
-                        ['projector2', {
-                            strGUID : '7C99E240-E915-4012-82FA-99E0F638D7EF',
-                            strName : 'Projector 2'
-                        }],
-                    ],
-                    "dsRecTypeStandard:Places":
-                    [
-                        ['office1', {
-                            strGUID : '8C99E240-E915-4012-82FA-99E0F638D7EF',
-                            strName : 'Office 1'
-                        }],
-                    ],
-                }
+                "dsRecTypeStandard:Resources":
+                [
+                    ["projector1", {
+                        strGUID: "6C99E240-E915-4012-82FA-99E0F638D7EF",
+                        strName: "Projector 1"
+                    }],
+                    ["projector2", {
+                        strGUID: "7C99E240-E915-4012-82FA-99E0F638D7EF",
+                        strName: "Projector 2"
+                    }],
+                ],
+                "dsRecTypeStandard:Places":
+                [
+                    ["office1", {
+                        strGUID: "8C99E240-E915-4012-82FA-99E0F638D7EF",
+                        strName: "Office 1"
+                    }],
+                ],
+            }
 
             def queryMethod(sourceService, recordType, verbose=False):
                 return data[recordType]
 
             directoryService = StubDirectoryService(StubAugmentService())
-            yield migrateResources(None, directoryService, queryMethod=queryMethod)
+            yield migrateResources(
+                None, directoryService, queryMethod=queryMethod
+            )
             for guid, recordType in (
-                ('6C99E240-E915-4012-82FA-99E0F638D7EF', DirectoryService.recordType_resources),
-                ('7C99E240-E915-4012-82FA-99E0F638D7EF', DirectoryService.recordType_resources),
-                ('8C99E240-E915-4012-82FA-99E0F638D7EF', DirectoryService.recordType_locations),
+                (
+                    "6C99E240-E915-4012-82FA-99E0F638D7EF",
+                    DirectoryService.recordType_resources
+                ),
+                (
+                    "7C99E240-E915-4012-82FA-99E0F638D7EF",
+                    DirectoryService.recordType_resources
+                ),
+                (
+                    "8C99E240-E915-4012-82FA-99E0F638D7EF",
+                    DirectoryService.recordType_locations
+                ),
             ):
                 self.assertTrue(guid in directoryService.records)
                 record = directoryService.records[guid]
@@ -131,26 +145,43 @@ if RUN_TESTS:
             # Add more to OD and re-migrate
             #
             data["dsRecTypeStandard:Resources"].append(
-                ['projector3', {
-                    strGUID : '9C99E240-E915-4012-82FA-99E0F638D7EF',
-                    strName : 'Projector 3'
+                ["projector3", {
+                    strGUID: "9C99E240-E915-4012-82FA-99E0F638D7EF",
+                    strName: "Projector 3"
                 }]
             )
             data["dsRecTypeStandard:Places"].append(
-                ['office2', {
-                    strGUID : 'AC99E240-E915-4012-82FA-99E0F638D7EF',
-                    strName : 'Office 2'
+                ["office2", {
+                    strGUID: "AC99E240-E915-4012-82FA-99E0F638D7EF",
+                    strName: "Office 2"
                 }]
             )
 
-            yield migrateResources(None, directoryService, queryMethod=queryMethod)
+            yield migrateResources(
+                None, directoryService, queryMethod=queryMethod
+            )
 
             for guid, recordType in (
-                ('6C99E240-E915-4012-82FA-99E0F638D7EF', DirectoryService.recordType_resources),
-                ('7C99E240-E915-4012-82FA-99E0F638D7EF', DirectoryService.recordType_resources),
-                ('9C99E240-E915-4012-82FA-99E0F638D7EF', DirectoryService.recordType_resources),
-                ('8C99E240-E915-4012-82FA-99E0F638D7EF', DirectoryService.recordType_locations),
-                ('AC99E240-E915-4012-82FA-99E0F638D7EF', DirectoryService.recordType_locations),
+                (
+                    "6C99E240-E915-4012-82FA-99E0F638D7EF",
+                    DirectoryService.recordType_resources
+                ),
+                (
+                    "7C99E240-E915-4012-82FA-99E0F638D7EF",
+                    DirectoryService.recordType_resources
+                ),
+                (
+                    "9C99E240-E915-4012-82FA-99E0F638D7EF",
+                    DirectoryService.recordType_resources
+                ),
+                (
+                    "8C99E240-E915-4012-82FA-99E0F638D7EF",
+                    DirectoryService.recordType_locations
+                ),
+                (
+                    "AC99E240-E915-4012-82FA-99E0F638D7EF",
+                    DirectoryService.recordType_locations
+                ),
             ):
                 self.assertTrue(guid in directoryService.records)
                 record = directoryService.records[guid]
