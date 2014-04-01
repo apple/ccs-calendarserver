@@ -69,6 +69,6 @@ limitations under the License.
     <auto-schedule-mode>automatic</auto-schedule-mode>
     <enable-addressbook>true</enable-addressbook>
     <enable-calendar>true</enable-calendar>
-    <auto-accept-group>group01</auto-accept-group>
+    <auto-accept-group>97C1351D-35E7-41E9-8F6F-72DDB9136001</auto-accept-group>
 </record>
 </augments>

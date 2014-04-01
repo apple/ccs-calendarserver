@@ -224,7 +224,7 @@ augments = (
     # resource11
     (RESOURCEGUIDS % 11, {
         "auto-schedule-mode": "automatic",
-        "auto-accept-group": "group01",
+        "auto-accept-group": GROUPGUIDS % 1,
         "enable-calendar": "true",
         "enable-addressbook": "true",
     }),
