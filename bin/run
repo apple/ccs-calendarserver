@@ -230,7 +230,7 @@ run_main () {
   develop;
 
   if "${kill}" || "${restart}"; then
-    pidfile="$("${wd}/bin/calendarserver_config" "PIDFile")";
+    pidfile="$("${wd}/bin/calendarserver_config" "-f" "${config}" "PIDFile")";
     # Split key and value on "=" and just grab the value
     IFS="="; set ${pidfile}; pidfile="$2"; unset IFS;
     if [ ! -r "${pidfile}" ]; then
