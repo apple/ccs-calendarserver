@@ -24,6 +24,13 @@ limitations under the License.
 
 """
 
+# The uids and guids for CDT test accounts are the same
+# The short name is of the form userNN
+USERGUIDS = "708C5C91-082E-4DEB-ADD3-7CFB19ADF%03d"
+GROUPGUIDS = "97C1351D-35E7-41E9-8F6F-72DDB9136%03d"
+LOCATIONGUIDS = "34EB6DBA-B94C-4F82-8FEF-EB2C19258%03d"
+RESOURCEGUIDS = "9DD5F2A5-DAA7-4CEB-825C-2EEB458C1%03d"
+PUBLICGUIDS = "42DCA7BD-588A-458F-A1B6-1F778A85DF%02d"
 
 # accounts-test.xml
 
@@ -38,7 +45,7 @@ for uid, fullName, guid in (
     ("i18nuser", u"\ud83d\udca3".encode("utf-8"), "860B3EE9-6D7C-4296-9639-E6B998074A78"),
 ):
     out.write("""<record>
-    <uid>{uid}</uid>
+    <uid>{guid}</uid>
     <guid>{guid}</guid>
     <short-name>{uid}</short-name>
     <password>{uid}</password>
@@ -51,42 +58,41 @@ for uid, fullName, guid in (
 for i in xrange(1, 101):
     out.write("""<record type="user">
     <short-name>user%02d</short-name>
-    <uid>user%02d</uid>
-    <guid>708C5C91-082E-4DEB-ADD3-7CFB19ADF%03d</guid>
+    <uid>%s</uid>
+    <guid>%s</guid>
     <password>user%02d</password>
     <full-name>User %02d</full-name>
     <email>user%02d@example.com</email>
 </record>
-""" % (i, i, i, i, i, i))
+""" % (i, USERGUIDS % i, USERGUIDS % i, i, i, i))
 
 # public01-10
 for i in xrange(1, 11):
     out.write("""<record type="user">
     <short-name>public%02d</short-name>
-    <uid>public%02d</uid>
-    <guid>42DCA7BD-588A-458F-A1B6-1F778A85DF%02d</guid>
+    <uid>%s</uid>
+    <guid>%s</guid>
     <password>public%02d</password>
     <full-name>Public %02d</full-name>
     <email>public%02d@example.com</email>
 </record>
-""" % (i, i, i, i, i, i))
+""" % (i, PUBLICGUIDS % i, PUBLICGUIDS % i, i, i, i))
 
 # group01-100
 members = {
-    "group01": ("user01",),
-    "group02": ("user06", "user07"),
-    "group03": ("user08", "user09"),
-    "group04": ("group02", "group03", "user10"),
-    "group05": ("group06", "user20"),
-    "group06": ("user21",),
-    "group07": ("user22", "user23", "user24"),
-    "disabledgroup": ("user01",),
+    GROUPGUIDS % 1: (USERGUIDS % 1,),
+    GROUPGUIDS % 2: (USERGUIDS % 6, USERGUIDS % 7),
+    GROUPGUIDS % 3: (USERGUIDS % 8, USERGUIDS % 9),
+    GROUPGUIDS % 4: (GROUPGUIDS % 2, GROUPGUIDS % 3, USERGUIDS % 10),
+    GROUPGUIDS % 5: (GROUPGUIDS % 6, USERGUIDS % 20),
+    GROUPGUIDS % 6: (USERGUIDS % 21,),
+    GROUPGUIDS % 7: (USERGUIDS % 22, USERGUIDS % 23, USERGUIDS % 24),
 }
 
 for i in xrange(1, 101):
 
     memberElements = []
-    groupUID = "group%02d" % i
+    groupUID = GROUPGUIDS % i
     if groupUID in members:
         for uid in members[groupUID]:
             memberElements.append("<member-uid>{}</member-uid>".format(uid))
@@ -96,13 +102,13 @@ for i in xrange(1, 101):
 
     out.write("""<record type="group">
     <short-name>group%02d</short-name>
-    <uid>group%02d</uid>
-    <guid>97C1351D-35E7-41E9-8F6F-72DDB9136%03d</guid>
+    <uid>%s</uid>
+    <guid>%s</guid>
     <full-name>Group %02d</full-name>
     <email>group%02d@example.com</email>
     %s
 </record>
-""" % (i, i, i, i, i, memberString))
+""" % (i, GROUPGUIDS % i, GROUPGUIDS % i, i, i, memberString))
 
 out.write("</directory>\n")
 out.close()
@@ -146,21 +152,21 @@ out.write("""
 for i in xrange(1, 101):
     out.write("""<record type="location">
     <short-name>location%02d</short-name>
-    <uid>location%02d</uid>
-    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258%03d</guid>
+    <uid>%s</uid>
+    <guid>%s</guid>
     <full-name>Location %02d</full-name>
 </record>
-""" % (i, i, i, i))
+""" % (i, LOCATIONGUIDS % i, LOCATIONGUIDS % i, i))
 
 
 for i in xrange(1, 101):
     out.write("""<record type="resource">
     <short-name>resource%02d</short-name>
-    <uid>resource%02d</uid>
-    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1%03d</guid>
+    <uid>%s</uid>
+    <guid>%s</guid>
     <full-name>Resource %02d</full-name>
 </record>
-""" % (i, i, i, i))
+""" % (i, RESOURCEGUIDS % i, RESOURCEGUIDS % i, i))
 
 out.write("</directory>\n")
 out.close()
@@ -173,42 +179,50 @@ out.write(prefix)
 out.write("<augments>\n")
 
 augments = (
-    ("resource04", {
+    # resource04
+    (RESOURCEGUIDS % 4, {
         "auto-schedule-mode": "none",
         "enable-calendar": "true",
         "enable-addressbook": "true",
     }),
-    ("resource05", {
+    # resource05
+    (RESOURCEGUIDS % 5, {
         "auto-schedule-mode": "none",
         "enable-calendar": "true",
         "enable-addressbook": "true",
     }),
-    ("resource06", {
+    # resource06
+    (RESOURCEGUIDS % 6, {
         "auto-schedule-mode": "accept-always",
         "enable-calendar": "true",
         "enable-addressbook": "true",
     }),
-    ("resource07", {
+    # resource07
+    (RESOURCEGUIDS % 7, {
         "auto-schedule-mode": "decline-always",
         "enable-calendar": "true",
         "enable-addressbook": "true",
     }),
-    ("resource08", {
+    # resource08
+    (RESOURCEGUIDS % 8, {
         "auto-schedule-mode": "accept-if-free",
         "enable-calendar": "true",
         "enable-addressbook": "true",
     }),
-    ("resource09", {
+    # resource09
+    (RESOURCEGUIDS % 9, {
         "auto-schedule-mode": "decline-if-busy",
         "enable-calendar": "true",
         "enable-addressbook": "true",
     }),
-    ("resource10", {
+    # resource10
+    (RESOURCEGUIDS % 10, {
         "auto-schedule-mode": "automatic",
         "enable-calendar": "true",
         "enable-addressbook": "true",
     }),
-    ("resource11", {
+    # resource11
+    (RESOURCEGUIDS % 11, {
         "auto-schedule-mode": "automatic",
         "auto-accept-group": "group01",
         "enable-calendar": "true",
@@ -246,45 +260,45 @@ out.write(prefix)
 out.write("<proxies>\n")
 
 proxies = (
-    ("resource01", {
-        "proxies": ("user01",),
-        "read-only-proxies": ("user03",),
+    ("9DD5F2A5-DAA7-4CEB-825C-2EEB458C1001", {
+        "proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF001",),
+        "read-only-proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF003",),
     }),
-    ("resource02", {
-        "proxies": ("user01",),
-        "read-only-proxies": ("user03",),
+    ("9DD5F2A5-DAA7-4CEB-825C-2EEB458C1002", {
+        "proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF001",),
+        "read-only-proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF003",),
     }),
-    ("resource03", {
-        "proxies": ("user01",),
-        "read-only-proxies": ("user03",),
+    ("9DD5F2A5-DAA7-4CEB-825C-2EEB458C1003", {
+        "proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF001",),
+        "read-only-proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF003",),
     }),
-    ("resource04", {
-        "proxies": ("user01",),
-        "read-only-proxies": ("user03",),
+    ("9DD5F2A5-DAA7-4CEB-825C-2EEB458C1004", {
+        "proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF001",),
+        "read-only-proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF003",),
     }),
-    ("resource05", {
-        "proxies": ("user01",),
-        "read-only-proxies": ("user03",),
+    ("9DD5F2A5-DAA7-4CEB-825C-2EEB458C1005", {
+        "proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF001",),
+        "read-only-proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF003",),
     }),
-    ("resource06", {
-        "proxies": ("user01",),
-        "read-only-proxies": ("user03",),
+    ("9DD5F2A5-DAA7-4CEB-825C-2EEB458C1006", {
+        "proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF001",),
+        "read-only-proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF003",),
     }),
-    ("resource07", {
-        "proxies": ("user01",),
-        "read-only-proxies": ("user03",),
+    ("9DD5F2A5-DAA7-4CEB-825C-2EEB458C1007", {
+        "proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF001",),
+        "read-only-proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF003",),
     }),
-    ("resource08", {
-        "proxies": ("user01",),
-        "read-only-proxies": ("user03",),
+    ("9DD5F2A5-DAA7-4CEB-825C-2EEB458C1008", {
+        "proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF001",),
+        "read-only-proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF003",),
     }),
-    ("resource09", {
-        "proxies": ("user01",),
-        "read-only-proxies": ("user03",),
+    ("9DD5F2A5-DAA7-4CEB-825C-2EEB458C1009", {
+        "proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF001",),
+        "read-only-proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF003",),
     }),
-    ("resource10", {
-        "proxies": ("user01",),
-        "read-only-proxies": ("user03",),
+    ("9DD5F2A5-DAA7-4CEB-825C-2EEB458C1010", {
+        "proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF001",),
+        "read-only-proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF003",),
     }),
 )
 

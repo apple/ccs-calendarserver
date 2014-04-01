@@ -18,93 +18,93 @@ limitations under the License.
 
 <proxies>
 <record>
-    <guid>resource01</guid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1001</guid>
     <proxies>
-    <member>user01</member>
+    <member>708C5C91-082E-4DEB-ADD3-7CFB19ADF001</member>
     </proxies>
     <read-only-proxies>
-    <member>user03</member>
+    <member>708C5C91-082E-4DEB-ADD3-7CFB19ADF003</member>
     </read-only-proxies>
 </record>
 <record>
-    <guid>resource02</guid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1002</guid>
     <proxies>
-    <member>user01</member>
+    <member>708C5C91-082E-4DEB-ADD3-7CFB19ADF001</member>
     </proxies>
     <read-only-proxies>
-    <member>user03</member>
+    <member>708C5C91-082E-4DEB-ADD3-7CFB19ADF003</member>
     </read-only-proxies>
 </record>
 <record>
-    <guid>resource03</guid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1003</guid>
     <proxies>
-    <member>user01</member>
+    <member>708C5C91-082E-4DEB-ADD3-7CFB19ADF001</member>
     </proxies>
     <read-only-proxies>
-    <member>user03</member>
+    <member>708C5C91-082E-4DEB-ADD3-7CFB19ADF003</member>
     </read-only-proxies>
 </record>
 <record>
-    <guid>resource04</guid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1004</guid>
     <proxies>
-    <member>user01</member>
+    <member>708C5C91-082E-4DEB-ADD3-7CFB19ADF001</member>
     </proxies>
     <read-only-proxies>
-    <member>user03</member>
+    <member>708C5C91-082E-4DEB-ADD3-7CFB19ADF003</member>
     </read-only-proxies>
 </record>
 <record>
-    <guid>resource05</guid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1005</guid>
     <proxies>
-    <member>user01</member>
+    <member>708C5C91-082E-4DEB-ADD3-7CFB19ADF001</member>
     </proxies>
     <read-only-proxies>
-    <member>user03</member>
+    <member>708C5C91-082E-4DEB-ADD3-7CFB19ADF003</member>
     </read-only-proxies>
 </record>
 <record>
-    <guid>resource06</guid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1006</guid>
     <proxies>
-    <member>user01</member>
+    <member>708C5C91-082E-4DEB-ADD3-7CFB19ADF001</member>
     </proxies>
     <read-only-proxies>
-    <member>user03</member>
+    <member>708C5C91-082E-4DEB-ADD3-7CFB19ADF003</member>
     </read-only-proxies>
 </record>
 <record>
-    <guid>resource07</guid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1007</guid>
     <proxies>
-    <member>user01</member>
+    <member>708C5C91-082E-4DEB-ADD3-7CFB19ADF001</member>
     </proxies>
     <read-only-proxies>
-    <member>user03</member>
+    <member>708C5C91-082E-4DEB-ADD3-7CFB19ADF003</member>
     </read-only-proxies>
 </record>
 <record>
-    <guid>resource08</guid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1008</guid>
     <proxies>
-    <member>user01</member>
+    <member>708C5C91-082E-4DEB-ADD3-7CFB19ADF001</member>
     </proxies>
     <read-only-proxies>
-    <member>user03</member>
+    <member>708C5C91-082E-4DEB-ADD3-7CFB19ADF003</member>
     </read-only-proxies>
 </record>
 <record>
-    <guid>resource09</guid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1009</guid>
     <proxies>
-    <member>user01</member>
+    <member>708C5C91-082E-4DEB-ADD3-7CFB19ADF001</member>
     </proxies>
     <read-only-proxies>
-    <member>user03</member>
+    <member>708C5C91-082E-4DEB-ADD3-7CFB19ADF003</member>
     </read-only-proxies>
 </record>
 <record>
-    <guid>resource10</guid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1010</guid>
     <proxies>
-    <member>user01</member>
+    <member>708C5C91-082E-4DEB-ADD3-7CFB19ADF001</member>
     </proxies>
     <read-only-proxies>
-    <member>user03</member>
+    <member>708C5C91-082E-4DEB-ADD3-7CFB19ADF003</member>
     </read-only-proxies>
 </record>
 </proxies>

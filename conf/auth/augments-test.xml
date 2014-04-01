@@ -23,49 +23,49 @@ limitations under the License.
     <enable-addressbook>true</enable-addressbook>
 </record>
 <record>
-    <uid>resource04</uid>
+    <uid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1004</uid>
     <auto-schedule-mode>none</auto-schedule-mode>
     <enable-addressbook>true</enable-addressbook>
     <enable-calendar>true</enable-calendar>
 </record>
 <record>
-    <uid>resource05</uid>
+    <uid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1005</uid>
     <auto-schedule-mode>none</auto-schedule-mode>
     <enable-addressbook>true</enable-addressbook>
     <enable-calendar>true</enable-calendar>
 </record>
 <record>
-    <uid>resource06</uid>
+    <uid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1006</uid>
     <auto-schedule-mode>accept-always</auto-schedule-mode>
     <enable-addressbook>true</enable-addressbook>
     <enable-calendar>true</enable-calendar>
 </record>
 <record>
-    <uid>resource07</uid>
+    <uid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1007</uid>
     <auto-schedule-mode>decline-always</auto-schedule-mode>
     <enable-addressbook>true</enable-addressbook>
     <enable-calendar>true</enable-calendar>
 </record>
 <record>
-    <uid>resource08</uid>
+    <uid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1008</uid>
     <auto-schedule-mode>accept-if-free</auto-schedule-mode>
     <enable-addressbook>true</enable-addressbook>
     <enable-calendar>true</enable-calendar>
 </record>
 <record>
-    <uid>resource09</uid>
+    <uid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1009</uid>
     <auto-schedule-mode>decline-if-busy</auto-schedule-mode>
     <enable-addressbook>true</enable-addressbook>
     <enable-calendar>true</enable-calendar>
 </record>
 <record>
-    <uid>resource10</uid>
+    <uid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1010</uid>
     <auto-schedule-mode>automatic</auto-schedule-mode>
     <enable-addressbook>true</enable-addressbook>
     <enable-calendar>true</enable-calendar>
 </record>
 <record>
-    <uid>resource11</uid>
+    <uid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1011</uid>
     <auto-schedule-mode>automatic</auto-schedule-mode>
     <enable-addressbook>true</enable-addressbook>
     <enable-calendar>true</enable-calendar>
