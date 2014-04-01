@@ -34,7 +34,6 @@ from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
 from twistedcaldav.directory.directory import DirectoryService, DirectoryError
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 
-from calendarserver.platform.darwin.od import dsattributes
 from calendarserver.tools.util import loadConfig, setupMemcached, checkDirectory
 from txdav.who.util import directoryFromConfig
 
@@ -188,8 +187,8 @@ def queryForType(sourceService, recordType, verbose=False):
     """
 
     attrs = [
-        dsattributes.kDS1AttrGeneratedUID,
-        dsattributes.kDS1AttrDistinguishedName,
+        "dsAttrTypeStandard:GeneratedUID",
+        "dsAttrTypeStandard:RealName",
     ]
 
     if verbose:
@@ -216,13 +215,13 @@ def migrateResources(sourceService, destService, autoSchedules=None,
     augmentRecords = []
 
     for recordTypeOD, recordType in (
-        (dsattributes.kDSStdRecordTypeResources, DirectoryService.recordType_resources),
-        (dsattributes.kDSStdRecordTypePlaces, DirectoryService.recordType_locations),
+        ("dsRecTypeStandard:Resources", DirectoryService.recordType_resources),
+        ("dsRecTypeStandard:Places", DirectoryService.recordType_locations),
     ):
         data = queryMethod(sourceService, recordTypeOD, verbose=verbose)
         for recordName, val in data:
-            guid = val.get(dsattributes.kDS1AttrGeneratedUID, None)
-            fullName = val.get(dsattributes.kDS1AttrDistinguishedName, None)
+            guid = val.get("dsAttrTypeStandard:GeneratedUID", None)
+            fullName = val.get("dsAttrTypeStandard:RealName", None)
             if guid and fullName:
                 if not recordName:
                     recordName = guid
