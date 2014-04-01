@@ -358,7 +358,7 @@
 		<!-- guid for admin user -->
 		<substitution>
 			<key>$useradminguid:</key>
-			<value>admin</value>
+			<value>0C8BDE62-E600-4696-83D3-8B5ECABDFD2E</value>
 		</substitution>
 		<!-- password for admin user -->
 		<substitution>
@@ -384,7 +384,7 @@
 		<!-- guid for apprentice user -->
 		<substitution>
 			<key>$userapprenticeguid:</key>
-			<value>apprentice</value>
+			<value>29B6C503-11DF-43EC-8CCA-40C7003149CE</value>
 		</substitution>
 		<!-- password for admin user -->
 		<substitution>
@@ -423,7 +423,7 @@
 			<!-- user guid -->
 			<substitution>
 				<key>$userguid%d:</key>
-				<value>user%02d</value>
+				<value>708C5C91-082E-4DEB-ADD3-7CFB19ADF%03d</value>
 			</substitution>
 			<!-- user name -->
 			<substitution>
@@ -563,7 +563,7 @@
 			<!-- user guid -->
 			<substitution>
 				<key>$publicuserguid%d:</key>
-				<value>public%02d</value>
+				<value>42DCA7BD-588A-458F-A1B6-1F778A85DF%02d</value>
 			</substitution>
 			<!-- user name -->
 			<substitution>
@@ -622,7 +622,7 @@
 			<!-- resource guid-->
 			<substitution>
 				<key>$resourceguid%d:</key>
-				<value>resource%02d</value>
+				<value>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1%03d</value>
 			</substitution>
 			<!-- resource name-->
 			<substitution>
@@ -677,7 +677,7 @@
 			<!-- location guid-->
 			<substitution>
 				<key>$locationguid%d:</key>
-				<value>location%02d</value>
+				<value>34EB6DBA-B94C-4F82-8FEF-EB2C19258%03d</value>
 			</substitution>
 			<!-- location name-->
 			<substitution>
@@ -733,7 +733,7 @@
 			<!-- group guid-->
 			<substitution>
 				<key>$groupguid%d:</key>
-				<value>group%02d</value>
+				<value>97C1351D-35E7-41E9-8F6F-72DDB9136%03d</value>
 			</substitution>
 			<!-- group name-->
 			<substitution>
@@ -767,12 +767,12 @@
 		<!-- group guid-->
 		<substitution>
 			<key>$i18nguid:</key>
-			<value>i18nuser</value>
+			<value>860B3EE9-6D7C-4296-9639-E6B998074A78</value>
 		</substitution>
 		<!-- group name-->
 		<substitution>
 			<key>$i18nname:</key>
-			<value>まだ</value>
+			<value>💣</value>
 		</substitution>
 		<!-- password -->
 		<substitution>
