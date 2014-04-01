@@ -179,12 +179,6 @@ out.write(prefix)
 out.write("<augments>\n")
 
 augments = (
-    # resource04
-    (RESOURCEGUIDS % 4, {
-        "auto-schedule-mode": "none",
-        "enable-calendar": "true",
-        "enable-addressbook": "true",
-    }),
     # resource05
     (RESOURCEGUIDS % 5, {
         "auto-schedule-mode": "none",
@@ -223,7 +217,7 @@ augments = (
     }),
     # resource11
     (RESOURCEGUIDS % 11, {
-        "auto-schedule-mode": "automatic",
+        "auto-schedule-mode": "decline-always",
         "auto-accept-group": GROUPGUIDS % 1,
         "enable-calendar": "true",
         "enable-addressbook": "true",
@@ -234,6 +228,22 @@ out.write("""<record>
     <uid>Default</uid>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
+</record>
+""")
+
+out.write("""<record>
+    <uid>Default-Location</uid>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <auto-schedule-mode>automatic</auto-schedule-mode>
+</record>
+""")
+
+out.write("""<record>
+    <uid>Default-Resource</uid>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <auto-schedule-mode>automatic</auto-schedule-mode>
 </record>
 """)
 

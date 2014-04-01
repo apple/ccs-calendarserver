@@ -23,10 +23,16 @@ limitations under the License.
     <enable-addressbook>true</enable-addressbook>
 </record>
 <record>
-    <uid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1004</uid>
-    <auto-schedule-mode>none</auto-schedule-mode>
-    <enable-addressbook>true</enable-addressbook>
+    <uid>Default-Location</uid>
     <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <auto-schedule-mode>automatic</auto-schedule-mode>
+</record>
+<record>
+    <uid>Default-Resource</uid>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <auto-schedule-mode>automatic</auto-schedule-mode>
 </record>
 <record>
     <uid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1005</uid>
@@ -66,7 +72,7 @@ limitations under the License.
 </record>
 <record>
     <uid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1011</uid>
-    <auto-schedule-mode>automatic</auto-schedule-mode>
+    <auto-schedule-mode>decline-always</auto-schedule-mode>
     <enable-addressbook>true</enable-addressbook>
     <enable-calendar>true</enable-calendar>
     <auto-accept-group>97C1351D-35E7-41E9-8F6F-72DDB9136001</auto-accept-group>
