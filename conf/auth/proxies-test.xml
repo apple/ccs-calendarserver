@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <!--
-Copyright (c) 2009-2014 Apple Inc. All rights reserved.
+Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,25 +16,95 @@ See the License for the specific language governing permissions and
 limitations under the License.
  -->
 
-<!DOCTYPE proxies SYSTEM "proxies.dtd">
-
 <proxies>
-  <record repeat="10">
-    <guid>resource%02d</guid>
+<record>
+    <guid>resource01</guid>
     <proxies>
-      <member>user01</member>
+    <member>user01</member>
     </proxies>
     <read-only-proxies>
-      <member>user03</member>
+    <member>user03</member>
     </read-only-proxies>
-  </record>
-  <record>
-    <guid>delegatedroom</guid>
+</record>
+<record>
+    <guid>resource02</guid>
     <proxies>
-      <member>group05</member>
+    <member>user01</member>
     </proxies>
     <read-only-proxies>
-      <member>group07</member>
+    <member>user03</member>
     </read-only-proxies>
-  </record>
+</record>
+<record>
+    <guid>resource03</guid>
+    <proxies>
+    <member>user01</member>
+    </proxies>
+    <read-only-proxies>
+    <member>user03</member>
+    </read-only-proxies>
+</record>
+<record>
+    <guid>resource04</guid>
+    <proxies>
+    <member>user01</member>
+    </proxies>
+    <read-only-proxies>
+    <member>user03</member>
+    </read-only-proxies>
+</record>
+<record>
+    <guid>resource05</guid>
+    <proxies>
+    <member>user01</member>
+    </proxies>
+    <read-only-proxies>
+    <member>user03</member>
+    </read-only-proxies>
+</record>
+<record>
+    <guid>resource06</guid>
+    <proxies>
+    <member>user01</member>
+    </proxies>
+    <read-only-proxies>
+    <member>user03</member>
+    </read-only-proxies>
+</record>
+<record>
+    <guid>resource07</guid>
+    <proxies>
+    <member>user01</member>
+    </proxies>
+    <read-only-proxies>
+    <member>user03</member>
+    </read-only-proxies>
+</record>
+<record>
+    <guid>resource08</guid>
+    <proxies>
+    <member>user01</member>
+    </proxies>
+    <read-only-proxies>
+    <member>user03</member>
+    </read-only-proxies>
+</record>
+<record>
+    <guid>resource09</guid>
+    <proxies>
+    <member>user01</member>
+    </proxies>
+    <read-only-proxies>
+    <member>user03</member>
+    </read-only-proxies>
+</record>
+<record>
+    <guid>resource10</guid>
+    <proxies>
+    <member>user01</member>
+    </proxies>
+    <read-only-proxies>
+    <member>user03</member>
+    </read-only-proxies>
+</record>
 </proxies>

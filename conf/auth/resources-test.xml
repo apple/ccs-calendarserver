@@ -1,261 +1,1247 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+Copyright (c) 2006-2014 Apple Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+ -->
+
 <directory realm="Test Realm">
-  <record type="location">
-    <short-name>fantastic</short-name>
-    <uid>4D66A20A-1437-437D-8069-2F14E8322234</uid>
-    <full-name>Fantastic Conference Room</full-name>
-    <associatedAddress>63A2F949-2D8D-4C8D-B8A5-DCF2A94610F3</associatedAddress>
-  </record>
-  <record type="location">
-    <short-name>jupiter</short-name>
-    <uid>jupiter</uid>
-    <full-name>Jupiter Conference Room, Building 2, 1st Floor</full-name>
-  </record>
-  <record type="location">
-    <short-name>uranus</short-name>
-    <uid>uranus</uid>
-    <full-name>Uranus Conference Room, Building 3, 1st Floor</full-name>
-  </record>
-  <record type="location">
-    <short-name>morgensroom</short-name>
-    <uid>03DFF660-8BCC-4198-8588-DD77F776F518</uid>
-    <full-name>Morgen's Room</full-name>
-  </record>
-  <record type="location">
-    <short-name>mercury</short-name>
-    <uid>mercury</uid>
-    <full-name>Mercury Conference Room, Building 1, 2nd Floor</full-name>
-  </record>
-  <record type="location">
-    <short-name>location09</short-name>
-    <uid>location09</uid>
-    <full-name>Room 09</full-name>
-  </record>
-  <record type="location">
-    <short-name>location08</short-name>
-    <uid>location08</uid>
-    <full-name>Room 08</full-name>
-  </record>
-  <record type="location">
-    <short-name>location07</short-name>
-    <uid>location07</uid>
-    <full-name>Room 07</full-name>
-  </record>
-  <record type="location">
-    <short-name>location06</short-name>
-    <uid>location06</uid>
-    <full-name>Room 06</full-name>
-  </record>
-  <record type="location">
-    <short-name>location05</short-name>
-    <uid>location05</uid>
-    <full-name>Room 05</full-name>
-  </record>
-  <record type="location">
-    <short-name>location04</short-name>
-    <uid>location04</uid>
-    <full-name>Room 04</full-name>
-  </record>
-  <record type="location">
-    <short-name>location03</short-name>
-    <uid>location03</uid>
-    <full-name>Room 03</full-name>
-  </record>
-  <record type="location">
-    <short-name>location02</short-name>
-    <uid>location02</uid>
-    <full-name>Room 02</full-name>
-  </record>
-  <record type="location">
-    <short-name>location01</short-name>
-    <uid>location01</uid>
-    <full-name>Room 01</full-name>
-  </record>
-  <record type="location">
-    <short-name>delegatedroom</short-name>
-    <uid>delegatedroom</uid>
-    <full-name>Delegated Conference Room</full-name>
-  </record>
-  <record type="location">
-    <short-name>mars</short-name>
-    <uid>redplanet</uid>
-    <full-name>Mars Conference Room, Building 1, 1st Floor</full-name>
-  </record>
-  <record type="location">
-    <short-name>sharissroom</short-name>
-    <uid>80689D41-DAF8-4189-909C-DB017B271892</uid>
-    <full-name>Shari's Room</full-name>
-    <associatedAddress>6F9EE33B-78F6-481B-9289-3D0812FF0D64</associatedAddress>
-  </record>
-  <record type="location">
-    <short-name>pluto</short-name>
-    <uid>pluto</uid>
-    <full-name>Pluto Conference Room, Building 2, 1st Floor</full-name>
-  </record>
-  <record type="location">
-    <short-name>saturn</short-name>
-    <uid>saturn</uid>
-    <full-name>Saturn Conference Room, Building 2, 1st Floor</full-name>
-  </record>
-  <record type="location">
-    <short-name>location10</short-name>
-    <uid>location10</uid>
-    <full-name>Room 10</full-name>
-  </record>
+
   <record type="location">
     <short-name>pretend</short-name>
-    <uid>06E3BDCB-9C19-485A-B14E-F146A80ADDC6</uid>
+    <uid>pretend</uid>
     <full-name>Pretend Conference Room</full-name>
-    <associatedAddress>76E7ECA6-08BC-4AE7-930D-F2E7453993A5</associatedAddress>
-  </record>
-  <record type="location">
-    <short-name>neptune</short-name>
-    <uid>neptune</uid>
-    <full-name>Neptune Conference Room, Building 2, 1st Floor</full-name>
-  </record>
-  <record type="location">
-    <short-name>Earth</short-name>
-    <uid>Earth</uid>
-    <full-name>Earth Conference Room, Building 1, 1st Floor</full-name>
-  </record>
-  <record type="location">
-    <short-name>venus</short-name>
-    <uid>venus</uid>
-    <full-name>Venus Conference Room, Building 1, 2nd Floor</full-name>
-  </record>
-  <record type="resource">
-    <short-name>sharisotherresource</short-name>
-    <uid>CCE95217-A57B-481A-AC3D-FEC9AB6CE3A9</uid>
-    <full-name>Shari's Other Resource</full-name>
-  </record>
-  <record type="resource">
-    <short-name>resource15</short-name>
-    <uid>resource15</uid>
-    <full-name>Resource 15</full-name>
-  </record>
-  <record type="resource">
-    <short-name>resource14</short-name>
-    <uid>resource14</uid>
-    <full-name>Resource 14</full-name>
-  </record>
-  <record type="resource">
-    <short-name>resource17</short-name>
-    <uid>resource17</uid>
-    <full-name>Resource 17</full-name>
-  </record>
-  <record type="resource">
-    <short-name>resource16</short-name>
-    <uid>resource16</uid>
-    <full-name>Resource 16</full-name>
-  </record>
-  <record type="resource">
-    <short-name>resource11</short-name>
-    <uid>resource11</uid>
-    <full-name>Resource 11</full-name>
-  </record>
-  <record type="resource">
-    <short-name>resource10</short-name>
-    <uid>resource10</uid>
-    <full-name>Resource 10</full-name>
-  </record>
-  <record type="resource">
-    <short-name>resource13</short-name>
-    <uid>resource13</uid>
-    <full-name>Resource 13</full-name>
-  </record>
-  <record type="resource">
-    <short-name>resource12</short-name>
-    <uid>resource12</uid>
-    <full-name>Resource 12</full-name>
-  </record>
-  <record type="resource">
-    <short-name>resource19</short-name>
-    <uid>resource19</uid>
-    <full-name>Resource 19</full-name>
-  </record>
-  <record type="resource">
-    <short-name>resource18</short-name>
-    <uid>resource18</uid>
-    <full-name>Resource 18</full-name>
-  </record>
-  <record type="resource">
-    <short-name>sharisresource</short-name>
-    <uid>C38BEE7A-36EE-478C-9DCB-CBF4612AFE65</uid>
-    <full-name>Shari's Resource</full-name>
-  </record>
-  <record type="resource">
-    <short-name>resource20</short-name>
-    <uid>resource20</uid>
-    <full-name>Resource 20</full-name>
-  </record>
-  <record type="resource">
-    <short-name>resource06</short-name>
-    <uid>resource06</uid>
-    <full-name>Resource 06</full-name>
-  </record>
-  <record type="resource">
-    <short-name>resource07</short-name>
-    <uid>resource07</uid>
-    <full-name>Resource 07</full-name>
-  </record>
-  <record type="resource">
-    <short-name>resource04</short-name>
-    <uid>resource04</uid>
-    <full-name>Resource 04</full-name>
-  </record>
-  <record type="resource">
-    <short-name>resource05</short-name>
-    <uid>resource05</uid>
-    <full-name>Resource 05</full-name>
-  </record>
-  <record type="resource">
-    <short-name>resource02</short-name>
-    <uid>resource02</uid>
-    <full-name>Resource 02</full-name>
-  </record>
-  <record type="resource">
-    <short-name>resource03</short-name>
-    <uid>resource03</uid>
-    <full-name>Resource 03</full-name>
-  </record>
-  <record type="resource">
-    <short-name>resource01</short-name>
-    <uid>resource01</uid>
-    <full-name>Resource 01</full-name>
-  </record>
-  <record type="resource">
-    <short-name>sharisotherresource1</short-name>
-    <uid>0CE0BF31-5F9E-4801-A489-8C70CF287F5F</uid>
-    <full-name>Shari's Other Resource1</full-name>
-  </record>
-  <record type="resource">
-    <short-name>resource08</short-name>
-    <uid>resource08</uid>
-    <full-name>Resource 08</full-name>
-  </record>
-  <record type="resource">
-    <short-name>resource09</short-name>
-    <uid>resource09</uid>
-    <full-name>Resource 09</full-name>
-  </record>
-  <record type="address">
-    <short-name>testaddress1</short-name>
-    <uid>6F9EE33B-78F6-481B-9289-3D0812FF0D64</uid>
-    <full-name>Test Address One</full-name>
-    <streetAddress>20300 Stevens Creek Blvd, Cupertino, CA 95014</streetAddress>
-    <geographicLocation>37.322281,-122.028345</geographicLocation>
-  </record>
-  <record type="address">
-    <short-name>il2</short-name>
-    <uid>63A2F949-2D8D-4C8D-B8A5-DCF2A94610F3</uid>
-    <full-name>IL2</full-name>
-    <streetAddress>2 Infinite Loop, Cupertino, CA 95014</streetAddress>
-    <geographicLocation>37.332633,-122.030502</geographicLocation>
+    <associatedAddress>il1</associatedAddress>
   </record>
   <record type="address">
     <short-name>il1</short-name>
-    <uid>76E7ECA6-08BC-4AE7-930D-F2E7453993A5</uid>
+    <uid>il1</uid>
     <full-name>IL1</full-name>
     <streetAddress>1 Infinite Loop, Cupertino, CA 95014</streetAddress>
     <geographicLocation>37.331741,-122.030333</geographicLocation>
   </record>
+  <record type="location">
+    <short-name>fantastic</short-name>
+    <uid>fantastic</uid>
+    <full-name>Fantastic Conference Room</full-name>
+    <associatedAddress>il2</associatedAddress>
+  </record>
+  <record type="address">
+    <short-name>il2</short-name>
+    <uid>il2</uid>
+    <full-name>IL2</full-name>
+    <streetAddress>2 Infinite Loop, Cupertino, CA 95014</streetAddress>
+    <geographicLocation>37.332633,-122.030502</geographicLocation>
+  </record>
+<record type="location">
+    <short-name>location01</short-name>
+    <uid>location01</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258001</guid>
+    <full-name>Location 01</full-name>
+</record>
+<record type="location">
+    <short-name>location02</short-name>
+    <uid>location02</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258002</guid>
+    <full-name>Location 02</full-name>
+</record>
+<record type="location">
+    <short-name>location03</short-name>
+    <uid>location03</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258003</guid>
+    <full-name>Location 03</full-name>
+</record>
+<record type="location">
+    <short-name>location04</short-name>
+    <uid>location04</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258004</guid>
+    <full-name>Location 04</full-name>
+</record>
+<record type="location">
+    <short-name>location05</short-name>
+    <uid>location05</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258005</guid>
+    <full-name>Location 05</full-name>
+</record>
+<record type="location">
+    <short-name>location06</short-name>
+    <uid>location06</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258006</guid>
+    <full-name>Location 06</full-name>
+</record>
+<record type="location">
+    <short-name>location07</short-name>
+    <uid>location07</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258007</guid>
+    <full-name>Location 07</full-name>
+</record>
+<record type="location">
+    <short-name>location08</short-name>
+    <uid>location08</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258008</guid>
+    <full-name>Location 08</full-name>
+</record>
+<record type="location">
+    <short-name>location09</short-name>
+    <uid>location09</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258009</guid>
+    <full-name>Location 09</full-name>
+</record>
+<record type="location">
+    <short-name>location10</short-name>
+    <uid>location10</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258010</guid>
+    <full-name>Location 10</full-name>
+</record>
+<record type="location">
+    <short-name>location11</short-name>
+    <uid>location11</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258011</guid>
+    <full-name>Location 11</full-name>
+</record>
+<record type="location">
+    <short-name>location12</short-name>
+    <uid>location12</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258012</guid>
+    <full-name>Location 12</full-name>
+</record>
+<record type="location">
+    <short-name>location13</short-name>
+    <uid>location13</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258013</guid>
+    <full-name>Location 13</full-name>
+</record>
+<record type="location">
+    <short-name>location14</short-name>
+    <uid>location14</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258014</guid>
+    <full-name>Location 14</full-name>
+</record>
+<record type="location">
+    <short-name>location15</short-name>
+    <uid>location15</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258015</guid>
+    <full-name>Location 15</full-name>
+</record>
+<record type="location">
+    <short-name>location16</short-name>
+    <uid>location16</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258016</guid>
+    <full-name>Location 16</full-name>
+</record>
+<record type="location">
+    <short-name>location17</short-name>
+    <uid>location17</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258017</guid>
+    <full-name>Location 17</full-name>
+</record>
+<record type="location">
+    <short-name>location18</short-name>
+    <uid>location18</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258018</guid>
+    <full-name>Location 18</full-name>
+</record>
+<record type="location">
+    <short-name>location19</short-name>
+    <uid>location19</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258019</guid>
+    <full-name>Location 19</full-name>
+</record>
+<record type="location">
+    <short-name>location20</short-name>
+    <uid>location20</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258020</guid>
+    <full-name>Location 20</full-name>
+</record>
+<record type="location">
+    <short-name>location21</short-name>
+    <uid>location21</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258021</guid>
+    <full-name>Location 21</full-name>
+</record>
+<record type="location">
+    <short-name>location22</short-name>
+    <uid>location22</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258022</guid>
+    <full-name>Location 22</full-name>
+</record>
+<record type="location">
+    <short-name>location23</short-name>
+    <uid>location23</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258023</guid>
+    <full-name>Location 23</full-name>
+</record>
+<record type="location">
+    <short-name>location24</short-name>
+    <uid>location24</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258024</guid>
+    <full-name>Location 24</full-name>
+</record>
+<record type="location">
+    <short-name>location25</short-name>
+    <uid>location25</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258025</guid>
+    <full-name>Location 25</full-name>
+</record>
+<record type="location">
+    <short-name>location26</short-name>
+    <uid>location26</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258026</guid>
+    <full-name>Location 26</full-name>
+</record>
+<record type="location">
+    <short-name>location27</short-name>
+    <uid>location27</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258027</guid>
+    <full-name>Location 27</full-name>
+</record>
+<record type="location">
+    <short-name>location28</short-name>
+    <uid>location28</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258028</guid>
+    <full-name>Location 28</full-name>
+</record>
+<record type="location">
+    <short-name>location29</short-name>
+    <uid>location29</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258029</guid>
+    <full-name>Location 29</full-name>
+</record>
+<record type="location">
+    <short-name>location30</short-name>
+    <uid>location30</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258030</guid>
+    <full-name>Location 30</full-name>
+</record>
+<record type="location">
+    <short-name>location31</short-name>
+    <uid>location31</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258031</guid>
+    <full-name>Location 31</full-name>
+</record>
+<record type="location">
+    <short-name>location32</short-name>
+    <uid>location32</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258032</guid>
+    <full-name>Location 32</full-name>
+</record>
+<record type="location">
+    <short-name>location33</short-name>
+    <uid>location33</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258033</guid>
+    <full-name>Location 33</full-name>
+</record>
+<record type="location">
+    <short-name>location34</short-name>
+    <uid>location34</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258034</guid>
+    <full-name>Location 34</full-name>
+</record>
+<record type="location">
+    <short-name>location35</short-name>
+    <uid>location35</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258035</guid>
+    <full-name>Location 35</full-name>
+</record>
+<record type="location">
+    <short-name>location36</short-name>
+    <uid>location36</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258036</guid>
+    <full-name>Location 36</full-name>
+</record>
+<record type="location">
+    <short-name>location37</short-name>
+    <uid>location37</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258037</guid>
+    <full-name>Location 37</full-name>
+</record>
+<record type="location">
+    <short-name>location38</short-name>
+    <uid>location38</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258038</guid>
+    <full-name>Location 38</full-name>
+</record>
+<record type="location">
+    <short-name>location39</short-name>
+    <uid>location39</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258039</guid>
+    <full-name>Location 39</full-name>
+</record>
+<record type="location">
+    <short-name>location40</short-name>
+    <uid>location40</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258040</guid>
+    <full-name>Location 40</full-name>
+</record>
+<record type="location">
+    <short-name>location41</short-name>
+    <uid>location41</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258041</guid>
+    <full-name>Location 41</full-name>
+</record>
+<record type="location">
+    <short-name>location42</short-name>
+    <uid>location42</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258042</guid>
+    <full-name>Location 42</full-name>
+</record>
+<record type="location">
+    <short-name>location43</short-name>
+    <uid>location43</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258043</guid>
+    <full-name>Location 43</full-name>
+</record>
+<record type="location">
+    <short-name>location44</short-name>
+    <uid>location44</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258044</guid>
+    <full-name>Location 44</full-name>
+</record>
+<record type="location">
+    <short-name>location45</short-name>
+    <uid>location45</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258045</guid>
+    <full-name>Location 45</full-name>
+</record>
+<record type="location">
+    <short-name>location46</short-name>
+    <uid>location46</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258046</guid>
+    <full-name>Location 46</full-name>
+</record>
+<record type="location">
+    <short-name>location47</short-name>
+    <uid>location47</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258047</guid>
+    <full-name>Location 47</full-name>
+</record>
+<record type="location">
+    <short-name>location48</short-name>
+    <uid>location48</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258048</guid>
+    <full-name>Location 48</full-name>
+</record>
+<record type="location">
+    <short-name>location49</short-name>
+    <uid>location49</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258049</guid>
+    <full-name>Location 49</full-name>
+</record>
+<record type="location">
+    <short-name>location50</short-name>
+    <uid>location50</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258050</guid>
+    <full-name>Location 50</full-name>
+</record>
+<record type="location">
+    <short-name>location51</short-name>
+    <uid>location51</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258051</guid>
+    <full-name>Location 51</full-name>
+</record>
+<record type="location">
+    <short-name>location52</short-name>
+    <uid>location52</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258052</guid>
+    <full-name>Location 52</full-name>
+</record>
+<record type="location">
+    <short-name>location53</short-name>
+    <uid>location53</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258053</guid>
+    <full-name>Location 53</full-name>
+</record>
+<record type="location">
+    <short-name>location54</short-name>
+    <uid>location54</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258054</guid>
+    <full-name>Location 54</full-name>
+</record>
+<record type="location">
+    <short-name>location55</short-name>
+    <uid>location55</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258055</guid>
+    <full-name>Location 55</full-name>
+</record>
+<record type="location">
+    <short-name>location56</short-name>
+    <uid>location56</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258056</guid>
+    <full-name>Location 56</full-name>
+</record>
+<record type="location">
+    <short-name>location57</short-name>
+    <uid>location57</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258057</guid>
+    <full-name>Location 57</full-name>
+</record>
+<record type="location">
+    <short-name>location58</short-name>
+    <uid>location58</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258058</guid>
+    <full-name>Location 58</full-name>
+</record>
+<record type="location">
+    <short-name>location59</short-name>
+    <uid>location59</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258059</guid>
+    <full-name>Location 59</full-name>
+</record>
+<record type="location">
+    <short-name>location60</short-name>
+    <uid>location60</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258060</guid>
+    <full-name>Location 60</full-name>
+</record>
+<record type="location">
+    <short-name>location61</short-name>
+    <uid>location61</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258061</guid>
+    <full-name>Location 61</full-name>
+</record>
+<record type="location">
+    <short-name>location62</short-name>
+    <uid>location62</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258062</guid>
+    <full-name>Location 62</full-name>
+</record>
+<record type="location">
+    <short-name>location63</short-name>
+    <uid>location63</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258063</guid>
+    <full-name>Location 63</full-name>
+</record>
+<record type="location">
+    <short-name>location64</short-name>
+    <uid>location64</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258064</guid>
+    <full-name>Location 64</full-name>
+</record>
+<record type="location">
+    <short-name>location65</short-name>
+    <uid>location65</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258065</guid>
+    <full-name>Location 65</full-name>
+</record>
+<record type="location">
+    <short-name>location66</short-name>
+    <uid>location66</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258066</guid>
+    <full-name>Location 66</full-name>
+</record>
+<record type="location">
+    <short-name>location67</short-name>
+    <uid>location67</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258067</guid>
+    <full-name>Location 67</full-name>
+</record>
+<record type="location">
+    <short-name>location68</short-name>
+    <uid>location68</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258068</guid>
+    <full-name>Location 68</full-name>
+</record>
+<record type="location">
+    <short-name>location69</short-name>
+    <uid>location69</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258069</guid>
+    <full-name>Location 69</full-name>
+</record>
+<record type="location">
+    <short-name>location70</short-name>
+    <uid>location70</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258070</guid>
+    <full-name>Location 70</full-name>
+</record>
+<record type="location">
+    <short-name>location71</short-name>
+    <uid>location71</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258071</guid>
+    <full-name>Location 71</full-name>
+</record>
+<record type="location">
+    <short-name>location72</short-name>
+    <uid>location72</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258072</guid>
+    <full-name>Location 72</full-name>
+</record>
+<record type="location">
+    <short-name>location73</short-name>
+    <uid>location73</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258073</guid>
+    <full-name>Location 73</full-name>
+</record>
+<record type="location">
+    <short-name>location74</short-name>
+    <uid>location74</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258074</guid>
+    <full-name>Location 74</full-name>
+</record>
+<record type="location">
+    <short-name>location75</short-name>
+    <uid>location75</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258075</guid>
+    <full-name>Location 75</full-name>
+</record>
+<record type="location">
+    <short-name>location76</short-name>
+    <uid>location76</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258076</guid>
+    <full-name>Location 76</full-name>
+</record>
+<record type="location">
+    <short-name>location77</short-name>
+    <uid>location77</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258077</guid>
+    <full-name>Location 77</full-name>
+</record>
+<record type="location">
+    <short-name>location78</short-name>
+    <uid>location78</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258078</guid>
+    <full-name>Location 78</full-name>
+</record>
+<record type="location">
+    <short-name>location79</short-name>
+    <uid>location79</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258079</guid>
+    <full-name>Location 79</full-name>
+</record>
+<record type="location">
+    <short-name>location80</short-name>
+    <uid>location80</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258080</guid>
+    <full-name>Location 80</full-name>
+</record>
+<record type="location">
+    <short-name>location81</short-name>
+    <uid>location81</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258081</guid>
+    <full-name>Location 81</full-name>
+</record>
+<record type="location">
+    <short-name>location82</short-name>
+    <uid>location82</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258082</guid>
+    <full-name>Location 82</full-name>
+</record>
+<record type="location">
+    <short-name>location83</short-name>
+    <uid>location83</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258083</guid>
+    <full-name>Location 83</full-name>
+</record>
+<record type="location">
+    <short-name>location84</short-name>
+    <uid>location84</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258084</guid>
+    <full-name>Location 84</full-name>
+</record>
+<record type="location">
+    <short-name>location85</short-name>
+    <uid>location85</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258085</guid>
+    <full-name>Location 85</full-name>
+</record>
+<record type="location">
+    <short-name>location86</short-name>
+    <uid>location86</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258086</guid>
+    <full-name>Location 86</full-name>
+</record>
+<record type="location">
+    <short-name>location87</short-name>
+    <uid>location87</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258087</guid>
+    <full-name>Location 87</full-name>
+</record>
+<record type="location">
+    <short-name>location88</short-name>
+    <uid>location88</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258088</guid>
+    <full-name>Location 88</full-name>
+</record>
+<record type="location">
+    <short-name>location89</short-name>
+    <uid>location89</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258089</guid>
+    <full-name>Location 89</full-name>
+</record>
+<record type="location">
+    <short-name>location90</short-name>
+    <uid>location90</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258090</guid>
+    <full-name>Location 90</full-name>
+</record>
+<record type="location">
+    <short-name>location91</short-name>
+    <uid>location91</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258091</guid>
+    <full-name>Location 91</full-name>
+</record>
+<record type="location">
+    <short-name>location92</short-name>
+    <uid>location92</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258092</guid>
+    <full-name>Location 92</full-name>
+</record>
+<record type="location">
+    <short-name>location93</short-name>
+    <uid>location93</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258093</guid>
+    <full-name>Location 93</full-name>
+</record>
+<record type="location">
+    <short-name>location94</short-name>
+    <uid>location94</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258094</guid>
+    <full-name>Location 94</full-name>
+</record>
+<record type="location">
+    <short-name>location95</short-name>
+    <uid>location95</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258095</guid>
+    <full-name>Location 95</full-name>
+</record>
+<record type="location">
+    <short-name>location96</short-name>
+    <uid>location96</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258096</guid>
+    <full-name>Location 96</full-name>
+</record>
+<record type="location">
+    <short-name>location97</short-name>
+    <uid>location97</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258097</guid>
+    <full-name>Location 97</full-name>
+</record>
+<record type="location">
+    <short-name>location98</short-name>
+    <uid>location98</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258098</guid>
+    <full-name>Location 98</full-name>
+</record>
+<record type="location">
+    <short-name>location99</short-name>
+    <uid>location99</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258099</guid>
+    <full-name>Location 99</full-name>
+</record>
+<record type="location">
+    <short-name>location100</short-name>
+    <uid>location100</uid>
+    <guid>34EB6DBA-B94C-4F82-8FEF-EB2C19258100</guid>
+    <full-name>Location 100</full-name>
+</record>
+<record type="resource">
+    <short-name>resource01</short-name>
+    <uid>resource01</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1001</guid>
+    <full-name>Resource 01</full-name>
+</record>
+<record type="resource">
+    <short-name>resource02</short-name>
+    <uid>resource02</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1002</guid>
+    <full-name>Resource 02</full-name>
+</record>
+<record type="resource">
+    <short-name>resource03</short-name>
+    <uid>resource03</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1003</guid>
+    <full-name>Resource 03</full-name>
+</record>
+<record type="resource">
+    <short-name>resource04</short-name>
+    <uid>resource04</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1004</guid>
+    <full-name>Resource 04</full-name>
+</record>
+<record type="resource">
+    <short-name>resource05</short-name>
+    <uid>resource05</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1005</guid>
+    <full-name>Resource 05</full-name>
+</record>
+<record type="resource">
+    <short-name>resource06</short-name>
+    <uid>resource06</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1006</guid>
+    <full-name>Resource 06</full-name>
+</record>
+<record type="resource">
+    <short-name>resource07</short-name>
+    <uid>resource07</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1007</guid>
+    <full-name>Resource 07</full-name>
+</record>
+<record type="resource">
+    <short-name>resource08</short-name>
+    <uid>resource08</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1008</guid>
+    <full-name>Resource 08</full-name>
+</record>
+<record type="resource">
+    <short-name>resource09</short-name>
+    <uid>resource09</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1009</guid>
+    <full-name>Resource 09</full-name>
+</record>
+<record type="resource">
+    <short-name>resource10</short-name>
+    <uid>resource10</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1010</guid>
+    <full-name>Resource 10</full-name>
+</record>
+<record type="resource">
+    <short-name>resource11</short-name>
+    <uid>resource11</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1011</guid>
+    <full-name>Resource 11</full-name>
+</record>
+<record type="resource">
+    <short-name>resource12</short-name>
+    <uid>resource12</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1012</guid>
+    <full-name>Resource 12</full-name>
+</record>
+<record type="resource">
+    <short-name>resource13</short-name>
+    <uid>resource13</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1013</guid>
+    <full-name>Resource 13</full-name>
+</record>
+<record type="resource">
+    <short-name>resource14</short-name>
+    <uid>resource14</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1014</guid>
+    <full-name>Resource 14</full-name>
+</record>
+<record type="resource">
+    <short-name>resource15</short-name>
+    <uid>resource15</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1015</guid>
+    <full-name>Resource 15</full-name>
+</record>
+<record type="resource">
+    <short-name>resource16</short-name>
+    <uid>resource16</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1016</guid>
+    <full-name>Resource 16</full-name>
+</record>
+<record type="resource">
+    <short-name>resource17</short-name>
+    <uid>resource17</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1017</guid>
+    <full-name>Resource 17</full-name>
+</record>
+<record type="resource">
+    <short-name>resource18</short-name>
+    <uid>resource18</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1018</guid>
+    <full-name>Resource 18</full-name>
+</record>
+<record type="resource">
+    <short-name>resource19</short-name>
+    <uid>resource19</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1019</guid>
+    <full-name>Resource 19</full-name>
+</record>
+<record type="resource">
+    <short-name>resource20</short-name>
+    <uid>resource20</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1020</guid>
+    <full-name>Resource 20</full-name>
+</record>
+<record type="resource">
+    <short-name>resource21</short-name>
+    <uid>resource21</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1021</guid>
+    <full-name>Resource 21</full-name>
+</record>
+<record type="resource">
+    <short-name>resource22</short-name>
+    <uid>resource22</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1022</guid>
+    <full-name>Resource 22</full-name>
+</record>
+<record type="resource">
+    <short-name>resource23</short-name>
+    <uid>resource23</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1023</guid>
+    <full-name>Resource 23</full-name>
+</record>
+<record type="resource">
+    <short-name>resource24</short-name>
+    <uid>resource24</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1024</guid>
+    <full-name>Resource 24</full-name>
+</record>
+<record type="resource">
+    <short-name>resource25</short-name>
+    <uid>resource25</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1025</guid>
+    <full-name>Resource 25</full-name>
+</record>
+<record type="resource">
+    <short-name>resource26</short-name>
+    <uid>resource26</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1026</guid>
+    <full-name>Resource 26</full-name>
+</record>
+<record type="resource">
+    <short-name>resource27</short-name>
+    <uid>resource27</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1027</guid>
+    <full-name>Resource 27</full-name>
+</record>
+<record type="resource">
+    <short-name>resource28</short-name>
+    <uid>resource28</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1028</guid>
+    <full-name>Resource 28</full-name>
+</record>
+<record type="resource">
+    <short-name>resource29</short-name>
+    <uid>resource29</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1029</guid>
+    <full-name>Resource 29</full-name>
+</record>
+<record type="resource">
+    <short-name>resource30</short-name>
+    <uid>resource30</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1030</guid>
+    <full-name>Resource 30</full-name>
+</record>
+<record type="resource">
+    <short-name>resource31</short-name>
+    <uid>resource31</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1031</guid>
+    <full-name>Resource 31</full-name>
+</record>
+<record type="resource">
+    <short-name>resource32</short-name>
+    <uid>resource32</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1032</guid>
+    <full-name>Resource 32</full-name>
+</record>
+<record type="resource">
+    <short-name>resource33</short-name>
+    <uid>resource33</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1033</guid>
+    <full-name>Resource 33</full-name>
+</record>
+<record type="resource">
+    <short-name>resource34</short-name>
+    <uid>resource34</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1034</guid>
+    <full-name>Resource 34</full-name>
+</record>
+<record type="resource">
+    <short-name>resource35</short-name>
+    <uid>resource35</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1035</guid>
+    <full-name>Resource 35</full-name>
+</record>
+<record type="resource">
+    <short-name>resource36</short-name>
+    <uid>resource36</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1036</guid>
+    <full-name>Resource 36</full-name>
+</record>
+<record type="resource">
+    <short-name>resource37</short-name>
+    <uid>resource37</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1037</guid>
+    <full-name>Resource 37</full-name>
+</record>
+<record type="resource">
+    <short-name>resource38</short-name>
+    <uid>resource38</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1038</guid>
+    <full-name>Resource 38</full-name>
+</record>
+<record type="resource">
+    <short-name>resource39</short-name>
+    <uid>resource39</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1039</guid>
+    <full-name>Resource 39</full-name>
+</record>
+<record type="resource">
+    <short-name>resource40</short-name>
+    <uid>resource40</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1040</guid>
+    <full-name>Resource 40</full-name>
+</record>
+<record type="resource">
+    <short-name>resource41</short-name>
+    <uid>resource41</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1041</guid>
+    <full-name>Resource 41</full-name>
+</record>
+<record type="resource">
+    <short-name>resource42</short-name>
+    <uid>resource42</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1042</guid>
+    <full-name>Resource 42</full-name>
+</record>
+<record type="resource">
+    <short-name>resource43</short-name>
+    <uid>resource43</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1043</guid>
+    <full-name>Resource 43</full-name>
+</record>
+<record type="resource">
+    <short-name>resource44</short-name>
+    <uid>resource44</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1044</guid>
+    <full-name>Resource 44</full-name>
+</record>
+<record type="resource">
+    <short-name>resource45</short-name>
+    <uid>resource45</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1045</guid>
+    <full-name>Resource 45</full-name>
+</record>
+<record type="resource">
+    <short-name>resource46</short-name>
+    <uid>resource46</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1046</guid>
+    <full-name>Resource 46</full-name>
+</record>
+<record type="resource">
+    <short-name>resource47</short-name>
+    <uid>resource47</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1047</guid>
+    <full-name>Resource 47</full-name>
+</record>
+<record type="resource">
+    <short-name>resource48</short-name>
+    <uid>resource48</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1048</guid>
+    <full-name>Resource 48</full-name>
+</record>
+<record type="resource">
+    <short-name>resource49</short-name>
+    <uid>resource49</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1049</guid>
+    <full-name>Resource 49</full-name>
+</record>
+<record type="resource">
+    <short-name>resource50</short-name>
+    <uid>resource50</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1050</guid>
+    <full-name>Resource 50</full-name>
+</record>
+<record type="resource">
+    <short-name>resource51</short-name>
+    <uid>resource51</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1051</guid>
+    <full-name>Resource 51</full-name>
+</record>
+<record type="resource">
+    <short-name>resource52</short-name>
+    <uid>resource52</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1052</guid>
+    <full-name>Resource 52</full-name>
+</record>
+<record type="resource">
+    <short-name>resource53</short-name>
+    <uid>resource53</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1053</guid>
+    <full-name>Resource 53</full-name>
+</record>
+<record type="resource">
+    <short-name>resource54</short-name>
+    <uid>resource54</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1054</guid>
+    <full-name>Resource 54</full-name>
+</record>
+<record type="resource">
+    <short-name>resource55</short-name>
+    <uid>resource55</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1055</guid>
+    <full-name>Resource 55</full-name>
+</record>
+<record type="resource">
+    <short-name>resource56</short-name>
+    <uid>resource56</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1056</guid>
+    <full-name>Resource 56</full-name>
+</record>
+<record type="resource">
+    <short-name>resource57</short-name>
+    <uid>resource57</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1057</guid>
+    <full-name>Resource 57</full-name>
+</record>
+<record type="resource">
+    <short-name>resource58</short-name>
+    <uid>resource58</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1058</guid>
+    <full-name>Resource 58</full-name>
+</record>
+<record type="resource">
+    <short-name>resource59</short-name>
+    <uid>resource59</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1059</guid>
+    <full-name>Resource 59</full-name>
+</record>
+<record type="resource">
+    <short-name>resource60</short-name>
+    <uid>resource60</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1060</guid>
+    <full-name>Resource 60</full-name>
+</record>
+<record type="resource">
+    <short-name>resource61</short-name>
+    <uid>resource61</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1061</guid>
+    <full-name>Resource 61</full-name>
+</record>
+<record type="resource">
+    <short-name>resource62</short-name>
+    <uid>resource62</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1062</guid>
+    <full-name>Resource 62</full-name>
+</record>
+<record type="resource">
+    <short-name>resource63</short-name>
+    <uid>resource63</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1063</guid>
+    <full-name>Resource 63</full-name>
+</record>
+<record type="resource">
+    <short-name>resource64</short-name>
+    <uid>resource64</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1064</guid>
+    <full-name>Resource 64</full-name>
+</record>
+<record type="resource">
+    <short-name>resource65</short-name>
+    <uid>resource65</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1065</guid>
+    <full-name>Resource 65</full-name>
+</record>
+<record type="resource">
+    <short-name>resource66</short-name>
+    <uid>resource66</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1066</guid>
+    <full-name>Resource 66</full-name>
+</record>
+<record type="resource">
+    <short-name>resource67</short-name>
+    <uid>resource67</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1067</guid>
+    <full-name>Resource 67</full-name>
+</record>
+<record type="resource">
+    <short-name>resource68</short-name>
+    <uid>resource68</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1068</guid>
+    <full-name>Resource 68</full-name>
+</record>
+<record type="resource">
+    <short-name>resource69</short-name>
+    <uid>resource69</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1069</guid>
+    <full-name>Resource 69</full-name>
+</record>
+<record type="resource">
+    <short-name>resource70</short-name>
+    <uid>resource70</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1070</guid>
+    <full-name>Resource 70</full-name>
+</record>
+<record type="resource">
+    <short-name>resource71</short-name>
+    <uid>resource71</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1071</guid>
+    <full-name>Resource 71</full-name>
+</record>
+<record type="resource">
+    <short-name>resource72</short-name>
+    <uid>resource72</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1072</guid>
+    <full-name>Resource 72</full-name>
+</record>
+<record type="resource">
+    <short-name>resource73</short-name>
+    <uid>resource73</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1073</guid>
+    <full-name>Resource 73</full-name>
+</record>
+<record type="resource">
+    <short-name>resource74</short-name>
+    <uid>resource74</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1074</guid>
+    <full-name>Resource 74</full-name>
+</record>
+<record type="resource">
+    <short-name>resource75</short-name>
+    <uid>resource75</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1075</guid>
+    <full-name>Resource 75</full-name>
+</record>
+<record type="resource">
+    <short-name>resource76</short-name>
+    <uid>resource76</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1076</guid>
+    <full-name>Resource 76</full-name>
+</record>
+<record type="resource">
+    <short-name>resource77</short-name>
+    <uid>resource77</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1077</guid>
+    <full-name>Resource 77</full-name>
+</record>
+<record type="resource">
+    <short-name>resource78</short-name>
+    <uid>resource78</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1078</guid>
+    <full-name>Resource 78</full-name>
+</record>
+<record type="resource">
+    <short-name>resource79</short-name>
+    <uid>resource79</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1079</guid>
+    <full-name>Resource 79</full-name>
+</record>
+<record type="resource">
+    <short-name>resource80</short-name>
+    <uid>resource80</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1080</guid>
+    <full-name>Resource 80</full-name>
+</record>
+<record type="resource">
+    <short-name>resource81</short-name>
+    <uid>resource81</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1081</guid>
+    <full-name>Resource 81</full-name>
+</record>
+<record type="resource">
+    <short-name>resource82</short-name>
+    <uid>resource82</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1082</guid>
+    <full-name>Resource 82</full-name>
+</record>
+<record type="resource">
+    <short-name>resource83</short-name>
+    <uid>resource83</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1083</guid>
+    <full-name>Resource 83</full-name>
+</record>
+<record type="resource">
+    <short-name>resource84</short-name>
+    <uid>resource84</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1084</guid>
+    <full-name>Resource 84</full-name>
+</record>
+<record type="resource">
+    <short-name>resource85</short-name>
+    <uid>resource85</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1085</guid>
+    <full-name>Resource 85</full-name>
+</record>
+<record type="resource">
+    <short-name>resource86</short-name>
+    <uid>resource86</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1086</guid>
+    <full-name>Resource 86</full-name>
+</record>
+<record type="resource">
+    <short-name>resource87</short-name>
+    <uid>resource87</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1087</guid>
+    <full-name>Resource 87</full-name>
+</record>
+<record type="resource">
+    <short-name>resource88</short-name>
+    <uid>resource88</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1088</guid>
+    <full-name>Resource 88</full-name>
+</record>
+<record type="resource">
+    <short-name>resource89</short-name>
+    <uid>resource89</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1089</guid>
+    <full-name>Resource 89</full-name>
+</record>
+<record type="resource">
+    <short-name>resource90</short-name>
+    <uid>resource90</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1090</guid>
+    <full-name>Resource 90</full-name>
+</record>
+<record type="resource">
+    <short-name>resource91</short-name>
+    <uid>resource91</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1091</guid>
+    <full-name>Resource 91</full-name>
+</record>
+<record type="resource">
+    <short-name>resource92</short-name>
+    <uid>resource92</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1092</guid>
+    <full-name>Resource 92</full-name>
+</record>
+<record type="resource">
+    <short-name>resource93</short-name>
+    <uid>resource93</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1093</guid>
+    <full-name>Resource 93</full-name>
+</record>
+<record type="resource">
+    <short-name>resource94</short-name>
+    <uid>resource94</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1094</guid>
+    <full-name>Resource 94</full-name>
+</record>
+<record type="resource">
+    <short-name>resource95</short-name>
+    <uid>resource95</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1095</guid>
+    <full-name>Resource 95</full-name>
+</record>
+<record type="resource">
+    <short-name>resource96</short-name>
+    <uid>resource96</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1096</guid>
+    <full-name>Resource 96</full-name>
+</record>
+<record type="resource">
+    <short-name>resource97</short-name>
+    <uid>resource97</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1097</guid>
+    <full-name>Resource 97</full-name>
+</record>
+<record type="resource">
+    <short-name>resource98</short-name>
+    <uid>resource98</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1098</guid>
+    <full-name>Resource 98</full-name>
+</record>
+<record type="resource">
+    <short-name>resource99</short-name>
+    <uid>resource99</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1099</guid>
+    <full-name>Resource 99</full-name>
+</record>
+<record type="resource">
+    <short-name>resource100</short-name>
+    <uid>resource100</uid>
+    <guid>9DD5F2A5-DAA7-4CEB-825C-2EEB458C1100</guid>
+    <full-name>Resource 100</full-name>
+</record>
 </directory>
