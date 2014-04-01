@@ -4041,7 +4041,7 @@ class _SharedSyncLogic(object):
                         self._txn, homeID=self.ownerHome()._resourceID,
                         resourceID=self._resourceID, name=name)
                 )[0][0]
-        self._maybeNotify()
+        yield self._maybeNotify()
         returnValue(self._syncTokenRevision)
 
 
@@ -4049,6 +4049,7 @@ class _SharedSyncLogic(object):
         """
         Maybe notify changed.  (Overridden in NotificationCollection.)
         """
+        return succeed(None)
 
 
 
@@ -7224,7 +7225,7 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
         """
         Emit a push notification after C{_changeRevision}.
         """
-        self.notifyChanged()
+        return self.notifyChanged()
 
 
     @inlineCallbacks
