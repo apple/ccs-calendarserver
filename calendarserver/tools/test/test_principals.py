@@ -89,15 +89,14 @@ class ManagePrincipalsTestCase(TestCase):
         Run calendarserver_manage_principals, passing additional as args.
         """
         sourceRoot = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-        python = sys.executable
-        script = os.path.join(sourceRoot, "bin", "calendarserver_manage_principals")
+        cmd = os.path.join(sourceRoot, "bin", "calendarserver_manage_principals")
 
-        args = [python, script, "-f", self.configFileName]
+        args = [cmd, "-f", self.configFileName]
         args.extend(additional)
         cwd = sourceRoot
 
         deferred = Deferred()
-        reactor.spawnProcess(CapturingProcessProtocol(deferred, None), python, args, env=os.environ, path=cwd)
+        reactor.spawnProcess(CapturingProcessProtocol(deferred, None), cmd, args, env=os.environ, path=cwd)
         output = yield deferred
         returnValue(output)
 
