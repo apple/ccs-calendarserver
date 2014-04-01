@@ -31,6 +31,21 @@ out = file("accounts-test.xml", "w")
 out.write(prefix)
 out.write('<directory realm="Test Realm">\n')
 
+
+for uid, fullName in (
+    ("admin", "Super User"),
+    ("apprentice", "Apprentice Super User"),
+    ("i18nuser", u"\ud83d\udca3".encode("utf-8")),
+):
+    out.write("""<record>
+    <uid>{uid}</uid>
+    <short-name>{uid}</short-name>
+    <password>{uid}</password>
+    <full-name>{fullName}</full-name>
+    <email>{uid}@example.com</email>
+</record>
+""".format(uid=uid, fullName=fullName))
+
 # user01-100
 for i in xrange(1, 101):
     out.write("""<record type="user">

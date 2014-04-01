@@ -17,6 +17,27 @@ limitations under the License.
  -->
 
 <directory realm="Test Realm">
+<record>
+    <uid>admin</uid>
+    <short-name>admin</short-name>
+    <password>admin</password>
+    <full-name>Super User</full-name>
+    <email>admin@example.com</email>
+</record>
+<record>
+    <uid>apprentice</uid>
+    <short-name>apprentice</short-name>
+    <password>apprentice</password>
+    <full-name>Apprentice Super User</full-name>
+    <email>apprentice@example.com</email>
+</record>
+<record>
+    <uid>i18nuser</uid>
+    <short-name>i18nuser</short-name>
+    <password>i18nuser</password>
+    <full-name>💣</full-name>
+    <email>i18nuser@example.com</email>
+</record>
 <record type="user">
     <short-name>user01</short-name>
     <uid>user01</uid>
