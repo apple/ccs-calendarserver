@@ -32,6 +32,8 @@ def getCalendarObjectForRecord(txn, record, uid):
     if record and record.thisServer():
         # Get record's calendar-home
         calendar_home = yield txn.calendarHomeWithUID(record.uid)
+        if calendar_home is None:
+            returnValue(None)
 
         # Get matching newstore objects
         objectResources = (yield calendar_home.getCalendarResourcesForUID(uid))

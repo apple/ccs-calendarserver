@@ -182,6 +182,13 @@ class RecipientCopy(CommonCommonTests, unittest.TestCase):
         self.assertTrue((resource2 is not None) ^ (resource3 is not None))
         yield self.commit()
 
+        # Look up resource where principal exists but home does not
+        principal = buildDirectoryRecord("user102")
+        txn = self.transactionUnderTest()
+        resource = (yield getCalendarObjectForRecord(txn, principal, "685BC3A1-195A-49B3-926D-388DDACA78A6"))
+        self.assertTrue(resource is None)
+        yield self.commit()
+
 
     def test_extractEmailDomain(self):
         """
