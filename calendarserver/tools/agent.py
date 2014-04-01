@@ -44,9 +44,9 @@ from twisted.web.guard import HTTPAuthSessionWrapper, DigestCredentialFactory
 from twisted.web.resource import IResource, Resource, ForbiddenResource
 from twisted.web.server import Site, NOT_DONE_YET
 from zope.interface import implements
-
 from twext.python.launchd import getLaunchDSocketFDs
 from twext.python.log import Logger
+
 log = Logger()
 
 
@@ -98,12 +98,12 @@ class DirectoryServiceChecker(object):
 
             except KeyError as e:
                 log.error(
-                    "OpenDirectory (node={directory.node}) error while "
+                    "OpenDirectory (node={checker.node}) error while "
                     "performing digest authentication for user "
                     "{credentials.username}: missing digest response field: "
                     "{field} in: {credentials.fields}"
                     .format(
-                        directory=self, credentials=credentials, field=e
+                        checker=self, credentials=credentials, field=e
                     )
                 )
                 return fail(UnauthorizedLogin())
