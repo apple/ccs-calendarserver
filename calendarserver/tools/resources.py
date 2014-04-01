@@ -15,35 +15,33 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+
 from __future__ import print_function
-
-import os
-import sys
-from grp import getgrnam
-from pwd import getpwnam
-from getopt import getopt, GetoptError
-
-from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks
-from twisted.python.util import switchUID
-
-from twext.python.log import Logger, StandardIOObserver
-
-from twistedcaldav.config import config, ConfigurationError
-from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
-from twistedcaldav.directory.directory import DirectoryService, DirectoryError
-from twistedcaldav.directory.xmlfile import XMLDirectoryService
-
-from calendarserver.tools.util import loadConfig, setupMemcached, checkDirectory
-from txdav.who.util import directoryFromConfig
-
-log = Logger()
-
-
 
 __all__ = [
     "migrateResources",
 ]
+
+from getopt import getopt, GetoptError
+from grp import getgrnam
+import os
+from pwd import getpwnam
+import sys
+
+from calendarserver.tools.util import (
+    loadConfig, setupMemcached, checkDirectory
+)
+from twext.python.log import Logger, StandardIOObserver
+from twisted.internet import reactor
+from twisted.internet.defer import inlineCallbacks
+from twisted.python.util import switchUID
+from twistedcaldav.config import config, ConfigurationError
+from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
+from twistedcaldav.directory.directory import DirectoryService, DirectoryError
+from twistedcaldav.directory.xmlfile import XMLDirectoryService
+from txdav.who.util import directoryFromConfig
+
+log = Logger()
 
 
 
@@ -156,14 +154,22 @@ def main():
     # Find the opendirectory service
     userService = config.directory.serviceForRecordType("users")
     resourceService = config.directory.serviceForRecordType("resources")
-    if (not isinstance(userService, OpenDirectoryService) or
-        not isinstance(resourceService, XMLDirectoryService)):
-        abort("This script only migrates resources and locations from OpenDirectory to XML; this calendar server does not have such a configuration.")
+    if (
+        not isinstance(userService, OpenDirectoryService) or
+        not isinstance(resourceService, XMLDirectoryService)
+    ):
+        abort(
+            "This script only migrates resources and locations from "
+            "OpenDirectory to XML; this calendar server does not have such a "
+            "configuration."
+        )
 
     #
     # Start the reactor
     #
-    reactor.callLater(0, migrate, userService, resourceService, verbose=verbose)
+    reactor.callLater(
+        0, migrate, userService, resourceService, verbose=verbose
+    )
     reactor.run()
 
 
@@ -208,8 +214,10 @@ def queryForType(sourceService, recordType, verbose=False):
 
 
 @inlineCallbacks
-def migrateResources(sourceService, destService, autoSchedules=None,
-    queryMethod=queryForType, verbose=False):
+def migrateResources(
+    sourceService, destService, autoSchedules=None,
+    queryMethod=queryForType, verbose=False
+):
 
     directoryRecords = []
     augmentRecords = []
@@ -234,23 +242,26 @@ def migrateResources(sourceService, destService, autoSchedules=None,
                         autoSchedule = autoSchedules.get(guid, 1)
                     else:
                         autoSchedule = True
-                    augmentRecord = (yield destService.augmentService.getAugmentRecord(guid, recordType))
+                    augmentRecord = (
+                        yield destService.augmentService.getAugmentRecord(
+                            guid, recordType
+                        )
+                    )
                     augmentRecord.autoSchedule = autoSchedule
                     augmentRecords.append(augmentRecord)
 
-                    directoryRecords.append(
-                        (recordType,
-                            {
-                                "guid" : guid,
-                                "shortNames" : [recordName],
-                                "fullName" : fullName,
-                            }
-                        )
-                    )
+                    directoryRecords.append((
+                        recordType,
+                        {
+                            "guid": guid,
+                            "shortNames": [recordName],
+                            "fullName": fullName,
+                        }
+                    ))
 
     destService.createRecords(directoryRecords)
 
-    (yield destService.augmentService.addAugmentRecords(augmentRecords))
+    yield destService.augmentService.addAugmentRecords(augmentRecords)
 
 
 
