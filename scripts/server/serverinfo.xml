@@ -23,7 +23,7 @@
 	<nonsslport>8008</nonsslport>
 	<sslport>8443</sslport>
 	<authtype>basic</authtype>
-	
+
 	<waitcount>120</waitcount>
 	<waitdelay>0.25</waitdelay>
 
@@ -32,7 +32,7 @@
 		<feature>COPY Method</feature>							<!-- COPY method -->
 		<feature>MOVE Method</feature>							<!-- MOVE method -->
 		<feature>Extended MKCOL</feature>						<!-- Extended MKCOL -->
-		
+
 		<!-- ACL related -->
 		<feature>ACL Method</feature>							<!-- ACL method -->
 		<feature>acl-principal-prop-set REPORT</feature>		<!-- ACL acl-principal-prop-set REPORT -->
@@ -772,7 +772,7 @@
 		<!-- group name-->
 		<substitution>
 			<key>$i18nname:</key>
-			<value>💣</value>
+			<value>まだ</value>
 		</substitution>
 		<!-- password -->
 		<substitution>
