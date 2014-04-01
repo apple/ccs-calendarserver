@@ -87,17 +87,16 @@ class RunCommandTestCase(TestCase):
             command = command.encode("utf-8")
 
         sourceRoot = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-        python = sys.executable
-        script = os.path.join(sourceRoot, "bin", script)
+        cmd = os.path.join(sourceRoot, "bin", script)
 
-        args = [python, script, "-f", self.configFileName]
+        args = [cmd, "-f", self.configFileName]
         if error:
             args.append("--error")
 
         cwd = sourceRoot
 
         deferred = Deferred()
-        reactor.spawnProcess(CapturingProcessProtocol(deferred, command), python, args, env=os.environ, path=cwd)
+        reactor.spawnProcess(CapturingProcessProtocol(deferred, command), cmd, args, env=os.environ, path=cwd)
         output = yield deferred
         try:
             plist = readPlistFromString(output)
