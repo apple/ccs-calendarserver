@@ -245,7 +245,6 @@ def doSetup():
             # "bin/calendarserver_dkimtool",
             "bin/calendarserver_export",
             # "bin/calendarserver_icalendar_validate",
-            # "bin/calendarserver_load_augmentdb",
             # "bin/calendarserver_manage_postgres",
             "bin/calendarserver_manage_principals",
             "bin/calendarserver_manage_push",
