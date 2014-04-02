@@ -13,7 +13,7 @@
        <C:prop-filter name="X-ADDRESSBOOKSERVER-MEMBER">
          <C:text-match collation="i;unicode-casemap"
                        match-type="contains"
-         >group</C:text-match>
+         >$groupguid3:</C:text-match>
        </C:prop-filter>
      </C:filter>
    </C:addressbook-query>

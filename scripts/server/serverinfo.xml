@@ -109,7 +109,7 @@
 		<feature>carddav</feature> 						<!-- Basic CardDAV feature enabler -->
 		<feature>default-addressbook</feature> 			<!-- Default address book behavior -->
 		<feature>shared-addressbooks</feature>			<!-- Shared address books extension -->
-		<!-- <feature>directory-gateway</feature> -->	<!-- Directory gateway extension -->
+		<feature>directory-gateway</feature>			<!-- Directory gateway extension -->
 
 	</features>
 

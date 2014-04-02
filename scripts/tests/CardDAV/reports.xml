@@ -1326,16 +1326,28 @@
 						<value>$groupguid4:.vcf</value>
 						<value>$groupguid5:.vcf</value>
 						<value>$groupguid6:.vcf</value>
+						<value>$groupguid7:.vcf</value>
+						<value>$groupguid8:.vcf</value>
+						<value>$groupguid9:.vcf</value>
+						<value>$groupguid10:.vcf</value>
+						<value>$groupguid20:.vcf</value>
+						<value>$groupguid30:.vcf</value>
+						<value>$groupguid40:.vcf</value>
+						<value>$groupguid50:.vcf</value>
+						<value>$groupguid60:.vcf</value>
+						<value>$groupguid70:.vcf</value>
+						<value>$groupguid80:.vcf</value>
+						<value>$groupguid90:.vcf</value>
 					</arg>
 					<arg>
 						<name>totalcount</name>
-						<value>7</value>
+						<value>19</value>
 					</arg>
 				</verify>
 			</request>
 		</test>
 		<test name="16" ignore="no">
-			<description>query for resources with (KIND equal "group") and (X-ADDRESSBOOKSERVER-MEMBER contains "group"), no eTag, no props " </description>
+			<description>query for resources with (KIND equal "group") and (X-ADDRESSBOOKSERVER-MEMBER contains $groupguid3:), no eTag, no props " </description>
 			<request print-response="no">
 				<method>REPORT</method>
 				<ruri>$directory:</ruri>
@@ -1348,11 +1360,10 @@
 					<arg>
 						<name>okhrefs</name>
 						<value>$groupguid4:.vcf</value>
-						<value>$groupguid5:.vcf</value>
 					</arg>
 					<arg>
 						<name>totalcount</name>
-						<value>2</value>
+						<value>1</value>
 					</arg>
 				</verify>
 			</request>
