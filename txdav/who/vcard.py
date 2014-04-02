@@ -82,7 +82,7 @@ vCardConstantProperties = {
 
 
 @inlineCallbacks
-def vCardFromRecord(record, kind=None, addProps=None, parentURI=None):
+def vCardFromRecord(record, forceKind=None, addProps=None, parentURI=None):
 
     def isUniqueProperty(newProperty, ignoredParameters={}):
         existingProperties = vcard.properties(newProperty.name())
@@ -110,11 +110,13 @@ def vCardFromRecord(record, kind=None, addProps=None, parentURI=None):
     # start
     #=======================================================================
 
-    log.debug("vCardFromRecord: record={record}, kind={kind}, addProps={addProps}, parentURI={parentURI}",
-                   record=record, kind=kind, addProps=addProps, parentURI=parentURI)
+    log.debug("vCardFromRecord: record={record}, forceKind={forceKind}, addProps={addProps}, parentURI={parentURI}",
+                   record=record, forceKind=forceKind, addProps=addProps, parentURI=parentURI)
 
-    if kind is None:
+    if forceKind is None:
         kind = recordTypeToVCardKindMap.get(record.recordType, "individual")
+    else:
+        kind = forceKind
 
     constantProperties = vCardConstantProperties.copy()
     if addProps:
@@ -239,8 +241,12 @@ def vCardFromRecord(record, kind=None, addProps=None, parentURI=None):
     #
     # UNIMPLEMENTED:
     #     3.4.1 TZ
-    #     3.4.2 GEO
     #
+    # 3.4.2 GEO
+    geographicLocation = record.fields.get(CalFieldName.geographicLocation)
+    if geographicLocation:
+        vcard.addProperty(Property("GEO", geographicLocation.encode("utf-8")))
+
     #===================================================================
     # 3.5 ORGANIZATIONAL TYPES http://tools.ietf.org/html/rfc2426#section-3.5
     #===================================================================
@@ -294,12 +300,6 @@ def vCardFromRecord(record, kind=None, addProps=None, parentURI=None):
     #    X-PHONETIC-MIDDLE-NAME
     #    X-PHONETIC-LAST-NAME
     #    X-ABRELATEDNAMES
-
-    # X-GEOLOCATION
-    # TODO: Just made this up.  Check for standard.  Perhaps GEO can be pulled out
-    geographicLocation = record.fields.get(CalFieldName.geographicLocation)
-    if geographicLocation:
-        vcard.addProperty(Property("X-GEOLOCATION", geographicLocation.encode("utf-8")))
 
     # X-ADDRESSBOOKSERVER-KIND
     if kind == "group":

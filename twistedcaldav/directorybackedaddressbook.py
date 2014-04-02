@@ -37,8 +37,8 @@ from twistedcaldav.resource import CalDAVResource
 from txdav.carddav.datastore.query.filter import IsNotDefined, TextMatch, \
     ParameterFilter
 from txdav.who.idirectory import FieldName as CalFieldName
-from txdav.who.vcard import vCardKindToRecordTypeMap, vCardPropToParamMap, \
-    vCardConstantProperties, vCardFromRecord
+from txdav.who.vcard import vCardKindToRecordTypeMap, recordTypeToVCardKindMap, \
+    vCardPropToParamMap, vCardConstantProperties, vCardFromRecord
 from txdav.xml import element as davxml
 from txdav.xml.base import twisted_dav_namespace, dav_namespace, parse_date, \
     twisted_private_namespace
@@ -200,10 +200,11 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
                         Operand.AND
                     )
             elif expression is True: # True means all records
+                allowedRecordTypes = set(self.directory.recordTypes()) & set(recordTypeToVCardKindMap.keys())
                 expression = CompoundExpression(
                     [
                         MatchExpression(FieldName.recordType, recordType, MatchType.equals)
-                            for recordType in self.directory.recordTypes()
+                            for recordType in allowedRecordTypes
                     ], Operand.OR
                 )
 
@@ -344,32 +345,32 @@ def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, con
                 # special case recordType field
                 if fieldName == FieldName.recordType:
                     # change kind to record type
-                    uMatchString = vCardKindToRecordTypeMap.get(matchString)
-                    if uMatchString is None:
-                        uMatchString = NamedConstant()
-                        uMatchString.description = u""
+                    matchValue = vCardKindToRecordTypeMap.get(matchString.lower())
+                    if matchValue is None:
+                        matchValue = NamedConstant()
+                        matchValue.description = u""
 
                     # change types and flags
                     matchFlags &= ~MatchFlags.caseInsensitive
                     matchType = MatchType.equals
-                elif fieldName == FieldName.uid:
-                    # special case uid until I figure out how to do a case-sens collation
-                    matchFlags &= ~MatchFlags.caseInsensitive
-                    uMatchString = matchString.decode("utf-8")
                 else:
-                    uMatchString = matchString.decode("utf-8")
+                    matchValue = matchString.decode("utf-8")
 
-                return MatchExpression(fieldName, uMatchString, matchType, matchFlags)
+                return MatchExpression(fieldName, matchValue, matchType, matchFlags)
 
 
             def definedExpression(defined, allOf):
                 if constant or propFilter.filter_name in ("N" , "FN", "UID", "SOURCE", "KIND",):
                     return defined  # all records have this property so no records do not have it
                 else:
+                    # FIXME: The startsWith expression below, which works with LDAP and OD. is not currently supported
+                    return True
+                    '''
                     # this may generate inefficient LDAP query string
                     matchFlags = MatchFlags_none if defined else MatchFlags.NOT
                     matchList = [matchExpression(fieldName, "", MatchType.startsWith, matchFlags) for fieldName in searchableFields]
                     return andOrExpression(allOf, matchList)
+                    '''
 
 
             def andOrExpression(propFilterAllOf, matchList):
@@ -472,7 +473,7 @@ def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, con
                             else:
                                 matchFlags = MatchFlags_none
 
-                            matchList = [matchExpression(fieldName, matchString.decode("utf-8"), matchType, matchFlags) for fieldName in searchableFields]
+                            matchList = [matchExpression(fieldName, matchString, matchType, matchFlags) for fieldName in searchableFields]
                             matchList.extend(matchList)
                         return andOrExpression(propFilterAllOf, matchList)
 
@@ -595,8 +596,8 @@ class ABDirectoryQueryResult(DAVPropertyMixIn):
     '''
 
     @inlineCallbacks
-    def generate(self, record, kind=None, addProps=None,):
-        self._vCard = yield vCardFromRecord(record, kind, addProps, None)
+    def generate(self, record, forceKind=None, addProps=None,):
+        self._vCard = yield vCardFromRecord(record, forceKind, addProps, None)
         returnValue(self)
 
 
