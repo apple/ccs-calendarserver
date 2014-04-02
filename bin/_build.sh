@@ -505,12 +505,13 @@ c_dependencies () {
       using_system "libffi";
     fi;
   else
-    local p="libffi-3.0.13"
+    local v="3.0.13";
+    local n="libffi";
+    local p="${n}-${v}";
+
     c_dependency -m "45f3b6dbc9ee7c7dfbbbc5feba571529" \
       "libffi" "${p}" \
       "ftp://sourceware.org/pub/libffi/${p}.tar.gz"
-    export CPPFLAGS="-I${dev_roots}/libffi/lib/${p}/include ${CPPFLAGS}"
-    export C_INCLUDE_PATH="${dev_roots}/libffi/lib/${p}/include:${C_INCLUDE_PATH}"
   fi;
 
   ruler;
@@ -520,6 +521,7 @@ c_dependencies () {
     local v="2.4.38";
     local n="openldap";
     local p="${n}-${v}";
+
     c_dependency -m "39831848c731bcaef235a04e0d14412f" \
       "OpenLDAP" "${p}" \
       "http://www.openldap.org/software/download/OpenLDAP/${n}-release/${p}.tgz" \
@@ -539,26 +541,32 @@ c_dependencies () {
     local v="2.1.26";
     local n="cyrus-sasl";
     local p="${n}-${v}";
+
     c_dependency -m "a7f4e5e559a0e37b3ffc438c9456e425" \
       "cyrus-sasl" "${p}" \
       "ftp://ftp.cyrusimap.org/cyrus-sasl/${p}.tar.gz" \
       --disable-macos-framework;
-    export CPPFLAGS="-I${dev_roots}/${n}/include/sasl ${CPPFLAGS}"
-    export C_INCLUDE_PATH="${dev_roots}/${n}/include/sasl:${C_INCLUDE_PATH}"
   fi;
 
   ruler;
   if type -P memcached > /dev/null; then
     using_system "memcached";
   else
-    local le="libevent-2.0.21-stable";
-    local mc="memcached-1.4.16";
+    local v="2.0.21-stable";
+    local n="libevent";
+    local p="${n}-${v}";
+
     c_dependency -m "b2405cc9ebf264aa47ff615d9de527a2" \
-      "libevent" "${le}" \
-      "http://github.com/downloads/libevent/libevent/${le}.tar.gz";
+      "libevent" "${p}" \
+      "http://github.com/downloads/libevent/libevent/${p}.tar.gz";
+
+    local v="1.4.16";
+    local n="memcached";
+    local p="${n}-${v}";
+
     c_dependency -m "1c5781fecb52d70b615c6d0c9c140c9c" \
-      "memcached" "${mc}" \
-      "http://www.memcached.org/files/${mc}.tar.gz";
+      "memcached" "${p}" \
+      "http://www.memcached.org/files/${p}.tar.gz";
   fi;
 
   ruler;
