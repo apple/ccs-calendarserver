@@ -110,6 +110,8 @@ class DirectoryAddressBookHomeProvisioningResource(
                 self.directory.recordType.user
             ]
         ]:
+            # FIXME: why don't we also pass in the name to the resource itself
+            # like we do for DirectoryCalendarHomeTypeProvisioningResource?
             self.putChild(recordTypeName, DirectoryAddressBookHomeTypeProvisioningResource(self, r))
 
         self.putChild(uidsResourceName, DirectoryAddressBookHomeUIDProvisioningResource(self))
@@ -191,7 +193,7 @@ class DirectoryAddressBookHomeTypeProvisioningResource (
             for record in (
                 yield self.directory.recordsWithRecordType(self.recordType)
             ):
-                if record.enabledForAddressBooks:
+                if getattr(record, "hasContacts", False):
                     for shortName in record.shortNames:
                         children.append(shortName)
 
@@ -214,7 +216,7 @@ class DirectoryAddressBookHomeTypeProvisioningResource (
 
 
     def displayName(self):
-        return self.recordType
+        return self.directory.recordTypeToOldName(self.recordType)
 
     ##
     # ACL
@@ -237,7 +239,7 @@ class DirectoryAddressBookHomeUIDProvisioningResource (
 
     homeResourceTypeName = 'addressbooks'
 
-    enabledAttribute = 'enabledForAddressBooks'
+    enabledAttribute = 'hasContacts'
 
 
     def homeResourceCreator(self, record, transaction):

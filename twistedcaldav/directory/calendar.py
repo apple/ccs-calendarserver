@@ -237,7 +237,7 @@ class DirectoryCalendarHomeUIDProvisioningResource (
 
     homeResourceTypeName = 'calendars'
 
-    enabledAttribute = 'enabledForCalendaring'
+    enabledAttribute = 'hasCalendars'
 
     def homeResourceCreator(self, record, transaction):
         return DirectoryCalendarHomeResource.createHomeResource(

@@ -37,6 +37,7 @@ __all__ = [
 
 uidsResourceName = "__uids__"
 
+
 class CommonUIDProvisioningResource(object):
     """
     Common ancestor for addressbook/calendar UID provisioning resources.
@@ -71,11 +72,10 @@ class CommonUIDProvisioningResource(object):
             log.debug("No directory record with UID %r" % (name,))
             returnValue(None)
 
-        # MOVE2WHO
-        # if not getattr(record, self.enabledAttribute):
-        #     log.debug("Directory record %r is not enabled for %s" % (
-        #         record, self.homeResourceTypeName))
-        #     returnValue(None)
+        if not getattr(record, self.enabledAttribute, False):
+            log.debug("Directory record %r is not enabled for %s" % (
+                record, self.homeResourceTypeName))
+            returnValue(None)
 
         assert len(name) > 4, "Directory record has an invalid GUID: %r" % (
             name,)
