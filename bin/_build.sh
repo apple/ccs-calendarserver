@@ -543,7 +543,7 @@ c_dependencies () {
     local p="${n}-${v}";
 
     c_dependency -m "a7f4e5e559a0e37b3ffc438c9456e425" \
-      "cyrus-sasl" "${p}" \
+      "Cyrus SASL" "${p}" \
       "ftp://ftp.cyrusimap.org/cyrus-sasl/${p}.tar.gz" \
       --disable-macos-framework;
   fi;
