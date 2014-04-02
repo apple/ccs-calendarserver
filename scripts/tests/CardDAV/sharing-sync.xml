@@ -36,7 +36,7 @@
 			<ruri>$notificationpath2:/</ruri>
 		</request>
 	</start>
-	
+
 	<!-- test suite below is similar to test suite in ../CalDAV/sharing-sync.xml -->
 	<test-suite name='shared addressbook'>
 		<test name='1a'>
@@ -2231,7 +2231,7 @@
 			</request>
 		</test>
 	</test-suite>
-	
+
 	<!-- test suite below is similar to test suite in ../CalDAV/sharing-sync.xml -->
 	<test-suite name='two shared groups'>
 		<test name='0'>
@@ -3584,9 +3584,9 @@
 		</test>
 	</test-suite>
 
-	<!-- test suites below are similar to those in ../CalDAV/sync-report.xml but 
+	<!-- test suites below are similar to those in ../CalDAV/sync-report.xml but
 			use shared address books instead of calendars -->
-	
+
 	<test-suite name='support-report-set/sync-token property'>
 		<test name='0'>
 			<description>clean up old data</description>
@@ -3598,7 +3598,7 @@
 				<ruri>$addressbookhome4:/</ruri>
 				<ruri>$notificationpath1:/</ruri>
 			</request>
-	
+
 			<!-- add 2 vcards to user1 address book -->
 			<request>
 				<method>PUT</method>
@@ -3616,7 +3616,7 @@
 					<filepath>Resource/CardDAV/vreports/put/2.vcf</filepath>
 				</data>
 			</request>
-			
+
 			<!-- share user2 address book with user1 -->
 			<!-- user2 POSTs invitation -->
 			<request user="$userid2:" pswd="$pswd2:" print-response="no">
@@ -3803,7 +3803,7 @@
 			<description>On shared addressbook</description>
 			<request>
 				<method>PROPFIND</method>
-				<ruri>$addressbookhome1:/$userid2:/</ruri>
+				<ruri>$addressbookhome1:/$userguid2:/</ruri>
 				<header>
 					<name>Depth</name>
 					<value>0</value>
@@ -3845,7 +3845,7 @@
 			</request>
 		</test>
 	</test-suite>
-	
+
 	<test-suite name='simple reports - sync-level'>
 		<test name='1'>
 			<require-feature>
@@ -3868,7 +3868,7 @@
 					<arg>
 						<name>okhrefs</name>
 						<value>$addressbook:/</value>
-						<value>$userid2:/</value>
+						<value>$userguid2:/</value>
 					</arg>
 				</verify>
 			</request>
@@ -3894,7 +3894,7 @@
 					<arg>
 						<name>okhrefs</name>
 						<value>$addressbook:/</value>
-						<value>$userid2:/</value>
+						<value>$userguid2:/</value>
 					</arg>
 				</verify>
 			</request>
@@ -3920,7 +3920,7 @@
 					<arg>
 						<name>okhrefs</name>
 						<value>$addressbook:/</value>
-						<value>$userid2:/</value>
+						<value>$userguid2:/</value>
 					</arg>
 				</verify>
 			</request>
@@ -3948,10 +3948,10 @@
 						<value>$addressbook:/</value>
 						<value>$addressbook:/1.vcf</value>
 						<value>$addressbook:/2.vcf</value>
-						<value>$userid2:/</value>
-						<value>$userid2:/1.vcf</value>
-						<value>$userid2:/2.vcf</value>
-						<value>$userid2:/addressbook.vcf</value>
+						<value>$userguid2:/</value>
+						<value>$userguid2:/1.vcf</value>
+						<value>$userguid2:/2.vcf</value>
+						<value>$userguid2:/addressbook.vcf</value>
 					</arg>
 				</verify>
 			</request>
@@ -3979,10 +3979,10 @@
 						<value>$addressbook:/</value>
 						<value>$addressbook:/1.vcf</value>
 						<value>$addressbook:/2.vcf</value>
-						<value>$userid2:/</value>
-						<value>$userid2:/1.vcf</value>
-						<value>$userid2:/2.vcf</value>
-						<value>$userid2:/addressbook.vcf</value>
+						<value>$userguid2:/</value>
+						<value>$userguid2:/1.vcf</value>
+						<value>$userguid2:/2.vcf</value>
+						<value>$userguid2:/addressbook.vcf</value>
 					</arg>
 				</verify>
 			</request>
@@ -4010,10 +4010,10 @@
 						<value>$addressbook:/</value>
 						<value>$addressbook:/1.vcf</value>
 						<value>$addressbook:/2.vcf</value>
-						<value>$userid2:/</value>
-						<value>$userid2:/1.vcf</value>
-						<value>$userid2:/2.vcf</value>
-						<value>$userid2:/addressbook.vcf</value>
+						<value>$userguid2:/</value>
+						<value>$userguid2:/1.vcf</value>
+						<value>$userguid2:/2.vcf</value>
+						<value>$userguid2:/addressbook.vcf</value>
 					</arg>
 				</verify>
 			</request>
@@ -4240,7 +4240,7 @@
 					<arg>
 						<name>okhrefs</name>
 						<value>$addressbook:/</value>
-						<value>$userid2:/</value>
+						<value>$userguid2:/</value>
 					</arg>
 				</verify>
 			</request>
@@ -4268,10 +4268,10 @@
 						<value>$addressbook:/</value>
 						<value>$addressbook:/1.vcf</value>
 						<value>$addressbook:/2.vcf</value>
-						<value>$userid2:/</value>
-						<value>$userid2:/1.vcf</value>
-						<value>$userid2:/2.vcf</value>
-						<value>$userid2:/addressbook.vcf</value>
+						<value>$userguid2:/</value>
+						<value>$userguid2:/1.vcf</value>
+						<value>$userguid2:/2.vcf</value>
+						<value>$userguid2:/addressbook.vcf</value>
 					</arg>
 				</verify>
 			</request>
@@ -4335,7 +4335,7 @@
 					<arg>
 						<name>okhrefs</name>
 						<value>$addressbook:/</value>
-						<value>$userid2:/</value>
+						<value>$userguid2:/</value>
 					</arg>
 				</verify>
 			</request>
@@ -4364,10 +4364,10 @@
 						<value>$addressbook:/1.vcf</value>
 						<value>$addressbook:/2.vcf</value>
 						<value>$addressbook:/3.vcf</value>
-						<value>$userid2:/</value>
-						<value>$userid2:/1.vcf</value>
-						<value>$userid2:/2.vcf</value>
-						<value>$userid2:/addressbook.vcf</value>
+						<value>$userguid2:/</value>
+						<value>$userguid2:/1.vcf</value>
+						<value>$userguid2:/2.vcf</value>
+						<value>$userguid2:/addressbook.vcf</value>
 					</arg>
 				</verify>
 			</request>
@@ -4426,7 +4426,7 @@
 					<arg>
 						<name>okhrefs</name>
 						<value>$addressbook:/</value>
-						<value>$userid2:/</value>
+						<value>$userguid2:/</value>
 					</arg>
 				</verify>
 			</request>
@@ -4454,10 +4454,10 @@
 						<value>$addressbook:/</value>
 						<value>$addressbook:/1.vcf</value>
 						<value>$addressbook:/2.vcf</value>
-						<value>$userid2:/</value>
-						<value>$userid2:/1.vcf</value>
-						<value>$userid2:/2.vcf</value>
-						<value>$userid2:/addressbook.vcf</value>
+						<value>$userguid2:/</value>
+						<value>$userguid2:/1.vcf</value>
+						<value>$userguid2:/2.vcf</value>
+						<value>$userguid2:/addressbook.vcf</value>
 					</arg>
 				</verify>
 			</request>
@@ -4520,7 +4520,7 @@
 					<arg>
 						<name>okhrefs</name>
 						<value>$addressbook:/</value>
-						<value>$userid2:/</value>
+						<value>$userguid2:/</value>
 					</arg>
 				</verify>
 			</request>
@@ -4548,10 +4548,10 @@
 						<value>$addressbook:/</value>
 						<value>$addressbook:/1.vcf</value>
 						<value>$addressbook:/2.vcf</value>
-						<value>$userid2:/</value>
-						<value>$userid2:/1.vcf</value>
-						<value>$userid2:/2.vcf</value>
-						<value>$userid2:/addressbook.vcf</value>
+						<value>$userguid2:/</value>
+						<value>$userguid2:/1.vcf</value>
+						<value>$userguid2:/2.vcf</value>
+						<value>$userguid2:/addressbook.vcf</value>
 					</arg>
 				</verify>
 			</request>
@@ -5197,7 +5197,7 @@
 					<filepath>Resource/CardDAV/vreports/put/6.vcf</filepath>
 				</data>
 			</request>
-	
+
 			<!-- share user4 address book with user1 -->
 			<!-- user4 POSTs invitation -->
 			<request user="$userid4:" pswd="$pswd4:" print-response="no">
@@ -5273,14 +5273,14 @@
 					<arg>
 						<name>okhrefs</name>
 						<value>$addressbook:/</value>
-						<value>$userid3:/</value>
-						<value>$userid3:/1.vcf</value>
-						<value>$userid3:/2.vcf</value>
-						<value>$userid3:/addressbook.vcf</value>
-						<value>$userid4:/</value>
-						<value>$userid4:/1.vcf</value>
-						<value>$userid4:/2.vcf</value>
-						<value>$userid4:/addressbook.vcf</value>
+						<value>$userguid3:/</value>
+						<value>$userguid3:/1.vcf</value>
+						<value>$userguid3:/2.vcf</value>
+						<value>$userguid3:/addressbook.vcf</value>
+						<value>$userguid4:/</value>
+						<value>$userguid4:/1.vcf</value>
+						<value>$userguid4:/2.vcf</value>
+						<value>$userguid4:/addressbook.vcf</value>
 					</arg>
 				</verify>
 				<grabelement>
@@ -5293,7 +5293,7 @@
 			<description>new resource</description>
 			<request>
 				<method>PUT</method>
-				<ruri>$addressbookhome1:/$userid3:/3.vcf</ruri>
+				<ruri>$addressbookhome1:/$userguid3:/3.vcf</ruri>
 				<data>
 					<content-type>text/vcard; charset=utf-8</content-type>
 					<filepath>Resource/CardDAV/vreports/put/9.vcf</filepath>
@@ -5317,8 +5317,8 @@
 					<callback>multistatusItems</callback>
 					<arg>
 						<name>okhrefs</name>
-						<value>$userid3:/</value>
-						<value>$userid3:/3.vcf</value>
+						<value>$userguid3:/</value>
+						<value>$userguid3:/3.vcf</value>
 					</arg>
 				</verify>
 				<grabelement>
@@ -5331,7 +5331,7 @@
 			<description>remove resource (treated as new)</description>
 			<request>
 				<method>DELETE</method>
-				<ruri>$addressbookhome1:/$userid3:/3.vcf</ruri>
+				<ruri>$addressbookhome1:/$userguid3:/3.vcf</ruri>
 				<verify>
 					<callback>statusCode</callback>
 				</verify>
@@ -5351,11 +5351,11 @@
 					<callback>multistatusItems</callback>
 					<arg>
 						<name>okhrefs</name>
-						<value>$userid3:/</value>
+						<value>$userguid3:/</value>
 					</arg>
 					<arg>
 						<name>badhrefs</name>
-						<value>$userid3:/3.vcf</value>
+						<value>$userguid3:/3.vcf</value>
 					</arg>
 				</verify>
 			</request>
@@ -5377,11 +5377,11 @@
 					<callback>multistatusItems</callback>
 					<arg>
 						<name>okhrefs</name>
-						<value>$userid3:/</value>
+						<value>$userguid3:/</value>
 					</arg>
 					<arg>
 						<name>badhrefs</name>
-						<value>$userid3:/3.vcf</value>
+						<value>$userguid3:/3.vcf</value>
 					</arg>
 				</verify>
 				<grabelement>
@@ -5394,7 +5394,7 @@
 			<description>changed resource</description>
 			<request>
 				<method>PUT</method>
-				<ruri>$addressbookhome1:/$userid3:/1.vcf</ruri>
+				<ruri>$addressbookhome1:/$userguid3:/1.vcf</ruri>
 				<data>
 					<content-type>text/vcard; charset=utf-8</content-type>
 					<filepath>Resource/CardDAV/vreports/put/5.vcf</filepath>
@@ -5418,8 +5418,8 @@
 					<callback>multistatusItems</callback>
 					<arg>
 						<name>okhrefs</name>
-						<value>$userid3:/</value>
-						<value>$userid3:/1.vcf</value>
+						<value>$userguid3:/</value>
+						<value>$userguid3:/1.vcf</value>
 					</arg>
 				</verify>
 				<grabelement>
@@ -5474,14 +5474,14 @@
 					<arg>
 						<name>okhrefs</name>
 						<value>$addressbook:/</value>
-						<value>$userid3:/</value>
-						<value>$userid3:/1.vcf</value>
-						<value>$userid3:/2.vcf</value>
-						<value>$userid3:/addressbook.vcf</value>
-						<value>$userid4:/</value>
-						<value>$userid4:/1.vcf</value>
-						<value>$userid4:/2.vcf</value>
-						<value>$userid4:/addressbook.vcf</value>
+						<value>$userguid3:/</value>
+						<value>$userguid3:/1.vcf</value>
+						<value>$userguid3:/2.vcf</value>
+						<value>$userguid3:/addressbook.vcf</value>
+						<value>$userguid4:/</value>
+						<value>$userguid4:/1.vcf</value>
+						<value>$userguid4:/2.vcf</value>
+						<value>$userguid4:/addressbook.vcf</value>
 					</arg>
 				</verify>
 				<verify>
@@ -5502,7 +5502,7 @@
 			<description>new resource</description>
 			<request>
 				<method>PUT</method>
-				<ruri>$addressbookhome1:/$userid4:/3.vcf</ruri>
+				<ruri>$addressbookhome1:/$userguid4:/3.vcf</ruri>
 				<data>
 					<content-type>text/vcard; charset=utf-8</content-type>
 					<filepath>Resource/CardDAV/vreports/put/12.vcf</filepath>
@@ -5526,8 +5526,8 @@
 					<callback>multistatusItems</callback>
 					<arg>
 						<name>okhrefs</name>
-						<value>$userid4:/</value>
-						<value>$userid4:/3.vcf</value>
+						<value>$userguid4:/</value>
+						<value>$userguid4:/3.vcf</value>
 					</arg>
 				</verify>
 				<verify>
@@ -5548,7 +5548,7 @@
 			<description>remove resource (treated as new)</description>
 			<request>
 				<method>DELETE</method>
-				<ruri>$addressbookhome1:/$userid4:/3.vcf</ruri>
+				<ruri>$addressbookhome1:/$userguid4:/3.vcf</ruri>
 				<verify>
 					<callback>statusCode</callback>
 				</verify>
@@ -5568,11 +5568,11 @@
 					<callback>multistatusItems</callback>
 					<arg>
 						<name>okhrefs</name>
-						<value>$userid4:/</value>
+						<value>$userguid4:/</value>
 					</arg>
 					<arg>
 						<name>badhrefs</name>
-						<value>$userid4:/3.vcf</value>
+						<value>$userguid4:/3.vcf</value>
 					</arg>
 				</verify>
 			</request>
@@ -5594,11 +5594,11 @@
 					<callback>multistatusItems</callback>
 					<arg>
 						<name>okhrefs</name>
-						<value>$userid4:/</value>
+						<value>$userguid4:/</value>
 					</arg>
 					<arg>
 						<name>badhrefs</name>
-						<value>$userid4:/3.vcf</value>
+						<value>$userguid4:/3.vcf</value>
 					</arg>
 				</verify>
 				<verify>
@@ -5618,7 +5618,7 @@
 			<description>changed resource</description>
 			<request>
 				<method>PUT</method>
-				<ruri>$addressbookhome1:/$userid4:/1.vcf</ruri>
+				<ruri>$addressbookhome1:/$userguid4:/1.vcf</ruri>
 				<data>
 					<content-type>text/vcard; charset=utf-8</content-type>
 					<filepath>Resource/CardDAV/vreports/put/7.vcf</filepath>
@@ -5642,8 +5642,8 @@
 					<callback>multistatusItems</callback>
 					<arg>
 						<name>okhrefs</name>
-						<value>$userid4:/</value>
-						<value>$userid4:/1.vcf</value>
+						<value>$userguid4:/</value>
+						<value>$userguid4:/1.vcf</value>
 					</arg>
 				</verify>
 				<verify>
@@ -5714,12 +5714,12 @@
 					<arg>
 						<name>okhrefs</name>
 						<value>$addressbook:/</value>
-						<value>$userid3:/</value>
-						<value>$userid3:/1.vcf</value>
-						<value>$userid3:/2.vcf</value>
-						<value>$userid4:/</value>
-						<value>$userid4:/1.vcf</value>
-						<value>$userid4:/2.vcf</value>
+						<value>$userguid3:/</value>
+						<value>$userguid3:/1.vcf</value>
+						<value>$userguid3:/2.vcf</value>
+						<value>$userguid4:/</value>
+						<value>$userguid4:/1.vcf</value>
+						<value>$userguid4:/2.vcf</value>
 					</arg>
 				</verify>
 				<grabelement>
@@ -5773,7 +5773,7 @@
 					<callback>multistatusItems</callback>
 					<arg>
 						<name>badhrefs</name>
-						<value>$userid3:/</value>
+						<value>$userguid3:/</value>
 					</arg>
 				</verify>
 				<grabelement>
@@ -5837,7 +5837,7 @@
 					<callback>multistatusItems</callback>
 					<arg>
 						<name>okhrefs</name>
-						<value>$userid3:/</value>
+						<value>$userguid3:/</value>
 					</arg>
 				</verify>
 			</request>
@@ -5859,7 +5859,7 @@
 					<callback>multistatusItems</callback>
 					<arg>
 						<name>okhrefs</name>
-						<value>$userid3:/</value>
+						<value>$userguid3:/</value>
 					</arg>
 				</verify>
 				<grabelement>
@@ -5869,7 +5869,7 @@
 			</request>
 		</test>
 	</test-suite>
-	
+
 	<test-suite name='simple reports - diff token - no props - home depth:1'>
 		<require-feature>
 			<feature>sync-report-home</feature>
@@ -5941,7 +5941,7 @@
 					<filepath>Resource/CardDAV/vreports/put/6.vcf</filepath>
 				</data>
 			</request>
-	
+
 			<!-- share user4 address book with user1 -->
 			<!-- user4 POSTs invitation -->
 			<request user="$userid4:" pswd="$pswd4:" print-response="no">
@@ -6017,8 +6017,8 @@
 					<arg>
 						<name>okhrefs</name>
 						<value>$addressbook:/</value>
-						<value>$userid3:/</value>
-						<value>$userid4:/</value>
+						<value>$userguid3:/</value>
+						<value>$userguid4:/</value>
 					</arg>
 				</verify>
 				<grabelement>
@@ -6031,7 +6031,7 @@
 			<description>new resource</description>
 			<request>
 				<method>PUT</method>
-				<ruri>$addressbookhome1:/$userid3:/3.vcf</ruri>
+				<ruri>$addressbookhome1:/$userguid3:/3.vcf</ruri>
 				<data>
 					<content-type>text/vcard; charset=utf-8</content-type>
 					<filepath>Resource/CardDAV/vreports/put/9.vcf</filepath>
@@ -6055,7 +6055,7 @@
 					<callback>multistatusItems</callback>
 					<arg>
 						<name>okhrefs</name>
-						<value>$userid3:/</value>
+						<value>$userguid3:/</value>
 					</arg>
 				</verify>
 				<grabelement>
@@ -6068,7 +6068,7 @@
 			<description>remove resource (treated as new)</description>
 			<request>
 				<method>DELETE</method>
-				<ruri>$addressbookhome1:/$userid3:/3.vcf</ruri>
+				<ruri>$addressbookhome1:/$userguid3:/3.vcf</ruri>
 				<verify>
 					<callback>statusCode</callback>
 				</verify>
@@ -6088,7 +6088,7 @@
 					<callback>multistatusItems</callback>
 					<arg>
 						<name>okhrefs</name>
-						<value>$userid3:/</value>
+						<value>$userguid3:/</value>
 					</arg>
 				</verify>
 			</request>
@@ -6110,7 +6110,7 @@
 					<callback>multistatusItems</callback>
 					<arg>
 						<name>okhrefs</name>
-						<value>$userid3:/</value>
+						<value>$userguid3:/</value>
 					</arg>
 				</verify>
 				<grabelement>
@@ -6123,7 +6123,7 @@
 			<description>changed resource</description>
 			<request>
 				<method>PUT</method>
-				<ruri>$addressbookhome1:/$userid3:/1.vcf</ruri>
+				<ruri>$addressbookhome1:/$userguid3:/1.vcf</ruri>
 				<data>
 					<content-type>text/vcard; charset=utf-8</content-type>
 					<filepath>Resource/CardDAV/vreports/put/5.vcf</filepath>
@@ -6147,7 +6147,7 @@
 					<callback>multistatusItems</callback>
 					<arg>
 						<name>okhrefs</name>
-						<value>$userid3:/</value>
+						<value>$userguid3:/</value>
 					</arg>
 				</verify>
 				<grabelement>
@@ -6202,8 +6202,8 @@
 					<arg>
 						<name>okhrefs</name>
 						<value>$addressbook:/</value>
-						<value>$userid3:/</value>
-						<value>$userid4:/</value>
+						<value>$userguid3:/</value>
+						<value>$userguid4:/</value>
 					</arg>
 				</verify>
 				<verify>
@@ -6224,7 +6224,7 @@
 			<description>new resource</description>
 			<request>
 				<method>PUT</method>
-				<ruri>$addressbookhome1:/$userid4:/3.vcf</ruri>
+				<ruri>$addressbookhome1:/$userguid4:/3.vcf</ruri>
 				<data>
 					<content-type>text/vcard; charset=utf-8</content-type>
 					<filepath>Resource/CardDAV/vreports/put/10.vcf</filepath>
@@ -6248,7 +6248,7 @@
 					<callback>multistatusItems</callback>
 					<arg>
 						<name>okhrefs</name>
-						<value>$userid4:/</value>
+						<value>$userguid4:/</value>
 					</arg>
 				</verify>
 				<verify>
@@ -6269,7 +6269,7 @@
 			<description>remove resource (treated as new)</description>
 			<request>
 				<method>DELETE</method>
-				<ruri>$addressbookhome1:/$userid4:/3.vcf</ruri>
+				<ruri>$addressbookhome1:/$userguid4:/3.vcf</ruri>
 				<verify>
 					<callback>statusCode</callback>
 				</verify>
@@ -6289,7 +6289,7 @@
 					<callback>multistatusItems</callback>
 					<arg>
 						<name>okhrefs</name>
-						<value>$userid4:/</value>
+						<value>$userguid4:/</value>
 					</arg>
 				</verify>
 			</request>
@@ -6311,7 +6311,7 @@
 					<callback>multistatusItems</callback>
 					<arg>
 						<name>okhrefs</name>
-						<value>$userid4:/</value>
+						<value>$userguid4:/</value>
 					</arg>
 				</verify>
 				<verify>
@@ -6331,7 +6331,7 @@
 			<description>changed resource</description>
 			<request>
 				<method>PUT</method>
-				<ruri>$addressbookhome1:/$userid4:/1.vcf</ruri>
+				<ruri>$addressbookhome1:/$userguid4:/1.vcf</ruri>
 				<data>
 					<content-type>text/vcard; charset=utf-8</content-type>
 					<filepath>Resource/CardDAV/vreports/put/7.vcf</filepath>
@@ -6355,7 +6355,7 @@
 					<callback>multistatusItems</callback>
 					<arg>
 						<name>okhrefs</name>
-						<value>$userid4:/</value>
+						<value>$userguid4:/</value>
 					</arg>
 				</verify>
 				<verify>
@@ -6426,8 +6426,8 @@
 					<arg>
 						<name>okhrefs</name>
 						<value>$addressbook:/</value>
-						<value>$userid3:/</value>
-						<value>$userid4:/</value>
+						<value>$userguid3:/</value>
+						<value>$userguid4:/</value>
 					</arg>
 				</verify>
 				<grabelement>
@@ -6440,21 +6440,21 @@
 			<description>remove resource then addressbook</description>
 			<request>
 				<method>DELETE</method>
-				<ruri>$addressbookhome1:/$userid3:/1.vcf</ruri>
+				<ruri>$addressbookhome1:/$userguid3:/1.vcf</ruri>
 				<verify>
 					<callback>statusCode</callback>
 				</verify>
 			</request>
 			<request>
 				<method>DELETE</method>
-				<ruri>$addressbookhome1:/$userid3:/2.vcf</ruri>
+				<ruri>$addressbookhome1:/$userguid3:/2.vcf</ruri>
 				<verify>
 					<callback>statusCode</callback>
 				</verify>
 			</request>
 			<request>
 				<method>DELETE</method>
-				<ruri>$addressbookhome1:/$userid3:/</ruri>
+				<ruri>$addressbookhome1:/$userguid3:/</ruri>
 				<verify>
 					<callback>statusCode</callback>
 				</verify>
@@ -6474,7 +6474,7 @@
 					<callback>multistatusItems</callback>
 					<arg>
 						<name>badhrefs</name>
-						<value>$userid3:/</value>
+						<value>$userguid3:/</value>
 					</arg>
 				</verify>
 				<grabelement>
@@ -6540,7 +6540,7 @@
 					<callback>multistatusItems</callback>
 					<arg>
 						<name>okhrefs</name>
-						<value>$userid3:/</value>
+						<value>$userguid3:/</value>
 					</arg>
 				</verify>
 			</request>
@@ -6562,7 +6562,7 @@
 					<callback>multistatusItems</callback>
 					<arg>
 						<name>okhrefs</name>
-						<value>$userid3:/</value>
+						<value>$userguid3:/</value>
 					</arg>
 				</verify>
 			</request>
@@ -6616,12 +6616,12 @@
 					<arg>
 						<name>okhrefs</name>
 						<value>$addressbook:/</value>
-						<value>$userid3:/</value>
-						<value>$userid3:/addressbook.vcf</value>
-						<value>$userid4:/</value>
-						<value>$userid4:/1.vcf</value>
-						<value>$userid4:/2.vcf</value>
-						<value>$userid4:/addressbook.vcf</value>
+						<value>$userguid3:/</value>
+						<value>$userguid3:/addressbook.vcf</value>
+						<value>$userguid4:/</value>
+						<value>$userguid4:/1.vcf</value>
+						<value>$userguid4:/2.vcf</value>
+						<value>$userguid4:/addressbook.vcf</value>
 					</arg>
 				</verify>
 				<grabelement>
@@ -6634,7 +6634,7 @@
 			<description>Change a property</description>
 			<request>
 				<method>PROPPATCH</method>
-				<ruri>$addressbookhome1:/$userid3:/</ruri>
+				<ruri>$addressbookhome1:/$userguid3:/</ruri>
 				<data>
 					<content-type>text/vcard; charset=utf-8</content-type>
 					<filepath>Resource/CardDAV/sharing/sync/addressbook/37.xml</filepath>
@@ -6658,7 +6658,7 @@
 					<callback>multistatusItems</callback>
 					<arg>
 						<name>okhrefs</name>
-						<value>$userid3:/</value>
+						<value>$userguid3:/</value>
 					</arg>
 				</verify>
 				<verify>
@@ -6678,7 +6678,7 @@
 			<description>Remove a property</description>
 			<request>
 				<method>PROPPATCH</method>
-				<ruri>$addressbookhome1:/$userid3:/</ruri>
+				<ruri>$addressbookhome1:/$userguid3:/</ruri>
 				<data>
 					<content-type>text/vcard; charset=utf-8</content-type>
 					<filepath>Resource/CardDAV/sharing/sync/addressbook/38.xml</filepath>
@@ -6702,7 +6702,7 @@
 					<callback>multistatusItems</callback>
 					<arg>
 						<name>okhrefs</name>
-						<value>$userid3:/</value>
+						<value>$userguid3:/</value>
 					</arg>
 				</verify>
 				<verify>
@@ -6742,8 +6742,8 @@
 					<arg>
 						<name>okhrefs</name>
 						<value>$addressbook:/</value>
-						<value>$userid3:/</value>
-						<value>$userid4:/</value>
+						<value>$userguid3:/</value>
+						<value>$userguid4:/</value>
 					</arg>
 				</verify>
 				<grabelement>
@@ -6756,7 +6756,7 @@
 			<description>Change a property</description>
 			<request>
 				<method>PROPPATCH</method>
-				<ruri>$addressbookhome1:/$userid3:/</ruri>
+				<ruri>$addressbookhome1:/$userguid3:/</ruri>
 				<data>
 					<content-type>text/vcard; charset=utf-8</content-type>
 					<filepath>Resource/CardDAV/sharing/sync/addressbook/37.xml</filepath>
@@ -6780,7 +6780,7 @@
 					<callback>multistatusItems</callback>
 					<arg>
 						<name>okhrefs</name>
-						<value>$userid3:/</value>
+						<value>$userguid3:/</value>
 					</arg>
 				</verify>
 				<verify>
@@ -6800,7 +6800,7 @@
 			<description>Remove a property</description>
 			<request>
 				<method>PROPPATCH</method>
-				<ruri>$addressbookhome1:/$userid3:/</ruri>
+				<ruri>$addressbookhome1:/$userguid3:/</ruri>
 				<data>
 					<content-type>text/vcard; charset=utf-8</content-type>
 					<filepath>Resource/CardDAV/sharing/sync/addressbook/38.xml</filepath>
@@ -6824,7 +6824,7 @@
 					<callback>multistatusItems</callback>
 					<arg>
 						<name>okhrefs</name>
-						<value>$userid3:/</value>
+						<value>$userguid3:/</value>
 					</arg>
 				</verify>
 				<verify>
@@ -6855,5 +6855,5 @@
 			<ruri>$notificationpath4:/</ruri>
 		</request>
 	</end>
-	
+
 </caldavtest>
