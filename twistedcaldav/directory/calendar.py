@@ -114,14 +114,14 @@ class DirectoryCalendarHomeProvisioningResource (DirectoryCalendarProvisioningRe
             self.directory.recordType.resource,
         )
 
-        for recordTypeName in [
-            self.directory.recordTypeToOldName(r) for r in
+        for recordType, recordTypeName in [
+            (r, self.directory.recordTypeToOldName(r)) for r in
             self.supportedChildTypes
         ]:
             self.putChild(
                 recordTypeName,
                 DirectoryCalendarHomeTypeProvisioningResource(
-                    self, recordTypeName, r
+                    self, recordTypeName, recordType
                 )
             )
 

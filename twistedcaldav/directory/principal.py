@@ -286,9 +286,18 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
         #
         # Create children
         #
+
+        self.supportedChildTypes = (
+            self.directory.recordType.user,
+            self.directory.recordType.group,
+            self.directory.recordType.location,
+            self.directory.recordType.resource,
+            self.directory.recordType.address,
+        )
+
         for name, recordType in [
             (self.directory.recordTypeToOldName(r), r)
-            for r in self.directory.recordTypes()
+            for r in self.supportedChildTypes
         ]:
             self.putChild(
                 name,
@@ -404,8 +413,8 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
 
     def listChildren(self):
         return [
-            self.directory.recordTypeToOldName(r)
-            for r in self.directory.recordTypes()
+            self.directory.recordTypeToOldName(r) for r in
+            self.supportedChildTypes
         ]
 
 

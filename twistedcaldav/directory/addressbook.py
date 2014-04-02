@@ -114,16 +114,14 @@ class DirectoryAddressBookHomeProvisioningResource(
             self.directory.recordType.resource,
         )
 
-        for recordTypeName in [
-            self.directory.recordTypeToOldName(r) for r in
+        for recordType, recordTypeName in [
+            (r, self.directory.recordTypeToOldName(r)) for r in
             self.supportedChildTypes
         ]:
-            # FIXME: why don't we also pass in the name to the resource itself
-            # like we do for DirectoryCalendarHomeTypeProvisioningResource?
             self.putChild(
                 recordTypeName,
                 DirectoryAddressBookHomeTypeProvisioningResource(
-                    self, recordTypeName, r
+                    self, recordTypeName, recordType
                 )
             )
 
