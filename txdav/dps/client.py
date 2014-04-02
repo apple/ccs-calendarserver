@@ -262,6 +262,10 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
     ):
         newFields = []
         for fieldName, searchTerm, matchFlags, matchType in fields:
+
+            if isinstance(searchTerm, uuid.UUID):
+                searchTerm = unicode(searchTerm)
+
             newFields.append(
                 (
                     fieldName.encode("utf-8"),

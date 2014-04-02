@@ -117,7 +117,7 @@ def cuAddressConverter(origCUAddr):
     cua = normalizeCUAddr(origCUAddr)
 
     if cua.startswith("urn:uuid:"):
-        return "guid", cua[9:]
+        return "guid", uuid.UUID(cua[9:])
 
     elif cua.startswith("mailto:"):
         return "emailAddresses", cua[7:]

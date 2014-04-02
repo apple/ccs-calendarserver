@@ -15,6 +15,7 @@
 ##
 
 import os
+import uuid
 
 from twext.who.expression import (
     Operand, MatchType, MatchFlags, MatchExpression
@@ -210,6 +211,23 @@ class DPSClientSingleDirectoryTest(unittest.TestCase):
         self.assertTrue("dre" in matchingShortNames)
         self.assertTrue("wsanchez" in matchingShortNames)
         self.assertTrue("sanchezoffice" in matchingShortNames)
+
+
+    @inlineCallbacks
+    def test_recordsMatchingFields_nonUnicode(self):
+        fields = (
+            (u"guid", uuid.UUID("A3B1158F-0564-4F5B-81E4-A89EA5FF81B0"),
+                MatchFlags.caseInsensitive, MatchType.equals),
+        )
+        records = (yield self.directory.recordsMatchingFields(
+            fields, operand=Operand.OR, recordType=None
+        ))
+        matchingShortNames = set()
+        for r in records:
+            for shortName in r.shortNames:
+                matchingShortNames.add(shortName)
+        self.assertTrue("dre" in matchingShortNames)
+        self.assertFalse("wsanchez" in matchingShortNames)
 
 
     @inlineCallbacks

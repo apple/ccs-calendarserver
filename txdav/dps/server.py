@@ -190,6 +190,14 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         for fieldName, searchTerm, matchFlags, matchType in fields:
             fieldName = fieldName.decode("utf-8")
             searchTerm = searchTerm.decode("utf-8")
+            try:
+                field = self._directory.fieldName.lookupByName(fieldName)
+            except ValueError:
+                field = None
+            if field:
+                valueType = self._directory.fieldName.valueType(field)
+                if valueType is uuid.UUID:
+                    searchTerm = uuid.UUID(searchTerm)
             matchFlags = MatchFlags.lookupByName(matchFlags.decode("utf-8"))
             matchType = MatchType.lookupByName(matchType.decode("utf-8"))
             newFields.append((fieldName, searchTerm, matchFlags, matchType))
