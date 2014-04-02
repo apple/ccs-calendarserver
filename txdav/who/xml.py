@@ -113,18 +113,18 @@ class Element(Values):
     floor = ValueConstant(u"floor")
     floor.fieldName = FieldName.floor
 
-    associatedAddress = ValueConstant(u"associatedAddress")
+    associatedAddress = ValueConstant(u"associated-address")
     associatedAddress.fieldName = FieldName.associatedAddress
 
     # For "addresses", i.e., non-scheduled areas containing locations:
 
-    abbreviatedName = ValueConstant(u"abbreviatedName")
+    abbreviatedName = ValueConstant(u"abbreviated-name")
     abbreviatedName.fieldName = FieldName.abbreviatedName
 
-    streetAddress = ValueConstant(u"streetAddress")
+    streetAddress = ValueConstant(u"street-address")
     streetAddress.fieldName = FieldName.streetAddress
 
-    geographicLocation = ValueConstant(u"geographicLocation")
+    geographicLocation = ValueConstant(u"geographic-location")
     geographicLocation.fieldName = FieldName.geographicLocation
 
 

@@ -93,28 +93,28 @@ limitations under the License.
     <guid>634A102B-6902-464F-9451-8A86A31628C1</guid>
     <password>room-addr-2</password>
     <full-name>Room with Address 1</full-name>
-    <associatedAddress>1-infinite-loop</associatedAddress>
+    <associated-address>1-infinite-loop</associated-address>
   </record>
   <record type="location">
     <short-name>room-with-address-2</short-name>
     <uid>room-addr-2</uid>
     <password>room-addr-2</password>
     <full-name>Room with Address 2</full-name>
-    <associatedAddress>2-infinite-loop</associatedAddress>
+    <associated-address>2-infinite-loop</associated-address>
   </record>
   <record type="address">
     <short-name>il1</short-name>
     <uid>1-infinite-loop</uid>
     <full-name>One Infinite Loop</full-name>
-    <streetAddress>1 Infinite Loop, Cupertino, CA 95014</streetAddress>
-    <geographicLocation>37.331741,-122.030333</geographicLocation>
+    <street-address>1 Infinite Loop, Cupertino, CA 95014</street-address>
+    <geographic-location>37.331741,-122.030333</geographic-location>
   </record>
   <record type="address">
     <short-name>il2</short-name>
     <uid>2-infinite-loop</uid>
     <full-name>Two Infinite Loop</full-name>
-    <streetAddress>2 Infinite Loop, Cupertino, CA 95014</streetAddress>
-    <geographicLocation>37.332633,-122.030502</geographicLocation>
+    <street-address>2 Infinite Loop, Cupertino, CA 95014</street-address>
+    <geographic-location>37.332633,-122.030502</geographic-location>
   </record>
 
 </directory>

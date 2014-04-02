@@ -26,11 +26,11 @@ limitations under the License.
 
 # The uids and guids for CDT test accounts are the same
 # The short name is of the form userNN
-USERGUIDS = "708C5C91-082E-4DEB-ADD3-7CFB19ADF%03d"
-GROUPGUIDS = "97C1351D-35E7-41E9-8F6F-72DDB9136%03d"
-LOCATIONGUIDS = "34EB6DBA-B94C-4F82-8FEF-EB2C19258%03d"
-RESOURCEGUIDS = "9DD5F2A5-DAA7-4CEB-825C-2EEB458C1%03d"
-PUBLICGUIDS = "42DCA7BD-588A-458F-A1B6-1F778A85DF%02d"
+USERGUIDS = "10000000-0000-0000-0000-000000000%03d"
+GROUPGUIDS = "20000000-0000-0000-0000-000000000%03d"
+LOCATIONGUIDS = "30000000-0000-0000-0000-000000000%03d"
+RESOURCEGUIDS = "40000000-0000-0000-0000-000000000%03d"
+PUBLICGUIDS = "50000000-0000-0000-0000-0000000000%02d"
 
 # accounts-test.xml
 
@@ -125,27 +125,27 @@ out.write("""
     <short-name>pretend</short-name>
     <uid>pretend</uid>
     <full-name>Pretend Conference Room</full-name>
-    <associatedAddress>il1</associatedAddress>
+    <associated-address>il1</associated-address>
   </record>
   <record type="address">
     <short-name>il1</short-name>
     <uid>il1</uid>
     <full-name>IL1</full-name>
-    <streetAddress>1 Infinite Loop, Cupertino, CA 95014</streetAddress>
-    <geographicLocation>37.331741,-122.030333</geographicLocation>
+    <street-address>1 Infinite Loop, Cupertino, CA 95014</street-address>
+    <geographic-location>37.331741,-122.030333</geographic-location>
   </record>
   <record type="location">
     <short-name>fantastic</short-name>
     <uid>fantastic</uid>
     <full-name>Fantastic Conference Room</full-name>
-    <associatedAddress>il2</associatedAddress>
+    <associated-address>il2</associated-address>
   </record>
   <record type="address">
     <short-name>il2</short-name>
     <uid>il2</uid>
     <full-name>IL2</full-name>
-    <streetAddress>2 Infinite Loop, Cupertino, CA 95014</streetAddress>
-    <geographicLocation>37.332633,-122.030502</geographicLocation>
+    <street-address>2 Infinite Loop, Cupertino, CA 95014</street-address>
+    <geographic-location>37.332633,-122.030502</geographic-location>
   </record>
 """)
 
@@ -270,45 +270,45 @@ out.write(prefix)
 out.write("<proxies>\n")
 
 proxies = (
-    ("9DD5F2A5-DAA7-4CEB-825C-2EEB458C1001", {
-        "proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF001",),
-        "read-only-proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF003",),
+    (RESOURCEGUIDS % 1, {
+        "proxies": (USERGUIDS % 1,),
+        "read-only-proxies": (USERGUIDS % 3,),
     }),
-    ("9DD5F2A5-DAA7-4CEB-825C-2EEB458C1002", {
-        "proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF001",),
-        "read-only-proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF003",),
+    (RESOURCEGUIDS % 2, {
+        "proxies": (USERGUIDS % 1,),
+        "read-only-proxies": (USERGUIDS % 3,),
     }),
-    ("9DD5F2A5-DAA7-4CEB-825C-2EEB458C1003", {
-        "proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF001",),
-        "read-only-proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF003",),
+    (RESOURCEGUIDS % 3, {
+        "proxies": (USERGUIDS % 1,),
+        "read-only-proxies": (USERGUIDS % 3,),
     }),
-    ("9DD5F2A5-DAA7-4CEB-825C-2EEB458C1004", {
-        "proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF001",),
-        "read-only-proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF003",),
+    (RESOURCEGUIDS % 4, {
+        "proxies": (USERGUIDS % 1,),
+        "read-only-proxies": (USERGUIDS % 3,),
     }),
-    ("9DD5F2A5-DAA7-4CEB-825C-2EEB458C1005", {
-        "proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF001",),
-        "read-only-proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF003",),
+    (RESOURCEGUIDS % 5, {
+        "proxies": (USERGUIDS % 1,),
+        "read-only-proxies": (USERGUIDS % 3,),
     }),
-    ("9DD5F2A5-DAA7-4CEB-825C-2EEB458C1006", {
-        "proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF001",),
-        "read-only-proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF003",),
+    (RESOURCEGUIDS % 6, {
+        "proxies": (USERGUIDS % 1,),
+        "read-only-proxies": (USERGUIDS % 3,),
     }),
-    ("9DD5F2A5-DAA7-4CEB-825C-2EEB458C1007", {
-        "proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF001",),
-        "read-only-proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF003",),
+    (RESOURCEGUIDS % 7, {
+        "proxies": (USERGUIDS % 1,),
+        "read-only-proxies": (USERGUIDS % 3,),
     }),
-    ("9DD5F2A5-DAA7-4CEB-825C-2EEB458C1008", {
-        "proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF001",),
-        "read-only-proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF003",),
+    (RESOURCEGUIDS % 8, {
+        "proxies": (USERGUIDS % 1,),
+        "read-only-proxies": (USERGUIDS % 3,),
     }),
-    ("9DD5F2A5-DAA7-4CEB-825C-2EEB458C1009", {
-        "proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF001",),
-        "read-only-proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF003",),
+    (RESOURCEGUIDS % 9, {
+        "proxies": (USERGUIDS % 1,),
+        "read-only-proxies": (USERGUIDS % 3,),
     }),
-    ("9DD5F2A5-DAA7-4CEB-825C-2EEB458C1010", {
-        "proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF001",),
-        "read-only-proxies": ("708C5C91-082E-4DEB-ADD3-7CFB19ADF003",),
+    (RESOURCEGUIDS % 10, {
+        "proxies": (USERGUIDS % 1,),
+        "read-only-proxies": (USERGUIDS % 3,),
     }),
 )
 
