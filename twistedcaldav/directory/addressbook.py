@@ -100,19 +100,32 @@ class DirectoryAddressBookHomeProvisioningResource(
         # FIXME: Smells like a hack
         directory.addressBookHomesCollection = self
 
+
         #
         # Create children
         #
-        # ...just "users" though.  If we iterate all of the directory's
-        # recordTypes, we also get the proxy sub principal types.
+        # ...just users, locations, and resources though.  If we iterate all of
+        # the directory's recordTypes, we also get the proxy sub principal types
+        # and other things which don't have addressbooks.
+
+        self.supportedChildTypes = (
+            self.directory.recordType.user,
+            self.directory.recordType.location,
+            self.directory.recordType.resource,
+        )
+
         for recordTypeName in [
-            self.directory.recordTypeToOldName(r) for r in [
-                self.directory.recordType.user
-            ]
+            self.directory.recordTypeToOldName(r) for r in
+            self.supportedChildTypes
         ]:
             # FIXME: why don't we also pass in the name to the resource itself
             # like we do for DirectoryCalendarHomeTypeProvisioningResource?
-            self.putChild(recordTypeName, DirectoryAddressBookHomeTypeProvisioningResource(self, r))
+            self.putChild(
+                recordTypeName,
+                DirectoryAddressBookHomeTypeProvisioningResource(
+                    self, recordTypeName, r
+                )
+            )
 
         self.putChild(uidsResourceName, DirectoryAddressBookHomeUIDProvisioningResource(self))
 
@@ -122,7 +135,10 @@ class DirectoryAddressBookHomeProvisioningResource(
 
 
     def listChildren(self):
-        return [self.directory.recordTypeToOldName(r) for r in self.directory.recordTypes()]
+        return [
+            self.directory.recordTypeToOldName(r) for r in
+            self.supportedChildTypes
+        ]
 
 
     def principalCollections(self):
@@ -167,23 +183,25 @@ class DirectoryAddressBookHomeTypeProvisioningResource (
     Resource which provisions address book home collections of a specific
     record type as needed.
     """
-    def __init__(self, parent, recordType):
+    def __init__(self, parent, name, recordType):
         """
         @param parent: the parent of this resource
         @param recordType: the directory record type to provision.
         """
         assert parent is not None
+        assert name is not None
         assert recordType is not None
 
         super(DirectoryAddressBookHomeTypeProvisioningResource, self).__init__()
 
         self.directory = parent.directory
+        self.name = name
         self.recordType = recordType
         self._parent = parent
 
 
     def url(self):
-        return joinURL(self._parent.url(), self.directory.recordTypeToOldName(self.recordType))
+        return joinURL(self._parent.url(), self.name)
 
 
     @inlineCallbacks

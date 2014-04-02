@@ -104,14 +104,26 @@ class DirectoryCalendarHomeProvisioningResource (DirectoryCalendarProvisioningRe
         #
         # Create children
         #
-        # ...just "users" though.  If we iterate all of the directory's
-        # recordTypes, we also get the proxy sub principal types.
+        # ...just users, locations, and resources though.  If we iterate all of
+        # the directory's recordTypes, we also get the proxy sub principal types
+        # and other things which don't have calendars.
+
+        self.supportedChildTypes = (
+            self.directory.recordType.user,
+            self.directory.recordType.location,
+            self.directory.recordType.resource,
+        )
+
         for recordTypeName in [
-            self.directory.recordTypeToOldName(r) for r in [
-                self.directory.recordType.user
-            ]
+            self.directory.recordTypeToOldName(r) for r in
+            self.supportedChildTypes
         ]:
-            self.putChild(recordTypeName, DirectoryCalendarHomeTypeProvisioningResource(self, recordTypeName, r))
+            self.putChild(
+                recordTypeName,
+                DirectoryCalendarHomeTypeProvisioningResource(
+                    self, recordTypeName, r
+                )
+            )
 
         self.putChild(uidsResourceName, DirectoryCalendarHomeUIDProvisioningResource(self))
 
@@ -121,7 +133,10 @@ class DirectoryCalendarHomeProvisioningResource (DirectoryCalendarProvisioningRe
 
 
     def listChildren(self):
-        return [self.directory.recordTypeToOldName(r) for r in self.directory.recordTypes()]
+        return [
+            self.directory.recordTypeToOldName(r) for r in
+            self.supportedChildTypes
+        ]
 
 
     def principalCollections(self):
