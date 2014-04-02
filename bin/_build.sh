@@ -57,7 +57,7 @@ find_header () {
   # Check for presence of a header of specified version
   local found_version="$(printf "#include <${sys_header}>\n${version_macro}\n" | cc -x c -E - | tail -1)";
 
-  if [ "${found_version}" == "${version_macro}" ]; then
+  if [ "${found_version}" = "${version_macro}" ]; then
     # Macro was not replaced
     return 1;
   fi;
@@ -135,9 +135,9 @@ init_build () {
     sha1 () { "$(type -p shasum)" "$@"; }
   fi;
 
-  if [ "${hash}" == "sha1" ]; then
+  if [ "${hash}" = "sha1" ]; then
     hash () { sha1 "$@"; }
-  elif [ "${hash}" == "md5" ]; then
+  elif [ "${hash}" = "md5" ]; then
     hash () { md5 "$@"; }
   elif type -t cksum > /dev/null; then
     hash="hash";
@@ -541,27 +541,6 @@ c_dependencies () {
   fi;
 
   ruler;
-  if type -P memcached > /dev/null; then
-    using_system "memcached";
-  else
-    local v="2.0.21-stable";
-    local n="libevent";
-    local p="${n}-${v}";
-
-    c_dependency -m "b2405cc9ebf264aa47ff615d9de527a2" \
-      "libevent" "${p}" \
-      "http://github.com/downloads/libevent/libevent/${p}.tar.gz";
-
-    local v="1.4.16";
-    local n="memcached";
-    local p="${n}-${v}";
-
-    c_dependency -m "1c5781fecb52d70b615c6d0c9c140c9c" \
-      "memcached" "${p}" \
-      "http://www.memcached.org/files/${p}.tar.gz";
-  fi;
-
-  ruler;
   if type -P postgres > /dev/null; then
     using_system "Postgres";
   else
@@ -595,7 +574,7 @@ py_dependencies () {
   # Work around a change in Xcode tools that breaks Python modules in OS X
   # 10.9.2 and prior due to a hard error if the -mno-fused-madd is used, as
   # it was in the system Python, and is therefore passed along by disutils.
-  if [ "$(uname -s)" == "Darwin" ]; then
+  if [ "$(uname -s)" = "Darwin" ]; then
     if "${python}" -c 'import distutils.sysconfig; print distutils.sysconfig.get_config_var("CFLAGS")' \
        | grep -e -mno-fused-madd > /dev/null; then
       export ARCHFLAGS="-Wno-error=unused-command-line-argument-hard-error-in-future";

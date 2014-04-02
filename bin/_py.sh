@@ -109,13 +109,13 @@ cmp_version () {
       break;
     fi;
 
-    if [ "${v}" == "${v#*.}" ]; then
+    if [ "${v}" = "${v#*.}" ]; then
       # No dots left, so we're ok
       result=0;
       break;
     fi;
 
-    if [ "${mv}" == "${mv#*.}" ]; then
+    if [ "${mv}" = "${mv#*.}" ]; then
       # No dots left, so we're not gonna match
       result=1;
       break;
