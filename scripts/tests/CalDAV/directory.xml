@@ -27,7 +27,7 @@
 	</require-feature>
 
 	<start/>
-	
+
 	<test-suite name='GET on collections'>
 		<test name='1'>
 			<description>GET on root collection</description>
@@ -124,16 +124,6 @@
 			</request>
 		</test>
 		<test name='10'>
-			<description>GET on group calendars collection</description>
-			<request>
-				<method>GET</method>
-				<ruri>$calendars_groups:</ruri>
-				<verify>
-					<callback>statusCode</callback>
-				</verify>
-			</request>
-		</test>
-		<test name='11'>
 			<description>GET on locations calendars collection</description>
 			<request>
 				<method>GET</method>
@@ -143,7 +133,7 @@
 				</verify>
 			</request>
 		</test>
-		<test name='12'>
+		<test name='11'>
 			<description>GET on resources calendars collection</description>
 			<request>
 				<method>GET</method>
@@ -153,7 +143,7 @@
 				</verify>
 			</request>
 		</test>
-		<test name='13'>
+		<test name='12'>
 			<description>GET on __uids__ calendars collection</description>
 			<request>
 				<method>GET</method>
@@ -168,7 +158,7 @@
 			</request>
 		</test>
 	</test-suite>
-	
+
 	<end/>
-	
+
 </caldavtest>

@@ -20,7 +20,7 @@
 
 <caldavtest>
 	<description>Test GET on collections to ensure proper directory listing</description>
-	
+
 	<require-feature>
 		<feature>carddav</feature>
 	</require-feature>
@@ -67,7 +67,7 @@
 					<callback>statusCode</callback>
 				</verify>
 			</request>
-		</test>	
+		</test>
 		<test name='5'>
 			<description>GET on __uids__ principals collection</description>
 			<request>
@@ -103,16 +103,6 @@
 			</request>
 		</test>
 		<test name='8'>
-			<description>GET on group addressbooks collection</description>
-			<request>
-				<method>GET</method>
-				<ruri>$addressbooks_groups:</ruri>
-				<verify>
-					<callback>statusCode</callback>
-				</verify>
-			</request>
-		</test>
-		<test name='9'>
 			<description>GET on __uids__ addressbooks collection</description>
 			<request>
 				<method>GET</method>
@@ -129,5 +119,5 @@
 	</test-suite>
 
 	<end/>
-	
+
 </caldavtest>

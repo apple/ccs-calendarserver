@@ -228,10 +228,6 @@
 			<value>$calendars:$userstype:/</value>
 		</substitution>
 		<substitution>
-			<key>$calendars_groups:</key>
-			<value>$calendars:$groupstype:/</value>
-		</substitution>
-		<substitution>
 			<key>$calendars_resources:</key>
 			<value>$calendars:$resourcestype:/</value>
 		</substitution>
@@ -326,10 +322,6 @@
 		<substitution>
 			<key>$addressbooks_users:</key>
 			<value>$addressbooks:$userstype:/</value>
-		</substitution>
-		<substitution>
-			<key>$addressbooks_groups:</key>
-			<value>$addressbooks:$groupstype:/</value>
 		</substitution>
 
 		<!-- primary addressbook name -->

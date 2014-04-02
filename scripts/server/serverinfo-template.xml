@@ -23,7 +23,7 @@
 	<nonsslport>%(nonsslport)s</nonsslport>
 	<sslport>%(sslport)s</sslport>
 	<authtype>%(authtype)s</authtype>
-	
+
 	<waitcount>120</waitcount>
 	<waitdelay>0.25</waitdelay>
 
@@ -32,7 +32,7 @@
 		<feature>COPY Method</feature>							<!-- COPY method -->
 		<feature>MOVE Method</feature>							<!-- MOVE method -->
 		<feature>Extended MKCOL</feature>						<!-- Extended MKCOL -->
-		
+
 		<!-- ACL related -->
 		<feature>ACL Method</feature>							<!-- ACL method -->
 		<feature>acl-principal-prop-set REPORT</feature>		<!-- ACL acl-principal-prop-set REPORT -->
@@ -228,10 +228,6 @@
 			<value>$calendars:$userstype:/</value>
 		</substitution>
 		<substitution>
-			<key>$calendars_groups:</key>
-			<value>$calendars:$groupstype:/</value>
-		</substitution>
-		<substitution>
 			<key>$calendars_resources:</key>
 			<value>$calendars:$resourcestype:/</value>
 		</substitution>
@@ -320,10 +316,6 @@
 		<substitution>
 			<key>$addressbooks_users:</key>
 			<value>$addressbooks:$userstype:/</value>
-		</substitution>
-		<substitution>
-			<key>$addressbooks_groups:</key>
-			<value>$addressbooks:$groupstype:/</value>
 		</substitution>
 
 		<!-- primary addressbook name -->
