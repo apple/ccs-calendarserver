@@ -111,3 +111,15 @@ class DirectoryTestCase(StoreTestCase):
         )
         records = yield self.directory.recordsFromExpression(expression)
         self.assertEquals(len(records), 1)
+
+
+    @inlineCallbacks
+    def test_recordsFromMatchExpressionNonUnicode(self):
+        expression = MatchExpression(
+            FieldName.guid,
+            UUID("6423F94A-6B76-4A3A-815B-D52CFD77935D"),
+            MatchType.equals,
+            MatchFlags.caseInsensitive
+        )
+        records = yield self.directory.recordsFromExpression(expression)
+        self.assertEquals(len(records), 1)

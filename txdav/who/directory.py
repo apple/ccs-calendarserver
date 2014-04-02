@@ -151,6 +151,8 @@ class CalendarDirectoryServiceMixin(object):
                     fieldName=fieldName
                 )
                 continue
+            if self.fieldName.valueType(field) is uuid.UUID and isinstance(searchTerm, unicode):
+                searchTerm = uuid.UUID(searchTerm)
             subExpression = MatchExpression(
                 field,
                 searchTerm,
