@@ -9,4 +9,4 @@ q
 
 -e svn+http://svn.calendarserver.org/repository/calendarserver/CalDAVClientLibrary/trunk#egg=CalDAVClientLibrary
 
--e svn+http://svn.calendarserver.org/repository/calendarserver/CalDAVTester/trunk#egg=CalDAVTester
+-e svn+http://svn.calendarserver.org/repository/calendarserver/CalendarServer/branches/users/sagen/move2who-cdt#egg=CalDAVTester
