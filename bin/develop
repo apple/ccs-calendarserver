@@ -31,8 +31,7 @@ develop;
 #
 # Create a subprojects directory with -e checkouts for convenience.
 #
-cd ${wd}
-find .develop/roots/py_modules/src -maxdepth 1 -mindepth 1 -type d | {
+cd ${wd} && find .develop/roots/py_modules/src -maxdepth 1 -mindepth 1 -type d | {
   while read source; do
     deps="${wd}/subprojects";
     mkdir -p "${deps}";
