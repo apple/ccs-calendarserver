@@ -3987,7 +3987,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
                     customxml.CommonName.fromString(commonName) if commonName else None,
                     # customxml.FirstNameProperty(record.firstName) if record.firstName else None,
                     # customxml.LastNameProperty(record.lastName) if record.lastName else None,
-                    #**typeAttr
+                    **typeAttr
                 ),
             )
         else:
