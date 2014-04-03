@@ -28,6 +28,7 @@ from twisted.trial.unittest import TestCase
 
 from twistedcaldav.config import config
 from twistedcaldav.ical import Component
+from twistedcaldav.timezones import TimezoneCache
 
 from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
 from txdav.caldav.datastore.scheduling.scheduler import ScheduleResponseQueue
@@ -1559,3 +1560,67 @@ END:VCALENDAR
             self.assertTrue("PARTSTAT=ACCEPTED" in calendar3)
 
         yield deferLater(reactor, 2.0, _test_user03_refresh)
+
+
+    @inlineCallbacks
+    def test_doImplicitScheduling_OrganizerEventTimezoneDST(self):
+        """
+        Test that doImplicitScheduling delivers scheduling messages to attendees. This test
+        creates an exception close to a DST transition to make sure timezone DST handling
+        is correct.
+        """
+
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTAMP:20080601T120000Z
+DTSTART;TZID=America/Los_Angeles:20140302T190000
+DTEND;TZID=America/Los_Angeles:20140302T193000
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+RRULE:FREQ=DAILY;UNTIL=20140309T075959Z
+END:VEVENT
+END:VCALENDAR
+"""
+        data2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTAMP:20080601T120000Z
+DTSTART;TZID=America/Los_Angeles:20140302T190000
+DTEND;TZID=America/Los_Angeles:20140302T193000
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+RRULE:FREQ=DAILY;UNTIL=20140309T075959Z
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+DTSTAMP:20080601T120000Z
+RECURRENCE-ID;TZID=America/Los_Angeles:20140308T190000
+DTSTART;TZID=America/Los_Angeles:20140308T190000
+DTEND;TZID=America/Los_Angeles:20140308T193000
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+        TimezoneCache.create()
+
+        yield self._createCalendarObject(data1, "user01", "test.ics")
+
+        yield self._setCalendarData(data2, "user01", "test.ics")
+
+        list2 = (yield self._listCalendarObjects("user02"))
+        self.assertEqual(len(list2), 1)
+        self.assertTrue(list2[0].startswith(hashlib.md5("12345-67890").hexdigest()))
+
+        list2 = (yield self._listCalendarObjects("user02", "inbox"))
+        self.assertEqual(len(list2), 2)
+        self.assertTrue(list2[0].startswith(hashlib.md5("12345-67890").hexdigest()))
+        self.assertTrue(list2[1].startswith(hashlib.md5("12345-67890").hexdigest()))
