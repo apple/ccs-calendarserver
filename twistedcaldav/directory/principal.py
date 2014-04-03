@@ -55,6 +55,7 @@ from twistedcaldav.extensions import (
 from twistedcaldav.extensions import DirectoryElement
 from twistedcaldav.resource import CalendarPrincipalCollectionResource, CalendarPrincipalResource
 from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
+from txdav.who.delegates import RecordType as DelegateRecordType
 from txdav.who.directory import CalendarDirectoryRecordMixin
 from txdav.xml import element as davxml
 from txweb2 import responsecode
@@ -1003,19 +1004,27 @@ class DirectoryPrincipalResource (
         proxyFors = set()
 
         if config.EnableProxyPrincipals:
-            childName = "calendar-proxy-{rw}-for".format(
-                rw=("write" if readWrite else "read")
+            proxyRecordType = (
+                DelegateRecordType.writeDelegatorGroup if readWrite else
+                DelegateRecordType.readDelegatorGroup
             )
-            proxyForGroup = yield self.getChild(childName)
-            if proxyForGroup:
-                proxyFors = yield proxyForGroup.groupMembers()
+            proxyGroupRecord = yield self.record.service.recordWithShortName(
+                proxyRecordType, self.record.uid
+            )
+            if proxyGroupRecord is not None:
+                proxyForRecords = yield proxyGroupRecord.members()
 
                 uids = set()
-                for principal in tuple(proxyFors):
-                    if principal.principalUID() in uids:
-                        proxyFors.remove(principal)
+                for record in tuple(proxyForRecords):
+                    if record.uid in uids:
+                        proxyForRecords.remove(record)
                     else:
-                        uids.add(principal.principalUID())
+                        uids.add(record.uid)
+
+                for record in proxyForRecords:
+                    principal = yield self.parent.principalForRecord(record)
+                    if principal is not None:
+                        proxyFors.add(principal)
 
         returnValue(proxyFors)
 
@@ -1062,31 +1071,19 @@ class DirectoryPrincipalResource (
     @inlineCallbacks
     def groupMemberships(self, infinity=False):
 
-        # cache = getattr(self.record.service, "groupMembershipCache", None)
-        # if cache:
-        #     log.debug("groupMemberships is using groupMembershipCache")
-        #     guids = (yield self.record.cachedGroups())
-        #     groups = set()
-        #     for guid in guids:
-        #         principal = yield self.parent.principalForUID(guid)
-        #         if principal:
-        #             groups.add(principal)
-        # else:
         groups = yield self._getRelatives("groups", infinity=infinity)
 
-        # MOVE2WHO
-        # if config.EnableProxyPrincipals:
-        #     # Get proxy group UIDs and map to principal resources
-        #     proxies = []
-        #     memberships = (yield self._calendar_user_proxy_index().getMemberships(self.principalUID()))
-        #     for uid in memberships:
-        #         subprincipal = yield self.parent.principalForUID(uid)
-        #         if subprincipal:
-        #             proxies.append(subprincipal)
-        #         else:
-        #             yield self._calendar_user_proxy_index().removeGroup(uid)
-
-        #     groups.update(proxies)
+        if config.EnableProxyPrincipals:
+            for readWrite, proxyType in (
+                (True, "calendar-proxy-write"),
+                (False, "calendar-proxy-read")
+            ):
+                proxyFors = yield self.proxyFor(readWrite)
+                for proxyFor in proxyFors:
+                    subPrincipal = yield self.parent.principalForUID(
+                        "{}#{}".format(proxyFor.record.uid, proxyType)
+                    )
+                    groups.add(subPrincipal)
 
         returnValue(groups)
 
@@ -1452,7 +1449,6 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
         if config.EnableProxyPrincipals:
             return (
                 "calendar-proxy-read", "calendar-proxy-write",
-                "calendar-proxy-read-for", "calendar-proxy-write-for",
             )
         else:
             return ()
