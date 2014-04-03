@@ -783,8 +783,7 @@ class DirectoryPrincipalResource (
             (calendarserver_namespace, "first-name"),
             (calendarserver_namespace, "last-name"),
             (calendarserver_namespace, "email-address-set"),
-            # MOVE2WHO
-            # davxml.ResourceID.qname(),
+            davxml.ResourceID.qname(),
         )
 
     cacheNotifierFactory = DisabledCacheNotifier
@@ -853,10 +852,12 @@ class DirectoryPrincipalResource (
 
         namespace, name = qname
 
-        # MOVE2WHO -- does principal need ResourceID ?
-        # if qname == davxml.ResourceID.qname():
-        #     returnValue(davxml.ResourceID(davxml.HRef.fromString("urn:uuid:%s" % (self.record.guid,))))
-        if namespace == calendarserver_namespace:
+        if qname == davxml.ResourceID.qname():
+            # FIXME: should this return a different CUA flavor if guid is not set on this record?
+            if hasattr(self.record, "guid"):
+                returnValue(davxml.ResourceID(davxml.HRef.fromString("urn:uuid:%s" % (self.record.guid,))))
+
+        elif namespace == calendarserver_namespace:
 
             # MOVE2WHO
             # if name == "first-name":
