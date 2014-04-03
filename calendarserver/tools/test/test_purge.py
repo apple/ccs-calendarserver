@@ -776,6 +776,26 @@ END:VCALENDAR
 """.replace("\n", "\r\n")
 
 
+# Purging non-existent organizer; has existing attendee; repeating
+REPEATING_PUBLIC_EVENT_ORGANIZER_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+X-CALENDARSERVER-ACCESS:PRIVATE
+BEGIN:VEVENT
+UID:8ED97931-9A19-4596-9D4D-52B36D6AB803
+SUMMARY:Repeating Organizer
+DTSTART:%s
+DURATION:PT1H
+RRULE:FREQ=DAILY;COUNT=400
+ORGANIZER:urn:uuid:6423F94A-6B76-4A3A-815B-D52CFD77935D
+ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:6423F94A-6B76-4A3A-815B-D52CFD77935D
+ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:291C2C29-B663-4342-8EA1-A055E6A04D65
+DTSTAMP:20100303T195203Z
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % (past,)
+
+
 
 class PurgePrincipalTests(StoreTestCase):
     """
@@ -796,6 +816,7 @@ class PurgePrincipalTests(StoreTestCase):
         uid : {
             "calendar1" : {
                 "attachment.ics" : (ATTACHMENT_ICS, metadata,),
+                "organizer.ics" : (REPEATING_PUBLIC_EVENT_ORGANIZER_ICS, metadata,),
             }
         },
         uid2 : {
@@ -870,7 +891,7 @@ class PurgePrincipalTests(StoreTestCase):
 
         count, ignored = (yield PurgePrincipalService.purgeUIDs(self.storeUnderTest(), self.directory,
             self.rootResource, (self.uid,), verbose=False, proxies=False, completely=True))
-        self.assertEquals(count, 1) # 1 event
+        self.assertEquals(count, 2) # 2 events
 
         # Now you don't
         txn = self._sqlCalendarStore.newTransaction()
@@ -889,4 +910,42 @@ class PurgePrincipalTests(StoreTestCase):
         txn = self._sqlCalendarStore.newTransaction()
         home = (yield txn.calendarHomeWithUID(self.uid))
         self.assertEquals(home, None)
+        (yield txn.commit())
+
+
+    @inlineCallbacks
+    def test_purgeUIDsNotCompletely(self):
+        """
+        Verify purgeUIDs removes some events, but leaves others and the home behind
+        """
+
+        self.patch(config, "EnablePrivateEvents", True)
+
+        # Now you see it
+        txn = self._sqlCalendarStore.newTransaction()
+        home = (yield txn.calendarHomeWithUID(self.uid))
+        self.assertNotEquals(home, None)
+        (yield txn.commit())
+
+        count, ignored = (yield PurgePrincipalService.purgeUIDs(self.storeUnderTest(), self.directory,
+            self.rootResource, (self.uid,), verbose=False, proxies=False, completely=False))
+        self.assertEquals(count, 1) # 2 events
+
+        # Now you still see it
+        txn = self._sqlCalendarStore.newTransaction()
+        home = (yield txn.calendarHomeWithUID(self.uid))
+        self.assertNotEquals(home, None)
+        # Verify calendar1 was unshared to uid2
+        home2 = (yield txn.calendarHomeWithUID(self.uid2))
+        self.assertEquals((yield home2.childWithName(self.sharedName)), None)
+        (yield txn.commit())
+
+        count, ignored = (yield PurgePrincipalService.purgeUIDs(self.storeUnderTest(), self.directory,
+            self.rootResource, (self.uid,), verbose=False, proxies=False, completely=False))
+        self.assertEquals(count, 1)
+
+        # And you still do
+        txn = self._sqlCalendarStore.newTransaction()
+        home = (yield txn.calendarHomeWithUID(self.uid))
+        self.assertNotEquals(home, None)
         (yield txn.commit())

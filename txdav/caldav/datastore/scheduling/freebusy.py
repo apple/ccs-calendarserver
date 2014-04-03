@@ -155,7 +155,7 @@ def generateFreeBusyInfo(
         # the organizer is making the request
         authz_uid = organizer_uid
         authz_record = organizer_record
-        if hasattr(calresource._txn, "_authz_uid") and calresource._txn._authz_uid != organizer_uid:
+        if calresource._txn._authz_uid is not None and calresource._txn._authz_uid != organizer_uid:
             authz_uid = calresource._txn._authz_uid
             authz_record = calresource.directoryService().recordWithUID(authz_uid)
 

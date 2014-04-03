@@ -1706,7 +1706,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 cutype == "RESOURCE" and config.Scheduling.Options.TrackUnscheduledResourceData):
 
                 # Find current principal and update modified by details
-                if hasattr(self._txn, "_authz_uid"):
+                if self._txn._authz_uid is not None:
                     authz = self.directoryService().recordWithUID(self._txn._authz_uid)
                     prop = Property("X-CALENDARSERVER-MODIFIED-BY", authz.canonicalCalendarUserAddress())
                     prop.setParameter("CN", authz.displayName())
@@ -1734,7 +1734,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
             # Only DAV:owner is able to set the property to other than PUBLIC
             if internal_state == ComponentUpdateState.NORMAL:
-                if self.calendar().viewerHome().uid() != self._txn._authz_uid and access != Component.ACCESS_PUBLIC:
+                if (self._txn._authz_uid is None or self.calendar().viewerHome().uid() != self._txn._authz_uid) and access != Component.ACCESS_PUBLIC:
                     raise InvalidCalendarAccessError("Private event access level change not allowed")
 
             self.accessMode = access

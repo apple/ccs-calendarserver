@@ -833,7 +833,7 @@ class PurgePrincipalService(WorkerService):
 
         for calendarName in calendarNames:
 
-            txn = self.store.newTransaction()
+            txn = self.store.newTransaction(authz_uid=uid)
             storeCalHome = (yield txn.calendarHomeWithUID(uid))
             calendar = (yield storeCalHome.calendarWithName(calendarName))
             childNames = []
@@ -850,7 +850,7 @@ class PurgePrincipalService(WorkerService):
 
             for childName in childNames:
 
-                txn = self.store.newTransaction()
+                txn = self.store.newTransaction(authz_uid=uid)
                 storeCalHome = (yield txn.calendarHomeWithUID(uid))
                 calendar = (yield storeCalHome.calendarWithName(calendarName))
 
@@ -918,7 +918,7 @@ class PurgePrincipalService(WorkerService):
     def _removeCalendarHome(self, uid):
 
         try:
-            txn = self.store.newTransaction()
+            txn = self.store.newTransaction(authz_uid=uid)
 
             # Remove empty calendar collections (and calendar home if no more
             # calendars)
@@ -936,7 +936,10 @@ class PurgePrincipalService(WorkerService):
                             else:
                                 print("Deleting calendar: %s" % (calendarName,))
                         if not self.dryrun:
-                            (yield storeCalHome.removeChildWithName(calendarName))
+                            if calColl.owned():
+                                yield storeCalHome.removeChildWithName(calendarName)
+                            else:
+                                yield calColl.unshare()
 
                 if not remainingCalendars:
                     if self.verbose:
@@ -960,7 +963,7 @@ class PurgePrincipalService(WorkerService):
     def _removeAddressbookHome(self, uid):
 
         count = 0
-        txn = self.store.newTransaction()
+        txn = self.store.newTransaction(authz_uid=uid)
 
         try:
             # Remove VCards
@@ -978,15 +981,18 @@ class PurgePrincipalService(WorkerService):
                         if not self.dryrun:
                             (yield card.remove())
                         count += 1
+                    abName = abColl.name()
                     if self.verbose:
-                        abName = abColl.name()
                         if self.dryrun:
                             print("Would delete addressbook: %s" % (abName,))
                         else:
                             print("Deleting addressbook: %s" % (abName,))
                     if not self.dryrun:
                         # Also remove the addressbook collection itself
-                        (yield storeAbHome.removeChildWithName(abColl.name()))
+                        if abColl.owned():
+                            yield storeAbHome.removeChildWithName(abName)
+                        else:
+                            yield abColl.unshare()
 
                 if self.verbose:
                     if self.dryrun:
