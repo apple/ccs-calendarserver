@@ -541,6 +541,27 @@ c_dependencies () {
   fi;
 
   ruler;
+  if type -P memcached > /dev/null; then
+    using_system "memcached";
+  else
+    local v="2.0.21-stable";
+    local n="libevent";
+    local p="${n}-${v}";
+
+    c_dependency -m "b2405cc9ebf264aa47ff615d9de527a2" \
+      "libevent" "${p}" \
+      "http://github.com/downloads/libevent/libevent/${p}.tar.gz";
+
+    local v="1.4.16";
+    local n="memcached";
+    local p="${n}-${v}";
+
+    c_dependency -m "1c5781fecb52d70b615c6d0c9c140c9c" \
+      "memcached" "${p}" \
+      "http://www.memcached.org/files/${p}.tar.gz";
+  fi;
+
+  ruler;
   if type -P postgres > /dev/null; then
     using_system "Postgres";
   else
