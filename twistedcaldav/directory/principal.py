@@ -533,11 +533,9 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
 
 
     def principalForRecord(self, record):
-        # MOVE2WHO
-        if record is None: #  or not record.enabled:
+        if record is None:
             return succeed(None)
 
-        # MOVE2WHO
         if record.hasCalendars or record.hasContacts:
             # XXX these are different features and one should not automatically
             # imply the other...

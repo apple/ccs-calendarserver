@@ -25,7 +25,7 @@ from twext.who.idirectory import RecordType, IDirectoryService
 import twext.who.idirectory
 from twext.who.util import ConstantsContainer
 from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.protocol import ClientCreator
 from twisted.protocols import amp
 from twisted.python.constants import Names, NamedConstant
@@ -87,13 +87,6 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
          txdav.who.idirectory.FieldName,
          txdav.who.augment.FieldName)
     )
-
-
-    # MOVE2WHO needed?
-    def getGroups(self, guids=None):
-        return succeed(set())
-    # END MOVE2WHO
-
 
 
     def _dictToRecord(self, serializedFields):

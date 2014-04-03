@@ -738,7 +738,6 @@ class SharingTests(StoreTestCase):
         self.assertEquals(propInvite, None)
 
 
-    # MOVE2WHO Fix wiki
     @inlineCallbacks
     def wikiSetup(self):
         """
@@ -747,7 +746,6 @@ class SharingTests(StoreTestCase):
         sharee's home.
         """
 
-        # self._sqlCalendarStore._directoryService = buildDirectory(homes=("wiki-testing",))
         wcreate = self._sqlCalendarStore.newTransaction("create wiki")
         yield wcreate.calendarHomeWithUID(
             u"{prefix}testing".format(prefix=WikiDirectoryService.uidPrefix),
