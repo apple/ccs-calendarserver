@@ -16,6 +16,7 @@
 from __future__ import print_function
 
 from urllib import quote
+from uuid import UUID
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.cred.credentials import UsernamePassword
@@ -68,48 +69,91 @@ class ProvisionedPrincipals(StoreTestCase):
 
         DirectoryPrincipalResource.principalURL(),
         """
-        if True:
-            #print("\n -> %s" % (directory.__class__.__name__,))
-            provisioningResource = self.principalRootResource
+        provisioningResource = self.principalRootResource
 
-            provisioningURL = "/principals/"
-            self.assertEquals(
-                provisioningURL,
-                provisioningResource.principalCollectionURL()
+        provisioningURL = "/principals/"
+        self.assertEquals(
+            provisioningURL,
+            provisioningResource.principalCollectionURL()
+        )
+
+        principalCollections = provisioningResource.principalCollections()
+        self.assertEquals(
+            set((provisioningURL,)),
+            set(pc.principalCollectionURL() for pc in principalCollections)
+        )
+
+        recordTypes = set((yield provisioningResource.listChildren()))
+        self.assertEquals(
+            recordTypes,
+            set(
+                [
+                    self.directory.recordTypeToOldName(rt) for rt in
+                    (
+                        self.directory.recordType.user,
+                        self.directory.recordType.group,
+                        self.directory.recordType.location,
+                        self.directory.recordType.resource,
+                        self.directory.recordType.address,
+                    )
+                ]
             )
+        )
 
-            principalCollections = provisioningResource.principalCollections()
-            self.assertEquals(
-                set((provisioningURL,)),
-                set(pc.principalCollectionURL() for pc in principalCollections)
-            )
-
-            recordTypes = set((yield provisioningResource.listChildren()))
-            self.assertEquals(
-                recordTypes,
-                set(
-                    [
-                        self.directory.recordTypeToOldName(rt) for rt in
-                        self.directory.recordTypes()
-                    ]
+        for recordType in recordTypes:
+            typeResource = yield provisioningResource.getChild(recordType)
+            self.failUnless(
+                isinstance(
+                    typeResource,
+                    DirectoryPrincipalTypeProvisioningResource
                 )
             )
 
-            for recordType in recordTypes:
-                typeResource = yield provisioningResource.getChild(recordType)
+            typeURL = provisioningURL + recordType + "/"
+            self.assertEquals(
+                typeURL, typeResource.principalCollectionURL()
+            )
+
+            principalCollections = typeResource.principalCollections()
+            self.assertEquals(
+                set((provisioningURL,)),
+                set(
+                    pc.principalCollectionURL()
+                    for pc in principalCollections
+                )
+            )
+
+            shortNames = set((yield typeResource.listChildren()))
+            # Handle records with mulitple shortNames
+            expected = []
+            for r in (
+                yield self.directory.recordsWithRecordType(
+                    self.directory.oldNameToRecordType(recordType)
+                )
+            ):
+                expected.extend(r.shortNames)
+            self.assertEquals(shortNames, set(expected))
+
+            for shortName in shortNames:
+                #print("     -> %s" % (shortName,))
+                recordResource = yield typeResource.getChild(shortName)
                 self.failUnless(
-                    isinstance(
-                        typeResource,
-                        DirectoryPrincipalTypeProvisioningResource
+                    isinstance(recordResource, DirectoryPrincipalResource)
+                )
+
+                # shortName may be non-ascii
+                recordURL = typeURL + quote(shortName.encode("utf-8")) + "/"
+                self.assertIn(
+                    recordURL,
+                    (
+                        (recordResource.principalURL(),) +
+                        tuple(recordResource.alternateURIs())
                     )
                 )
 
-                typeURL = provisioningURL + recordType + "/"
-                self.assertEquals(
-                    typeURL, typeResource.principalCollectionURL()
+                principalCollections = (
+                    recordResource.principalCollections()
                 )
-
-                principalCollections = typeResource.principalCollections()
                 self.assertEquals(
                     set((provisioningURL,)),
                     set(
@@ -117,45 +161,6 @@ class ProvisionedPrincipals(StoreTestCase):
                         for pc in principalCollections
                     )
                 )
-
-                shortNames = set((yield typeResource.listChildren()))
-                # Handle records with mulitple shortNames
-                expected = []
-                for r in (
-                    yield self.directory.recordsWithRecordType(
-                        self.directory.oldNameToRecordType(recordType)
-                    )
-                ):
-                    expected.extend(r.shortNames)
-                self.assertEquals(shortNames, set(expected))
-
-                for shortName in shortNames:
-                    #print("     -> %s" % (shortName,))
-                    recordResource = yield typeResource.getChild(shortName)
-                    self.failUnless(
-                        isinstance(recordResource, DirectoryPrincipalResource)
-                    )
-
-                    # shortName may be non-ascii
-                    recordURL = typeURL + quote(shortName.encode("utf-8")) + "/"
-                    self.assertIn(
-                        recordURL,
-                        (
-                            (recordResource.principalURL(),) +
-                            tuple(recordResource.alternateURIs())
-                        )
-                    )
-
-                    principalCollections = (
-                        recordResource.principalCollections()
-                    )
-                    self.assertEquals(
-                        set((provisioningURL,)),
-                        set(
-                            pc.principalCollectionURL()
-                            for pc in principalCollections
-                        )
-                    )
 
 
     @inlineCallbacks
@@ -921,7 +926,7 @@ class ProvisionedPrincipals(StoreTestCase):
             (
                 "urn:ietf:params:xml:ns:caldav", "calendar-user-address-set",
                 "urn:uuid:AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA",
-                "guid", "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA"
+                "guid", UUID("AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")
             ),
             (
                 "urn:ietf:params:xml:ns:caldav", "calendar-user-address-set",
