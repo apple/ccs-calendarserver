@@ -265,7 +265,7 @@ class CommonDataStore(Service, object):
         )
 
 
-    def newTransaction(self, label="unlabeled", disableCache=False):
+    def newTransaction(self, label="unlabeled", disableCache=False, authz_uid=None):
         """
         @see: L{IDataStore.newTransaction}
         """
@@ -277,7 +277,8 @@ class CommonDataStore(Service, object):
             self._notifierFactories if self._enableNotifications else {},
             label,
             self._migrating,
-            disableCache
+            disableCache,
+            authz_uid,
         )
         if self.logTransactionWaits or self.timeoutTransactions:
             CommonStoreTransactionMonitor(txn, self.logTransactionWaits,
@@ -495,7 +496,8 @@ class CommonStoreTransaction(object):
     def __init__(
         self, store, sqlTxn,
         enableCalendars, enableAddressBooks,
-        notifierFactories, label, migrating=False, disableCache=False
+        notifierFactories, label, migrating=False, disableCache=False,
+        authz_uid=None,
     ):
         self._store = store
         self._calendarHomes = {}
@@ -512,6 +514,7 @@ class CommonStoreTransaction(object):
             self._queryCacher = None
         else:
             self._queryCacher = store.queryCacher
+        self._authz_uid = authz_uid
 
         CommonStoreTransaction.id += 1
         self._txid = CommonStoreTransaction.id
@@ -4641,7 +4644,7 @@ class SharingMixIn(object):
         @param shared: whether or not the owned collection is "shared"
         @type shared: C{bool}
         """
-        assert self.owned()
+        assert self.owned(), "Cannot change share mode on a shared collection"
 
         # Only if change is needed
         newMessage = "shared" if shared else None
