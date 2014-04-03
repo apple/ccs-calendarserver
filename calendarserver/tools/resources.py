@@ -247,7 +247,10 @@ def migrateResources(
                             guid, recordType
                         )
                     )
-                    augmentRecord.autoSchedule = autoSchedule
+                    if autoSchedule:
+                        augmentRecord.autoScheduleMode = "automatic"
+                    else:
+                        augmentRecord.autoScheduleMode = "none"
                     augmentRecords.append(augmentRecord)
 
                     directoryRecords.append((

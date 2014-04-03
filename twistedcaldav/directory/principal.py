@@ -1122,24 +1122,6 @@ class DirectoryPrincipalResource (
         return self.record.thisServer()
 
 
-    ##
-    # Extra resource info
-    ##
-
-    @inlineCallbacks
-    def setAutoSchedule(self, autoSchedule):
-        self.record.autoSchedule = autoSchedule
-        augmentRecord = (yield self.record.service.augmentService.getAugmentRecord(self.record.guid, self.record.recordType))
-        augmentRecord.autoSchedule = autoSchedule
-        (yield self.record.service.augmentService.addAugmentRecords([augmentRecord]))
-
-
-    def getAutoSchedule(self):
-        # MOVE2WHO
-        return True
-        # return self.record.autoSchedule
-
-
     def canAutoSchedule(self, organizer=None):
         """
         Determine the auto-schedule state based on record state, type and config settings.
