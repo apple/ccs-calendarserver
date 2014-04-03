@@ -3489,10 +3489,10 @@ def tzexpand(tzdata, start, end):
     start.setDateOnly(False)
     if tzexpanded:
         if start != tzexpanded[0][0]:
-            results.append((str(start), UTCOffsetValue(tzexpanded[0][1]).getText(),))
+            results.append((str(start), UTCOffsetValue(tzexpanded[0][2]).getText(),))
     else:
         results.append((str(start), UTCOffsetValue(tzcomp._pycalendar.getTimezoneOffsetSeconds(start)).getText(),))
-    for tzstart, _ignore_tzoffsetfrom, tzoffsetto in tzexpanded:
+    for tzstart, _ignore_utctzstart, _ignore_tzoffsetfrom, tzoffsetto in tzexpanded:
         results.append((
             tzstart.getText(),
             UTCOffsetValue(tzoffsetto).getText(),
@@ -3536,9 +3536,9 @@ def tzexpandlocal(tzdata, start, end):
         if start != tzexpanded[0][0]:
             results.append((
                 start,
-                tzexpanded[0][1],
-                tzexpanded[0][1],
-                tzexpanded[0][3],
+                tzexpanded[0][2],
+                tzexpanded[0][2],
+                tzexpanded[0][4],
             ))
     else:
         results.append((
@@ -3547,7 +3547,7 @@ def tzexpandlocal(tzdata, start, end):
             tzcomp._pycalendar.getTimezoneOffsetSeconds(start),
             tzcomp._pycalendar.getTimezoneDescriptor(start),
         ))
-    for tzstart, tzoffsetfrom, tzoffsetto, name in tzexpanded:
+    for tzstart, _ignore_utctzstart, tzoffsetfrom, tzoffsetto, name in tzexpanded:
         results.append((
             tzstart,
             tzoffsetfrom,

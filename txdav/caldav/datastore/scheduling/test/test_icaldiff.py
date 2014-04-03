@@ -20,6 +20,7 @@ from twisted.trial import unittest
 
 from twistedcaldav.stdconfig import config
 from twistedcaldav.ical import Component
+from twistedcaldav.timezones import TimezoneCache
 
 from txdav.caldav.datastore.scheduling.icaldiff import iCalDiff
 
@@ -3254,6 +3255,240 @@ END:VCALENDAR
             ),
         )
 
+        for description, calendar1, calendar2, attendee, result in data:
+            differ = iCalDiff(Component.fromString(calendar1), Component.fromString(calendar2), False)
+            diffResult = differ.attendeeMerge(attendee)
+            diffResult = (
+                diffResult[0],
+                diffResult[1],
+                tuple(sorted(diffResult[2])),
+                re.sub(
+                    "X-CALENDARSERVER-DTSTAMP=[^Z]+",
+                    "X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXX",
+                    str(diffResult[3]).replace("\r", "").replace("\n ", "")
+                ) if diffResult[3] else None,
+            )
+            result = list(result)
+            result[2] = tuple([(DateTime.parseText(dt) if dt else None) for dt in result[2]])
+            result = tuple(result)
+            self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
+
+
+    def test_attendee_merge_timezonedst(self):
+
+        data = (
+            (
+                "#1.1",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:252ECE12-3C4F-4895-8AE6-EB45DC9156D2
+DTSTART;TZID=America/Los_Angeles:20140302T190000
+DTEND;TZID=America/Los_Angeles:20140302T193000
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+DTSTAMP:20140307T052759Z
+RRULE:FREQ=DAILY;UNTIL=20140309T075959Z
+SUMMARY:Test
+END:VEVENT
+BEGIN:VEVENT
+UID:252ECE12-3C4F-4895-8AE6-EB45DC9156D2
+RECURRENCE-ID;TZID=America/Los_Angeles:20140303T190000
+DTSTART;TZID=America/Los_Angeles:20140303T190000
+DTEND;TZID=America/Los_Angeles:20140303T193000
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+DTSTAMP:20140307T052759Z
+SUMMARY:Test
+END:VEVENT
+BEGIN:VEVENT
+UID:252ECE12-3C4F-4895-8AE6-EB45DC9156D2
+RECURRENCE-ID;TZID=America/Los_Angeles:20140304T190000
+DTSTART;TZID=America/Los_Angeles:20140305T190000
+DTEND;TZID=America/Los_Angeles:20140305T193000
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+DTSTAMP:20140307T052759Z
+SUMMARY:Test
+END:VEVENT
+BEGIN:VEVENT
+UID:252ECE12-3C4F-4895-8AE6-EB45DC9156D2
+RECURRENCE-ID;TZID=America/Los_Angeles:20140305T190000
+DTSTART;TZID=America/Los_Angeles:20140304T190000
+DTEND;TZID=America/Los_Angeles:20140304T193000
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+DTSTAMP:20140307T052759Z
+SUMMARY:Test
+END:VEVENT
+BEGIN:VEVENT
+UID:252ECE12-3C4F-4895-8AE6-EB45DC9156D2
+RECURRENCE-ID;TZID=America/Los_Angeles:20140307T190000
+DTSTART;TZID=America/Los_Angeles:20140307T190000
+DTEND;TZID=America/Los_Angeles:20140307T193000
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+DTSTAMP:20140307T052759Z
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:252ECE12-3C4F-4895-8AE6-EB45DC9156D2
+DTSTART;TZID=America/Los_Angeles:20140302T190000
+DTEND;TZID=America/Los_Angeles:20140302T193000
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+DTSTAMP:20140307T052759Z
+RRULE:FREQ=DAILY;UNTIL=20140309T075959Z
+SUMMARY:Test
+END:VEVENT
+BEGIN:VEVENT
+UID:252ECE12-3C4F-4895-8AE6-EB45DC9156D2
+RECURRENCE-ID;TZID=America/Los_Angeles:20140303T190000
+DTSTART;TZID=America/Los_Angeles:20140303T190000
+DTEND;TZID=America/Los_Angeles:20140303T193000
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+DTSTAMP:20140307T052759Z
+SUMMARY:Test
+END:VEVENT
+BEGIN:VEVENT
+UID:252ECE12-3C4F-4895-8AE6-EB45DC9156D2
+RECURRENCE-ID;TZID=America/Los_Angeles:20140304T190000
+DTSTART;TZID=America/Los_Angeles:20140305T190000
+DTEND;TZID=America/Los_Angeles:20140305T193000
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+DTSTAMP:20140307T052759Z
+SUMMARY:Test
+END:VEVENT
+BEGIN:VEVENT
+UID:252ECE12-3C4F-4895-8AE6-EB45DC9156D2
+RECURRENCE-ID;TZID=America/Los_Angeles:20140305T190000
+DTSTART;TZID=America/Los_Angeles:20140304T190000
+DTEND;TZID=America/Los_Angeles:20140304T193000
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+DTSTAMP:20140307T052759Z
+SUMMARY:Test
+END:VEVENT
+BEGIN:VEVENT
+UID:252ECE12-3C4F-4895-8AE6-EB45DC9156D2
+RECURRENCE-ID;TZID=America/Los_Angeles:20140307T190000
+DTSTART;TZID=America/Los_Angeles:20140307T190000
+DTEND;TZID=America/Los_Angeles:20140307T193000
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+DTSTAMP:20140307T052759Z
+SUMMARY:Test
+END:VEVENT
+BEGIN:VEVENT
+UID:252ECE12-3C4F-4895-8AE6-EB45DC9156D2
+RECURRENCE-ID;TZID=America/Los_Angeles:20140308T190000
+DTSTART;TZID=America/Los_Angeles:20140308T190000
+DTEND;TZID=America/Los_Angeles:20140308T193000
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=DECLINED:mailto:user2@example.com
+DTSTAMP:20140307T052759Z
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                "mailto:user2@example.com",
+                (True, True, ('20140309T030000Z',), """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:252ECE12-3C4F-4895-8AE6-EB45DC9156D2
+DTSTART;TZID=America/Los_Angeles:20140302T190000
+DTEND;TZID=America/Los_Angeles:20140302T193000
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+DTSTAMP:20140307T052759Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+RRULE:FREQ=DAILY;UNTIL=20140309T075959Z
+SUMMARY:Test
+END:VEVENT
+BEGIN:VEVENT
+UID:252ECE12-3C4F-4895-8AE6-EB45DC9156D2
+RECURRENCE-ID;TZID=America/Los_Angeles:20140303T190000
+DTSTART;TZID=America/Los_Angeles:20140303T190000
+DTEND;TZID=America/Los_Angeles:20140303T193000
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+DTSTAMP:20140307T052759Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+SUMMARY:Test
+END:VEVENT
+BEGIN:VEVENT
+UID:252ECE12-3C4F-4895-8AE6-EB45DC9156D2
+RECURRENCE-ID;TZID=America/Los_Angeles:20140304T190000
+DTSTART;TZID=America/Los_Angeles:20140305T190000
+DTEND;TZID=America/Los_Angeles:20140305T193000
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+DTSTAMP:20140307T052759Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+SUMMARY:Test
+END:VEVENT
+BEGIN:VEVENT
+UID:252ECE12-3C4F-4895-8AE6-EB45DC9156D2
+RECURRENCE-ID;TZID=America/Los_Angeles:20140305T190000
+DTSTART;TZID=America/Los_Angeles:20140304T190000
+DTEND;TZID=America/Los_Angeles:20140304T193000
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+DTSTAMP:20140307T052759Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+SUMMARY:Test
+END:VEVENT
+BEGIN:VEVENT
+UID:252ECE12-3C4F-4895-8AE6-EB45DC9156D2
+RECURRENCE-ID;TZID=America/Los_Angeles:20140307T190000
+DTSTART;TZID=America/Los_Angeles:20140307T190000
+DTEND;TZID=America/Los_Angeles:20140307T193000
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+DTSTAMP:20140307T052759Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+SUMMARY:Test
+END:VEVENT
+BEGIN:VEVENT
+UID:252ECE12-3C4F-4895-8AE6-EB45DC9156D2
+RECURRENCE-ID;TZID=America/Los_Angeles:20140308T190000
+DTSTART;TZID=America/Los_Angeles:20140308T190000
+DTEND;TZID=America/Los_Angeles:20140308T193000
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=DECLINED;RSVP=TRUE;X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXXZ:mailto:user2@example.com
+DTSTAMP:20140307T052759Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""")
+            ),
+        )
+
+        TimezoneCache.create()
         for description, calendar1, calendar2, attendee, result in data:
             differ = iCalDiff(Component.fromString(calendar1), Component.fromString(calendar2), False)
             diffResult = differ.attendeeMerge(attendee)
