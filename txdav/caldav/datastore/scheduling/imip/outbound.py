@@ -569,8 +569,12 @@ class MailSender(object):
         msgHtml = MIMEText(htmlText, "html", "UTF-8")
         msgHtmlRelated.attach(msgHtml)
 
-        calendarText = str(calendar)
         # the icalendar attachment
+
+        # Make sure we always have the timezones used in the calendar data as iMIP requires VTIMEZONE
+        # always be present (i.e., timezones-by-reference is not allowed in iMIP).
+        calendarText = calendar.getTextWithTimezones(includeTimezones=True)
+
         self.log.debug("Mail gateway sending calendar body: %s"
                        % (calendarText,))
         msgIcal = MIMEText(calendarText, "calendar", "UTF-8")
