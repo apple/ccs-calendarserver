@@ -44,6 +44,12 @@ limitations under the License.
     <street-address>2 Infinite Loop, Cupertino, CA 95014</street-address>
     <geographic-location>37.332633,-122.030502</geographic-location>
   </record>
+  <record type="location">
+    <short-name>delegatedroom</short-name>
+    <uid>delegatedroom</uid>
+    <full-name>Delegated Conference Room</full-name>
+  </record>
+
 <record type="location">
     <short-name>location01</short-name>
     <uid>30000000-0000-0000-0000-000000000001</uid>

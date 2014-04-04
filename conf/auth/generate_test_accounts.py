@@ -147,6 +147,12 @@ out.write("""
     <street-address>2 Infinite Loop, Cupertino, CA 95014</street-address>
     <geographic-location>37.332633,-122.030502</geographic-location>
   </record>
+  <record type="location">
+    <short-name>delegatedroom</short-name>
+    <uid>delegatedroom</uid>
+    <full-name>Delegated Conference Room</full-name>
+  </record>
+
 """)
 
 for i in xrange(1, 101):
@@ -309,6 +315,10 @@ proxies = (
     (RESOURCEGUIDS % 10, {
         "proxies": (USERGUIDS % 1,),
         "read-only-proxies": (USERGUIDS % 3,),
+    }),
+    ("delegatedroom", {
+        "proxies": (GROUPGUIDS % 5,),
+        "read-only-proxies": (),
     }),
 )
 

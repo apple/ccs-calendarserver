@@ -107,4 +107,12 @@ limitations under the License.
     <member>10000000-0000-0000-0000-000000000003</member>
     </read-only-proxies>
 </record>
+<record>
+    <guid>delegatedroom</guid>
+    <proxies>
+    <member>20000000-0000-0000-0000-000000000005</member>
+    </proxies>
+    <read-only-proxies>
+    </read-only-proxies>
+</record>
 </proxies>
