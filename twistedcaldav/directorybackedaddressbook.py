@@ -372,7 +372,6 @@ def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, con
                     return andOrExpression(allOf, matchList)
                     '''
 
-
             def andOrExpression(propFilterAllOf, matchList):
                 matchList = list(set(matchList))
                 if propFilterAllOf and len(matchList) > 1:
