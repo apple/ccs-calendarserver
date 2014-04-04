@@ -64,17 +64,17 @@ class AugmentedDirectoryService(
     ))
 
 
-    @property
-    def recordType(self):
-        # Defer to the directory service we're augmenting
-        return self._directory.recordType
-
-
     def __init__(self, directory, store, augmentDB):
         BaseDirectoryService.__init__(self, directory.realmName)
         self._directory = directory
         self._store = store
         self._augmentDB = augmentDB
+
+
+    @property
+    def recordType(self):
+        # Defer to the directory service we're augmenting
+        return self._directory.recordType
 
 
     def recordTypes(self):
@@ -135,11 +135,6 @@ class AugmentedDirectoryService(
 
     @inlineCallbacks
     def recordWithShortName(self, recordType, shortName):
-        # log.debug(
-        #     "Augment - recordWithShortName {rt}, {n}",
-        #     rt=recordType.name,
-        #     n=shortName
-        # )
         # MOVE2WHO, REMOVE THIS:
         if not isinstance(shortName, unicode):
             # log.warn("Need to change shortName to unicode")
@@ -149,13 +144,6 @@ class AugmentedDirectoryService(
             recordType, shortName
         )
         record = yield self._augment(record)
-        # log.debug(
-        #     "Augment - recordWithShortName {rt}, {n} returned {r}, {u}",
-        #     rt=recordType.name,
-        #     n=shortName,
-        #     r=record.recordType.name,
-        #     u=record.uid
-        # )
         returnValue(record)
 
 
@@ -357,11 +345,6 @@ class AugmentedDirectoryService(
                     )
 
         else:
-            # Groups are by default always enabled
-            # record.enabled = (
-            #     record.recordType == record.service.recordType_groups
-            # )
-            # record.serverID = ""
             self._assignToField(fields, "hasCalendars", False)
             self._assignToField(fields, "hasContacts", False)
             self._assignToField(fields, "loginAllowed", False)
