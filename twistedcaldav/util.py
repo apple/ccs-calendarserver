@@ -23,7 +23,6 @@ from subprocess import Popen, PIPE, STDOUT
 from hashlib import md5, sha1
 
 from twisted.internet import ssl, reactor
-# from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web import client
 from twisted.python import failure
 from twext.python.log import Logger
@@ -494,41 +493,6 @@ class AuthorizedHTTPGetter(client.HTTPPageGetter):
             self.factory.deferred.errback(failure.Failure(Unauthorized("Mail gateway not able to process reply; calendar server returned 401 and doesn't support basic or digest")))
             return self.factory.deferred
 
-
-
-# @inlineCallbacks
-# def normalizationLookup(cuaddr, recordFunction, config):
-#     """
-#     Lookup function to be passed to ical.normalizeCalendarUserAddresses.
-#     Returns a tuple of (Full name C{str}, guid C{UUID}, and calendar user address list C{str})
-#     for the given cuaddr.  The recordFunction is called to retrieve the
-#     record for the cuaddr.
-#     """
-#     try:
-#         record = yield recordFunction(cuaddr)
-#     except Exception, e:
-#         log.debug("Lookup of %s failed: %s" % (cuaddr, e))
-#         record = None
-
-#     if record is None:
-#         returnValue((None, None, None))
-#     else:
-
-#         # RFC5545 syntax does not allow backslash escaping in
-#         # parameter values. A double-quote is thus not allowed
-#         # in a parameter value except as the start/end delimiters.
-#         # Single quotes are allowed, so we convert any double-quotes
-#         # to single-quotes.
-#         fullName = record.displayName.replace('"', "'").encode("utf-8")
-#         cuas = set(
-#             [cua.encode("utf-8") for cua in record.calendarUserAddresses]
-#         )
-#         try:
-#             guid = record.guid
-#         except AttributeError:
-#             guid = None
-
-#         returnValue((fullName, guid, cuas))
 
 
 
