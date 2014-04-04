@@ -577,7 +577,7 @@
 
     <!-- Log levels -->
     <key>DefaultLogLevel</key>
-    <string>debug</string> <!-- debug, info, warn, error -->
+    <string>info</string> <!-- debug, info, warn, error -->
 
     <!-- Log level overrides for specific functionality -->
     <key>LogLevels</key>
