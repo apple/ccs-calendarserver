@@ -157,7 +157,7 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
 
 
     @inlineCallbacks
-    def doAddressBookDirectoryQuery(self, addressBookFilter, addressBookQuery, maxResults, defaultKind=None):
+    def doAddressBookDirectoryQuery(self, addressBookFilter, addressBookQuery, maxResults, defaultKind="individual"):
         """
         Get vCards for a given addressBookFilter and addressBookQuery
         """
