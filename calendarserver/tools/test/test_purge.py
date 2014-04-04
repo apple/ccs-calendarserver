@@ -16,7 +16,7 @@
 
 
 from calendarserver.tools.purge import PurgePrincipalService
-
+from twistedcaldav.config import config
 from twistedcaldav.ical import Component
 from twistedcaldav.test.util import StoreTestCase
 
@@ -924,7 +924,7 @@ class PurgePrincipalTests(StoreTestCase):
 
         count = (yield PurgePrincipalService.purgeUIDs(self.storeUnderTest(), self.directory,
             self.rootResource, (self.uid,), verbose=False, proxies=False, completely=False))
-        self.assertEquals(count, 1) # 1 event
+        self.assertEquals(count, 1) # 2 events
 
         # Now you still see it
         txn = self._sqlCalendarStore.newTransaction()

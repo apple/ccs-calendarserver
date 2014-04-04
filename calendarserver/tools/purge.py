@@ -979,14 +979,10 @@ class PurgePrincipalService(WorkerService):
                             print("Deleting addressbook: %s" % (abName,))
                     if not self.dryrun:
                         # Also remove the addressbook collection itself
-<<<<<<< .working
                         if abColl.owned():
                             yield storeAbHome.removeChildWithName(abName)
                         else:
                             yield abColl.unshare()
-=======
-                        yield storeAbHome.removeChildWithName(abColl.name())
->>>>>>> .merge-right.r13157
 
                 if self.verbose:
                     if self.dryrun:

@@ -25,7 +25,7 @@ from txweb2.http import Response
 from txweb2.http_headers import MimeType
 from txweb2.server import parsePOSTData
 from twisted.application import service
-from twisted.internet import protocol
+from twisted.internet.protocol import Protocol
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.internet.protocol import ClientFactory, ReconnectingClientFactory
 from twisted.internet.task import LoopingCall
@@ -238,7 +238,7 @@ class ApplePushNotifierService(service.MultiService):
 
 
 
-class APNProviderProtocol(protocol.Protocol):
+class APNProviderProtocol(Protocol):
     """
     Implements the Provider portion of APNS
     """
@@ -273,7 +273,7 @@ class APNProviderProtocol(protocol.Protocol):
     def makeConnection(self, transport):
         self.history = TokenHistory()
         self.log.debug("ProviderProtocol makeConnection")
-        protocol.Protocol.makeConnection(self, transport)
+        Protocol.makeConnection(self, transport)
 
 
     def connectionMade(self):
@@ -664,7 +664,7 @@ class APNProviderService(APNConnectionService):
 
 
 
-class APNFeedbackProtocol(protocol.Protocol):
+class APNFeedbackProtocol(Protocol):
     """
     Implements the Feedback portion of APNS
     """
