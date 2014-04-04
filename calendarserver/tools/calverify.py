@@ -47,40 +47,38 @@ import time
 import traceback
 import uuid
 
-from pycalendar.icalendar import definitions
-from pycalendar.icalendar.calendar import Calendar
+from calendarserver.tools import tables
+from calendarserver.tools.cmdline import utilityMain, WorkerService
 from pycalendar.datetime import DateTime
 from pycalendar.exceptions import ErrorBase
+from pycalendar.icalendar import definitions
+from pycalendar.icalendar.calendar import Calendar
 from pycalendar.period import Period
 from pycalendar.timezone import Timezone
-
+from twext.enterprise.dal.syntax import Select, Parameter, Count
+from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python import usage
 from twisted.python.usage import Options
-
-from twext.python.log import Logger
-from twext.enterprise.dal.syntax import Select, Parameter, Count
-
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.dateops import pyCalendarTodatetime
-from twistedcaldav.ical import Component, ignoredComponents, \
+from twistedcaldav.ical import (
+    Component, ignoredComponents,
     InvalidICalendarDataError, Property, PERUSER_COMPONENT
-from txdav.caldav.datastore.scheduling.itip import iTipGenerator
+)
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
-from twistedcaldav.util import normalizationLookup
-
-from txdav.caldav.icalendarstore import ComponentUpdateState
 from txdav.caldav.datastore.scheduling.icalsplitter import iCalSplitter
 from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
+from txdav.caldav.datastore.scheduling.itip import iTipGenerator
 from txdav.caldav.datastore.sql import CalendarStoreFeatures
+from txdav.caldav.datastore.util import normalizationLookup
+from txdav.caldav.icalendarstore import ComponentUpdateState
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 from txdav.common.icommondatastore import InternalDataStoreError
 from txdav.who.idirectory import (
     RecordType as CalRecordType, AutoScheduleMode
 )
-from calendarserver.tools.cmdline import utilityMain, WorkerService
 
-from calendarserver.tools import tables
 
 log = Logger()
 

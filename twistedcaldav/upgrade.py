@@ -43,7 +43,7 @@ from twistedcaldav.ical import Component
 from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser
 from txdav.caldav.datastore.scheduling.imip.mailgateway import MailGatewayTokensDatabase
 from txdav.caldav.datastore.scheduling.scheduler import DirectScheduler
-from twistedcaldav.util import normalizationLookup
+from txdav.caldav.datastore.util import normalizationLookup
 
 from twisted.internet.defer import (
     inlineCallbacks, succeed, returnValue

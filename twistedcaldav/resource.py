@@ -77,7 +77,7 @@ from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
 from twistedcaldav.linkresource import LinkResource
 from calendarserver.push.notifier import getPubSubAPSConfiguration
 from twistedcaldav.sharing import SharedResourceMixin, SharedHomeMixin
-from twistedcaldav.util import normalizationLookup
+from txdav.caldav.datastore.util import normalizationLookup
 from twistedcaldav.vcard import Component as vComponent
 
 from txdav.common.icommondatastore import InternalDataStoreError, \
@@ -1064,7 +1064,6 @@ class CalDAVResource (
         returnValue(PerUserDataFilter(accessUID).filter(caldata))
 
 
-    # MOVE2WHO returns Deferred
     def iCalendarAddressDoNormalization(self, ical):
         """
         Normalize calendar user addresses in the supplied iCalendar object into their
@@ -1072,9 +1071,12 @@ class CalDAVResource (
 
         @param ical: calendar object to normalize.
         @type ical: L{Component}
+        @return: L{Deferred}
         """
-        return ical.normalizeCalendarUserAddresses(normalizationLookup,
-            self.principalForCalendarUserAddress)
+        return ical.normalizeCalendarUserAddresses(
+            normalizationLookup,
+            self.record.service.recordWithCalendarUserAddress
+        )
 
 
     @inlineCallbacks

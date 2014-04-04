@@ -285,17 +285,6 @@ limitations under the License.
     <member-uid>__cdaboo1__</member-uid>
   </record>
 
-  <!-- Repeat is not (yet?) supported in twext.who.xml
-  <user repeat="100">
-    <short-name>user%02d</short-name>
-    <uid>user%02d</uid>
-    <password>%02duser</password>
-    <full-name>~35 User %02d</full-name>
-    <first-name>~5</first-name>
-    <last-name>~9 User %02d</last-name>
-    <email>~10@example.com</email>
-  </user>
-  -->
 
   <record type="group">
     <short-name>managers</short-name>
