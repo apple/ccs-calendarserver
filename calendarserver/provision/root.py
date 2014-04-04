@@ -20,33 +20,34 @@ __all__ = [
 ]
 
 from twext.python.log import Logger
-from txweb2 import responsecode
-from txweb2.auth.wrapper import UnauthorizedResponse
-from txdav.xml import element as davxml
-from txweb2.dav.xattrprops import xattrPropertyStore
-from txweb2.http import HTTPError, StatusResponse, RedirectResponse
-
 from twisted.cred.error import LoginFailed, UnauthorizedLogin
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python.reflect import namedClass
-from twisted.web.xmlrpc import Proxy
 from twisted.web.error import Error as WebError
-
-from twistedcaldav.cache import _CachedResponseResource
-from twistedcaldav.cache import MemcacheResponseCache, MemcacheChangeNotifier
 from twistedcaldav.cache import DisabledCache
+from twistedcaldav.cache import MemcacheResponseCache, MemcacheChangeNotifier
+from twistedcaldav.cache import _CachedResponseResource
 from twistedcaldav.config import config
+from twistedcaldav.directory.principal import DirectoryPrincipalResource
 from twistedcaldav.extensions import DAVFile, CachingPropertyStore
 from twistedcaldav.extensions import DirectoryPrincipalPropertySearchMixIn
 from twistedcaldav.extensions import ReadOnlyResourceMixIn
 from twistedcaldav.resource import CalDAVComplianceMixIn
-from twistedcaldav.directory.principal import DirectoryPrincipalResource
-from calendarserver.platform.darwin.wiki import guidForAuthToken
+from txdav.who.wiki import DirectoryService as WikiDirectoryService
+from txdav.who.wiki import uidForAuthToken
+from txdav.xml import element as davxml
+from txweb2 import responsecode
+from txweb2.auth.wrapper import UnauthorizedResponse
+from txweb2.dav.xattrprops import xattrPropertyStore
+from txweb2.http import HTTPError, StatusResponse, RedirectResponse
 
 log = Logger()
 
 
-class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn, CalDAVComplianceMixIn, DAVFile):
+class RootResource(
+    ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn,
+    CalDAVComplianceMixIn, DAVFile
+):
     """
     A special root resource that contains support checking SACLs
     as well as adding responseFilters.
@@ -58,17 +59,17 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
     # starts with any of these, then the list of SACLs are checked.  If the
     # request path does not start with any of these, then no SACLs are checked.
     saclMap = {
-        "addressbooks" : ("addressbook",),
-        "calendars" : ("calendar",),
-        "directory" : ("addressbook",),
-        "principals" : ("addressbook", "calendar"),
-        "webcal" : ("calendar",),
+        "addressbooks": ("addressbook",),
+        "calendars": ("calendar",),
+        "directory": ("addressbook",),
+        "principals": ("addressbook", "calendar"),
+        "webcal": ("calendar",),
     }
 
     # If a top-level resource path starts with any of these, an unauthenticated
     # request is redirected to the auth url (config.WebCalendarAuthPath)
     authServiceMap = {
-        "webcal" : True,
+        "webcal": True,
     }
 
     def __init__(self, path, *args, **kwargs):
@@ -82,11 +83,17 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
 
         self.contentFilters = []
 
-        if config.EnableResponseCache and config.Memcached.Pools.Default.ClientEnabled:
+        if (
+            config.EnableResponseCache and
+            config.Memcached.Pools.Default.ClientEnabled
+        ):
             self.responseCache = MemcacheResponseCache(self.fp)
 
-            # These class attributes need to be setup with our memcache notifier
-            DirectoryPrincipalResource.cacheNotifierFactory = MemcacheChangeNotifier
+            # These class attributes need to be setup with our memcache\
+            # notifier
+            DirectoryPrincipalResource.cacheNotifierFactory = (
+                MemcacheChangeNotifier
+            )
         else:
             self.responseCache = DisabledCache()
 
@@ -98,7 +105,9 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
             # Get the property store from super
-            deadProperties = namedClass(config.RootResourcePropStoreClass)(self)
+            deadProperties = (
+                namedClass(config.RootResourcePropStoreClass)(self)
+            )
 
             # Wrap the property store in a memory store
             if isinstance(deadProperties, xattrPropertyStore):
@@ -110,7 +119,7 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
 
 
     def defaultAccessControlList(self):
-        return config.RootResourceACL
+        return succeed(config.RootResourceACL)
 
 
     @inlineCallbacks
@@ -160,7 +169,9 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
         request.checkingSACL = True
 
         for collection in self.principalCollections():
-            principal = collection._principalForURI(authzUser.children[0].children[0].data)
+            principal = yield collection._principalForURI(
+                authzUser.children[0].children[0].data
+            )
             if principal is None:
                 response = (yield UnauthorizedResponse.makeResponse(
                     request.credentialFactories,
@@ -185,7 +196,10 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
         if access:
             returnValue(True)
 
-        log.warn("User %r is not enabled with the %r SACL(s)" % (username, saclServices,))
+        log.warn(
+            "User {user!r} is not enabled with the {sacl!r} SACL(s)",
+            user=username, sacl=saclServices
+        )
         raise HTTPError(responsecode.FORBIDDEN)
 
 
@@ -229,53 +243,70 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                     token = None
 
                 if token is not None and token != "unauthenticated":
-                    log.debug("Wiki sessionID cookie value: %s" % (token,))
+                    log.debug(
+                        "Wiki sessionID cookie value: {token}", token=token
+                    )
 
                     record = None
                     try:
-                        if wikiConfig.LionCompatibility:
-                            guid = None
-                            proxy = Proxy(wikiConfig["URL"])
-                            username = (yield proxy.callRemote(wikiConfig["UserMethod"], token))
-                            directory = request.site.resource.getDirectory()
-                            record = directory.recordWithShortName("users", username)
-                            if record is not None:
-                                guid = record.guid
-                        else:
-                            guid = (yield guidForAuthToken(token))
-                            if guid == "unauthenticated":
-                                guid = None
+                        uid = yield uidForAuthToken(token)
+                        if uid == "unauthenticated":
+                            uid = None
 
-                    except WebError, w:
-                        guid = None
+                    except WebError as w:
+                        uid = None
                         # FORBIDDEN status means it's an unknown token
                         if int(w.status) == responsecode.NOT_FOUND:
-                            log.debug("Unknown wiki token: %s" % (token,))
+                            log.debug(
+                                "Unknown wiki token: {token}", token=token
+                            )
                         else:
-                            log.error("Failed to look up wiki token %s: %s" %
-                                (token, w.message,))
+                            log.error(
+                                "Failed to look up wiki token {token}: "
+                                "{message}",
+                                token=token, message=w.message
+                            )
 
-                    except Exception, e:
-                        log.error("Failed to look up wiki token (%s)" % (e,))
-                        guid = None
+                    except Exception as e:
+                        log.error(
+                            "Failed to look up wiki token: {error}",
+                            error=e
+                        )
+                        uid = None
 
-                    if guid is not None:
-                        log.debug("Wiki lookup returned guid: %s" % (guid,))
+                    if uid is not None:
+                        log.debug(
+                            "Wiki lookup returned uid: {uid}", uid=uid
+                        )
                         principal = None
                         directory = request.site.resource.getDirectory()
-                        record = directory.recordWithGUID(guid)
+                        record = yield directory.recordWithUID(uid)
                         if record is not None:
                             username = record.shortNames[0]
-                            log.debug("Wiki user record for user %s : %s" % (username, record))
+                            log.debug(
+                                "Wiki user record for user {user}: {record}",
+                                user=username, record=record
+                            )
                             for collection in self.principalCollections():
-                                principal = collection.principalForRecord(record)
+                                principal = (
+                                    yield collection.principalForRecord(record)
+                                )
                                 if principal is not None:
                                     break
 
                         if principal:
-                            log.debug("Wiki-authenticated principal %s being assigned to authnUser and authzUser" % (record.uid,))
-                            request.authzUser = request.authnUser = davxml.Principal(
-                                davxml.HRef.fromString("/principals/__uids__/%s/" % (record.uid,))
+                            log.debug(
+                                "Wiki-authenticated principal {record.uid} "
+                                "being assigned to authnUser and authzUser",
+                                record=record
+                            )
+                            request.authzUser = request.authnUser = (
+                                davxml.Principal(
+                                    davxml.HRef.fromString(
+                                        "/principals/__uids__/{}/"
+                                        .format(record.uid)
+                                    )
+                                )
                             )
 
         if not hasattr(request, "authzUser") and config.WebCalendarAuthPath:
@@ -286,25 +317,27 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
 
                 # Use config.ServerHostName if no x-forwarded-host header,
                 # otherwise use the final hostname in x-forwarded-host.
-                host = request.headers.getRawHeaders("x-forwarded-host",
-                    [config.ServerHostName])[-1].split(",")[-1].strip()
+                host = request.headers.getRawHeaders(
+                    "x-forwarded-host",
+                    [config.ServerHostName]
+                )[-1].split(",")[-1].strip()
                 port = 443 if config.EnableSSL else 80
                 scheme = "https" if config.EnableSSL else "http"
 
                 response = RedirectResponse(
-                        request.unparseURL(
-                            host=host,
-                            port=port,
-                            scheme=scheme,
-                            path=config.WebCalendarAuthPath,
-                            querystring="redirect=%s://%s%s" % (
-                                scheme,
-                                host,
-                                request.path
-                            )
-                        ),
-                        temporary=True
-                    )
+                    request.unparseURL(
+                        host=host,
+                        port=port,
+                        scheme=scheme,
+                        path=config.WebCalendarAuthPath,
+                        querystring="redirect={}://{}{}".format(
+                            scheme,
+                            host,
+                            request.path
+                        )
+                    ),
+                    temporary=True
+                )
                 raise HTTPError(response)
 
         # We don't want the /inbox resource to pay attention to SACLs because
@@ -314,10 +347,17 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
         if segments[0] in ("inbox", "timezones"):
             request.checkedSACL = True
 
-        elif (len(segments) > 2 and segments[0] in ("calendars", "principals") and
+        elif (
             (
-                segments[1] == "wikis" or
-                (segments[1] == "__uids__" and segments[2].startswith("wiki-"))
+                len(segments) > 2 and
+                segments[0] in ("calendars", "principals") and
+                (
+                    segments[1] == "wikis" or
+                    (
+                        segments[1] == "__uids__" and
+                        segments[2].startswith(WikiDirectoryService.uidPrefix)
+                    )
+                )
             )
         ):
             # This is a wiki-related calendar resource. SACLs are not checked.
@@ -332,12 +372,21 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                 else:
                     wikiName = segments[2][5:]
                 if wikiName:
-                    log.debug("Wiki principal %s being assigned to authzUser" % (wikiName,))
+                    log.debug(
+                        "Wiki principal {name} being assigned to authzUser",
+                        name=wikiName
+                    )
                     request.authzUser = davxml.Principal(
-                        davxml.HRef.fromString("/principals/wikis/%s/" % (wikiName,))
+                        davxml.HRef.fromString(
+                            "/principals/wikis/{}/".format(wikiName)
+                        )
                     )
 
-        elif self.useSacls and not hasattr(request, "checkedSACL") and not hasattr(request, "checkingSACL"):
+        elif (
+            self.useSacls and
+            not hasattr(request, "checkedSACL") and
+            not hasattr(request, "checkingSACL")
+        ):
             yield self.checkSacl(request)
 
         if config.RejectClients:
@@ -348,28 +397,37 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
             if agent is not None:
                 for reject in config.RejectClients:
                     if reject.search(agent) is not None:
-                        log.info("Rejecting user-agent: %s" % (agent,))
+                        log.info("Rejecting user-agent: {agent}", agent=agent)
                         raise HTTPError(StatusResponse(
                             responsecode.FORBIDDEN,
-                            "Your client software (%s) is not allowed to access this service." % (agent,)
+                            "Your client software ({}) is not allowed to "
+                            "access this service."
+                            .format(agent)
                         ))
 
-        if config.EnableResponseCache and request.method == "PROPFIND" and not getattr(request, "notInCache", False) and len(segments) > 1:
+        if (
+            config.EnableResponseCache and
+            request.method == "PROPFIND" and
+            not getattr(request, "notInCache", False) and
+            len(segments) > 1
+        ):
             try:
-                authnUser, authzUser = (yield self.authenticate(request))
+                authnUser, authzUser = yield self.authenticate(request)
                 request.authnUser = authnUser
                 request.authzUser = authzUser
             except (UnauthorizedLogin, LoginFailed):
-                response = (yield UnauthorizedResponse.makeResponse(
+                response = yield UnauthorizedResponse.makeResponse(
                     request.credentialFactories,
                     request.remoteAddr
-                ))
+                )
                 raise HTTPError(response)
 
             try:
                 if not getattr(request, "checkingCache", False):
                     request.checkingCache = True
-                    response = (yield self.responseCache.getResponseForRequest(request))
+                    response = yield self.responseCache.getResponseForRequest(
+                        request
+                    )
                     if response is None:
                         request.notInCache = True
                         raise KeyError("Not found in cache.")
@@ -378,7 +436,9 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
             except KeyError:
                 pass
 
-        child = (yield super(RootResource, self).locateChild(request, segments))
+        child = yield super(RootResource, self).locateChild(
+            request, segments
+        )
         returnValue(child)
 
 

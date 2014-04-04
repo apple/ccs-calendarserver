@@ -15,35 +15,33 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+
 from __future__ import print_function
-
-import os
-import sys
-from grp import getgrnam
-from pwd import getpwnam
-from getopt import getopt, GetoptError
-
-from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks
-from twisted.python.util import switchUID
-
-from twext.python.log import Logger, StandardIOObserver
-
-from twistedcaldav.config import config, ConfigurationError
-from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
-from twistedcaldav.directory.directory import DirectoryService, DirectoryError
-from twistedcaldav.directory.xmlfile import XMLDirectoryService
-
-from calendarserver.platform.darwin.od import dsattributes
-from calendarserver.tools.util import loadConfig, getDirectory, setupMemcached, checkDirectory
-
-log = Logger()
-
-
 
 __all__ = [
     "migrateResources",
 ]
+
+from getopt import getopt, GetoptError
+from grp import getgrnam
+import os
+from pwd import getpwnam
+import sys
+
+from calendarserver.tools.util import (
+    loadConfig, setupMemcached, checkDirectory
+)
+from twext.python.log import Logger, StandardIOObserver
+from twisted.internet import reactor
+from twisted.internet.defer import inlineCallbacks
+from twisted.python.util import switchUID
+from twistedcaldav.config import config, ConfigurationError
+from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
+from twistedcaldav.directory.directory import DirectoryService, DirectoryError
+from twistedcaldav.directory.xmlfile import XMLDirectoryService
+from txdav.who.util import directoryFromConfig
+
+log = Logger()
 
 
 
@@ -141,28 +139,37 @@ def main():
         os.umask(config.umask)
 
         # Configure memcached client settings prior to setting up resource
-        # hierarchy (in getDirectory)
+        # hierarchy
         setupMemcached(config)
 
         try:
-            config.directory = getDirectory()
+            config.directory = directoryFromConfig(config)
         except DirectoryError, e:
             abort(e)
 
     except ConfigurationError, e:
         abort(e)
 
+    # FIXME: this all has to change:
     # Find the opendirectory service
     userService = config.directory.serviceForRecordType("users")
     resourceService = config.directory.serviceForRecordType("resources")
-    if (not isinstance(userService, OpenDirectoryService) or
-        not isinstance(resourceService, XMLDirectoryService)):
-        abort("This script only migrates resources and locations from OpenDirectory to XML; this calendar server does not have such a configuration.")
+    if (
+        not isinstance(userService, OpenDirectoryService) or
+        not isinstance(resourceService, XMLDirectoryService)
+    ):
+        abort(
+            "This script only migrates resources and locations from "
+            "OpenDirectory to XML; this calendar server does not have such a "
+            "configuration."
+        )
 
     #
     # Start the reactor
     #
-    reactor.callLater(0, migrate, userService, resourceService, verbose=verbose)
+    reactor.callLater(
+        0, migrate, userService, resourceService, verbose=verbose
+    )
     reactor.run()
 
 
@@ -186,8 +193,8 @@ def queryForType(sourceService, recordType, verbose=False):
     """
 
     attrs = [
-        dsattributes.kDS1AttrGeneratedUID,
-        dsattributes.kDS1AttrDistinguishedName,
+        "dsAttrTypeStandard:GeneratedUID",
+        "dsAttrTypeStandard:RealName",
     ]
 
     if verbose:
@@ -207,24 +214,26 @@ def queryForType(sourceService, recordType, verbose=False):
 
 
 @inlineCallbacks
-def migrateResources(sourceService, destService, autoSchedules=None,
-    queryMethod=queryForType, verbose=False):
+def migrateResources(
+    sourceService, destService, autoSchedules=None,
+    queryMethod=queryForType, verbose=False
+):
 
     directoryRecords = []
     augmentRecords = []
 
     for recordTypeOD, recordType in (
-        (dsattributes.kDSStdRecordTypeResources, DirectoryService.recordType_resources),
-        (dsattributes.kDSStdRecordTypePlaces, DirectoryService.recordType_locations),
+        ("dsRecTypeStandard:Resources", DirectoryService.recordType_resources),
+        ("dsRecTypeStandard:Places", DirectoryService.recordType_locations),
     ):
         data = queryMethod(sourceService, recordTypeOD, verbose=verbose)
         for recordName, val in data:
-            guid = val.get(dsattributes.kDS1AttrGeneratedUID, None)
-            fullName = val.get(dsattributes.kDS1AttrDistinguishedName, None)
+            guid = val.get("dsAttrTypeStandard:GeneratedUID", None)
+            fullName = val.get("dsAttrTypeStandard:RealName", None)
             if guid and fullName:
                 if not recordName:
                     recordName = guid
-                record = destService.recordWithGUID(guid)
+                record = yield destService.recordWithGUID(guid)
                 if record is None:
                     if verbose:
                         print("Migrating %s (%s)" % (fullName, recordType))
@@ -233,23 +242,29 @@ def migrateResources(sourceService, destService, autoSchedules=None,
                         autoSchedule = autoSchedules.get(guid, 1)
                     else:
                         autoSchedule = True
-                    augmentRecord = (yield destService.augmentService.getAugmentRecord(guid, recordType))
-                    augmentRecord.autoSchedule = autoSchedule
-                    augmentRecords.append(augmentRecord)
-
-                    directoryRecords.append(
-                        (recordType,
-                            {
-                                "guid" : guid,
-                                "shortNames" : [recordName],
-                                "fullName" : fullName,
-                            }
+                    augmentRecord = (
+                        yield destService.augmentService.getAugmentRecord(
+                            guid, recordType
                         )
                     )
+                    if autoSchedule:
+                        augmentRecord.autoScheduleMode = "automatic"
+                    else:
+                        augmentRecord.autoScheduleMode = "none"
+                    augmentRecords.append(augmentRecord)
+
+                    directoryRecords.append((
+                        recordType,
+                        {
+                            "guid": guid,
+                            "shortNames": [recordName],
+                            "fullName": fullName,
+                        }
+                    ))
 
     destService.createRecords(directoryRecords)
 
-    (yield destService.augmentService.addAugmentRecords(augmentRecords))
+    yield destService.augmentService.addAugmentRecords(augmentRecords)
 
 
 

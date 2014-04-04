@@ -18,7 +18,95 @@ limitations under the License.
 
 <!DOCTYPE accounts SYSTEM "accounts.dtd">
 
-<accounts realm="Test Realm">
+<directory realm="Test Realm">
+ <record type="user">
+    <short-name>user01</short-name>
+    <uid>user01</uid>
+    <password>user01</password>
+    <full-name>User 01</full-name>
+    <email>user01@example.com</email>
+  </record>
+
+  <record type="user">
+    <short-name>user02</short-name>
+    <uid>user02</uid>
+    <password>user02</password>
+    <full-name>User 02</full-name>
+    <email>user02@example.com</email>
+  </record>
+
+  <record type="user">
+    <short-name>user03</short-name>
+    <uid>user03</uid>
+    <password>user03</password>
+    <full-name>User 03</full-name>
+    <email>user03@example.com</email>
+  </record>
+
+  <record type="user">
+    <short-name>user04</short-name>
+    <uid>user04</uid>
+    <password>user04</password>
+    <full-name>User 04</full-name>
+    <email>user04@example.com</email>
+  </record>
+
+  <record type="user">
+    <short-name>user05</short-name>
+    <uid>user05</uid>
+    <password>user05</password>
+    <full-name>User 05</full-name>
+    <email>user05@example.com</email>
+  </record>
+
+  <record type="user">
+    <short-name>user06</short-name>
+    <uid>user06</uid>
+    <password>user06</password>
+    <full-name>User 06</full-name>
+    <email>user06@example.com</email>
+  </record>
+
+  <record type="user">
+    <short-name>user07</short-name>
+    <uid>user07</uid>
+    <password>user07</password>
+    <full-name>User 07</full-name>
+    <email>user07@example.com</email>
+  </record>
+
+  <record type="user">
+    <short-name>user08</short-name>
+    <uid>user08</uid>
+    <password>user08</password>
+    <full-name>User 08</full-name>
+    <email>user08@example.com</email>
+  </record>
+
+  <record type="user">
+    <short-name>user09</short-name>
+    <uid>user09</uid>
+    <password>user09</password>
+    <full-name>User 09</full-name>
+    <email>user09@example.com</email>
+  </record>
+
+  <record type="user">
+    <short-name>user10</short-name>
+    <uid>user10</uid>
+    <password>user10</password>
+    <full-name>User 10</full-name>
+    <email>user10@example.com</email>
+  </record>
+
+  <record type="group">
+    <uid>e5a6142c-4189-4e9e-90b0-9cd0268b314b</uid>
+    <short-name>testgroup1</short-name>
+    <full-name>Group 01</full-name>
+      <member-uid type="users">user01</member-uid>
+      <member-uid type="users">user02</member-uid>
+  </record>
+  <!--
   <user repeat="10">
     <uid>user%02d</uid>
     <guid>user%02d</guid>
@@ -37,13 +125,5 @@ limitations under the License.
       <member type="users">user02</member>
     </members>
   </group>
-  <group>
-    <uid>testgroup2</uid>
-    <guid>f5a6142c-4189-4e9e-90b0-9cd0268b314b</guid>
-    <password>test</password>
-    <name>Group 02</name>
-    <members>
-      <member type="users">user01</member>
-    </members>
-  </group>
-</accounts>
+  -->
+</directory>

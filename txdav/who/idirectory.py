@@ -23,6 +23,9 @@ Calendar and contacts directory extensions to L{twext.who.idirectory}.
 """
 
 __all__ = [
+    "AutoScheduleMode",
+    "RecordType",
+    "FieldName",
 ]
 
 from twisted.python.constants import Names, NamedConstant
@@ -152,3 +155,26 @@ class FieldName(Names):
     autoAcceptGroup = NamedConstant()
     autoAcceptGroup.description = u"auto-accept group"
     autoAcceptGroup.valueType = BaseFieldName.valueType(BaseFieldName.uid)
+
+    # For "locations", i.e., scheduled spaces:
+
+    associatedAddress = NamedConstant()
+    associatedAddress.description = u"associated address UID"
+
+    capacity = NamedConstant()
+    capacity.description = u"room capacity"
+    capacity.valueType = int
+
+    floor = NamedConstant()
+    floor.description = u"building floor"
+
+    # For "addresses", i.e., non-scheduled areas containing locations:
+
+    abbreviatedName = NamedConstant()
+    abbreviatedName.description = u"abbreviated name"
+
+    geographicLocation = NamedConstant()
+    geographicLocation.description = u"geographic location URI"
+
+    streetAddress = NamedConstant()
+    streetAddress.description = u"street address"

@@ -15,83 +15,96 @@
 # limitations under the License.
 ##
 
-from pycalendar.datetime import DateTime
+import collections
+import hashlib
+import time
+from urlparse import urlsplit, urljoin
+import uuid
 
+from pycalendar.datetime import DateTime
 from twext.enterprise.locking import LockTimeout
 from twext.python.log import Logger
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue, maybeDeferred
+from twisted.internet.protocol import Protocol
+from twisted.python.hashlib import md5
+from twisted.python.util import FancyEqMixin
+from twistedcaldav import customxml, carddavxml, caldavxml, ical
+from twistedcaldav.caldavxml import (
+    caldav_namespace, MaxAttendeesPerInstance, MaxInstances, NoUIDConflict
+)
+from twistedcaldav.carddavxml import carddav_namespace, NoUIDConflict as NovCardUIDConflict
+from twistedcaldav.config import config
+from twistedcaldav.customxml import calendarserver_namespace
+from twistedcaldav.ical import (
+    Component as VCalendar, Property as VProperty, InvalidICalendarDataError,
+    iCalendarProductID, Component
+)
+from twistedcaldav.instance import (
+    InvalidOverriddenInstanceError, TooManyInstancesError
+)
+from twistedcaldav.memcachelock import MemcacheLockTimeoutError
+from twistedcaldav.notifications import NotificationCollectionResource, NotificationResource
+from twistedcaldav.resource import CalDAVResource, DefaultAlarmPropertyMixin
+from twistedcaldav.scheduling_store.caldav.resource import ScheduleInboxResource
+from twistedcaldav.sharing import (
+    invitationBindStatusToXMLMap, invitationBindModeToXMLMap
+)
+from twistedcaldav.util import bestAcceptType
+from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
+from txdav.base.propertystore.base import PropertyName
+from txdav.caldav.icalendarstore import (
+    QuotaExceeded, AttachmentStoreFailed,
+    AttachmentStoreValidManagedID, AttachmentRemoveFailed,
+    AttachmentDropboxNotAllowed, InvalidComponentTypeError,
+    TooManyAttendeesError, InvalidCalendarAccessError, ValidOrganizerError,
+    InvalidPerUserDataMerge,
+    AttendeeAllowedError, ResourceDeletedError, InvalidAttachmentOperation,
+    ShareeAllowedError, DuplicatePrivateCommentsError, InvalidSplit
+)
+from txdav.carddav.iaddressbookstore import (
+    KindChangeNotAllowedError, GroupWithUnsharedAddressNotAllowedError
+)
+from txdav.common.datastore.sql_tables import (
+    _BIND_MODE_READ, _BIND_MODE_WRITE,
+    _BIND_MODE_DIRECT, _BIND_STATUS_ACCEPTED
+)
+from txdav.common.icommondatastore import (
+    NoSuchObjectResourceError,
+    TooManyObjectResourcesError, ObjectResourceTooBigError,
+    InvalidObjectResourceError, ObjectResourceNameNotAllowedError,
+    ObjectResourceNameAlreadyExistsError, UIDExistsError,
+    UIDExistsElsewhereError, InvalidUIDError, InvalidResourceMove,
+    InvalidComponentForStoreError
+)
+from txdav.idav import PropertyChangeNotAllowedError
+from txdav.who.wiki import RecordType as WikiRecordType
+from txdav.xml import element as davxml, element
+from txdav.xml.base import dav_namespace, WebDAVUnknownElement, encodeXMLName
 from txweb2 import responsecode, http_headers, http
 from txweb2.dav.http import ErrorResponse, ResponseQueue, MultiStatusResponse
 from txweb2.dav.noneprops import NonePropertyStore
-from txweb2.dav.resource import TwistedACLInheritable, AccessDeniedError, \
-    davPrivilegeSet
+from txweb2.dav.resource import (
+    TwistedACLInheritable, AccessDeniedError, davPrivilegeSet
+)
 from txweb2.dav.util import parentForURL, allDataFromStream, joinURL, davXMLFromStream
 from txweb2.filter.location import addLocation
 from txweb2.http import HTTPError, StatusResponse, Response
 from txweb2.http_headers import ETag, MimeType, MimeDisposition
 from txweb2.iweb import IResponse
-from txweb2.responsecode import \
-    FORBIDDEN, NO_CONTENT, NOT_FOUND, CREATED, CONFLICT, PRECONDITION_FAILED, \
+from txweb2.responsecode import (
+    FORBIDDEN, NO_CONTENT, NOT_FOUND, CREATED, CONFLICT, PRECONDITION_FAILED,
     BAD_REQUEST, OK, INSUFFICIENT_STORAGE_SPACE, SERVICE_UNAVAILABLE
+)
 from txweb2.stream import ProducerStream, readStream, MemoryStream
 
-from twisted.internet.defer import succeed, inlineCallbacks, returnValue, maybeDeferred
-from twisted.internet.protocol import Protocol
-from twisted.python.hashlib import md5
-from twisted.python.util import FancyEqMixin
 
-from twistedcaldav import customxml, carddavxml, caldavxml, ical
-from twistedcaldav.caldavxml import caldav_namespace, MaxAttendeesPerInstance, \
-    MaxInstances, NoUIDConflict
-from twistedcaldav.carddavxml import carddav_namespace, NoUIDConflict as NovCardUIDConflict
-from twistedcaldav.config import config
-from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.directory.wiki import WikiDirectoryService, getWikiAccess
-from twistedcaldav.ical import Component as VCalendar, Property as VProperty, \
-    InvalidICalendarDataError, iCalendarProductID, Component
-from twistedcaldav.instance import InvalidOverriddenInstanceError, \
-    TooManyInstancesError
-from twistedcaldav.memcachelock import MemcacheLockTimeoutError
-from twistedcaldav.notifications import NotificationCollectionResource, NotificationResource
-from twistedcaldav.resource import CalDAVResource, DefaultAlarmPropertyMixin
-from twistedcaldav.scheduling_store.caldav.resource import ScheduleInboxResource
-from twistedcaldav.sharing import invitationBindStatusToXMLMap, \
-    invitationBindModeToXMLMap
-from twistedcaldav.util import bestAcceptType
-from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
-
-from txdav.base.propertystore.base import PropertyName
-from txdav.caldav.icalendarstore import QuotaExceeded, AttachmentStoreFailed, \
-    AttachmentStoreValidManagedID, AttachmentRemoveFailed, \
-    AttachmentDropboxNotAllowed, InvalidComponentTypeError, \
-    TooManyAttendeesError, InvalidCalendarAccessError, ValidOrganizerError, \
-    InvalidPerUserDataMerge, \
-    AttendeeAllowedError, ResourceDeletedError, InvalidAttachmentOperation, \
-    ShareeAllowedError, DuplicatePrivateCommentsError, InvalidSplit
-from txdav.carddav.iaddressbookstore import KindChangeNotAllowedError, \
-    GroupWithUnsharedAddressNotAllowedError
-from txdav.common.datastore.sql_tables import _BIND_MODE_READ, _BIND_MODE_WRITE, \
-    _BIND_MODE_DIRECT, _BIND_STATUS_ACCEPTED
-from txdav.common.icommondatastore import NoSuchObjectResourceError, \
-    TooManyObjectResourcesError, ObjectResourceTooBigError, \
-    InvalidObjectResourceError, ObjectResourceNameNotAllowedError, \
-    ObjectResourceNameAlreadyExistsError, UIDExistsError, \
-    UIDExistsElsewhereError, InvalidUIDError, InvalidResourceMove, \
-    InvalidComponentForStoreError
-from txdav.idav import PropertyChangeNotAllowedError
-from txdav.xml import element as davxml, element
-from txdav.xml.base import dav_namespace, WebDAVUnknownElement, encodeXMLName
-
-from urlparse import urlsplit, urljoin
-import collections
-import hashlib
-import time
-import uuid
 """
 Wrappers to translate between the APIs in L{txdav.caldav.icalendarstore} and
 L{txdav.carddav.iaddressbookstore} and those in L{twistedcaldav}.
 """
 
 log = Logger()
+
 
 class _NewStorePropertiesWrapper(object):
     """
@@ -1600,7 +1613,7 @@ class CalendarObjectDropbox(_GetChildHelper):
         cuas = (yield self._newStoreCalendarObject.component()).getAttendees()
         newACEs = []
         for calendarUserAddress in cuas:
-            principal = self.principalForCalendarUserAddress(
+            principal = yield self.principalForCalendarUserAddress(
                 calendarUserAddress
             )
             if principal is None:
@@ -1670,7 +1683,7 @@ class CalendarObjectDropbox(_GetChildHelper):
             proxyprivs = list(userprivs)
             proxyprivs.remove(davxml.Privilege(davxml.ReadACL()))
 
-            principal = self.principalForUID(invite.shareeUID)
+            principal = yield self.principalForUID(invite.shareeUID)
             aces += (
                 # Inheritable specific access for the resource's associated principal.
                 davxml.ACE(
@@ -1763,11 +1776,12 @@ class AttachmentsCollection(_GetChildHelper):
         return succeed(davPrivilegeSet)
 
 
+    @inlineCallbacks
     def defaultAccessControlList(self):
         """
         Only read privileges allowed for managed attachments.
         """
-        myPrincipal = self.parent.principalForRecord()
+        myPrincipal = yield self.parent.principalForRecord()
 
         read_privs = (
             davxml.Privilege(davxml.Read()),
@@ -1808,12 +1822,12 @@ class AttachmentsCollection(_GetChildHelper):
                 ),
             )
 
-        return davxml.ACL(*aces)
+        returnValue(davxml.ACL(*aces))
 
 
     def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
         # Permissions here are fixed, and are not subject to inheritance rules, etc.
-        return succeed(self.defaultAccessControlList())
+        return self.defaultAccessControlList()
 
 
 
@@ -1927,7 +1941,7 @@ class AttachmentsChildCollection(_GetChildHelper):
         cuas = (yield self._newStoreCalendarObject.component()).getAttendees()
         newACEs = []
         for calendarUserAddress in cuas:
-            principal = self.principalForCalendarUserAddress(
+            principal = yield self.principalForCalendarUserAddress(
                 calendarUserAddress
             )
             if principal is None:
@@ -1982,15 +1996,13 @@ class AttachmentsChildCollection(_GetChildHelper):
         """
         if invite.mode in (_BIND_MODE_DIRECT,):
             ownerUID = invite.ownerUID
-            owner = self.principalForUID(ownerUID)
+            owner = yield self.principalForUID(ownerUID)
             shareeUID = invite.shareeUID
-            if owner.record.recordType == WikiDirectoryService.recordType_wikis:
+            if owner.record.recordType == WikiRecordType.macOSXServerWiki:
                 # Access level comes from what the wiki has granted to the
                 # sharee
-                sharee = self.principalForUID(shareeUID)
-                userID = sharee.record.guid
-                wikiID = owner.record.shortNames[0]
-                access = (yield getWikiAccess(userID, wikiID))
+                sharee = yield self.principalForUID(shareeUID)
+                access = (yield owner.record.accessForRecord(sharee.record))
                 if access == "read":
                     returnValue("read-only")
                 elif access in ("write", "admin"):
@@ -2026,7 +2038,7 @@ class AttachmentsChildCollection(_GetChildHelper):
             if access in ("read-only", "read-write",):
                 userprivs.extend(privileges)
 
-            principal = self.principalForUID(invite.shareeUID)
+            principal = yield self.principalForUID(invite.shareeUID)
             aces += (
                 # Inheritable specific access for the resource's associated principal.
                 davxml.ACE(
@@ -2865,7 +2877,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                 principalURL = str(authz_principal)
                 if principalURL:
                     authz = (yield request.locateResource(principalURL))
-                    self._parentResource._newStoreObject._txn._authz_uid = authz.record.guid
+                    self._parentResource._newStoreObject._txn._authz_uid = authz.record.uid
 
             try:
                 response = (yield self.storeComponent(component, smart_merge=schedule_tag_match))
@@ -3586,7 +3598,7 @@ class AddressBookObjectResource(_CommonObjectResource):
                 principalURL = str(authz_principal)
                 if principalURL:
                     authz = (yield request.locateResource(principalURL))
-                    self._parentResource._newStoreObject._txn._authz_uid = authz.record.guid
+                    self._parentResource._newStoreObject._txn._authz_uid = authz.record.uid
 
             try:
                 response = (yield self.storeComponent(component))
@@ -3695,7 +3707,7 @@ class AddressBookObjectResource(_CommonObjectResource):
         else:
             userprivs.append(davxml.Privilege(davxml.WriteProperties()))
 
-        sharee = self.principalForUID(self._newStoreObject.viewerHome().uid())
+        sharee = yield self.principalForUID(self._newStoreObject.viewerHome().uid())
         aces = (
             # Inheritable specific access for the resource's associated principal.
             davxml.ACE(
@@ -3897,7 +3909,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
         assert ignored is None, "This is a notification object, not a notification"
         jsondata = (yield self._newStoreObject.notificationData())
         if jsondata["notification-type"] == "invite-notification":
-            ownerPrincipal = self.principalForUID(jsondata["owner"])
+            ownerPrincipal = yield self.principalForUID(jsondata["owner"])
             ownerCN = ownerPrincipal.displayName()
             ownerHomeURL = ownerPrincipal.calendarHomeURLs()[0] if jsondata["shared-type"] == "calendar" else ownerPrincipal.addressBookHomeURLs()[0]
 
@@ -3907,7 +3919,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
             else:
                 owner = "urn:uuid:" + ownerPrincipal.principalUID()
 
-            shareePrincipal = self.principalForUID(jsondata["sharee"])
+            shareePrincipal = yield self.principalForUID(jsondata["sharee"])
 
             if "supported-components" in jsondata:
                 comps = jsondata["supported-components"]
@@ -3942,10 +3954,10 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
                 ),
             )
         elif jsondata["notification-type"] == "invite-reply":
-            ownerPrincipal = self.principalForUID(jsondata["owner"])
+            ownerPrincipal = yield self.principalForUID(jsondata["owner"])
             ownerHomeURL = ownerPrincipal.calendarHomeURLs()[0] if jsondata["shared-type"] == "calendar" else ownerPrincipal.addressBookHomeURLs()[0]
 
-            shareePrincipal = self.principalForUID(jsondata["sharee"])
+            shareePrincipal = yield self.principalForUID(jsondata["sharee"])
 
             # FIXME:  use urn:uuid always?
             if jsondata["shared-type"] == "calendar":
@@ -3959,7 +3971,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
                 cua = "urn:uuid:" + shareePrincipal.principalUID()
 
             commonName = shareePrincipal.displayName()
-            record = shareePrincipal.record
+            # record = shareePrincipal.record
 
             typeAttr = {"shared-type": jsondata["shared-type"]}
             xmldata = customxml.Notification(
@@ -3973,9 +3985,9 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
                     customxml.InReplyTo.fromString(jsondata["in-reply-to"]),
                     customxml.InviteSummary.fromString(jsondata["summary"]) if jsondata["summary"] else None,
                     customxml.CommonName.fromString(commonName) if commonName else None,
-                    customxml.FirstNameProperty(record.firstName) if record.firstName else None,
-                    customxml.LastNameProperty(record.lastName) if record.lastName else None,
-                    #**typeAttr
+                    # customxml.FirstNameProperty(record.firstName) if record.firstName else None,
+                    # customxml.LastNameProperty(record.lastName) if record.lastName else None,
+                    **typeAttr
                 ),
             )
         else:

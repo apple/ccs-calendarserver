@@ -820,23 +820,25 @@ class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn,
 
 
     def defaultAccessControlList(self):
-        return davxml.ACL(
-            # DAV:Read for authenticated principals
-            davxml.ACE(
-                davxml.Principal(davxml.Authenticated()),
-                davxml.Grant(
-                    davxml.Privilege(davxml.Read()),
+        return succeed(
+            davxml.ACL(
+                # DAV:Read for authenticated principals
+                davxml.ACE(
+                    davxml.Principal(davxml.Authenticated()),
+                    davxml.Grant(
+                        davxml.Privilege(davxml.Read()),
+                    ),
+                    davxml.Protected(),
                 ),
-                davxml.Protected(),
-            ),
-            # DAV:Write for authenticated principals
-            davxml.ACE(
-                davxml.Principal(davxml.Authenticated()),
-                davxml.Grant(
-                    davxml.Privilege(davxml.Write()),
+                # DAV:Write for authenticated principals
+                davxml.ACE(
+                    davxml.Principal(davxml.Authenticated()),
+                    davxml.Grant(
+                        davxml.Privilege(davxml.Write()),
+                    ),
+                    davxml.Protected(),
                 ),
-                davxml.Protected(),
-            ),
+            )
         )
 
 
@@ -869,6 +871,7 @@ class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn,
 
     http_GET = http_POST
 
+    @inlineCallbacks
     def principalFromRequest(self, request):
         """
         Given an authenticated request, return the principal based on
@@ -877,9 +880,9 @@ class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn,
         principal = None
         for collection in self.principalCollections():
             data = request.authnUser.children[0].children[0].data
-            principal = collection._principalForURI(data)
+            principal = yield collection._principalForURI(data)
             if principal is not None:
-                return principal
+                returnValue(principal)
 
 
     @inlineCallbacks
@@ -910,7 +913,7 @@ class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn,
             msg = "Invalid request: bad 'token' %s" % (token,)
 
         else:
-            principal = self.principalFromRequest(request)
+            principal = yield self.principalFromRequest(request)
             uid = principal.record.uid
             try:
                 yield self.addSubscription(token, key, uid, userAgent, host)

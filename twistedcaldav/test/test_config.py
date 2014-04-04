@@ -92,9 +92,10 @@ class ConfigTests(TestCase):
 
     def testDefaults(self):
         for key, value in DEFAULT_CONFIG.iteritems():
-            if key in ("ServerHostName", "Notifications", "MultiProcess",
-                "Postgres"):
-                # Value is calculated and may vary
+            if key in (
+                "ServerHostName", "Notifications", "MultiProcess",
+                "Postgres", "DirectoryRealmName"
+            ):  # Value is calculated and may vary
                 continue
             for item in RELATIVE_PATHS:
                 item = item[1]

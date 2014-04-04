@@ -105,6 +105,28 @@ class Element(Values):
         AutoScheduleMode.acceptIfFreeDeclineIfBusy
     )
 
+    # For "locations", i.e., scheduled spaces:
+
+    capacity = ValueConstant(u"capacity")
+    capacity.fieldName = FieldName.capacity
+
+    floor = ValueConstant(u"floor")
+    floor.fieldName = FieldName.floor
+
+    associatedAddress = ValueConstant(u"associated-address")
+    associatedAddress.fieldName = FieldName.associatedAddress
+
+    # For "addresses", i.e., non-scheduled areas containing locations:
+
+    abbreviatedName = ValueConstant(u"abbreviated-name")
+    abbreviatedName.fieldName = FieldName.abbreviatedName
+
+    streetAddress = ValueConstant(u"street-address")
+    streetAddress.fieldName = FieldName.streetAddress
+
+    geographicLocation = ValueConstant(u"geographic-location")
+    geographicLocation.fieldName = FieldName.geographicLocation
+
 
 
 class Attribute(Values):
@@ -143,9 +165,13 @@ class DirectoryService(BaseDirectoryService):
         (BaseDirectoryService.recordType, RecordType)
     )
 
-    fieldName = ConstantsContainer(
-        (BaseDirectoryService.fieldName, FieldName)
-    )
+    # MOVE2WHO: Wilfredo had added augment fields into xml, which does make
+    # some sense, but for backwards compatibility right now I will take those
+    # out, and rely on a separate augment service
+
+    # fieldName = ConstantsContainer(
+    #     (BaseDirectoryService.fieldName, FieldName)
+    # )
 
     # XML schema constants
 

@@ -48,15 +48,17 @@ DEFAULT_TIMEZONE = "America/Los_Angeles"
 class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
 
     def defaultAccessControlList(self):
-        return davxml.ACL(
-            davxml.ACE(
-                davxml.Principal(davxml.Authenticated()),
-                davxml.Grant(
-                    davxml.Privilege(davxml.Read()),
+        return succeed(
+            davxml.ACL(
+                davxml.ACE(
+                    davxml.Principal(davxml.Authenticated()),
+                    davxml.Grant(
+                        davxml.Privilege(davxml.Read()),
+                    ),
+                    davxml.Protected(),
+                    TwistedACLInheritable(),
                 ),
-                davxml.Protected(),
-                TwistedACLInheritable(),
-            ),
+            )
         )
 
 

@@ -1915,14 +1915,14 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
             # Normalize the calendar user addresses once we know we have valid
             # calendar data
-            component.normalizeCalendarUserAddresses(normalizationLookup, self.directoryService().recordWithCalendarUserAddress)
+            yield component.normalizeCalendarUserAddresses(normalizationLookup, self.directoryService().recordWithCalendarUserAddress)
 
         # Possible timezone stripping
         if config.EnableTimezonesByReference:
             component.stripKnownTimezones()
 
         # Check location/resource organizer requirement
-        self.validLocationResourceOrganizer(component, inserting, internal_state)
+        yield self.validLocationResourceOrganizer(component, inserting, internal_state)
 
         # Check access
         if config.EnablePrivateEvents:
@@ -1986,13 +1986,14 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     raise TooManyAttendeesError("Attendee list size %d is larger than allowed limit %d" % (attendeeListLength, config.MaxAttendeesPerInstance))
 
 
+    @inlineCallbacks
     def validLocationResourceOrganizer(self, component, inserting, internal_state):
         """
         If the calendar owner is a location or resource, check whether an ORGANIZER property is required.
         """
 
         if internal_state == ComponentUpdateState.NORMAL:
-            originatorPrincipal = self.calendar().ownerHome().directoryRecord()
+            originatorPrincipal = yield self.calendar().ownerHome().directoryRecord()
             cutype = originatorPrincipal.getCUType() if originatorPrincipal is not None else "INDIVIDUAL"
             organizer = component.getOrganizer()
 
@@ -2009,9 +2010,9 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
                 # Find current principal and update modified by details
                 if self._txn._authz_uid is not None:
-                    authz = self.directoryService().recordWithUID(self._txn._authz_uid)
+                    authz = yield self.directoryService().recordWithUID(self._txn._authz_uid.decode("utf-8"))
                     prop = Property("X-CALENDARSERVER-MODIFIED-BY", authz.canonicalCalendarUserAddress())
-                    prop.setParameter("CN", authz.displayName())
+                    prop.setParameter("CN", authz.displayName)
                     for candidate in authz.calendarUserAddresses:
                         if candidate.startswith("mailto:"):
                             prop.setParameter("EMAIL", candidate[7:])
@@ -2108,7 +2109,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 log.debug("Organizer and attendee properties were entirely removed by the client. Restoring existing properties.")
 
                 # Get the originator who is the owner of the calendar resource being modified
-                originatorPrincipal = self.calendar().ownerHome().directoryRecord()
+                originatorPrincipal = yield self.calendar().ownerHome().directoryRecord()
                 originatorAddresses = originatorPrincipal.calendarUserAddresses
 
                 for component in calendar.subcomponents():
@@ -2145,7 +2146,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 log.debug("Sync COMPLETED property change.")
 
                 # Get the originator who is the owner of the calendar resource being modified
-                originatorPrincipal = self.calendar().ownerHome().directoryRecord()
+                originatorPrincipal = yield self.calendar().ownerHome().directoryRecord()
                 originatorAddresses = originatorPrincipal.calendarUserAddresses
 
                 for component in calendar.subcomponents():
@@ -2264,6 +2265,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             self._componentChanged = True
 
 
+    @inlineCallbacks
     def addStructuredLocation(self, component):
         """
         Scan the component for ROOM attendees; if any are associated with an
@@ -2271,34 +2273,33 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         X-APPLE-STRUCTURED-LOCATION property and update the LOCATION property
         to contain the name and street address.
         """
+        dir = self.directoryService()
         for sub in component.subcomponents():
             for attendee in sub.getAllAttendeeProperties():
                 if attendee.parameterValue("CUTYPE") == "ROOM":
                     value = attendee.value()
-                    if value.startswith("urn:uuid:"):
-                        guid = value[9:]
-                        loc = self.directoryService().recordWithGUID(guid)
-                        if loc is not None:
-                            guid = loc.extras.get("associatedAddress",
-                                None)
-                            if guid is not None:
-                                addr = self.directoryService().recordWithGUID(guid)
-                                if addr is not None:
-                                    street = addr.extras.get("streetAddress", "")
-                                    geo = addr.extras.get("geo", "")
-                                    if street and geo:
-                                        title = attendee.parameterValue("CN")
-                                        params = {
-                                            "X-ADDRESS" : street,
-                                            "X-APPLE-RADIUS" : "71",
-                                            "X-TITLE" : title,
-                                        }
-                                        structured = Property("X-APPLE-STRUCTURED-LOCATION",
-                                            "geo:%s" % (geo,), params=params,
-                                            valuetype=Value.VALUETYPE_URI)
-                                        sub.replaceProperty(structured)
-                                        sub.replaceProperty(Property("LOCATION",
-                                            "%s\n%s" % (title, street)))
+                    loc = yield dir.recordWithCalendarUserAddress(value)
+                    if loc is not None:
+                        uid = getattr(loc, "associatedAddress", "")
+                        if uid:
+                            addr = yield dir.recordWithUID(uid)
+                            if addr is not None:
+                                street = getattr(addr, "streetAddress", "")
+                                geo = getattr(addr, "geographicLocation", "")
+                                if street and geo:
+                                    title = attendee.parameterValue("CN")
+                                    params = {
+                                        "X-ADDRESS": street,
+                                        "X-APPLE-RADIUS": "71",
+                                        "X-TITLE": title,
+                                    }
+                                    structured = Property("X-APPLE-STRUCTURED-LOCATION",
+                                        "geo:%s" % (geo.encode("utf-8"),), params=params,
+                                        valuetype=Value.VALUETYPE_URI)
+                                    sub.replaceProperty(structured)
+                                    newLocProperty = Property("LOCATION",
+                                        "%s\n%s" % (title, street.encode("utf-8")))
+                                    sub.replaceProperty(newLocProperty)
 
 
     @inlineCallbacks
@@ -2539,7 +2540,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             self.processAlarms(component, inserting)
 
             # Process structured location
-            self.addStructuredLocation(component)
+            yield self.addStructuredLocation(component)
 
             # Do scheduling
             implicit_result = (yield self.doImplicitScheduling(component, inserting, internal_state))
@@ -3760,9 +3761,9 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             raise InvalidSplit()
 
         # Cannot be attendee
-        ownerPrincipal = self.calendar().ownerHome().directoryRecord()
+        ownerPrincipal = yield self.calendar().ownerHome().directoryRecord()
         organizer = component.getOrganizer()
-        organizerPrincipal = self.directoryService().recordWithCalendarUserAddress(organizer) if organizer else None
+        organizerPrincipal = (yield self.directoryService().recordWithCalendarUserAddress(organizer)) if organizer else None
         if organizer is not None and organizerPrincipal.uid != ownerPrincipal.uid:
             raise InvalidSplit()
 

@@ -85,13 +85,14 @@ class CalDAVScheduler(Scheduler):
             ))
 
 
+    @inlineCallbacks
     def checkOriginator(self):
         """
         Check the validity of the Originator header. Extract the corresponding principal.
         """
 
         # Verify that Originator is a valid calendar user
-        originatorPrincipal = self.txn.directoryService().recordWithCalendarUserAddress(self.originator)
+        originatorPrincipal = yield self.txn.directoryService().recordWithCalendarUserAddress(self.originator)
         if originatorPrincipal is None:
             # Local requests MUST have a principal.
             log.error("Could not find principal for originator: %s" % (self.originator,))
@@ -122,7 +123,7 @@ class CalDAVScheduler(Scheduler):
         results = []
         for recipient in self.recipients:
             # Get the principal resource for this recipient
-            principal = self.txn.directoryService().recordWithCalendarUserAddress(recipient)
+            principal = yield self.txn.directoryService().recordWithCalendarUserAddress(recipient)
 
             # If no principal we may have a remote recipient but we should check whether
             # the address is one that ought to be on our server and treat that as a missing
@@ -161,7 +162,7 @@ class CalDAVScheduler(Scheduler):
         # Verify that the ORGANIZER's cu address maps to a valid user
         organizer = self.calendar.getOrganizer()
         if organizer:
-            organizerPrincipal = self.txn.directoryService().recordWithCalendarUserAddress(organizer)
+            organizerPrincipal = yield self.txn.directoryService().recordWithCalendarUserAddress(organizer)
             if organizerPrincipal:
                 if organizerPrincipal.calendarsEnabled():
 
@@ -225,6 +226,7 @@ class CalDAVScheduler(Scheduler):
             ))
 
 
+    @inlineCallbacks
     def checkAttendeeAsOriginator(self):
         """
         Check the validity of the ATTENDEE value as this is the originator of the iTIP message.
@@ -232,7 +234,7 @@ class CalDAVScheduler(Scheduler):
         """
 
         # Attendee's Outbox MUST be the request URI
-        attendeePrincipal = self.txn.directoryService().recordWithCalendarUserAddress(self.attendee)
+        attendeePrincipal = yield self.txn.directoryService().recordWithCalendarUserAddress(self.attendee)
         if attendeePrincipal:
             if self.doingPOST is not None and attendeePrincipal.uid != self.originator_uid:
                 log.error("ATTENDEE in calendar data does not match owner of Outbox: %s" % (self.calendar,))
@@ -257,11 +259,11 @@ class CalDAVScheduler(Scheduler):
 
         # Prevent spoofing of ORGANIZER with specific METHODs when local
         if self.isiTIPRequest:
-            self.checkOrganizerAsOriginator()
+            return self.checkOrganizerAsOriginator()
 
         # Prevent spoofing when doing reply-like METHODs
         else:
-            self.checkAttendeeAsOriginator()
+            return self.checkAttendeeAsOriginator()
 
 
     def finalChecks(self):

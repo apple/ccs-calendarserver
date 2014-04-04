@@ -14,6 +14,7 @@
 ##
 
 from twext.python.filepath import CachingFilePath as FilePath
+from twext.who.idirectory import RecordType
 from txweb2 import responsecode
 from txweb2.dav.util import davXMLFromStream, joinURL
 from txweb2.http_headers import Headers, MimeType
@@ -37,6 +38,12 @@ class CalendarMultiget (StoreTestCase):
     """
     data_dir = os.path.join(os.path.dirname(__file__), "data")
     holidays_dir = os.path.join(data_dir, "Holidays")
+
+    @inlineCallbacks
+    def setUp(self):
+        yield StoreTestCase.setUp(self)
+        self.authRecord = yield self.directory.recordWithShortName(RecordType.user, u"wsanchez")
+
 
     def test_multiget_some_events(self):
         """
@@ -262,7 +269,7 @@ END:VCALENDAR
     def calendar_query(self, calendar_uri, query, got_xml, data, no_init):
 
         if not no_init:
-            response = yield self.send(SimpleStoreRequest(self, "MKCALENDAR", calendar_uri, authid="wsanchez"))
+            response = yield self.send(SimpleStoreRequest(self, "MKCALENDAR", calendar_uri, authRecord=self.authRecord))
             response = IResponse(response)
             if response.code != responsecode.CREATED:
                 self.fail("MKCALENDAR failed: %s" % (response.code,))
@@ -274,7 +281,7 @@ END:VCALENDAR
                         "PUT",
                         joinURL(calendar_uri, filename + ".ics"),
                         headers=Headers({"content-type": MimeType.fromString("text/calendar")}),
-                        authid="wsanchez"
+                        authRecord=self.authRecord
                     )
                     request.stream = MemoryStream(icaldata)
                     yield self.send(request)
@@ -288,12 +295,12 @@ END:VCALENDAR
                         "PUT",
                         joinURL(calendar_uri, child.basename()),
                         headers=Headers({"content-type": MimeType.fromString("text/calendar")}),
-                        authid="wsanchez"
+                        authRecord=self.authRecord
                     )
                     request.stream = MemoryStream(child.getContent())
                     yield self.send(request)
 
-        request = SimpleStoreRequest(self, "REPORT", calendar_uri, authid="wsanchez")
+        request = SimpleStoreRequest(self, "REPORT", calendar_uri, authRecord=self.authRecord)
         request.stream = MemoryStream(query.toxml())
         response = yield self.send(request)
 

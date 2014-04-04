@@ -25,15 +25,45 @@ from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 
 from twistedcaldav.config import config
-from twistedcaldav.test.util import TestCase, CapturingProcessProtocol
-from calendarserver.tools.util import getDirectory
+from twistedcaldav.test.util import StoreTestCase, CapturingProcessProtocol
 import plistlib
+from twistedcaldav.memcacheclient import ClientFactory
+from twistedcaldav import memcacher
+from txdav.who.idirectory import AutoScheduleMode
 
 
-class RunCommandTestCase(TestCase):
+class RunCommandTestCase(StoreTestCase):
 
-    def setUp(self):
-        super(RunCommandTestCase, self).setUp()
+    def configure(self):
+        """
+        Override the standard StoreTestCase configuration
+        """
+        self.serverRoot = self.mktemp()
+        os.mkdir(self.serverRoot)
+        absoluteServerRoot = os.path.abspath(self.serverRoot)
+
+        configRoot = os.path.join(absoluteServerRoot, "Config")
+        if not os.path.exists(configRoot):
+            os.makedirs(configRoot)
+
+        dataRoot = os.path.join(absoluteServerRoot, "Data")
+        if not os.path.exists(dataRoot):
+            os.makedirs(dataRoot)
+
+        documentRoot = os.path.join(absoluteServerRoot, "Documents")
+        if not os.path.exists(documentRoot):
+            os.makedirs(documentRoot)
+
+        logRoot = os.path.join(absoluteServerRoot, "Logs")
+        if not os.path.exists(logRoot):
+            os.makedirs(logRoot)
+
+        runRoot = os.path.join(absoluteServerRoot, "Run")
+        if not os.path.exists(runRoot):
+            os.makedirs(runRoot)
+
+        config.reset()
+        self.configInit()
 
         testRoot = os.path.join(os.path.dirname(__file__), "gateway")
         templateName = os.path.join(testRoot, "caldavd.plist")
@@ -43,41 +73,79 @@ class RunCommandTestCase(TestCase):
 
         databaseRoot = os.path.abspath("_spawned_scripts_db" + str(os.getpid()))
         newConfig = template % {
-            "ServerRoot" : os.path.abspath(config.ServerRoot),
-            "DatabaseRoot" : databaseRoot,
-            "WritablePlist" : os.path.join(os.path.abspath(config.ConfigRoot), "caldavd-writable.plist"),
+            "ServerRoot": absoluteServerRoot,
+            "DataRoot": dataRoot,
+            "DatabaseRoot": databaseRoot,
+            "DocumentRoot": documentRoot,
+            "ConfigRoot": configRoot,
+            "LogRoot": logRoot,
+            "RunRoot": runRoot,
+            "WritablePlist": os.path.join(
+                os.path.abspath(configRoot), "caldavd-writable.plist"
+            ),
         }
-        configFilePath = FilePath(os.path.join(config.ConfigRoot, "caldavd.plist"))
+        configFilePath = FilePath(
+            os.path.join(configRoot, "caldavd.plist")
+        )
+
         configFilePath.setContent(newConfig)
 
         self.configFileName = configFilePath.path
         config.load(self.configFileName)
 
-        origUsersFile = FilePath(os.path.join(os.path.dirname(__file__),
-            "gateway", "users-groups.xml"))
-        copyUsersFile = FilePath(os.path.join(config.DataRoot, "accounts.xml"))
+        config.Memcached.Pools.Default.ClientEnabled = False
+        config.Memcached.Pools.Default.ServerEnabled = False
+        ClientFactory.allowTestCache = True
+        memcacher.Memcacher.allowTestCache = True
+        memcacher.Memcacher.memoryCacheInstance = None
+        config.DirectoryAddressBook.Enabled = False
+        config.UsePackageTimezones = True
+
+        origUsersFile = FilePath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "gateway",
+                "users-groups.xml"
+            )
+        )
+        copyUsersFile = FilePath(
+            os.path.join(config.DataRoot, "accounts.xml")
+        )
         origUsersFile.copyTo(copyUsersFile)
 
-        origResourcesFile = FilePath(os.path.join(os.path.dirname(__file__),
-            "gateway", "resources-locations.xml"))
-        copyResourcesFile = FilePath(os.path.join(config.DataRoot, "resources.xml"))
+        origResourcesFile = FilePath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "gateway",
+                "resources-locations.xml"
+            )
+        )
+        copyResourcesFile = FilePath(
+            os.path.join(config.DataRoot, "resources.xml")
+        )
         origResourcesFile.copyTo(copyResourcesFile)
 
-        origAugmentFile = FilePath(os.path.join(os.path.dirname(__file__),
-            "gateway", "augments.xml"))
+        origAugmentFile = FilePath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "gateway",
+                "augments.xml"
+            )
+        )
         copyAugmentFile = FilePath(os.path.join(config.DataRoot, "augments.xml"))
         origAugmentFile.copyTo(copyAugmentFile)
 
-        # Make sure trial puts the reactor in the right state, by letting it
-        # run one reactor iteration.  (Ignore me, please.)
-        d = Deferred()
-        reactor.callLater(0, d.callback, True)
-        return d
+        # # Make sure trial puts the reactor in the right state, by letting it
+        # # run one reactor iteration.  (Ignore me, please.)
+        # d = Deferred()
+        # reactor.callLater(0, d.callback, True)
+        # return d
 
 
     @inlineCallbacks
-    def runCommand(self, command, error=False,
-        script="calendarserver_command_gateway"):
+    def runCommand(
+        self, command, error=False, script="calendarserver_command_gateway"
+    ):
         """
         Run the given command by feeding it as standard input to
         calendarserver_command_gateway in a subprocess.
@@ -86,7 +154,9 @@ class RunCommandTestCase(TestCase):
         if isinstance(command, unicode):
             command = command.encode("utf-8")
 
-        sourceRoot = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        sourceRoot = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        )
         cmd = os.path.join(sourceRoot, "bin", script)
 
         args = [cmd, "-f", self.configFileName]
@@ -110,6 +180,12 @@ class RunCommandTestCase(TestCase):
 
 class GatewayTestCase(RunCommandTestCase):
 
+    def _flush(self):
+        # Flush both XML directories
+        self.directory._directory.services[0].flush()
+        self.directory._directory.services[1].flush()
+
+
     @inlineCallbacks
     def test_getLocationAndResourceList(self):
         results = yield self.runCommand(command_getLocationAndResourceList)
@@ -125,14 +201,18 @@ class GatewayTestCase(RunCommandTestCase):
     @inlineCallbacks
     def test_getLocationAttributes(self):
         yield self.runCommand(command_createLocation)
+
+        # Tell the resources services to flush its cache and re-read XML
+        self._flush()
+
         results = yield self.runCommand(command_getLocationAttributes)
-        self.assertEquals(results["result"]["Capacity"], "40")
-        self.assertEquals(results["result"]["Description"], "Test Description")
+        # self.assertEquals(results["result"]["Capacity"], "40")
+        # self.assertEquals(results["result"]["Description"], "Test Description")
         self.assertEquals(results["result"]["RecordName"], ["createdlocation01"])
         self.assertEquals(results["result"]["RealName"],
             "Created Location 01 %s %s" % (unichr(208), u"\ud83d\udca3"))
-        self.assertEquals(results["result"]["Comment"], "Test Comment")
-        self.assertEquals(results["result"]["AutoSchedule"], True)
+        # self.assertEquals(results["result"]["Comment"], "Test Comment")
+        self.assertEquals(results["result"]["AutoScheduleMode"], u"acceptIfFree")
         self.assertEquals(results["result"]["AutoAcceptGroup"], "E5A6142C-4189-4E9E-90B0-9CD0268B314B")
         self.assertEquals(set(results["result"]["ReadProxies"]), set(['user03', 'user04']))
         self.assertEquals(set(results["result"]["WriteProxies"]), set(['user05', 'user06']))
@@ -147,32 +227,37 @@ class GatewayTestCase(RunCommandTestCase):
     @inlineCallbacks
     def test_getResourceAttributes(self):
         yield self.runCommand(command_createResource)
+
+        # Tell the resources services to flush its cache and re-read XML
+        self._flush()
+
         results = yield self.runCommand(command_getResourceAttributes)
-        self.assertEquals(results["result"]["Comment"], "Test Comment")
-        self.assertEquals(results["result"]["Type"], "Computer")
+        # self.assertEquals(results["result"]["Comment"], "Test Comment")
+        # self.assertEquals(results["result"]["Type"], "Computer")
         self.assertEquals(set(results["result"]["ReadProxies"]), set(['user03', 'user04']))
         self.assertEquals(set(results["result"]["WriteProxies"]), set(['user05', 'user06']))
 
 
     @inlineCallbacks
     def test_createAddress(self):
-        directory = getDirectory()
 
-        record = directory.recordWithUID("C701069D-9CA1-4925-A1A9-5CD94767B74B")
+        record = yield self.directory.recordWithUID("C701069D-9CA1-4925-A1A9-5CD94767B74B")
         self.assertEquals(record, None)
         yield self.runCommand(command_createAddress)
 
-        directory.flushCaches()
+        # Tell the resources services to flush its cache and re-read XML
+        self._flush()
 
-        record = directory.recordWithUID("C701069D-9CA1-4925-A1A9-5CD94767B74B")
-        self.assertEquals(record.fullName.decode("utf-8"),
-            "Created Address 01 %s %s" % (unichr(208), u"\ud83d\udca3"))
+        record = yield self.directory.recordWithUID("C701069D-9CA1-4925-A1A9-5CD94767B74B")
+        self.assertEquals(
+            record.displayName,
+            "Created Address 01 %s %s" % (unichr(208), u"\ud83d\udca3")
+        )
 
-        self.assertNotEquals(record, None)
 
-        self.assertEquals(record.extras["abbreviatedName"], "Addr1")
-        self.assertEquals(record.extras["streetAddress"], "1 Infinite Loop\nCupertino, 95014\nCA")
-        self.assertEquals(record.extras["geo"], "geo:37.331,-122.030")
+        self.assertEquals(record.abbreviatedName, "Addr1")
+        self.assertEquals(record.streetAddress, "1 Infinite Loop\nCupertino, 95014\nCA")
+        self.assertEquals(record.geographicLocation, "geo:37.331,-122.030")
 
         results = yield self.runCommand(command_getAddressList)
         self.assertEquals(len(results["result"]), 1)
@@ -185,7 +270,7 @@ class GatewayTestCase(RunCommandTestCase):
         results = yield self.runCommand(command_getAddressAttributes)
         self.assertEquals(results["result"]["RealName"], u'Updated Address')
         self.assertEquals(results["result"]["StreetAddress"], u'Updated Street Address')
-        self.assertEquals(results["result"]["Geo"], u'Updated Geo')
+        self.assertEquals(results["result"]["GeographicLocation"], u'Updated Geo')
 
         results = yield self.runCommand(command_deleteAddress)
 
@@ -195,29 +280,23 @@ class GatewayTestCase(RunCommandTestCase):
 
     @inlineCallbacks
     def test_createLocation(self):
-        directory = getDirectory()
 
-        record = directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
+        record = yield self.directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
         self.assertEquals(record, None)
         yield self.runCommand(command_createLocation)
 
-        directory.flushCaches()
+        # Tell the resources services to flush its cache and re-read XML
+        self._flush()
 
-        # This appears to be necessary in order for record.autoSchedule to
-        # reflect the change prior to the directory record expiration
-        augmentService = directory.serviceForRecordType(directory.recordType_locations).augmentService
-        augmentService.refresh()
-
-        record = directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
-        self.assertEquals(record.fullName.decode("utf-8"),
-            "Created Location 01 %s %s" % (unichr(208), u"\ud83d\udca3"))
+        record = yield self.directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
+        self.assertEquals(record.fullNames[0],
+            u"Created Location 01 %s %s" % (unichr(208), u"\ud83d\udca3"))
 
         self.assertNotEquals(record, None)
-        self.assertEquals(record.autoSchedule, True)
+        # self.assertEquals(record.autoScheduleMode, "")
 
-        self.assertEquals(record.extras["comment"], "Test Comment")
-        self.assertEquals(record.extras["floor"], "First")
-        self.assertEquals(record.extras["capacity"], "40")
+        self.assertEquals(record.floor, u"First")
+        # self.assertEquals(record.extras["capacity"], "40")
 
         results = yield self.runCommand(command_getLocationAttributes)
         self.assertEquals(set(results["result"]["ReadProxies"]), set(['user03', 'user04']))
@@ -226,88 +305,104 @@ class GatewayTestCase(RunCommandTestCase):
 
     @inlineCallbacks
     def test_setLocationAttributes(self):
-        directory = getDirectory()
 
         yield self.runCommand(command_createLocation)
         yield self.runCommand(command_setLocationAttributes)
-        directory.flushCaches()
 
-        # This appears to be necessary in order for record.autoSchedule to
-        # reflect the change
-        augmentService = directory.serviceForRecordType(directory.recordType_locations).augmentService
-        augmentService.refresh()
+        # Tell the resources services to flush its cache and re-read XML
+        self._flush()
 
-        record = directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
+        record = yield self.directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
 
-        self.assertEquals(record.extras["comment"], "Updated Test Comment")
-        self.assertEquals(record.extras["floor"], "Second")
-        self.assertEquals(record.extras["capacity"], "41")
-        self.assertEquals(record.extras["streetAddress"], "2 Infinite Loop\nCupertino, 95014\nCA")
-        self.assertEquals(record.autoSchedule, True)
+        # self.assertEquals(record.extras["comment"], "Updated Test Comment")
+        self.assertEquals(record.floor, "Second")
+        # self.assertEquals(record.extras["capacity"], "41")
+        self.assertEquals(record.autoScheduleMode, AutoScheduleMode.acceptIfFree)
         self.assertEquals(record.autoAcceptGroup, "F5A6142C-4189-4E9E-90B0-9CD0268B314B")
 
         results = yield self.runCommand(command_getLocationAttributes)
-        self.assertEquals(results["result"]["AutoSchedule"], True)
+        self.assertEquals(results["result"]["AutoScheduleMode"], "acceptIfFree")
         self.assertEquals(results["result"]["AutoAcceptGroup"], "F5A6142C-4189-4E9E-90B0-9CD0268B314B")
         self.assertEquals(set(results["result"]["ReadProxies"]), set(['user03']))
         self.assertEquals(set(results["result"]["WriteProxies"]), set(['user05', 'user06', 'user07']))
 
 
     @inlineCallbacks
-    def test_destroyLocation(self):
-        directory = getDirectory()
+    def test_setAddressOnLocation(self):
+        yield self.runCommand(command_createLocation)
+        yield self.runCommand(command_createAddress)
+        yield self.runCommand(command_setAddressOnLocation)
+        results = yield self.runCommand(command_getLocationAttributes)
+        self.assertEquals(results["result"]["AssociatedAddress"], "C701069D-9CA1-4925-A1A9-5CD94767B74B")
+        self._flush()
+        record = yield self.directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
+        self.assertEquals(record.associatedAddress, "C701069D-9CA1-4925-A1A9-5CD94767B74B")
+        yield self.runCommand(command_removeAddressFromLocation)
+        results = yield self.runCommand(command_getLocationAttributes)
+        self.assertEquals(results["result"]["AssociatedAddress"], "")
+        self._flush()
+        record = yield self.directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
+        self.assertEquals(record.associatedAddress, u"")
 
-        record = directory.recordWithUID("location01")
+
+    @inlineCallbacks
+    def test_destroyLocation(self):
+
+        record = yield self.directory.recordWithUID("location01")
         self.assertNotEquals(record, None)
 
         yield self.runCommand(command_deleteLocation)
 
-        directory.flushCaches()
-        record = directory.recordWithUID("location01")
+        # Tell the resources services to flush its cache and re-read XML
+        self._flush()
+
+        record = yield self.directory.recordWithUID("location01")
         self.assertEquals(record, None)
 
 
     @inlineCallbacks
     def test_createResource(self):
-        directory = getDirectory()
 
-        record = directory.recordWithUID("AF575A61-CFA6-49E1-A0F6-B5662C9D9801")
+        record = yield self.directory.recordWithUID("AF575A61-CFA6-49E1-A0F6-B5662C9D9801")
         self.assertEquals(record, None)
 
         yield self.runCommand(command_createResource)
 
-        directory.flushCaches()
-        record = directory.recordWithUID("AF575A61-CFA6-49E1-A0F6-B5662C9D9801")
+        # Tell the resources services to flush its cache and re-read XML
+        self._flush()
+
+        record = yield self.directory.recordWithUID("AF575A61-CFA6-49E1-A0F6-B5662C9D9801")
         self.assertNotEquals(record, None)
 
 
     @inlineCallbacks
     def test_setResourceAttributes(self):
-        directory = getDirectory()
 
         yield self.runCommand(command_createResource)
-        directory.flushCaches()
-        record = directory.recordWithUID("AF575A61-CFA6-49E1-A0F6-B5662C9D9801")
-        self.assertEquals(record.fullName, "Laptop 1")
+        record = yield self.directory.recordWithUID("AF575A61-CFA6-49E1-A0F6-B5662C9D9801")
+        self.assertEquals(record.displayName, "Laptop 1")
 
         yield self.runCommand(command_setResourceAttributes)
 
-        directory.flushCaches()
-        record = directory.recordWithUID("AF575A61-CFA6-49E1-A0F6-B5662C9D9801")
-        self.assertEquals(record.fullName, "Updated Laptop 1")
+        # Tell the resources services to flush its cache and re-read XML
+        self._flush()
+
+        record = yield self.directory.recordWithUID("AF575A61-CFA6-49E1-A0F6-B5662C9D9801")
+        self.assertEquals(record.displayName, "Updated Laptop 1")
 
 
     @inlineCallbacks
     def test_destroyResource(self):
-        directory = getDirectory()
 
-        record = directory.recordWithUID("resource01")
+        record = yield self.directory.recordWithUID("resource01")
         self.assertNotEquals(record, None)
 
         yield self.runCommand(command_deleteResource)
 
-        directory.flushCaches()
-        record = directory.recordWithUID("resource01")
+        # Tell the resources services to flush its cache and re-read XML
+        self._flush()
+
+        record = yield self.directory.recordWithUID("resource01")
         self.assertEquals(record, None)
 
 
@@ -338,9 +433,10 @@ class GatewayTestCase(RunCommandTestCase):
         """
         Verify readConfig returns with only the writable keys
         """
-        results = yield self.runCommand(command_readConfig,
-            script="calendarserver_config")
-
+        results = yield self.runCommand(
+            command_readConfig,
+            script="calendarserver_config"
+        )
         self.assertEquals(results["result"]["RedirectHTTPToHTTPS"], False)
         self.assertEquals(results["result"]["EnableSearchAddressBook"], False)
         self.assertEquals(results["result"]["EnableCalDAV"], True)
@@ -360,8 +456,10 @@ class GatewayTestCase(RunCommandTestCase):
         """
         Verify writeConfig updates the writable plist file only
         """
-        results = yield self.runCommand(command_writeConfig,
-            script="calendarserver_config")
+        results = yield self.runCommand(
+            command_writeConfig,
+            script="calendarserver_config"
+        )
 
         self.assertEquals(results["result"]["EnableCalDAV"], False)
         self.assertEquals(results["result"]["EnableCardDAV"], False)
@@ -383,9 +481,9 @@ command_addReadProxy = """<?xml version="1.0" encoding="UTF-8"?>
         <key>command</key>
         <string>addReadProxy</string>
         <key>Principal</key>
-        <string>locations:location01</string>
+        <string>location01</string>
         <key>Proxy</key>
-        <string>users:user03</string>
+        <string>user03</string>
 </dict>
 </plist>
 """
@@ -397,9 +495,9 @@ command_addWriteProxy = """<?xml version="1.0" encoding="UTF-8"?>
         <key>command</key>
         <string>addWriteProxy</string>
         <key>Principal</key>
-        <string>locations:location01</string>
+        <string>location01</string>
         <key>Proxy</key>
-        <string>users:user01</string>
+        <string>user01</string>
 </dict>
 </plist>
 """
@@ -422,7 +520,7 @@ command_createAddress = """<?xml version="1.0" encoding="UTF-8"?>
         </array>
         <key>StreetAddress</key>
         <string>1 Infinite Loop\nCupertino, 95014\nCA</string>
-        <key>Geo</key>
+        <key>GeographicLocation</key>
         <string>geo:37.331,-122.030</string>
 </dict>
 </plist>
@@ -435,8 +533,8 @@ command_createLocation = """<?xml version="1.0" encoding="UTF-8"?>
 <dict>
         <key>command</key>
         <string>createLocation</string>
-        <key>AutoSchedule</key>
-        <true/>
+        <key>AutoScheduleMode</key>
+        <string>acceptIfFree</string>
         <key>AutoAcceptGroup</key>
         <string>E5A6142C-4189-4E9E-90B0-9CD0268B314B</string>
         <key>GeneratedUID</key>
@@ -453,19 +551,21 @@ command_createLocation = """<?xml version="1.0" encoding="UTF-8"?>
         <string>Test Description</string>
         <key>Floor</key>
         <string>First</string>
+        <!--
         <key>Capacity</key>
         <string>40</string>
+        -->
         <key>AssociatedAddress</key>
         <string>C701069D-9CA1-4925-A1A9-5CD94767B74B</string>
         <key>ReadProxies</key>
         <array>
-            <string>users:user03</string>
-            <string>users:user04</string>
+            <string>user03</string>
+            <string>user04</string>
         </array>
         <key>WriteProxies</key>
         <array>
-            <string>users:user05</string>
-            <string>users:user06</string>
+            <string>user05</string>
+            <string>user06</string>
         </array>
 </dict>
 </plist>
@@ -478,31 +578,33 @@ command_createResource = """<?xml version="1.0" encoding="UTF-8"?>
 <dict>
         <key>command</key>
         <string>createResource</string>
-        <key>AutoSchedule</key>
-        <true/>
+        <key>AutoScheduleMode</key>
+        <string>declineIfBusy</string>
         <key>GeneratedUID</key>
         <string>AF575A61-CFA6-49E1-A0F6-B5662C9D9801</string>
         <key>RealName</key>
         <string>Laptop 1</string>
+        <!--
         <key>Comment</key>
         <string>Test Comment</string>
         <key>Description</key>
         <string>Test Description</string>
         <key>Type</key>
         <string>Computer</string>
+        -->
         <key>RecordName</key>
         <array>
                 <string>laptop1</string>
         </array>
         <key>ReadProxies</key>
         <array>
-            <string>users:user03</string>
-            <string>users:user04</string>
+            <string>user03</string>
+            <string>user04</string>
         </array>
         <key>WriteProxies</key>
         <array>
-            <string>users:user05</string>
-            <string>users:user06</string>
+            <string>user05</string>
+            <string>user06</string>
         </array>
 </dict>
 </plist>
@@ -617,9 +719,9 @@ command_removeReadProxy = """<?xml version="1.0" encoding="UTF-8"?>
         <key>command</key>
         <string>removeReadProxy</string>
         <key>Principal</key>
-        <string>locations:location01</string>
+        <string>location01</string>
         <key>Proxy</key>
-        <string>users:user03</string>
+        <string>user03</string>
 </dict>
 </plist>
 """
@@ -631,9 +733,9 @@ command_removeWriteProxy = """<?xml version="1.0" encoding="UTF-8"?>
         <key>command</key>
         <string>removeWriteProxy</string>
         <key>Principal</key>
-        <string>locations:location01</string>
+        <string>location01</string>
         <key>Proxy</key>
-        <string>users:user01</string>
+        <string>user01</string>
 </dict>
 </plist>
 """
@@ -662,23 +764,52 @@ command_setLocationAttributes = """<?xml version="1.0" encoding="UTF-8"?>
         <string>Updated Test Description</string>
         <key>Floor</key>
         <string>Second</string>
+        <!--
         <key>Capacity</key>
         <string>41</string>
-        <key>StreetAddress</key>
-        <string>2 Infinite Loop\nCupertino, 95014\nCA</string>
+        -->
         <key>ReadProxies</key>
         <array>
-            <string>users:user03</string>
+            <string>user03</string>
         </array>
         <key>WriteProxies</key>
         <array>
-            <string>users:user05</string>
-            <string>users:user06</string>
-            <string>users:user07</string>
+            <string>user05</string>
+            <string>user06</string>
+            <string>user07</string>
         </array>
 </dict>
 </plist>
 """
+
+command_setAddressOnLocation = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>command</key>
+        <string>setLocationAttributes</string>
+        <key>GeneratedUID</key>
+        <string>836B1B66-2E9A-4F46-8B1C-3DD6772C20B2</string>
+        <key>AssociatedAddress</key>
+        <string>C701069D-9CA1-4925-A1A9-5CD94767B74B</string>
+</dict>
+</plist>
+"""
+
+command_removeAddressFromLocation = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>command</key>
+        <string>setLocationAttributes</string>
+        <key>GeneratedUID</key>
+        <string>836B1B66-2E9A-4F46-8B1C-3DD6772C20B2</string>
+        <key>AssociatedAddress</key>
+        <string></string>
+</dict>
+</plist>
+"""
+
 
 command_getLocationAttributes = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -716,7 +847,7 @@ command_setAddressAttributes = """<?xml version="1.0" encoding="UTF-8"?>
         <string>Updated Address</string>
         <key>StreetAddress</key>
         <string>Updated Street Address</string>
-        <key>Geo</key>
+        <key>GeographicLocation</key>
         <string>Updated Geo</string>
 
 </dict>
@@ -730,8 +861,8 @@ command_setResourceAttributes = """<?xml version="1.0" encoding="UTF-8"?>
 <dict>
         <key>command</key>
         <string>setResourceAttributes</string>
-        <key>AutoSchedule</key>
-        <false/>
+        <key>AutoScheduleMode</key>
+        <string>acceptIfFree</string>
         <key>GeneratedUID</key>
         <string>AF575A61-CFA6-49E1-A0F6-B5662C9D9801</string>
         <key>RealName</key>

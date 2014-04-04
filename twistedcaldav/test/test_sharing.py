@@ -19,27 +19,28 @@ from txweb2.dav.util import allDataFromStream
 from txweb2.http_headers import MimeType
 from txweb2.iweb import IResponse
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 
 from twistedcaldav import customxml
-from twistedcaldav import sharing
 from twistedcaldav.config import config
 from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
-from twistedcaldav.resource import CalDAVResource
-from twistedcaldav.sharing import WikiDirectoryService
 from twistedcaldav.test.test_cache import StubResponseCacheResource
 from twistedcaldav.test.util import norequest, StoreTestCase, SimpleStoreRequest
 
-from txdav.caldav.datastore.test.util import buildDirectory
 from txdav.common.datastore.sql_tables import _BIND_MODE_DIRECT
 from txdav.xml import element as davxml
 from txdav.xml.parser import WebDAVDocument
 
 from xml.etree.cElementTree import XML
+from txdav.who.wiki import (
+    DirectoryRecord as WikiDirectoryRecord,
+    DirectoryService as WikiDirectoryService,
+    RecordType as WikiRecordType,
+    WikiAccessLevel
+)
 
-
-sharedOwnerType = davxml.ResourceType.sharedownercalendar #@UndefinedVariable
-regularCalendarType = davxml.ResourceType.calendar #@UndefinedVariable
+sharedOwnerType = davxml.ResourceType.sharedownercalendar  # @UndefinedVariable
+regularCalendarType = davxml.ResourceType.calendar  # @UndefinedVariable
 
 
 
@@ -63,8 +64,8 @@ class FakeRecord(object):
         self.fullName = name
         self.guid = name
         self.calendarUserAddresses = set((cuaddr,))
-        if name.startswith("wiki-"):
-            recordType = WikiDirectoryService.recordType_wikis
+        if name.startswith(WikiDirectoryService.uidPrefix):
+            recordType = WikiRecordType.macOSXServerWiki
         else:
             recordType = None
         self.recordType = recordType
@@ -131,41 +132,44 @@ class SharingTests(StoreTestCase):
         super(SharingTests, self).configure()
         self.patch(config.Sharing, "Enabled", True)
         self.patch(config.Sharing.Calendars, "Enabled", True)
+        self.patch(config.Authentication.Wiki, "Enabled", True)
 
 
     @inlineCallbacks
     def setUp(self):
         yield super(SharingTests, self).setUp()
 
-        def patched(c):
-            """
-            The decorated method is patched on L{CalDAVResource} for the
-            duration of the test.
-            """
-            self.patch(CalDAVResource, c.__name__, c)
-            return c
+        # FIXME: not sure what these were for:
 
-        @patched
-        def principalForCalendarUserAddress(resourceSelf, cuaddr):
-            if "bogus" in cuaddr:
-                return None
-            else:
-                return FakePrincipal(cuaddr, self)
+        #     def patched(c):
+        #         """
+        #         The decorated method is patched on L{CalDAVResource} for the
+        #         duration of the test.
+        #         """
+        #         self.patch(CalDAVResource, c.__name__, c)
+        #         return c
 
-        @patched
-        def validUserIDForShare(resourceSelf, userid, request):
-            """
-            Temporary replacement for L{CalDAVResource.validUserIDForShare}
-            that marks any principal without 'bogus' in its name.
-            """
-            result = principalForCalendarUserAddress(resourceSelf, userid)
-            if result is None:
-                return result
-            return result.principalURL()
+        #     @patched
+        #     def principalForCalendarUserAddress(resourceSelf, cuaddr):
+        #         if "bogus" in cuaddr:
+        #             return None
+        #         else:
+        #             return FakePrincipal(cuaddr, self)
 
-        @patched
-        def principalForUID(resourceSelf, principalUID):
-            return FakePrincipal("urn:uuid:" + principalUID, self)
+        #     @patched
+        #     def validUserIDForShare(resourceSelf, userid, request):
+        #         """
+        #         Temporary replacement for L{CalDAVResource.validUserIDForShare}
+        #         that marks any principal without 'bogus' in its name.
+        #         """
+        #         result = principalForCalendarUserAddress(resourceSelf, userid)
+        #         if result is None:
+        #             return result
+        #         return result.principalURL()
+
+        #     @patched
+        #     def principalForUID(resourceSelf, principalUID):
+        #         return FakePrincipal("urn:uuid:" + principalUID, self)
 
         self.resource = yield self._getResource()
 
@@ -185,7 +189,8 @@ class SharingTests(StoreTestCase):
 
     @inlineCallbacks
     def _doPOST(self, body, resultcode=responsecode.OK):
-        request = SimpleStoreRequest(self, "POST", "/calendars/__uids__/user01/calendar/", content=body, authid="user01")
+        authRecord = yield self.directory.recordWithUID(u"user01")
+        request = SimpleStoreRequest(self, "POST", "/calendars/__uids__/user01/calendar/", content=body, authRecord=authRecord)
         request.headers.setHeader("content-type", MimeType("text", "xml"))
         response = yield self.send(request)
         response = IResponse(response)
@@ -210,7 +215,8 @@ class SharingTests(StoreTestCase):
 
     @inlineCallbacks
     def _doPOSTSharerAccept(self, body, resultcode=responsecode.OK):
-        request = SimpleStoreRequest(self, "POST", "/calendars/__uids__/user02/", content=body, authid="user02")
+        authRecord = yield self.directory.recordWithUID(u"user02")
+        request = SimpleStoreRequest(self, "POST", "/calendars/__uids__/user02/", content=body, authRecord=authRecord)
         request.headers.setHeader("content-type", MimeType("text", "xml"))
         response = yield self.send(request)
         response = IResponse(response)
@@ -319,7 +325,7 @@ class SharingTests(StoreTestCase):
             customxml.InviteUser(
                 customxml.UID.fromString(""),
                 davxml.HRef.fromString("urn:uuid:user02"),
-                customxml.CommonName.fromString("USER02"),
+                customxml.CommonName.fromString("User 02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             )
@@ -349,7 +355,7 @@ class SharingTests(StoreTestCase):
             customxml.InviteUser(
                 customxml.UID.fromString(""),
                 davxml.HRef.fromString("urn:uuid:user02"),
-                customxml.CommonName.fromString("USER02"),
+                customxml.CommonName.fromString("User 02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             )
@@ -398,7 +404,7 @@ class SharingTests(StoreTestCase):
             customxml.InviteUser(
                 customxml.UID.fromString(""),
                 davxml.HRef.fromString("urn:uuid:user02"),
-                customxml.CommonName.fromString("USER02"),
+                customxml.CommonName.fromString("User 02"),
                 customxml.InviteAccess(customxml.ReadAccess()),
                 customxml.InviteStatusNoResponse(),
             )
@@ -473,21 +479,21 @@ class SharingTests(StoreTestCase):
             customxml.InviteUser(
                 customxml.UID.fromString(""),
                 davxml.HRef.fromString("urn:uuid:user02"),
-                customxml.CommonName.fromString("USER02"),
+                customxml.CommonName.fromString("User 02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             ),
             customxml.InviteUser(
                 customxml.UID.fromString(""),
                 davxml.HRef.fromString("urn:uuid:user03"),
-                customxml.CommonName.fromString("USER03"),
+                customxml.CommonName.fromString("User 03"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             ),
             customxml.InviteUser(
                 customxml.UID.fromString(""),
                 davxml.HRef.fromString("urn:uuid:user04"),
-                customxml.CommonName.fromString("USER04"),
+                customxml.CommonName.fromString("User 04"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             ),
@@ -531,14 +537,14 @@ class SharingTests(StoreTestCase):
             customxml.InviteUser(
                 customxml.UID.fromString(""),
                 davxml.HRef.fromString("urn:uuid:user02"),
-                customxml.CommonName.fromString("USER02"),
+                customxml.CommonName.fromString("User 02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             ),
             customxml.InviteUser(
                 customxml.UID.fromString(""),
                 davxml.HRef.fromString("urn:uuid:user04"),
-                customxml.CommonName.fromString("USER04"),
+                customxml.CommonName.fromString("User 04"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             ),
@@ -582,14 +588,14 @@ class SharingTests(StoreTestCase):
             customxml.InviteUser(
                 customxml.UID.fromString(""),
                 davxml.HRef.fromString("urn:uuid:user02"),
-                customxml.CommonName.fromString("USER02"),
+                customxml.CommonName.fromString("User 02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             ),
             customxml.InviteUser(
                 customxml.UID.fromString(""),
                 davxml.HRef.fromString("urn:uuid:user03"),
-                customxml.CommonName.fromString("USER03"),
+                customxml.CommonName.fromString("User 03"),
                 customxml.InviteAccess(customxml.ReadAccess()),
                 customxml.InviteStatusNoResponse(),
             ),
@@ -699,7 +705,7 @@ class SharingTests(StoreTestCase):
             customxml.InviteUser(
                 customxml.UID.fromString(""),
                 davxml.HRef.fromString("urn:uuid:user02"),
-                customxml.CommonName.fromString("USER02"),
+                customxml.CommonName.fromString("User 02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             )
@@ -735,23 +741,23 @@ class SharingTests(StoreTestCase):
     @inlineCallbacks
     def wikiSetup(self):
         """
-        Create a wiki called C{wiki-testing}, and share it with the user whose
+        Create a wiki called C{[wiki]testing}, and share it with the user whose
         home is at /.  Return the name of the newly shared calendar in the
         sharee's home.
         """
 
-        self._sqlCalendarStore._directoryService = buildDirectory(homes=("wiki-testing",))
         wcreate = self._sqlCalendarStore.newTransaction("create wiki")
-        yield wcreate.calendarHomeWithUID("wiki-testing", create=True)
+        yield wcreate.calendarHomeWithUID(
+            u"{prefix}testing".format(prefix=WikiDirectoryService.uidPrefix),
+            create=True
+        )
         yield wcreate.commit()
 
-        newService = WikiDirectoryService()
-        newService.realmName = self.directory.realmName
-        self.directory.addService(newService)
-
         txn = self.transactionUnderTest()
-        sharee = yield self.homeUnderTest(name="user01")
-        sharer = yield txn.calendarHomeWithUID("wiki-testing")
+        sharee = yield self.homeUnderTest(name="user01", create=True)
+        sharer = yield txn.calendarHomeWithUID(
+            u"{prefix}testing".format(prefix=WikiDirectoryService.uidPrefix),
+        )
         cal = yield sharer.calendarWithName("calendar")
         sharedName = yield cal.shareWith(sharee, _BIND_MODE_DIRECT)
         returnValue(sharedName)
@@ -764,13 +770,14 @@ class SharingTests(StoreTestCase):
         to the sharee, so that delegates of the sharee get the same level of
         access.
         """
-
-        access = "read"
-        def stubWikiAccessMethod(userID, wikiID):
-            return access
-        self.patch(sharing, "getWikiAccess", stubWikiAccessMethod)
-
         sharedName = yield self.wikiSetup()
+        access = WikiAccessLevel.read
+
+        def stubAccessForRecord(*args):
+            return succeed(access)
+
+        self.patch(WikiDirectoryRecord, "accessForRecord", stubAccessForRecord)
+
         request = SimpleStoreRequest(self, "GET", "/calendars/__uids__/user01/")
         collection = yield request.locateResource("/calendars/__uids__/user01/" + sharedName)
 
@@ -779,7 +786,7 @@ class SharingTests(StoreTestCase):
         self.assertFalse("<write/>" in acl.toxml())
 
         # Simulate the wiki server granting Read-Write access
-        access = "write"
+        access = WikiAccessLevel.write
         acl = (yield collection.shareeAccessControlList(request))
         self.assertTrue("<write/>" in acl.toxml())
 
@@ -792,13 +799,17 @@ class SharingTests(StoreTestCase):
         un-share that collection.
         """
         sharedName = yield self.wikiSetup()
-        access = "write"
-        def stubWikiAccessMethod(userID, wikiID):
-            return access
-        self.patch(sharing, "getWikiAccess", stubWikiAccessMethod)
+        access = WikiAccessLevel.write
+
+        def stubAccessForRecord(*args):
+            return succeed(access)
+
+        self.patch(WikiDirectoryRecord, "accessForRecord", stubAccessForRecord)
+
         @inlineCallbacks
         def listChildrenViaPropfind():
-            request = SimpleStoreRequest(self, "PROPFIND", "/calendars/__uids__/user01/", authid="user01")
+            authRecord = yield self.directory.recordWithUID(u"user01")
+            request = SimpleStoreRequest(self, "PROPFIND", "/calendars/__uids__/user01/", authRecord=authRecord)
             request.headers.setHeader("depth", "1")
             response = yield self.send(request)
             response = IResponse(response)
@@ -810,9 +821,10 @@ class SharingTests(StoreTestCase):
             seq.remove(shortest)
             filtered = [elem[len(shortest):].rstrip("/") for elem in seq]
             returnValue(filtered)
+
         childNames = yield listChildrenViaPropfind()
         self.assertIn(sharedName, childNames)
-        access = "no-access"
+        access = WikiAccessLevel.none
         childNames = yield listChildrenViaPropfind()
         self.assertNotIn(sharedName, childNames)
 
@@ -837,7 +849,7 @@ class SharingTests(StoreTestCase):
             customxml.InviteUser(
                 customxml.UID.fromString(""),
                 davxml.HRef.fromString("urn:uuid:user02"),
-                customxml.CommonName.fromString("USER02"),
+                customxml.CommonName.fromString("User 02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             ),
@@ -867,7 +879,7 @@ class SharingTests(StoreTestCase):
             customxml.InviteUser(
                 customxml.UID.fromString(""),
                 davxml.HRef.fromString("urn:uuid:user02"),
-                customxml.CommonName.fromString("USER02"),
+                customxml.CommonName.fromString("User 02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             ),
@@ -911,7 +923,7 @@ class SharingTests(StoreTestCase):
             customxml.InviteUser(
                 customxml.UID.fromString(""),
                 davxml.HRef.fromString("urn:uuid:user02"),
-                customxml.CommonName.fromString("USER02"),
+                customxml.CommonName.fromString("User 02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             ),

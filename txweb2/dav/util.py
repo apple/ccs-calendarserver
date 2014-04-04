@@ -41,9 +41,8 @@ __all__ = [
     "bindMethods",
 ]
 
-import urllib
 from urlparse import urlsplit, urlunsplit
-import posixpath # Careful; this module is not documented as public API
+import posixpath  # Careful; this module is not documented as public API
 
 from twisted.python.failure import Failure
 from twisted.internet.defer import succeed
@@ -125,13 +124,13 @@ def normalizeURL(url):
                 count += 1
             path = path[count - 1:]
 
-        return path
+        return path.encode("utf-8")
 
     (scheme, host, path, query, fragment) = urlsplit(cleanup(url))
 
-    path = cleanup(posixpath.normpath(urllib.unquote(path)))
+    path = cleanup(posixpath.normpath(path))
 
-    return urlunsplit((scheme, host, urllib.quote(path), query, fragment))
+    return urlunsplit((scheme, host, path, query, fragment))
 
 
 

@@ -121,16 +121,17 @@ class PrincipalsResource(TemplateResource):
         self._store = store
 
 
+    @inlineCallbacks
     def getChild(self, name):
         if name == "":
-            return self
+            returnValue(self)
 
-        record = self._directory.recordWithUID(name)
+        record = yield self._directory.recordWithUID(name)
 
         if record:
-            return PrincipalResource(record, self._store)
+            returnValue(PrincipalResource(record, self._store))
         else:
-            return None
+            returnValue(None)
 
 
 

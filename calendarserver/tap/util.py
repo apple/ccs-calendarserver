@@ -28,7 +28,6 @@ __all__ = [
 
 import errno
 import os
-from time import sleep
 from socket import fromfd, AF_UNIX, SOCK_STREAM, socketpair
 import psutil
 
@@ -36,6 +35,7 @@ from twext.python.filepath import CachingFilePath as FilePath
 from twext.python.log import Logger
 from txweb2.auth.basic import BasicCredentialFactory
 from txweb2.dav import auth
+from txweb2.dav.util import joinURL
 from txweb2.http_headers import Headers
 from txweb2.resource import Resource
 from txweb2.static import File as FileResource
@@ -46,32 +46,26 @@ from twisted.internet.defer import inlineCallbacks, returnValue, Deferred, succe
 from twisted.internet import reactor as _reactor
 from twisted.internet.reactor import addSystemEventTrigger
 from twisted.internet.tcp import Connection
-from twisted.python.reflect import namedClass
-# from twisted.python.failure import Failure
 
+from calendarserver.push.applepush import APNSubscriptionResource
+from calendarserver.push.notifier import NotifierFactory
+from twext.enterprise.adbapi2 import ConnectionPool, ConnectionPoolConnection
+from twext.enterprise.ienterprise import ORACLE_DIALECT
+from twext.enterprise.ienterprise import POSTGRES_DIALECT
 from twistedcaldav.bind import doBind
 from twistedcaldav.cache import CacheStoreNotifierFactory
-from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeProvisioningResource
-from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
-from twistedcaldav.directory.directory import GroupMembershipCache
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
-from twistedcaldav.directory.wiki import WikiDirectoryService
-from calendarserver.push.notifier import NotifierFactory
-from calendarserver.push.applepush import APNSubscriptionResource
 from twistedcaldav.directorybackedaddressbook import DirectoryBackedAddressBookResource
 from twistedcaldav.resource import AuthenticationWrapper
-from txdav.caldav.datastore.scheduling.ischedule.dkim import DKIMUtils, DomainKeyResource
-from txdav.caldav.datastore.scheduling.ischedule.resource import IScheduleInboxResource
 from twistedcaldav.simpleresource import SimpleResource, SimpleRedirectResource
 from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav.timezoneservice import TimezoneServiceResource
 from twistedcaldav.timezonestdservice import TimezoneStdServiceResource
-from twext.enterprise.ienterprise import POSTGRES_DIALECT
-from twext.enterprise.ienterprise import ORACLE_DIALECT
-from twext.enterprise.adbapi2 import ConnectionPool, ConnectionPoolConnection
+from txdav.caldav.datastore.scheduling.ischedule.dkim import DKIMUtils, DomainKeyResource
+from txdav.caldav.datastore.scheduling.ischedule.resource import IScheduleInboxResource
 
 
 try:
@@ -100,7 +94,10 @@ from twext.python.filepath import CachingFilePath
 from urllib import quote
 from twisted.python.usage import UsageError
 
-
+from twext.who.checker import UsernamePasswordCredentialChecker
+from twext.who.checker import HTTPDigestCredentialChecker
+from twisted.cred.error import UnauthorizedLogin
+from txweb2.dav.auth import IPrincipalCredentials
 log = Logger()
 
 
@@ -218,7 +215,7 @@ class ConnectionDispenser(object):
 
 
 
-def storeFromConfig(config, txnFactory, directoryService=None):
+def storeFromConfig(config, txnFactory, directoryService):
     """
     Produce an L{IDataStore} from the given configuration, transaction factory,
     and notifier factory.
@@ -236,17 +233,14 @@ def storeFromConfig(config, txnFactory, directoryService=None):
     if config.EnableResponseCache and config.Memcached.Pools.Default.ClientEnabled:
         notifierFactories["cache"] = CacheStoreNotifierFactory()
 
-    if directoryService is None:
-        directoryService = directoryFromConfig(config)
-
     quota = config.UserQuota
     if quota == 0:
         quota = None
     if txnFactory is not None:
         if config.EnableSSL:
-            uri = "https://%s:%s" % (config.ServerHostName, config.SSLPort,)
+            uri = "https://{config.ServerHostName}:{config.SSLPort}".format(config=config)
         else:
-            uri = "http://%s:%s" % (config.ServerHostName, config.HTTPPort,)
+            uri = "https://{config.ServerHostName}:{config.HTTPPort}".format(config=config)
         attachments_uri = uri + "/calendars/__uids__/%(home)s/dropbox/%(dropbox_id)s/%(name)s"
         store = CommonSQLDataStore(
             txnFactory, notifierFactories,
@@ -281,93 +275,62 @@ def storeFromConfig(config, txnFactory, directoryService=None):
 
 
 
-def directoryFromConfig(config):
-    """
-    Create an L{AggregateDirectoryService} from the given configuration.
-    """
-    #
-    # Setup the Augment Service
-    #
-    if config.AugmentService.type:
-        augmentClass = namedClass(config.AugmentService.type)
-        log.info("Configuring augment service of type: {augmentClass}",
-            augmentClass=augmentClass)
+# MOVE2WHO -- should we move this class somewhere else?
+class PrincipalCredentialChecker(object):
+    credentialInterfaces = (IPrincipalCredentials,)
+
+    @inlineCallbacks
+    def requestAvatarId(self, credentials):
+        credentials = IPrincipalCredentials(credentials)
+
+        if credentials.authnPrincipal is None:
+            raise UnauthorizedLogin(
+                "No such user: {user}".format(
+                    user=credentials.credentials.username
+                )
+        )
+
+        # See if record is enabledForLogin
+        if not credentials.authnPrincipal.record.isLoginEnabled():
+            raise UnauthorizedLogin(
+                "User not allowed to log in: {user}".format(
+                    user=credentials.credentials.username
+                )
+            )
+
+        # Handle Kerberos as a separate behavior
         try:
-            augmentService = augmentClass(**config.AugmentService.params)
-        except IOError:
-            log.error("Could not start augment service")
-            raise
-    else:
-        augmentService = None
+            from twistedcaldav.authkerb import NegotiateCredentials
+        except ImportError:
+            NegotiateCredentials = None
 
-    #
-    # Setup the group membership cacher
-    #
-    if config.GroupCaching.Enabled:
-        groupMembershipCache = GroupMembershipCache(
-            config.GroupCaching.MemcachedPool,
-            expireSeconds=config.GroupCaching.ExpireSeconds)
-    else:
-        groupMembershipCache = None
-
-    #
-    # Setup the Directory
-    #
-    directories = []
-
-    directoryClass = namedClass(config.DirectoryService.type)
-    principalResourceClass = DirectoryPrincipalProvisioningResource
-
-    log.info("Configuring directory service of type: {directoryType}",
-        directoryType=config.DirectoryService.type)
-
-    config.DirectoryService.params.augmentService = augmentService
-    config.DirectoryService.params.groupMembershipCache = groupMembershipCache
-    baseDirectory = directoryClass(config.DirectoryService.params)
-
-    # Wait for the directory to become available
-    while not baseDirectory.isAvailable():
-        sleep(5)
-
-    directories.append(baseDirectory)
-
-    #
-    # Setup the Locations and Resources Service
-    #
-    if config.ResourceService.Enabled:
-        resourceClass = namedClass(config.ResourceService.type)
-
-        log.info("Configuring resource service of type: {resourceClass}",
-            resourceClass=resourceClass)
-
-        config.ResourceService.params.augmentService = augmentService
-        config.ResourceService.params.groupMembershipCache = groupMembershipCache
-        resourceDirectory = resourceClass(config.ResourceService.params)
-        resourceDirectory.realmName = baseDirectory.realmName
-        directories.append(resourceDirectory)
-
-    #
-    # Add wiki directory service
-    #
-    if config.Authentication.Wiki.Enabled:
-        wikiDirectory = WikiDirectoryService()
-        wikiDirectory.realmName = baseDirectory.realmName
-        directories.append(wikiDirectory)
-
-    directory = AggregateDirectoryService(directories, groupMembershipCache)
-
-    #
-    # Use system-wide realm on OSX
-    #
-    try:
-        import ServerFoundation
-        realmName = ServerFoundation.XSAuthenticator.defaultRealm().encode("utf-8")
-        directory.setRealm(realmName)
-    except ImportError:
-        pass
-    log.info("Setting up principal collection: {cls}", cls=principalResourceClass)
-    principalResourceClass("/principals/", directory)
-    return directory
+        if NegotiateCredentials and isinstance(credentials.credentials,
+                                               NegotiateCredentials):
+            # If we get here with Kerberos, then authentication has already succeeded
+            returnValue(
+                (
+                    credentials.authnPrincipal.principalURL(),
+                    credentials.authzPrincipal.principalURL(),
+                    credentials.authnPrincipal,
+                    credentials.authzPrincipal,
+                )
+            )
+        else:
+            if (yield credentials.authnPrincipal.record.verifyCredentials(credentials.credentials)):
+                returnValue(
+                    (
+                        credentials.authnPrincipal.principalURL(),
+                        credentials.authzPrincipal.principalURL(),
+                        credentials.authnPrincipal,
+                        credentials.authzPrincipal,
+                    )
+                )
+            else:
+                raise UnauthorizedLogin(
+                    "Incorrect credentials for user: {user}".format(
+                        user=credentials.credentials.username
+                    )
+                )
 
 
 
@@ -407,21 +370,25 @@ def getRootResource(config, newStore, resources=None):
     addressBookResourceClass = DirectoryAddressBookHomeProvisioningResource
     directoryBackedAddressBookResourceClass = DirectoryBackedAddressBookResource
     apnSubscriptionResourceClass = APNSubscriptionResource
+    principalResourceClass = DirectoryPrincipalProvisioningResource
 
     directory = newStore.directoryService()
+    principalCollection = principalResourceClass("/principals/", directory)
 
     #
     # Setup the ProxyDB Service
     #
-    proxydbClass = namedClass(config.ProxyDBService.type)
 
-    log.info("Configuring proxydb service of type: {cls}", cls=proxydbClass)
+    # MOVE2WHO
+    # proxydbClass = namedClass(config.ProxyDBService.type)
 
-    try:
-        calendaruserproxy.ProxyDBService = proxydbClass(**config.ProxyDBService.params)
-    except IOError:
-        log.error("Could not start proxydb service")
-        raise
+    # log.info("Configuring proxydb service of type: {cls}", cls=proxydbClass)
+
+    # try:
+    #     calendaruserproxy.ProxyDBService = proxydbClass(**config.ProxyDBService.params)
+    # except IOError:
+    #     log.error("Could not start proxydb service")
+    #     raise
 
     #
     # Configure the Site and Wrappers
@@ -431,9 +398,11 @@ def getRootResource(config, newStore, resources=None):
 
     portal = Portal(auth.DavRealm())
 
-    portal.registerChecker(directory)
+    portal.registerChecker(UsernamePasswordCredentialChecker(directory))
+    portal.registerChecker(HTTPDigestCredentialChecker(directory))
+    portal.registerChecker(PrincipalCredentialChecker())
 
-    realm = directory.realmName or ""
+    realm = directory.realmName.encode("utf-8") or ""
 
     log.info("Configuring authentication for realm: {realm}", realm=realm)
 
@@ -491,7 +460,7 @@ def getRootResource(config, newStore, resources=None):
     #
     log.info("Setting up document root at: {root}", root=config.DocumentRoot)
 
-    principalCollection = directory.principalCollection
+    # principalCollection = directory.principalCollection
 
     if config.EnableCalDAV:
         log.info("Setting up calendar collection: {cls}", cls=calendarResourceClass)
@@ -509,13 +478,14 @@ def getRootResource(config, newStore, resources=None):
             newStore,
         )
 
-        directoryPath = os.path.join(config.DocumentRoot, config.DirectoryAddressBook.name)
         if config.DirectoryAddressBook.Enabled and config.EnableSearchAddressBook:
             log.info("Setting up directory address book: {cls}",
                 cls=directoryBackedAddressBookResourceClass)
 
             directoryBackedAddressBookCollection = directoryBackedAddressBookResourceClass(
-                principalCollections=(principalCollection,)
+                principalCollections=(principalCollection,),
+                principalDirectory=directory,
+                uri=joinURL("/", config.DirectoryAddressBook.name, "/")
             )
             if _reactor._started:
                 directoryBackedAddressBookCollection.provisionDirectory()
@@ -523,6 +493,7 @@ def getRootResource(config, newStore, resources=None):
                 addSystemEventTrigger("after", "startup", directoryBackedAddressBookCollection.provisionDirectory)
         else:
             # remove /directory from previous runs that may have created it
+            directoryPath = os.path.join(config.DocumentRoot, config.DirectoryAddressBook.name)
             try:
                 FilePath(directoryPath).remove()
                 log.info("Deleted: {path}", path=directoryPath)
@@ -712,6 +683,7 @@ def getRootResource(config, newStore, resources=None):
     #
     # Configure ancillary data
     #
+    # MOVE2WHO
     log.info("Configuring authentication wrapper")
 
     overrides = {}

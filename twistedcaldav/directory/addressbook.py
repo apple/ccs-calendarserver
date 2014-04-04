@@ -34,7 +34,6 @@ from txweb2.http_headers import ETag, MimeType
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 
 from twistedcaldav.config import config
-from twistedcaldav.directory.idirectory import IDirectoryService
 
 from twistedcaldav.directory.common import CommonUIDProvisioningResource,\
     uidsResourceName, CommonHomeTypeProvisioningResource
@@ -58,14 +57,14 @@ class CalDAVComplianceMixIn(object):
 
 
 
-class DirectoryAddressBookProvisioningResource (
+class DirectoryAddressBookProvisioningResource(
     ReadOnlyResourceMixIn,
     CalDAVComplianceMixIn,
     DAVResourceWithChildrenMixin,
     DAVResource,
 ):
     def defaultAccessControlList(self):
-        return config.ProvisioningResourceACL
+        return succeed(config.ProvisioningResourceACL)
 
 
     def etag(self):
@@ -77,9 +76,9 @@ class DirectoryAddressBookProvisioningResource (
 
 
 
-class DirectoryAddressBookHomeProvisioningResource (
-        DirectoryAddressBookProvisioningResource
-    ):
+class DirectoryAddressBookHomeProvisioningResource(
+    DirectoryAddressBookProvisioningResource
+):
     """
     Resource which provisions address book home collections as needed.
     """
@@ -93,18 +92,38 @@ class DirectoryAddressBookHomeProvisioningResource (
 
         super(DirectoryAddressBookHomeProvisioningResource, self).__init__()
 
-        self.directory = IDirectoryService(directory)
+        # MOVE2WHO
+        self.directory = directory  # IDirectoryService(directory)
         self._url = url
         self._newStore = store
 
         # FIXME: Smells like a hack
         directory.addressBookHomesCollection = self
 
+
         #
         # Create children
         #
-        for recordType in self.directory.recordTypes():
-            self.putChild(recordType, DirectoryAddressBookHomeTypeProvisioningResource(self, recordType))
+        # ...just users, locations, and resources though.  If we iterate all of
+        # the directory's recordTypes, we also get the proxy sub principal types
+        # and other things which don't have addressbooks.
+
+        self.supportedChildTypes = (
+            self.directory.recordType.user,
+            self.directory.recordType.location,
+            self.directory.recordType.resource,
+        )
+
+        for recordType, recordTypeName in [
+            (r, self.directory.recordTypeToOldName(r)) for r in
+            self.supportedChildTypes
+        ]:
+            self.putChild(
+                recordTypeName,
+                DirectoryAddressBookHomeTypeProvisioningResource(
+                    self, recordTypeName, recordType
+                )
+            )
 
         self.putChild(uidsResourceName, DirectoryAddressBookHomeUIDProvisioningResource(self))
 
@@ -114,7 +133,10 @@ class DirectoryAddressBookHomeProvisioningResource (
 
 
     def listChildren(self):
-        return self.directory.recordTypes()
+        return [
+            self.directory.recordTypeToOldName(r) for r in
+            self.supportedChildTypes
+        ]
 
 
     def principalCollections(self):
@@ -129,12 +151,13 @@ class DirectoryAddressBookHomeProvisioningResource (
         return self.directory.principalCollection.principalForRecord(record)
 
 
+    @inlineCallbacks
     def homeForDirectoryRecord(self, record, request):
-        uidResource = self.getChild(uidsResourceName)
+        uidResource = yield self.getChild(uidsResourceName)
         if uidResource is None:
-            return None
+            returnValue(None)
         else:
-            return uidResource.homeResourceForRecord(record, request)
+            returnValue((yield uidResource.homeResourceForRecord(record, request)))
 
 
     ##
@@ -151,42 +174,46 @@ class DirectoryAddressBookHomeProvisioningResource (
 
 
 class DirectoryAddressBookHomeTypeProvisioningResource (
-        CommonHomeTypeProvisioningResource,
-        DirectoryAddressBookProvisioningResource
-    ):
+    CommonHomeTypeProvisioningResource,
+    DirectoryAddressBookProvisioningResource
+):
     """
     Resource which provisions address book home collections of a specific
     record type as needed.
     """
-    def __init__(self, parent, recordType):
+    def __init__(self, parent, name, recordType):
         """
         @param parent: the parent of this resource
         @param recordType: the directory record type to provision.
         """
         assert parent is not None
+        assert name is not None
         assert recordType is not None
 
         super(DirectoryAddressBookHomeTypeProvisioningResource, self).__init__()
 
         self.directory = parent.directory
+        self.name = name
         self.recordType = recordType
         self._parent = parent
 
 
     def url(self):
-        return joinURL(self._parent.url(), self.recordType)
+        return joinURL(self._parent.url(), self.name)
 
 
+    @inlineCallbacks
     def listChildren(self):
         if config.EnablePrincipalListings:
+            children = []
+            for record in (
+                yield self.directory.recordsWithRecordType(self.recordType)
+            ):
+                if getattr(record, "hasContacts", False):
+                    for shortName in record.shortNames:
+                        children.append(shortName)
 
-            def _recordShortnameExpand():
-                for record in self.directory.listRecords(self.recordType):
-                    if record.enabledForAddressBooks:
-                        for shortName in record.shortNames:
-                            yield shortName
-
-            return _recordShortnameExpand()
+            returnValue(children)
         else:
             # Not a listable collection
             raise HTTPError(responsecode.FORBIDDEN)
@@ -205,7 +232,7 @@ class DirectoryAddressBookHomeTypeProvisioningResource (
 
 
     def displayName(self):
-        return self.recordType
+        return self.directory.recordTypeToOldName(self.recordType)
 
     ##
     # ACL
@@ -222,13 +249,13 @@ class DirectoryAddressBookHomeTypeProvisioningResource (
 
 
 class DirectoryAddressBookHomeUIDProvisioningResource (
-        CommonUIDProvisioningResource,
-        DirectoryAddressBookProvisioningResource
-    ):
+    CommonUIDProvisioningResource,
+    DirectoryAddressBookProvisioningResource
+):
 
     homeResourceTypeName = 'addressbooks'
 
-    enabledAttribute = 'enabledForAddressBooks'
+    enabledAttribute = 'hasContacts'
 
 
     def homeResourceCreator(self, record, transaction):

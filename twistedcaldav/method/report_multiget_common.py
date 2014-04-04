@@ -20,17 +20,8 @@ CalDAV/CardDAV multiget report
 
 __all__ = ["multiget_common"]
 
-from urllib import unquote
-
 from twext.python.log import Logger
-
-from txweb2 import responsecode
-from txweb2.dav.http import ErrorResponse, MultiStatusResponse
-from txweb2.dav.resource import AccessDeniedError
-from txweb2.http import HTTPError, StatusResponse
-
 from twisted.internet.defer import inlineCallbacks, returnValue
-
 from twistedcaldav import carddavxml
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.carddavxml import carddav_namespace
@@ -38,11 +29,15 @@ from twistedcaldav.config import config
 from twistedcaldav.method import report_common
 from twistedcaldav.method.report_common import COLLECTION_TYPE_CALENDAR, \
     COLLECTION_TYPE_ADDRESSBOOK
-
 from txdav.carddav.datastore.query.filter import Filter
 from txdav.common.icommondatastore import ConcurrentModification
 from txdav.xml import element as davxml
 from txdav.xml.base import dav_namespace
+from txweb2 import responsecode
+from txweb2.dav.http import ErrorResponse, MultiStatusResponse
+from txweb2.dav.resource import AccessDeniedError
+from txweb2.http import HTTPError, StatusResponse
+from urllib import unquote
 
 log = Logger()
 
@@ -58,11 +53,11 @@ def multiget_common(self, request, multiget, collection_type):
 
         if collection_type == COLLECTION_TYPE_CALENDAR:
             if not parent.isPseudoCalendarCollection():
-                log.error("calendar-multiget report is not allowed on a resource outside of a calendar collection %s" % (self,))
+                log.error("calendar-multiget report is not allowed on a resource outside of a calendar collection {res}", res=self)
                 raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Must be calendar resource"))
         elif collection_type == COLLECTION_TYPE_ADDRESSBOOK:
             if not parent.isAddressBookCollection():
-                log.error("addressbook-multiget report is not allowed on a resource outside of an address book collection %s" % (self,))
+                log.error("addressbook-multiget report is not allowed on a resource outside of an address book collection {res}", res=self)
                 raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Must be address book resource"))
 
     responses = []
@@ -106,7 +101,7 @@ def multiget_common(self, request, multiget, collection_type):
 
     # Check size of results is within limit when data property requested
     if hasData and len(resources) > config.MaxMultigetWithDataHrefs:
-        log.error("Too many results in multiget report returning data: %d" % len(resources))
+        log.error("Too many resources in multiget report: {count}", count=len(resources))
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
             davxml.NumberOfMatchesWithinLimits(),
@@ -172,7 +167,7 @@ def multiget_common(self, request, multiget, collection_type):
 
             # Special for addressbooks
             if collection_type == COLLECTION_TYPE_ADDRESSBOOK:
-                if self.isDirectoryBackedAddressBookCollection() and self.directory.liveQuery:
+                if self.isDirectoryBackedAddressBookCollection():
                     result = (yield doDirectoryAddressBookResponse())
                     returnValue(result)
 
@@ -214,8 +209,7 @@ def multiget_common(self, request, multiget, collection_type):
                         isowner=isowner
                     )
                 except ValueError:
-                    log.error("Invalid calendar resource during multiget: %s" %
-                              (href,))
+                    log.error("Invalid calendar resource during multiget: {href}", href=href)
                     responses.append(davxml.StatusResponse(
                         davxml.HRef.fromString(href),
                         davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
@@ -225,7 +219,7 @@ def multiget_common(self, request, multiget, collection_type):
                     # of one of these resources in another request.  In this
                     # case, return a 404 for the now missing resource rather
                     # than raise an error for the entire report.
-                    log.error("Missing resource during multiget: %s" % (href,))
+                    log.error("Missing resource during multiget: {href}", href=href)
                     responses.append(davxml.StatusResponse(
                         davxml.HRef.fromString(href),
                         davxml.Status.fromResponseCode(responsecode.NOT_FOUND)
@@ -255,11 +249,13 @@ def multiget_common(self, request, multiget, collection_type):
                     resource_name = unquote(resource_uri[resource_uri.rfind("/") + 1:])
                     if self._isChildURI(request, resource_uri) and resource_name.endswith(".vcf") and len(resource_name) > 4:
                         valid_hrefs.append(href)
+                        textMatchElement = carddavxml.TextMatch.fromString(resource_name[:-4])
+                        textMatchElement.attributes["match-type"] = "equals" # do equals compare. Default is "contains"
                         vCardFilters.append(carddavxml.PropertyFilter(
-                                                carddavxml.TextMatch.fromString(resource_name[:-4]),
+                                                textMatchElement,
                                                 name="UID", # attributes
                                             ))
-                    elif not self.directory.cacheQuery:
+                    else:
                         responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
 
                 # exit if not valid
@@ -268,40 +264,29 @@ def multiget_common(self, request, multiget, collection_type):
 
                 addressBookFilter = carddavxml.Filter(*vCardFilters)
                 addressBookFilter = Filter(addressBookFilter)
-                if self.directory.cacheQuery:
-                    # add vcards to directory address book and run "normal case" below
-                    limit = config.DirectoryAddressBook.MaxQueryResults
-                    directoryAddressBookLock, limited = (yield  self.directory.cacheVCardsForAddressBookQuery(addressBookFilter, propertyreq, limit))
-                    if limited:
-                        log.error("Too many results in multiget report: %d" % len(resources))
-                        raise HTTPError(ErrorResponse(
-                            responsecode.FORBIDDEN,
-                            (dav_namespace, "number-of-matches-within-limits"),
-                            "Too many results",
-                        ))
-                else:
-                    #get vCards and filter
-                    limit = config.DirectoryAddressBook.MaxQueryResults
-                    vCardRecords, limited = (yield self.directory.vCardRecordsForAddressBookQuery(addressBookFilter, propertyreq, limit))
-                    if limited:
-                        log.error("Too many results in multiget report: %d" % len(resources))
-                        raise HTTPError(ErrorResponse(
-                            responsecode.FORBIDDEN,
-                            (dav_namespace, "number-of-matches-within-limits"),
-                            "Too many results",
-                        ))
 
-                    for href in valid_hrefs:
-                        matchingRecord = None
-                        for vCardRecord in vCardRecords:
-                            if href == vCardRecord.hRef(): # might need to compare urls instead - also case sens ok?
-                                matchingRecord = vCardRecord
-                                break
+                #get vCards and filter
+                limit = config.DirectoryAddressBook.MaxQueryResults
+                results, limited = (yield self.doAddressBookDirectoryQuery(addressBookFilter, propertyreq, limit))
+                if limited:
+                    log.error("Too many results in multiget report: {count}", count=len(resources))
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (dav_namespace, "number-of-matches-within-limits"),
+                        "Too many results",
+                    ))
 
-                        if matchingRecord:
-                            yield report_common.responseForHref(request, responses, href, matchingRecord, propertiesForResource, propertyreq, vcard=matchingRecord.vCard())
-                        else:
-                            responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
+                for href in valid_hrefs:
+                    matchingResource = None
+                    for vCardResource in results:
+                        if href == vCardResource.hRef(): # might need to compare urls instead - also case sens ok?
+                            matchingResource = vCardResource
+                            break
+
+                    if matchingResource:
+                        yield report_common.responseForHref(request, responses, href, matchingResource, propertiesForResource, propertyreq, vcard=matchingResource.vCard())
+                    else:
+                        responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
             finally:
                 if directoryAddressBookLock:
                     yield directoryAddressBookLock.release()

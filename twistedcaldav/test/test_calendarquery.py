@@ -34,8 +34,8 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from pycalendar.datetime import DateTime
 from twistedcaldav.ical import Component
 from txdav.caldav.icalendarstore import ComponentUpdateState
-from twistedcaldav.directory.directory import DirectoryService
 from txdav.caldav.datastore.query.filter import TimeRange
+from twext.who.idirectory import RecordType
 
 
 @inlineCallbacks
@@ -79,7 +79,7 @@ class CalendarQuery (StoreTestCase):
         """
         Put the contents of the Holidays directory into the store.
         """
-        record = self.directory.recordWithShortName(DirectoryService.recordType_users, "wsanchez")
+        record = yield self.directory.recordWithShortName(RecordType.user, u"wsanchez")
         yield self.transactionUnderTest().calendarHomeWithUID(record.uid, create=True)
         calendar = yield self.calendarUnderTest(name="calendar", home=record.uid)
         for f in os.listdir(self.holidays_dir):
@@ -248,6 +248,7 @@ class CalendarQuery (StoreTestCase):
         """
 
         self.patch(config, "MaxQueryWithDataResults", 1)
+
         def _restoreValueOK(f):
             self.fail("REPORT must fail with 403")
 
@@ -268,6 +269,7 @@ class CalendarQuery (StoreTestCase):
         """
 
         self.patch(config, "MaxQueryWithDataResults", 1)
+
         def _restoreValueError(f):
             self.fail("REPORT must not fail with 403")
 
@@ -343,7 +345,8 @@ class CalendarQuery (StoreTestCase):
     @inlineCallbacks
     def calendar_query(self, query, got_xml):
 
-        request = SimpleStoreRequest(self, "REPORT", "/calendars/users/wsanchez/calendar/", authid="wsanchez")
+        authRecord = yield self.directory.recordWithShortName(RecordType.user, u"wsanchez")
+        request = SimpleStoreRequest(self, "REPORT", "/calendars/users/wsanchez/calendar/", authRecord=authRecord)
         request.stream = MemoryStream(query.toxml())
         response = yield self.send(request)
 

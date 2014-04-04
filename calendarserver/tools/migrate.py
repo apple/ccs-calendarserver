@@ -33,7 +33,8 @@ from getopt import getopt, GetoptError
 from twistedcaldav.config import ConfigurationError
 from twistedcaldav.upgrade import upgradeData
 
-from calendarserver.tools.util import loadConfig, getDirectory
+from calendarserver.tools.util import loadConfig
+
 
 def usage(e=None):
     if e:
@@ -81,7 +82,6 @@ def main():
 
     try:
         config = loadConfig(configFileName)
-        config.directory = getDirectory()
     except ConfigurationError, e:
         sys.stdout.write("%s\n" % (e,))
         sys.exit(1)
@@ -90,7 +90,7 @@ def main():
 
     if profiling:
         import cProfile
-        cProfile.runctx("upgradeData(c)", globals(), {"c" : config}, "/tmp/upgrade.prof")
+        cProfile.runctx("upgradeData(c)", globals(), {"c": config}, "/tmp/upgrade.prof")
     else:
         upgradeData(config)
 

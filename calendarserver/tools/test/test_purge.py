@@ -17,7 +17,6 @@
 
 from calendarserver.tools.purge import PurgePrincipalService
 
-from twistedcaldav.config import config
 from twistedcaldav.ical import Component
 from twistedcaldav.test.util import StoreTestCase
 
@@ -30,7 +29,6 @@ from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
 
 from txweb2.http_headers import MimeType
 
-import os
 
 
 future = DateTime.getNowUTC()
@@ -770,7 +768,7 @@ SUMMARY:Attachment
 DTSTART;TZID=US/Pacific:20100304T120000
 DTSTAMP:20100303T195203Z
 SEQUENCE:2
-X-APPLE-DROPBOX:/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/dropbox/F2F14D94-B944-43D9-8F6F-97F95B2764CA.dropbox
+X-APPLE-DROPBOX:/calendars/__uids__/C76DB741-5A2A-4239-8112-10CF152AFCA4/dropbox/F2F14D94-B944-43D9-8F6F-97F95B2764CA.dropbox
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
@@ -800,8 +798,8 @@ class PurgePrincipalTests(StoreTestCase):
     """
     Tests for purging the data belonging to a given principal
     """
-    uid = "6423F94A-6B76-4A3A-815B-D52CFD77935D"
-    uid2 = "37DB0C90-4DB1-4932-BC69-3DAB66F374F5"
+    uid = "C76DB741-5A2A-4239-8112-10CF152AFCA4"
+    uid2 = "FFED7B62-2E08-496E-BD32-B2F95FFDDB6B"
 
     metadata = {
         "accessMode": "PUBLIC",
@@ -832,46 +830,33 @@ class PurgePrincipalTests(StoreTestCase):
 
         # Add attachment to attachment.ics
         self._sqlCalendarStore._dropbox_ok = True
-        home = (yield txn.calendarHomeWithUID(self.uid))
-        calendar = (yield home.calendarWithName("calendar1"))
-        event = (yield calendar.calendarObjectWithName("attachment.ics"))
-        attachment = (yield event.createAttachmentWithName("attachment.txt"))
+        home = yield txn.calendarHomeWithUID(self.uid)
+        calendar = yield home.calendarWithName("calendar1")
+        event = yield calendar.calendarObjectWithName("attachment.ics")
+        attachment = yield event.createAttachmentWithName("attachment.txt")
         t = attachment.store(MimeType("text", "x-fixture"))
         t.write("attachment")
         t.write(" text")
-        (yield t.loseConnection())
+        yield t.loseConnection()
         self._sqlCalendarStore._dropbox_ok = False
 
         # Share calendars each way
-        home2 = (yield txn.calendarHomeWithUID(self.uid2))
-        calendar2 = (yield home2.calendarWithName("calendar2"))
-        self.sharedName = (yield calendar2.shareWith(home, _BIND_MODE_WRITE))
-        self.sharedName2 = (yield calendar.shareWith(home2, _BIND_MODE_WRITE))
+        home2 = yield txn.calendarHomeWithUID(self.uid2)
+        calendar2 = yield home2.calendarWithName("calendar2")
+        self.sharedName = yield calendar2.shareWith(home, _BIND_MODE_WRITE)
+        self.sharedName2 = yield calendar.shareWith(home2, _BIND_MODE_WRITE)
 
-        (yield txn.commit())
+        yield txn.commit()
 
         txn = self._sqlCalendarStore.newTransaction()
-        home = (yield txn.calendarHomeWithUID(self.uid))
-        calendar2 = (yield home.childWithName(self.sharedName))
+        home = yield txn.calendarHomeWithUID(self.uid)
+        calendar2 = yield home.childWithName(self.sharedName)
         self.assertNotEquals(calendar2, None)
-        home2 = (yield txn.calendarHomeWithUID(self.uid2))
-        calendar1 = (yield home2.childWithName(self.sharedName2))
+        home2 = yield txn.calendarHomeWithUID(self.uid2)
+        calendar1 = yield home2.childWithName(self.sharedName2)
         self.assertNotEquals(calendar1, None)
-        (yield txn.commit())
+        yield txn.commit()
 
-
-    def configure(self):
-        super(PurgePrincipalTests, self).configure()
-        self.patch(config.DirectoryService.params, "xmlFile",
-            os.path.join(
-                os.path.dirname(__file__), "purge", "accounts.xml"
-            )
-        )
-        self.patch(config.ResourceService.params, "xmlFile",
-            os.path.join(
-                os.path.dirname(__file__), "purge", "resources.xml"
-            )
-        )
 
 
     @inlineCallbacks
@@ -888,32 +873,39 @@ class PurgePrincipalTests(StoreTestCase):
 
         # Now you see it
         txn = self._sqlCalendarStore.newTransaction()
-        home = (yield txn.calendarHomeWithUID(self.uid))
+        home = yield txn.calendarHomeWithUID(self.uid)
         self.assertNotEquals(home, None)
-        (yield txn.commit())
+        yield txn.commit()
 
-        count, ignored = (yield PurgePrincipalService.purgeUIDs(self.storeUnderTest(), self.directory,
+        count = (yield PurgePrincipalService.purgeUIDs(self.storeUnderTest(), self.directory,
             self.rootResource, (self.uid,), verbose=False, proxies=False, completely=True))
         self.assertEquals(count, 2) # 2 events
 
         # Now you don't
         txn = self._sqlCalendarStore.newTransaction()
-        home = (yield txn.calendarHomeWithUID(self.uid))
+        home = yield txn.calendarHomeWithUID(self.uid)
         self.assertEquals(home, None)
         # Verify calendar1 was unshared to uid2
-        home2 = (yield txn.calendarHomeWithUID(self.uid2))
+        home2 = yield txn.calendarHomeWithUID(self.uid2)
         self.assertEquals((yield home2.childWithName(self.sharedName)), None)
-        (yield txn.commit())
+        yield txn.commit()
 
-        count, ignored = (yield PurgePrincipalService.purgeUIDs(self.storeUnderTest(), self.directory,
-            self.rootResource, (self.uid,), verbose=False, proxies=False, completely=True))
+        count = yield PurgePrincipalService.purgeUIDs(
+            self.storeUnderTest(),
+            self.directory,
+            self.rootResource,
+            (self.uid,),
+            verbose=False,
+            proxies=False,
+            completely=True
+        )
         self.assertEquals(count, 0)
 
         # And you still don't (making sure it's not provisioned)
         txn = self._sqlCalendarStore.newTransaction()
-        home = (yield txn.calendarHomeWithUID(self.uid))
+        home = yield txn.calendarHomeWithUID(self.uid)
         self.assertEquals(home, None)
-        (yield txn.commit())
+        yield txn.commit()
 
 
     @inlineCallbacks
@@ -928,11 +920,11 @@ class PurgePrincipalTests(StoreTestCase):
         txn = self._sqlCalendarStore.newTransaction()
         home = (yield txn.calendarHomeWithUID(self.uid))
         self.assertNotEquals(home, None)
-        (yield txn.commit())
+        yield txn.commit()
 
-        count, ignored = (yield PurgePrincipalService.purgeUIDs(self.storeUnderTest(), self.directory,
+        count = (yield PurgePrincipalService.purgeUIDs(self.storeUnderTest(), self.directory,
             self.rootResource, (self.uid,), verbose=False, proxies=False, completely=False))
-        self.assertEquals(count, 1) # 2 events
+        self.assertEquals(count, 1) # 1 event
 
         # Now you still see it
         txn = self._sqlCalendarStore.newTransaction()
@@ -941,14 +933,14 @@ class PurgePrincipalTests(StoreTestCase):
         # Verify calendar1 was unshared to uid2
         home2 = (yield txn.calendarHomeWithUID(self.uid2))
         self.assertEquals((yield home2.childWithName(self.sharedName)), None)
-        (yield txn.commit())
+        yield txn.commit()
 
-        count, ignored = (yield PurgePrincipalService.purgeUIDs(self.storeUnderTest(), self.directory,
-            self.rootResource, (self.uid,), verbose=False, proxies=False, completely=False))
+        count = yield PurgePrincipalService.purgeUIDs(self.storeUnderTest(), self.directory,
+            self.rootResource, (self.uid,), verbose=False, proxies=False, completely=False)
         self.assertEquals(count, 1)
 
         # And you still do
         txn = self._sqlCalendarStore.newTransaction()
         home = (yield txn.calendarHomeWithUID(self.uid))
         self.assertNotEquals(home, None)
-        (yield txn.commit())
+        yield txn.commit()

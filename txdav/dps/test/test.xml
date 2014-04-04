@@ -23,6 +23,7 @@
 
   <record type="user">
     <uid>__sagen__</uid>
+    <guid>B3B1158F-0564-4F5B-81E4-A89EA5FF81B0</guid>
     <short-name>sagen</short-name>
     <full-name>Morgen Sagen</full-name>
     <password>negas</password>
@@ -111,6 +112,12 @@
     <member-uid>__calendar-dev__</member-uid>
     <member-uid>__twisted__</member-uid>
     <member-uid>__alyssa__</member-uid>
+  </record>
+
+  <record type="location">
+    <uid>__sanchezoffice__</uid>
+    <short-name>sanchezoffice</short-name>
+    <full-name>Sanchez Office</full-name>
   </record>
 
 </directory>

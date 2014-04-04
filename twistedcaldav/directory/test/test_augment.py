@@ -17,7 +17,6 @@
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.directory.augment import AugmentXMLDB, AugmentSqliteDB, \
     AugmentPostgreSQLDB, AugmentRecord
-from twistedcaldav.directory.directory import DirectoryService
 from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.directory.xmlaugmentsparser import XMLAugmentsParser
 import cStringIO
@@ -78,7 +77,7 @@ testModifyRecords = (
 class AugmentTests(TestCase):
 
     @inlineCallbacks
-    def _checkRecord(self, db, items, recordType=DirectoryService.recordType_users):
+    def _checkRecord(self, db, items, recordType="users"):
 
         record = (yield db.getAugmentRecord(items["uid"], recordType))
         self.assertTrue(record is not None, "Failed record uid: %s" % (items["uid"],))
@@ -88,7 +87,7 @@ class AugmentTests(TestCase):
 
 
     @inlineCallbacks
-    def _checkRecordExists(self, db, uid, recordType=DirectoryService.recordType_users):
+    def _checkRecordExists(self, db, uid, recordType="users"):
 
         record = (yield db.getAugmentRecord(uid, recordType))
         self.assertTrue(record is not None, "Failed record uid: %s" % (uid,))

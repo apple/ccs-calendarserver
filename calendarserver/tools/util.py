@@ -20,8 +20,6 @@ Utility functionality shared between calendarserver tools.
 
 __all__ = [
     "loadConfig",
-    "getDirectory",
-    "dummyDirectoryRecord",
     "UsageError",
     "booleanArgument",
 ]
@@ -37,25 +35,18 @@ from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 
 
-from twisted.python.filepath import FilePath
-from twisted.python.reflect import namedClass
 from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from txdav.xml import element as davxml
 
-from calendarserver.provision.root import RootResource
 
 from twistedcaldav import memcachepool
-from twistedcaldav.directory import calendaruserproxy
-from twistedcaldav.directory.aggregate import AggregateDirectoryService
-from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from txdav.who.groups import schedulePolledGroupCachingUpdate
-from calendarserver.push.notifier import NotifierFactory
 
-from txdav.common.datastore.file import CommonDataStore
 
 log = Logger()
+
 
 def loadConfig(configFileName):
     """
@@ -78,145 +69,145 @@ def loadConfig(configFileName):
 
 
 
-def getDirectory(config=config):
+# def getDirectory(config=config):
 
-    class MyDirectoryService (AggregateDirectoryService):
-        def getPrincipalCollection(self):
-            if not hasattr(self, "_principalCollection"):
+#     class MyDirectoryService (AggregateDirectoryService):
+#         def getPrincipalCollection(self):
+#             if not hasattr(self, "_principalCollection"):
 
-                if config.Notifications.Enabled:
-                    # FIXME: NotifierFactory needs reference to the store in order
-                    # to get a txn in order to create a Work item
-                    notifierFactory = NotifierFactory(
-                        None, config.ServerHostName,
-                        config.Notifications.CoalesceSeconds,
-                    )
-                else:
-                    notifierFactory = None
+#                 if config.Notifications.Enabled:
+#                     # FIXME: NotifierFactory needs reference to the store in order
+#                     # to get a txn in order to create a Work item
+#                     notifierFactory = NotifierFactory(
+#                         None, config.ServerHostName,
+#                         config.Notifications.CoalesceSeconds,
+#                     )
+#                 else:
+#                     notifierFactory = None
 
-                # Need a data store
-                _newStore = CommonDataStore(FilePath(config.DocumentRoot),
-                    notifierFactory, self, True, False)
-                if notifierFactory is not None:
-                    notifierFactory.store = _newStore
+#                 # Need a data store
+#                 _newStore = CommonDataStore(FilePath(config.DocumentRoot),
+#                     notifierFactory, self, True, False)
+#                 if notifierFactory is not None:
+#                     notifierFactory.store = _newStore
 
-                #
-                # Instantiating a DirectoryCalendarHomeProvisioningResource with a directory
-                # will register it with the directory (still smells like a hack).
-                #
-                # We need that in order to locate calendar homes via the directory.
-                #
-                from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
-                DirectoryCalendarHomeProvisioningResource(self, "/calendars/", _newStore)
+#                 #
+#                 # Instantiating a DirectoryCalendarHomeProvisioningResource with a directory
+#                 # will register it with the directory (still smells like a hack).
+#                 #
+#                 # We need that in order to locate calendar homes via the directory.
+#                 #
+#                 from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
+#                 DirectoryCalendarHomeProvisioningResource(self, "/calendars/", _newStore)
 
-                from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
-                self._principalCollection = DirectoryPrincipalProvisioningResource("/principals/", self)
+#                 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
+#                 self._principalCollection = DirectoryPrincipalProvisioningResource("/principals/", self)
 
-            return self._principalCollection
+#             return self._principalCollection
 
-        def setPrincipalCollection(self, coll):
-            # See principal.py line 237:  self.directory.principalCollection = self
-            pass
+#         def setPrincipalCollection(self, coll):
+#             # See principal.py line 237:  self.directory.principalCollection = self
+#             pass
 
-        principalCollection = property(getPrincipalCollection, setPrincipalCollection)
+#         principalCollection = property(getPrincipalCollection, setPrincipalCollection)
 
-        def calendarHomeForRecord(self, record):
-            principal = self.principalCollection.principalForRecord(record)
-            if principal:
-                try:
-                    return principal.calendarHome()
-                except AttributeError:
-                    pass
-            return None
+#         def calendarHomeForRecord(self, record):
+#             principal = self.principalCollection.principalForRecord(record)
+#             if principal:
+#                 try:
+#                     return principal.calendarHome()
+#                 except AttributeError:
+#                     pass
+#             return None
 
-        def calendarHomeForShortName(self, recordType, shortName):
-            principal = self.principalCollection.principalForShortName(recordType, shortName)
-            if principal:
-                return principal.calendarHome()
-            return None
+#         def calendarHomeForShortName(self, recordType, shortName):
+#             principal = self.principalCollection.principalForShortName(recordType, shortName)
+#             if principal:
+#                 return principal.calendarHome()
+#             return None
 
-        def principalForCalendarUserAddress(self, cua):
-            return self.principalCollection.principalForCalendarUserAddress(cua)
+#         def principalForCalendarUserAddress(self, cua):
+#             return self.principalCollection.principalForCalendarUserAddress(cua)
 
-        def principalForUID(self, uid):
-            return self.principalCollection.principalForUID(uid)
+#         def principalForUID(self, uid):
+#             return self.principalCollection.principalForUID(uid)
 
-    # Load augment/proxy db classes now
-    if config.AugmentService.type:
-        augmentClass = namedClass(config.AugmentService.type)
-        augmentService = augmentClass(**config.AugmentService.params)
-    else:
-        augmentService = None
+#     # Load augment/proxy db classes now
+#     if config.AugmentService.type:
+#         augmentClass = namedClass(config.AugmentService.type)
+#         augmentService = augmentClass(**config.AugmentService.params)
+#     else:
+#         augmentService = None
 
-    proxydbClass = namedClass(config.ProxyDBService.type)
-    calendaruserproxy.ProxyDBService = proxydbClass(**config.ProxyDBService.params)
+#     proxydbClass = namedClass(config.ProxyDBService.type)
+#     calendaruserproxy.ProxyDBService = proxydbClass(**config.ProxyDBService.params)
 
-    # Wait for directory service to become available
-    BaseDirectoryService = namedClass(config.DirectoryService.type)
-    config.DirectoryService.params.augmentService = augmentService
-    directory = BaseDirectoryService(config.DirectoryService.params)
-    while not directory.isAvailable():
-        sleep(5)
+#     # Wait for directory service to become available
+#     BaseDirectoryService = namedClass(config.DirectoryService.type)
+#     config.DirectoryService.params.augmentService = augmentService
+#     directory = BaseDirectoryService(config.DirectoryService.params)
+#     while not directory.isAvailable():
+#         sleep(5)
 
-    directories = [directory]
+#     directories = [directory]
 
-    if config.ResourceService.Enabled:
-        resourceClass = namedClass(config.ResourceService.type)
-        config.ResourceService.params.augmentService = augmentService
-        resourceDirectory = resourceClass(config.ResourceService.params)
-        resourceDirectory.realmName = directory.realmName
-        directories.append(resourceDirectory)
+#     if config.ResourceService.Enabled:
+#         resourceClass = namedClass(config.ResourceService.type)
+#         config.ResourceService.params.augmentService = augmentService
+#         resourceDirectory = resourceClass(config.ResourceService.params)
+#         resourceDirectory.realmName = directory.realmName
+#         directories.append(resourceDirectory)
 
-    aggregate = MyDirectoryService(directories, None)
-    aggregate.augmentService = augmentService
+#     aggregate = MyDirectoryService(directories, None)
+#     aggregate.augmentService = augmentService
 
-    #
-    # Wire up the resource hierarchy
-    #
-    principalCollection = aggregate.getPrincipalCollection()
-    root = RootResource(
-        config.DocumentRoot,
-        principalCollections=(principalCollection,),
-    )
-    root.putChild("principals", principalCollection)
+#     #
+#     # Wire up the resource hierarchy
+#     #
+#     principalCollection = aggregate.getPrincipalCollection()
+#     root = RootResource(
+#         config.DocumentRoot,
+#         principalCollections=(principalCollection,),
+#     )
+#     root.putChild("principals", principalCollection)
 
-    # Need a data store
-    _newStore = CommonDataStore(FilePath(config.DocumentRoot), None, aggregate, True, False)
+#     # Need a data store
+#     _newStore = CommonDataStore(FilePath(config.DocumentRoot), None, aggregate, True, False)
 
-    from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
-    calendarCollection = DirectoryCalendarHomeProvisioningResource(
-        aggregate, "/calendars/",
-        _newStore,
-    )
-    root.putChild("calendars", calendarCollection)
+#     from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
+#     calendarCollection = DirectoryCalendarHomeProvisioningResource(
+#         aggregate, "/calendars/",
+#         _newStore,
+#     )
+#     root.putChild("calendars", calendarCollection)
 
-    return aggregate
-
-
-
-class DummyDirectoryService (DirectoryService):
-    realmName = ""
-    baseGUID = "51856FD4-5023-4890-94FE-4356C4AAC3E4"
-    def recordTypes(self):
-        return ()
+#     return aggregate
 
 
-    def listRecords(self):
-        return ()
+
+# class DummyDirectoryService (DirectoryService):
+#     realmName = ""
+#     baseGUID = "51856FD4-5023-4890-94FE-4356C4AAC3E4"
+#     def recordTypes(self):
+#         return ()
 
 
-    def recordWithShortName(self):
-        return None
+#     def listRecords(self):
+#         return ()
 
-dummyDirectoryRecord = DirectoryRecord(
-    service=DummyDirectoryService(),
-    recordType="dummy",
-    guid="8EF0892F-7CB6-4B8E-B294-7C5A5321136A",
-    shortNames=("dummy",),
-    fullName="Dummy McDummerson",
-    firstName="Dummy",
-    lastName="McDummerson",
-)
+
+#     def recordWithShortName(self):
+#         return None
+
+# dummyDirectoryRecord = DirectoryRecord(
+#     service=DummyDirectoryService(),
+#     recordType="dummy",
+#     guid="8EF0892F-7CB6-4B8E-B294-7C5A5321136A",
+#     shortNames=("dummy",),
+#     fullName="Dummy McDummerson",
+#     firstName="Dummy",
+#     lastName="McDummerson",
+# )
 
 class UsageError (StandardError):
     pass
@@ -334,6 +325,7 @@ def checkDirectory(dirpath, description, access=None, create=None, wait=False):
 
 
 
+@inlineCallbacks
 def principalForPrincipalID(principalID, checkOnly=False, directory=None):
 
     # Allow a directory parameter to be passed in, but default to config.directory
@@ -351,16 +343,16 @@ def principalForPrincipalID(principalID, checkOnly=False, directory=None):
             raise ValueError("Can't resolve all paths yet")
 
         if checkOnly:
-            return None
+            returnValue(None)
 
-        return directory.principalCollection.principalForUID(uid)
+        returnValue((yield directory.principalCollection.principalForUID(uid)))
 
     if principalID.startswith("("):
         try:
             i = principalID.index(")")
 
             if checkOnly:
-                return None
+                returnValue(None)
 
             recordType = principalID[1:i]
             shortName = principalID[i + 1:]
@@ -368,27 +360,80 @@ def principalForPrincipalID(principalID, checkOnly=False, directory=None):
             if not recordType or not shortName or "(" in recordType:
                 raise ValueError()
 
-            return directory.principalCollection.principalForShortName(recordType, shortName)
+            returnValue((yield directory.principalCollection.principalForShortName(recordType, shortName)))
 
         except ValueError:
             pass
 
     if ":" in principalID:
         if checkOnly:
-            return None
+            returnValue(None)
 
         recordType, shortName = principalID.split(":", 1)
 
-        return directory.principalCollection.principalForShortName(recordType, shortName)
+        returnValue((yield directory.principalCollection.principalForShortName(recordType, shortName)))
 
     try:
         UUID(principalID)
 
         if checkOnly:
-            return None
+            returnValue(None)
 
-        x = directory.principalCollection.principalForUID(principalID)
-        return x
+        returnValue((yield directory.principalCollection.principalForUID(principalID)))
+    except ValueError:
+        pass
+
+    raise ValueError("Invalid principal identifier: %s" % (principalID,))
+
+
+@inlineCallbacks
+def recordForPrincipalID(directory, principalID, checkOnly=False):
+
+    if principalID.startswith("/"):
+        segments = principalID.strip("/").split("/")
+        if (len(segments) == 3 and
+            segments[0] == "principals" and segments[1] == "__uids__"):
+            uid = segments[2]
+        else:
+            raise ValueError("Can't resolve all paths yet")
+
+        if checkOnly:
+            returnValue(None)
+
+        returnValue((yield directory.recordWithUID(uid)))
+
+    if principalID.startswith("("):
+        try:
+            i = principalID.index(")")
+
+            if checkOnly:
+                returnValue(None)
+
+            recordType = directory.oldNameToRecordType(principalID[1:i])
+            shortName = principalID[i + 1:]
+
+            if not recordType or not shortName or "(" in recordType:
+                raise ValueError()
+
+            returnValue((yield directory.recordWithShortName(recordType, shortName)))
+
+        except ValueError:
+            pass
+
+    if ":" in principalID:
+        if checkOnly:
+            returnValue(None)
+
+        recordType, shortName = principalID.split(":", 1)
+        recordType = directory.oldNameToRecordType(recordType)
+
+        returnValue((yield directory.recordWithShortName(recordType, shortName)))
+
+    try:
+        if checkOnly:
+            returnValue(None)
+
+        returnValue((yield directory.recordWithUID(principalID)))
     except ValueError:
         pass
 
@@ -501,9 +546,16 @@ def removeProxy(rootResource, directory, store, principal, proxyPrincipal, **kwa
 
 
 def prettyPrincipal(principal):
-    record = principal.record
-    return "\"%s\" (%s:%s)" % (record.fullName, record.recordType,
-        record.shortNames[0])
+    prettyRecord(principal.record)
+
+
+def prettyRecord(record):
+    return "\"{d}\" {uid} ({rt}) {sn}".format(
+        d=record.displayName,
+        rt=record.recordType.name,
+        uid=record.uid,
+        sn=(", ".join(record.shortNames))
+    )
 
 
 

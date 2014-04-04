@@ -334,7 +334,9 @@ class RecordFolder(Folder):
     def list(self):
         names = set()
 
-        for record in self.service.directory.listRecords(self.recordType):
+        for record in self.service.directory.recordsWithRecordType(
+            self.recordType
+        ):
             for shortName in record.shortNames:
                 if shortName in names:
                     continue
@@ -411,7 +413,7 @@ class PrincipalHomeFolder(Folder):
                 if (
                     self.record is not None and
                     self.service.config.EnableCalDAV and
-                    self.record.enabledForCalendaring
+                    self.record.hasCalendars
                 ):
                     create = True
                 else:
