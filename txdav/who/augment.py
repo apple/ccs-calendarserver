@@ -402,8 +402,8 @@ class AugmentedDirectoryRecord(DirectoryRecord, CalendarDirectoryRecordMixin):
         groupUIDs = yield txn.groupsFor(self.uid)
 
         for groupUID in groupUIDs:
-            groupRecord = yield self.service.recordWithShortName(
-                RecordType.group, groupUID
+            groupRecord = yield self.service.recordWithUID(
+                groupUID
             )
             if groupRecord:
                 augmented.append((yield self.service._augment(groupRecord)))
