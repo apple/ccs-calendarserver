@@ -1,4 +1,4 @@
-# -*- test-case-name: twext.who.test.test_groups -*-
+# -*- test-case-name: txdav.who.test.test_groups -*-
 ##
 # Copyright (c) 2013 Apple Inc. All rights reserved.
 #
@@ -22,8 +22,6 @@ Group membership caching
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.syntax import Delete, Select
 from twext.enterprise.jobqueue import WorkItem, PeerConnectionPool
-from txdav.who.delegates import allGroupDelegates
-from twext.who.idirectory import RecordType
 from twisted.internet.defer import inlineCallbacks, returnValue
 from txdav.common.datastore.sql_tables import schema
 import datetime
@@ -46,17 +44,14 @@ class GroupCacherPollingWork(
         # Delete all other work items
         yield Delete(From=self.table, Where=None).on(self.transaction)
 
-        oldGroupCacher = getattr(self.transaction, "_groupCacher", None)
-        newGroupCacher = getattr(self.transaction, "_newGroupCacher", None)
-        if oldGroupCacher is not None or newGroupCacher is not None:
+        groupCacher = getattr(self.transaction, "_groupCacher", None)
+        if groupCacher is not None:
 
             # Schedule next update
 
-            # TODO: Be sure to move updateSeconds to the new cacher
-            # implementation
             notBefore = (
                 datetime.datetime.utcnow() +
-                datetime.timedelta(seconds=oldGroupCacher.updateSeconds)
+                datetime.timedelta(seconds=groupCacher.updateSeconds)
             )
             log.debug(
                 "Scheduling next group cacher update: {when}", when=notBefore
@@ -68,19 +63,10 @@ class GroupCacherPollingWork(
 
             # New implmementation
             try:
-                newGroupCacher.update(self.transaction)
+                yield groupCacher.update(self.transaction)
             except Exception, e:
                 log.error(
                     "Failed to update new group membership cache ({error})",
-                    error=e
-                )
-
-            # Old implmementation
-            try:
-                oldGroupCacher.updateCache()
-            except Exception, e:
-                log.error(
-                    "Failed to update old group membership cache ({error})",
                     error=e
                 )
 
@@ -126,25 +112,28 @@ def schedulePolledGroupCachingUpdate(store):
 
 class GroupRefreshWork(WorkItem, fromTable(schema.GROUP_REFRESH_WORK)):
 
-    group = property(lambda self: self.groupGUID)
+    # Note, the schema has "groupGuid", but really it's a UID.  At some point
+    # we should change the column name.
+    group = property(lambda self: self.groupGuid)
 
     @inlineCallbacks
     def doWork(self):
-
         # Delete all other work items for this group
         yield Delete(
-            From=self.table, Where=(self.table.GROUP_GUID == self.groupGUID)
+            From=self.table, Where=(self.table.GROUP_GUID == self.groupGuid)
         ).on(self.transaction)
 
         groupCacher = getattr(self.transaction, "_groupCacher", None)
         if groupCacher is not None:
 
             try:
-                groupCacher.refreshGroup(self.transaction, self.groupGUID)
+                yield groupCacher.refreshGroup(
+                    self.transaction, self.groupGuid.decode("utf-8")
+                )
             except Exception, e:
                 log.error(
                     "Failed to refresh group {group} {err}",
-                    group=self.groupGUID, err=e
+                    group=self.groupGuid, err=e
                 )
 
         else:
@@ -154,11 +143,11 @@ class GroupRefreshWork(WorkItem, fromTable(schema.GROUP_REFRESH_WORK)):
             )
             log.debug(
                 "Rescheduling group refresh for {group}: {when}",
-                group=self.groupGUID, when=notBefore
+                group=self.groupGuid, when=notBefore
             )
             yield self.transaction.enqueue(
                 GroupRefreshWork,
-                groupGUID=self.groupGUID, notBefore=notBefore
+                groupGuid=self.groupGuid, notBefore=notBefore
             )
 
 
@@ -182,34 +171,9 @@ class GroupAttendeeReconciliationWork(
             )
         ).on(self.transaction)
 
+    # MOVE2WHO
     # TODO: Pull this over from groupcacher branch
 
-
-
-@inlineCallbacks
-def expandedMembers(record, members=None, records=None):
-    """
-    Return the expanded set of member records.  Intermediate groups are not
-    returned in the results, but their members are.
-    """
-    if members is None:
-        members = set()
-    if records is None:
-        records = set()
-
-    if record not in records:
-        records.add(record)
-        for member in (yield record.members()):
-            if member not in records:
-                #TODO:  HACK for old-style XML. FIX
-                if (
-                    member.recordType != RecordType.group and
-                    str(member.recordType) != "groups"
-                ):
-                    members.add(member)
-                yield expandedMembers(member, members, records)
-
-    returnValue(members)
 
 
 
@@ -219,14 +183,14 @@ def diffAssignments(old, new):
     of two lists -- one for added/updated assignments, and one for removed
     assignments.
 
-    @param old: dictionary of delegator: (readGroupGUID, writeGroupGUID)
+    @param old: dictionary of delegator: (readGroupUID, writeGroupUID)
     @type old: C{dict}
 
-    @param new: dictionary of delegator: (readGroupGUID, writeGroupGUID)
+    @param new: dictionary of delegator: (readGroupUID, writeGroupUID)
     @type new: C{dict}
 
     @return: Tuple of two lists; the first list contains tuples of (delegator,
-        (readGroupGUID, writeGroupGUID)), and represents all the new or updated
+        (readGroupUID, writeGroupUID)), and represents all the new or updated
         assignments.  The second list contains all the delegators which used to
         have a delegate but don't anymore.
     """
@@ -251,13 +215,16 @@ class GroupCacher(object):
 
     def __init__(
         self, directory,
-        useExternalProxies=False, externalProxiesSource=None
+        updateSeconds=600,
+        useExternalProxies=False,
+        externalProxiesSource=None
     ):
         self.directory = directory
         self.useExternalProxies = useExternalProxies
         if useExternalProxies and externalProxiesSource is None:
             externalProxiesSource = self.directory.getExternalProxyAssignments
         self.externalProxiesSource = externalProxiesSource
+        self.updateSeconds = updateSeconds
 
 
     @inlineCallbacks
@@ -269,19 +236,21 @@ class GroupCacher(object):
         # yield self.applyExternalAssignments(txn, externalAssignments)
 
         # Figure out which groups matter
-        groupGUIDs = yield self.groupsToRefresh(txn)
+        groupUIDs = yield self.groupsToRefresh(txn)
         self.log.debug(
-            "Number of groups to refresh: {num}", num=len(groupGUIDs)
+            "Number of groups to refresh: {num}", num=len(groupUIDs)
         )
         # For each of those groups, create a per-group refresh work item
-        for groupGUID in groupGUIDs:
+        for groupUID in groupUIDs:
             notBefore = (
                 datetime.datetime.utcnow() +
                 datetime.timedelta(seconds=1)
             )
+            self.log.debug("Enqueuing group refresh for {u}", u=groupUID)
             yield txn.enqueue(
-                GroupRefreshWork, groupGUID=groupGUID, notBefore=notBefore
+                GroupRefreshWork, groupGuid=groupUID, notBefore=notBefore
             )
+            self.log.debug("Enqueued group refresh for {u}", u=groupUID)
 
 
     @inlineCallbacks
@@ -290,84 +259,91 @@ class GroupCacher(object):
         oldAssignments = (yield txn.externalDelegates())
 
         # external assignments is of the form:
-        # { delegatorGUID: (readDelegateGroupGUID, writeDelegateGroupGUID),
+        # { delegatorUID: (readDelegateGroupUID, writeDelegateGroupUID),
         # }
 
         changed, removed = diffAssignments(oldAssignments, newAssignments)
         if changed:
             for (
-                delegatorGUID, (readDelegateGUID, writeDelegateGUID)
+                delegatorUID, (readDelegateUID, writeDelegateUID)
             ) in changed:
                 readDelegateGroupID = writeDelegateGroupID = None
-                if readDelegateGUID:
+                if readDelegateUID:
                     readDelegateGroupID, _ignore_name, hash = (
-                        yield txn.groupByGUID(readDelegateGUID)
+                        yield txn.groupByUID(readDelegateUID)
                     )
-                if writeDelegateGUID:
+                if writeDelegateUID:
                     writeDelegateGroupID, _ignore_name, hash = (
-                        yield txn.groupByGUID(writeDelegateGUID)
+                        yield txn.groupByUID(writeDelegateUID)
                     )
                 yield txn.assignExternalDelegates(
-                    delegatorGUID, readDelegateGroupID, writeDelegateGroupID,
-                    readDelegateGUID, writeDelegateGUID
+                    delegatorUID, readDelegateGroupID, writeDelegateGroupID,
+                    readDelegateUID, writeDelegateUID
                 )
         if removed:
-            for delegatorGUID in removed:
+            for delegatorUID in removed:
                 yield txn.assignExternalDelegates(
-                    delegatorGUID, None, None, None, None
+                    delegatorUID, None, None, None, None
                 )
 
 
     @inlineCallbacks
-    def refreshGroup(self, txn, groupGUID):
+    def refreshGroup(self, txn, groupUID):
         # Does the work of a per-group refresh work item
-        # Faults in the flattened membership of a group, as GUIDs
+        # Faults in the flattened membership of a group, as UIDs
         # and updates the GROUP_MEMBERSHIP table
-        record = (yield self.directory.recordWithGUID(groupGUID))
-        membershipHashContent = hashlib.md5()
-        members = (yield expandedMembers(record))
-        members = list(members)
-        members.sort(cmp=lambda x, y: cmp(x.guid, y.guid))
-        for member in members:
-            membershipHashContent.update(str(member.guid))
-        membershipHash = membershipHashContent.hexdigest()
-        groupID, _ignore_cachedName, cachedMembershipHash = (
-            yield txn.groupByGUID(groupGUID)
-        )
-
-        if cachedMembershipHash != membershipHash:
-            membershipChanged = True
-            self.log.debug(
-                "Group '{group}' changed", group=record.fullNames[0]
-            )
+        self.log.debug("Faulting in group: {g}", g=groupUID)
+        record = (yield self.directory.recordWithUID(groupUID))
+        if record is None:
+            # FIXME: the group has disappeared from the directory.
+            # How do we want to handle this?
+            self.log.info("Group has disappeared: {g}", g=groupUID)
         else:
-            membershipChanged = False
-
-        yield txn.updateGroup(groupGUID, record.fullNames[0], membershipHash)
-
-        if membershipChanged:
-            newMemberGUIDs = set()
+            self.log.debug("Got group record: {u}", u=record.uid)
+            membershipHashContent = hashlib.md5()
+            members = yield record.expandedMembers()
+            members = list(members)
+            members.sort(cmp=lambda x, y: cmp(x.uid, y.uid))
             for member in members:
-                newMemberGUIDs.add(member.guid)
-            yield self.synchronizeMembers(txn, groupID, newMemberGUIDs)
+                membershipHashContent.update(str(member.uid))
+            membershipHash = membershipHashContent.hexdigest()
+            groupID, _ignore_cachedName, cachedMembershipHash = (
+                yield txn.groupByUID(groupUID)
+            )
 
-        yield self.scheduleEventReconciliations(txn, groupID, groupGUID)
+            if cachedMembershipHash != membershipHash:
+                membershipChanged = True
+                self.log.debug(
+                    "Group '{group}' changed", group=record.fullNames[0]
+                )
+            else:
+                membershipChanged = False
+
+            yield txn.updateGroup(groupUID, record.fullNames[0], membershipHash)
+
+            if membershipChanged:
+                newMemberUIDs = set()
+                for member in members:
+                    newMemberUIDs.add(member.uid)
+                yield self.synchronizeMembers(txn, groupID, newMemberUIDs)
+
+            yield self.scheduleEventReconciliations(txn, groupID, groupUID)
 
 
     @inlineCallbacks
-    def synchronizeMembers(self, txn, groupID, newMemberGUIDs):
+    def synchronizeMembers(self, txn, groupID, newMemberUIDs):
         numRemoved = numAdded = 0
-        cachedMemberGUIDs = (yield txn.membersOfGroup(groupID))
+        cachedMemberUIDs = (yield txn.membersOfGroup(groupID))
 
-        for memberGUID in cachedMemberGUIDs:
-            if memberGUID not in newMemberGUIDs:
+        for memberUID in cachedMemberUIDs:
+            if memberUID not in newMemberUIDs:
                 numRemoved += 1
-                yield txn.removeMemberFromGroup(memberGUID, groupID)
+                yield txn.removeMemberFromGroup(memberUID, groupID)
 
-        for memberGUID in newMemberGUIDs:
-            if memberGUID not in cachedMemberGUIDs:
+        for memberUID in newMemberUIDs:
+            if memberUID not in cachedMemberUIDs:
                 numAdded += 1
-                yield txn.addMemberToGroup(memberGUID, groupID)
+                yield txn.addMemberToGroup(memberUID, groupID)
 
         returnValue((numAdded, numRemoved))
 
@@ -378,23 +354,23 @@ class GroupCacher(object):
         The members of the given group as recorded in the db
         """
         members = set()
-        memberGUIDs = (yield txn.membersOfGroup(groupID))
-        for guid in memberGUIDs:
-            record = (yield self.directory.recordWithGUID(guid))
+        memberUIDs = (yield txn.membersOfGroup(groupID))
+        for uid in memberUIDs:
+            record = (yield self.directory.recordWithUID(uid))
             if record is not None:
                 members.add(record)
         returnValue(members)
 
 
-    def cachedGroupsFor(self, txn, guid):
+    def cachedGroupsFor(self, txn, uid):
         """
-        The IDs of the groups the guid is a member of
+        The UIDs of the groups the uid is a member of
         """
-        return txn.groupsFor(guid)
+        return txn.groupsFor(uid)
 
 
     @inlineCallbacks
-    def scheduleEventReconciliations(self, txn, groupID, groupGUID):
+    def scheduleEventReconciliations(self, txn, groupID, groupUID):
         """
         Find all events who have this groupID as an attendee and create
         work items for them.
@@ -415,29 +391,29 @@ class GroupCacher(object):
             )
             log.debug(
                 "scheduling group reconciliation for "
-                "({eventID}, {groupID}, {groupGUID}): {when}",
+                "({eventID}, {groupID}, {groupUID}): {when}",
                 eventID=eventID,
                 groupID=groupID,
-                groupGUID=groupGUID,
+                groupUID=groupUID,
                 when=notBefore)
 
             yield txn.enqueue(
                 GroupAttendeeReconciliationWork,
                 eventID=eventID,
                 groupID=groupID,
-                groupGUID=groupGUID,
+                groupGuid=groupUID,
                 notBefore=notBefore
             )
 
 
     @inlineCallbacks
     def groupsToRefresh(self, txn):
-        delegatedGUIDs = set((yield allGroupDelegates(txn)))
+        delegatedUIDs = set((yield txn.allGroupDelegates()))
         self.log.info(
-            "There are {count} group delegates", count=len(delegatedGUIDs)
+            "There are {count} group delegates", count=len(delegatedUIDs)
         )
 
-        attendeeGroupGUIDs = set()
+        attendeeGroupUIDs = set()
 
         # get all groups from events
         groupAttendee = schema.GROUP_ATTENDEE
@@ -447,7 +423,7 @@ class GroupCacher(object):
         ).on(txn)
         groupIDs = set([row[0] for row in rows])
 
-        # get groupGUIDs
+        # get groupUIDs
         if groupIDs:
             gr = schema.GROUPS
             rows = yield Select(
@@ -455,6 +431,8 @@ class GroupCacher(object):
                 From=gr,
                 Where=gr.GROUP_ID.In(groupIDs)
             ).on(txn)
-            attendeeGroupGUIDs = set([row[0] for row in rows])
+            attendeeGroupUIDs = set([row[0] for row in rows])
 
-        returnValue(delegatedGUIDs.union(attendeeGroupGUIDs))
+        # FIXME: is this a good place to clear out unreferenced groups?
+
+        returnValue(delegatedUIDs.union(attendeeGroupUIDs))

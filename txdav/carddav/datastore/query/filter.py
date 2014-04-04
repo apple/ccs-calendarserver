@@ -136,7 +136,7 @@ class Filter(FilterBase):
                     return not allof
             return allof
         else:
-            return True
+            return False
 
 
     def valid(self):
@@ -190,9 +190,6 @@ class FilterChildBase(FilterBase):
             else:
                 raise ValueError("Unknown child element: %s" % (qname,))
 
-        if qualifier and isinstance(qualifier, IsNotDefined) and (len(filters) != 0):
-            raise ValueError("No other tests allowed when CardDAV:is-not-defined is present")
-
         if xml_element.qname() == (carddav_namespace, "prop-filter"):
             propfilter_test = xml_element.attributes.get("test", "anyof")
             if propfilter_test not in ("anyof", "allof"):
@@ -200,13 +197,16 @@ class FilterChildBase(FilterBase):
         else:
             propfilter_test = "anyof"
 
+        if qualifier and isinstance(qualifier, IsNotDefined) and (len(filters) != 0) and propfilter_test == "allof":
+            raise ValueError("When test is allof, no other tests allowed when CardDAV:is-not-defined is present")
+
         self.propfilter_test = propfilter_test
         self.qualifier = qualifier
         self.filters = filters
         self.filter_name = xml_element.attributes["name"]
         if isinstance(self.filter_name, unicode):
             self.filter_name = self.filter_name.encode("utf-8")
-        self.defined = not self.qualifier or not isinstance(qualifier, IsNotDefined)
+        self.defined = not self.qualifier or not isinstance(qualifier, IsNotDefined) or len(filters)
 
 
     def _deserialize(self, data):
@@ -241,24 +241,17 @@ class FilterChildBase(FilterBase):
         matches this filter, False otherwise.
         """
 
-        # Always return True for the is-not-defined case as the result of this will
-        # be negated by the caller
-        if not self.defined:
-            return True
-
-        if self.qualifier and not self.qualifier.match(item):
-            return False
+        allof = self.propfilter_test == "allof"
+        if self.qualifier and allof != self.qualifier.match(item):
+            return not allof
 
         if len(self.filters) > 0:
-            allof = self.propfilter_test == "allof"
             for filter in self.filters:
                 if allof != filter._match(item):
                     return not allof
             return allof
         else:
-            return True
-
-
+            return not allof
 
 class PropertyFilter (FilterChildBase):
     """

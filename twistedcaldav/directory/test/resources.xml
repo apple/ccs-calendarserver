@@ -18,5 +18,103 @@ limitations under the License.
 
 <!DOCTYPE accounts SYSTEM "../../../conf/auth/accounts.dtd">
 
-<accounts realm="Test">
-</accounts>
+<directory realm="Test">
+  <record type="location">
+    <uid>mercury</uid>
+    <short-name>mercury</short-name>
+    <password>mercury</password>
+    <full-name>Mercury Seven</full-name>
+    <email>mercury@example.com</email>
+  </record>
+  <record type="location">
+    <uid>gemini</uid>
+    <short-name>gemini</short-name>
+    <password>gemini</password>
+    <full-name>Gemini Twelve</full-name>
+    <email>gemini@example.com</email>
+  </record>
+  <record type="location">
+    <uid>apollo</uid>
+    <short-name>apollo</short-name>
+    <password>apollo</password>
+    <full-name>Apollo Eleven</full-name>
+    <email>apollo@example.com</email>
+  </record>
+  <record type="location">
+    <uid>orion</uid>
+    <short-name>orion</short-name>
+    <password>orion</password>
+    <full-name>Orion</full-name>
+    <email>orion@example.com</email>
+  </record>
+  <record type="resource">
+    <uid>transporter</uid>
+    <short-name>transporter</short-name>
+    <password>transporter</password>
+    <full-name>Mass Transporter</full-name>
+    <email>transporter@example.com</email>
+  </record>
+  <record type="resource">
+    <uid>ftlcpu</uid>
+    <short-name>ftlcpu</short-name>
+    <password>ftlcpu</password>
+    <full-name>Faster-Than-Light Microprocessor</full-name>
+    <email>ftlcpu@example.com</email>
+  </record>
+  <record type="resource">
+    <uid>non_calendar_proxy</uid>
+    <short-name>non_calendar_proxy</short-name>
+    <password>non_calendar_proxy</password>
+    <full-name>Non-calendar proxy</full-name>
+    <email>non_calendar_proxy@example.com</email>
+  </record>
+  <record type="resource">
+    <uid>disabled</uid>
+    <short-name>disabled</short-name>
+    <password>disabled</password>
+    <full-name>Disabled Record</full-name>
+    <email>disabled@example.com</email>
+  </record>
+  <record type="location">
+    <uid>__sanchezoffice__</uid>
+    <short-name>sanchezoffice</short-name>
+    <full-name>Sanchez Office</full-name>
+  </record>
+  <record type="location">
+    <short-name>location01</short-name>
+    <uid>75EA36BE-F71B-40F9-81F9-CF59BF40CA8F</uid>
+    <guid>75EA36BE-F71B-40F9-81F9-CF59BF40CA8F</guid>
+    <password>location01</password>
+    <full-name>Room 01</full-name>
+  </record>
+  <record type="location">
+    <short-name>room-with-address-1</short-name>
+    <uid>room-addr-1</uid>
+    <guid>634A102B-6902-464F-9451-8A86A31628C1</guid>
+    <password>room-addr-2</password>
+    <full-name>Room with Address 1</full-name>
+    <associated-address>1-infinite-loop</associated-address>
+  </record>
+  <record type="location">
+    <short-name>room-with-address-2</short-name>
+    <uid>room-addr-2</uid>
+    <password>room-addr-2</password>
+    <full-name>Room with Address 2</full-name>
+    <associated-address>2-infinite-loop</associated-address>
+  </record>
+  <record type="address">
+    <short-name>il1</short-name>
+    <uid>1-infinite-loop</uid>
+    <full-name>One Infinite Loop</full-name>
+    <street-address>1 Infinite Loop, Cupertino, CA 95014</street-address>
+    <geographic-location>37.331741,-122.030333</geographic-location>
+  </record>
+  <record type="address">
+    <short-name>il2</short-name>
+    <uid>2-infinite-loop</uid>
+    <full-name>Two Infinite Loop</full-name>
+    <street-address>2 Infinite Loop, Cupertino, CA 95014</street-address>
+    <geographic-location>37.332633,-122.030502</geographic-location>
+  </record>
+
+</directory>

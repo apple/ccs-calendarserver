@@ -88,12 +88,13 @@ class ConduitResource(ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildrenMix
         return False
 
 
+    @inlineCallbacks
     def principalForCalendarUserAddress(self, address):
         for principalCollection in self.principalCollections():
-            principal = principalCollection.principalForCalendarUserAddress(address)
+            principal = yield principalCollection.principalForCalendarUserAddress(address)
             if principal is not None:
-                return principal
-        return None
+                returnValue(principal)
+        returnValue(None)
 
 
     def render(self, request):
@@ -179,11 +180,13 @@ class ConduitResource(ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildrenMix
             davxml.Privilege(davxml.Read()),
         )
 
-        return davxml.ACL(
-            # DAV:Read for all principals (includes anonymous)
-            davxml.ACE(
-                davxml.Principal(davxml.All()),
-                davxml.Grant(*privs),
-                davxml.Protected(),
-            ),
+        return succeed(
+            davxml.ACL(
+                # DAV:Read for all principals (includes anonymous)
+                davxml.ACE(
+                    davxml.Principal(davxml.All()),
+                    davxml.Grant(*privs),
+                    davxml.Protected(),
+                ),
+            )
         )

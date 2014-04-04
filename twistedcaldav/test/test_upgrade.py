@@ -20,21 +20,22 @@ import zlib
 import cPickle
 
 from twisted.python.reflect import namedClass
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, succeed
 
 from txdav.xml.parser import WebDAVDocument
 from txdav.caldav.datastore.index_file import db_basename
 
 from twistedcaldav.config import config
-from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from txdav.caldav.datastore.scheduling.imip.mailgateway import MailGatewayTokensDatabase
 from twistedcaldav.upgrade import (
     xattrname, upgradeData, updateFreeBusySet,
-    removeIllegalCharacters, normalizeCUAddrs
+    removeIllegalCharacters, normalizeCUAddrs,
+    loadDelegatesFromXML, migrateDelegatesToStore
 )
-from twistedcaldav.test.util import TestCase
-from calendarserver.tools.util import getDirectory
+from twistedcaldav.test.util import StoreTestCase
+from txdav.who.delegates import delegatesOf
+from twistedcaldav.directory.calendaruserproxy import ProxySqliteDB
 
 
 
@@ -51,33 +52,18 @@ md5Attr = xattrname(
 OLDPROXYFILE = ".db.calendaruserproxy"
 NEWPROXYFILE = "proxies.sqlite"
 
-class UpgradeTests(TestCase):
 
-
-    def setUpXMLDirectory(self):
-        xmlFile = os.path.join(os.path.dirname(os.path.dirname(__file__)),
-            "directory", "test", "accounts.xml")
-        config.DirectoryService.params.xmlFile = xmlFile
-
-        xmlAugmentsFile = os.path.join(os.path.dirname(os.path.dirname(__file__)),
-            "directory", "test", "augments.xml")
-        config.AugmentService.type = "twistedcaldav.directory.augment.AugmentXMLDB"
-        config.AugmentService.params.xmlFiles = (xmlAugmentsFile,)
-
-        resourceFile = os.path.join(os.path.dirname(os.path.dirname(__file__)),
-            "directory", "test", "resources.xml")
-        config.ResourceService.params.xmlFile = resourceFile
+class UpgradeTests(StoreTestCase):
 
 
     def doUpgrade(self, config):
         """
         Perform the actual upgrade.  (Hook for parallel tests.)
         """
-        return upgradeData(config)
+        return upgradeData(config, self.directory)
 
 
     def setUpInitialStates(self):
-        self.setUpXMLDirectory()
 
         self.setUpOldDocRoot()
         self.setUpOldDocRootWithoutDB()
@@ -202,7 +188,7 @@ class UpgradeTests(TestCase):
         """
 
         self.setUpInitialStates()
-        directory = getDirectory()
+        directory = self.directory
 
         #
         # Verify these values require no updating:
@@ -210,18 +196,18 @@ class UpgradeTests(TestCase):
 
         # Uncompressed XML
         value = "<?xml version='1.0' encoding='UTF-8'?>\r\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/__uids__/BB05932F-DCE7-4195-9ED4-0896EAFF3B0B/calendar</href>\r\n</calendar-free-busy-set>\r\n"
-        self.assertEquals(updateFreeBusySet(value, directory), None)
+        self.assertEquals((yield updateFreeBusySet(value, directory)), None)
 
         # Zlib compressed XML
         value = "<?xml version='1.0' encoding='UTF-8'?>\r\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/__uids__/BB05932F-DCE7-4195-9ED4-0896EAFF3B0B/calendar</href>\r\n</calendar-free-busy-set>\r\n"
         value = zlib.compress(value)
-        self.assertEquals(updateFreeBusySet(value, directory), None)
+        self.assertEquals((yield updateFreeBusySet(value, directory)), None)
 
         # Pickled XML
         value = "<?xml version='1.0' encoding='UTF-8'?>\r\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/__uids__/BB05932F-DCE7-4195-9ED4-0896EAFF3B0B/calendar</href>\r\n</calendar-free-busy-set>\r\n"
         doc = WebDAVDocument.fromString(value)
         value = cPickle.dumps(doc.root_element)
-        self.assertEquals(updateFreeBusySet(value, directory), None)
+        self.assertEquals((yield updateFreeBusySet(value, directory)), None)
 
         #
         # Verify these values do require updating:
@@ -230,14 +216,14 @@ class UpgradeTests(TestCase):
 
         # Uncompressed XML
         value = "<?xml version='1.0' encoding='UTF-8'?>\r\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/users/wsanchez/calendar</href>\r\n</calendar-free-busy-set>\r\n"
-        newValue = updateFreeBusySet(value, directory)
+        newValue = yield updateFreeBusySet(value, directory)
         newValue = zlib.decompress(newValue)
         self.assertEquals(newValue, expected)
 
         # Zlib compressed XML
         value = "<?xml version='1.0' encoding='UTF-8'?>\r\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/users/wsanchez/calendar</href>\r\n</calendar-free-busy-set>\r\n"
         value = zlib.compress(value)
-        newValue = updateFreeBusySet(value, directory)
+        newValue = yield updateFreeBusySet(value, directory)
         newValue = zlib.decompress(newValue)
         self.assertEquals(newValue, expected)
 
@@ -245,7 +231,7 @@ class UpgradeTests(TestCase):
         value = "<?xml version='1.0' encoding='UTF-8'?>\r\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/users/wsanchez/calendar</href>\r\n</calendar-free-busy-set>\r\n"
         doc = WebDAVDocument.fromString(value)
         value = cPickle.dumps(doc.root_element)
-        newValue = updateFreeBusySet(value, directory)
+        newValue = yield updateFreeBusySet(value, directory)
         newValue = zlib.decompress(newValue)
         self.assertEquals(newValue, expected)
 
@@ -254,7 +240,7 @@ class UpgradeTests(TestCase):
         #
         expected = "<?xml version='1.0' encoding='UTF-8'?>\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'/>"
         value = "<?xml version='1.0' encoding='UTF-8'?>\r\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/users/nonexistent/calendar</href>\r\n</calendar-free-busy-set>\r\n"
-        newValue = updateFreeBusySet(value, directory)
+        newValue = yield updateFreeBusySet(value, directory)
         newValue = zlib.decompress(newValue)
         self.assertEquals(newValue, expected)
 
@@ -296,7 +282,6 @@ class UpgradeTests(TestCase):
         The upgrade process should remove unused notification directories in
         users' calendar homes, as well as the XML files found therein.
         """
-        self.setUpXMLDirectory()
 
         before = {
             "calendars": {
@@ -306,7 +291,7 @@ class UpgradeTests(TestCase):
                             db_basename : {
                                 "@contents": "",
                             },
-                         },
+                        },
                         "notifications": {
                             "sample-notification.xml": {
                                 "@contents": "<?xml version='1.0'>\n<should-be-ignored />"
@@ -352,8 +337,6 @@ class UpgradeTests(TestCase):
         Verify that calendar homes in the /calendars/<type>/<shortname>/ form
         are upgraded to /calendars/__uids__/XX/YY/<guid> form
         """
-
-        self.setUpXMLDirectory()
 
         before = {
             "calendars" :
@@ -503,8 +486,6 @@ class UpgradeTests(TestCase):
         whose records don't exist are moved into dataroot/archived/
         """
 
-        self.setUpXMLDirectory()
-
         before = {
             "calendars" :
             {
@@ -574,8 +555,6 @@ class UpgradeTests(TestCase):
         Verify that calendar homes in the /calendars/<type>/<shortname>/ form
         whose records don't exist are moved into dataroot/archived/
         """
-
-        self.setUpXMLDirectory()
 
         before = {
             "archived" :
@@ -662,8 +641,6 @@ class UpgradeTests(TestCase):
         as well as non-directory in a user's calendar home, will be ignored and not
         interrupt an upgrade.
         """
-
-        self.setUpXMLDirectory()
 
         ignoredUIDContents = {
             "64" : {
@@ -756,8 +733,6 @@ class UpgradeTests(TestCase):
         as well as non-directory in a user's calendar home, will be ignored and not
         interrupt an upgrade.
         """
-
-        self.setUpXMLDirectory()
 
         beforeUIDContents = {
             "64" : {
@@ -867,8 +842,6 @@ class UpgradeTests(TestCase):
         are upgraded to /calendars/__uids__/XX/YY/<guid>/ form
         """
 
-        self.setUpXMLDirectory()
-
         before = {
             "calendars" :
             {
@@ -977,8 +950,6 @@ class UpgradeTests(TestCase):
         Verify that calendar homes in the /calendars/__uids__/XX/YY/<guid>/
         form are upgraded correctly in place
         """
-
-        self.setUpXMLDirectory()
 
         before = {
             "calendars" :
@@ -1106,8 +1077,6 @@ class UpgradeTests(TestCase):
         form which require no changes are untouched
         """
 
-        self.setUpXMLDirectory()
-
         before = {
             "calendars" :
             {
@@ -1233,8 +1202,6 @@ class UpgradeTests(TestCase):
         Verify that inbox items older than 60 days are deleted
         """
 
-        self.setUpXMLDirectory()
-
         before = {
             "calendars" :
             {
@@ -1336,8 +1303,6 @@ class UpgradeTests(TestCase):
         Verify that a problem with one resource doesn't stop the process, but
         also doesn't write the new version file
         """
-
-        self.setUpXMLDirectory()
 
         before = {
             "calendars" :
@@ -1454,7 +1419,7 @@ class UpgradeTests(TestCase):
         self.setUpInitialStates()
         # Override the normal getResourceInfo method with our own:
         # XMLDirectoryService.getResourceInfo = _getResourceInfo
-        self.patch(XMLDirectoryService, "getResourceInfo", _getResourceInfo)
+        # self.patch(XMLDirectoryService, "getResourceInfo", _getResourceInfo)
 
         before = {
             "trigger_resource_migration" : {
@@ -1520,6 +1485,8 @@ class UpgradeTests(TestCase):
             autoSchedule = autoSchedule == 1
             self.assertEquals(info[0], autoSchedule)
 
+    test_migrateResourceInfo.todo = "Need to port to twext.who"
+
 
     def test_removeIllegalCharacters(self):
         """
@@ -1536,53 +1503,94 @@ class UpgradeTests(TestCase):
         self.assertFalse(changed)
 
 
+    @inlineCallbacks
     def test_normalizeCUAddrs(self):
         """
         Ensure that calendar user addresses (CUAs) are cached so we can
         reduce the number of principal lookup calls during upgrade.
         """
 
-        class StubPrincipal(object):
-            def __init__(self, record):
-                self.record = record
-
         class StubRecord(object):
-            def __init__(self, fullName, guid, cuas):
-                self.fullName = fullName
-                self.guid = guid
+            def __init__(self, fullNames, uid, cuas):
+                self.fullNames = fullNames
+                self.uid = uid
                 self.calendarUserAddresses = cuas
+
+            @property
+            def displayName(self):
+                return self.fullNames[0]
 
         class StubDirectory(object):
             def __init__(self):
                 self.count = 0
 
-            def principalForCalendarUserAddress(self, cuaddr):
+            def recordWithCalendarUserAddress(self, cuaddr):
                 self.count += 1
                 record = records.get(cuaddr, None)
                 if record is not None:
-                    return StubPrincipal(record)
+                    return succeed(record)
                 else:
                     raise Exception
 
         records = {
-            "mailto:a@example.com" :
-                StubRecord("User A", 123, ("mailto:a@example.com", "urn:uuid:123")),
-            "mailto:b@example.com" :
-                StubRecord("User B", 234, ("mailto:b@example.com", "urn:uuid:234")),
-            "/principals/users/a" :
-                StubRecord("User A", 123, ("mailto:a@example.com", "urn:uuid:123")),
-            "/principals/users/b" :
-                StubRecord("User B", 234, ("mailto:b@example.com", "urn:uuid:234")),
+            "mailto:a@example.com":
+                StubRecord(("User A",), u"123", ("mailto:a@example.com", "urn:uuid:123")),
+            "mailto:b@example.com":
+                StubRecord(("User B",), u"234", ("mailto:b@example.com", "urn:uuid:234")),
+            "/principals/users/a":
+                StubRecord(("User A",), u"123", ("mailto:a@example.com", "urn:uuid:123")),
+            "/principals/users/b":
+                StubRecord(("User B",), u"234", ("mailto:b@example.com", "urn:uuid:234")),
         }
 
         directory = StubDirectory()
         cuaCache = {}
-        normalizeCUAddrs(normalizeEvent, directory, cuaCache)
-        normalizeCUAddrs(normalizeEvent, directory, cuaCache)
+        yield normalizeCUAddrs(normalizeEvent, directory, cuaCache)
+        yield normalizeCUAddrs(normalizeEvent, directory, cuaCache)
 
         # Ensure we only called principalForCalendarUserAddress 3 times.  It
         # would have been 8 times without the cuaCache.
         self.assertEquals(directory.count, 3)
+
+
+    @inlineCallbacks
+    def test_migrateDelegates(self):
+        store = self.storeUnderTest()
+        record = yield self.directory.recordWithUID(u"mercury")
+        txn = store.newTransaction()
+        writeDelegates = yield delegatesOf(txn, record, True)
+        self.assertEquals(len(writeDelegates), 0)
+        yield txn.commit()
+
+        # Load delegates from xml into sqlite
+        sqliteProxyService = ProxySqliteDB("proxies.sqlite")
+        proxyFile = os.path.join(config.DataRoot, "proxies.xml")
+        yield loadDelegatesFromXML(proxyFile, sqliteProxyService)
+
+        # Load delegates from sqlite into store
+        yield migrateDelegatesToStore(sqliteProxyService, store)
+
+        # Check delegates in store
+        txn = store.newTransaction()
+        writeDelegates = yield delegatesOf(txn, record, True)
+        self.assertEquals(len(writeDelegates), 1)
+        self.assertEquals(
+            set([d.uid for d in writeDelegates]),
+            set([u"left_coast"])
+        )
+
+        record = yield self.directory.recordWithUID(u"non_calendar_proxy")
+
+        readDelegates = yield delegatesOf(txn, record, False)
+        self.assertEquals(len(readDelegates), 1)
+        self.assertEquals(
+            set([d.uid for d in readDelegates]),
+            set([u"recursive2_coasts"])
+        )
+
+        yield txn.commit()
+
+
 
 
 normalizeEvent = """BEGIN:VCALENDAR

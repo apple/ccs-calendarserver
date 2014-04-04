@@ -19,20 +19,34 @@ from txweb2.dav.util import davXMLFromStream
 from txweb2.iweb import IResponse
 from txweb2.stream import MemoryStream
 
+from twisted.internet.defer import inlineCallbacks
+
 from twistedcaldav import caldavxml
 from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest
 
 from txdav.xml import element as davxml
 
+from twext.who.idirectory import RecordType
+
+
+
 class Properties(StoreTestCase):
     """
     CalDAV properties
     """
+
+    @inlineCallbacks
+    def setUp(self):
+        yield StoreTestCase.setUp(self)
+        self.authRecord = yield self.directory.recordWithShortName(RecordType.user, u"user01")
+
+
     def test_live_props(self):
         """
         Live CalDAV properties
         """
         calendar_uri = "/calendars/users/user01/test/"
+
 
         def mkcalendar_cb(response):
             response = IResponse(response)
@@ -123,24 +137,24 @@ class Properties(StoreTestCase):
                 return davXMLFromStream(response.stream).addCallback(got_xml)
 
             query = davxml.PropertyFind(
-                        davxml.PropertyContainer(
-                            caldavxml.SupportedCalendarData(),
-                            caldavxml.SupportedCalendarComponentSet(),
-                            davxml.SupportedReportSet(),
-                        ),
-                    )
+                davxml.PropertyContainer(
+                    caldavxml.SupportedCalendarData(),
+                    caldavxml.SupportedCalendarComponentSet(),
+                    davxml.SupportedReportSet(),
+                ),
+            )
 
             request = SimpleStoreRequest(
                 self,
                 "PROPFIND",
                 calendar_uri,
                 headers=http_headers.Headers({"Depth": "0"}),
-                authid="user01",
+                authRecord=self.authRecord,
             )
             request.stream = MemoryStream(query.toxml())
             return self.send(request, propfind_cb)
 
-        request = SimpleStoreRequest(self, "MKCALENDAR", calendar_uri, authid="user01")
+        request = SimpleStoreRequest(self, "MKCALENDAR", calendar_uri, authRecord=self.authRecord)
         return self.send(request, mkcalendar_cb)
 
 
@@ -207,10 +221,10 @@ class Properties(StoreTestCase):
                 "PROPFIND",
                 calendar_uri,
                 headers=http_headers.Headers({"Depth": "0"}),
-                authid="user01",
+                authRecord=self.authRecord,
             )
             request.stream = MemoryStream(query.toxml())
             return self.send(request, propfind_cb)
 
-        request = SimpleStoreRequest(self, "MKCALENDAR", calendar_uri, authid="user01")
+        request = SimpleStoreRequest(self, "MKCALENDAR", calendar_uri, authRecord=self.authRecord)
         return self.send(request, mkcalendar_cb)

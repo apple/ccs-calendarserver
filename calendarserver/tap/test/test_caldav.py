@@ -28,12 +28,11 @@ from twisted.python import log as logging
 from twisted.python.threadable import isInIOThread
 from twisted.internet.reactor import callFromThread
 from twisted.python.usage import Options, UsageError
-from twisted.python.reflect import namedAny
 from twisted.python.procutils import which
 
 from twisted.internet.interfaces import IProcessTransport, IReactorProcess
 from twisted.internet.protocol import ServerFactory
-from twisted.internet.defer import Deferred, inlineCallbacks, passthru, succeed
+from twisted.internet.defer import Deferred, inlineCallbacks, succeed
 from twisted.internet.task import Clock
 from twisted.internet import reactor
 from twisted.application.service import (IService, IServiceCollection,
@@ -42,15 +41,15 @@ from twisted.application import internet
 
 from twext.python.log import Logger
 from twext.python.filepath import CachingFilePath as FilePath
-from plistlib import writePlist #@UnresolvedImport
+from plistlib import writePlist  # @UnresolvedImport
 from txweb2.dav import auth
 from txweb2.log import LogWrapperResource
 from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 
 from twistedcaldav.config import config, ConfigDict, ConfigurationError
+from twistedcaldav.resource import AuthenticationWrapper
 from twistedcaldav.stdconfig import DEFAULT_CONFIG
 
-from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 
@@ -178,7 +177,7 @@ class TestCalDAVOptions (CalDAVOptions):
 
 
 
-class CalDAVOptionsTest (StoreTestCase):
+class CalDAVOptionsTest(StoreTestCase):
     """
     Test various parameters of our usage.Options subclass
     """
@@ -304,111 +303,6 @@ class CalDAVOptionsTest (StoreTestCase):
 
 
 
-class BaseServiceMakerTests(StoreTestCase):
-    """
-    Utility class for ServiceMaker tests.
-    """
-    configOptions = None
-
-    @inlineCallbacks
-    def setUp(self):
-        yield super(BaseServiceMakerTests, self).setUp()
-        self.options = TestCalDAVOptions()
-        self.options.parent = Options()
-        self.options.parent["gid"] = None
-        self.options.parent["uid"] = None
-        self.options.parent["nodaemon"] = None
-
-        self.config = ConfigDict(DEFAULT_CONFIG)
-
-        accountsFile = os.path.join(sourceRoot, "twistedcaldav/directory/test/accounts.xml")
-        resourcesFile = os.path.join(sourceRoot, "twistedcaldav/directory/test/resources.xml")
-        augmentsFile = os.path.join(sourceRoot, "twistedcaldav/directory/test/augments.xml")
-        pemFile = os.path.join(sourceRoot, "twistedcaldav/test/data/server.pem")
-
-        self.config["DirectoryService"] = {
-            "params": {"xmlFile": accountsFile},
-            "type": "twistedcaldav.directory.xmlfile.XMLDirectoryService"
-        }
-
-        self.config["ResourceService"] = {
-            "params": {"xmlFile": resourcesFile},
-        }
-
-        self.config["AugmentService"] = {
-            "params": {"xmlFiles": [augmentsFile]},
-            "type": "twistedcaldav.directory.augment.AugmentXMLDB"
-        }
-
-        self.config.UseDatabase = False
-        self.config.ServerRoot = self.mktemp()
-        self.config.ConfigRoot = "config"
-        self.config.ProcessType = "Single"
-        self.config.SSLPrivateKey = pemFile
-        self.config.SSLCertificate = pemFile
-        self.config.EnableSSL = True
-        self.config.Memcached.Pools.Default.ClientEnabled = False
-        self.config.Memcached.Pools.Default.ServerEnabled = False
-        self.config.DirectoryAddressBook.Enabled = False
-        self.config.UsePackageTimezones = True
-
-        if self.configOptions:
-            self.config.update(self.configOptions)
-
-        os.mkdir(self.config.ServerRoot)
-        os.mkdir(os.path.join(self.config.ServerRoot, self.config.DocumentRoot))
-        os.mkdir(os.path.join(self.config.ServerRoot, self.config.DataRoot))
-        os.mkdir(os.path.join(self.config.ServerRoot, self.config.ConfigRoot))
-
-        self.configFile = self.mktemp()
-
-        self.writeConfig()
-
-
-    def tearDown(self):
-        config.setDefaults(DEFAULT_CONFIG)
-        config.reset()
-
-
-    def writeConfig(self):
-        """
-        Flush self.config out to self.configFile
-        """
-        writePlist(self.config, self.configFile)
-
-
-    def makeService(self, patcher=passthru):
-        """
-        Create a service by calling into CalDAVServiceMaker with
-        self.configFile
-        """
-        self.options.parseOptions(["-f", self.configFile])
-
-        maker = CalDAVServiceMaker()
-        maker = patcher(maker)
-        return maker.makeService(self.options)
-
-
-    def getSite(self):
-        """
-        Get the server.Site from the service by finding the HTTPFactory.
-        """
-        service = self.makeService()
-        for listeningService in inServiceHierarchy(
-                service,
-                # FIXME: need a better predicate for 'is this really an HTTP
-                # factory' but this works for now.
-                # NOTE: in a database 'single' configuration, PostgresService
-                # will prevent the HTTP services from actually getting added to
-                # the hierarchy until the hierarchy has started.
-                # 'underlyingSite' assigned in caldav.py
-                lambda x: hasattr(x, 'underlyingSite')
-            ):
-            return listeningService.underlyingSite
-        raise RuntimeError("No site found.")
-
-
-
 def inServiceHierarchy(svc, predicate):
     """
     Find services in the service collection which satisfy the given predicate.
@@ -452,27 +346,63 @@ class SocketGroupOwnership(StoreTestCase):
 
 
 
-class CalDAVServiceMakerTests(BaseServiceMakerTests):
-    """
-    Test the service maker's behavior
-    """
+# Tests for the various makeService_ flavors:
 
-    def test_makeServiceDispatcher(self):
-        """
-        Test the default options of the dispatching makeService
-        """
-        validServices = ["Slave", "Combined"]
+class CalDAVServiceMakerTestBase(StoreTestCase):
 
-        self.config["HTTPPort"] = 0
+    @inlineCallbacks
+    def setUp(self):
+        yield super(CalDAVServiceMakerTestBase, self).setUp()
+        self.options = TestCalDAVOptions()
+        self.options.parent = Options()
+        self.options.parent["gid"] = None
+        self.options.parent["uid"] = None
+        self.options.parent["nodaemon"] = None
 
-        for service in validServices:
-            self.config["ProcessType"] = service
-            self.writeConfig()
-            self.makeService()
 
-        self.config["ProcessType"] = "Unknown Service"
-        self.writeConfig()
-        self.assertRaises(UsageError, self.makeService)
+class CalDAVServiceMakerTestSingle(CalDAVServiceMakerTestBase):
+
+    def configure(self):
+        super(CalDAVServiceMakerTestSingle, self).configure()
+        config.ProcessType = "Single"
+
+    def test_makeService(self):
+        CalDAVServiceMaker().makeService(self.options)
+        # No error
+
+
+class CalDAVServiceMakerTestSlave(CalDAVServiceMakerTestBase):
+
+    def configure(self):
+        super(CalDAVServiceMakerTestSlave, self).configure()
+        config.ProcessType = "Slave"
+
+    def test_makeService(self):
+        CalDAVServiceMaker().makeService(self.options)
+        # No error
+
+
+class CalDAVServiceMakerTestUnknown(CalDAVServiceMakerTestBase):
+
+    def configure(self):
+        super(CalDAVServiceMakerTestUnknown, self).configure()
+        config.ProcessType = "Unknown"
+
+    def test_makeService(self):
+        self.assertRaises(UsageError, CalDAVServiceMaker().makeService, self.options)
+        # error
+
+
+
+class ModesOnUNIXSocketsTests(CalDAVServiceMakerTestBase):
+
+    def configure(self):
+        super(ModesOnUNIXSocketsTests, self).configure()
+        config.ProcessType = "Combined"
+        config.HTTPPort = 0
+        self.alternateGroup = determineAppropriateGroupID()
+        config.GroupName = grp.getgrgid(self.alternateGroup).gr_name
+        config.Stats.EnableUnixStatsSocket = True
 
 
     def test_modesOnUNIXSockets(self):
@@ -481,15 +411,7 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
         'Combined' service hierarchy should have a secure mode specified: only
         the executing user should be able to open and send to them.
         """
-
-        self.config["HTTPPort"] = 0 # Don't conflict with the test above.
-        alternateGroup = determineAppropriateGroupID()
-        self.config.GroupName = grp.getgrgid(alternateGroup).gr_name
-
-        self.config["ProcessType"] = "Combined"
-        self.config.Stats.EnableUnixStatsSocket = True
-        self.writeConfig()
-        svc = self.makeService()
+        svc = CalDAVServiceMaker().makeService(self.options)
         for serviceName in [_CONTROL_SERVICE_NAME]:
             socketService = svc.getServiceNamed(serviceName)
             self.assertIsInstance(socketService, GroupOwnedUNIXServer)
@@ -498,7 +420,7 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
                 m, int("660", 8),
                 "Wrong mode on %s: %s" % (serviceName, oct(m))
             )
-            self.assertEquals(socketService.gid, alternateGroup)
+            self.assertEquals(socketService.gid, self.alternateGroup)
         for serviceName in ["unix-stats"]:
             socketService = svc.getServiceNamed(serviceName)
             self.assertIsInstance(socketService, GroupOwnedUNIXServer)
@@ -507,8 +429,14 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
                 m, int("660", 8),
                 "Wrong mode on %s: %s" % (serviceName, oct(m))
             )
-            self.assertEquals(socketService.gid, alternateGroup)
+            self.assertEquals(socketService.gid, self.alternateGroup)
 
+
+class ProcessMonitorTests(CalDAVServiceMakerTestBase):
+
+    def configure(self):
+        super(ProcessMonitorTests, self).configure()
+        config.ProcessType = "Combined"
 
     def test_processMonitor(self):
         """
@@ -516,16 +444,22 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
         L{DelayedStartupProcessMonitor} in the service hierarchy so that it
         will be started by startup.
         """
-        self.config["ProcessType"] = "Combined"
-        self.writeConfig()
         self.assertEquals(
             1,
             len(
                 list(inServiceHierarchy(
-                    self.makeService(),
+                    CalDAVServiceMaker().makeService(self.options),
                     lambda x: isinstance(x, DelayedStartupProcessMonitor)))
             )
         )
+
+
+
+class StoreQueuerSetInMasterTests(CalDAVServiceMakerTestBase):
+
+    def configure(self):
+        super(StoreQueuerSetInMasterTests, self).configure()
+        config.ProcessType = "Combined"
 
 
     def test_storeQueuerSetInMaster(self):
@@ -534,57 +468,80 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
         L{PeerConnectionPool}, so that work can be distributed to other
         processes.
         """
-        self.config["ProcessType"] = "Combined"
-        self.writeConfig()
         class NotAStore(object):
             queuer = LocalQueuer(None)
+
             def __init__(self, directory):
                 self.directory = directory
+
             def newTransaction(self):
                 return None
+
             def callWithNewTransactions(self, x):
                 pass
+
             def directoryService(self):
                 return self.directory
+
+
         store = NotAStore(self.directory)
+
+
         def something(proposal):
             pass
+
         store.queuer.callWithNewProposals(something)
+
+
         def patch(maker):
             def storageServiceStandIn(createMainService, logObserver,
-                                      uid=None, gid=None):
+                                      uid=None, gid=None, directory=None):
                 pool = None
                 logObserver = None
                 storageService = None
-                svc = createMainService(pool, store, logObserver,
-                    storageService)
+                svc = createMainService(
+                    pool, store, logObserver, storageService
+                )
                 multi = MultiService()
                 svc.setServiceParent(multi)
                 return multi
             self.patch(maker, "storageService", storageServiceStandIn)
             return maker
-        self.makeService(patch)
+
+        maker = CalDAVServiceMaker()
+        maker = patch(maker)
+        maker.makeService(self.options)
         self.assertIsInstance(store.queuer, PeerConnectionPool)
         self.assertIn(something, store.queuer.proposalCallbacks)
 
 
 
-class SlaveServiceTest(BaseServiceMakerTests):
+
+
+
+
+class SlaveServiceTests(CalDAVServiceMakerTestBase):
     """
     Test various configurations of the Slave service
     """
 
-    configOptions = {
-        "HTTPPort": 8008,
-        "SSLPort": 8443,
-    }
+    def configure(self):
+        super(SlaveServiceTests, self).configure()
+        config.ProcessType = "Slave"
+        config.HTTPPort = 8008
+        config.SSLPort = 8443
+        pemFile = os.path.join(sourceRoot, "twistedcaldav/test/data/server.pem")
+        config.SSLPrivateKey = pemFile
+        config.SSLCertificate = pemFile
+        config.EnableSSL = True
+
 
     def test_defaultService(self):
         """
         Test the value of a Slave service in it's simplest
         configuration.
         """
-        service = self.makeService()
+        service = CalDAVServiceMaker().makeService(self.options)
 
         self.failUnless(
             IService(service),
@@ -606,11 +563,12 @@ class SlaveServiceTest(BaseServiceMakerTests):
         default TCP and SSL configuration
         """
         # Note: the listeners are bundled within a MultiService named "ConnectionService"
-        service = self.makeService().getServiceNamed(CalDAVService.connectionServiceName)
+        service = CalDAVServiceMaker().makeService(self.options)
+        service = service.getServiceNamed(CalDAVService.connectionServiceName)
 
         expectedSubServices = dict((
-            (MaxAcceptTCPServer, self.config["HTTPPort"]),
-            (MaxAcceptSSLServer, self.config["SSLPort"]),
+            (MaxAcceptTCPServer, config.HTTPPort),
+            (MaxAcceptSSLServer, config.SSLPort),
         ))
 
         configuredSubServices = [(s.__class__, getattr(s, 'args', None))
@@ -632,7 +590,9 @@ class SlaveServiceTest(BaseServiceMakerTests):
         Test that the configuration of the SSLServer reflect the config file's
         SSL Private Key and SSL Certificate
         """
-        service = self.makeService().getServiceNamed(CalDAVService.connectionServiceName)
+        # Note: the listeners are bundled within a MultiService named "ConnectionService"
+        service = CalDAVServiceMaker().makeService(self.options)
+        service = service.getServiceNamed(CalDAVService.connectionServiceName)
 
         sslService = None
         for s in service.services:
@@ -645,24 +605,35 @@ class SlaveServiceTest(BaseServiceMakerTests):
         context = sslService.args[2]
 
         self.assertEquals(
-            self.config["SSLPrivateKey"],
+            config.SSLPrivateKey,
             context.privateKeyFileName
         )
         self.assertEquals(
-            self.config["SSLCertificate"],
+            config.SSLCertificate,
             context.certificateFileName,
         )
 
+
+
+class NoSSLTests(CalDAVServiceMakerTestBase):
+
+    def configure(self):
+        super(NoSSLTests, self).configure()
+        config.ProcessType = "Slave"
+        config.HTTPPort = 8008
+        # pemFile = os.path.join(sourceRoot, "twistedcaldav/test/data/server.pem")
+        # config.SSLPrivateKey = pemFile
+        # config.SSLCertificate = pemFile
+        # config.EnableSSL = True
 
     def test_noSSL(self):
         """
         Test the single service to make sure there is no SSL Service when SSL
         is disabled
         """
-        del self.config["SSLPort"]
-        self.writeConfig()
-
-        service = self.makeService().getServiceNamed(CalDAVService.connectionServiceName)
+        # Note: the listeners are bundled within a MultiService named "ConnectionService"
+        service = CalDAVServiceMaker().makeService(self.options)
+        service = service.getServiceNamed(CalDAVService.connectionServiceName)
 
         self.assertNotIn(
             internet.SSLServer,
@@ -670,15 +641,25 @@ class SlaveServiceTest(BaseServiceMakerTests):
         )
 
 
+class NoHTTPTests(CalDAVServiceMakerTestBase):
+
+    def configure(self):
+        super(NoHTTPTests, self).configure()
+        config.ProcessType = "Slave"
+        config.SSLPort = 8443
+        pemFile = os.path.join(sourceRoot, "twistedcaldav/test/data/server.pem")
+        config.SSLPrivateKey = pemFile
+        config.SSLCertificate = pemFile
+        config.EnableSSL = True
+
     def test_noHTTP(self):
         """
         Test the single service to make sure there is no TCPServer when
         HTTPPort is not configured
         """
-        del self.config["HTTPPort"]
-        self.writeConfig()
-
-        service = self.makeService().getServiceNamed(CalDAVService.connectionServiceName)
+        # Note: the listeners are bundled within a MultiService named "ConnectionService"
+        service = CalDAVServiceMaker().makeService(self.options)
+        service = service.getServiceNamed(CalDAVService.connectionServiceName)
 
         self.assertNotIn(
             internet.TCPServer,
@@ -686,33 +667,52 @@ class SlaveServiceTest(BaseServiceMakerTests):
         )
 
 
+class SingleBindAddressesTests(CalDAVServiceMakerTestBase):
+
+    def configure(self):
+        super(SingleBindAddressesTests, self).configure()
+        config.ProcessType = "Slave"
+        config.HTTPPort = 8008
+        config.BindAddresses = ["127.0.0.1"]
+
     def test_singleBindAddresses(self):
         """
         Test that the TCPServer and SSLServers are bound to the proper address
         """
-        self.config.BindAddresses = ["127.0.0.1"]
-        self.writeConfig()
-
-        service = self.makeService().getServiceNamed(CalDAVService.connectionServiceName)
+        # Note: the listeners are bundled within a MultiService named "ConnectionService"
+        service = CalDAVServiceMaker().makeService(self.options)
+        service = service.getServiceNamed(CalDAVService.connectionServiceName)
 
         for s in service.services:
             if isinstance(s, (internet.TCPServer, internet.SSLServer)):
                 self.assertEquals(s.kwargs["interface"], "127.0.0.1")
 
 
-    def test_multipleBindAddresses(self):
-        """
-        Test that the TCPServer and SSLServers are bound to the proper
-        addresses.
-        """
-        self.config.BindAddresses = [
+class MultipleBindAddressesTests(CalDAVServiceMakerTestBase):
+
+    def configure(self):
+        super(MultipleBindAddressesTests, self).configure()
+        config.ProcessType = "Slave"
+        config.HTTPPort = 8008
+        config.SSLPort = 8443
+        pemFile = os.path.join(sourceRoot, "twistedcaldav/test/data/server.pem")
+        config.SSLPrivateKey = pemFile
+        config.SSLCertificate = pemFile
+        config.EnableSSL = True
+        config.BindAddresses = [
             "127.0.0.1",
             "10.0.0.2",
             "172.53.13.123",
         ]
 
-        self.writeConfig()
-        service = self.makeService().getServiceNamed(CalDAVService.connectionServiceName)
+    def test_multipleBindAddresses(self):
+        """
+        Test that the TCPServer and SSLServers are bound to the proper
+        addresses.
+        """
+        # Note: the listeners are bundled within a MultiService named "ConnectionService"
+        service = CalDAVServiceMaker().makeService(self.options)
+        service = service.getServiceNamed(CalDAVService.connectionServiceName)
 
         tcpServers = []
         sslServers = []
@@ -723,10 +723,10 @@ class SlaveServiceTest(BaseServiceMakerTests):
             elif isinstance(s, internet.SSLServer):
                 sslServers.append(s)
 
-        self.assertEquals(len(tcpServers), len(self.config.BindAddresses))
-        self.assertEquals(len(sslServers), len(self.config.BindAddresses))
+        self.assertEquals(len(tcpServers), len(config.BindAddresses))
+        self.assertEquals(len(sslServers), len(config.BindAddresses))
 
-        for addr in self.config.BindAddresses:
+        for addr in config.BindAddresses:
             for s in tcpServers:
                 if s.kwargs["interface"] == addr:
                     tcpServers.remove(s)
@@ -739,13 +739,32 @@ class SlaveServiceTest(BaseServiceMakerTests):
         self.assertEquals(len(sslServers), 0)
 
 
+
+class ListenBacklogTests(CalDAVServiceMakerTestBase):
+
+    def configure(self):
+        super(ListenBacklogTests, self).configure()
+        config.ProcessType = "Slave"
+        config.ListenBacklog = 1024
+        config.HTTPPort = 8008
+        config.SSLPort = 8443
+        pemFile = os.path.join(sourceRoot, "twistedcaldav/test/data/server.pem")
+        config.SSLPrivateKey = pemFile
+        config.SSLCertificate = pemFile
+        config.EnableSSL = True
+        config.BindAddresses = [
+            "127.0.0.1",
+            "10.0.0.2",
+            "172.53.13.123",
+        ]
+
     def test_listenBacklog(self):
         """
         Test that the backlog arguments is set in TCPServer and SSLServers
         """
-        self.config.ListenBacklog = 1024
-        self.writeConfig()
-        service = self.makeService().getServiceNamed(CalDAVService.connectionServiceName)
+        # Note: the listeners are bundled within a MultiService named "ConnectionService"
+        service = CalDAVServiceMaker().makeService(self.options)
+        service = service.getServiceNamed(CalDAVService.connectionServiceName)
 
         for s in service.services:
             if isinstance(s, (internet.TCPServer, internet.SSLServer)):
@@ -753,31 +772,30 @@ class SlaveServiceTest(BaseServiceMakerTests):
 
 
 
-class ServiceHTTPFactoryTests(BaseServiceMakerTests):
-    """
-    Test the configuration of the initial resource hierarchy of the
-    single service
-    """
-    configOptions = {"HTTPPort": 8008}
+class AuthWrapperAllEnabledTests(CalDAVServiceMakerTestBase):
+
+    def configure(self):
+        super(AuthWrapperAllEnabledTests, self).configure()
+        config.HTTPPort = 8008
+        config.Authentication.Digest.Enabled = True
+        config.Authentication.Kerberos.Enabled = True
+        config.Authentication.Kerberos.ServicePrincipal = "http/hello@bob"
+        config.Authentication.Basic.Enabled = True
+
 
     def test_AuthWrapperAllEnabled(self):
         """
         Test the configuration of the authentication wrapper
         when all schemes are enabled.
         """
-        self.config.Authentication.Digest.Enabled = True
-        self.config.Authentication.Kerberos.Enabled = True
-        self.config.Authentication.Kerberos.ServicePrincipal = "http/hello@bob"
-        self.config.Authentication.Basic.Enabled = True
 
-        self.writeConfig()
-        site = self.getSite()
-
-        self.failUnless(isinstance(
-                site.resource.resource,
-                auth.AuthenticationWrapper))
-
-        authWrapper = site.resource.resource
+        authWrapper = self.rootResource.resource
+        self.failUnless(
+            isinstance(
+                authWrapper,
+                auth.AuthenticationWrapper
+            )
+        )
 
         expectedSchemes = ["negotiate", "digest", "basic"]
 
@@ -787,36 +805,39 @@ class ServiceHTTPFactoryTests(BaseServiceMakerTests):
         self.assertEquals(len(expectedSchemes),
                           len(authWrapper.credentialFactories))
 
+        ncf = authWrapper.credentialFactories["negotiate"]
+
+        self.assertEquals(ncf.service, "http@HELLO")
+        self.assertEquals(ncf.realm, "bob")
+
+
+
+class ServicePrincipalNoneTests(CalDAVServiceMakerTestBase):
+
+    def configure(self):
+        super(ServicePrincipalNoneTests, self).configure()
+        config.HTTPPort = 8008
+        config.Authentication.Digest.Enabled = True
+        config.Authentication.Kerberos.Enabled = True
+        config.Authentication.Kerberos.ServicePrincipal = ""
+        config.Authentication.Basic.Enabled = True
 
     def test_servicePrincipalNone(self):
         """
         Test that the Kerberos principal look is attempted if the principal is empty.
         """
-        self.config.Authentication.Kerberos.ServicePrincipal = ""
-        self.config.Authentication.Kerberos.Enabled = True
-        self.writeConfig()
-        site = self.getSite()
-
-        authWrapper = site.resource.resource
-
+        authWrapper = self.rootResource.resource
         self.assertFalse("negotiate" in authWrapper.credentialFactories)
 
 
-    def test_servicePrincipal(self):
-        """
-        Test that the kerberos realm is the realm portion of a principal
-        in the form proto/host@realm
-        """
-        self.config.Authentication.Kerberos.ServicePrincipal = "http/hello@bob"
-        self.config.Authentication.Kerberos.Enabled = True
-        self.writeConfig()
-        site = self.getSite()
 
-        authWrapper = site.resource.resource
-        ncf = authWrapper.credentialFactories["negotiate"]
+class AuthWrapperPartialEnabledTests(CalDAVServiceMakerTestBase):
 
-        self.assertEquals(ncf.service, "http@HELLO")
-        self.assertEquals(ncf.realm, "bob")
+    def configure(self):
+        super(AuthWrapperPartialEnabledTests, self).configure()
+        config.Authentication.Digest.Enabled = True
+        config.Authentication.Kerberos.Enabled = False
+        config.Authentication.Basic.Enabled = False
 
 
     def test_AuthWrapperPartialEnabled(self):
@@ -826,14 +847,7 @@ class ServiceHTTPFactoryTests(BaseServiceMakerTests):
         enabled.
         """
 
-        self.config.Authentication.Basic.Enabled = False
-        self.config.Authentication.Kerberos.Enabled = False
-
-        self.writeConfig()
-        site = self.getSite()
-
-        authWrapper = site.resource.resource
-
+        authWrapper = self.rootResource.resource
         expectedSchemes = ["digest"]
 
         for scheme in authWrapper.credentialFactories:
@@ -845,99 +859,64 @@ class ServiceHTTPFactoryTests(BaseServiceMakerTests):
         )
 
 
+
+
+
+class ResourceTests(CalDAVServiceMakerTestBase):
+
     def test_LogWrapper(self):
         """
         Test the configuration of the log wrapper
         """
-        site = self.getSite()
+        self.failUnless(isinstance(self.rootResource, LogWrapperResource))
 
-        self.failUnless(isinstance(
-                site.resource,
-                LogWrapperResource))
+
+    def test_AuthWrapper(self):
+        """
+        Test the configuration of the auth wrapper
+        """
+        self.failUnless(isinstance(self.rootResource.resource, AuthenticationWrapper))
 
 
     def test_rootResource(self):
         """
         Test the root resource
         """
-        site = self.getSite()
-        root = site.resource.resource.resource
-
-        self.failUnless(isinstance(root, RootResource))
+        self.failUnless(isinstance(self.rootResource.resource.resource, RootResource))
 
 
+    @inlineCallbacks
     def test_principalResource(self):
         """
         Test the principal resource
         """
-        site = self.getSite()
-        root = site.resource.resource.resource
-
         self.failUnless(isinstance(
-            root.getChild("principals"),
+            (yield self.actualRoot.getChild("principals")),
             DirectoryPrincipalProvisioningResource
         ))
 
 
+    @inlineCallbacks
     def test_calendarResource(self):
         """
         Test the calendar resource
         """
-        site = self.getSite()
-        root = site.resource.resource.resource
-
         self.failUnless(isinstance(
-            root.getChild("calendars"),
+            (yield self.actualRoot.getChild("calendars")),
             DirectoryCalendarHomeProvisioningResource
         ))
 
 
-
-class DirectoryServiceTest(BaseServiceMakerTests):
-    """
-    Tests of the directory service
-    """
-
-    configOptions = {"HTTPPort": 8008}
-
+    @inlineCallbacks
     def test_sameDirectory(self):
         """
         Test that the principal hierarchy has a reference
         to the same DirectoryService as the calendar hierarchy
         """
-        site = self.getSite()
-        principals = site.resource.resource.resource.getChild("principals")
-        calendars = site.resource.resource.resource.getChild("calendars")
+        principals = yield self.actualRoot.getChild("principals")
+        calendars = yield self.actualRoot.getChild("calendars")
 
         self.assertEquals(principals.directory, calendars.directory)
-
-
-    def test_aggregateDirectory(self):
-        """
-        Assert that the base directory service is actually
-        an AggregateDirectoryService
-        """
-        site = self.getSite()
-        principals = site.resource.resource.resource.getChild("principals")
-        directory = principals.directory
-
-        self.failUnless(isinstance(directory, AggregateDirectoryService))
-
-
-    def test_configuredDirectoryService(self):
-        """
-        Test that the real directory service is the directory service
-        set in the configuration file.
-        """
-        site = self.getSite()
-        principals = site.resource.resource.resource.getChild("principals")
-        directory = principals.directory
-
-        realDirectory = directory.serviceForRecordType("users")
-
-        configuredDirectory = namedAny(self.config.DirectoryService.type)
-
-        self.failUnless(isinstance(realDirectory, configuredDirectory))
 
 
 
@@ -1012,9 +991,13 @@ class DelayedStartupProcessMonitorTests(StoreTestCase):
         at once, to avoid resource exhaustion.
         """
         dspm = DelayedStartupProcessMonitor()
-        dspm.addProcessObject(ScriptProcessObject(
-                'longlines.py', str(DelayedStartupLineLogger.MAX_LENGTH)),
-                          os.environ)
+        dspm.addProcessObject(
+            ScriptProcessObject(
+                'longlines.py',
+                str(DelayedStartupLineLogger.MAX_LENGTH)
+            ),
+            os.environ
+        )
         dspm.startService()
         self.addCleanup(dspm.stopService)
 
@@ -1038,10 +1021,11 @@ class DelayedStartupProcessMonitorTests(StoreTestCase):
         logging.addObserver(tempObserver)
         self.addCleanup(logging.removeObserver, tempObserver)
         d = Deferred()
+
         def assertions(result):
             self.assertEquals(["[Dummy] x",
                                "[Dummy] y",
-                               "[Dummy] y", # final segment
+                               "[Dummy] y",  # final segment
                                "[Dummy] z"],
                               [''.join(evt['message'])[:len('[Dummy]') + 2]
                                for evt in logged])
@@ -1066,20 +1050,27 @@ class DelayedStartupProcessMonitorTests(StoreTestCase):
             ("a", ["a"]),
             ("abcde", ["abcde"]),
             ("abcdefghij", ["abcdefghij"]),
-            ("abcdefghijk",
-                ["abcdefghij (truncated, continued)",
-                 "k"
+            (
+                "abcdefghijk",
+                [
+                    "abcdefghij (truncated, continued)",
+                    "k"
                 ]
             ),
-            ("abcdefghijklmnopqrst",
-                ["abcdefghij (truncated, continued)",
-                 "klmnopqrst"
+            (
+                "abcdefghijklmnopqrst",
+                [
+                    "abcdefghij (truncated, continued)",
+                    "klmnopqrst"
                 ]
             ),
-            ("abcdefghijklmnopqrstuv",
-                ["abcdefghij (truncated, continued)",
-                 "klmnopqrst (truncated, continued)",
-                 "uv"]
+            (
+                "abcdefghijklmnopqrstuv",
+                [
+                    "abcdefghij (truncated, continued)",
+                    "klmnopqrst (truncated, continued)",
+                    "uv"
+                ]
             ),
         ]:
             self.assertEquals(output, testLogger._breakLineIntoSegments(input))
@@ -1282,9 +1273,10 @@ class ReExecServiceTests(StoreTestCase):
         twistd = which("twistd")[0]
         deferred = Deferred()
         proc = reactor.spawnProcess(
-            CapturingProcessProtocol(deferred, None), twistd,
-                [twistd, reactorArg, '-n', '-y', tacFilePath],
-                env=os.environ
+            CapturingProcessProtocol(deferred, None),
+            twistd,
+            [twistd, reactorArg, '-n', '-y', tacFilePath],
+            env=os.environ
         )
         reactor.callLater(3, proc.signalProcess, "HUP")
         reactor.callLater(6, proc.signalProcess, "TERM")
@@ -1325,14 +1317,15 @@ class SystemIDsTests(StoreTestCase):
         def _getgid():
             return 45
 
-        return type(getSystemIDs)(getSystemIDs.func_code,
+        return type(getSystemIDs)(
+            getSystemIDs.func_code,
             {
-                "getpwnam" : _getpwnam,
-                "getgrnam" : _getgrnam,
-                "getuid" : _getuid,
-                "getgid" : _getgid,
-                "KeyError" : KeyError,
-                "ConfigurationError" : ConfigurationError,
+                "getpwnam": _getpwnam,
+                "getgrnam": _getgrnam,
+                "getuid": _getuid,
+                "getgid": _getgid,
+                "KeyError": KeyError,
+                "ConfigurationError": ConfigurationError,
             }
         )
 
@@ -1342,8 +1335,10 @@ class SystemIDsTests(StoreTestCase):
         If userName is passed in but is not found on the system, raise a
         ConfigurationError
         """
-        self.assertRaises(ConfigurationError, self._wrappedFunction(),
-            "nonexistent", "exists")
+        self.assertRaises(
+            ConfigurationError, self._wrappedFunction(),
+            "nonexistent", "exists"
+        )
 
 
     def test_getSystemIDs_GroupNameNotFound(self):
@@ -1351,8 +1346,10 @@ class SystemIDsTests(StoreTestCase):
         If groupName is passed in but is not found on the system, raise a
         ConfigurationError
         """
-        self.assertRaises(ConfigurationError, self._wrappedFunction(),
-            "exists", "nonexistent")
+        self.assertRaises(
+            ConfigurationError, self._wrappedFunction(),
+            "exists", "nonexistent"
+        )
 
 
     def test_getSystemIDs_NamesNotSpecified(self):
@@ -1428,8 +1425,10 @@ class PreProcessingServiceTestCase(TestCase):
     def setUp(self):
         self.history = []
         self.clock = Clock()
-        self.pps = PreProcessingService(self.fakeServiceCreator, None, "store",
-            None, "storageService", reactor=self.clock)
+        self.pps = PreProcessingService(
+            self.fakeServiceCreator, None, "store",
+            None, "storageService", reactor=self.clock
+        )
 
 
     def _record(self, value, failure):
@@ -1447,9 +1446,13 @@ class PreProcessingServiceTestCase(TestCase):
             StepFour(self._record, False)
         )
         self.pps.startService()
-        self.assertEquals(self.history,
-            ['one success', 'two success', 'three success', 'four success',
-            ('serviceCreator', 'store', 'storageService')])
+        self.assertEquals(
+            self.history,
+            [
+                'one success', 'two success', 'three success', 'four success',
+                ('serviceCreator', 'store', 'storageService')
+            ]
+        )
 
 
     def test_allFailure(self):
@@ -1463,9 +1466,13 @@ class PreProcessingServiceTestCase(TestCase):
             StepFour(self._record, True)
         )
         self.pps.startService()
-        self.assertEquals(self.history,
-            ['one success', 'two failure', 'three failure', 'four failure',
-            ('serviceCreator', None, 'storageService')])
+        self.assertEquals(
+            self.history,
+            [
+                'one success', 'two failure', 'three failure', 'four failure',
+                ('serviceCreator', None, 'storageService')
+            ]
+        )
 
 
     def test_partialFailure(self):
@@ -1479,9 +1486,13 @@ class PreProcessingServiceTestCase(TestCase):
             StepFour(self._record, False)
         )
         self.pps.startService()
-        self.assertEquals(self.history,
-            ['one success', 'two failure', 'three success', 'four failure',
-            ('serviceCreator', 'store', 'storageService')])
+        self.assertEquals(
+            self.history,
+            [
+                'one success', 'two failure', 'three success', 'four failure',
+                ('serviceCreator', 'store', 'storageService')
+            ]
+        )
 
 
     def test_quitAfterUpgradeStep(self):
@@ -1498,9 +1509,13 @@ class PreProcessingServiceTestCase(TestCase):
         )
         triggerFile.setContent("")
         self.pps.startService()
-        self.assertEquals(self.history,
-            ['one success', 'two success', 'four failure',
-            ('serviceCreator', None, 'storageService')])
+        self.assertEquals(
+            self.history,
+            [
+                'one success', 'two success', 'four failure',
+                ('serviceCreator', None, 'storageService')
+            ]
+        )
         self.assertFalse(triggerFile.exists())
 
 

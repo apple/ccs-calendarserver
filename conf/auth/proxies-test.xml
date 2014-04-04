@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <!--
-Copyright (c) 2009-2014 Apple Inc. All rights reserved.
+Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,25 +16,103 @@ See the License for the specific language governing permissions and
 limitations under the License.
  -->
 
-<!DOCTYPE proxies SYSTEM "proxies.dtd">
-
 <proxies>
-  <record repeat="10">
-    <guid>resource%02d</guid>
+<record>
+    <guid>40000000-0000-0000-0000-000000000001</guid>
     <proxies>
-      <member>user01</member>
+    <member>10000000-0000-0000-0000-000000000001</member>
     </proxies>
     <read-only-proxies>
-      <member>user03</member>
+    <member>10000000-0000-0000-0000-000000000003</member>
     </read-only-proxies>
-  </record>
-  <record>
+</record>
+<record>
+    <guid>40000000-0000-0000-0000-000000000002</guid>
+    <proxies>
+    <member>10000000-0000-0000-0000-000000000001</member>
+    </proxies>
+    <read-only-proxies>
+    <member>10000000-0000-0000-0000-000000000003</member>
+    </read-only-proxies>
+</record>
+<record>
+    <guid>40000000-0000-0000-0000-000000000003</guid>
+    <proxies>
+    <member>10000000-0000-0000-0000-000000000001</member>
+    </proxies>
+    <read-only-proxies>
+    <member>10000000-0000-0000-0000-000000000003</member>
+    </read-only-proxies>
+</record>
+<record>
+    <guid>40000000-0000-0000-0000-000000000004</guid>
+    <proxies>
+    <member>10000000-0000-0000-0000-000000000001</member>
+    </proxies>
+    <read-only-proxies>
+    <member>10000000-0000-0000-0000-000000000003</member>
+    </read-only-proxies>
+</record>
+<record>
+    <guid>40000000-0000-0000-0000-000000000005</guid>
+    <proxies>
+    <member>10000000-0000-0000-0000-000000000001</member>
+    </proxies>
+    <read-only-proxies>
+    <member>10000000-0000-0000-0000-000000000003</member>
+    </read-only-proxies>
+</record>
+<record>
+    <guid>40000000-0000-0000-0000-000000000006</guid>
+    <proxies>
+    <member>10000000-0000-0000-0000-000000000001</member>
+    </proxies>
+    <read-only-proxies>
+    <member>10000000-0000-0000-0000-000000000003</member>
+    </read-only-proxies>
+</record>
+<record>
+    <guid>40000000-0000-0000-0000-000000000007</guid>
+    <proxies>
+    <member>10000000-0000-0000-0000-000000000001</member>
+    </proxies>
+    <read-only-proxies>
+    <member>10000000-0000-0000-0000-000000000003</member>
+    </read-only-proxies>
+</record>
+<record>
+    <guid>40000000-0000-0000-0000-000000000008</guid>
+    <proxies>
+    <member>10000000-0000-0000-0000-000000000001</member>
+    </proxies>
+    <read-only-proxies>
+    <member>10000000-0000-0000-0000-000000000003</member>
+    </read-only-proxies>
+</record>
+<record>
+    <guid>40000000-0000-0000-0000-000000000009</guid>
+    <proxies>
+    <member>10000000-0000-0000-0000-000000000001</member>
+    </proxies>
+    <read-only-proxies>
+    <member>10000000-0000-0000-0000-000000000003</member>
+    </read-only-proxies>
+</record>
+<record>
+    <guid>40000000-0000-0000-0000-000000000010</guid>
+    <proxies>
+    <member>10000000-0000-0000-0000-000000000001</member>
+    </proxies>
+    <read-only-proxies>
+    <member>10000000-0000-0000-0000-000000000003</member>
+    </read-only-proxies>
+</record>
+<record>
     <guid>delegatedroom</guid>
     <proxies>
-      <member>group05</member>
+    <member>20000000-0000-0000-0000-000000000005</member>
     </proxies>
     <read-only-proxies>
-      <member>group07</member>
     </read-only-proxies>
-  </record>
+</record>
 </proxies>

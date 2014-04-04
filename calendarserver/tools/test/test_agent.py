@@ -16,93 +16,31 @@
 
 try:
     from calendarserver.tools.agent import AgentRealm
-    from calendarserver.tools.agent import CustomDigestCredentialFactory
-    from calendarserver.tools.agent import DirectoryServiceChecker
     from calendarserver.tools.agent import InactivityDetector
     from twistedcaldav.test.util import TestCase
-    from twisted.internet.defer import inlineCallbacks
     from twisted.internet.task import Clock
-    from twisted.cred.error import UnauthorizedLogin
     from twisted.web.resource import IResource
     from twisted.web.resource import ForbiddenResource
-    RUN_TESTS = True
+
 except ImportError:
-    RUN_TESTS = False
+    pass
 
-
-
-if RUN_TESTS:
+else:
     class AgentTestCase(TestCase):
-
-        def test_CustomDigestCredentialFactory(self):
-            f = CustomDigestCredentialFactory("md5", "/Local/Default")
-            challenge = f.getChallenge(FakeRequest())
-            self.assertTrue("qop" not in challenge)
-            self.assertEquals(challenge["algorithm"], "md5")
-            self.assertEquals(challenge["realm"], "/Local/Default")
-
-        @inlineCallbacks
-        def test_DirectoryServiceChecker(self):
-            c = DirectoryServiceChecker("/Local/Default")
-            fakeOpenDirectory = FakeOpenDirectory()
-            c.directoryModule = fakeOpenDirectory
-
-            fields = {
-                "username" : "foo",
-                "realm" : "/Local/Default",
-                "nonce" : 1,
-                "uri" : "/gateway",
-                "response" : "abc",
-                "algorithm" : "md5",
-            }
-            creds = FakeCredentials("foo", fields)
-
-            # Record does not exist:
-            fakeOpenDirectory.returnThisRecord(None)
-            try:
-                yield c.requestAvatarId(creds)
-            except UnauthorizedLogin:
-                pass
-            else:
-                self.fail("Didn't raise UnauthorizedLogin")
-
-            # Record exists, but invalid credentials
-            fakeOpenDirectory.returnThisRecord("fooRecord")
-            fakeOpenDirectory.returnThisAuthResponse(False)
-            try:
-                yield c.requestAvatarId(creds)
-            except UnauthorizedLogin:
-                pass
-            else:
-                self.fail("Didn't raise UnauthorizedLogin")
-
-            # Record exists, valid credentials
-            fakeOpenDirectory.returnThisRecord("fooRecord")
-            fakeOpenDirectory.returnThisAuthResponse(True)
-            avatar = (yield c.requestAvatarId(creds))
-            self.assertEquals(avatar, "foo")
-
-            # Record exists, but missing fields in credentials
-            del creds.fields["nonce"]
-            fakeOpenDirectory.returnThisRecord("fooRecord")
-            fakeOpenDirectory.returnThisAuthResponse(False)
-            try:
-                yield c.requestAvatarId(creds)
-            except UnauthorizedLogin:
-                pass
-            else:
-                self.fail("Didn't raise UnauthorizedLogin")
-
 
         def test_AgentRealm(self):
             realm = AgentRealm("root", ["abc"])
 
             # Valid avatar
-            _ignore_interface, resource, ignored = realm.requestAvatar("abc", None, IResource)
+            _ignore_interface, resource, ignored = realm.requestAvatar(
+                "abc", None, IResource
+            )
             self.assertEquals(resource, "root")
 
             # Not allowed avatar
-            _ignore_interface, resource, ignored = realm.requestAvatar("def", None, IResource)
+            _ignore_interface, resource, ignored = realm.requestAvatar(
+                "def", None, IResource
+            )
             self.assertTrue(isinstance(resource, ForbiddenResource))
 
             # Interface unhandled
@@ -120,6 +58,7 @@ if RUN_TESTS:
             clock = Clock()
 
             self.inactivityReached = False
+
             def becameInactive():
                 self.inactivityReached = True
 
@@ -162,8 +101,9 @@ if RUN_TESTS:
         def returnThisAuthResponse(self, response):
             self.authResponse = response
 
-        def authenticateUserDigest(self, ignored, node, username, challenge, response,
-            method):
+        def authenticateUserDigest(
+            self, ignored, node, username, challenge, response, method
+        ):
             return self.authResponse
 
         ODNSerror = "Error"

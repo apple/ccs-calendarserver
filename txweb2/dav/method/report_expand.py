@@ -8,10 +8,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -48,7 +48,7 @@ log = Logger()
 def report_DAV__expand_property(self, request, expand_property):
     """
     Generate an expand-property REPORT. (RFC 3253, section 3.8)
-    
+
     TODO: for simplicity we will only support one level of expansion.
     """
     # Verify root element
@@ -61,7 +61,7 @@ def report_DAV__expand_property(self, request, expand_property):
     if depth != "0":
         log.error("Non-zero depth is not allowed: %s" % (depth,))
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Depth %s not allowed" % (depth,)))
-    
+
     #
     # Get top level properties to expand and make sure we only have one level
     #
@@ -70,7 +70,7 @@ def report_DAV__expand_property(self, request, expand_property):
     for property in expand_property.children:
         namespace = property.attributes.get("namespace", dav_namespace)
         name      = property.attributes.get("name", "")
-        
+
         # Make sure children have no children
         props_to_find = []
         for child in property.children:
@@ -93,14 +93,14 @@ def report_DAV__expand_property(self, request, expand_property):
         responsecode.OK        : [],
         responsecode.NOT_FOUND : [],
     }
-    
+
     filteredaces = None
     lastParent = None
 
     for qname in properties.iterkeys():
         try:
             prop = (yield self.readProperty(qname, request))
-            
+
             # Form the PROPFIND-style DAV:prop element we need later
             props_to_return = element.PropertyContainer(*properties[qname])
 
@@ -108,27 +108,27 @@ def report_DAV__expand_property(self, request, expand_property):
             responses = []
             for href in prop.children:
                 if isinstance(href, element.HRef):
-                    
+
                     # Locate the Href resource and its parent
                     resource_uri = str(href)
                     child = (yield request.locateResource(resource_uri))
-    
+
                     if not child or not child.exists():
                         responses.append(element.StatusResponse(href, element.Status.fromResponseCode(responsecode.NOT_FOUND)))
                         continue
                     parent = (yield request.locateResource(parentForURL(resource_uri)))
-    
+
                     # Check privileges on parent - must have at least DAV:read
                     try:
                         yield parent.checkPrivileges(request, (element.Read(),))
                     except AccessDeniedError:
                         responses.append(element.StatusResponse(href, element.Status.fromResponseCode(responsecode.FORBIDDEN)))
                         continue
-                    
+
                     # Cache the last parent's inherited aces for checkPrivileges optimization
                     if lastParent != parent:
                         lastParent = parent
-                
+
                         # Do some optimisation of access control calculation by determining any inherited ACLs outside of
                         # the child resource loop and supply those to the checkPrivileges on each child.
                         filteredaces = (yield parent.inheritedACEsforChildren(request))
@@ -139,7 +139,7 @@ def report_DAV__expand_property(self, request, expand_property):
                     except AccessDeniedError:
                         responses.append(element.StatusResponse(href, element.Status.fromResponseCode(responsecode.FORBIDDEN)))
                         continue
-            
+
                     # Now retrieve all the requested properties on the HRef resource
                     yield prop_common.responseForHref(
                         request,
@@ -149,13 +149,16 @@ def report_DAV__expand_property(self, request, expand_property):
                         prop_common.propertyListForResource,
                         props_to_return,
                     )
-            
+
             prop.children = responses
             properties_by_status[responsecode.OK].append(prop)
         except:
             f = Failure()
 
-            log.error("Error reading property %r for resource %s: %s" % (qname, request.uri, f.value))
+            log.error(
+                "Error reading property {qname} for resource {req}: {failure}",
+                qname=qname, req=request.uri, failure=f.value
+            )
 
             status = statusForFailure(f, "getting property: %s" % (qname,))
             if status not in properties_by_status: properties_by_status[status] = []

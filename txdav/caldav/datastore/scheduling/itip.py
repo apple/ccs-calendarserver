@@ -42,6 +42,7 @@ __all__ = [
     "iTipGenerator",
 ]
 
+
 class iTipProcessing(object):
 
     @staticmethod

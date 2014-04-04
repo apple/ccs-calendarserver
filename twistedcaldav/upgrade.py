@@ -26,7 +26,6 @@ import pwd
 import grp
 import shutil
 import errno
-import operator
 import time
 from zlib import compress
 from cPickle import loads as unpickle, UnpicklingError
@@ -37,18 +36,14 @@ from txdav.xml import element
 from txweb2.dav.fileop import rmdir
 
 from twistedcaldav import caldavxml
-from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
-from twistedcaldav.directory.directory import DirectoryService
-from twistedcaldav.directory.directory import GroupMembershipCacheUpdater
 from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
-from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.ical import Component
 from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser
 from txdav.caldav.datastore.scheduling.imip.mailgateway import MailGatewayTokensDatabase
 from txdav.caldav.datastore.scheduling.scheduler import DirectScheduler
-from twistedcaldav.util import normalizationLookup
+from txdav.caldav.datastore.util import normalizationLookup
 
 from twisted.internet.defer import (
     inlineCallbacks, succeed, returnValue
@@ -58,12 +53,17 @@ from twisted.python.reflect import namedClass
 
 from txdav.caldav.datastore.index_file import db_basename
 
-from twisted.protocols.amp import AMP, Command, String, Boolean
+# from twisted.protocols.amp import AMP, Command, String, Boolean
 
-from calendarserver.tap.util import getRootResource, FakeRequest, directoryFromConfig
-from calendarserver.tools.util import getDirectory
+from calendarserver.tap.util import getRootResource, FakeRequest
 
 from txdav.caldav.datastore.scheduling.imip.mailgateway import migrateTokensToStore
+
+from twext.who.idirectory import RecordType
+from txdav.who.idirectory import RecordType as CalRecordType
+from txdav.who.delegates import addDelegate
+from twistedcaldav.directory.calendaruserproxy import ProxySqliteDB
+
 
 deadPropertyXattrPrefix = namedAny(
     "txdav.base.propertystore.xattr.PropertyStore.deadPropertyXattrPrefix"
@@ -73,6 +73,7 @@ INBOX_ITEMS = "inboxitems.txt"
 TRIGGER_FILE = "trigger_resource_migration"
 
 log = Logger()
+
 
 def xattrname(n):
     return deadPropertyXattrPrefix + n
@@ -121,6 +122,7 @@ def fixBadQuotes(data):
 
 
 
+@inlineCallbacks
 def upgradeCalendarCollection(calPath, directory, cuaCache):
     errorOccurred = False
     collectionUpdated = False
@@ -147,8 +149,10 @@ def upgradeCalendarCollection(calPath, directory, cuaCache):
                     log.warn("Fixing bad quotes in %s" % (resPath,))
                     needsRewrite = True
             except Exception, e:
-                log.error("Error while fixing bad quotes in %s: %s" %
-                    (resPath, e))
+                log.error(
+                    "Error while fixing bad quotes in %s: %s" %
+                    (resPath, e)
+                )
                 errorOccurred = True
                 continue
 
@@ -158,19 +162,23 @@ def upgradeCalendarCollection(calPath, directory, cuaCache):
                     log.warn("Removing illegal characters in %s" % (resPath,))
                     needsRewrite = True
             except Exception, e:
-                log.error("Error while removing illegal characters in %s: %s" %
-                    (resPath, e))
+                log.error(
+                    "Error while removing illegal characters in %s: %s" %
+                    (resPath, e)
+                )
                 errorOccurred = True
                 continue
 
             try:
-                data, fixed = normalizeCUAddrs(data, directory, cuaCache)
+                data, fixed = (yield normalizeCUAddrs(data, directory, cuaCache))
                 if fixed:
                     log.debug("Normalized CUAddrs in %s" % (resPath,))
                     needsRewrite = True
             except Exception, e:
-                log.error("Error while normalizing %s: %s" %
-                    (resPath, e))
+                log.error(
+                    "Error while normalizing %s: %s" %
+                    (resPath, e)
+                )
                 errorOccurred = True
                 continue
 
@@ -207,10 +215,11 @@ def upgradeCalendarCollection(calPath, directory, cuaCache):
         except:
             raise
 
-    return errorOccurred
+    returnValue(errorOccurred)
 
 
 
+@inlineCallbacks
 def upgradeCalendarHome(homePath, directory, cuaCache):
 
     errorOccurred = False
@@ -229,7 +238,7 @@ def upgradeCalendarHome(homePath, directory, cuaCache):
                 rmdir(calPath)
                 continue
             log.debug("Upgrading calendar: %s" % (calPath,))
-            if not upgradeCalendarCollection(calPath, directory, cuaCache):
+            if not (yield upgradeCalendarCollection(calPath, directory, cuaCache)):
                 errorOccurred = True
 
             # Change the calendar-free-busy-set xattrs of the inbox to the
@@ -238,7 +247,7 @@ def upgradeCalendarHome(homePath, directory, cuaCache):
                 try:
                     for attr, value in xattr.xattr(calPath).iteritems():
                         if attr == xattrname("{urn:ietf:params:xml:ns:caldav}calendar-free-busy-set"):
-                            value = updateFreeBusySet(value, directory)
+                            value = yield updateFreeBusySet(value, directory)
                             if value is not None:
                                 # Need to write the xattr back to disk
                                 xattr.setxattr(calPath, attr, value)
@@ -254,43 +263,44 @@ def upgradeCalendarHome(homePath, directory, cuaCache):
         log.error("Failed to upgrade calendar home %s: %s" % (homePath, e))
         raise
 
-    return errorOccurred
+    returnValue(errorOccurred)
 
 
 
-class UpgradeOneHome(Command):
-    arguments = [('path', String())]
-    response = [('succeeded', Boolean())]
+# class UpgradeOneHome(Command):
+#     arguments = [('path', String())]
+#     response = [('succeeded', Boolean())]
 
 
 
-class To1Driver(AMP):
-    """
-    Upgrade driver which runs in the parent process.
-    """
+# class To1Driver(AMP):
+#     """
+#     Upgrade driver which runs in the parent process.
+#     """
 
-    def upgradeHomeInHelper(self, path):
-        return self.callRemote(UpgradeOneHome, path=path).addCallback(
-            operator.itemgetter("succeeded")
-        )
-
-
-
-class To1Home(AMP):
-    """
-    Upgrade worker which runs in dedicated subprocesses.
-    """
-
-    def __init__(self, config):
-        super(To1Home, self).__init__()
-        self.directory = getDirectory(config)
-        self.cuaCache = {}
+#     def upgradeHomeInHelper(self, path):
+#         return self.callRemote(UpgradeOneHome, path=path).addCallback(
+#             operator.itemgetter("succeeded")
+#         )
 
 
-    @UpgradeOneHome.responder
-    def upgradeOne(self, path):
-        result = upgradeCalendarHome(path, self.directory, self.cuaCache)
-        return dict(succeeded=result)
+
+# class To1Home(AMP):
+#     """
+#     Upgrade worker which runs in dedicated subprocesses.
+#     """
+
+#     def __init__(self, config):
+#         super(To1Home, self).__init__()
+#         self.directory = getDirectory(config)
+#         self.cuaCache = {}
+
+
+#     @UpgradeOneHome.responder
+#     @inlineCallbacks
+#     def upgradeOne(self, path):
+#         result = yield upgradeCalendarHome(path, self.directory, self.cuaCache)
+#         returnValue(dict(succeeded=result))
 
 
 
@@ -300,13 +310,14 @@ def upgrade_to_1(config, directory):
     Upconvert data from any calendar server version prior to data format 1.
     """
     errorOccurred = []
+
     def setError(f=None):
         if f is not None:
             log.error(f)
         errorOccurred.append(True)
 
 
-    def doProxyDatabaseMoveUpgrade(config, uid= -1, gid= -1):
+    def doProxyDatabaseMoveUpgrade(config, uid=-1, gid=-1):
         # See if the new one is already present
         oldFilename = ".db.calendaruserproxy"
         newFilename = "proxies.sqlite"
@@ -345,7 +356,7 @@ def upgrade_to_1(config, directory):
         )
 
 
-    def moveCalendarHome(oldHome, newHome, uid= -1, gid= -1):
+    def moveCalendarHome(oldHome, newHome, uid=-1, gid=-1):
         if os.path.exists(newHome):
             # Both old and new homes exist; stop immediately to let the
             # administrator fix it
@@ -354,8 +365,9 @@ def upgrade_to_1(config, directory):
                 % (oldHome, newHome)
             )
 
-        makeDirsUserGroup(os.path.dirname(newHome.rstrip("/")), uid=uid,
-            gid=gid)
+        makeDirsUserGroup(
+            os.path.dirname(newHome.rstrip("/")), uid=uid, gid=gid
+        )
         os.rename(oldHome, newHome)
 
 
@@ -366,12 +378,15 @@ def upgrade_to_1(config, directory):
         service, because in "v1" that's where this info lived.
         """
 
+        print("FIXME, need to port migrateResourceInfo to twext.who")
+        returnValue(None)
+
         log.warn("Fetching delegate assignments and auto-schedule settings from directory")
         resourceInfo = directory.getResourceInfo()
         if len(resourceInfo) == 0:
             # Nothing to migrate, or else not appleopendirectory
             log.warn("No resource info found in directory")
-            return
+            returnValue(None)
 
         log.warn("Found info for %d resources and locations in directory; applying settings" % (len(resourceInfo),))
 
@@ -467,20 +482,23 @@ def upgrade_to_1(config, directory):
                 os.chown(uidHomes, uid, gid)
 
             for recordType, dirName in (
-                (DirectoryService.recordType_users, "users"),
-                (DirectoryService.recordType_groups, "groups"),
-                (DirectoryService.recordType_locations, "locations"),
-                (DirectoryService.recordType_resources, "resources"),
+                (RecordType.user, u"users"),
+                (RecordType.group, u"groups"),
+                (CalRecordType.location, u"locations"),
+                (CalRecordType.resource, u"resources"),
             ):
                 dirPath = os.path.join(calRoot, dirName)
                 if os.path.exists(dirPath):
                     for shortName in os.listdir(dirPath):
-                        record = directory.recordWithShortName(recordType,
-                            shortName)
+                        record = yield directory.recordWithShortName(
+                            recordType, shortName
+                        )
                         oldHome = os.path.join(dirPath, shortName)
                         if record is not None:
-                            newHome = os.path.join(uidHomes, record.uid[0:2],
-                                record.uid[2:4], record.uid)
+                            newHome = os.path.join(
+                                uidHomes, record.uid[0:2],
+                                record.uid[2:4], record.uid
+                            )
                             moveCalendarHome(oldHome, newHome, uid=uid, gid=gid)
                         else:
                             # an orphaned calendar home (principal no longer
@@ -543,15 +561,17 @@ def upgrade_to_1(config, directory):
                                         # Skip non-directories
                                         continue
 
-                                    if not upgradeCalendarHome(
+                                    if not (yield upgradeCalendarHome(
                                         homePath, directory, cuaCache
-                                    ):
+                                    )):
                                         setError()
 
                                     count += 1
                                     if count % 10 == 0:
-                                        log.warn("Processed calendar home %d of %d"
-                                            % (count, total))
+                                        log.warn(
+                                            "Processed calendar home %d of %d"
+                                            % (count, total)
+                                        )
                 log.warn("Done processing calendar homes")
 
     triggerPath = os.path.join(config.ServerRoot, TRIGGER_FILE)
@@ -564,6 +584,7 @@ def upgrade_to_1(config, directory):
 
 
 
+@inlineCallbacks
 def normalizeCUAddrs(data, directory, cuaCache):
     """
     Normalize calendar user addresses to urn:uuid: form.
@@ -583,23 +604,26 @@ def normalizeCUAddrs(data, directory, cuaCache):
     """
     cal = Component.fromString(data)
 
-    def lookupFunction(cuaddr, principalFunction, config):
+    @inlineCallbacks
+    def lookupFunction(cuaddr, recordFunction, config):
 
         # Return cached results, if any.
         if cuaddr in cuaCache:
-            return cuaCache[cuaddr]
+            returnValue(cuaCache[cuaddr])
 
-        result = normalizationLookup(cuaddr, principalFunction, config)
+        result = yield normalizationLookup(cuaddr, recordFunction, config)
 
         # Cache the result
         cuaCache[cuaddr] = result
-        return result
+        returnValue(result)
 
-    cal.normalizeCalendarUserAddresses(lookupFunction,
-        directory.principalForCalendarUserAddress)
+    yield cal.normalizeCalendarUserAddresses(
+        lookupFunction,
+        directory.recordWithCalendarUserAddress
+    )
 
     newData = str(cal)
-    return newData, not newData == data
+    returnValue((newData, not newData == data))
 
 
 
@@ -708,6 +732,7 @@ def upgrade_to_2(config, directory):
         raise UpgradeError("Data upgrade failed, see error.log for details")
 
 
+
 # The on-disk version number (which defaults to zero if .calendarserver_version
 # doesn't exist), is compared with each of the numbers in the upgradeMethods
 # array.  If it is less than the number, the associated method is called.
@@ -717,17 +742,17 @@ upgradeMethods = [
     (2, upgrade_to_2),
 ]
 
-@inlineCallbacks
-def upgradeData(config):
 
-    directory = getDirectory()
+@inlineCallbacks
+def upgradeData(config, directory):
+
 
     triggerPath = os.path.join(config.ServerRoot, TRIGGER_FILE)
     if os.path.exists(triggerPath):
         try:
             # Migrate locations/resources now because upgrade_to_1 depends
             # on them being in resources.xml
-            (yield migrateFromOD(config, directory))
+            yield migrateFromOD(config, directory)
         except Exception, e:
             raise UpgradeError("Unable to migrate locations and resources from OD: %s" % (e,))
 
@@ -745,11 +770,15 @@ def upgradeData(config):
             with open(versionFilePath) as versionFile:
                 onDiskVersion = int(versionFile.read().strip())
         except IOError:
-            log.error("Cannot open %s; skipping migration" %
-                (versionFilePath,))
+            log.error(
+                "Cannot open %s; skipping migration" %
+                (versionFilePath,)
+            )
         except ValueError:
-            log.error("Invalid version number in %s; skipping migration" %
-                (versionFilePath,))
+            log.error(
+                "Invalid version number in %s; skipping migration" %
+                (versionFilePath,)
+            )
 
     uid, gid = getCalendarServerIDs(config)
 
@@ -779,26 +808,28 @@ class UpgradeError(RuntimeError):
 #
 # Utility functions
 #
+@inlineCallbacks
 def updateFreeBusyHref(href, directory):
     pieces = href.split("/")
     if pieces[2] == "__uids__":
         # Already updated
-        return None
+        returnValue(None)
 
     recordType = pieces[2]
     shortName = pieces[3]
-    record = directory.recordWithShortName(recordType, shortName)
+    record = yield directory.recordWithShortName(recordType, shortName)
     if record is None:
         # We will simply ignore this and not write out an fb-set entry
         log.error("Can't update free-busy href; %s is not in the directory" % shortName)
-        return ""
+        returnValue("")
 
     uid = record.uid
     newHref = "/calendars/__uids__/%s/%s/" % (uid, pieces[4])
-    return newHref
+    returnValue(newHref)
 
 
 
+@inlineCallbacks
 def updateFreeBusySet(value, directory):
 
     try:
@@ -815,14 +846,13 @@ def updateFreeBusySet(value, directory):
             freeBusySet = unpickle(value)
         except UnpicklingError:
             log.error("Invalid free/busy property value")
-            # MOR: continue on?
-            return None
+            returnValue(None)
 
     fbset = set()
     didUpdate = False
     for href in freeBusySet.children:
         href = str(href)
-        newHref = updateFreeBusyHref(href, directory)
+        newHref = yield updateFreeBusyHref(href, directory)
         if newHref is None:
             fbset.add(href)
         else:
@@ -831,18 +861,19 @@ def updateFreeBusySet(value, directory):
                 fbset.add(newHref)
 
     if didUpdate:
-        property = caldavxml.CalendarFreeBusySet(*[element.HRef(href)
-            for href in fbset])
+        property = caldavxml.CalendarFreeBusySet(
+            *[element.HRef(href) for href in fbset]
+        )
         value = compress(property.toxml())
-        return value
+        returnValue(value)
 
-    return None # no update required
+    returnValue(None)  # no update required
 
 
 
-def makeDirsUserGroup(path, uid= -1, gid= -1):
+def makeDirsUserGroup(path, uid=-1, gid=-1):
     parts = path.split("/")
-    if parts[0] == "": # absolute path
+    if parts[0] == "":  # absolute path
         parts[0] = "/"
 
     path = ""
@@ -887,6 +918,8 @@ def archive(config, srcPath, uid, gid):
 
 
 DELETECHARS = ''.join(chr(i) for i in xrange(32) if i not in (9, 10, 13))
+
+
 def removeIllegalCharacters(data):
     """
     Remove all characters below ASCII 32 except HTAB, LF and CR
@@ -904,31 +937,34 @@ def removeIllegalCharacters(data):
 
 
 
-# Deferred
+# # Deferred
 def migrateFromOD(config, directory):
-    #
-    # Migrates locations and resources from OD
-    #
-    try:
-        from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
-        from calendarserver.tools.resources import migrateResources
-    except ImportError:
-        return succeed(None)
+    # FIXME:
+    print("STILL NEED TO IMPLEMENT migrateFromOD")
+    return succeed(None)
+#     #
+#     # Migrates locations and resources from OD
+#     #
+#     try:
+#         from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
+#         from calendarserver.tools.resources import migrateResources
+#     except ImportError:
+#         return succeed(None)
 
-    log.warn("Migrating locations and resources")
+#     log.warn("Migrating locations and resources")
 
-    userService = directory.serviceForRecordType("users")
-    resourceService = directory.serviceForRecordType("resources")
-    if (
-        not isinstance(userService, OpenDirectoryService) or
-        not isinstance(resourceService, XMLDirectoryService)
-    ):
-        # Configuration requires no migration
-        return succeed(None)
+#     userService = directory.serviceForRecordType("users")
+#     resourceService = directory.serviceForRecordType("resources")
+#     if (
+#         not isinstance(userService, OpenDirectoryService) or
+#         not isinstance(resourceService, XMLDirectoryService)
+#     ):
+#         # Configuration requires no migration
+#         return succeed(None)
 
-    # Create internal copies of resources and locations based on what is
-    # found in OD
-    return migrateResources(userService, resourceService)
+#     # Create internal copies of resources and locations based on what is
+#     # found in OD
+#     return migrateResources(userService, resourceService)
 
 
 
@@ -936,7 +972,14 @@ def migrateFromOD(config, directory):
 def migrateAutoSchedule(config, directory):
     # Fetch the autoSchedule assignments from resourceinfo.sqlite and store
     # the values in augments
-    augmentService = directory.augmentService
+    augmentService = None
+    if config.AugmentService.type:
+        augmentClass = namedClass(config.AugmentService.type)
+        try:
+            augmentService = augmentClass(**config.AugmentService.params)
+        except:
+            log.error("Could not start augment service")
+
     if augmentService:
         augmentRecords = []
         dbPath = os.path.join(config.DataRoot, ResourceInfoDatabase.dbFilename)
@@ -946,16 +989,55 @@ def migrateAutoSchedule(config, directory):
             results = resourceInfoDatabase._db_execute(
                 "select GUID, AUTOSCHEDULE from RESOURCEINFO"
             )
-            for guid, autoSchedule in results:
-                record = directory.recordWithGUID(guid)
+            for uid, autoSchedule in results:
+                record = yield directory.recordWithUID(uid)
                 if record is not None:
-                    augmentRecord = (yield augmentService.getAugmentRecord(guid, record.recordType))
-                    augmentRecord.autoSchedule = autoSchedule
+                    augmentRecord = (
+                        yield augmentService.getAugmentRecord(
+                            uid,
+                            directory.recordTypeToOldName(record.recordType)
+                        )
+                    )
+                    augmentRecord.autoScheduleMode = (
+                        "automatic" if autoSchedule else "default"
+                    )
                     augmentRecords.append(augmentRecord)
 
             if augmentRecords:
                 yield augmentService.addAugmentRecords(augmentRecords)
             log.warn("Migrated %d auto-schedule settings" % (len(augmentRecords),))
+
+
+def loadDelegatesFromXML(xmlFile, service):
+    loader = XMLCalendarUserProxyLoader(xmlFile, service)
+    return loader.updateProxyDB()
+
+
+@inlineCallbacks
+def migrateDelegatesToStore(service, store):
+    directory = store.directoryService()
+    txn = store.newTransaction()
+    for groupName, memberUID in (
+        yield service.query(
+            "select GROUPNAME, MEMBER from GROUPS"
+        )
+    ):
+        if "#" not in groupName:
+            continue
+
+        delegatorUID, groupType = groupName.split("#")
+        delegatorRecord = yield directory.recordWithUID(delegatorUID)
+        if delegatorRecord is None:
+            continue
+
+        delegateRecord = yield directory.recordWithUID(memberUID)
+        if delegateRecord is None:
+            continue
+
+        readWrite = (groupType == "calendar-proxy-write")
+        yield addDelegate(txn, delegatorRecord, delegateRecord, readWrite)
+
+    yield txn.commit()
 
 
 
@@ -964,11 +1046,12 @@ class UpgradeFileSystemFormatStep(object):
     Upgrade filesystem from previous versions.
     """
 
-    def __init__(self, config):
+    def __init__(self, config, store):
         """
         Initialize the service.
         """
         self.config = config
+        self.store = store
 
 
     @inlineCallbacks
@@ -985,7 +1068,7 @@ class UpgradeFileSystemFormatStep(object):
         memcacheEnabled = self.config.Memcached.Pools.Default.ClientEnabled
         self.config.Memcached.Pools.Default.ClientEnabled = False
 
-        yield upgradeData(self.config)
+        yield upgradeData(self.config, self.store.directoryService())
 
         # Restore memcached client setting
         self.config.Memcached.Pools.Default.ClientEnabled = memcacheEnabled
@@ -1010,6 +1093,8 @@ class PostDBImportStep(object):
 
         1. Populating the group-membership cache
         2. Processing non-implicit inbox items
+        3. Migrate IMIP tokens into the store
+        4. Migrating delegate assignments into the store
     """
 
     def __init__(self, store, config, doPostImport):
@@ -1025,37 +1110,47 @@ class PostDBImportStep(object):
     def stepWithResult(self, result):
         if self.doPostImport:
 
-            directory = directoryFromConfig(self.config)
-
             # Load proxy assignments from XML if specified
-            if self.config.ProxyLoadFromFile:
-                proxydbClass = namedClass(self.config.ProxyDBService.type)
-                calendaruserproxy.ProxyDBService = proxydbClass(
-                    **self.config.ProxyDBService.params)
-                loader = XMLCalendarUserProxyLoader(self.config.ProxyLoadFromFile)
-                yield loader.updateProxyDB()
+            if (
+                self.config.ProxyLoadFromFile and
+                os.path.exists(self.config.ProxyLoadFromFile) and
+                not os.path.exists(
+                    os.path.join(
+                        self.config.DataRoot, "proxies.sqlite"
+                    )
+                )
+            ):
+                sqliteProxyService = ProxySqliteDB("proxies.sqlite")
+                yield loadDelegatesFromXML(
+                    self.config.ProxyLoadFromFile,
+                    sqliteProxyService
+                )
+            else:
+                sqliteProxyService = None
 
-            # Populate the group membership cache
-            if (self.config.GroupCaching.Enabled and
-                self.config.GroupCaching.EnableUpdater):
-                proxydb = calendaruserproxy.ProxyDBService
-                if proxydb is None:
-                    proxydbClass = namedClass(self.config.ProxyDBService.type)
-                    proxydb = proxydbClass(**self.config.ProxyDBService.params)
 
-                updater = GroupMembershipCacheUpdater(proxydb,
-                    directory,
-                    self.config.GroupCaching.UpdateSeconds,
-                    self.config.GroupCaching.ExpireSeconds,
-                    self.config.GroupCaching.LockSeconds,
-                    namespace=self.config.GroupCaching.MemcachedPool,
-                    useExternalProxies=self.config.GroupCaching.UseExternalProxies)
-                yield updater.updateCache(fast=True)
+            # # Populate the group membership cache
+            # if (self.config.GroupCaching.Enabled and
+            #     self.config.GroupCaching.EnableUpdater):
+            #     proxydb = calendaruserproxy.ProxyDBService
+            #     if proxydb is None:
+            #         proxydbClass = namedClass(self.config.ProxyDBService.type)
+            #         proxydb = proxydbClass(**self.config.ProxyDBService.params)
 
-                uid, gid = getCalendarServerIDs(self.config)
-                dbPath = os.path.join(self.config.DataRoot, "proxies.sqlite")
-                if os.path.exists(dbPath):
-                    os.chown(dbPath, uid, gid)
+            #     # MOVE2WHO FIXME: port to new group cacher
+            #     updater = GroupMembershipCacheUpdater(proxydb,
+            #         directory,
+            #         self.config.GroupCaching.UpdateSeconds,
+            #         self.config.GroupCaching.ExpireSeconds,
+            #         self.config.GroupCaching.LockSeconds,
+            #         namespace=self.config.GroupCaching.MemcachedPool,
+            #         useExternalProxies=self.config.GroupCaching.UseExternalProxies)
+            #     yield updater.updateCache(fast=True)
+
+            uid, gid = getCalendarServerIDs(self.config)
+            dbPath = os.path.join(self.config.DataRoot, "proxies.sqlite")
+            if os.path.exists(dbPath):
+                os.chown(dbPath, uid, gid)
 
             # Process old inbox items
             self.store.setMigrating(True)
@@ -1064,6 +1159,11 @@ class PostDBImportStep(object):
 
             # Migrate mail tokens from sqlite to store
             yield migrateTokensToStore(self.config.DataRoot, self.store)
+
+            # Migrate delegate assignments from sqlite to store
+            if sqliteProxyService is None:
+                sqliteProxyService = ProxySqliteDB("proxies.sqlite")
+            yield migrateDelegatesToStore(sqliteProxyService, self.store)
 
 
     @inlineCallbacks
@@ -1102,14 +1202,14 @@ class PostDBImportStep(object):
                         inboxItems.remove(inboxItem)
                         continue
 
-                    record = directory.recordWithUID(uuid)
+                    record = yield directory.recordWithUID(uuid)
                     if record is None:
                         log.debug("Ignored inbox item - no record: %s" % (inboxItem,))
                         inboxItems.remove(inboxItem)
                         ignoreUUIDs.add(uuid)
                         continue
 
-                    principal = principalCollection.principalForRecord(record)
+                    principal = yield principalCollection.principalForRecord(record)
                     if principal is None or not isinstance(principal, DirectoryCalendarPrincipalResource):
                         log.debug("Ignored inbox item - no principal: %s" % (inboxItem,))
                         inboxItems.remove(inboxItem)
@@ -1117,7 +1217,7 @@ class PostDBImportStep(object):
                         continue
 
                     request = FakeRequest(root, "PUT", None)
-                    request.noAttendeeRefresh = True # tell scheduling to skip refresh
+                    request.noAttendeeRefresh = True  # tell scheduling to skip refresh
                     request.checkedSACL = True
                     request.authnUser = request.authzUser = element.Principal(
                         element.HRef.fromString("/principals/__uids__/%s/" % (uuid,))
@@ -1156,8 +1256,10 @@ class PostDBImportStep(object):
                                         uri
                                     )
                                 except Exception, e:
-                                    log.error("Error processing inbox item: %s (%s)"
-                                        % (inboxItem, e))
+                                    log.error(
+                                        "Error processing inbox item: %s (%s)"
+                                        % (inboxItem, e)
+                                    )
                             else:
                                 log.debug("Ignored inbox item - no resource: %s" % (inboxItem,))
                         else:
@@ -1194,8 +1296,10 @@ class PostDBImportStep(object):
 
 
     @inlineCallbacks
-    def processInboxItem(self, root, directory, principal, request, inbox,
-        inboxItem, uuid, uri):
+    def processInboxItem(
+        self, root, directory, principal, request, inbox,
+        inboxItem, uuid, uri
+    ):
         """
         Run an individual inbox item through implicit scheduling and remove
         the inbox item.
@@ -1207,8 +1311,10 @@ class PostDBImportStep(object):
 
         ownerPrincipal = principal
         cua = "urn:uuid:%s" % (uuid,)
-        owner = LocalCalendarUser(cua, ownerPrincipal,
-            inbox, ownerPrincipal.scheduleInboxURL())
+        owner = LocalCalendarUser(
+            cua, ownerPrincipal,
+            inbox, ownerPrincipal.scheduleInboxURL()
+        )
 
         calendar = yield inboxItem.iCalendar()
         if calendar.mainType() is not None:
@@ -1226,14 +1332,16 @@ class PostDBImportStep(object):
                 originator = calendar.getOrganizer()
 
             principalCollection = directory.principalCollection
-            originatorPrincipal = principalCollection.principalForCalendarUserAddress(originator)
+            originatorPrincipal = yield principalCollection.principalForCalendarUserAddress(originator)
             originator = LocalCalendarUser(originator, originatorPrincipal)
             recipients = (owner,)
 
             scheduler = DirectScheduler(request, inboxItem)
             # Process inbox item
-            yield scheduler.doSchedulingViaPUT(originator, recipients, calendar,
-                internal_request=False, noAttendeeRefresh=True)
+            yield scheduler.doSchedulingViaPUT(
+                originator, recipients, calendar,
+                internal_request=False, noAttendeeRefresh=True
+            )
         else:
             log.warn("Removing invalid inbox item: %s" % (uri,))
 

@@ -37,8 +37,8 @@ class ICalendarStoreDirectoryService(IStoreDirectoryService):
         """
         Return the record for the specified calendar user address.
 
-        @return: the record.
-        @rtype: L{ICalendarStoreDirectoryRecord}
+        @return: Deferred resulting in the record.
+        @rtype: L{Deferred} resulting in L{ICalendarStoreDirectoryRecord}
         """
 
 

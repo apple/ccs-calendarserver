@@ -35,7 +35,6 @@ from twistedcaldav.test.util import StoreTestCase
 from txdav.common.datastore.test.util import populateCalendarsFrom
 
 from StringIO import StringIO
-import os
 
 
 OK_ICS = """BEGIN:VCALENDAR
@@ -470,19 +469,6 @@ class CalVerifyDataTests(StoreTestCase):
     }
 
     number_to_process = len(requirements["home1"]["calendar_1"])
-
-    def configure(self):
-        super(CalVerifyDataTests, self).configure()
-        self.patch(config.DirectoryService.params, "xmlFile",
-            os.path.join(
-                os.path.dirname(__file__), "calverify", "accounts.xml"
-            )
-        )
-        self.patch(config.ResourceService.params, "xmlFile",
-            os.path.join(
-                os.path.dirname(__file__), "calverify", "resources.xml"
-            )
-        )
 
 
     @inlineCallbacks
@@ -943,24 +929,6 @@ class CalVerifyMismatchTestsBase(StoreTestCase):
     uuid2 = "47B16BB4-DB5F-4BF6-85FE-A7DA54230F92"
     uuid3 = "AC478592-7783-44D1-B2AE-52359B4E8415"
     uuidl1 = "75EA36BE-F71B-40F9-81F9-CF59BF40CA8F"
-
-    def configure(self):
-        super(CalVerifyMismatchTestsBase, self).configure()
-        self.patch(config.DirectoryService.params, "xmlFile",
-            os.path.join(
-                os.path.dirname(__file__), "calverify", "accounts.xml"
-            )
-        )
-        self.patch(config.ResourceService.params, "xmlFile",
-            os.path.join(
-                os.path.dirname(__file__), "calverify", "resources.xml"
-            )
-        )
-        self.patch(config.AugmentService.params, "xmlFiles",
-            [os.path.join(
-                os.path.dirname(__file__), "calverify", "augments.xml"
-            ), ]
-        )
 
 
     @inlineCallbacks

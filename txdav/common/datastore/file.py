@@ -148,6 +148,10 @@ class CommonDataStore(DataStore):
         return self._directoryService
 
 
+    def setDirectoryService(self, directoryService):
+        self._directoryService = directoryService
+
+
     def callWithNewTransactions(self, callback):
         """
         Registers a method to be called whenever a new transaction is
@@ -700,7 +704,7 @@ class CommonHome(FileMetaDataMixin):
 
 
     def directoryRecord(self):
-        return self.directoryService().recordWithUID(self.uid())
+        return self.directoryService().recordWithUID(self.uid().decode("utf-8"))
 
 
     def retrieveOldShares(self):

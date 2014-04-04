@@ -28,11 +28,12 @@ from txweb2.responsecode import INSUFFICIENT_STORAGE_SPACE
 from txweb2.responsecode import UNAUTHORIZED
 from txweb2.stream import MemoryStream
 
+from twext.who.idirectory import RecordType
+
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.defer import maybeDeferred
 
 from twistedcaldav.config import config
-from twistedcaldav.directory.test.test_xmlfile import XMLFileBase
 from twistedcaldav.ical import Component as VComponent
 from twistedcaldav.storebridge import DropboxCollection, \
     CalendarCollectionResource
@@ -51,10 +52,13 @@ from txdav.xml import element as davxml
 
 import hashlib
 
+
 def _todo(f, why):
     f.todo = why
     return f
 rewriteOrRemove = lambda f: _todo(f, "Rewrite or remove")
+
+
 
 class FakeChanRequest(object):
     code = 'request-not-finished'
@@ -113,7 +117,7 @@ class WrappingTests(StoreTestCase):
         @param objectText: Some iCalendar text to populate it with.
         @type objectText: str
         """
-        record = self.directory.recordWithShortName("users", "wsanchez")
+        record = yield self.directory.recordWithShortName(RecordType.user, u"wsanchez")
         uid = record.uid
         txn = self.transactionUnderTest()
         home = yield txn.calendarHomeWithUID(uid, True)
@@ -132,7 +136,7 @@ class WrappingTests(StoreTestCase):
         @param objectText: Some iVcard text to populate it with.
         @type objectText: str
         """
-        record = self.directory.recordWithShortName("users", "wsanchez")
+        record = yield self.directory.recordWithShortName(RecordType.user, u"wsanchez")
         uid = record.uid
         txn = self.transactionUnderTest()
         home = yield txn.addressbookHomeWithUID(uid, True)
@@ -171,9 +175,10 @@ class WrappingTests(StoreTestCase):
             "http://localhost:8008/" + path
         )
         if user is not None:
-            guid = XMLFileBase.users[user]["guid"]
+            record = yield self.directory.recordWithShortName(RecordType.user, user)
+            uid = record.uid
             req.authnUser = req.authzUser = (
-                davxml.Principal(davxml.HRef('/principals/__uids__/' + guid + '/'))
+                davxml.Principal(davxml.HRef('/principals/__uids__/' + uid + '/'))
             )
         returnValue(aResource)
 
@@ -201,8 +206,10 @@ class WrappingTests(StoreTestCase):
         Verify that the C{_principalCollections} attribute of the given
         L{Resource} is accurately set.
         """
-        self.assertEquals(resource._principalCollections,
-                          frozenset([self.principalsResource]))
+        self.assertEquals(
+            resource._principalCollections,
+            frozenset([self.actualRoot.getChild("principals")])
+        )
 
 
     @inlineCallbacks
@@ -271,7 +278,7 @@ class WrappingTests(StoreTestCase):
         )
         yield self.commit()
         self.assertIsInstance(dropBoxResource, DropboxCollection)
-        dropboxHomeType = davxml.ResourceType.dropboxhome #@UndefinedVariable
+        dropboxHomeType = davxml.ResourceType.dropboxhome  # @UndefinedVariable
         self.assertEquals(dropBoxResource.resourceType(),
                           dropboxHomeType)
 
@@ -285,7 +292,7 @@ class WrappingTests(StoreTestCase):
         C{CalendarHome.calendarWithName}.
         """
         calDavFile = yield self.getResource("calendars/users/wsanchez/calendar")
-        regularCalendarType = davxml.ResourceType.calendar #@UndefinedVariable
+        regularCalendarType = davxml.ResourceType.calendar  # @UndefinedVariable
         self.assertEquals(calDavFile.resourceType(),
                           regularCalendarType)
         yield self.commit()
@@ -344,8 +351,11 @@ class WrappingTests(StoreTestCase):
             self.assertIdentical(
                 homeChild._associatedTransaction,
                 homeTransaction,
-                "transaction mismatch on %s; %r is not %r " %
-                    (name, homeChild._associatedTransaction, homeTransaction))
+                "transaction mismatch on {n}; {at} is not {ht} ".format(
+                    n=name, at=homeChild._associatedTransaction,
+                    ht=homeTransaction
+                )
+            )
 
 
     @inlineCallbacks
@@ -415,7 +425,7 @@ class WrappingTests(StoreTestCase):
         Creating a AddressBookHomeProvisioningFile will create a paired
         AddressBookStore.
         """
-        assertProvides(self, IDataStore, self.addressbookCollection._newStore)
+        assertProvides(self, IDataStore, self.actualRoot.getChild("addressbooks")._newStore)
 
 
     @inlineCallbacks
@@ -575,12 +585,13 @@ class TimeoutTests(StoreTestCase):
         yield NamedLock.acquire(txn, "ImplicitUIDLock:%s" % (hashlib.md5("uid1").hexdigest(),))
 
         # PUT fails
+        authRecord = yield self.directory.recordWithShortName(RecordType.user, u"wsanchez")
         request = SimpleStoreRequest(
             self,
             "PUT",
             "/calendars/users/wsanchez/calendar/1.ics",
             headers=Headers({"content-type": MimeType.fromString("text/calendar")}),
-            authid="wsanchez"
+            authRecord=authRecord
         )
         request.stream = MemoryStream("""BEGIN:VCALENDAR
 CALSCALE:GREGORIAN
@@ -606,12 +617,13 @@ END:VCALENDAR
         """
 
         # PUT works
+        authRecord = yield self.directory.recordWithShortName(RecordType.user, u"wsanchez")
         request = SimpleStoreRequest(
             self,
             "PUT",
             "/calendars/users/wsanchez/calendar/1.ics",
             headers=Headers({"content-type": MimeType.fromString("text/calendar")}),
-            authid="wsanchez"
+            authRecord=authRecord
         )
         request.stream = MemoryStream("""BEGIN:VCALENDAR
 CALSCALE:GREGORIAN
@@ -635,11 +647,12 @@ END:VCALENDAR
         txn = self.transactionUnderTest()
         yield NamedLock.acquire(txn, "ImplicitUIDLock:%s" % (hashlib.md5("uid1").hexdigest(),))
 
+        authRecord = yield self.directory.recordWithShortName(RecordType.user, u"wsanchez")
         request = SimpleStoreRequest(
             self,
             "DELETE",
             "/calendars/users/wsanchez/calendar/1.ics",
-            authid="wsanchez"
+            authRecord=authRecord
         )
         response = yield self.send(request)
         self.assertEqual(response.code, responsecode.SERVICE_UNAVAILABLE)

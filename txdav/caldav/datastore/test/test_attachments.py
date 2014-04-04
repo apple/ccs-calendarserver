@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from calendarserver.tap.util import directoryFromConfig
+from txdav.who.util import directoryFromConfig
 
 from pycalendar.datetime import DateTime
 from pycalendar.value import Value
@@ -49,7 +49,7 @@ Tests for txdav.caldav.datastore.sql attachment handling.
 """
 
 storePath = FilePath(__file__).parent().child("calendar_store")
-homeRoot = storePath.child("ho").child("me").child("home1")
+homeRoot = storePath.child("ho").child("me").child(u"home1")
 cal1Root = homeRoot.child("calendar_1")
 
 calendar1_objectNames = [
@@ -597,7 +597,7 @@ END:VCALENDAR
 
         self.assertTrue(os.path.exists(apath))
 
-        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        home = (yield self.transactionUnderTest().calendarHomeWithUID(u"home1"))
         quota = (yield home.quotaUsedBytes())
         yield self.commit()
         self.assertNotEqual(quota, 0)
@@ -609,7 +609,7 @@ END:VCALENDAR
 
         self.assertFalse(os.path.exists(apath))
 
-        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        home = (yield self.transactionUnderTest().calendarHomeWithUID(u"home1"))
         quota = (yield home.quotaUsedBytes())
         yield self.commit()
         self.assertEqual(quota, 0)
@@ -648,7 +648,7 @@ END:VCALENDAR
         self.assertTrue(os.path.exists(apath1))
         self.assertTrue(os.path.exists(apath2))
 
-        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        home = (yield self.transactionUnderTest().calendarHomeWithUID(u"home1"))
         quota = (yield home.quotaUsedBytes())
         yield self.commit()
         self.assertNotEqual(quota, 0)
@@ -661,7 +661,7 @@ END:VCALENDAR
         self.assertFalse(os.path.exists(apath1))
         self.assertFalse(os.path.exists(apath2))
 
-        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        home = (yield self.transactionUnderTest().calendarHomeWithUID(u"home1"))
         quota = (yield home.quotaUsedBytes())
         yield self.commit()
         self.assertEqual(quota, 0)
@@ -743,7 +743,7 @@ END:VCALENDAR
 
         self.assertTrue(os.path.exists(apath))
 
-        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        home = (yield self.transactionUnderTest().calendarHomeWithUID(u"home1"))
         quota = (yield home.quotaUsedBytes())
         yield self.commit()
         self.assertNotEqual(quota, 0)
@@ -755,7 +755,7 @@ END:VCALENDAR
 
         self.assertTrue(os.path.exists(apath))
 
-        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        home = (yield self.transactionUnderTest().calendarHomeWithUID(u"home1"))
         quota = (yield home.quotaUsedBytes())
         yield self.commit()
         self.assertNotEqual(quota, 0)
@@ -767,7 +767,7 @@ END:VCALENDAR
 
         self.assertFalse(os.path.exists(apath))
 
-        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        home = (yield self.transactionUnderTest().calendarHomeWithUID(u"home1"))
         quota = (yield home.quotaUsedBytes())
         yield self.commit()
         self.assertEqual(quota, 0)
@@ -1131,7 +1131,7 @@ class ManagedAttachmentTests(AttachmentTests):
 
         self.assertTrue(os.path.exists(apath))
 
-        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        home = (yield self.transactionUnderTest().calendarHomeWithUID(u"home1"))
         quota = (yield home.quotaUsedBytes())
         yield self.commit()
         self.assertNotEqual(quota, 0)
@@ -1143,7 +1143,7 @@ class ManagedAttachmentTests(AttachmentTests):
 
         self.assertFalse(os.path.exists(apath))
 
-        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        home = (yield self.transactionUnderTest().calendarHomeWithUID(u"home1"))
         quota = (yield home.quotaUsedBytes())
         yield self.commit()
         self.assertEqual(quota, 0)
@@ -1178,7 +1178,7 @@ class ManagedAttachmentTests(AttachmentTests):
         self.assertTrue(os.path.exists(apath1))
         self.assertTrue(os.path.exists(apath2))
 
-        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        home = (yield self.transactionUnderTest().calendarHomeWithUID(u"home1"))
         quota = (yield home.quotaUsedBytes())
         yield self.commit()
         self.assertNotEqual(quota, 0)
@@ -1191,7 +1191,7 @@ class ManagedAttachmentTests(AttachmentTests):
         self.assertFalse(os.path.exists(apath1))
         self.assertFalse(os.path.exists(apath2))
 
-        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        home = (yield self.transactionUnderTest().calendarHomeWithUID(u"home1"))
         quota = (yield home.quotaUsedBytes())
         yield self.commit()
         self.assertEqual(quota, 0)
@@ -1218,7 +1218,7 @@ class ManagedAttachmentTests(AttachmentTests):
 
         self.assertTrue(os.path.exists(apath))
 
-        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        home = (yield self.transactionUnderTest().calendarHomeWithUID(u"home1"))
         quota = (yield home.quotaUsedBytes())
         yield self.commit()
         self.assertNotEqual(quota, 0)
@@ -1230,7 +1230,7 @@ class ManagedAttachmentTests(AttachmentTests):
 
         self.assertTrue(os.path.exists(apath))
 
-        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        home = (yield self.transactionUnderTest().calendarHomeWithUID(u"home1"))
         quota = (yield home.quotaUsedBytes())
         yield self.commit()
         self.assertNotEqual(quota, 0)
@@ -1242,7 +1242,7 @@ class ManagedAttachmentTests(AttachmentTests):
 
         self.assertFalse(os.path.exists(apath))
 
-        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        home = (yield self.transactionUnderTest().calendarHomeWithUID(u"home1"))
         quota = (yield home.quotaUsedBytes())
         yield self.commit()
         self.assertEqual(quota, 0)
@@ -1363,7 +1363,7 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
     }
 
     requirements = {
-        "home1" : {
+        u"home1" : {
             "calendar1" : {
                 "1.1.ics" : (PLAIN_ICS % {"year": now, "uid": "1.1", }, metadata,),
                 "1.2.ics" : (ATTACHMENT_ICS % {"year": now, "uid": "1.2", "userid": "user01", "dropboxid": "1.2"}, metadata,),
@@ -1372,7 +1372,7 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
                 "1.5.ics" : (ATTACHMENT_ICS % {"year": now, "uid": "1.5", "userid": "user01", "dropboxid": "1.4"}, metadata,),
             }
         },
-        "home2" : {
+        u"home2" : {
             "calendar2" : {
                 "2-2.1.ics" : (PLAIN_ICS % {"year": now, "uid": "2-2.1", }, metadata,),
                 "2-2.2.ics" : (ATTACHMENT_ICS % {"year": now, "uid": "2-2.2", "userid": "user02", "dropboxid": "2.2"}, metadata,),
@@ -1488,16 +1488,16 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         """
         Add the full set of attachments to be used for testing.
         """
-        yield self._addAttachment("home1", "calendar1", "1.2.ics", "1.2", "attach_1_2_1.txt")
-        yield self._addAttachment("home1", "calendar1", "1.2.ics", "1.2", "attach_1_2_2.txt")
-        yield self._addAttachment("home1", "calendar1", "1.3.ics", "1.3", "attach_1_3.txt")
-        yield self._addAttachment("home1", "calendar1", "1.4.ics", "1.4", "attach_1_4.txt")
-        yield self._addAttachmentProperty("home1", "calendar1", "1.5.ics", "1.4", "home1", "attach_1_4.txt")
+        yield self._addAttachment(u"home1", "calendar1", "1.2.ics", "1.2", "attach_1_2_1.txt")
+        yield self._addAttachment(u"home1", "calendar1", "1.2.ics", "1.2", "attach_1_2_2.txt")
+        yield self._addAttachment(u"home1", "calendar1", "1.3.ics", "1.3", "attach_1_3.txt")
+        yield self._addAttachment(u"home1", "calendar1", "1.4.ics", "1.4", "attach_1_4.txt")
+        yield self._addAttachmentProperty(u"home1", "calendar1", "1.5.ics", "1.4", "home1", "attach_1_4.txt")
 
-        yield self._addAttachment("home2", "calendar2", "2-2.2.ics", "2.2", "attach_2_2.txt")
-        yield self._addAttachmentProperty("home2", "calendar2", "2-2.3.ics", "1.3", "home1", "attach_1_3.txt")
-        yield self._addAttachmentProperty("home2", "calendar3", "2-3.2.ics", "1.4", "home1", "attach_1_4.txt")
-        yield self._addAttachmentProperty("home2", "calendar3", "2-3.3.ics", "1.4", "home1", "attach_1_4.txt")
+        yield self._addAttachment(u"home2", "calendar2", "2-2.2.ics", "2.2", "attach_2_2.txt")
+        yield self._addAttachmentProperty(u"home2", "calendar2", "2-2.3.ics", "1.3", "home1", "attach_1_3.txt")
+        yield self._addAttachmentProperty(u"home2", "calendar3", "2-3.2.ics", "1.4", "home1", "attach_1_4.txt")
+        yield self._addAttachmentProperty(u"home2", "calendar3", "2-3.3.ics", "1.4", "home1", "attach_1_4.txt")
 
 
     @inlineCallbacks
@@ -1586,7 +1586,7 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         """
         Test L{txdav.caldav.datastore.sql.DropboxAttachment.convertToManaged} converts properly to a ManagedAttachment.
         """
-        yield self._addAttachment("home1", "calendar1", "1.2.ics", "1.2", "attach_1_2.txt")
+        yield self._addAttachment(u"home1", "calendar1", "1.2.ics", "1.2", "attach_1_2.txt")
 
         txn = self._sqlCalendarStore.newTransaction()
 
@@ -1616,11 +1616,11 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         """
         Test L{txdav.caldav.datastore.sql.ManagedAttachment.newReference} creates a new managed attachment reference.
         """
-        yield self._addAttachment("home1", "calendar1", "1.4.ics", "1.4", "attach_1_4.txt")
+        yield self._addAttachment(u"home1", "calendar1", "1.4.ics", "1.4", "attach_1_4.txt")
 
         txn = self._sqlCalendarStore.newTransaction()
 
-        home = (yield txn.calendarHomeWithUID("home1"))
+        home = (yield txn.calendarHomeWithUID(u"home1"))
         calendar = (yield home.calendarWithName("calendar1"))
         event4 = (yield calendar.calendarObjectWithName("1.4.ics"))
         event5 = (yield calendar.calendarObjectWithName("1.5.ics"))
@@ -1664,12 +1664,12 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         """
         Test L{txdav.caldav.datastore.sql.CalendarObject.convertAttachments} re-writes calendar data.
         """
-        yield self._addAttachment("home1", "calendar1", "1.2.ics", "1.2", "attach_1_2_1.txt")
-        yield self._addAttachment("home1", "calendar1", "1.2.ics", "1.2", "attach_1_2_2.txt")
+        yield self._addAttachment(u"home1", "calendar1", "1.2.ics", "1.2", "attach_1_2_1.txt")
+        yield self._addAttachment(u"home1", "calendar1", "1.2.ics", "1.2", "attach_1_2_2.txt")
 
         txn = self._sqlCalendarStore.newTransaction()
 
-        home = (yield txn.calendarHomeWithUID("home1"))
+        home = (yield txn.calendarHomeWithUID(u"home1"))
         calendar = (yield home.calendarWithName("calendar1"))
         event = (yield calendar.calendarObjectWithName("1.2.ics"))
 
@@ -1688,7 +1688,7 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
 
         txn = self._sqlCalendarStore.newTransaction()
 
-        home = (yield txn.calendarHomeWithUID("home1"))
+        home = (yield txn.calendarHomeWithUID(u"home1"))
         calendar = (yield home.calendarWithName("calendar1"))
         event = (yield calendar.calendarObjectWithName("1.2.ics"))
 
@@ -1712,7 +1712,7 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
 
         # Convert the second dropbox attachment
         txn = self._sqlCalendarStore.newTransaction()
-        home = (yield txn.calendarHomeWithUID("home1"))
+        home = (yield txn.calendarHomeWithUID(u"home1"))
         calendar = (yield home.calendarWithName("calendar1"))
         event = (yield calendar.calendarObjectWithName("1.2.ics"))
         dattachment = (yield DropBoxAttachment.load(txn, "1.2.dropbox", "attach_1_2_2.txt"))
@@ -1722,7 +1722,7 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         yield txn.commit()
 
         txn = self._sqlCalendarStore.newTransaction()
-        home = (yield txn.calendarHomeWithUID("home1"))
+        home = (yield txn.calendarHomeWithUID(u"home1"))
         calendar = (yield home.calendarWithName("calendar1"))
         event = (yield calendar.calendarObjectWithName("1.2.ics"))
         component = (yield event.componentForUser()).mainComponent()
@@ -1760,14 +1760,14 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         yield calstore._upgradeDropbox(txn, "1.2.dropbox")
         yield txn.commit()
 
-        yield self._verifyConversion("home1", "calendar1", "1.2.ics", ("attach_1_2_1.txt", "attach_1_2_2.txt",))
-        yield self._verifyNoConversion("home1", "calendar1", "1.3.ics", ("attach_1_3.txt",))
-        yield self._verifyNoConversion("home1", "calendar1", "1.4.ics", ("attach_1_4.txt",))
-        yield self._verifyNoConversion("home1", "calendar1", "1.5.ics", ("attach_1_4.txt",))
-        yield self._verifyNoConversion("home2", "calendar2", "2-2.2.ics", ("attach_2_2.txt",))
-        yield self._verifyNoConversion("home2", "calendar2", "2-2.3.ics", ("attach_1_3.txt",))
-        yield self._verifyNoConversion("home2", "calendar3", "2-3.2.ics", ("attach_1_4.txt",))
-        yield self._verifyNoConversion("home2", "calendar3", "2-3.3.ics", ("attach_1_4.txt",))
+        yield self._verifyConversion(u"home1", "calendar1", "1.2.ics", ("attach_1_2_1.txt", "attach_1_2_2.txt",))
+        yield self._verifyNoConversion(u"home1", "calendar1", "1.3.ics", ("attach_1_3.txt",))
+        yield self._verifyNoConversion(u"home1", "calendar1", "1.4.ics", ("attach_1_4.txt",))
+        yield self._verifyNoConversion(u"home1", "calendar1", "1.5.ics", ("attach_1_4.txt",))
+        yield self._verifyNoConversion(u"home2", "calendar2", "2-2.2.ics", ("attach_2_2.txt",))
+        yield self._verifyNoConversion(u"home2", "calendar2", "2-2.3.ics", ("attach_1_3.txt",))
+        yield self._verifyNoConversion(u"home2", "calendar3", "2-3.2.ics", ("attach_1_4.txt",))
+        yield self._verifyNoConversion(u"home2", "calendar3", "2-3.3.ics", ("attach_1_4.txt",))
 
 
     @inlineCallbacks
@@ -1784,14 +1784,14 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         yield calstore._upgradeDropbox(txn, "1.3.dropbox")
         yield txn.commit()
 
-        yield self._verifyNoConversion("home1", "calendar1", "1.2.ics", ("attach_1_2_1.txt", "attach_1_2_2.txt",))
-        yield self._verifyConversion("home1", "calendar1", "1.3.ics", ("attach_1_3.txt",))
-        yield self._verifyNoConversion("home1", "calendar1", "1.4.ics", ("attach_1_4.txt",))
-        yield self._verifyNoConversion("home1", "calendar1", "1.5.ics", ("attach_1_4.txt",))
-        yield self._verifyNoConversion("home2", "calendar2", "2-2.2.ics", ("attach_2_2.txt",))
-        yield self._verifyConversion("home2", "calendar2", "2-2.3.ics", ("attach_1_3.txt",))
-        yield self._verifyNoConversion("home2", "calendar3", "2-3.2.ics", ("attach_1_4.txt",))
-        yield self._verifyNoConversion("home2", "calendar3", "2-3.3.ics", ("attach_1_4.txt",))
+        yield self._verifyNoConversion(u"home1", "calendar1", "1.2.ics", ("attach_1_2_1.txt", "attach_1_2_2.txt",))
+        yield self._verifyConversion(u"home1", "calendar1", "1.3.ics", ("attach_1_3.txt",))
+        yield self._verifyNoConversion(u"home1", "calendar1", "1.4.ics", ("attach_1_4.txt",))
+        yield self._verifyNoConversion(u"home1", "calendar1", "1.5.ics", ("attach_1_4.txt",))
+        yield self._verifyNoConversion(u"home2", "calendar2", "2-2.2.ics", ("attach_2_2.txt",))
+        yield self._verifyConversion(u"home2", "calendar2", "2-2.3.ics", ("attach_1_3.txt",))
+        yield self._verifyNoConversion(u"home2", "calendar3", "2-3.2.ics", ("attach_1_4.txt",))
+        yield self._verifyNoConversion(u"home2", "calendar3", "2-3.3.ics", ("attach_1_4.txt",))
 
 
     @inlineCallbacks
@@ -1808,14 +1808,14 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         yield calstore._upgradeDropbox(txn, "1.4.dropbox")
         yield txn.commit()
 
-        yield self._verifyNoConversion("home1", "calendar1", "1.2.ics", ("attach_1_2_1.txt", "attach_1_2_2.txt",))
-        yield self._verifyNoConversion("home1", "calendar1", "1.3.ics", ("attach_1_3.txt",))
-        yield self._verifyConversion("home1", "calendar1", "1.4.ics", ("attach_1_4.txt",))
-        yield self._verifyConversion("home1", "calendar1", "1.5.ics", ("attach_1_4.txt",))
-        yield self._verifyNoConversion("home2", "calendar2", "2-2.2.ics", ("attach_2_2.txt",))
-        yield self._verifyNoConversion("home2", "calendar2", "2-2.3.ics", ("attach_1_3.txt",))
-        yield self._verifyConversion("home2", "calendar3", "2-3.2.ics", ("attach_1_4.txt",))
-        yield self._verifyConversion("home2", "calendar3", "2-3.3.ics", ("attach_1_4.txt",))
+        yield self._verifyNoConversion(u"home1", "calendar1", "1.2.ics", ("attach_1_2_1.txt", "attach_1_2_2.txt",))
+        yield self._verifyNoConversion(u"home1", "calendar1", "1.3.ics", ("attach_1_3.txt",))
+        yield self._verifyConversion(u"home1", "calendar1", "1.4.ics", ("attach_1_4.txt",))
+        yield self._verifyConversion(u"home1", "calendar1", "1.5.ics", ("attach_1_4.txt",))
+        yield self._verifyNoConversion(u"home2", "calendar2", "2-2.2.ics", ("attach_2_2.txt",))
+        yield self._verifyNoConversion(u"home2", "calendar2", "2-2.3.ics", ("attach_1_3.txt",))
+        yield self._verifyConversion(u"home2", "calendar3", "2-3.2.ics", ("attach_1_4.txt",))
+        yield self._verifyConversion(u"home2", "calendar3", "2-3.3.ics", ("attach_1_4.txt",))
 
 
     @inlineCallbacks
@@ -1830,14 +1830,14 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         calstore = CalendarStoreFeatures(self._sqlCalendarStore)
         yield calstore.upgradeToManagedAttachments(2)
 
-        yield self._verifyConversion("home1", "calendar1", "1.2.ics", ("attach_1_2_1.txt", "attach_1_2_2.txt",))
-        yield self._verifyConversion("home1", "calendar1", "1.3.ics", ("attach_1_3.txt",))
-        yield self._verifyConversion("home1", "calendar1", "1.4.ics", ("attach_1_4.txt",))
-        yield self._verifyConversion("home1", "calendar1", "1.5.ics", ("attach_1_4.txt",))
-        yield self._verifyConversion("home2", "calendar2", "2-2.2.ics", ("attach_2_2.txt",))
-        yield self._verifyConversion("home2", "calendar2", "2-2.3.ics", ("attach_1_3.txt",))
-        yield self._verifyConversion("home2", "calendar3", "2-3.2.ics", ("attach_1_4.txt",))
-        yield self._verifyConversion("home2", "calendar3", "2-3.3.ics", ("attach_1_4.txt",))
+        yield self._verifyConversion(u"home1", "calendar1", "1.2.ics", ("attach_1_2_1.txt", "attach_1_2_2.txt",))
+        yield self._verifyConversion(u"home1", "calendar1", "1.3.ics", ("attach_1_3.txt",))
+        yield self._verifyConversion(u"home1", "calendar1", "1.4.ics", ("attach_1_4.txt",))
+        yield self._verifyConversion(u"home1", "calendar1", "1.5.ics", ("attach_1_4.txt",))
+        yield self._verifyConversion(u"home2", "calendar2", "2-2.2.ics", ("attach_2_2.txt",))
+        yield self._verifyConversion(u"home2", "calendar2", "2-2.3.ics", ("attach_1_3.txt",))
+        yield self._verifyConversion(u"home2", "calendar3", "2-3.2.ics", ("attach_1_4.txt",))
+        yield self._verifyConversion(u"home2", "calendar3", "2-3.3.ics", ("attach_1_4.txt",))
 
         # Paths do not exist
         for path in self.paths.values():

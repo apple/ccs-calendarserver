@@ -15,52 +15,89 @@
 ##
 
 import cPickle as pickle
+import uuid
 
 from twext.python.log import Logger
 from twext.who.directory import DirectoryRecord as BaseDirectoryRecord
 from twext.who.directory import DirectoryService as BaseDirectoryService
-from twext.who.idirectory import RecordType
+from twext.who.expression import Operand
+from twext.who.idirectory import RecordType, IDirectoryService
 import twext.who.idirectory
 from twext.who.util import ConstantsContainer
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.protocol import ClientCreator
 from twisted.protocols import amp
+from twisted.python.constants import Names, NamedConstant
+from txdav.caldav.icalendardirectoryservice import (
+    ICalendarStoreDirectoryRecord
+)
+from txdav.common.idirectoryservice import IStoreDirectoryService
 from txdav.dps.commands import (
     RecordWithShortNameCommand, RecordWithUIDCommand, RecordWithGUIDCommand,
     RecordsWithRecordTypeCommand, RecordsWithEmailAddressCommand,
+    RecordsMatchingTokensCommand, RecordsMatchingFieldsCommand,
+    MembersCommand, GroupsCommand, SetMembersCommand,
     VerifyPlaintextPasswordCommand, VerifyHTTPDigestCommand
 )
+from txdav.who.directory import (
+    CalendarDirectoryRecordMixin, CalendarDirectoryServiceMixin
+)
+import txdav.who.augment
+import txdav.who.delegates
 import txdav.who.idirectory
+import txdav.who.wiki
 from zope.interface import implementer
 
-
 log = Logger()
-
 
 ##
 ## Client implementation of Directory Proxy Service
 ##
 
 
-@implementer(twext.who.idirectory.IDirectoryService)
-class DirectoryService(BaseDirectoryService):
+
+## MOVE2WHO TODOs:
+## SACLs
+## LDAP
+## Tests from old twistedcaldav/directory
+## Cmd line tools
+## Store based directory service (records in the store, i.e.
+##    locations/resources)
+## Separate store for DPS (augments and delegates separate from calendar data)
+## Store autoAcceptGroups in the group db?
+
+@implementer(IDirectoryService, IStoreDirectoryService)
+class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
     """
     Client side of directory proxy
     """
 
+    # FIXME: somehow these should come from the actual directory:
+
     recordType = ConstantsContainer(
         (twext.who.idirectory.RecordType,
-         txdav.who.idirectory.RecordType)
+         txdav.who.idirectory.RecordType,
+         txdav.who.delegates.RecordType,
+         txdav.who.wiki.RecordType)
+    )
+
+    fieldName = ConstantsContainer(
+        (twext.who.idirectory.FieldName,
+         txdav.who.idirectory.FieldName,
+         txdav.who.augment.FieldName)
     )
 
 
     def _dictToRecord(self, serializedFields):
         """
-        This to be replaced by something awesome
+        Turn a dictionary of fields sent from the server into a directory
+        record
         """
         if not serializedFields:
             return None
+
+        # print("FIELDS", serializedFields)
 
         fields = {}
         for fieldName, value in serializedFields.iteritems():
@@ -70,8 +107,21 @@ class DirectoryService(BaseDirectoryService):
                 # unknown field
                 pass
             else:
-                fields[field] = value
-        fields[self.fieldName.recordType] = self.recordType.user
+                valueType = self.fieldName.valueType(field)
+                if valueType in (unicode, bool):
+                    fields[field] = value
+                elif valueType is uuid.UUID:
+                    fields[field] = uuid.UUID(value)
+                elif issubclass(valueType, Names):
+                    if value is not None:
+                        fields[field] = field.valueType.lookupByName(value)
+                    else:
+                        fields[field] = None
+                elif issubclass(valueType, NamedConstant):
+                    if fieldName == "recordType":  # Is there a better way?
+                        fields[field] = self.recordType.lookupByName(value)
+
+        # print("AFTER:", fields)
         return DirectoryRecord(self, fields)
 
 
@@ -92,14 +142,17 @@ class DirectoryService(BaseDirectoryService):
 
     @inlineCallbacks
     def _getConnection(self):
-        # TODO: make socket patch configurable
         # TODO: reconnect if needed
 
-        # path = config.DirectoryProxy.SocketPath
-        path = "data/Logs/state/directory-proxy.sock"
+        # FIXME:
+        from twistedcaldav.config import config
+        path = config.DirectoryProxy.SocketPath
+        # path = "data/Logs/state/directory-proxy.sock"
         if getattr(self, "_connection", None) is None:
             log.debug("Creating connection")
-            connection = (yield ClientCreator(reactor, amp.AMP).connectUNIX(path))
+            connection = (
+                yield ClientCreator(reactor, amp.AMP).connectUNIX(path)
+            )
             self._connection = connection
         else:
             log.debug("Already have connection")
@@ -127,15 +180,31 @@ class DirectoryService(BaseDirectoryService):
 
 
     def recordWithShortName(self, recordType, shortName):
+        # MOVE2WHO
+        # temporary hack until we can fix all callers not to pass strings:
+        if isinstance(recordType, (str, unicode)):
+            recordType = self.recordType.lookupByName(recordType)
+
+        # MOVE2WHO, REMOVE THIS HACK TOO:
+        if not isinstance(shortName, unicode):
+            # log.warn("Need to change shortName to unicode")
+            shortName = shortName.decode("utf-8")
+
+
         return self._call(
             RecordWithShortNameCommand,
             self._processSingleRecord,
-            recordType=recordType.description.encode("utf-8"),
+            recordType=recordType.name.encode("utf-8"),
             shortName=shortName.encode("utf-8")
         )
 
 
     def recordWithUID(self, uid):
+        # MOVE2WHO, REMOVE THIS:
+        if not isinstance(uid, unicode):
+            # log.warn("Need to change uid to unicode")
+            uid = uid.decode("utf-8")
+
         return self._call(
             RecordWithUIDCommand,
             self._processSingleRecord,
@@ -147,7 +216,7 @@ class DirectoryService(BaseDirectoryService):
         return self._call(
             RecordWithGUIDCommand,
             self._processSingleRecord,
-            guid=guid.encode("utf-8")
+            guid=str(guid)
         )
 
 
@@ -155,7 +224,7 @@ class DirectoryService(BaseDirectoryService):
         return self._call(
             RecordsWithRecordTypeCommand,
             self._processMultipleRecords,
-            recordType=recordType.description.encode("utf-8")
+            recordType=recordType.name.encode("utf-8")
         )
 
 
@@ -163,12 +232,61 @@ class DirectoryService(BaseDirectoryService):
         return self._call(
             RecordsWithEmailAddressCommand,
             self._processMultipleRecords,
-            emailAddress=emailAddress
+            emailAddress=emailAddress.encode("utf-8")
+        )
+
+
+    def recordsMatchingTokens(
+        self, tokens, context=None, limitResults=50, timeoutSeconds=10
+    ):
+        return self._call(
+            RecordsMatchingTokensCommand,
+            self._processMultipleRecords,
+            tokens=[t.encode("utf-8") for t in tokens],
+            context=context
+        )
+
+
+    def recordsMatchingFields(
+        self, fields, operand=Operand.OR, recordType=None
+    ):
+        newFields = []
+        for fieldName, searchTerm, matchFlags, matchType in fields:
+
+            if isinstance(searchTerm, uuid.UUID):
+                searchTerm = unicode(searchTerm)
+
+            newFields.append(
+                (
+                    fieldName.encode("utf-8"),
+                    searchTerm.encode("utf-8"),
+                    matchFlags.name.encode("utf-8"),
+                    matchType.name.encode("utf-8")
+                )
+            )
+        if recordType is not None:
+            recordType = recordType.name.encode("utf-8")
+
+        return self._call(
+            RecordsMatchingFieldsCommand,
+            self._processMultipleRecords,
+            fields=newFields,
+            operand=operand.name.encode("utf-8"),
+            recordType=recordType
+        )
+
+
+    def recordsFromExpression(self, expression):
+        raise NotImplementedError(
+            "This won't work until expressions are serializable to send "
+            "across AMP"
         )
 
 
 
-class DirectoryRecord(BaseDirectoryRecord):
+@implementer(ICalendarStoreDirectoryRecord)
+class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
+
 
     def verifyPlaintextPassword(self, password):
         return self.service._call(
@@ -201,6 +319,35 @@ class DirectoryRecord(BaseDirectoryRecord):
 
 
 
+    def members(self):
+        return self.service._call(
+            MembersCommand,
+            self.service._processMultipleRecords,
+            uid=self.uid.encode("utf-8")
+        )
+
+
+    def groups(self):
+        return self.service._call(
+            GroupsCommand,
+            self.service._processMultipleRecords,
+            uid=self.uid.encode("utf-8")
+        )
+
+
+    def setMembers(self, members):
+        log.debug("DPS Client setMembers")
+        memberUIDs = [m.uid.encode("utf-8") for m in members]
+        return self.service._call(
+            SetMembersCommand,
+            lambda x: x['success'],
+            uid=self.uid.encode("utf-8"),
+            memberUIDs=memberUIDs
+        )
+
+
+
+
 # Test client:
 
 
@@ -212,19 +359,25 @@ def makeEvenBetterRequest():
     if record:
         authenticated = (yield record.verifyPlaintextPassword("negas"))
         print("plain auth: {a}".format(a=authenticated))
-    """
-    record = (yield ds.recordWithUID("__dre__"))
-    print("uid: {r}".format(r=record))
-    if record:
-        authenticated = (yield record.verifyPlaintextPassword("erd"))
-        print("plain auth: {a}".format(a=authenticated))
-    record = (yield ds.recordWithGUID("A3B1158F-0564-4F5B-81E4-A89EA5FF81B0"))
-    print("guid: {r}".format(r=record))
-    records = (yield ds.recordsWithRecordType(RecordType.user))
-    print("recordType: {r}".format(r=records))
-    records = (yield ds.recordsWithEmailAddress("cdaboo@bitbucket.calendarserver.org"))
-    print("emailAddress: {r}".format(r=records))
-    """
+
+    # record = (yield ds.recordWithUID("__dre__"))
+    # print("uid: {r}".format(r=record))
+    # if record:
+    #     authenticated = (yield record.verifyPlaintextPassword("erd"))
+    #     print("plain auth: {a}".format(a=authenticated))
+
+    # record = yield ds.recordWithGUID(
+    #     "A3B1158F-0564-4F5B-81E4-A89EA5FF81B0"
+    # )
+    # print("guid: {r}".format(r=record))
+
+    # records = yield ds.recordsWithRecordType(RecordType.user)
+    # print("recordType: {r}".format(r=records))
+
+    # records = yield ds.recordsWithEmailAddress(
+    #     "cdaboo@bitbucket.calendarserver.org"
+    # )
+    # print("emailAddress: {r}".format(r=records))
 
 
 

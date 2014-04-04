@@ -47,40 +47,38 @@ import time
 import traceback
 import uuid
 
-from pycalendar.icalendar import definitions
-from pycalendar.icalendar.calendar import Calendar
+from calendarserver.tools import tables
+from calendarserver.tools.cmdline import utilityMain, WorkerService
 from pycalendar.datetime import DateTime
 from pycalendar.exceptions import ErrorBase
+from pycalendar.icalendar import definitions
+from pycalendar.icalendar.calendar import Calendar
 from pycalendar.period import Period
 from pycalendar.timezone import Timezone
-
+from twext.enterprise.dal.syntax import Select, Parameter, Count
+from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python import usage
 from twisted.python.usage import Options
-
-from twext.python.log import Logger
-from twext.enterprise.dal.syntax import Select, Parameter, Count
-
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.dateops import pyCalendarTodatetime
-from twistedcaldav.directory.directory import DirectoryService
-from twistedcaldav.ical import Component, ignoredComponents, \
+from twistedcaldav.ical import (
+    Component, ignoredComponents,
     InvalidICalendarDataError, Property, PERUSER_COMPONENT
-from txdav.caldav.datastore.scheduling.itip import iTipGenerator
+)
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
-from twistedcaldav.util import normalizationLookup
-
-from txdav.caldav.icalendarstore import ComponentUpdateState
 from txdav.caldav.datastore.scheduling.icalsplitter import iCalSplitter
 from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
+from txdav.caldav.datastore.scheduling.itip import iTipGenerator
 from txdav.caldav.datastore.sql import CalendarStoreFeatures
+from txdav.caldav.datastore.util import normalizationLookup
+from txdav.caldav.icalendarstore import ComponentUpdateState
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 from txdav.common.icommondatastore import InternalDataStoreError
+from txdav.who.idirectory import (
+    RecordType as CalRecordType, AutoScheduleMode
+)
 
-from calendarserver.tools.cmdline import utilityMain, WorkerService
-
-from calendarserver.tools import tables
-from calendarserver.tools.util import getDirectory
 
 log = Logger()
 
@@ -396,7 +394,7 @@ class CalVerifyService(WorkerService, object):
         self.output = output
         self.reactor = reactor
         self.config = config
-        self._directory = None
+        self._directory = store.directoryService()
 
         self.cuaCache = {}
 
@@ -427,11 +425,8 @@ class CalVerifyService(WorkerService, object):
 
     def directoryService(self):
         """
-        Get an appropriate directory service for this L{CalVerifyService}'s
-        configuration, creating one first if necessary.
+        Return the directory service
         """
-        if self._directory is None:
-            self._directory = getDirectory(self.config) #directoryFromConfig(self.config)
         return self._directory
 
 
@@ -970,14 +965,14 @@ class OrphansService(CalVerifyService):
                 )).ljust(80))
                 self.output.flush()
 
-            record = self.directoryService().recordWithGUID(uid)
+            record = yield self.directoryService().recordWithUID(uid)
             if record is None:
                 contents = yield self.countHomeContents(uid)
                 missing.append((uid, contents,))
             elif not record.thisServer():
                 contents = yield self.countHomeContents(uid)
                 wrong_server.append((uid, contents,))
-            elif not record.enabledForCalendaring:
+            elif not record.hasCalendars:
                 contents = yield self.countHomeContents(uid)
                 disabled.append((uid, contents,))
 
@@ -1008,7 +1003,7 @@ class OrphansService(CalVerifyService):
         table = tables.Table()
         table.addHeader(("Owner UID", "Calendar Objects"))
         for uid, count in sorted(wrong_server, key=lambda x: x[0]):
-            record = self.directoryService().recordWithGUID(uid)
+            record = yield self.directoryService().recordWithUID(uid)
             table.addRow((
                 "%s/%s (%s)" % (record.recordType if record else "-", record.shortNames[0] if record else "-", uid,),
                 count,
@@ -1022,7 +1017,7 @@ class OrphansService(CalVerifyService):
         table = tables.Table()
         table.addHeader(("Owner UID", "Calendar Objects"))
         for uid, count in sorted(disabled, key=lambda x: x[0]):
-            record = self.directoryService().recordWithGUID(uid)
+            record = yield self.directoryService().recordWithUID(uid)
             table.addRow((
                 "%s/%s (%s)" % (record.recordType if record else "-", record.shortNames[0] if record else "-", uid,),
                 count,
@@ -1152,7 +1147,7 @@ class BadDataService(CalVerifyService):
         table.addHeader(("Owner", "Event UID", "RID", "Problem",))
         for item in sorted(results_bad, key=lambda x: (x[0], x[1])):
             owner, uid, resid, message = item
-            owner_record = self.directoryService().recordWithGUID(owner)
+            owner_record = yield self.directoryService().recordWithUID(owner)
             table.addRow((
                 "%s/%s (%s)" % (owner_record.recordType if owner_record else "-", owner_record.shortNames[0] if owner_record else "-", owner,),
                 uid,
@@ -1199,7 +1194,7 @@ class BadDataService(CalVerifyService):
                 component.validOrganizerForScheduling(doFix=False)
                 if component.hasDuplicateAlarms(doFix=False):
                     raise InvalidICalendarDataError("Duplicate VALARMS")
-            self.noPrincipalPathCUAddresses(component, doFix=False)
+            yield self.noPrincipalPathCUAddresses(component, doFix=False)
             if self.options["ical"]:
                 self.attendeesWithoutOrganizer(component, doFix=False)
 
@@ -1220,15 +1215,17 @@ class BadDataService(CalVerifyService):
         returnValue((result, message,))
 
 
+    @inlineCallbacks
     def noPrincipalPathCUAddresses(self, component, doFix):
 
-        def lookupFunction(cuaddr, principalFunction, conf):
+        @inlineCallbacks
+        def lookupFunction(cuaddr, recordFunction, conf):
 
             # Return cached results, if any.
             if cuaddr in self.cuaCache:
-                return self.cuaCache[cuaddr]
+                returnValue(self.cuaCache[cuaddr])
 
-            result = normalizationLookup(cuaddr, principalFunction, conf)
+            result = yield normalizationLookup(cuaddr, recordFunction, conf)
             _ignore_name, guid, _ignore_cuaddrs = result
             if guid is None:
                 if cuaddr.find("__uids__") != -1:
@@ -1237,7 +1234,7 @@ class BadDataService(CalVerifyService):
 
             # Cache the result
             self.cuaCache[cuaddr] = result
-            return result
+            returnValue(result)
 
         for subcomponent in component.subcomponents():
             if subcomponent.name() in ignoredComponents:
@@ -1249,13 +1246,13 @@ class BadDataService(CalVerifyService):
                 # http(s) principals need to be converted to urn:uuid
                 if cuaddr.startswith("http"):
                     if doFix:
-                        component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().principalForCalendarUserAddress)
+                        yield component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().recordWithCalendarUserAddress)
                     else:
                         raise InvalidICalendarDataError("iCalendar ORGANIZER starts with 'http(s)'")
                 elif cuaddr.startswith("mailto:"):
-                    if lookupFunction(cuaddr, self.directoryService().principalForCalendarUserAddress, self.config)[1] is not None:
+                    if (yield lookupFunction(cuaddr, self.directoryService().recordWithCalendarUserAddress, self.config))[1] is not None:
                         if doFix:
-                            component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().principalForCalendarUserAddress)
+                            yield component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().recordWithCalendarUserAddress)
                         else:
                             raise InvalidICalendarDataError("iCalendar ORGANIZER starts with 'mailto:' and record exists")
                 else:
@@ -1263,7 +1260,7 @@ class BadDataService(CalVerifyService):
                         if doFix:
                             # Add back in mailto: then re-normalize to urn:uuid if possible
                             organizer.setValue("mailto:%s" % (cuaddr,))
-                            component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().principalForCalendarUserAddress)
+                            yield component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().recordWithCalendarUserAddress)
 
                             # Remove any SCHEDULE-AGENT=NONE
                             if organizer.parameterValue("SCHEDULE-AGENT", "SERVER") == "NONE":
@@ -1286,13 +1283,13 @@ class BadDataService(CalVerifyService):
                 # http(s) principals need to be converted to urn:uuid
                 if cuaddr.startswith("http"):
                     if doFix:
-                        component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().principalForCalendarUserAddress)
+                        yield component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().recordWithCalendarUserAddress)
                     else:
                         raise InvalidICalendarDataError("iCalendar ATTENDEE starts with 'http(s)'")
                 elif cuaddr.startswith("mailto:"):
-                    if lookupFunction(cuaddr, self.directoryService().principalForCalendarUserAddress, self.config)[1] is not None:
+                    if (yield lookupFunction(cuaddr, self.directoryService().recordWithCalendarUserAddress, self.config))[1] is not None:
                         if doFix:
-                            component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().principalForCalendarUserAddress)
+                            yield component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().recordWithCalendarUserAddress)
                         else:
                             raise InvalidICalendarDataError("iCalendar ATTENDEE starts with 'mailto:' and record exists")
                 else:
@@ -1300,7 +1297,7 @@ class BadDataService(CalVerifyService):
                         if doFix:
                             # Add back in mailto: then re-normalize to urn:uuid if possible
                             attendee.setValue("mailto:%s" % (cuaddr,))
-                            component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().principalForCalendarUserAddress)
+                            yield component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().recordWithCalendarUserAddress)
                         else:
                             raise InvalidICalendarDataError("iCalendar ATTENDEE missing mailto:")
 
@@ -1352,7 +1349,7 @@ class BadDataService(CalVerifyService):
                 component.validCalendarForCalDAV(methodAllowed=isinbox)
                 component.validOrganizerForScheduling(doFix=True)
                 component.hasDuplicateAlarms(doFix=True)
-            self.noPrincipalPathCUAddresses(component, doFix=True)
+            yield self.noPrincipalPathCUAddresses(component, doFix=True)
             if self.options["ical"]:
                 self.attendeesWithoutOrganizer(component, doFix=True)
         except ValueError:
@@ -1460,7 +1457,7 @@ class SchedulingMismatchService(CalVerifyService):
         self.attended = []
         self.attended_byuid = collections.defaultdict(list)
         self.matched_attendee_to_organizer = collections.defaultdict(set)
-        skipped, inboxes = self.buildResourceInfo(rows)
+        skipped, inboxes = yield self.buildResourceInfo(rows)
 
         self.logResult("Number of organizer events to process", len(self.organized), self.total)
         self.logResult("Number of attendee events to process", len(self.attended), self.total)
@@ -1488,6 +1485,7 @@ class SchedulingMismatchService(CalVerifyService):
         self.printSummary()
 
 
+    @inlineCallbacks
     def buildResourceInfo(self, rows, onlyOrganizer=False, onlyAttendee=False):
         """
         For each resource, determine whether it is an organizer or attendee event, and also
@@ -1506,7 +1504,7 @@ class SchedulingMismatchService(CalVerifyService):
         for owner, resid, uid, calname, md5, organizer, created, modified in rows:
 
             # Skip owners not enabled for calendaring
-            if not self.testForCalendaringUUID(owner):
+            if not (yield self.testForCalendaringUUID(owner)):
                 skipped += 1
                 continue
 
@@ -1530,9 +1528,10 @@ class SchedulingMismatchService(CalVerifyService):
                     self.attended.append((owner, resid, uid, md5, organizer, created, modified,))
                     self.attended_byuid[uid].append((owner, resid, uid, md5, organizer, created, modified,))
 
-        return skipped, inboxes
+        returnValue((skipped, inboxes))
 
 
+    @inlineCallbacks
     def testForCalendaringUUID(self, uuid):
         """
         Determine if the specified directory UUID is valid for calendaring. Keep a cache of
@@ -1545,9 +1544,9 @@ class SchedulingMismatchService(CalVerifyService):
         """
 
         if uuid not in self.validForCalendaringUUIDs:
-            record = self.directoryService().recordWithGUID(uuid)
-            self.validForCalendaringUUIDs[uuid] = record is not None and record.enabledForCalendaring and record.thisServer()
-        return self.validForCalendaringUUIDs[uuid]
+            record = yield self.directoryService().recordWithUID(uuid)
+            self.validForCalendaringUUIDs[uuid] = record is not None and record.hasCalendars and record.thisServer()
+        returnValue(self.validForCalendaringUUIDs[uuid])
 
 
     @inlineCallbacks
@@ -1622,7 +1621,7 @@ class SchedulingMismatchService(CalVerifyService):
                 self.matched_attendee_to_organizer[uid].add(organizerAttendee)
 
                 # Skip attendees not enabled for calendaring
-                if not self.testForCalendaringUUID(organizerAttendee):
+                if not (yield self.testForCalendaringUUID(organizerAttendee)):
                     continue
 
                 # Double check the missing attendee situation in case we missed it during the original query
@@ -1699,8 +1698,8 @@ class SchedulingMismatchService(CalVerifyService):
         results_missing.sort()
         for item in results_missing:
             uid, resid, organizer, attendee, created, modified = item
-            organizer_record = self.directoryService().recordWithGUID(organizer)
-            attendee_record = self.directoryService().recordWithGUID(attendee)
+            organizer_record = yield self.directoryService().recordWithUID(organizer)
+            attendee_record = yield self.directoryService().recordWithUID(attendee)
             table.addRow((
                 "%s/%s (%s)" % (organizer_record.recordType if organizer_record else "-", organizer_record.shortNames[0] if organizer_record else "-", organizer,),
                 "%s/%s (%s)" % (attendee_record.recordType if attendee_record else "-", attendee_record.shortNames[0] if attendee_record else "-", attendee,),
@@ -1721,8 +1720,8 @@ class SchedulingMismatchService(CalVerifyService):
         results_mismatch.sort()
         for item in results_mismatch:
             uid, org_resid, organizer, org_created, org_modified, attendee, att_created, att_modified = item
-            organizer_record = self.directoryService().recordWithGUID(organizer)
-            attendee_record = self.directoryService().recordWithGUID(attendee)
+            organizer_record = yield self.directoryService().recordWithUID(organizer)
+            attendee_record = yield self.directoryService().recordWithUID(attendee)
             table.addRow((
                 "%s/%s (%s)" % (organizer_record.recordType if organizer_record else "-", organizer_record.shortNames[0] if organizer_record else "-", organizer,),
                 "%s/%s (%s)" % (attendee_record.recordType if attendee_record else "-", attendee_record.shortNames[0] if attendee_record else "-", attendee,),
@@ -1789,14 +1788,14 @@ class SchedulingMismatchService(CalVerifyService):
             organizer = organizer[9:]
 
             # Skip organizers not enabled for calendaring
-            if not self.testForCalendaringUUID(organizer):
+            if not (yield self.testForCalendaringUUID(organizer)):
                 continue
 
             # Double check the missing attendee situation in case we missed it during the original query
             if uid not in self.organized_byuid:
                 # Try to reload the organizer info data
                 rows = yield self.getAllResourceInfoWithUID(uid)
-                self.buildResourceInfo(rows, onlyOrganizer=True)
+                yield self.buildResourceInfo(rows, onlyOrganizer=True)
 
                 #if uid in self.organized_byuid:
                 #    print("Reloaded missing organizer data: %s" % (uid,))
@@ -1849,9 +1848,9 @@ class SchedulingMismatchService(CalVerifyService):
             uid, attendee, organizer, resid, created, modified = item
             unique_set.add(uid)
             if organizer:
-                organizerRecord = self.directoryService().recordWithGUID(organizer)
+                organizerRecord = yield self.directoryService().recordWithUID(organizer)
                 organizer = "%s/%s (%s)" % (organizerRecord.recordType if organizerRecord else "-", organizerRecord.shortNames[0] if organizerRecord else "-", organizer,)
-            attendeeRecord = self.directoryService().recordWithGUID(attendee)
+            attendeeRecord = yield self.directoryService().recordWithUID(attendee)
             table.addRow((
                 organizer,
                 "%s/%s (%s)" % (attendeeRecord.recordType if attendeeRecord else "-", attendeeRecord.shortNames[0] if attendeeRecord else "-", attendee,),
@@ -1874,9 +1873,9 @@ class SchedulingMismatchService(CalVerifyService):
         for item in mismatched:
             uid, attendee, organizer, resid, att_created, att_modified = item
             if organizer:
-                organizerRecord = self.directoryService().recordWithGUID(organizer)
+                organizerRecord = yield self.directoryService().recordWithUID(organizer)
                 organizer = "%s/%s (%s)" % (organizerRecord.recordType if organizerRecord else "-", organizerRecord.shortNames[0] if organizerRecord else "-", organizer,)
-            attendeeRecord = self.directoryService().recordWithGUID(attendee)
+            attendeeRecord = yield self.directoryService().recordWithUID(attendee)
             table.addRow((
                 organizer,
                 "%s/%s (%s)" % (attendeeRecord.recordType if attendeeRecord else "-", attendeeRecord.shortNames[0] if attendeeRecord else "-", attendee,),
@@ -1980,8 +1979,9 @@ class SchedulingMismatchService(CalVerifyService):
             self.txn = self.store.newTransaction()
 
             # Need to know whether the attendee is a location or resource with auto-accept set
-            record = self.directoryService().recordWithGUID(attendee)
-            if record.autoSchedule:
+            record = yield self.directoryService().recordWithUID(attendee)
+            autoScheduleMode = getattr(record, "autoScheduleMode", None)
+            if autoScheduleMode not in (None, AutoScheduleMode.none):
                 # Log details about the event so we can have a human manually process
                 self.fixedAutoAccepts.append(details)
 
@@ -2159,8 +2159,8 @@ class DoubleBookingService(CalVerifyService):
             self.txn = None
             uuids = []
             for uuid in sorted(homes):
-                record = self.directoryService().recordWithGUID(uuid)
-                if record is not None and record.recordType in (DirectoryService.recordType_locations, DirectoryService.recordType_resources):
+                record = yield self.directoryService().recordWithUID(uuid)
+                if record is not None and record.recordType in (CalRecordType.location, CalRecordType.resource):
                     uuids.append(uuid)
         else:
             uuids = [self.options["uuid"], ]
@@ -2172,14 +2172,14 @@ class DoubleBookingService(CalVerifyService):
             self.total = 0
             count += 1
 
-            record = self.directoryService().recordWithGUID(uuid)
+            record = yield self.directoryService().recordWithUID(uuid)
             if record is None:
                 continue
-            if not record.thisServer() or not record.enabledForCalendaring:
+            if not record.thisServer() or not record.hasCalendars:
                 continue
 
-            rname = record.fullName
-            auto = record.autoSchedule
+            rname = record.displayName
+            autoScheduleMode = getattr(record, "autoSchedule", AutoScheduleMode.none)
 
             if len(uuids) > 1 and not self.options["summary"]:
                 self.output.write("\n\n-----------------------------\n")
@@ -2205,7 +2205,7 @@ class DoubleBookingService(CalVerifyService):
             if not self.options["summary"]:
                 self.logResult("UUID to process", uuid)
                 self.logResult("Record name", rname)
-                self.logResult("Auto-schedule", "True" if auto else "False")
+                self.logResult("Auto-schedule-mode", autoScheduleMode.description)
                 self.addSummaryBreak()
                 self.logResult("Number of events to process", self.total)
 
@@ -2216,7 +2216,7 @@ class DoubleBookingService(CalVerifyService):
             else:
                 doubled = False
 
-            self.uuid_details.append(UUIDDetails(uuid, rname, auto, doubled))
+            self.uuid_details.append(UUIDDetails(uuid, rname, autoScheduleMode, doubled))
 
             if not self.options["summary"]:
                 self.printSummary()
@@ -2234,7 +2234,7 @@ class DoubleBookingService(CalVerifyService):
                 table.addRow((
                     item.uuid,
                     item.rname,
-                    item.auto,
+                    item.autoScheduleMode,
                     item.doubled,
                 ))
                 doubled += 1
@@ -2468,8 +2468,8 @@ class DarkPurgeService(CalVerifyService):
             if self.options["verbose"]:
                 self.output.write("%d uuids to check\n" % (len(homes,)))
             for uuid in sorted(homes):
-                record = self.directoryService().recordWithGUID(uuid)
-                if record is not None and record.recordType in (DirectoryService.recordType_locations, DirectoryService.recordType_resources):
+                record = yield self.directoryService().recordWithUID(uuid)
+                if record is not None and record.recordType in (CalRecordType.location, CalRecordType.resource):
                     uuids.append(uuid)
         else:
             uuids = [self.options["uuid"], ]
@@ -2483,13 +2483,13 @@ class DarkPurgeService(CalVerifyService):
             self.total = 0
             count += 1
 
-            record = self.directoryService().recordWithGUID(uuid)
+            record = yield self.directoryService().recordWithUID(uuid)
             if record is None:
                 continue
-            if not record.thisServer() or not record.enabledForCalendaring:
+            if not record.thisServer() or not record.hasCalendars:
                 continue
 
-            rname = record.fullName
+            rname = record.displayName
 
             if len(uuids) > 1 and not self.options["summary"]:
                 self.output.write("\n\n-----------------------------\n")
@@ -2602,9 +2602,10 @@ class DarkPurgeService(CalVerifyService):
                 if self.options["no-organizer"]:
                     fail = True
             else:
-                principal = self.directoryService().principalForCalendarUserAddress(organizer)
+                principal = yield self.directoryService().recordWithCalendarUserAddress(organizer)
+                # FIXME: Why the mix of records and principals here?
                 if principal is None and organizer.startswith("urn:uuid:"):
-                    principal = self.directoryService().principalCollection.principalForUID(organizer[9:])
+                    principal = yield self.directoryService().principalCollection.principalForUID(organizer[9:])
                 if principal is None:
                     if self.options["invalid-organizer"]:
                         fail = True

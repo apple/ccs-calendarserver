@@ -16,7 +16,7 @@
 ##
 from twisted.trial.unittest import TestCase
 from twext.python.clsprop import classproperty
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, succeed
 
 """
 Store test utility functions
@@ -40,7 +40,7 @@ class TestCalendarStoreDirectoryService(TestStoreDirectoryService):
 
 
     def recordWithCalendarUserAddress(self, cuaddr):
-        return self.recordsByCUA.get(cuaddr)
+        return succeed(self.recordsByCUA.get(cuaddr))
 
 
     def addRecord(self, record):
@@ -63,28 +63,44 @@ class TestCalendarStoreDirectoryRecord(TestStoreDirectoryRecord):
         cutype="INDIVIDUAL",
         thisServer=True,
         server=None,
-        extras={},
+        associatedAddress=None,
+        streetAddress=None,
+        geographicLocation=None
     ):
 
-        super(TestCalendarStoreDirectoryRecord, self).__init__(uid, shortNames, fullName, thisServer, server, extras=extras)
+        super(TestCalendarStoreDirectoryRecord, self).__init__(
+            uid, shortNames, fullName, thisServer, server,
+        )
         self.calendarUserAddresses = calendarUserAddresses
         self.cutype = cutype
+        self.associatedAddress = associatedAddress
+        self.streetAddress = streetAddress
+        self.geographicLocation = geographicLocation
+
 
 
     def canonicalCalendarUserAddress(self):
-        cua = ""
-        for candidate in self.calendarUserAddresses:
-            # Pick the first one, but urn:uuid: and mailto: can override
-            if not cua:
-                cua = candidate
-            # But always immediately choose the urn:uuid: form
-            if candidate.startswith("urn:uuid:"):
-                cua = candidate
-                break
-            # Prefer mailto: if no urn:uuid:
-            elif candidate.startswith("mailto:"):
-                cua = candidate
-        return cua
+        """
+            Return a CUA for this record, preferring in this order:
+            urn:uuid: form
+            mailto: form
+            /principals/__uids__/ form
+            first in calendarUserAddresses list (sorted)
+        """
+
+        sortedCuas = sorted(self.calendarUserAddresses)
+
+        for prefix in (
+            "urn:uuid:",
+            "mailto:",
+            "/principals/__uids__/"
+        ):
+            for candidate in sortedCuas:
+                if candidate.startswith(prefix):
+                    return candidate
+
+        # fall back to using the first one
+        return sortedCuas[0]
 
 
     def calendarsEnabled(self):
@@ -109,15 +125,15 @@ class TestCalendarStoreDirectoryRecord(TestStoreDirectoryRecord):
 
 
     def canAutoSchedule(self, organizer):
-        return False
+        return succeed(False)
 
 
     def getAutoScheduleMode(self, organizer):
-        return "automatic"
+        return succeed("automatic")
 
 
     def isProxyFor(self, other):
-        return False
+        return succeed(False)
 
 
 
@@ -161,31 +177,23 @@ def buildDirectory(homes=None):
     # Structured Locations
     directory.addRecord(TestCalendarStoreDirectoryRecord(
         "il1", ("il1",), "1 Infinite Loop", [],
-        extras={
-            "geo" : "37.331741,-122.030333",
-            "streetAddress" : "1 Infinite Loop, Cupertino, CA 95014",
-        }
+        geographicLocation="37.331741,-122.030333",
+        streetAddress="1 Infinite Loop, Cupertino, CA 95014"
     ))
     directory.addRecord(TestCalendarStoreDirectoryRecord(
         "il2", ("il2",), "2 Infinite Loop", [],
-        extras={
-            "geo" : "37.332633,-122.030502",
-            "streetAddress" : "2 Infinite Loop, Cupertino, CA 95014",
-        }
+        geographicLocation="37.332633,-122.030502",
+        streetAddress="2 Infinite Loop, Cupertino, CA 95014"
     ))
     directory.addRecord(TestCalendarStoreDirectoryRecord(
         "room1", ("room1",), "Conference Room One",
         frozenset(("urn:uuid:room1",)),
-        extras={
-            "associatedAddress" : "il1",
-        }
+        associatedAddress="il1",
     ))
     directory.addRecord(TestCalendarStoreDirectoryRecord(
         "room2", ("room2",), "Conference Room Two",
         frozenset(("urn:uuid:room2",)),
-        extras={
-            "associatedAddress" : "il2",
-        }
+        associatedAddress="il2",
     ))
 
     return directory

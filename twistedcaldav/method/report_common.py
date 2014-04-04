@@ -503,7 +503,7 @@ def generateFreeBusyInfo(
             returnValue(matchtotal)
 
     # May need organizer principal
-    organizer_principal = calresource.principalForCalendarUserAddress(organizer) if organizer else None
+    organizer_principal = (yield calresource.principalForCalendarUserAddress(organizer)) if organizer else None
     organizer_uid = organizer_principal.principalUID() if organizer_principal else ""
 
     # Free busy is per-user
@@ -630,7 +630,7 @@ def generateFreeBusyInfo(
                 if excludeuid:
                     # See if we have a UID match
                     if (excludeuid == uid):
-                        test_principal = calresource.principalForCalendarUserAddress(test_organizer) if test_organizer else None
+                        test_principal = (yield calresource.principalForCalendarUserAddress(test_organizer)) if test_organizer else None
                         test_uid = test_principal.principalUID() if test_principal else ""
 
                         # Check that ORGANIZER's match (security requirement)
@@ -688,7 +688,7 @@ def generateFreeBusyInfo(
                 # See if we have a UID match
                 if (excludeuid == uid):
                     test_organizer = calendar.getOrganizer()
-                    test_principal = calresource.principalForCalendarUserAddress(test_organizer) if test_organizer else None
+                    test_principal = (yield calresource.principalForCalendarUserAddress(test_organizer)) if test_organizer else None
                     test_uid = test_principal.principalUID() if test_principal else ""
 
                     # Check that ORGANIZER's match (security requirement)

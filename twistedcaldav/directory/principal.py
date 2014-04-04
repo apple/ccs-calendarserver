@@ -28,47 +28,47 @@ __all__ = [
     "DirectoryCalendarPrincipalResource",
 ]
 
-from urllib import unquote
+from urllib import quote, unquote
 from urlparse import urlparse
-
-from twisted.cred.credentials import UsernamePassword
-from twisted.python.failure import Failure
-from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.internet.defer import succeed
-from twisted.web.template import XMLFile, Element, renderer, tags
-from twistedcaldav.directory.util import NotFoundResource
-
-from txweb2.auth.digest import DigestedCredentials
-from txweb2 import responsecode
-from txweb2.http import HTTPError
-from txdav.xml import element as davxml
-from txweb2.dav.util import joinURL
-from txweb2.dav.noneprops import NonePropertyStore
+import uuid
 
 from twext.python.log import Logger
-
-
-try:
-    from twistedcaldav.authkerb import NegotiateCredentials
-    NegotiateCredentials # sigh, pyflakes
-except ImportError:
-    NegotiateCredentials = None
+from twisted.cred.credentials import UsernamePassword
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import succeed
 from twisted.python.modules import getModule
-
+from twisted.web.template import XMLFile, Element, renderer
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
 from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.directory.augment import allowedAutoScheduleModes
 from twistedcaldav.directory.common import uidsResourceName
-from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
-from twistedcaldav.directory.idirectory import IDirectoryService
-from twistedcaldav.directory.wiki import getWikiACL
+from twistedcaldav.directory.util import NotFoundResource
+from twistedcaldav.directory.util import (
+    formatLink, formatLinks, formatPrincipals, formatList
+)
+from txdav.who.wiki import getWikiACL
+from twistedcaldav.extensions import (
+    ReadOnlyResourceMixIn, DAVPrincipalResource, DAVResourceWithChildrenMixin
+)
 from twistedcaldav.extensions import DirectoryElement
-from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVPrincipalResource, \
-    DAVResourceWithChildrenMixin
 from twistedcaldav.resource import CalendarPrincipalCollectionResource, CalendarPrincipalResource
 from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
+from txdav.who.delegates import RecordType as DelegateRecordType
+from txdav.who.directory import CalendarDirectoryRecordMixin
+from txdav.xml import element as davxml
+from txweb2 import responsecode
+from txweb2.auth.digest import DigestedCredentials
+from txweb2.dav.noneprops import NonePropertyStore
+from txweb2.dav.util import joinURL
+from txweb2.http import HTTPError
+
+try:
+    from twistedcaldav.authkerb import NegotiateCredentials
+    NegotiateCredentials  # sigh, pyflakes
+except ImportError:
+    NegotiateCredentials = None
 
 thisModule = getModule(__name__)
 log = Logger()
@@ -76,7 +76,7 @@ log = Logger()
 
 class PermissionsMixIn (ReadOnlyResourceMixIn):
     def defaultAccessControlList(self):
-        return authReadACL
+        return succeed(authReadACL)
 
 
     @inlineCallbacks
@@ -94,7 +94,7 @@ class PermissionsMixIn (ReadOnlyResourceMixIn):
         else:
             # ...otherwise permissions are fixed, and are not subject to
             # inheritance rules, etc.
-            returnValue(self.defaultAccessControlList())
+            returnValue((yield self.defaultAccessControlList()))
 
 
 
@@ -108,7 +108,7 @@ class PermissionsMixIn (ReadOnlyResourceMixIn):
 def cuTypeConverter(cuType):
     """ Converts calendar user types to OD type names """
 
-    return "recordType", DirectoryRecord.fromCUType(cuType)
+    return "recordType", CalendarDirectoryRecordMixin.fromCUType(cuType)
 
 
 
@@ -118,7 +118,7 @@ def cuAddressConverter(origCUAddr):
     cua = normalizeCUAddr(origCUAddr)
 
     if cua.startswith("urn:uuid:"):
-        return "guid", cua[9:]
+        return "guid", uuid.UUID(cua[9:])
 
     elif cua.startswith("mailto:"):
         return "emailAddresses", cua[7:]
@@ -126,7 +126,7 @@ def cuAddressConverter(origCUAddr):
     elif cua.startswith("/") or cua.startswith("http"):
         ignored, collection, id = cua.rsplit("/", 2)
         if collection == "__uids__":
-            return "guid", id
+            return "uid", id
         else:
             return "recordName", id
 
@@ -150,18 +150,21 @@ class DirectoryProvisioningResource (
         CalendarPrincipalCollectionResource.__init__(self, url)
         DAVResourceWithChildrenMixin.__init__(self)
 
-        self.directory = IDirectoryService(directory)
+        # MOVE2WHO
+        # self.directory = IDirectoryService(directory)
+        self.directory = directory
 
 
     def __repr__(self):
         return "<%s: %s %s>" % (self.__class__.__name__, self.directory, self._url)
 
 
+    @inlineCallbacks
     def locateChild(self, req, segments):
-        child = self.getChild(segments[0])
+        child = (yield self.getChild(segments[0]))
         if child is not None:
-            return (child, segments[1:])
-        return (NotFoundResource(principalCollections=self.principalCollections()), ())
+            returnValue((child, segments[1:]))
+        returnValue((NotFoundResource(principalCollections=self.principalCollections()), ()))
 
 
     def deadProperties(self):
@@ -174,27 +177,30 @@ class DirectoryProvisioningResource (
         return succeed(None)
 
 
+    @inlineCallbacks
     def principalForShortName(self, recordType, name):
-        return self.principalForRecord(self.directory.recordWithShortName(recordType, name))
+        record = (yield self.directory.recordWithShortName(recordType, name))
+        returnValue((yield self.principalForRecord(record)))
 
 
     def principalForUser(self, user):
-        return self.principalForShortName(DirectoryService.recordType_users, user)
+        return self.principalForShortName(self.directory.recordType.lookupByName("user"), user)
 
 
+    @inlineCallbacks
     def principalForAuthID(self, user):
         # Basic/Digest creds -> just lookup user name
         if isinstance(user, UsernamePassword) or isinstance(user, DigestedCredentials):
-            return self.principalForUser(user.username)
+            returnValue((yield self.principalForUser(user.username)))
         elif NegotiateCredentials is not None and isinstance(user, NegotiateCredentials):
             authID = "Kerberos:%s" % (user.principal,)
-            principal = self.principalForRecord(self.directory.recordWithAuthID(authID))
+            principal = yield self.principalForRecord((yield self.directory.recordWithAuthID(authID)))
             if principal:
-                return principal
+                returnValue(principal)
             elif user.username:
-                return self.principalForUser(user.username)
+                returnValue((yield self.principalForUser(user.username)))
 
-        return None
+        returnValue(None)
 
 
     def principalForUID(self, uid):
@@ -207,7 +213,7 @@ class DirectoryProvisioningResource (
 
     def principalForRecord(self, record):
         if record is None or not record.enabled:
-            return None
+            return succeed(None)
         return self.principalForUID(record.uid)
 
     ##
@@ -217,7 +223,7 @@ class DirectoryProvisioningResource (
     _cs_ns = "http://calendarserver.org/ns/"
     _fieldMap = {
         ("DAV:" , "displayname") :
-            ("fullName", None, "Display Name", davxml.DisplayName),
+            ("fullNames", None, "Display Name", davxml.DisplayName),
         ("urn:ietf:params:xml:ns:caldav" , "calendar-user-type") :
             ("", cuTypeConverter, "Calendar User Type",
             caldavxml.CalendarUserType),
@@ -281,16 +287,36 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
         #
         # Create children
         #
-        for recordType in self.directory.recordTypes():
-            self.putChild(recordType, DirectoryPrincipalTypeProvisioningResource(self, recordType))
+
+        self.supportedChildTypes = (
+            self.directory.recordType.user,
+            self.directory.recordType.group,
+            self.directory.recordType.location,
+            self.directory.recordType.resource,
+            self.directory.recordType.address,
+        )
+
+        for name, recordType in [
+            (self.directory.recordTypeToOldName(r), r)
+            for r in self.supportedChildTypes
+        ]:
+            self.putChild(
+                name,
+                DirectoryPrincipalTypeProvisioningResource(
+                    self, name, recordType
+                )
+            )
 
         self.putChild(uidsResourceName, DirectoryPrincipalUIDProvisioningResource(self))
 
 
+    @inlineCallbacks
     def principalForUID(self, uid):
-        return self.getChild(uidsResourceName).getChild(uid)
+        child = (yield self.getChild(uidsResourceName))
+        returnValue((yield child.getChild(uid)))
 
 
+    @inlineCallbacks
     def _principalForURI(self, uri):
         scheme, netloc, path, _ignore_params, _ignore_query, _ignore_fragment = urlparse(uri)
 
@@ -312,56 +338,62 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
 
             if (host != config.ServerHostName and
                 host not in config.Scheduling.Options.PrincipalHostAliases):
-                return None
+                returnValue(None)
 
             if port != {
                 "http" : config.HTTPPort,
                 "https": config.SSLPort,
             }[scheme]:
-                return None
+                returnValue(None)
 
         elif scheme == "urn":
             if path.startswith("uuid:"):
-                return self.principalForUID(path[5:])
+                returnValue((yield self.principalForUID(path[5:])))
             else:
-                return None
+                returnValue(None)
         else:
-            return None
+            returnValue(None)
 
         if not path.startswith(self._url):
-            return None
+            returnValue(None)
 
         path = path[len(self._url) - 1:]
 
         segments = [unquote(s) for s in path.rstrip("/").split("/")]
         if segments[0] == "" and len(segments) == 3:
-            typeResource = self.getChild(segments[1])
+            typeResource = yield self.getChild(segments[1])
             if typeResource is not None:
-                principalResource = typeResource.getChild(segments[2])
+                principalResource = yield typeResource.getChild(segments[2])
                 if principalResource:
-                    return principalResource
+                    returnValue(principalResource)
 
-        return None
+        returnValue(None)
 
 
+    @inlineCallbacks
     def principalForCalendarUserAddress(self, address):
         # First see if the address is a principal URI
-        principal = self._principalForURI(address)
+        principal = yield self._principalForURI(address)
         if principal:
-            if isinstance(principal, DirectoryCalendarPrincipalResource) and principal.record.enabledForCalendaring:
-                return principal
+            if (
+                isinstance(principal, DirectoryCalendarPrincipalResource) and
+                principal.record.hasCalendars
+            ):
+                returnValue(principal)
         else:
             # Next try looking it up in the directory
-            record = self.directory.recordWithCalendarUserAddress(address)
-            if record is not None and record.enabled and record.enabledForCalendaring:
-                return self.principalForRecord(record)
+            record = yield self.directory.recordWithCalendarUserAddress(address)
+            if record is not None and record.hasCalendars:
+                returnValue((yield self.principalForRecord(record)))
 
         log.debug("No principal for calendar user address: %r" % (address,))
-        return None
+        returnValue(None)
 
 
+    @inlineCallbacks
     def principalForRecord(self, record):
-        return self.getChild(uidsResourceName).principalForRecord(record)
+        child = (yield self.getChild(uidsResourceName))
+        returnValue((yield child.principalForRecord(record)))
 
 
     ##
@@ -375,13 +407,16 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
 
     def getChild(self, name):
         if name == "":
-            return self
+            return succeed(self)
         else:
-            return self.putChildren.get(name, None)
+            return succeed(self.putChildren.get(name, None))
 
 
     def listChildren(self):
-        return self.directory.recordTypes()
+        return [
+            self.directory.recordTypeToOldName(r) for r in
+            self.supportedChildTypes
+        ]
 
 
     ##
@@ -392,43 +427,20 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
         return (self,)
 
 
-    ##
-    # Proxy callback from directory service
-    ##
-
-    def isProxyFor(self, record1, record2):
-        """
-        Test whether the principal identified by directory record1 is a proxy for the principal identified by
-        record2.
-
-        @param record1: directory record for a user
-        @type record1: L{DirectoryRecord}
-        @param record2: directory record to test with
-        @type record2: L{DirectoryRercord}
-
-        @return: C{True} if record1 is a proxy for record2, otherwise C{False}
-        @rtype: C{bool}
-        """
-
-        principal1 = self.principalForUID(record1.uid)
-        principal2 = self.principalForUID(record2.uid)
-        return principal1.isProxyFor(principal2)
-
-
 
 class DirectoryPrincipalTypeProvisioningResource (DirectoryProvisioningResource):
     """
     Collection resource which provisions directory principals of a
     specific type as its children, indexed by short name.
     """
-    def __init__(self, parent, recordType):
+    def __init__(self, parent, name, recordType):
         """
         @param parent: the parent L{DirectoryPrincipalProvisioningResource}.
         @param recordType: the directory record type to provision.
         """
         DirectoryProvisioningResource.__init__(
             self,
-            joinURL(parent.principalCollectionURL(), recordType) + "/",
+            joinURL(parent.principalCollectionURL(), name) + "/",
             parent.directory
         )
 
@@ -459,22 +471,26 @@ class DirectoryPrincipalTypeProvisioningResource (DirectoryProvisioningResource)
 
     def getChild(self, name):
         if name == "":
-            return self
+            return succeed(self)
         else:
             return self.principalForShortName(self.recordType, name)
 
 
+    @inlineCallbacks
     def listChildren(self):
+        children = []
         if config.EnablePrincipalListings:
+            try:
+                for record in (
+                    yield self.directory.recordsWithRecordType(self.recordType)
+                ):
+                    for shortName in record.shortNames:
+                        children.append(shortName)
+            except AttributeError:
+                log.warn("Cannot list children of record type {rt}",
+                         rt=self.recordType.name)
+            returnValue(children)
 
-
-            def _recordShortnameExpand():
-                for record in self.directory.listRecords(self.recordType):
-                    if record.enabled:
-                        for shortName in record.shortNames:
-                            yield shortName
-
-            return _recordShortnameExpand()
         else:
             # Not a listable collection
             raise HTTPError(responsecode.FORBIDDEN)
@@ -517,16 +533,16 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
 
 
     def principalForRecord(self, record):
-        if record is None or not record.enabled:
-            return None
+        if record is None:
+            return succeed(None)
 
-        if record.enabledForCalendaring or record.enabledForAddressBooks:
+        if record.hasCalendars or record.hasContacts:
             # XXX these are different features and one should not automatically
             # imply the other...
             principal = DirectoryCalendarPrincipalResource(self, record)
         else:
             principal = DirectoryPrincipalResource(self, record)
-        return principal
+        return succeed(principal)
 
     ##
     # Static
@@ -538,9 +554,10 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
         raise HTTPError(responsecode.NOT_FOUND)
 
 
+    @inlineCallbacks
     def getChild(self, name):
         if name == "":
-            return self
+            returnValue(self)
 
         if "#" in name:
             # This UID belongs to a sub-principal
@@ -549,16 +566,16 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
             primaryUID = name
             subType = None
 
-        record = self.directory.recordWithUID(primaryUID)
-        primaryPrincipal = self.principalForRecord(record)
+        record = (yield self.directory.recordWithUID(primaryUID))
+        primaryPrincipal = (yield self.principalForRecord(record))
         if primaryPrincipal is None:
             log.info("No principal found for UID: %s" % (name,))
-            return None
+            returnValue(None)
 
         if subType is None:
-            return primaryPrincipal
+            returnValue(primaryPrincipal)
         else:
-            return primaryPrincipal.getChild(subType)
+            returnValue((yield primaryPrincipal.getChild(subType)))
 
 
     def listChildren(self):
@@ -610,17 +627,31 @@ class DirectoryPrincipalDetailElement(Element):
         Top-level renderer in the template.
         """
         record = self.resource.record
+        try:
+            if isinstance(record.guid, uuid.UUID):
+                guid = str(record.guid).upper()
+            else:
+                guid = record.guid
+        except AttributeError:
+            guid = ""
+        try:
+            emailAddresses = record.emailAddresses
+        except AttributeError:
+            emailAddresses = []
         return tag.fillSlots(
             directoryGUID=str(record.service.guid),
-            realm=str(record.service.realmName),
-            principalGUID=str(record.guid),
-            recordType=str(record.recordType),
-            shortNames=",".join(record.shortNames),
-            securityIDs=",".join(record.authIDs),
-            fullName=str(record.fullName),
-            firstName=str(record.firstName),
-            lastName=str(record.lastName),
-            emailAddresses=formatList(record.emailAddresses),
+            realm=record.service.realmName.encode("utf-8"),
+            principalGUID=guid,
+            recordType=record.service.recordTypeToOldName(record.recordType),
+            shortNames=",".join([n.encode("utf-8") for n in record.shortNames]),
+            # MOVE2WHO: need this?
+            # securityIDs=",".join(record.authIDs),
+            fullName=record.displayName.encode("utf-8"),
+            # MOVE2WHO: need this?
+            # firstName=str(record.firstName),
+            # MOVE2WHO: need this?
+            # lastName=str(record.lastName),
+            emailAddresses=formatList(emailAddresses),
             principalUID=str(self.resource.principalUID()),
             principalURL=formatLink(self.resource.principalURL()),
             alternateURIs=formatLinks(self.resource.alternateURIs()),
@@ -697,7 +728,7 @@ class DirectoryCalendarPrincipalDetailElement(DirectoryPrincipalDetailElement):
         """
         resource = self.resource
         record = resource.record
-        if record.enabledForCalendaring:
+        if record.hasCalendars:
             return tag.fillSlots(
                 calendarUserAddresses=formatLinks(
                     sorted(resource.calendarUserAddresses())
@@ -715,7 +746,7 @@ class DirectoryCalendarPrincipalDetailElement(DirectoryPrincipalDetailElement):
         """
         resource = self.resource
         record = resource.record
-        if record.enabledForAddressBooks:
+        if record.hasContacts:
             return tag.fillSlots(
                 addressBookHomes=formatLinks(resource.addressBookHomeURLs())
             )
@@ -779,7 +810,12 @@ class DirectoryPrincipalResource (
         self._url = url
 
         self._alternate_urls = tuple([
-            joinURL(parent.parent.principalCollectionURL(), record.recordType, shortName) + slash for shortName in record.shortNames
+            joinURL(
+                parent.parent.principalCollectionURL(),
+                record.service.recordTypeToOldName(record.recordType),
+                quote(shortName.encode("utf-8"))
+            ) + slash
+            for shortName in record.shortNames
         ])
 
 
@@ -791,7 +827,10 @@ class DirectoryPrincipalResource (
         """
         Principals are the same if their principalURLs are the same.
         """
-        return (self.principalURL() == other.principalURL()) if isinstance(other, DirectoryPrincipalResource) else False
+        if isinstance(other, DirectoryPrincipalResource):
+            return (self.principalURL() == other.principalURL())
+        else:
+            return False
 
 
     def __ne__(self, other):
@@ -812,25 +851,34 @@ class DirectoryPrincipalResource (
         namespace, name = qname
 
         if qname == davxml.ResourceID.qname():
-            returnValue(davxml.ResourceID(davxml.HRef.fromString("urn:uuid:%s" % (self.record.guid,))))
+            # FIXME: should this return a different CUA flavor if guid is not set on this record?
+            if hasattr(self.record, "guid"):
+                returnValue(davxml.ResourceID(davxml.HRef.fromString("urn:uuid:%s" % (self.record.guid,))))
+
         elif namespace == calendarserver_namespace:
-            if name == "first-name":
-                firstName = self.record.firstName
-                if firstName is not None:
-                    returnValue(customxml.FirstNameProperty(firstName))
-                else:
-                    returnValue(None)
 
-            elif name == "last-name":
-                lastName = self.record.lastName
-                if lastName is not None:
-                    returnValue(customxml.LastNameProperty(lastName))
-                else:
-                    returnValue(None)
+            # MOVE2WHO
+            # if name == "first-name":
+            #     firstName = self.record.firstName
+            #     if firstName is not None:
+            #         returnValue(customxml.FirstNameProperty(firstName))
+            #     else:
+            #         returnValue(None)
 
-            elif name == "email-address-set":
+            # elif name == "last-name":
+            #     lastName = self.record.lastName
+            #     if lastName is not None:
+            #         returnValue(customxml.LastNameProperty(lastName))
+            #     else:
+            #         returnValue(None)
+
+            if name == "email-address-set":
+                try:
+                    emails = self.record.emailAddresses
+                except AttributeError:
+                    emails = []
                 returnValue(customxml.EmailAddressSet(
-                    *[customxml.EmailAddressProperty(addr) for addr in sorted(self.record.emailAddresses)]
+                    *[customxml.EmailAddressProperty(addr) for addr in sorted(emails)]
                 ))
 
         result = (yield super(DirectoryPrincipalResource, self).readProperty(property, request))
@@ -867,7 +915,7 @@ class DirectoryPrincipalResource (
 
 
     def displayName(self):
-        return self.record.displayName()
+        return self.record.displayName
 
     ##
     # ACL
@@ -939,51 +987,48 @@ class DirectoryPrincipalResource (
 
 
     @inlineCallbacks
-    def proxyFor(self, read_write, resolve_memberships=True):
+    def proxyFor(self, readWrite):
+        """
+        Returns the set of principals currently delegating to this principal
+        with the access indicated by the readWrite argument.  If readWrite is
+        True, then write-access delegators are returned, otherwise the read-
+        only-access delegators are returned.
 
+        @param readWrite: Whether to look up read-write delegators, or
+            read-only delegators
+        @type readWrite: C{bool}
+
+        @return: A Deferred firing with a set of principals
+        """
         proxyFors = set()
 
-        if resolve_memberships:
-            cache = getattr(self.record.service, "groupMembershipCache", None)
-            if cache:
-                log.debug("proxyFor is using groupMembershipCache")
-                guids = (yield self.record.cachedGroups())
-                memberships = set()
-                for guid in guids:
-                    principal = self.parent.principalForUID(guid)
-                    if principal:
-                        memberships.add(principal)
-            else:
-                memberships = self._getRelatives("groups", infinity=True)
-
-            for membership in memberships:
-                results = (yield membership.proxyFor(read_write, False))
-                proxyFors.update(results)
-
         if config.EnableProxyPrincipals:
-            # Get proxy group UIDs and map to principal resources
-            proxies = []
-            memberships = (yield self._calendar_user_proxy_index().getMemberships(self.principalUID()))
-            for uid in memberships:
-                subprincipal = self.parent.principalForUID(uid)
-                if subprincipal:
-                    if subprincipal.isProxyType(read_write):
-                        proxies.append(subprincipal.parent)
-                else:
-                    yield self._calendar_user_proxy_index().removeGroup(uid)
+            proxyRecordType = (
+                DelegateRecordType.writeDelegatorGroup if readWrite else
+                DelegateRecordType.readDelegatorGroup
+            )
+            proxyGroupRecord = yield self.record.service.recordWithShortName(
+                proxyRecordType, self.record.uid
+            )
+            if proxyGroupRecord is not None:
+                proxyForRecords = yield proxyGroupRecord.members()
 
-            proxyFors.update(proxies)
+                uids = set()
+                for record in tuple(proxyForRecords):
+                    if record.uid in uids:
+                        proxyForRecords.remove(record)
+                    else:
+                        uids.add(record.uid)
 
-        uids = set()
-        for principal in tuple(proxyFors):
-            if principal.principalUID() in uids:
-                proxyFors.remove(principal)
-            else:
-                uids.add(principal.principalUID())
+                for record in proxyForRecords:
+                    principal = yield self.parent.principalForRecord(record)
+                    if principal is not None:
+                        proxyFors.add(principal)
 
         returnValue(proxyFors)
 
 
+    @inlineCallbacks
     def _getRelatives(self, method, record=None, relatives=None, records=None, proxy=None, infinity=False):
         if record is None:
             record = self.record
@@ -994,61 +1039,50 @@ class DirectoryPrincipalResource (
 
         if record not in records:
             records.add(record)
-            for relative in getattr(record, method)():
+            for relative in (yield getattr(record, method)()):
                 if relative not in records:
-                    found = self.parent.principalForRecord(relative)
+                    found = (yield self.parent.principalForRecord(relative))
                     if found is None:
                         log.error("No principal found for directory record: %r" % (relative,))
                     else:
                         if proxy:
                             if proxy == "read-write":
-                                found = found.getChild("calendar-proxy-write")
+                                found = (yield found.getChild("calendar-proxy-write"))
                             else:
-                                found = found.getChild("calendar-proxy-read")
+                                found = (yield found.getChild("calendar-proxy-read"))
                         relatives.add(found)
 
                     if infinity:
-                        self._getRelatives(method, relative, relatives, records,
+                        yield self._getRelatives(method, relative, relatives, records,
                             infinity=infinity)
 
-        return relatives
+        returnValue(relatives)
 
 
     def groupMembers(self):
-        return succeed(self._getRelatives("members"))
+        return self._getRelatives("members")
 
 
     def expandedGroupMembers(self):
-        return succeed(self._getRelatives("members", infinity=True))
+        return self._getRelatives("members", infinity=True)
 
 
     @inlineCallbacks
     def groupMemberships(self, infinity=False):
 
-        cache = getattr(self.record.service, "groupMembershipCache", None)
-        if cache:
-            log.debug("groupMemberships is using groupMembershipCache")
-            guids = (yield self.record.cachedGroups())
-            groups = set()
-            for guid in guids:
-                principal = self.parent.principalForUID(guid)
-                if principal:
-                    groups.add(principal)
-        else:
-            groups = self._getRelatives("groups", infinity=infinity)
+        groups = yield self._getRelatives("groups", infinity=infinity)
 
         if config.EnableProxyPrincipals:
-            # Get proxy group UIDs and map to principal resources
-            proxies = []
-            memberships = (yield self._calendar_user_proxy_index().getMemberships(self.principalUID()))
-            for uid in memberships:
-                subprincipal = self.parent.principalForUID(uid)
-                if subprincipal:
-                    proxies.append(subprincipal)
-                else:
-                    yield self._calendar_user_proxy_index().removeGroup(uid)
-
-            groups.update(proxies)
+            for readWrite, proxyType in (
+                (True, "calendar-proxy-write"),
+                (False, "calendar-proxy-read")
+            ):
+                proxyFors = yield self.proxyFor(readWrite)
+                for proxyFor in proxyFors:
+                    subPrincipal = yield self.parent.principalForUID(
+                        "{}#{}".format(proxyFor.record.uid, proxyType)
+                    )
+                    groups.add(subPrincipal)
 
         returnValue(groups)
 
@@ -1086,28 +1120,13 @@ class DirectoryPrincipalResource (
         return self.record.thisServer()
 
 
-    ##
-    # Extra resource info
-    ##
-
-    @inlineCallbacks
-    def setAutoSchedule(self, autoSchedule):
-        self.record.autoSchedule = autoSchedule
-        augmentRecord = (yield self.record.service.augmentService.getAugmentRecord(self.record.guid, self.record.recordType))
-        augmentRecord.autoSchedule = autoSchedule
-        (yield self.record.service.augmentService.addAugmentRecords([augmentRecord]))
-
-
-    def getAutoSchedule(self):
-        return self.record.autoSchedule
-
-
     def canAutoSchedule(self, organizer=None):
         """
         Determine the auto-schedule state based on record state, type and config settings.
 
         @param organizer: the CUA of the organizer trying to schedule this principal
         @type organizer: C{str}
+        @return: C{Deferred} firing a C{bool}
         """
         return self.record.canAutoSchedule(organizer)
 
@@ -1131,9 +1150,8 @@ class DirectoryPrincipalResource (
 
         @param organizer: the CUA of the organizer scheduling this principal
         @type organizer: C{str}
-        @return: auto schedule mode; one of: none, accept-always, decline-always,
-            accept-if-free, decline-if-busy, automatic (see stdconfig.py)
-        @rtype: C{str}
+        @return: auto schedule mode
+        @rtype: C{Deferred} firing L{AutoScheduleMode}
         """
         return self.record.getAutoScheduleMode(organizer)
 
@@ -1169,7 +1187,7 @@ class DirectoryPrincipalResource (
         @type organizer: C{str}
         @return: True if the autoAcceptGroup is assigned, and the organizer is a member
             of that group.  False otherwise.
-        @rtype: C{bool}
+        @rtype: C{Deferred} firing C{bool}
         """
         return self.record.autoAcceptFromOrganizer()
 
@@ -1187,18 +1205,19 @@ class DirectoryPrincipalResource (
         raise HTTPError(responsecode.NOT_FOUND)
 
 
+    @inlineCallbacks
     def locateChild(self, req, segments):
-        child = self.getChild(segments[0])
+        child = (yield self.getChild(segments[0]))
         if child is not None:
-            return (child, segments[1:])
-        return (None, ())
+            returnValue((child, segments[1:]))
+        returnValue((None, ()))
 
 
     def getChild(self, name):
         if name == "":
-            return self
+            return succeed(self)
 
-        return None
+        return succeed(None)
 
 
     def listChildren(self):
@@ -1221,7 +1240,7 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
 
 
     def addressBooksEnabled(self):
-        return config.EnableCardDAV and self.record.enabledForAddressBooks
+        return config.EnableCardDAV and self.record.hasContacts
 
 
     @inlineCallbacks
@@ -1254,6 +1273,7 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
         Return a CUA for this principal, preferring in this order:
             urn:uuid: form
             mailto: form
+            /principal/__uids__/ form
             first in calendarUserAddresses( ) list
         """
         return self.record.canonicalCalendarUserAddress()
@@ -1288,7 +1308,7 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
 
 
     def calendarHomeURLs(self):
-        if self.record.enabledForCalendaring:
+        if self.record.hasCalendars:
             homeURL = self._homeChildURL(None)
         else:
             homeURL = ""
@@ -1318,7 +1338,7 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
 
 
     def addressBookHomeURLs(self):
-        if self.record.enabledForAddressBooks:
+        if self.record.hasContacts:
             homeURL = self._addressBookHomeChildURL(None)
         else:
             homeURL = ""
@@ -1391,22 +1411,26 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
 
     def getChild(self, name):
         if name == "":
-            return self
+            return succeed(self)
 
-        if config.EnableProxyPrincipals and name in ("calendar-proxy-read",
-                                                     "calendar-proxy-write"):
+        if config.EnableProxyPrincipals and name in (
+            "calendar-proxy-read", "calendar-proxy-write",
+            "calendar-proxy-read-for", "calendar-proxy-write-for",
+            ):
             # name is required to be str
             from twistedcaldav.directory.calendaruserproxy import (
                 CalendarUserProxyPrincipalResource
             )
-            return CalendarUserProxyPrincipalResource(self, str(name))
+            return succeed(CalendarUserProxyPrincipalResource(self, str(name)))
         else:
-            return None
+            return succeed(None)
 
 
     def listChildren(self):
         if config.EnableProxyPrincipals:
-            return ("calendar-proxy-read", "calendar-proxy-write")
+            return (
+                "calendar-proxy-read", "calendar-proxy-write",
+            )
         else:
             return ()
 
@@ -1425,71 +1449,3 @@ authReadACL = davxml.ACL(
 
 
 
-def formatPrincipals(principals):
-    """
-    Format a list of principals into some twisted.web.template DOM objects.
-    """
-    def recordKey(principal):
-        try:
-            record = principal.record
-        except AttributeError:
-            try:
-                record = principal.parent.record
-            except:
-                return None
-        return (record.recordType, record.shortNames[0])
-
-
-    def describe(principal):
-        if hasattr(principal, "record"):
-            return " - %s" % (principal.record.fullName,)
-        else:
-            return ""
-
-    return formatList(
-        tags.a(href=principal.principalURL())(
-            str(principal), describe(principal)
-        )
-        for principal in sorted(principals, key=recordKey)
-    )
-
-
-
-def formatList(iterable):
-    """
-    Format a list of stuff as an interable.
-    """
-    thereAreAny = False
-    try:
-        item = None
-        for item in iterable:
-            thereAreAny = True
-            yield " -> "
-            if item is None:
-                yield "None"
-            else:
-                yield item
-            yield "\n"
-    except Exception, e:
-        log.error("Exception while rendering: %s" % (e,))
-        Failure().printTraceback()
-        yield "  ** %s **: %s\n" % (e.__class__.__name__, e)
-    if not thereAreAny:
-        yield " '()\n"
-
-
-
-def formatLink(url):
-    """
-    Convert a URL string into some twisted.web.template DOM objects for
-    rendering as a link to itself.
-    """
-    return tags.a(href=url)(url)
-
-
-
-def formatLinks(urls):
-    """
-    Format a list of URL strings as a list of twisted.web.template DOM links.
-    """
-    return formatList(formatLink(link) for link in urls)

@@ -374,9 +374,12 @@ DEFAULT_CONFIG = {
     #    users, groups, locations and resources) to the server.
     #
     "DirectoryService": {
+        "Enabled": True,
         "type": "twistedcaldav.directory.xmlfile.XMLDirectoryService",
         "params": DEFAULT_SERVICE_PARAMS["twistedcaldav.directory.xmlfile.XMLDirectoryService"],
     },
+
+    "DirectoryRealmName": "",
 
     #
     # Locations and Resources service
@@ -385,7 +388,7 @@ DEFAULT_CONFIG = {
     #    and resources.
     #
     "ResourceService": {
-        "Enabled" : True,
+        "Enabled": True,
         "type": "twistedcaldav.directory.xmlfile.XMLDirectoryService",
         "params": DEFAULT_RESOURCE_PARAMS["twistedcaldav.directory.xmlfile.XMLDirectoryService"],
     },
@@ -451,10 +454,6 @@ DEFAULT_CONFIG = {
         "Wiki": {
             "Enabled": False,
             "Cookie": "cc.collabd_session_guid",
-            "URL": "http://127.0.0.1:8089/RPC2",
-            "UserMethod": "userForSession",
-            "WikiMethod": "accessLevelForUserWikiCalendar",
-            "LionCompatibility": False,
             "CollabHost": "localhost",
             "CollabPort": 4444,
         },
@@ -1016,8 +1015,6 @@ DEFAULT_CONFIG = {
         "Enabled": True,
         "MemcachedPool" : "Default",
         "UpdateSeconds" : 300,
-        "ExpireSeconds" : 86400,
-        "LockSeconds"   : 600,
         "EnableUpdater" : True,
         "UseExternalProxies" : False,
     },
@@ -1253,6 +1250,16 @@ def _updateHostName(configDict, reloading=False):
         if not hostname:
             hostname = "localhost"
         configDict.ServerHostName = hostname
+
+    # Default DirectoryRealmName from ServerHostName
+    if not configDict.DirectoryRealmName:
+        # Use system-wide realm on OSX
+        try:
+            import ServerFoundation
+            realmName = ServerFoundation.XSAuthenticator.defaultRealm()
+            configDict.DirectoryRealmName = realmName
+        except ImportError:
+            configDict.DirectoryRealmName = configDict.ServerHostName
 
 
 

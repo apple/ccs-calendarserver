@@ -464,7 +464,7 @@
     <!-- Principals with "DAV:all" access (relative URLs) -->
     <key>AdminPrincipals</key>
     <array>
-      <string>/principals/__uids__/admin/</string>
+      <string>/principals/__uids__/0C8BDE62-E600-4696-83D3-8B5ECABDFD2E/</string>
     </array>
 
     <!-- Principals with "DAV:read" access (relative URLs) -->
@@ -1017,6 +1017,8 @@
       <string>en</string>
     </dict>
 
-
+    <!-- Directory Address Book -->
+    <key>EnableSearchAddressBook</key>
+    <true/>
   </dict>
 </plist>

@@ -46,7 +46,7 @@ from txweb2.dav.resource import TwistedGETContentMD5
 from twisted.application.service import Service
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, inlineCallbacks
-from twisted.internet.defer import returnValue
+from twisted.internet.defer import returnValue, succeed
 from twisted.internet.task import deferLater
 from twisted.trial.unittest import TestCase
 
@@ -110,14 +110,14 @@ class TestStoreDirectoryService(object):
 
 
     def recordWithUID(self, uid):
-        return self.records.get(uid)
+        return succeed(self.records.get(uid))
 
 
     def recordWithGUID(self, guid):
         for record in self.records.itervalues():
             if record.guid == guid:
-                return record
-        return None
+                return succeed(record)
+        return succeed(None)
 
 
     def addRecord(self, record):

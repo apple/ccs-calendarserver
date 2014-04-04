@@ -46,6 +46,7 @@ allowedAutoScheduleModes = frozenset((
     "automatic",
 ))
 
+
 class AugmentRecord(object):
     """
     Augmented directory record information
@@ -59,7 +60,7 @@ class AugmentRecord(object):
         enabledForCalendaring=False,
         autoSchedule=False,
         autoScheduleMode="default",
-        autoAcceptGroup="",
+        autoAcceptGroup=None,
         enabledForAddressBooks=False,
         enabledForLogin=True,
     ):
@@ -75,12 +76,14 @@ class AugmentRecord(object):
         self.clonedFromDefault = False
 
 recordTypesMap = {
-    "users" : "User",
-    "groups" : "Group",
-    "locations" : "Location",
-    "resources" : "Resource",
-    "addresses" : "Address",
+    "users": "User",
+    "groups": "Group",
+    "locations": "Location",
+    "resources": "Resource",
+    "addresses": "Address",
+    "wikis": "Wiki",
 }
+
 
 class AugmentDB(object):
     """
@@ -128,7 +131,6 @@ class AugmentDB(object):
 
         @return: L{Deferred}
         """
-
         recordType = recordTypesMap[recordType]
 
         result = (yield self._lookupAugmentRecord(uid))
@@ -266,9 +268,9 @@ class AugmentXMLDB(AugmentDB):
         self.xmlFiles = [fullServerPath(config.DataRoot, path) for path in xmlFiles]
         self.xmlFileStats = {}
         for path in self.xmlFiles:
-            self.xmlFileStats[path] = (0, 0) # mtime, size
+            self.xmlFileStats[path] = (0, 0)  # mtime, size
 
-        self.statSeconds = statSeconds # Don't stat more often than this value
+        self.statSeconds = statSeconds  # Don't stat more often than this value
         self.lastCached = 0
         self.db = {}
 

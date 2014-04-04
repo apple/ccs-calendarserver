@@ -77,7 +77,7 @@ from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
 from twistedcaldav.linkresource import LinkResource
 from calendarserver.push.notifier import getPubSubAPSConfiguration
 from twistedcaldav.sharing import SharedResourceMixin, SharedHomeMixin
-from twistedcaldav.util import normalizationLookup
+from txdav.caldav.datastore.util import normalizationLookup
 from twistedcaldav.vcard import Component as vComponent
 
 from txdav.common.icommondatastore import InternalDataStoreError, \
@@ -863,7 +863,8 @@ class CalDAVResource (
                 home = self._newStoreObject.parentCollection().ownerHome()
             else:
                 home = self._newStoreObject.ownerHome()
-            returnValue(element.HRef(self.principalForUID(home.uid()).principalURL()))
+            principal = (yield self.principalForUID(home.uid()))
+            returnValue(element.HRef(principal.principalURL()))
         else:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
         if parent and isinstance(parent, CalDAVResource):
@@ -883,7 +884,7 @@ class CalDAVResource (
                 home = self._newStoreObject.parentCollection().ownerHome()
             else:
                 home = self._newStoreObject.ownerHome()
-            returnValue(self.principalForUID(home.uid()))
+            returnValue((yield self.principalForUID(home.uid())))
         else:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
         if parent and isinstance(parent, CalDAVResource):
@@ -933,8 +934,8 @@ class CalDAVResource (
             return None
 
         if 'record' in dir(self):
-            if self.record.fullName:
-                return self.record.fullName
+            if self.record.fullNames:
+                return self.record.fullNames[0]
             elif self.record.shortNames:
                 return self.record.shortNames[0]
             else:
@@ -1070,25 +1071,30 @@ class CalDAVResource (
 
         @param ical: calendar object to normalize.
         @type ical: L{Component}
+        @return: L{Deferred}
         """
-        ical.normalizeCalendarUserAddresses(normalizationLookup,
-            self.principalForCalendarUserAddress)
+        return ical.normalizeCalendarUserAddresses(
+            normalizationLookup,
+            self.record.service.recordWithCalendarUserAddress
+        )
 
 
+    @inlineCallbacks
     def principalForCalendarUserAddress(self, address):
         for principalCollection in self.principalCollections():
-            principal = principalCollection.principalForCalendarUserAddress(address)
+            principal = (yield principalCollection.principalForCalendarUserAddress(address))
             if principal is not None:
-                return principal
-        return None
+                returnValue(principal)
+        returnValue(None)
 
 
+    @inlineCallbacks
     def principalForUID(self, principalUID):
         for principalCollection in self.principalCollections():
-            principal = principalCollection.principalForUID(principalUID)
+            principal = (yield principalCollection.principalForUID(principalUID))
             if principal is not None:
-                return principal
-        return None
+                returnValue(principal)
+        returnValue(None)
 
 
     @inlineCallbacks
@@ -1868,13 +1874,13 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
                     *[element.HRef(principal.principalURL()) for principal in results]
                 ))
 
-            elif name == "auto-schedule" and self.calendarsEnabled():
-                autoSchedule = self.getAutoSchedule()
-                returnValue(customxml.AutoSchedule("true" if autoSchedule else "false"))
+            # elif name == "auto-schedule" and self.calendarsEnabled():
+            #     autoSchedule = self.getAutoSchedule()
+            #     returnValue(customxml.AutoSchedule("true" if autoSchedule else "false"))
 
             elif name == "auto-schedule-mode" and self.calendarsEnabled():
-                autoScheduleMode = self.getAutoScheduleMode()
-                returnValue(customxml.AutoScheduleMode(autoScheduleMode if autoScheduleMode else "default"))
+                autoScheduleMode = yield self.getAutoScheduleMode()
+                returnValue(customxml.AutoScheduleMode(autoScheduleMode.description if autoScheduleMode else "default"))
 
         elif namespace == carddav_namespace and self.addressBooksEnabled():
             if name == "addressbook-home-set":
@@ -2302,20 +2308,23 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
     # ACL
     ##
 
+    @inlineCallbacks
     def owner(self, request):
-        return succeed(element.HRef(self.principalForRecord().principalURL()))
+        principal = yield self.principalForRecord()
+        returnValue(element.HRef(principal.principalURL()))
 
 
     def ownerPrincipal(self, request):
-        return succeed(self.principalForRecord())
+        return self.principalForRecord()
 
 
     def resourceOwnerPrincipal(self, request):
-        return succeed(self.principalForRecord())
+        return self.principalForRecord()
 
 
+    @inlineCallbacks
     def defaultAccessControlList(self):
-        myPrincipal = self.principalForRecord()
+        myPrincipal = yield self.principalForRecord()
 
         # Server may be read only
         if config.EnableReadOnlyServer:
@@ -2342,12 +2351,12 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
         # Give all access to config.AdminPrincipals
         aces += config.AdminACEs
 
-        return element.ACL(*aces)
+        returnValue(element.ACL(*aces))
 
 
     def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
         # Permissions here are fixed, and are not subject to inheritance rules, etc.
-        return succeed(self.defaultAccessControlList())
+        return self.defaultAccessControlList()
 
 
     def principalCollections(self):
@@ -2555,9 +2564,10 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         return config.Sharing.Enabled and config.Sharing.Calendars.Enabled and self.exists()
 
 
+    @inlineCallbacks
     def _otherPrincipalHomeURL(self, otherUID):
-        ownerPrincipal = self.principalForUID(otherUID)
-        return ownerPrincipal.calendarHomeURLs()[0]
+        ownerPrincipal = (yield self.principalForUID(otherUID))
+        returnValue(ownerPrincipal.calendarHomeURLs()[0])
 
 
     @inlineCallbacks
@@ -2584,8 +2594,9 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         return self._newStoreHome.hasCalendarResourceUIDSomewhereElse(uid, ok_object._newStoreObject, mode)
 
 
+    @inlineCallbacks
     def defaultAccessControlList(self):
-        myPrincipal = self.principalForRecord()
+        myPrincipal = yield self.principalForRecord()
 
         # Server may be read only
         if config.EnableReadOnlyServer:
@@ -2652,7 +2663,7 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
                 ),
             )
 
-        return element.ACL(*aces)
+        returnValue(element.ACL(*aces))
 
 
     @inlineCallbacks
@@ -2808,9 +2819,10 @@ class AddressBookHomeResource (CommonHomeResource):
         return config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled and self.exists()
 
 
+    @inlineCallbacks
     def _otherPrincipalHomeURL(self, otherUID):
-        ownerPrincipal = self.principalForUID(otherUID)
-        return ownerPrincipal.addressBookHomeURLs()[0]
+        ownerPrincipal = (yield self.principalForUID(otherUID))
+        returnValue(ownerPrincipal.addressBookHomeURLs()[0])
 
 
     @inlineCallbacks
