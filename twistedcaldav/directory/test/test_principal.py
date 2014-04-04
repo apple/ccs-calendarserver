@@ -534,8 +534,7 @@ class ProvisionedPrincipals(StoreTestCase):
         for (
             provisioningResource, recordType, recordResource, record
         ) in (yield self._allRecords()):
-            if True:  # user.enabled:
-                self.failUnless(recordResource.displayName())
+            self.failUnless(recordResource.displayName())
 
 
     @inlineCallbacks

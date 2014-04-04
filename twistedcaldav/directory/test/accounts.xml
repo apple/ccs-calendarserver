@@ -68,7 +68,7 @@ limitations under the License.
     <uid>37DB0C90-4DB1-4932-BC69-3DAB66F374F5</uid>
     <guid>37DB0C90-4DB1-4932-BC69-3DAB66F374F5</guid>
     <password>purgeuser</password>
-    <name>Purge User</name>
+    <full-name>Purge User</full-name>
     <email-address>purgeuser@example.com</email-address>
   </user>
   <record type="user">
