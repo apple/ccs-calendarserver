@@ -63,23 +63,14 @@ limitations under the License.
     <full-name>Double "quotey" Quotes</full-name>
     <email>doublequotes@example.com</email>
   </record>
-
-  <record type="user">
-    <short-name>purge1</short-name>
-    <uid>C76DB741-5A2A-4239-8112-10CF152AFCA4</uid>
-    <guid>C76DB741-5A2A-4239-8112-10CF152AFCA4</guid>
-    <password>purge1</password>
-    <full-name>purge1</full-name>
-    <email>purge1@example.com</email>
-  </record>
-  <record type="user">
-    <short-name>purge2</short-name>
-    <uid>FFED7B62-2E08-496E-BD32-B2F95FFDDB6B</uid>
-    <guid>FFED7B62-2E08-496E-BD32-B2F95FFDDB6B</guid>
-    <password>purge2</password>
-    <full-name>purge2</full-name>
-    <email>purge2@example.com</email>
-  </record>
+  <user>
+    <short-name>purgeuser</short-name>
+    <uid>37DB0C90-4DB1-4932-BC69-3DAB66F374F5</uid>
+    <guid>37DB0C90-4DB1-4932-BC69-3DAB66F374F5</guid>
+    <password>purgeuser</password>
+    <name>Purge User</name>
+    <email-address>purgeuser@example.com</email-address>
+  </user>
   <record type="user">
     <short-name>home1</short-name>
     <uid>home1</uid>

@@ -768,7 +768,7 @@ SUMMARY:Attachment
 DTSTART;TZID=US/Pacific:20100304T120000
 DTSTAMP:20100303T195203Z
 SEQUENCE:2
-X-APPLE-DROPBOX:/calendars/__uids__/C76DB741-5A2A-4239-8112-10CF152AFCA4/dropbox/F2F14D94-B944-43D9-8F6F-97F95B2764CA.dropbox
+X-APPLE-DROPBOX:/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/dropbox/F2F14D94-B944-43D9-8F6F-97F95B2764CA.dropbox
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
@@ -798,8 +798,8 @@ class PurgePrincipalTests(StoreTestCase):
     """
     Tests for purging the data belonging to a given principal
     """
-    uid = "C76DB741-5A2A-4239-8112-10CF152AFCA4"
-    uid2 = "FFED7B62-2E08-496E-BD32-B2F95FFDDB6B"
+    uid = "6423F94A-6B76-4A3A-815B-D52CFD77935D"
+    uid2 = "37DB0C90-4DB1-4932-BC69-3DAB66F374F5"
 
     metadata = {
         "accessMode": "PUBLIC",

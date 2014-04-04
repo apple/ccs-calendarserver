@@ -29,7 +29,6 @@ from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twistedcaldav import caldavxml
-# from twistedcaldav.directory.directory import DirectoryRecord
 
 from txdav.caldav.datastore.query.filter import Filter
 
@@ -731,6 +730,7 @@ class PurgePrincipalService(WorkerService):
 
         # Does the record exist?
         record = yield self.directory.recordWithUID(uid)
+        # MOVE2WHO
         # if record is None:
             # The user has already been removed from the directory service.  We
             # need to fashion a temporary, fake record
@@ -768,7 +768,7 @@ class PurgePrincipalService(WorkerService):
         yield self._removeCalendarHome(uid)
 
         # Remove VCards
-        count += yield self._removeAddressbookHome(uid)
+        count += (yield self._removeAddressbookHome(uid))
 
         if self.proxies and not self.dryrun:
             if self.verbose:
