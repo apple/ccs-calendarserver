@@ -267,7 +267,7 @@ def multiget_common(self, request, multiget, collection_type):
 
                 #get vCards and filter
                 limit = config.DirectoryAddressBook.MaxQueryResults
-                results, limited = (yield self.doAddressBookDirectoryQuery(addressBookFilter, propertyreq, limit))
+                results, limited = (yield self.doAddressBookDirectoryQuery(addressBookFilter, propertyreq, limit, defaultKind=None))
                 if limited:
                     log.error("Too many results in multiget report: {count}", count=len(resources))
                     raise HTTPError(ErrorResponse(

@@ -157,7 +157,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
         def queryDirectoryBackedAddressBook(directoryBackedAddressBook, addressBookFilter):
             """
             """
-            results, limited[0] = yield directoryBackedAddressBook.doAddressBookDirectoryQuery(addressBookFilter, query, max_number_of_results[0], defaultKind="individual")
+            results, limited[0] = yield directoryBackedAddressBook.doAddressBookDirectoryQuery(addressBookFilter, query, max_number_of_results[0])
             for vCardResult in results:
 
                 # match against original filter if different from addressBookFilter

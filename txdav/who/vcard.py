@@ -55,7 +55,8 @@ vCardKindToRecordTypeMap = {
 # all possible generated parameters.
 vCardPropToParamMap = {
     #"PHOTO": {"ENCODING": ("B",), "TYPE": ("JPEG",), },
-    "ADR": {"TYPE": ("WORK", "PREF", "POSTAL", "PARCEL",), },
+    "ADR": {"TYPE": ("WORK", "PREF", "POSTAL", "PARCEL",),
+            "LABEL": None, "GEO": None, },
     #"LABEL": {"TYPE": ("POSTAL", "PARCEL",)},
     #"TEL": {"TYPE": None, },  # None means param can contain can be anything
     "EMAIL": {"TYPE": None, },
@@ -188,17 +189,29 @@ def vCardFromRecord(record, forceKind=None, addProps=None, parentURI=None):
     # 3.2 Delivery Addressing Types http://tools.ietf.org/html/rfc2426#section-3.2
     #===========================================================================
     # 3.2.1 ADR
+    #
+    # Experimental:
+    #     Use vCard 4.0 ADR: http://tools.ietf.org/html/rfc6350#section-6.3.1
+    params = {}
+    geo = record.fields.get(CalFieldName.geographicLocation)
+    if geo:
+        params["GEO"] = geo.encode("utf-8")
+    label = record.fields.get(CalFieldName.streetAddress)
+    if label:
+        params["LABEL"] = label.encode("utf-8")
 
+    #
     extended = record.fields.get(CalFieldName.floor)
 
-    #TODO: parse !
+    # TODO: Parse?
     street = record.fields.get(CalFieldName.streetAddress)
     city = None
     region = None
     postalcode = None
     country = None
 
-    if extended or street or city or region or postalcode or country:
+    if extended or street or city or region or postalcode or country or params:
+        params["TYPE"] = ("WORK", "PREF", "POSTAL", "PARCEL",)
         vcard.addProperty(
             Property(
                 "ADR", Adr(
@@ -210,7 +223,7 @@ def vCardFromRecord(record, forceKind=None, addProps=None, parentURI=None):
                     postalcode=postalcode.encode("utf-8") if postalcode else None,
                     country=country.encode("utf-8") if country else None,
                 ),
-                params={"TYPE": ("WORK", "PREF", "POSTAL", "PARCEL",), }
+                params=params
             )
         )
 
@@ -308,7 +321,8 @@ def vCardFromRecord(record, forceKind=None, addProps=None, parentURI=None):
     # add members
     # FIXME:  members() is a deferred, so all of vCardFromRecord is deferred.
     for memberRecord in (yield record.members()):
-        vcard.addProperty(Property("X-ADDRESSBOOKSERVER-MEMBER", "urn:uuid:" + memberRecord.fields[FieldName.uid].encode("utf-8")))
+        if memberRecord:
+            vcard.addProperty(Property("X-ADDRESSBOOKSERVER-MEMBER", "urn:uuid:" + memberRecord.fields[FieldName.uid].encode("utf-8")))
 
     #===================================================================
     # vCard 4.0  http://tools.ietf.org/html/rfc6350

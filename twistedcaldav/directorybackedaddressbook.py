@@ -157,7 +157,7 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
 
 
     @inlineCallbacks
-    def doAddressBookDirectoryQuery(self, addressBookFilter, addressBookQuery, maxResults, defaultKind=None):
+    def doAddressBookDirectoryQuery(self, addressBookFilter, addressBookQuery, maxResults, defaultKind="individual"):
         """
         Get vCards for a given addressBookFilter and addressBookQuery
         """
@@ -371,7 +371,6 @@ def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, con
                     matchList = [matchExpression(fieldName, "", MatchType.startsWith, matchFlags) for fieldName in searchableFields]
                     return andOrExpression(allOf, matchList)
                     '''
-
 
             def andOrExpression(propFilterAllOf, matchList):
                 matchList = list(set(matchList))
