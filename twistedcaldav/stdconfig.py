@@ -318,6 +318,13 @@ DEFAULT_CONFIG = {
                                     # upgrade.
 
     #
+    # Work queue configuration
+    #
+    "WorkQueue": {
+        "queueProcessTimeout": 60.0,    # Seconds before an expired job is deemed orphaned and reassigned
+    },
+
+    #
     # Types of service provided
     #
     "EnableCalDAV"  : True, # Enable CalDAV service

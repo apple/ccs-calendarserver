@@ -904,6 +904,12 @@ class CalDAVServiceMaker (object):
         else:
             groupCacher = None
 
+        # Adjust PeerConnectionPool's queueProcessTimeout, which governs the
+        # delay before an expired job is deemed orphaned and reassigned.
+        # The default in twext is 10 minutes, which is a bit long.
+        if config.WorkQueue.queueProcessTimeout:
+            pool.queueProcessTimeout = config.WorkQueue.queueProcessTimeout
+
         def decorateTransaction(txn):
             txn._pushDistributor = pushDistributor
             txn._rootResource = result.rootResource
