@@ -131,6 +131,9 @@ class AugmentDB(object):
 
         @return: L{Deferred}
         """
+        if recordType not in recordTypesMap:
+            returnValue(None)
+
         recordType = recordTypesMap[recordType]
 
         result = (yield self._lookupAugmentRecord(uid))

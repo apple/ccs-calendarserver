@@ -257,12 +257,11 @@ class AugmentedDirectoryService(
         if record is None:
             returnValue(None)
 
-        try:
-            augmentRecord = yield self._augmentDB.getAugmentRecord(
-                record.uid,
-                self.recordTypeToOldName(record.recordType)
-            )
-        except KeyError:
+        augmentRecord = yield self._augmentDB.getAugmentRecord(
+            record.uid,
+            self.recordTypeToOldName(record.recordType)
+        )
+        if augmentRecord is None:
             # Augments does not know about this record type, so return
             # the original record
             returnValue(record)
