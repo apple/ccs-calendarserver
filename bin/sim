@@ -26,4 +26,4 @@ wd="$(cd "$(dirname "$0")/.." && pwd -L)";
 
 init_build > /dev/null;
 
-exec "${python}" "${wd}/contrib/performance/sim" "$@";
+"${wd}/bin/python" "${wd}/contrib/performance/sim" "$@";
