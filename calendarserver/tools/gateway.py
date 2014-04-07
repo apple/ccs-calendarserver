@@ -201,14 +201,6 @@ class Runner(object):
             pool.ClientEnabled = True
         autoDisableMemcached(config)
 
-        # FIXME:
-        # from twistedcaldav.directory import calendaruserproxy
-        # if calendaruserproxy.ProxyDBService is not None:
-        #     # Reset the proxy db memcacher because memcached may have come or
-        #     # gone since the last time through here.
-        #     # TODO: figure out a better way to do this
-        #     calendaruserproxy.ProxyDBService._memcacher._memcacheProtocol = None
-
         try:
             for command in self.commands:
                 commandName = command['command']
