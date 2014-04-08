@@ -135,9 +135,6 @@ platforms = ["all"]
 # Dependencies
 #
 
-cs_repos = "svn+http://svn.calendarserver.org/repository/calendarserver"
-twext_svn = "{}/twext/trunk#egg=twextpy".format(cs_repos)
-
 setup_requirements = []
 
 install_requirements = [
