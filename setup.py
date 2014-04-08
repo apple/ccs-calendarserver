@@ -18,13 +18,10 @@
 
 from __future__ import print_function
 
-from itertools import chain
-from os import listdir, environ as environment
 from os.path import dirname, basename, abspath, join as joinpath, normpath
 import errno
 import subprocess
 
-from pip.req import parse_requirements
 from setuptools import setup, find_packages as setuptools_find_packages
 
 
@@ -138,42 +135,44 @@ platforms = ["all"]
 # Dependencies
 #
 
-reqs_extension = ".txt"
-reqs_opt_prefix = "py_opt_"
-
-
-requirements_dir = joinpath(dirname(__file__), "requirements")
-
-
-def read_requirements(reqs_filename):
-    return [
-        str(r.req) for r in
-        parse_requirements(joinpath(requirements_dir, reqs_filename))
-    ]
-
+cs_repos = "svn+http://svn.calendarserver.org/repository/calendarserver"
+twext_svn = "{}/twext/trunk#egg=twextpy".format(cs_repos)
 
 setup_requirements = []
 
-install_requirements = read_requirements("py_base.txt")
+install_requirements = [
+    # Core frameworks
+    "zope.interface>=4.0.5",
+    "twisted>=13.2.0",
+    "twextpy",
 
-extras_requirements = dict(
-    (
-        reqs_filename[len(reqs_opt_prefix):-len(reqs_extension)],
-        read_requirements(reqs_filename)
-    )
-    for reqs_filename in listdir(requirements_dir)
-    if (
-        reqs_filename.startswith(reqs_opt_prefix) and
-        reqs_filename.endswith(reqs_extension)
-    )
-)
+    # Security frameworks
+    "pyOpenSSL>=0.12",
+    "pycrypto>=2.6.1",
+    "pyasn1>=0.1.7",
+    "kerberos",
 
-# Requirements for development and testing
-develop_requirements = read_requirements("py_develop.txt")
+    # Data store
+    "xattr>=0.6.4",
+    "twextpy[DAL]",
+    "sqlparse==0.1.2",
 
-if environment.get("_DEVELOP_PROJECT_", None) == name:
-    install_requirements.extend(develop_requirements)
-    install_requirements.extend(chain(*extras_requirements.values()))
+    # Calendar
+    "python-dateutil>=1.5",
+    "pytz>=2013.8",
+    "pycalendar",
+
+    # Process info
+    "psutil>=1.2.0",
+    "setproctitle>=1.1.8",
+]
+
+extras_requirements = {
+    "LDAP": ["twextpy[LDAP]"],
+    "OpenDirectory": ["twextpy[OpenDirectory]"],
+    "Oracle": ["twextpy[Oracle]"],
+    "Postgres": ["twextpy[Postgres]"],
+}
 
 
 

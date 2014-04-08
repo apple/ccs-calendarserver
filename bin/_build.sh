@@ -620,26 +620,21 @@ py_dependencies () {
   if [ -d "${wd}/requirements/cache" ]; then
     pip_install="pip_install_from_cache";
   else
-    pip_install="pip_install";
+    pip_install="pip_download_and_install";
   fi;
 
-  for requirements in "${wd}/requirements/py_"*".txt"; do
+  local requirements="${wd}/requirements.txt";
 
-    ruler "Preparing Python requirements: ${requirements}";
+  ruler "Preparing Python requirements";
+  echo "";
+  "${pip_install}" "--requirement=${requirements}";
+
+  for option in $("${python}" -c 'import setup; print "\n".join(setup.extras_requirements.keys())'); do
+    ruler "Preparing Python requirements for optional feature: ${option}";
     echo "";
-
-    if ! "${pip_install}" "${requirements}"; then
-      err=$?;
-      echo "Unable to set up Python requirements: ${requirements}";
-      if [ "${requirements#${wd}/requirements/py_opt_}" != "${requirements}" ]; then
-        echo "Requirements ${requirements} are optional; continuing.";
-      else
-        echo "";
-        echo "pip log: ${dev_home}/pip.log";
-        return 1;
-      fi;
+    if ! "${pip_install}" "--editable=.[${option}]"; then
+      echo "Feature ${option} is optional; continuing.";
     fi;
-
   done;
 
   echo "";
@@ -647,21 +642,21 @@ py_dependencies () {
 
 
 pip_install_from_cache () {
-  local requirements="$1"; shift;
+  local require="$1"; shift;
 
   "${python}" -m pip install                 \
-    --requirement="${requirements}"          \
-    --find-links "${wd}/requirements/cache"  \
+    "${require}"                             \
+    --find-links="${wd}/requirements/cache"  \
     --no-index                               \
     --log="${dev_home}/pip.log";
 }
 
 
-pip_install () {
-  local requirements="$1"; shift;
+pip_download_and_install () {
+  local require="$1"; shift;
 
   "${python}" -m pip install                  \
-    --requirement="${requirements}"           \
+    "${require}"                              \
     --download-cache="${dev_home}/pip_cache"  \
     --log="${dev_home}/pip.log";
 }

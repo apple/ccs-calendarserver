@@ -1,6 +1,0 @@
-#
-# Requirements for OpenDirectory support
-#
-
-# -e svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk#egg=twextpy [OpenDirectory]
-pyobjc-framework-OpenDirectory>=2.5.1
