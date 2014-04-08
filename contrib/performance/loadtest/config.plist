@@ -41,7 +41,7 @@
 		<key>serverStats</key>
 		<dict>
 			<key>enabled</key>
-			<false/>
+			<true/>
 			<key>Port</key>
 			<integer>8100</integer>
 		</dict>

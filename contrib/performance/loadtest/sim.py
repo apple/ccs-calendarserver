@@ -488,7 +488,7 @@ class LoadSimulator(object):
             _ignore_scheme, hostname, _ignore_path, _ignore_query, _ignore_fragment = urlsplit(self.serverStats["server"])
             data = self.readStatsSock((hostname.split(":")[0], self.serverStats["Port"],), True)
             if "Failed" not in data:
-                data = data["5 Minutes"]
+                data = data["stats"]["5m"]
                 result = (
                     safeDivision(float(data["requests"]), 5 * 60),
                     safeDivision(data["t"], data["requests"]),
@@ -511,8 +511,9 @@ class LoadSimulator(object):
         try:
             s = socket.socket(socket.AF_INET if useTCP else socket.AF_UNIX, socket.SOCK_STREAM)
             s.connect(sockname)
+            s.sendall('["stats"]' + "\r\n")
             data = ""
-            while True:
+            while not data.endswith("\n"):
                 d = s.recv(1024)
                 if d:
                     data += d
