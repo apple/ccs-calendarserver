@@ -39,7 +39,7 @@ class DelegationTest(StoreTestCase):
 
     @inlineCallbacks
     def test_directDelegation(self):
-        txn = self.store.newTransaction()
+        txn = self.store.newTransaction(label="test_directDelegation")
 
         delegator = yield self.directory.recordWithUID(u"__wsanchez1__")
         delegate1 = yield self.directory.recordWithUID(u"__sagen1__")
@@ -53,7 +53,7 @@ class DelegationTest(StoreTestCase):
         self.assertEquals([u"__wsanchez1__"], [d.uid for d in delegators])
 
         yield txn.commit()  # So delegateService will see the changes
-        txn = self.store.newTransaction()
+        txn = self.store.newTransaction(label="test_directDelegation")
 
         # The "proxy-write" pseudoGroup will have one member
         pseudoGroup = yield self.directory.recordWithShortName(
@@ -130,7 +130,7 @@ class DelegationTest(StoreTestCase):
         yield pseudoGroup.setMembers([delegate1, delegate2])
 
         # Verify the assignments were made
-        txn = self.store.newTransaction()
+        txn = self.store.newTransaction(label="test_directDelegation")
         delegates = (yield delegatesOf(txn, delegator, True))
         self.assertEquals(
             set([u"__sagen1__", u"__cdaboo1__"]),
@@ -142,7 +142,7 @@ class DelegationTest(StoreTestCase):
         yield pseudoGroup.setMembers([delegate2])
 
         # Verify the assignments were made
-        txn = self.store.newTransaction()
+        txn = self.store.newTransaction(label="test_directDelegation")
         delegates = (yield delegatesOf(txn, delegator, True))
         self.assertEquals(
             set([u"__cdaboo1__"]),
@@ -153,7 +153,7 @@ class DelegationTest(StoreTestCase):
 
     @inlineCallbacks
     def test_indirectDelegation(self):
-        txn = self.store.newTransaction()
+        txn = self.store.newTransaction(label="test_indirectDelegation")
 
         delegator = yield self.directory.recordWithUID(u"__wsanchez1__")
         delegate1 = yield self.directory.recordWithUID(u"__sagen1__")
@@ -233,3 +233,55 @@ class DelegationTest(StoreTestCase):
             set([d.uid for d in delegates])
         )
         yield txn.commit()
+
+
+    @inlineCallbacks
+    def test_noDuplication(self):
+        """
+        Make sure addDelegate( ) is idempotent
+        """
+        delegator = yield self.directory.recordWithUID(u"__wsanchez1__")
+
+        # Delegate users:
+        delegate1 = yield self.directory.recordWithUID(u"__sagen1__")
+
+        txn = self.store.newTransaction(label="test_noDuplication")
+        yield addDelegate(txn, delegator, delegate1, True)
+        yield txn.commit()
+
+        txn = self.store.newTransaction(label="test_noDuplication")
+        yield addDelegate(txn, delegator, delegate1, True)
+        yield txn.commit()
+
+        txn = self.store.newTransaction(label="test_noDuplication")
+        results = (
+            yield txn._selectDelegatesQuery.on(
+                txn,
+                delegator=delegator.uid.encode("utf-8"),
+                readWrite=1
+            )
+        )
+        yield txn.commit()
+        self.assertEquals([["__sagen1__"]], results)
+
+        # Delegate groups:
+        group1 = yield self.directory.recordWithUID(u"__top_group_1__")
+
+        txn = self.store.newTransaction(label="test_noDuplication")
+        yield addDelegate(txn, delegator, group1, True)
+        yield txn.commit()
+
+        txn = self.store.newTransaction(label="test_noDuplication")
+        yield addDelegate(txn, delegator, group1, True)
+        yield txn.commit()
+
+        txn = self.store.newTransaction(label="test_noDuplication")
+        results = (
+            yield txn._selectDelegateGroupsQuery.on(
+                txn,
+                delegator=delegator.uid.encode("utf-8"),
+                readWrite=1
+            )
+        )
+        yield txn.commit()
+        self.assertEquals([["__top_group_1__"]], results)

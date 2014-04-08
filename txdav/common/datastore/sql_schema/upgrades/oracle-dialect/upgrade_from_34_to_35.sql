@@ -55,24 +55,26 @@ create table GROUP_ATTENDEE (
 create table DELEGATES (
     "DELEGATOR" nvarchar2(255),
     "DELEGATE" nvarchar2(255),
-    "READ_WRITE" integer not null
+    "READ_WRITE" integer not null,
+    primary key("DELEGATOR", "READ_WRITE", "DELEGATE")
 );
 
 create table DELEGATE_GROUPS (
     "DELEGATOR" nvarchar2(255),
     "GROUP_ID" integer not null,
     "READ_WRITE" integer not null,
-    "IS_EXTERNAL" integer not null
+    "IS_EXTERNAL" integer not null,
+    primary key("DELEGATOR", "READ_WRITE", "GROUP_ID")
 );
 
 create table EXTERNAL_DELEGATE_GROUPS (
-    "DELEGATOR" nvarchar2(255),
+    "DELEGATOR" nvarchar2(255) primary key,
     "GROUP_UID_READ" nvarchar2(255),
     "GROUP_UID_WRITE" nvarchar2(255)
 );
 
 
-create index GROUPS_GROUP_UID_ebf7a1d4 on GROUPS (
+create index GROUPS_GROUP_UID_b35cce23 on GROUPS (
     GROUP_UID
 );
 
@@ -82,6 +84,12 @@ create index GROUP_MEMBERSHIP_GROU_9560a5e6 on GROUP_MEMBERSHIP (
 
 create index GROUP_MEMBERSHIP_MEMB_0ca508e8 on GROUP_MEMBERSHIP (
     MEMBER_UID
+);
+
+create index DELEGATE_TO_DELEGATOR_5e149b11 on DELEGATES (
+    DELEGATE,
+    READ_WRITE,
+    DELEGATOR
 );
 
 

@@ -38,7 +38,7 @@ create table GROUP_ATTENDEE_RECONCILIATION_WORK (
 create table GROUPS (
   GROUP_ID                      integer      primary key default nextval('RESOURCE_ID_SEQ'),    -- implicit index
   NAME                          varchar(255) not null,
-  GROUP_UID                    varchar(255) not null,
+  GROUP_UID                     varchar(255) not null,
   MEMBERSHIP_HASH               varchar(255) not null,
   EXTANT                        integer default 1,
   CREATED                       timestamp default timezone('UTC', CURRENT_TIMESTAMP),
@@ -48,7 +48,7 @@ create index GROUPS_GROUP_UID on GROUPS(GROUP_UID);
 
 create table GROUP_MEMBERSHIP (
   GROUP_ID                      integer,
-  MEMBER_UID                   varchar(255) not null
+  MEMBER_UID                    varchar(255) not null
 );
 create index GROUP_MEMBERSHIP_GROUP on GROUP_MEMBERSHIP(GROUP_ID);
 create index GROUP_MEMBERSHIP_MEMBER on GROUP_MEMBERSHIP(MEMBER_UID);
@@ -66,20 +66,27 @@ create table GROUP_ATTENDEE (
 create table DELEGATES (
   DELEGATOR                     varchar(255) not null,
   DELEGATE                      varchar(255) not null,
-  READ_WRITE                    integer      not null -- 1 = ReadWrite, 0 = ReadOnly
+  READ_WRITE                    integer      not null, -- 1 = ReadWrite, 0 = ReadOnly
+
+  primary key (DELEGATOR, READ_WRITE, DELEGATE)
 );
+create index DELEGATE_TO_DELEGATOR on
+  DELEGATES(DELEGATE, READ_WRITE, DELEGATOR);
+
 
 create table DELEGATE_GROUPS (
   DELEGATOR                     varchar(255) not null,
   GROUP_ID                      integer      not null,
   READ_WRITE                    integer      not null, -- 1 = ReadWrite, 0 = ReadOnly
-  IS_EXTERNAL                   integer      not null -- 1 = ReadWrite, 0 = ReadOnly
+  IS_EXTERNAL                   integer      not null, -- 1 = ReadWrite, 0 = ReadOnly
+
+  primary key (DELEGATOR, READ_WRITE, GROUP_ID)
 );
 
 create table EXTERNAL_DELEGATE_GROUPS (
-  DELEGATOR                     varchar(255) not null,
-  GROUP_UID_READ               varchar(255),
-  GROUP_UID_WRITE              varchar(255)
+  DELEGATOR                     varchar(255) primary key not null,
+  GROUP_UID_READ                varchar(255),
+  GROUP_UID_WRITE               varchar(255)
 );
 
 -- Now update the version

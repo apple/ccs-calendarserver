@@ -1452,6 +1452,7 @@ class CommonStoreTransaction(object):
         )
 
 
+    @inlineCallbacks
     def addDelegate(self, delegator, delegate, readWrite):
         """
         Adds a row to the DELEGATES table.  The delegate should not be a
@@ -1465,14 +1466,21 @@ class CommonStoreTransaction(object):
             read-only access
         @type readWrite: C{boolean}
         """
-        return self._addDelegateQuery.on(
-            self,
-            delegator=delegator.encode("utf-8"),
-            delegate=delegate.encode("utf-8"),
-            readWrite=1 if readWrite else 0
-        )
+        savepoint = SavepointAction("addDelegate")
+        yield savepoint.acquire(self)
+        try:
+            yield self._addDelegateQuery.on(
+                self,
+                delegator=delegator.encode("utf-8"),
+                delegate=delegate.encode("utf-8"),
+                readWrite=1 if readWrite else 0
+            )
+        except Exception:
+            # Row already exists
+            yield savepoint.rollback(self)
 
 
+    @inlineCallbacks
     def addDelegateGroup(self, delegator, delegateGroupID, readWrite,
                          isExternal=False):
         """
@@ -1487,13 +1495,19 @@ class CommonStoreTransaction(object):
             read-only access
         @type readWrite: C{boolean}
         """
-        return self._addDelegateGroupQuery.on(
-            self,
-            delegator=delegator.encode("utf-8"),
-            groupID=delegateGroupID,
-            readWrite=1 if readWrite else 0,
-            isExternal=1 if isExternal else 0
-        )
+        savepoint = SavepointAction("addDelegateGroup")
+        yield savepoint.acquire(self)
+        try:
+            yield self._addDelegateGroupQuery.on(
+                self,
+                delegator=delegator.encode("utf-8"),
+                groupID=delegateGroupID,
+                readWrite=1 if readWrite else 0,
+                isExternal=1 if isExternal else 0
+            )
+        except Exception:
+            # Row already exists
+            yield savepoint.rollback(self)
 
 
     def removeDelegate(self, delegator, delegate, readWrite):
