@@ -1,15 +1,13 @@
 # Get our own dependencies
 --editable .
 
+# Specify editable dependencies explicitly since they won't be in PyPI
+--editable svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk#egg=twextpy
+
 # Additional dependencies for development
 pyflakes
 docutils>=0.11
 mockldap>=0.1.4
 q
--e svn+http://svn.calendarserver.org/repository/calendarserver/CalDAVClientLibrary/trunk#egg=CalDAVClientLibrary
--e svn+http://svn.calendarserver.org/repository/calendarserver/CalDAVTester/trunk#egg=CalDAVTester
-
-# Provide hints for finding packages
---find-links svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk#egg=twextpy
---find-links svn+http://svn.calendarserver.org/repository/calendarserver/PyKerberos/trunk#egg=kerberos
---find-links svn+http://svn.calendarserver.org/repository/calendarserver/PyCalendar/trunk#egg=pycalendar
+--editable svn+http://svn.calendarserver.org/repository/calendarserver/CalDAVClientLibrary/trunk#egg=CalDAVClientLibrary
+--editable svn+http://svn.calendarserver.org/repository/calendarserver/CalDAVTester/trunk#egg=CalDAVTester

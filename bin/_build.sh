@@ -632,7 +632,7 @@ py_dependencies () {
   for option in $("${python}" -c 'import setup; print "\n".join(setup.extras_requirements.keys())'); do
     ruler "Preparing Python requirements for optional feature: ${option}";
     echo "";
-    if ! "${pip_install}" "--editable=.[${option}]"; then
+    if ! "${pip_install}" "--editable=${wd}[${option}]"; then
       echo "Feature ${option} is optional; continuing.";
     fi;
   done;
@@ -657,6 +657,7 @@ pip_download_and_install () {
 
   "${python}" -m pip install                  \
     "${require}"                              \
+    --pre                                     \
     --download-cache="${dev_home}/pip_cache"  \
     --log="${dev_home}/pip.log";
 }
