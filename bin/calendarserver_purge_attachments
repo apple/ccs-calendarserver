@@ -28,4 +28,4 @@ do_setup="false";
 
 develop > /dev/null;
 
-exec "${python}" "${wd}/bin/py/$(basename "$0")" "$@";
+exec "${python}" "${wd}/bin/py/$(basename "$0")" -f "${wd}/conf/caldavd-dev.plist" "$@";
