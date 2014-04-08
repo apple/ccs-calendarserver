@@ -785,7 +785,7 @@ def printGroupCacherInfo(service, store):
         groupID, name, membershipHash, modified = yield txn.groupByUID(
             groupUID
         )
-        print("Group: \"{name} ({uid})".format(name=name, uid=groupUID))
+        print("Group: \"{name}\" ({uid})".format(name=name, uid=groupUID))
 
         for txt, readWrite in (("read-only", False), ("read-write", True)):
             delegatorUIDs = yield txn.delegatorsToGroup(groupID, readWrite)
