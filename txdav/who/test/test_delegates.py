@@ -207,7 +207,7 @@ class DelegationTest(StoreTestCase):
                 yield self.directory.recordWithShortName(RecordType.user, name)
             )
             newSet.add(record.uid)
-        groupID, name, membershipHash = (yield txn.groupByUID(group1.uid))
+        groupID, name, membershipHash, modified = (yield txn.groupByUID(group1.uid))
         numAdded, numRemoved = (
             yield self.groupCacher.synchronizeMembers(txn, groupID, newSet)
         )

@@ -957,7 +957,7 @@ class CommonStoreTransaction(object):
     def _groupByUID(cls):
         gr = schema.GROUPS
         return Select(
-            [gr.GROUP_ID, gr.NAME, gr.MEMBERSHIP_HASH],
+            [gr.GROUP_ID, gr.NAME, gr.MEMBERSHIP_HASH, gr.MODIFIED],
             From=gr,
             Where=(gr.GROUP_GUID == Parameter("groupUID"))
         )
@@ -1020,7 +1020,7 @@ class CommonStoreTransaction(object):
         @type groupUID: C{unicode}
 
         @return: Deferred firing with tuple of group ID C{str}, group name
-            C{unicode}, and membership hash C{str}
+            C{unicode}, membership hash C{str}, and modified timestamp
         """
         results = (
             yield self._groupByUID.on(
@@ -1032,6 +1032,7 @@ class CommonStoreTransaction(object):
                 results[0][0],  # group id
                 results[0][1].decode("utf-8"),  # name
                 results[0][2],  # membership hash
+                results[0][3],  # modified timestamp
             ))
         else:
             savepoint = SavepointAction("groupByUID")
@@ -1050,6 +1051,7 @@ class CommonStoreTransaction(object):
                         results[0][0],  # group id
                         results[0][1].decode("utf-8"),  # name
                         results[0][2],  # membership hash
+                        results[0][3],  # modified timestamp
                     ))
                 else:
                     raise
@@ -1065,6 +1067,7 @@ class CommonStoreTransaction(object):
                         results[0][0],  # group id
                         results[0][1].decode("utf-8"),  # name
                         results[0][2],  # membership hash
+                        results[0][3],  # modified timestamp
                     ))
                 else:
                     raise
@@ -1173,15 +1176,15 @@ class CommonStoreTransaction(object):
     @inlineCallbacks
     def membersOfGroup(self, groupID):
         """
-        Returns the cached set of GUIDs for members of the given groupID.
+        Returns the cached set of UIDs for members of the given groupID.
         Sub-groups are not returned in the results but their members are,
         because the group membership has already been expanded/flattened
         before storing in the db.
 
         @param groupID: the group ID
         @type groupID: C{int}
-        @return: the set of member GUIDs
-        @rtype: a Deferred which fires with a set() of C{str} GUIDs
+        @return: the set of member UIDs
+        @rtype: a Deferred which fires with a set() of C{str} UIDs
         """
         members = set()
         results = (yield self._selectGroupMembersQuery.on(self, groupID=groupID))
@@ -1301,6 +1304,20 @@ class CommonStoreTransaction(object):
                 de.DELEGATOR == Parameter("delegator")
             ).And(
                 de.READ_WRITE == Parameter("readWrite")
+            )
+        )
+
+
+    @classproperty
+    def _selectDelegatorsToGroupQuery(cls):
+        dg = schema.DELEGATE_GROUPS
+        return Select(
+            [dg.DELEGATOR],
+            From=dg,
+            Where=(
+                dg.GROUP_ID == Parameter("delegateGroup")
+            ).And(
+                dg.READ_WRITE == Parameter("readWrite")
             )
         )
 
@@ -1621,7 +1638,7 @@ class CommonStoreTransaction(object):
         @param readWrite: the access-type to check for; read and write
             access if True, otherwise read-only access
         @type readWrite: C{boolean}
-        @returns: the GUIDs of the delegators (for the specified access
+        @returns: the UIDs of the delegators (for the specified access
             type)
         @rtype: a Deferred resulting in a set
         """
@@ -1650,6 +1667,35 @@ class CommonStoreTransaction(object):
         for row in results:
             delegators.add(row[0].decode("utf-8"))
 
+        returnValue(delegators)
+
+
+    @inlineCallbacks
+    def delegatorsToGroup(self, delegateGroupID, readWrite):
+        """
+        Return the UIDs of those who have delegated to the given group with the
+        given access level.
+
+        @param delegateGroupID: the group ID of the delegate group
+        @type delegateGroupID: C{int}
+        @param readWrite: the access-type to check for; read and write
+            access if True, otherwise read-only access
+        @type readWrite: C{boolean}
+        @returns: the UIDs of the delegators (for the specified access
+            type)
+        @rtype: a Deferred resulting in a set
+
+        """
+        delegators = set()
+        results = (
+            yield self._selectDelegatorsToGroupQuery.on(
+                self,
+                delegateGroup=delegateGroupID,
+                readWrite=1 if readWrite else 0
+            )
+        )
+        for row in results:
+            delegators.add(row[0].decode("utf-8"))
         returnValue(delegators)
 
 

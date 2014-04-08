@@ -76,7 +76,7 @@ class CalendarDirectoryServiceMixin(object):
         elif address.startswith("mailto:"):
             records = yield self.recordsWithEmailAddress(address[7:])
             if records:
-                returnValue(records[0])
+                record = records[0]
             else:
                 returnValue(None)
         elif address.startswith("/principals/"):

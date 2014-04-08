@@ -46,7 +46,7 @@ class GroupCacherTest(StoreTestCase):
         record = yield self.directory.recordWithUID(u"__top_group_1__")
         yield self.groupCacher.refreshGroup(txn, record.uid)
 
-        groupID, name, membershipHash = (yield txn.groupByUID(record.uid))
+        groupID, name, membershipHash, modified = (yield txn.groupByUID(record.uid))
 
         self.assertEquals(membershipHash, "553eb54e3bbb26582198ee04541dbee4")
 
@@ -88,7 +88,7 @@ class GroupCacherTest(StoreTestCase):
         # Refresh the group so it's assigned a group_id
         uid = u"__top_group_1__"
         yield self.groupCacher.refreshGroup(txn, uid)
-        groupID, name, membershipHash = (yield txn.groupByUID(uid))
+        groupID, name, membershipHash, modified = (yield txn.groupByUID(uid))
 
         # Remove two members, and add one member
         newSet = set()
@@ -135,7 +135,7 @@ class GroupCacherTest(StoreTestCase):
         uid = u"__top_group_1__"
         hash = "553eb54e3bbb26582198ee04541dbee4"
         yield self.groupCacher.refreshGroup(txn, uid)
-        groupID, name, membershipHash = (yield txn.groupByUID(uid))
+        groupID, name, membershipHash, modified = yield txn.groupByUID(uid)
         results = (yield txn.groupByID(groupID))
         self.assertEquals((uid, u"Top Group 1", hash), results)
 

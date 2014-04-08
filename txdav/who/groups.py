@@ -269,11 +269,11 @@ class GroupCacher(object):
             ) in changed:
                 readDelegateGroupID = writeDelegateGroupID = None
                 if readDelegateUID:
-                    readDelegateGroupID, _ignore_name, hash = (
+                    readDelegateGroupID, _ignore_name, hash, modified = (
                         yield txn.groupByUID(readDelegateUID)
                     )
                 if writeDelegateUID:
-                    writeDelegateGroupID, _ignore_name, hash = (
+                    writeDelegateGroupID, _ignore_name, hash, modified = (
                         yield txn.groupByUID(writeDelegateUID)
                     )
                 yield txn.assignExternalDelegates(
@@ -307,7 +307,7 @@ class GroupCacher(object):
             for member in members:
                 membershipHashContent.update(str(member.uid))
             membershipHash = membershipHashContent.hexdigest()
-            groupID, _ignore_cachedName, cachedMembershipHash = (
+            groupID, _ignore_cachedName, cachedMembershipHash, modified = (
                 yield txn.groupByUID(groupUID)
             )
 

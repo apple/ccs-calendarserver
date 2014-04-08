@@ -123,3 +123,22 @@ class DirectoryTestCase(StoreTestCase):
         )
         records = yield self.directory.recordsFromExpression(expression)
         self.assertEquals(len(records), 1)
+
+
+    @inlineCallbacks
+    def test_recordWithCalendarUserAddress(self):
+        """
+        Make sure hasCalendars is honored
+        """
+
+        # hasCalendars
+        record = yield self.directory.recordWithCalendarUserAddress(
+            u"mailto:wsanchez@example.com"
+        )
+        self.assertNotEquals(record, None)
+
+        # no hasCalendars
+        record = yield self.directory.recordWithCalendarUserAddress(
+            u"mailto:nocalendar@example.com"
+        )
+        self.assertEquals(record, None)

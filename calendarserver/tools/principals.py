@@ -130,6 +130,7 @@ def main():
                 "remove",
                 "search=",
                 "list-principal-types",
+                "print-group-info",
                 "list-principals=",
                 "list-read-proxies",
                 "list-write-proxies",
@@ -162,6 +163,7 @@ def main():
     listPrincipalTypes = False
     listPrincipals = None
     searchPrincipals = None
+    printGroupInfo = False
     principalActions = []
     verbose = False
 
@@ -187,6 +189,9 @@ def main():
 
         elif opt in ("", "--list-principal-types"):
             listPrincipalTypes = True
+
+        elif opt in ("", "--print-group-info"):
+            printGroupInfo = True
 
         elif opt in ("", "--list-principals"):
             listPrincipals = arg
@@ -267,6 +272,10 @@ def main():
             usage("Too many arguments")
 
         function = runListPrincipalTypes
+        params = ()
+
+    elif printGroupInfo:
+        function = printGroupCacherInfo
         params = ()
 
     elif addType:
@@ -761,6 +770,44 @@ def action_getValue(store, record, name):
                 name=name, record=prettyRecord(record),
             )
         )
+
+
+@inlineCallbacks
+def printGroupCacherInfo(service, store):
+    """
+    Print all groups that have been delegated to, their cached members, and
+    who delegated to those groups.
+    """
+    directory = store.directoryService()
+    txn = store.newTransaction()
+    groupUIDs = yield txn.allGroupDelegates()
+    for groupUID in groupUIDs:
+        groupID, name, membershipHash, modified = yield txn.groupByUID(
+            groupUID
+        )
+        print("Group: \"{name} ({uid})".format(name=name, uid=groupUID))
+
+        for txt, readWrite in (("read-only", False), ("read-write", True)):
+            delegatorUIDs = yield txn.delegatorsToGroup(groupID, readWrite)
+            for delegatorUID in delegatorUIDs:
+                delegator = yield directory.recordWithUID(delegatorUID)
+                print(
+                    "...has {rw} access to {rec}".format(
+                        rw=txt, rec=prettyRecord(delegator)
+                    )
+                )
+
+        print("Group members:")
+        memberUIDs = yield txn.membersOfGroup(groupID)
+        for memberUID in memberUIDs:
+            record = yield directory.recordWithUID(memberUID)
+            print(prettyRecord(record))
+
+        print("Last cached: {} GMT".format(modified))
+        print()
+
+    yield txn.commit()
+
 
 
 def abort(msg, status=1):
