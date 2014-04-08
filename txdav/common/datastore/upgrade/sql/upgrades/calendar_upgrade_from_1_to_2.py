@@ -56,7 +56,7 @@ def moveSupportedComponentSetProperties(sqlStore):
 
     logUpgradeStatus("Starting Move supported-component-set")
 
-    sqlTxn = sqlStore.newTransaction()
+    sqlTxn = sqlStore.newTransaction(label="calendar_upgrade_from_1_to_2.moveSupportedComponentSetProperties")
     try:
         # Do not move the properties if migrating, as migration will do a split and set supported-components,
         # however we still need to remove the old properties.

@@ -88,6 +88,7 @@ from zope.interface import implements, directlyProvides
 
 from collections import namedtuple
 import datetime
+import inspect
 import itertools
 import json
 import sys
@@ -505,7 +506,8 @@ class CommonStoreTransaction(object):
         authz_uid=None,
     ):
         if label == "unlabeled" or not label:
-            raise AssertionError("Please make sure your transactions have a proper label")
+            tr = inspect.getframeinfo(inspect.currentframe().f_back.f_back)
+            label = "{}#{}${}".format(tr.filename, tr.lineno, tr.function)
 
         self._store = store
         self._calendarHomes = {}

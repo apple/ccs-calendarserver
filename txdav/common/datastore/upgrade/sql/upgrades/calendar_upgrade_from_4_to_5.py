@@ -129,7 +129,7 @@ def removeOtherProperties(sqlStore):
     """
     logUpgradeStatus("Starting Calendar Remove Other Properties")
 
-    sqlTxn = sqlStore.newTransaction()
+    sqlTxn = sqlStore.newTransaction(label="calendar_upgrade_from_4_to_5.removeOtherProperties")
 
     yield removeProperty(sqlTxn, PropertyName.fromElement(element.ACL))
     yield removeProperty(sqlTxn, PropertyName.fromElement(element.GETContentType))

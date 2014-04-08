@@ -212,7 +212,7 @@ def _processDefaultAlarmProperty(home, propname, vevent, timed):
 def removeResourceType(sqlStore):
     logUpgradeStatus("Starting Calendar Remove Resource Type")
 
-    sqlTxn = sqlStore.newTransaction()
+    sqlTxn = sqlStore.newTransaction(label="calendar_upgrade_from_3_to_4.removeResourceType")
     yield removeProperty(sqlTxn, PropertyName.fromElement(element.ResourceType))
     yield sqlTxn.commit()
     yield cleanPropertyStore()

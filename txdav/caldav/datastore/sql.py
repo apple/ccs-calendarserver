@@ -1523,7 +1523,7 @@ class Calendar(CommonHomeChild):
         # Use a new transaction to do this update quickly without locking the row for too long. However, the original
         # transaction may have the row locked, so use wait=False and if that fails, fall back to using the original txn.
 
-        newTxn = obj.transaction().store().newTransaction()
+        newTxn = obj.transaction().store().newTransaction(label="Calendar.reExpandResource")
         try:
             yield obj.lock(wait=False, txn=newTxn)
         except NoSuchObjectResourceError:
@@ -3739,7 +3739,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # Can only do if cached data exists
         if self._cachedComponent:
-            txn = self.transaction().store().newTransaction("Timeout checkSplit")
+            txn = self.transaction().store().newTransaction(label="Timeout checkSplit")
             yield self.checkSplit(txn=txn)
             yield txn.commit()
 

@@ -36,7 +36,7 @@ def doUpgrade(sqlStore):
     Do the required upgrade steps.
     """
 
-    sqlTxn = sqlStore.newTransaction()
+    sqlTxn = sqlStore.newTransaction(label="calendar_upgrade_from_5_to_6.doUpgrade")
     cb = schema.CALENDAR_BIND
 
     # Fix shared calendar alarms which should default to "empty"

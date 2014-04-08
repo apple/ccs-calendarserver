@@ -85,7 +85,7 @@ def populateMemberTables(sqlStore):
 def removeResourceType(sqlStore):
     logUpgradeStatus("Starting Addressbook Remove Resource Type")
 
-    sqlTxn = sqlStore.newTransaction()
+    sqlTxn = sqlStore.newTransaction(label="addressbook_upgrade_from_1_to_2.removeResourceType")
     yield removeProperty(sqlTxn, PropertyName.fromElement(element.ResourceType))
     yield sqlTxn.commit()
     yield cleanPropertyStore()

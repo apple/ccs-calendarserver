@@ -182,7 +182,7 @@ class ApplePushNotifierService(service.MultiService):
         @type purgeSeconds: C{int}
         """
         self.log.debug("ApplePushNotifierService purgeOldSubscriptions")
-        txn = self.store.newTransaction()
+        txn = self.store.newTransaction(label="ApplePushNotifierService.purgeOldSubscriptions")
         yield txn.purgeOldAPNSubscriptions(int(time.time()) - purgeSeconds)
         yield txn.commit()
 
@@ -338,7 +338,7 @@ class APNProviderProtocol(Protocol):
             if token is not None:
                 self.log.debug("Removing subscriptions for bad token: %s" %
                     (token,))
-                txn = self.factory.store.newTransaction()
+                txn = self.factory.store.newTransaction(label="APNProviderProtocol.processError")
                 subscriptions = (yield txn.apnSubscriptionsByToken(token))
                 for key, _ignore_modified, _ignore_uid in subscriptions:
                     self.log.debug("Removing subscription: %s %s" %
@@ -721,7 +721,7 @@ class APNFeedbackProtocol(Protocol):
 
         self.log.debug("FeedbackProtocol processFeedback time=%d token=%s" %
             (timestamp, token))
-        txn = self.factory.store.newTransaction()
+        txn = self.factory.store.newTransaction(label="APNFeedbackProtocol.processFeedback")
         subscriptions = (yield txn.apnSubscriptionsByToken(token))
 
         for key, modified, _ignore_uid in subscriptions:
@@ -947,7 +947,7 @@ class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn,
         @type key: C{str}
         """
         now = int(time.time()) # epoch seconds
-        txn = self.store.newTransaction()
+        txn = self.store.newTransaction(label="APNSubscriptionResource.addSubscription")
         yield txn.addAPNSubscription(token, key, now, uid, userAgent, host)
         yield txn.commit()
 

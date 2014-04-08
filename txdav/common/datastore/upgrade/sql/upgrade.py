@@ -313,7 +313,7 @@ class UpgradeDatabaseSchemaStep(UpgradeDatabaseCoreStep):
         Apply the schema upgrade .sql file to the database.
         """
         self.log.warn("Applying schema upgrade: %s" % (fp.basename(),))
-        sqlTxn = self.sqlStore.newTransaction()
+        sqlTxn = self.sqlStore.newTransaction(label="UpgradeDatabaseSchemaStep.applyUpgrade")
         try:
             sql = fp.getContent()
             yield sqlTxn.execSQLBlock(sql)

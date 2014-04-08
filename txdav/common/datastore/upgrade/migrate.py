@@ -217,7 +217,7 @@ class UpgradeHelperProcess(AMP):
         Upgrade one calendar home.
         """
         _ignore_migrateFunc, destFunc = homeTypeLookup[homeType]
-        fileTxn = self.upgrader.fileStore.newTransaction()
+        fileTxn = self.upgrader.fileStore.newTransaction(label="UpgradeHelperProcess.oneUpgrade")
         return (
             maybeDeferred(destFunc(fileTxn), uid)
             .addCallback(
@@ -315,7 +315,7 @@ class UpgradeToDatabaseStep(object):
         uid = normalizeUUIDOrNot(fileHome.uid())
         self.log.warn("Starting migration transaction %s UID %r" %
                       (homeType, uid))
-        sqlTxn = self.sqlStore.newTransaction()
+        sqlTxn = self.sqlStore.newTransaction(label="UpgradeToDatabaseStep.migrateOneHome")
         homeGetter = destFunc(sqlTxn)
         sqlHome = yield homeGetter(uid, create=False)
         if sqlHome is not None and not self.merge:
@@ -409,7 +409,7 @@ class UpgradeToDatabaseStep(object):
 
         # First force each home to v1 data format so the upgrades will be triggered
         self.log.warn("Migration extra steps.")
-        txn = self.sqlStore.newTransaction()
+        txn = self.sqlStore.newTransaction(label="UpgradeToDatabaseStep.doDataUpgradeSteps")
         for storeType in (ECALENDARTYPE, EADDRESSBOOKTYPE):
             schema = txn._homeClass[storeType]._homeSchema
             yield Update(
