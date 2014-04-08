@@ -342,8 +342,20 @@ class iCalDiff(object):
 
                 else:
                     # We used to generate a 403 here - but instead we now ignore this error and let the server data
-                    # override the client
-                    self._logDiffError("attendeeMerge: Missing uncancelled component from first calendar: %s" % (key,))
+                    # override the client.
+
+                    # If smart_merge is happening, then derive an instance in the new data as the change in the old
+                    # data is valid and likely due to some other attendee changing their status.
+                    if  self.smart_merge:
+                        newOverride = self.newcalendar.deriveInstance(rid, allowCancelled=True)
+                        if newOverride is None:
+                            self._logDiffError("attendeeMerge: Could not derive instance for uncancelled component: %s" % (key,))
+                        else:
+                            self.newcalendar.addComponent(newOverride)
+                            setnew.add(key)
+                            mapnew[key] = newOverride
+                    else:
+                        self._logDiffError("attendeeMerge: Missing uncancelled component from first calendar: %s" % (key,))
             else:
                 if exdatesnew is not None and rid not in exdatesnew:
                     # We used to generate a 403 here - but instead we now ignore this error and let the server data
