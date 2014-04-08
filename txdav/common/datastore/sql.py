@@ -1468,18 +1468,20 @@ class CommonStoreTransaction(object):
             read-only access
         @type readWrite: C{boolean}
         """
-        savepoint = SavepointAction("addDelegate")
-        yield savepoint.acquire(self)
-        try:
-            yield self._addDelegateQuery.on(
-                self,
+
+        def _addDelegate(subtxn):
+            return self._addDelegateQuery.on(
+                subtxn,
                 delegator=delegator.encode("utf-8"),
                 delegate=delegate.encode("utf-8"),
                 readWrite=1 if readWrite else 0
             )
-        except Exception:
-            # Row already exists
-            yield savepoint.rollback(self)
+
+        try:
+            yield self.subtransaction(_addDelegate, retries=0, failureOK=True)
+        except AllRetriesFailed:
+            pass
+
 
 
     @inlineCallbacks
@@ -1497,19 +1499,21 @@ class CommonStoreTransaction(object):
             read-only access
         @type readWrite: C{boolean}
         """
-        savepoint = SavepointAction("addDelegateGroup")
-        yield savepoint.acquire(self)
-        try:
-            yield self._addDelegateGroupQuery.on(
-                self,
+
+        def _addDelegateGroup(subtxn):
+            return self._addDelegateGroupQuery.on(
+                subtxn,
                 delegator=delegator.encode("utf-8"),
                 groupID=delegateGroupID,
                 readWrite=1 if readWrite else 0,
                 isExternal=1 if isExternal else 0
             )
-        except Exception:
-            # Row already exists
-            yield savepoint.rollback(self)
+
+        try:
+            yield self.subtransaction(_addDelegateGroup, retries=0, failureOK=True)
+        except AllRetriesFailed:
+            pass
+
 
 
     def removeDelegate(self, delegator, delegate, readWrite):
