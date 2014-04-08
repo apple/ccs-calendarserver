@@ -932,7 +932,7 @@ class CommonStoreTransaction(object):
         return Insert(
             {
                 gr.NAME: Parameter("name"),
-                gr.GROUP_GUID: Parameter("groupUID"),
+                gr.GROUP_UID: Parameter("groupUID"),
                 gr.MEMBERSHIP_HASH: Parameter("membershipHash")
             },
             Return=gr.GROUP_ID
@@ -949,7 +949,7 @@ class CommonStoreTransaction(object):
                 gr.MODIFIED:
                 Parameter("timestamp")
             },
-            Where=(gr.GROUP_GUID == Parameter("groupUID"))
+            Where=(gr.GROUP_UID == Parameter("groupUID"))
         )
 
 
@@ -959,7 +959,7 @@ class CommonStoreTransaction(object):
         return Select(
             [gr.GROUP_ID, gr.NAME, gr.MEMBERSHIP_HASH, gr.MODIFIED],
             From=gr,
-            Where=(gr.GROUP_GUID == Parameter("groupUID"))
+            Where=(gr.GROUP_UID == Parameter("groupUID"))
         )
 
 
@@ -967,7 +967,7 @@ class CommonStoreTransaction(object):
     def _groupByID(cls):
         gr = schema.GROUPS
         return Select(
-            [gr.GROUP_GUID, gr.NAME, gr.MEMBERSHIP_HASH],
+            [gr.GROUP_UID, gr.NAME, gr.MEMBERSHIP_HASH],
             From=gr,
             Where=(gr.GROUP_ID == Parameter("groupID"))
         )
@@ -1109,7 +1109,7 @@ class CommonStoreTransaction(object):
         return Insert(
             {
                 gm.GROUP_ID: Parameter("groupID"),
-                gm.MEMBER_GUID: Parameter("memberUID")
+                gm.MEMBER_UID: Parameter("memberUID")
             }
         )
 
@@ -1122,7 +1122,7 @@ class CommonStoreTransaction(object):
             Where=(
                 gm.GROUP_ID == Parameter("groupID")
             ).And(
-                gm.MEMBER_GUID == Parameter("memberUID")
+                gm.MEMBER_UID == Parameter("memberUID")
             )
         )
 
@@ -1131,7 +1131,7 @@ class CommonStoreTransaction(object):
     def _selectGroupMembersQuery(cls):
         gm = schema.GROUP_MEMBERSHIP
         return Select(
-            [gm.MEMBER_GUID],
+            [gm.MEMBER_UID],
             From=gm,
             Where=(
                 gm.GROUP_ID == Parameter("groupID")
@@ -1145,7 +1145,7 @@ class CommonStoreTransaction(object):
         gm = schema.GROUP_MEMBERSHIP
 
         return Select(
-            [gr.GROUP_GUID],
+            [gr.GROUP_UID],
             From=gr,
             Where=(
                 gr.GROUP_ID.In(
@@ -1153,7 +1153,7 @@ class CommonStoreTransaction(object):
                         [gm.GROUP_ID],
                         From=gm,
                         Where=(
-                            gm.MEMBER_GUID == Parameter("uid")
+                            gm.MEMBER_UID == Parameter("uid")
                         )
                     )
                 )
@@ -1328,7 +1328,7 @@ class CommonStoreTransaction(object):
         gr = schema.GROUPS
 
         return Select(
-            [gr.GROUP_GUID],
+            [gr.GROUP_UID],
             From=gr,
             Where=(
                 gr.GROUP_ID.In(
@@ -1373,7 +1373,7 @@ class CommonStoreTransaction(object):
                     Select(
                         [gm.GROUP_ID],
                         From=gm,
-                        Where=(gm.MEMBER_GUID == Parameter("delegate"))
+                        Where=(gm.MEMBER_UID == Parameter("delegate"))
                     )
                 ).And(
                     dg.READ_WRITE == Parameter("readWrite")
@@ -1388,7 +1388,7 @@ class CommonStoreTransaction(object):
         gm = schema.GROUP_MEMBERSHIP
 
         return Select(
-            [gm.MEMBER_GUID],
+            [gm.MEMBER_UID],
             From=gm,
             Where=(
                 gm.GROUP_ID.In(
@@ -1407,7 +1407,7 @@ class CommonStoreTransaction(object):
     def _selectExternalDelegateGroupsQuery(cls):
         edg = schema.EXTERNAL_DELEGATE_GROUPS
         return Select(
-            [edg.DELEGATOR, edg.GROUP_GUID_READ, edg.GROUP_GUID_WRITE],
+            [edg.DELEGATOR, edg.GROUP_UID_READ, edg.GROUP_UID_WRITE],
             From=edg
         )
 
@@ -1429,8 +1429,8 @@ class CommonStoreTransaction(object):
         return Insert(
             {
                 edg.DELEGATOR: Parameter("delegator"),
-                edg.GROUP_GUID_READ: Parameter("readDelegate"),
-                edg.GROUP_GUID_WRITE: Parameter("writeDelegate"),
+                edg.GROUP_UID_READ: Parameter("readDelegate"),
+                edg.GROUP_UID_WRITE: Parameter("writeDelegate"),
             }
         )
 
@@ -1713,7 +1713,7 @@ class CommonStoreTransaction(object):
         dg = schema.DELEGATE_GROUPS
 
         results = (yield Select(
-            [gr.GROUP_GUID],
+            [gr.GROUP_UID],
             From=gr,
             Where=(gr.GROUP_ID.In(Select([dg.GROUP_ID], From=dg, Where=None)))
         ).on(self))

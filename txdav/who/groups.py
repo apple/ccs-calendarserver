@@ -112,15 +112,13 @@ def schedulePolledGroupCachingUpdate(store):
 
 class GroupRefreshWork(WorkItem, fromTable(schema.GROUP_REFRESH_WORK)):
 
-    # Note, the schema has "groupGuid", but really it's a UID.  At some point
-    # we should change the column name.
-    group = property(lambda self: self.groupGuid)
+    group = property(lambda self: self.groupUid)
 
     @inlineCallbacks
     def doWork(self):
         # Delete all other work items for this group
         yield Delete(
-            From=self.table, Where=(self.table.GROUP_GUID == self.groupGuid)
+            From=self.table, Where=(self.table.GROUP_UID == self.groupUid)
         ).on(self.transaction)
 
         groupCacher = getattr(self.transaction, "_groupCacher", None)
@@ -128,12 +126,12 @@ class GroupRefreshWork(WorkItem, fromTable(schema.GROUP_REFRESH_WORK)):
 
             try:
                 yield groupCacher.refreshGroup(
-                    self.transaction, self.groupGuid.decode("utf-8")
+                    self.transaction, self.groupUid.decode("utf-8")
                 )
             except Exception, e:
                 log.error(
                     "Failed to refresh group {group} {err}",
-                    group=self.groupGuid, err=e
+                    group=self.groupUid, err=e
                 )
 
         else:
@@ -143,11 +141,11 @@ class GroupRefreshWork(WorkItem, fromTable(schema.GROUP_REFRESH_WORK)):
             )
             log.debug(
                 "Rescheduling group refresh for {group}: {when}",
-                group=self.groupGuid, when=notBefore
+                group=self.groupUid, when=notBefore
             )
             yield self.transaction.enqueue(
                 GroupRefreshWork,
-                groupGuid=self.groupGuid, notBefore=notBefore
+                groupUID=self.groupUid, notBefore=notBefore
             )
 
 
@@ -248,7 +246,7 @@ class GroupCacher(object):
             )
             self.log.debug("Enqueuing group refresh for {u}", u=groupUID)
             yield txn.enqueue(
-                GroupRefreshWork, groupGuid=groupUID, notBefore=notBefore
+                GroupRefreshWork, groupUid=groupUID, notBefore=notBefore
             )
             self.log.debug("Enqueued group refresh for {u}", u=groupUID)
 
@@ -401,7 +399,7 @@ class GroupCacher(object):
                 GroupAttendeeReconciliationWork,
                 eventID=eventID,
                 groupID=groupID,
-                groupGuid=groupUID,
+                groupUID=groupUID,
                 notBefore=notBefore
             )
 
@@ -427,7 +425,7 @@ class GroupCacher(object):
         if groupIDs:
             gr = schema.GROUPS
             rows = yield Select(
-                [gr.GROUP_GUID, ],
+                [gr.GROUP_UID, ],
                 From=gr,
                 Where=gr.GROUP_ID.In(groupIDs)
             ).on(txn)

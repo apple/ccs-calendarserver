@@ -21,7 +21,7 @@
 create table GROUP_REFRESH_WORK (
     "WORK_ID" integer primary key not null,
     "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
-    "GROUP_GUID" nvarchar2(255)
+    "GROUP_UID" nvarchar2(255)
 );
 
 create table GROUP_ATTENDEE_RECONCILIATION_ (
@@ -34,7 +34,7 @@ create table GROUP_ATTENDEE_RECONCILIATION_ (
 create table GROUPS (
     "GROUP_ID" integer primary key,
     "NAME" nvarchar2(255),
-    "GROUP_GUID" nvarchar2(255),
+    "GROUP_UID" nvarchar2(255),
     "MEMBERSHIP_HASH" nvarchar2(255),
     "EXTANT" integer default 1,
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
@@ -43,7 +43,7 @@ create table GROUPS (
 
 create table GROUP_MEMBERSHIP (
     "GROUP_ID" integer,
-    "MEMBER_GUID" nvarchar2(255)
+    "MEMBER_UID" nvarchar2(255)
 );
 
 create table GROUP_ATTENDEE (
@@ -67,13 +67,13 @@ create table DELEGATE_GROUPS (
 
 create table EXTERNAL_DELEGATE_GROUPS (
     "DELEGATOR" nvarchar2(255),
-    "GROUP_GUID_READ" nvarchar2(255),
-    "GROUP_GUID_WRITE" nvarchar2(255)
+    "GROUP_UID_READ" nvarchar2(255),
+    "GROUP_UID_WRITE" nvarchar2(255)
 );
 
 
-create index GROUPS_GROUP_GUID_ebf7a1d4 on GROUPS (
-    GROUP_GUID
+create index GROUPS_GROUP_UID_ebf7a1d4 on GROUPS (
+    GROUP_UID
 );
 
 create index GROUP_MEMBERSHIP_GROU_9560a5e6 on GROUP_MEMBERSHIP (
@@ -81,7 +81,7 @@ create index GROUP_MEMBERSHIP_GROU_9560a5e6 on GROUP_MEMBERSHIP (
 );
 
 create index GROUP_MEMBERSHIP_MEMB_0ca508e8 on GROUP_MEMBERSHIP (
-    MEMBER_GUID
+    MEMBER_UID
 );
 
 

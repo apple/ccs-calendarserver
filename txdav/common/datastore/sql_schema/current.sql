@@ -456,7 +456,7 @@ create table SHARED_ADDRESSBOOK_BIND (
   BIND_REVISION                         integer         default 0 not null,
   MESSAGE                               text,                     -- FIXME: xml?
 
-  primary key (ADDRESSBOOK_HOME_RESOURCE_ID, OWNER_HOME_RESOURCE_ID), -- implicit index 
+  primary key (ADDRESSBOOK_HOME_RESOURCE_ID, OWNER_HOME_RESOURCE_ID), -- implicit index
   unique (ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_NAME)     -- implicit index
 );
 
@@ -513,7 +513,7 @@ create table ABO_MEMBERS (
   GROUP_ID        integer     not null, -- references ADDRESSBOOK_OBJECT on delete cascade,   -- AddressBook Object's (kind=='group') RESOURCE_ID
   ADDRESSBOOK_ID  integer     not null references ADDRESSBOOK_HOME on delete cascade,
   MEMBER_ID       integer     not null, -- references ADDRESSBOOK_OBJECT,                     -- member AddressBook Object's RESOURCE_ID
-  REVISION        integer     default nextval('REVISION_SEQ') not null, 
+  REVISION        integer     default nextval('REVISION_SEQ') not null,
   REMOVED         boolean     default false not null,
   MODIFIED        timestamp   default timezone('UTC', CURRENT_TIMESTAMP),
 
@@ -755,7 +755,7 @@ create index GROUP_CACHER_POLLING_WORK_JOB_ID on
 create table GROUP_REFRESH_WORK (
   WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   JOB_ID                        integer      references JOB not null,
-  GROUP_GUID                    varchar(255) not null
+  GROUP_UID                     varchar(255) not null
 );
 
 create index GROUP_REFRESH_WORK_JOB_ID on
@@ -775,23 +775,23 @@ create index GROUP_ATTENDEE_RECONCILIATION_WORK_JOB_ID on
 create table GROUPS (
   GROUP_ID                      integer      primary key default nextval('RESOURCE_ID_SEQ'),    -- implicit index
   NAME                          varchar(255) not null,
-  GROUP_GUID                    varchar(255) not null,
+  GROUP_UID                     varchar(255) not null,
   MEMBERSHIP_HASH               varchar(255) not null,
   EXTANT                        integer default 1,
   CREATED                       timestamp default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                      timestamp default timezone('UTC', CURRENT_TIMESTAMP)
 );
-create index GROUPS_GROUP_GUID on
-  GROUPS(GROUP_GUID);
+create index GROUPS_GROUP_UID on
+  GROUPS(GROUP_UID);
 
 create table GROUP_MEMBERSHIP (
   GROUP_ID                      integer,
-  MEMBER_GUID                   varchar(255) not null
+  MEMBER_UID                   varchar(255) not null
 );
 create index GROUP_MEMBERSHIP_GROUP on
   GROUP_MEMBERSHIP(GROUP_ID);
 create index GROUP_MEMBERSHIP_MEMBER on
-  GROUP_MEMBERSHIP(MEMBER_GUID);
+  GROUP_MEMBERSHIP(MEMBER_UID);
 
 create table GROUP_ATTENDEE (
   GROUP_ID                      integer,
@@ -818,8 +818,8 @@ create table DELEGATE_GROUPS (
 
 create table EXTERNAL_DELEGATE_GROUPS (
   DELEGATOR                     varchar(255) not null,
-  GROUP_GUID_READ               varchar(255),
-  GROUP_GUID_WRITE              varchar(255)
+  GROUP_UID_READ                varchar(255),
+  GROUP_UID_WRITE               varchar(255)
 );
 
 --------------------------

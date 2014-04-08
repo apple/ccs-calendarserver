@@ -25,7 +25,7 @@
 create table GROUP_REFRESH_WORK (
   WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  GROUP_GUID                    varchar(255) not null
+  GROUP_UID                    varchar(255) not null
 );
 
 create table GROUP_ATTENDEE_RECONCILIATION_WORK (
@@ -38,20 +38,20 @@ create table GROUP_ATTENDEE_RECONCILIATION_WORK (
 create table GROUPS (
   GROUP_ID                      integer      primary key default nextval('RESOURCE_ID_SEQ'),    -- implicit index
   NAME                          varchar(255) not null,
-  GROUP_GUID                    varchar(255) not null,
+  GROUP_UID                    varchar(255) not null,
   MEMBERSHIP_HASH               varchar(255) not null,
   EXTANT                        integer default 1,
   CREATED                       timestamp default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                      timestamp default timezone('UTC', CURRENT_TIMESTAMP)
 );
-create index GROUPS_GROUP_GUID on GROUPS(GROUP_GUID);
+create index GROUPS_GROUP_UID on GROUPS(GROUP_UID);
 
 create table GROUP_MEMBERSHIP (
   GROUP_ID                      integer,
-  MEMBER_GUID                   varchar(255) not null
+  MEMBER_UID                   varchar(255) not null
 );
 create index GROUP_MEMBERSHIP_GROUP on GROUP_MEMBERSHIP(GROUP_ID);
-create index GROUP_MEMBERSHIP_MEMBER on GROUP_MEMBERSHIP(MEMBER_GUID);
+create index GROUP_MEMBERSHIP_MEMBER on GROUP_MEMBERSHIP(MEMBER_UID);
 
 create table GROUP_ATTENDEE (
   GROUP_ID                      integer,
@@ -78,8 +78,8 @@ create table DELEGATE_GROUPS (
 
 create table EXTERNAL_DELEGATE_GROUPS (
   DELEGATOR                     varchar(255) not null,
-  GROUP_GUID_READ               varchar(255),
-  GROUP_GUID_WRITE              varchar(255)
+  GROUP_UID_READ               varchar(255),
+  GROUP_UID_WRITE              varchar(255)
 );
 
 -- Now update the version
