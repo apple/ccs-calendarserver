@@ -70,7 +70,7 @@ while getopts 'hbipfn' option; do
     'i')                    install=true; ;;
     'p')                    package=true; ;;
     'f') ignore_uncommitted_changes=true; ;;
-    'n') 	 build_no_verify_source=true; ;;
+    'n') 	   build_no_verify_source=true; ;;
   esac;
 done;
 shift $((${OPTIND} - 1));
@@ -164,7 +164,7 @@ EOF
 
 echo "";
 echo "Preparing sources for ${project_version}...";
-make -C "${wc}" prep;
+make -C "${wc}" cache_deps;
 
 if "${build}"; then
   echo "";
