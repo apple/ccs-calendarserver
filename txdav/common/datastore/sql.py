@@ -444,6 +444,7 @@ class CommonStoreTransactionMonitor(object):
         if self.delayedTimeout:
             self.delayedTimeout.cancel()
             self.delayedTimeout = None
+        return succeed(None)
 
 
     def _installLogTimer(self):
@@ -503,6 +504,9 @@ class CommonStoreTransaction(object):
         notifierFactories, label, migrating=False, disableCache=False,
         authz_uid=None,
     ):
+        if label == "unlabeled" or not label:
+            raise AssertionError("Please make sure your transactions have a proper label")
+
         self._store = store
         self._calendarHomes = {}
         self._addressbookHomes = {}

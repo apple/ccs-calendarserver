@@ -130,7 +130,7 @@ class RevisionCleanupWork(WorkItem,
 @inlineCallbacks
 def scheduleFirstFindMinRevision(store, seconds):
     if config.RevisionCleanup.Enabled:
-        txn = store.newTransaction()
+        txn = store.newTransaction(label="scheduleFirstFindMinRevision")
         wp = yield FindMinValidRevisionWork._schedule(txn, seconds)
         yield txn.commit()
         returnValue(wp)

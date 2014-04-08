@@ -149,7 +149,7 @@ class CleanupOneInboxWork(WorkItem,
 @inlineCallbacks
 def scheduleFirstInboxCleanup(store, seconds):
     if config.InboxCleanup.Enabled:
-        txn = store.newTransaction()
+        txn = store.newTransaction(label="scheduleFirstInboxCleanup")
         wp = yield InboxCleanupWork._schedule(txn, seconds)
         yield txn.commit()
         returnValue(wp)

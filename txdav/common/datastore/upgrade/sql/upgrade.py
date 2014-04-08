@@ -48,7 +48,7 @@ class UpgradeAcquireLockStep(object):
 
     @inlineCallbacks
     def stepWithResult(self, result):
-        sqlTxn = self.sqlStore.newTransaction()
+        sqlTxn = self.sqlStore.newTransaction(label="UpgradeAcquireLockStep.stepWithResult")
         yield sqlTxn.acquireUpgradeLock()
         yield sqlTxn.commit()
 
@@ -69,7 +69,7 @@ class UpgradeReleaseLockStep(object):
 
     @inlineCallbacks
     def stepWithResult(self, result):
-        sqlTxn = self.sqlStore.newTransaction()
+        sqlTxn = self.sqlStore.newTransaction(label="UpgradeReleaseLockStep.stepWithResult")
         yield sqlTxn.releaseUpgradeLock()
         yield sqlTxn.commit()
 
@@ -170,7 +170,7 @@ class UpgradeDatabaseCoreStep(object):
             self.log.warn("Required database key %s: %s." % (self.versionKey, required_version,))
 
         # Get the schema version in the current database
-        sqlTxn = self.sqlStore.newTransaction()
+        sqlTxn = self.sqlStore.newTransaction(label="UpgradeDatabaseCoreStep.getVersions")
         dialect = sqlTxn.dialect
         try:
             actual_version = yield sqlTxn.calendarserverValue(self.versionKey)

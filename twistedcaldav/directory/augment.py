@@ -246,7 +246,7 @@ class AugmentDB(object):
         """
 
         self.cachedRecords.clear()
-        return succeed(None)
+        return None
 
 
     def clean(self):
@@ -492,7 +492,7 @@ class AugmentXMLDB(AugmentDB):
             log.error("Failed to parse XML augments file during cache refresh - ignoring")
         self.lastCached = time.time()
 
-        return succeed(None)
+        return None
 
 
     def clean(self):

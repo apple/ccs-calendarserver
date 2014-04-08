@@ -66,9 +66,9 @@ class DirectoryRecord(BaseDirectoryRecord):
         the members will consist of the records who have delegated *to*
         this record.
         """
-        parentUID, proxyType = self.uid.split(u"#")
+        parentUID, _ignore_proxyType = self.uid.split(u"#")
 
-        txn = self.service._store.newTransaction()
+        txn = self.service._store.newTransaction(label="DirectoryRecord.members")
 
         if self.recordType in (
             RecordType.readDelegateGroup, RecordType.writeDelegateGroup
@@ -95,7 +95,6 @@ class DirectoryRecord(BaseDirectoryRecord):
         returnValue(records)
 
 
-
     @inlineCallbacks
     def setMembers(self, memberRecords):
         """
@@ -109,7 +108,7 @@ class DirectoryRecord(BaseDirectoryRecord):
         ):
             raise NotAllowedError("Setting members not supported")
 
-        parentUID, proxyType = self.uid.split(u"#")
+        parentUID, _ignore_proxyType = self.uid.split(u"#")
         readWrite = (self.recordType is RecordType.writeDelegateGroup)
 
         log.debug(
@@ -118,7 +117,7 @@ class DirectoryRecord(BaseDirectoryRecord):
             m=[r.uid for r in memberRecords]
         )
 
-        txn = self.service._store.newTransaction()
+        txn = self.service._store.newTransaction(label="DirectoryRecord.setMembers")
 
         yield txn.removeDelegates(parentUID, readWrite)
         yield txn.removeDelegateGroups(parentUID, readWrite)
@@ -141,6 +140,7 @@ def recordTypeToProxyType(recordType):
         RecordType.readDelegatorGroup: "calendar-proxy-read-for",
         RecordType.writeDelegatorGroup: "calendar-proxy-write-for",
     }.get(recordType, None)
+
 
 
 def proxyTypeToRecordType(proxyType):
@@ -230,12 +230,13 @@ def addDelegate(txn, delegator, delegate, readWrite):
     """
     if delegate.recordType == BaseRecordType.group:
         # find the groupID
-        groupID, name, membershipHash, modified = yield txn.groupByUID(
+        groupID, _ignore_name, _ignore_membershipHash, _ignore_modified = yield txn.groupByUID(
             delegate.uid
         )
         yield txn.addDelegateGroup(delegator.uid, groupID, readWrite)
     else:
         yield txn.addDelegate(delegator.uid, delegate.uid, readWrite)
+
 
 
 @inlineCallbacks
@@ -253,12 +254,13 @@ def removeDelegate(txn, delegator, delegate, readWrite):
     """
     if delegate.recordType == BaseRecordType.group:
         # find the groupID
-        groupID, name, membershipHash, modified = yield txn.groupByUID(
+        groupID, _ignore_name, _ignore_membershipHash, _ignore_modified = yield txn.groupByUID(
             delegate.uid
         )
         yield txn.removeDelegateGroup(delegator.uid, groupID, readWrite)
     else:
         yield txn.removeDelegate(delegator.uid, delegate.uid, readWrite)
+
 
 
 @inlineCallbacks
@@ -285,6 +287,7 @@ def delegatesOf(txn, delegator, readWrite, expanded=False):
             if record is not None:
                 records.append(record)
     returnValue(records)
+
 
 
 @inlineCallbacks

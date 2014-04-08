@@ -251,7 +251,6 @@ class AugmentedDirectoryService(
         fields[field] = value
 
 
-
     @inlineCallbacks
     def _augment(self, record):
         if record is None:
@@ -380,7 +379,7 @@ class AugmentedDirectoryRecord(DirectoryRecord, CalendarDirectoryRecordMixin):
     def groups(self):
         augmented = []
 
-        txn = self.service._store.newTransaction()
+        txn = self.service._store.newTransaction(label="AugmentedDirectoryRecord.groups")
         groupUIDs = yield txn.groupsFor(self.uid)
 
         for groupUID in groupUIDs:
@@ -389,6 +388,8 @@ class AugmentedDirectoryRecord(DirectoryRecord, CalendarDirectoryRecordMixin):
             )
             if groupRecord:
                 augmented.append((yield self.service._augment(groupRecord)))
+
+        yield txn.commit()
 
         returnValue(augmented)
 

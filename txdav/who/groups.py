@@ -87,7 +87,7 @@ class GroupCacherPollingWork(
 
 @inlineCallbacks
 def scheduleNextGroupCachingUpdate(store, seconds):
-    txn = store.newTransaction()
+    txn = store.newTransaction(label="scheduleNextGroupCachingUpdate")
     notBefore = (
         datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds)
     )
@@ -171,7 +171,6 @@ class GroupAttendeeReconciliationWork(
 
     # MOVE2WHO
     # TODO: Pull this over from groupcacher branch
-
 
 
 
@@ -267,11 +266,11 @@ class GroupCacher(object):
             ) in changed:
                 readDelegateGroupID = writeDelegateGroupID = None
                 if readDelegateUID:
-                    readDelegateGroupID, _ignore_name, hash, modified = (
+                    readDelegateGroupID, _ignore_name, hash, _ignore_modified = (
                         yield txn.groupByUID(readDelegateUID)
                     )
                 if writeDelegateUID:
-                    writeDelegateGroupID, _ignore_name, hash, modified = (
+                    writeDelegateGroupID, _ignore_name, hash, _ignore_modified = (
                         yield txn.groupByUID(writeDelegateUID)
                     )
                 yield txn.assignExternalDelegates(
@@ -305,7 +304,7 @@ class GroupCacher(object):
             for member in members:
                 membershipHashContent.update(str(member.uid))
             membershipHash = membershipHashContent.hexdigest()
-            groupID, _ignore_cachedName, cachedMembershipHash, modified = (
+            groupID, _ignore_cachedName, cachedMembershipHash, _ignore_modified = (
                 yield txn.groupByUID(groupUID)
             )
 

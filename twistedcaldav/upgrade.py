@@ -746,7 +746,6 @@ upgradeMethods = [
 @inlineCallbacks
 def upgradeData(config, directory):
 
-
     triggerPath = os.path.join(config.ServerRoot, TRIGGER_FILE)
     if os.path.exists(triggerPath):
         try:
@@ -1008,15 +1007,17 @@ def migrateAutoSchedule(config, directory):
             log.warn("Migrated %d auto-schedule settings" % (len(augmentRecords),))
 
 
+
 def loadDelegatesFromXML(xmlFile, service):
     loader = XMLCalendarUserProxyLoader(xmlFile, service)
     return loader.updateProxyDB()
 
 
+
 @inlineCallbacks
 def migrateDelegatesToStore(service, store):
     directory = store.directoryService()
-    txn = store.newTransaction()
+    txn = store.newTransaction(label="migrateDelegatesToStore")
     for groupName, memberUID in (
         yield service.query(
             "select GROUPNAME, MEMBER from GROUPS"
@@ -1127,7 +1128,6 @@ class PostDBImportStep(object):
                 )
             else:
                 sqliteProxyService = None
-
 
             # # Populate the group membership cache
             # if (self.config.GroupCaching.Enabled and

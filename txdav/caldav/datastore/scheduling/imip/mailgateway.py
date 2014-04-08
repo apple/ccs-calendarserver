@@ -229,7 +229,7 @@ def migrateTokensToStore(path, store):
     @type store: L{CommonDataStore}
     """
     oldDB = MailGatewayTokensDatabase(path)
-    txn = store.newTransaction()
+    txn = store.newTransaction(label="migrateTokensToStore")
     for token, organizer, attendee, icaluid in oldDB.getAllTokens():
         yield txn.imipCreateToken(organizer, attendee, icaluid, token=token)
     yield txn.commit()
