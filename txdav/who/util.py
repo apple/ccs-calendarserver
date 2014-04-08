@@ -99,7 +99,7 @@ def directoryFromConfig(config, store=None):
             directory = LDAPDirectoryService(
                 params.uri,
                 params.rdnSchema.base,
-                creds=creds
+                credentials=creds
             )
 
         else:
