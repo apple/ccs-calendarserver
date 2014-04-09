@@ -1516,6 +1516,9 @@ class UpgradeTests(StoreTestCase):
                 self.uid = uid
                 self.calendarUserAddresses = cuas
 
+            def getCUType(self):
+                return "INDIVIDUAL"
+
             @property
             def displayName(self):
                 return self.fullNames[0]
@@ -1589,7 +1592,6 @@ class UpgradeTests(StoreTestCase):
         )
 
         yield txn.commit()
-
 
 
 

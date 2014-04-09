@@ -25,6 +25,7 @@ from twistedcaldav.test.util import StoreTestCase
 from txdav.common.icommondatastore import NotFoundError
 
 
+
 class GroupCacherTest(StoreTestCase):
 
     @inlineCallbacks
@@ -46,7 +47,7 @@ class GroupCacherTest(StoreTestCase):
         record = yield self.directory.recordWithUID(u"__top_group_1__")
         yield self.groupCacher.refreshGroup(txn, record.uid)
 
-        groupID, name, membershipHash, modified = (yield txn.groupByUID(record.uid))
+        groupID, _ignore_name, membershipHash, _ignore_modified = (yield txn.groupByUID(record.uid))
 
         self.assertEquals(membershipHash, "553eb54e3bbb26582198ee04541dbee4")
 
@@ -88,7 +89,7 @@ class GroupCacherTest(StoreTestCase):
         # Refresh the group so it's assigned a group_id
         uid = u"__top_group_1__"
         yield self.groupCacher.refreshGroup(txn, uid)
-        groupID, name, membershipHash, modified = (yield txn.groupByUID(uid))
+        groupID, name, _ignore_membershipHash, _ignore_modified = (yield txn.groupByUID(uid))
 
         # Remove two members, and add one member
         newSet = set()
@@ -135,7 +136,7 @@ class GroupCacherTest(StoreTestCase):
         uid = u"__top_group_1__"
         hash = "553eb54e3bbb26582198ee04541dbee4"
         yield self.groupCacher.refreshGroup(txn, uid)
-        groupID, name, membershipHash, modified = yield txn.groupByUID(uid)
+        groupID, _ignore_name, _ignore_membershipHash, _ignore_modified = yield txn.groupByUID(uid)
         results = (yield txn.groupByID(groupID))
         self.assertEquals((uid, u"Top Group 1", hash), results)
 
@@ -242,7 +243,6 @@ class GroupCacherTest(StoreTestCase):
             )
         )
 
-
         #
         # Now, remove some external assignments
         #
@@ -309,6 +309,7 @@ class GroupCacherTest(StoreTestCase):
                 ]
             )
         )
+
 
     def test_diffAssignments(self):
         """
@@ -389,3 +390,4 @@ class GroupCacherTest(StoreTestCase):
                 {"D": ("7", "8"), "C": ("4", "5"), "A": ("1", "2")},
             )
         )
+

@@ -169,8 +169,36 @@ class GroupAttendeeReconciliationWork(
             )
         ).on(self.transaction)
 
-    # MOVE2WHO
-    # TODO: Pull this over from groupcacher branch
+        # get calendar Object
+        calObject = schema.CALENDAR_OBJECT
+        rows = yield Select(
+                [calObject.CALENDAR_RESOURCE_ID, ],
+                From=calObject,
+                Where=calObject.RESOURCE_ID == self.eventID,
+        ).on(self.transaction)
+
+        calendarID = rows[0][0]
+        calendarHome = (yield self.Calendar._ownerHomeWithResourceID.on(
+            self.transaction, resourceID=calendarID)
+        )[0][0]
+
+        calendar = yield calendarHome.childWithID(calendarID)
+        calendarObject = yield calendar.objectResourceWithID(self.eventID)
+
+        # get group individual UIDs
+        groupMemember = schema.GROUP_MEMBERSHIP
+        rows = yield Select(
+                [groupMemember.MEMBER_GUID, ],
+                From=groupMemember,
+                Where=groupMemember.GROUP_ID == self.groupID,
+        ).on(self.transaction)
+        memberGUIDs = [row[0] for row in rows]
+
+        component = yield calendarObject.component()
+        changed = component.expandGroupAttendee(self.groupGUID, memberGUIDs, self.directoryService().recordWithCalendarUserAddress)
+
+        if changed:
+            yield calendarObject.setComponent(component)
 
 
 

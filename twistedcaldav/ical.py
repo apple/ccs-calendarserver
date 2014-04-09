@@ -183,7 +183,7 @@ class Property (object):
             pyobj = kwargs["pycalendar"]
 
             if not isinstance(pyobj, PyProperty):
-                raise TypeError("Not a Property: %r" % (property,))
+                raise TypeError("Not a Property: {0!r}".format(property,))
 
             self._pycalendar = pyobj
         else:
@@ -201,7 +201,10 @@ class Property (object):
 
 
     def __repr__(self):
-        return "<%s: %r: %r>" % (self.__class__.__name__, self.name(), self.value())
+        return (
+            "<{self.__class__.__name__}: {name!r}: {value!r}>"
+            .format(self=self, name=self.name(), value=self.value())
+        )
 
 
     def __hash__(self):
@@ -358,7 +361,7 @@ class Property (object):
 
         # get date/date-time value
         dt = self._pycalendar.getValue().getValue()
-        assert isinstance(dt, DateTime), "Not a date/date-time value: %r" % (self,)
+        assert isinstance(dt, DateTime), "Not a date/date-time value: {0!r}".format(self,)
 
         return timeRangesOverlap(dt, None, start, end, defaulttz)
 
@@ -473,13 +476,13 @@ class Component (object):
         try:
             result = Calendar.parseData(data, format)
         except ErrorBase, e:
-            errmsg = "%s: %s" % (e.mReason, e.mData,)
+            errmsg = "{0}: {1}".format(e.mReason, e.mData,)
             result = None
         if not result:
             if isstream:
                 data.seek(0)
                 data = data.read()
-            raise InvalidICalendarDataError("%s\n%s" % (errmsg, data,))
+            raise InvalidICalendarDataError("{0}\n{1}".format(errmsg, data,))
         return clazz(None, pycalendar=result)
 
 
@@ -531,7 +534,7 @@ class Component (object):
 
                 if pyobj is not None:
                     if not isinstance(pyobj, ComponentBase):
-                        raise TypeError("Not a ComponentBase: %r" % (pyobj,))
+                        raise TypeError("Not a ComponentBase: {0!r}".format(pyobj,))
 
                 self._pycalendar = pyobj
             else:
@@ -542,7 +545,7 @@ class Component (object):
 
                 if parent is not None:
                     if not isinstance(parent, Component):
-                        raise TypeError("Not a Component: %r" % (parent,))
+                        raise TypeError("Not a Component: {0!r}".format(parent,))
 
                 self._parent = parent
             else:
@@ -575,7 +578,10 @@ class Component (object):
 
 
     def __repr__(self):
-        return "<%s: %r>" % (self.__class__.__name__, str(self._pycalendar))
+        return (
+            "<{self.__class__.__name__}: {pycal!r}>"
+            .format(self=self, pycal=str(self._pycalendar))
+        )
 
 
     def __hash__(self):
@@ -600,7 +606,7 @@ class Component (object):
         """
         Return text representation and include timezones if the option is on.
         """
-        assert self.name() == "VCALENDAR", "Must be a VCALENDAR: %r" % (self,)
+        assert self.name() == "VCALENDAR", "Must be a VCALENDAR: {0!r}".format(self,)
 
         result = self._pycalendar.getText(includeTimezones=includeTimezones, format=format)
         if result is None:
@@ -626,14 +632,14 @@ class Component (object):
         @return: the name of the primary type.
         @raise: L{InvalidICalendarDataError} if there is more than one primary type.
         """
-        assert self.name() == "VCALENDAR", "Must be a VCALENDAR: %r" % (self,)
+        assert self.name() == "VCALENDAR", "Must be a VCALENDAR: {0!r}".format(self,)
 
         mtype = None
         for component in self.subcomponents():
             if component.name() in ignoredComponents:
                 continue
             elif mtype and (mtype != component.name()):
-                raise InvalidICalendarDataError("Component contains more than one type of primary type: %r" % (self,))
+                raise InvalidICalendarDataError("Component contains more than one type of primary type: {0!r}".format(self,))
             else:
                 mtype = component.name()
 
@@ -647,7 +653,7 @@ class Component (object):
 
         @return: the L{Component} of the primary type.
         """
-        assert self.name() == "VCALENDAR", "Must be a VCALENDAR: %r" % (self,)
+        assert self.name() == "VCALENDAR", "Must be a VCALENDAR: {0!r}".format(self,)
 
         result = None
         for component in self.subcomponents():
@@ -667,7 +673,7 @@ class Component (object):
         @return: the L{Component} for the master component,
             or C{None} if there isn't one.
         """
-        assert self.name() == "VCALENDAR", "Must be a VCALENDAR: %r" % (self,)
+        assert self.name() == "VCALENDAR", "Must be a VCALENDAR: {0!r}".format(self,)
 
         for component in self.subcomponents():
             if component.name() in ignoredComponents:
@@ -688,7 +694,7 @@ class Component (object):
         @return: the L{Component} for the overridden component,
             or C{None} if there isn't one.
         """
-        assert self.name() == "VCALENDAR", "Must be a VCALENDAR: %r" % (self,)
+        assert self.name() == "VCALENDAR", "Must be a VCALENDAR: {0!r}".format(self,)
 
         if isinstance(recurrence_id, str):
             recurrence_id = DateTime.parseText(recurrence_id) if recurrence_id else None
@@ -710,7 +716,7 @@ class Component (object):
         Return the access level for this component.
         @return: the access level for the calendar data.
         """
-        assert self.name() == "VCALENDAR", "Must be a VCALENDAR: %r" % (self,)
+        assert self.name() == "VCALENDAR", "Must be a VCALENDAR: {0!r}".format(self,)
 
         access = self.propertyValue(Component.ACCESS_PROPERTY)
         if access:
@@ -780,7 +786,7 @@ class Component (object):
         if len(properties) == 1:
             return properties[0]
         if len(properties) > 1:
-            raise InvalidICalendarDataError("More than one %s property in component %r" % (name, self))
+            raise InvalidICalendarDataError("More than one {0} property in component {1!r}".format(name, self))
         return None
 
 
@@ -808,7 +814,7 @@ class Component (object):
         if len(properties) == 1:
             return properties[0].value()
         if len(properties) > 1:
-            raise InvalidICalendarDataError("More than one %s property in component %r" % (name, self))
+            raise InvalidICalendarDataError("More than one {0} property in component {1!r}".format(name, self))
         return None
 
 
@@ -926,12 +932,12 @@ class Component (object):
             repeat : an integer for the REPEAT count
             duration: the repeat duration if present, otherwise None
         """
-        assert self.name() == "VALARM", "Component is not a VAlARM: %r" % (self,)
+        assert self.name() == "VALARM", "Component is not a VAlARM: {0!r}".format(self,)
 
         # The trigger value
         trigger = self.propertyValue("TRIGGER")
         if trigger is None:
-            raise InvalidICalendarDataError("VALARM has no TRIGGER property: %r" % (self,))
+            raise InvalidICalendarDataError("VALARM has no TRIGGER property: {0!r}".format(self,))
 
         # The related parameter
         related = self.getProperty("TRIGGER").parameterValue("RELATED")
@@ -951,7 +957,7 @@ class Component (object):
         duration = self.propertyValue("DURATION")
 
         if repeat > 0 and duration is None:
-            raise InvalidICalendarDataError("VALARM has invalid REPEAT/DURATIOn properties: %r" % (self,))
+            raise InvalidICalendarDataError("VALARM has invalid REPEAT/DURATIOn properties: {0!r}".format(self,))
 
         return (trigger, related, repeat, duration)
 
@@ -1070,7 +1076,7 @@ class Component (object):
         @return: a set of strings, one for each unique TZID value.
         """
 
-        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
+        assert self.name() == "VCALENDAR", "Not a calendar: {0!r}".format(self,)
 
         results = set()
         for component in self.subcomponents():
@@ -1689,7 +1695,7 @@ class Component (object):
         """
         @return: the UID of the subcomponents in this component.
         """
-        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
+        assert self.name() == "VCALENDAR", "Not a calendar: {0!r}".format(self,)
 
         if not hasattr(self, "_resource_uid"):
             for subcomponent in self.subcomponents():
@@ -1706,7 +1712,7 @@ class Component (object):
         """
         Generate a new UID for all components in this VCALENDAR
         """
-        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
+        assert self.name() == "VCALENDAR", "Not a calendar: {0!r}".format(self,)
 
         newUID = str(uuid.uuid4()) if newUID is None else newUID
         self._pycalendar.changeUID(self.resourceUID(), newUID)
@@ -1720,7 +1726,7 @@ class Component (object):
         @return: the name of the iCalendar type of the subcomponents in this
             component.
         """
-        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
+        assert self.name() == "VCALENDAR", "Not a calendar: {0!r}".format(self,)
 
         if not hasattr(self, "_resource_type"):
             has_timezone = False
@@ -1738,7 +1744,7 @@ class Component (object):
                 if has_timezone:
                     self._resource_type = "VTIMEZONE"
                 else:
-                    raise InvalidICalendarDataError("No component type found for calendar component: %r" % (self,))
+                    raise InvalidICalendarDataError("No component type found for calendar component: {0!r}".format(self,))
 
         return self._resource_type
 
@@ -1772,10 +1778,10 @@ class Component (object):
             cannot be fixed.
         """
         if self.name() != "VCALENDAR":
-            log.debug("Not a calendar: %s" % (self,))
+            log.debug("Not a calendar: {0}".format(self,))
             raise InvalidICalendarDataError("Not a calendar")
         if not self.resourceType():
-            log.debug("Unknown resource type: %s" % (self,))
+            log.debug("Unknown resource type: {0}".format(self,))
             raise InvalidICalendarDataError("Unknown resource type")
 
         # Do underlying iCalendar library validation with data fix
@@ -1788,11 +1794,11 @@ class Component (object):
             unfixed.extend(runfixed)
 
         if unfixed:
-            log.debug("Calendar data had unfixable problems:\n  %s" % ("\n  ".join(unfixed),))
+            log.debug("Calendar data had unfixable problems:\n  {0}".format("\n  ".join(unfixed),))
             if doRaise:
-                raise InvalidICalendarDataError("Calendar data had unfixable problems:\n  %s" % ("\n  ".join(unfixed),))
+                raise InvalidICalendarDataError("Calendar data had unfixable problems:\n  {0}".format("\n  ".join(unfixed),))
         if fixed:
-            log.debug("Calendar data had fixable problems:\n  %s" % ("\n  ".join(fixed),))
+            log.debug("Calendar data had fixable problems:\n  {0}".format("\n  ".join(fixed),))
 
         return fixed, unfixed
 
@@ -1832,9 +1838,9 @@ class Component (object):
                             if len(property.value()) > 0:
                                 master.addProperty(property)
                             del exdates[rid]
-                            fixed.append("Removed EXDATE for valid override: %s" % (rid,))
+                            fixed.append("Removed EXDATE for valid override: {0}".format(rid,))
                         else:
-                            unfixed.append("EXDATE for valid override: %s" % (rid,))
+                            unfixed.append("EXDATE for valid override: {0}".format(rid,))
 
                 # Get the set of all valid recurrence IDs
                 valid_rids = self.validInstances(all_rids, ignoreInvalidInstances=True)
@@ -1855,9 +1861,9 @@ class Component (object):
                             exdateValue = exdate.getValue()
                             if exdateValue < dtstart:
                                 if doFix:
-                                    fixed.append("Removed earlier EXDATE: %s" % (exdateValue,))
+                                    fixed.append("Removed earlier EXDATE: {0}".format(exdateValue,))
                                 else:
-                                    unfixed.append("EXDATE earlier than master: %s" % (exdateValue,))
+                                    unfixed.append("EXDATE earlier than master: {0}".format(exdateValue,))
                                 changed = True
                             else:
                                 newValues.append(exdateValue)
@@ -1882,10 +1888,13 @@ class Component (object):
                 brokenRID = brokenComponent.propertyValue("RECURRENCE-ID")
                 if doFix:
                     master.addProperty(Property("RDATE", [brokenRID, ]))
-                    fixed.append("Added RDATE for invalid occurrence: %s" %
-                        (brokenRID,))
+                    fixed.append(
+                        "Added RDATE for invalid occurrence: {0}".format(
+                            brokenRID,
+                        )
+                    )
                 else:
-                    unfixed.append("Invalid occurrence: %s" % (brokenRID,))
+                    unfixed.append("Invalid occurrence: {0}".format(brokenRID,))
 
         return fixed, unfixed
 
@@ -1926,12 +1935,14 @@ class Component (object):
                     ctype = subcomponent.name()
                 else:
                     if ctype != subcomponent.name():
-                        msg = "Calendar resources may not contain more than one type of calendar component (%s and %s found)" % (ctype, subcomponent.name())
+                        msg = "Calendar resources may not contain more than one type of calendar component ({0} and {1} found)".format(
+                            ctype, subcomponent.name()
+                        )
                         log.debug(msg)
                         raise InvalidICalendarDataError(msg)
 
                 if ctype not in allowedComponents:
-                    msg = "Component type: %s not allowed" % (ctype,)
+                    msg = "Component type: {0} not allowed".format(ctype,)
                     log.debug(msg)
                     raise InvalidICalendarDataError(msg)
 
@@ -1946,14 +1957,18 @@ class Component (object):
                 if component_id is None:
                     component_id = uid
                 elif component_id != uid:
-                    msg = "Calendar resources may not contain components with different UIDs (%s and %s found)" % (component_id, subcomponent.propertyValue("UID"))
+                    msg = "Calendar resources may not contain components with different UIDs ({0} and {1} found)".format(
+                        component_id, subcomponent.propertyValue("UID")
+                    )
                     log.debug(msg)
                     raise InvalidICalendarDataError(msg)
 
                 # Verify that there is only one master component
                 if rid is None:
                     if got_master:
-                        msg = "Calendar resources may not contain components with the same UIDs and no Recurrence-IDs (%s and %s found)" % (component_id, subcomponent.propertyValue("UID"))
+                        msg = "Calendar resources may not contain components with the same UIDs and no Recurrence-IDs ({0} and {1} found)".format(
+                            component_id, subcomponent.propertyValue("UID")
+                        )
                         log.debug(msg)
                         raise InvalidICalendarDataError(msg)
                     else:
@@ -1976,7 +1991,7 @@ class Component (object):
 
                 # Check for duplicate RECURRENCE-IDs
                 if rid in component_rids:
-                    msg = "Calendar resources may not contain components with the same Recurrence-IDs (%s)" % (rid,)
+                    msg = "Calendar resources may not contain components with the same Recurrence-IDs ({0})".format(rid,)
                     log.debug(msg)
                     raise InvalidICalendarDataError(msg)
                 else:
@@ -1990,7 +2005,7 @@ class Component (object):
         if not config.EnableTimezonesByReference:
             for timezone_ref in timezone_refs:
                 if timezone_ref not in timezones:
-                    msg = "Timezone ID %s is referenced but not defined: %s" % (timezone_ref, self,)
+                    msg = "Timezone ID {0} is referenced but not defined: {1}".format(timezone_ref, self,)
                     log.debug(msg)
                     raise InvalidICalendarDataError(msg)
 
@@ -2002,7 +2017,7 @@ class Component (object):
         for timezone in timezones:
             if timezone not in timezone_refs:
                 log.debug(
-                    "Timezone %s is not referenced by any non-timezone component" % (timezone,)
+                    "Timezone {0} is not referenced by any non-timezone component".format(timezone,)
                 )
 
         # Control character check - only HTAB, CR, LF allowed for characters in the range 0x00-0x1F
@@ -2025,7 +2040,7 @@ class Component (object):
                 if foundOrganizer:
                     if organizer != foundOrganizer:
                         # We have different ORGANIZERs in the same iCalendar object - this is an error
-                        msg = "Only one ORGANIZER is allowed in an iCalendar object:\n%s" % (self,)
+                        msg = "Only one ORGANIZER is allowed in an iCalendar object:\n{0}".format(self,)
                         log.debug(msg)
                         raise InvalidICalendarDataError(msg)
                 else:
@@ -2322,7 +2337,7 @@ class Component (object):
         @return: the string value of the Organizer property, or None
         """
 
-        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
+        assert self.name() == "VCALENDAR", "Not a calendar: {0!r}".format(self,)
 
         # Extract appropriate sub-component if this is a VCALENDAR
         results = []
@@ -2630,7 +2645,7 @@ class Component (object):
         @type properties: C{tuple} or C{list}
         """
 
-        assert from_calendar.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
+        assert from_calendar.name() == "VCALENDAR", "Not a calendar: {0!r}".format(self,)
 
         if self.name() == "VCALENDAR":
             for component in self.subcomponents():
@@ -2658,7 +2673,7 @@ class Component (object):
         on the master to account for changes.
         """
 
-        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
+        assert self.name() == "VCALENDAR", "Not a calendar: {0!r}".format(self,)
 
         # Modify any components that reference the attendee, make note of the ones that don't
         remove_components = []
@@ -2704,7 +2719,7 @@ class Component (object):
         if not rids or None in rids:
             return True
 
-        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
+        assert self.name() == "VCALENDAR", "Not a calendar: {0!r}".format(self,)
 
         # Remove components not in the list
         components = tuple(self.subcomponents())
@@ -2726,7 +2741,7 @@ class Component (object):
         Remove all ATTENDEE properties except for the one specified.
         """
 
-        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
+        assert self.name() == "VCALENDAR", "Not a calendar: {0!r}".format(self,)
 
         for component in self.subcomponents():
             if component.name() in ignoredComponents:
@@ -2739,7 +2754,7 @@ class Component (object):
         Remove all ATTENDEE properties except for the ones specified.
         """
 
-        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
+        assert self.name() == "VCALENDAR", "Not a calendar: {0!r}".format(self,)
 
         attendees = set([attendee.lower() for attendee in attendees])
 
@@ -2753,7 +2768,7 @@ class Component (object):
         """
         Test whether the component has a VALARM as an immediate sub-component.
         """
-        assert self.name().upper() in ("VEVENT", "VTODO",), "Not a VEVENT or VTODO: %r" % (self,)
+        assert self.name().upper() in ("VEVENT", "VTODO",), "Not a VEVENT or VTODO: {0!r}".format(self,)
 
         for component in self.subcomponents():
             if component.name().upper() == "VALARM":
@@ -2785,9 +2800,9 @@ DTSTART:20110427T000000Z
 DURATION:PT1H
 DTSTAMP:20110427T000000Z
 SUMMARY:bogus
-%sEND:VEVENT
+{0}END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % (alarm,)
+""".replace("\n", "\r\n").format(alarm,)
 
         try:
             calendar = Component.fromString(caldata)
@@ -3262,19 +3277,17 @@ END:VCALENDAR
                 # Check that we can lookup this calendar user address - if not
                 # we cannot do anything with it
                 cuaddr = normalizeCUAddr(prop.value())
-                name, guid, cuaddrs = yield lookupFunction(cuaddr, recordFunction, config)
+                name, guid, cutype, cuaddrs = yield lookupFunction(cuaddr, recordFunction, config)
                 if guid is None:
                     continue
 
                 # Get any EMAIL parameter
                 oldemail = prop.parameterValue("EMAIL")
                 if oldemail:
-                    oldemail = "mailto:%s" % (oldemail,)
+                    oldemail = "mailto:{0}".format(oldemail,)
 
                 # Get any CN parameter
                 oldCN = prop.parameterValue("CN")
-
-                cutype = prop.parameterValue("CUTYPE")
 
                 if toUUID:
                     # Always re-write value to urn:uuid
@@ -3356,9 +3369,56 @@ END:VCALENDAR
                     else:
                         prop.removeParameter("EMAIL")
 
+                if cutype == "INDIVIDUAL":
+                    cutype = None
+
+                if cutype != prop.parameterValue("CUTYPE"):
+                    if cutype:
+                        prop.setParameter("CUTYPE", cutype)
+                    else:
+                        prop.removeParameter("CUTYPE")
+
             # For VPOLL also do immediate children
             if component.name() == "VPOLL":
                 yield component.normalizeCalendarUserAddresses(lookupFunction, recordFunction, toUUID)
+
+
+    @inlineCallbacks
+    def expandGroupAttendee(self, groupGUID, memberGUIDs, recordFunction):
+
+        memberUUIDs = set(["urn:uuid:" + str(memberGUID) for memberGUID in memberGUIDs])
+        groupUUID = "urn:uuid:" + str(groupGUID)
+        changed = False
+        for component in self.subcomponents():
+            if component.name() in ignoredComponents:
+                continue
+
+            oldAttendeeProps = tuple(component.properties("ATTENDEE"))
+            oldAttendeeUUIDs = set([attendeeProp.value() for attendeeProp in oldAttendeeProps])
+
+            # add new member attendees
+            for memberUUID in sorted(memberUUIDs - oldAttendeeUUIDs):
+                directoryRecord = yield recordFunction(memberUUID)
+                newAttendeeProp = directoryRecord.attendee(params={"MEMBER": groupUUID})
+                component.addProperty(newAttendeeProp)
+                changed = True
+
+            # remove attendee or update MEMBER attribute for non-primary attendees in this group,
+            for attendeeProp in oldAttendeeProps:
+                if attendeeProp.hasParameter("MEMBER"):
+                    parameterValues = tuple(attendeeProp.parameterValues("MEMBER"))
+                    if groupUUID in parameterValues:
+                        if attendeeProp.value() not in memberUUIDs:
+                            attendeeProp.removeParameterValue("MEMBER", groupUUID)
+                            if not attendeeProp.parameterValues("MEMBER"):
+                                component.removeProperty(attendeeProp)
+                            changed = True
+                    else:
+                        if attendeeProp.value() in memberUUIDs:
+                            attendeeProp.setParameter("MEMBER", parameterValues + (groupUUID,))
+                            changed = True
+
+        returnValue(changed)
 
 
     def allPerUserUIDs(self):
@@ -3484,7 +3544,7 @@ def tzexpand(tzdata, start, end):
             tzcomp = comp
             break
     else:
-        raise InvalidICalendarDataError("No VTIMEZONE component in %s" % (tzdata,))
+        raise InvalidICalendarDataError("No VTIMEZONE component in {0}".format(tzdata,))
 
     tzexpanded = tzcomp._pycalendar.expandAll(start, end)
 
@@ -3529,7 +3589,7 @@ def tzexpandlocal(tzdata, start, end):
             tzcomp = comp
             break
     else:
-        raise InvalidICalendarDataError("No VTIMEZONE component in %s" % (tzdata,))
+        raise InvalidICalendarDataError("No VTIMEZONE component in {0}".format(tzdata,))
 
     tzexpanded = tzcomp._pycalendar.expandAll(start, end, with_name=True)
 
@@ -3566,18 +3626,18 @@ def tzexpandlocal(tzdata, start, end):
 
 # #
 # Utilities
-# #
+# #p
 
 @inlineCallbacks
 def normalizeCUAddress(cuaddr, lookupFunction, recordFunction, toUUID=True):
     # Check that we can lookup this calendar user address - if not
     # we cannot do anything with it
-    _ignore_name, guid, cuaddrs = (yield lookupFunction(normalizeCUAddr(cuaddr), recordFunction, config))
+    _ignore_name, guid, _ignore_cuType, cuaddrs = (yield lookupFunction(normalizeCUAddr(cuaddr), recordFunction, config))
 
     if toUUID:
         # Always re-write value to urn:uuid
         if guid:
-            returnValue("urn:uuid:%s" % (guid,))
+            returnValue("urn:uuid:{0}".format(guid,))
 
     # If it is already a non-UUID address leave it be
     elif cuaddr.startswith("urn:uuid:"):

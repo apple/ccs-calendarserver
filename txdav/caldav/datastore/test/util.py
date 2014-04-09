@@ -78,7 +78,6 @@ class TestCalendarStoreDirectoryRecord(TestStoreDirectoryRecord):
         self.geographicLocation = geographicLocation
 
 
-
     def canonicalCalendarUserAddress(self):
         """
             Return a CUA for this record, preferring in this order:
@@ -177,22 +176,26 @@ def buildDirectory(homes=None):
     # Structured Locations
     directory.addRecord(TestCalendarStoreDirectoryRecord(
         "il1", ("il1",), "1 Infinite Loop", [],
+        cutype="ROOM",
         geographicLocation="37.331741,-122.030333",
         streetAddress="1 Infinite Loop, Cupertino, CA 95014"
     ))
     directory.addRecord(TestCalendarStoreDirectoryRecord(
         "il2", ("il2",), "2 Infinite Loop", [],
+        cutype="ROOM",
         geographicLocation="37.332633,-122.030502",
         streetAddress="2 Infinite Loop, Cupertino, CA 95014"
     ))
     directory.addRecord(TestCalendarStoreDirectoryRecord(
         "room1", ("room1",), "Conference Room One",
         frozenset(("urn:uuid:room1",)),
+        cutype="ROOM",
         associatedAddress="il1",
     ))
     directory.addRecord(TestCalendarStoreDirectoryRecord(
         "room2", ("room2",), "Conference Room Two",
         frozenset(("urn:uuid:room2",)),
+        cutype="ROOM",
         associatedAddress="il2",
     ))
 
@@ -206,8 +209,8 @@ def buildDirectoryRecord(uid):
         (uid,),
         uid.capitalize(),
         frozenset((
-            "urn:uuid:%s" % (uid,),
-            "mailto:%s@example.com" % (uid,),
+            "urn:uuid:{0}".format(uid,),
+            "mailto:{0}@example.com".format(uid,),
         )),
     )
 

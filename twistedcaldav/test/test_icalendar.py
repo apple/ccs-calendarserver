@@ -7529,17 +7529,20 @@ END:VCALENDAR
                     "urn:uuid:foo" : (
                         "Foo",
                         "foo",
+                        "INDIVIDUAL",
                         ("urn:uuid:foo", "http://example.com/foo", "/foo")
                     ),
                     "urn:uuid:bar" : (
                         "Bar",
                         "bar",
+                        "INDIVIDUAL",
                         ("urn:uuid:bar", "mailto:bar@example.com", "http://example.com/bar", "/bar")
                     ),
                     "urn:uuid:baz" : (
                         "Baz",
                         "baz",
-                        ("urn:uuid:baz", "http://example.com/baz")
+                        "INDIVIDUAL",
+                       ("urn:uuid:baz", "http://example.com/baz")
                     ),
                 }[cuaddr]
             )
@@ -7585,16 +7588,19 @@ END:VCALENDAR
                     "/principals/users/foo" : (
                         "Foo",
                         "foo",
+                        "INDIVIDUAL",
                         ("urn:uuid:foo",)
                     ),
                     "http://example.com/principals/users/bar" : (
                         "Bar",
                         "bar",
+                        "INDIVIDUAL",
                         ("urn:uuid:bar",)
                     ),
                     "http://example.com/principals/locations/buzz" : (
                         "{Restricted} Buzz",
                         "buzz",
+                        "INDIVIDUAL",
                         ("urn:uuid:buzz",)
                     ),
                 }[cuaddr]
@@ -7641,16 +7647,19 @@ END:VCALENDAR
                     "/principals/users/foo" : (
                         "Foo",
                         "foo",
+                        "INDIVIDUAL",
                         ("urn:uuid:foo",)
                     ),
                     "http://example.com/principals/users/bar" : (
                         "Bar",
                         "bar",
+                        "INDIVIDUAL",
                         ("urn:uuid:bar",)
                     ),
                     "http://example.com/principals/locations/buzz" : (
                         "{Restricted} Buzz",
                         "buzz",
+                        "INDIVIDUAL",
                         ("urn:uuid:buzz",)
                     ),
                 }[cuaddr]
@@ -7697,16 +7706,19 @@ END:VCALENDAR
                     "/principals/users/foo" : (
                         "Foo",
                         "foo",
+                        "INDIVIDUAL",
                         ("urn:uuid:foo",)
                     ),
                     "http://example.com/principals/users/bar" : (
                         "Bar",
                         "bar",
+                        "INDIVIDUAL",
                         ("urn:uuid:bar",)
                     ),
                     "http://example.com/principals/locations/buzz" : (
                         "{Restricted} Buzz",
                         "buzz",
+                        "INDIVIDUAL",
                         ("urn:uuid:buzz",)
                     ),
                 }[cuaddr]
@@ -8439,21 +8451,25 @@ END:VCALENDAR
                     "urn:uuid:foo" : (
                         "Foo",
                         "foo",
+                        "INDIVIDUAL",
                         ("urn:uuid:foo", "http://example.com/foo", "/foo")
                     ),
                     "urn:uuid:bar" : (
                         "Bar",
                         "bar",
+                        "INDIVIDUAL",
                         ("urn:uuid:bar", "mailto:bar@example.com", "http://example.com/bar", "/bar")
                     ),
                     "urn:uuid:baz" : (
                         "Baz",
                         "baz",
+                        "INDIVIDUAL",
                         ("urn:uuid:baz", "http://example.com/baz")
                     ),
                     "urn:uuid:buz" : (
                         "Buz",
                         "buz",
+                        "INDIVIDUAL",
                         ("urn:uuid:buz",)
                     ),
                 }[cuaddr]
@@ -8483,11 +8499,13 @@ END:VCALENDAR
                     "/principals/users/foo" : (
                         "Foo",
                         "foo",
+                        "INDIVIDUAL",
                         ("urn:uuid:foo",)
                     ),
                     "http://example.com/principals/users/buz" : (
                         "Buz",
                         "buz",
+                        "INDIVIDUAL",
                         ("urn:uuid:buz",)
                     ),
                 }[cuaddr]

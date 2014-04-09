@@ -27,6 +27,8 @@ from twext.who.expression import (
 from twext.who.idirectory import RecordType as BaseRecordType
 from twisted.cred.credentials import UsernamePassword
 from twisted.internet.defer import inlineCallbacks, returnValue
+from twistedcaldav.config import config
+from twistedcaldav.ical import Property
 from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers
 from txdav.who.delegates import RecordType as DelegateRecordType
 from txdav.who.idirectory import (
@@ -75,10 +77,7 @@ class CalendarDirectoryServiceMixin(object):
             record = yield self.recordWithGUID(guid)
         elif address.startswith("mailto:"):
             records = yield self.recordsWithEmailAddress(address[7:])
-            if records:
-                record = records[0]
-            else:
-                returnValue(None)
+            record = records[0] if records else None
         elif address.startswith("/principals/"):
             parts = address.split("/")
             if len(parts) == 4:
@@ -90,7 +89,14 @@ class CalendarDirectoryServiceMixin(object):
                     recordType = self.oldNameToRecordType(parts[2])
                     record = yield self.recordWithShortName(recordType, parts[3])
 
-        returnValue(record if record and record.hasCalendars else None)
+        if record:
+            if record.hasCalendars or (
+                config.Scheduling.Options.AllowGroupAsAttendee and
+                record.recordType == BaseRecordType.group
+            ):
+                returnValue(record)
+
+        returnValue(None)
 
 
     def recordsMatchingTokens(self, tokens, context=None, limitResults=50,
@@ -178,7 +184,6 @@ class CalendarDirectoryServiceMixin(object):
             )
         return self.recordsFromExpression(expression)
 
-
     _oldRecordTypeNames = {
         "address": "addresses",
         "group": "groups",
@@ -199,6 +204,7 @@ class CalendarDirectoryServiceMixin(object):
     def recordTypeToOldName(self, recordType):
         return self._oldRecordTypeNames[recordType.name]
 
+
     def oldNameToRecordType(self, oldName):
         for name, value in self._oldRecordTypeNames.iteritems():
             if oldName == value:
@@ -212,7 +218,6 @@ class CalendarDirectoryRecordMixin(object):
     Calendar (and Contacts) specific logic for directory records lives in this
     class
     """
-
 
     @inlineCallbacks
     def verifyCredentials(self, credentials):
@@ -244,14 +249,19 @@ class CalendarDirectoryRecordMixin(object):
     @property
     def calendarUserAddresses(self):
         try:
-            if not self.hasCalendars:
+            if not (
+                self.hasCalendars or (
+                    config.Scheduling.Options.AllowGroupAsAttendee and
+                    self.recordType == BaseRecordType.group
+                )
+            ):
                 return frozenset()
         except AttributeError:
             pass
 
         try:
             cuas = set(
-                ["mailto:%s" % (emailAddress,)
+                ["mailto:{0}".format(emailAddress,)
                  for emailAddress in self.emailAddresses]
             )
         except AttributeError:
@@ -274,7 +284,6 @@ class CalendarDirectoryRecordMixin(object):
                 sn=shortName)
             )
         return frozenset(cuas)
-
 
     # Mapping from directory record.recordType to RFC2445 CUTYPE values
     _cuTypes = {
@@ -313,7 +322,6 @@ class CalendarDirectoryRecordMixin(object):
         #         self.log.debug("%s is not enabled for addressbooks due to SACL"
         #                        % (username,))
         #         self.enabledForAddressBooks = False
-
 
     @property
     def displayName(self):
@@ -417,7 +425,6 @@ class CalendarDirectoryRecordMixin(object):
         return config.EnableCalDAV and self.hasCalendars
 
 
-
     @inlineCallbacks
     def canAutoSchedule(self, organizer=None):
         # FIXME:
@@ -496,3 +503,31 @@ class CalendarDirectoryRecordMixin(object):
             if delegatorGroup:
                 if other in (yield delegatorGroup.members()):
                     returnValue(True)
+
+
+    def attendee(self, params=None):
+        """
+        Returns a pycalendar ATTENDEE property for this record.
+
+        @param groupUIDs: group uids for the MEMBER parameter of returned property
+        @type organizer: C{List}
+
+        @return: the attendee property
+        @rtype: C{Property}
+        """
+        params = {} if params is None else params.copy()
+
+        if "PARTSTAT" not in params:
+            params["PARTSTAT"] = "NEEDS-ACTION"
+        if "CN"not in params:
+            if self.fullNames:
+                params["CN"] = list(self.fullNames)[0]
+        if "EMAIL" not in params:
+            if self.emailAddresses:
+                params["EMAIL"] = list(self.emailAddresses)[0]
+        if "CUTYPE" not in params:
+            cuType = self.getCUType()
+            if cuType is not "INDIVIDUAL":
+                params["CUTYPE"] = cuType
+
+        return Property("ATTENDEE", "urn:uuid:" + self.uid.encode("utf-8"), params=params)

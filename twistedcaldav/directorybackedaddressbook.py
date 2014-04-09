@@ -221,10 +221,10 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
 
                 vCardsResults = [(yield ABDirectoryQueryResult(self).generate(record)) for record in records]
 
-                filteredResults = []
+                filteredResults = set()
                 for vCardResult in vCardsResults:
                     if addressBookFilter.match(vCardResult.vCard()):
-                        filteredResults.append(vCardResult)
+                        filteredResults.add(vCardResult)
                     else:
                         log.debug("doAddressBookDirectoryQuery: vCard did not match filter:\n{vcard}", vcard=vCardResult.vCard())
 
@@ -249,7 +249,7 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
                 if maxQueryRecords and maxRecords > maxQueryRecords:
                     maxRecords = maxQueryRecords
 
-            results = sorted(list(filteredResults), key=lambda result: result.vCard().propertyValue("UID"))
+            results = sorted(filteredResults, key=lambda result: result.vCard().propertyValue("UID"))
             limited = maxResults and len(results) >= maxResults
 
         log.info("limited={l} #results={n}", l=limited, n=len(results))

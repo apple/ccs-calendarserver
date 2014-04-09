@@ -91,7 +91,7 @@ from txdav.common.icommondatastore import IndexedSearchException, \
     ObjectResourceNameNotAllowedError, TooManyObjectResourcesError, \
     InvalidUIDError, UIDExistsError, UIDExistsElsewhereError, \
     InvalidResourceMove, InvalidComponentForStoreError, \
-    NoSuchObjectResourceError
+    NoSuchObjectResourceError, AllRetriesFailed
 from txdav.xml import element
 
 from txdav.idav import ChangeCategory
@@ -189,9 +189,9 @@ class CalendarStoreFeatures(object):
             ).on(txn))
             total = len(rows)
             count = 0
-            log.warn("%d dropbox ids to migrate" % (total,))
+            log.warn("{0} dropbox ids to migrate".format(total,))
         except RuntimeError, e:
-            log.error("Dropbox migration failed when cleaning out dropbox ids: %s" % (e,))
+            log.error("Dropbox migration failed when cleaning out dropbox ids: {0}".format(e,))
             yield txn.abort()
             raise
         else:
@@ -200,7 +200,7 @@ class CalendarStoreFeatures(object):
         # For each remaining attachment
         rows = -1
         while rows:
-            txn = self._store.newTransaction("CalendarStoreFeatures.upgradeToManagedAttachments - attachment loop count: %d" % (count,))
+            txn = self._store.newTransaction("CalendarStoreFeatures.upgradeToManagedAttachments - attachment loop count: {0}".format(count,))
             try:
                 dropbox_id = "Batched select"
                 rows = (yield Select(
@@ -214,9 +214,9 @@ class CalendarStoreFeatures(object):
                     for dropbox_id in rows:
                         (yield self._upgradeDropbox(txn, dropbox_id))
                     count += len(rows)
-                    log.warn("%d of %d dropbox ids migrated" % (count, total,))
+                    log.warn("{0} of {1} dropbox ids migrated".format(count, total,))
             except RuntimeError, e:
-                log.error("Dropbox migration failed for '%s': %s" % (dropbox_id, e,))
+                log.error("Dropbox migration failed for '{0}': {1}".format(dropbox_id, e,))
                 yield txn.abort()
                 raise
             else:
@@ -236,11 +236,11 @@ class CalendarStoreFeatures(object):
         @type dropbox_id: C{str}
         """
 
-        log.debug("Processing dropbox id: %s" % (dropbox_id,))
+        log.debug("Processing dropbox id: {0}".format(dropbox_id,))
 
         # Get all affected calendar objects
         cobjs = (yield self._loadCalendarObjectsForDropboxID(txn, dropbox_id))
-        log.debug("  %d affected calendar objects" % (len(cobjs),))
+        log.debug("  {0} affected calendar objects".format(len(cobjs),))
 
         # Get names of each matching attachment
         at = schema.ATTACHMENT
@@ -249,18 +249,18 @@ class CalendarStoreFeatures(object):
             From=at,
             Where=at.DROPBOX_ID == dropbox_id,
         ).on(txn))
-        log.debug("  %d associated attachment objects" % (len(names),))
+        log.debug("  {0} associated attachment objects".format(len(names),))
 
         # For each attachment, update each calendar object
         for name in names:
             name = name[0]
-            log.debug("  processing attachment object: %s" % (name,))
+            log.debug("  processing attachment object: {0}".format(name,))
             attachment = (yield DropBoxAttachment.load(txn, dropbox_id, name))
 
             # Check for orphans
             if len(cobjs) == 0:
                 # Just remove the attachment
-                log.warn("Orphaned dropbox id removed: %s" % (attachment._path,))
+                log.warn("Orphaned dropbox id removed: {0}".format(attachment._path,))
                 yield attachment.remove()
                 continue
 
@@ -271,35 +271,35 @@ class CalendarStoreFeatures(object):
                 if cobj._parentCollection.ownerHome()._resourceID == attachment._ownerHomeID:
                     owners.append(cobj)
                 cobj_by_UID[cobj.uid()].append(cobj)
-            log.debug("    %d owner calendar objects" % (len(owners),))
-            log.debug("    %d UIDs" % (len(cobj_by_UID),))
-            log.debug("    %d total calendar objects" % (sum([len(items) for items in cobj_by_UID.values()]),))
+            log.debug("    {0} owner calendar objects".format(len(owners),))
+            log.debug("    {0} UIDs".format(len(cobj_by_UID),))
+            log.debug("    {0} total calendar objects".format(sum([len(items) for items in cobj_by_UID.values()]),))
 
             if owners:
                 # Create the managed attachment without references to calendar objects.
                 managed = (yield attachment.convertToManaged())
-                log.debug("    converted attachment: %r" % (attachment,))
+                log.debug("    converted attachment: {0!r}".format(attachment,))
 
                 # Do conversion for each owner object
                 for owner_obj in owners:
 
                     # Add a reference to the managed attachment
                     mattachment = (yield managed.newReference(owner_obj._resourceID))
-                    log.debug("    added reference for: %r" % (owner_obj,))
+                    log.debug("    added reference for: {0!r}".format(owner_obj,))
 
                     # Rewrite calendar data
                     for cobj in cobj_by_UID[owner_obj.uid()]:
                         (yield cobj.convertAttachments(attachment, mattachment))
-                        log.debug("    re-wrote calendar object: %r" % (cobj,))
+                        log.debug("    re-wrote calendar object: {0!r}".format(cobj,))
             else:
                 # TODO: look for cobjs that were not changed and remove their ATTACH properties.
                 # These could happen if the owner object no longer exists.
                 # For now just remove the attachment
-                log.warn("Unowned dropbox id removed: %s" % (attachment._path,))
+                log.warn("Unowned dropbox id removed: {0}".format(attachment._path,))
                 yield attachment.remove()
                 continue
 
-        log.debug("  finished dropbox id: %s" % (dropbox_id,))
+        log.debug("  finished dropbox id: {0}".format(dropbox_id,))
 
 
     @inlineCallbacks
@@ -679,7 +679,7 @@ class CalendarHome(CommonHome):
         """
 
         # Make sure the loop does not operate on any new calendars created during the loop
-        self.log.warn("Splitting calendars for user %s" % (self._ownerUID,))
+        self.log.warn("Splitting calendars for user {0}".format(self._ownerUID,))
         calendars = yield self.calendars()
         for calendar in calendars:
 
@@ -687,7 +687,7 @@ class CalendarHome(CommonHome):
             if calendar.isInbox():
                 continue
             split_count = yield calendar.splitCollectionByComponentTypes()
-            self.log.warn("  Calendar: '%s', split into %d" % (calendar.name(), split_count + 1,))
+            self.log.warn("  Calendar: '{0}', split into {1}".format(calendar.name(), split_count + 1,))
 
         yield self.ensureDefaultCalendarsExist()
 
@@ -1569,7 +1569,7 @@ class Calendar(CommonHomeChild):
 
         # Actually expand recurrence max
         for name in names:
-            self.log.info("Search falls outside range of index for %s %s to %s" % (name, minDate, maxDate))
+            self.log.info("Search falls outside range of index for {0} {1} to {2}".format(name, minDate, maxDate))
             yield self.reExpandResource(name, minDate, maxDate)
 
 
@@ -1642,12 +1642,12 @@ class Calendar(CommonHomeChild):
 
         # Create the new calendar
         try:
-            newcalendar = yield self._home.createCalendarWithName("%s-%s" % (self._name, component.lower(),))
+            newcalendar = yield self._home.createCalendarWithName("{0}-{1}".format(self._name, component.lower(),))
         except HomeChildNameAlreadyExistsError:
             # If the name we want exists, try repeating with up to ten more
             for ctr in range(10):
                 try:
-                    newcalendar = yield self._home.createCalendarWithName("%s-%s-%d" % (self._name, component.lower(), ctr + 1,))
+                    newcalendar = yield self._home.createCalendarWithName("{0}-{1}-[2}".format(self._name, component.lower(), ctr + 1,))
                 except HomeChildNameAlreadyExistsError:
                     continue
             else:
@@ -1694,7 +1694,7 @@ class Calendar(CommonHomeChild):
         for row in rows:
             columnMap = dict(zip(columns, row))
             columnMap[cb.CALENDAR_RESOURCE_ID] = newcalendar._resourceID
-            columnMap[cb.CALENDAR_RESOURCE_NAME] = "%s-%s" % (columnMap[cb.CALENDAR_RESOURCE_NAME], component.lower(),)
+            columnMap[cb.CALENDAR_RESOURCE_NAME] = "{0}-{1}".format(columnMap[cb.CALENDAR_RESOURCE_NAME], component.lower(),)
             yield Insert(columnMap).on(self._txn)
 
 
@@ -1908,25 +1908,71 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
             # Valid calendar component for check
             if not self.calendar().isSupportedComponent(component.mainType()):
-                raise InvalidComponentTypeError("Invalid component type %s for calendar: %s" % (component.mainType(), self.calendar(),))
-
-            # Valid attendee list size check
-            yield self.validAttendeeListSizeCheck(component, inserting)
+                raise InvalidComponentTypeError("Invalid component type {0} for calendar: {1}".format(component.mainType(), self.calendar(),))
 
             # Normalize the calendar user addresses once we know we have valid
             # calendar data
             yield component.normalizeCalendarUserAddresses(normalizationLookup, self.directoryService().recordWithCalendarUserAddress)
+
+            # Expand groups
+            yield self.expandGroupAttendees(component)
+
+            # Valid attendee list size check
+            yield self.validAttendeeListSizeCheck(component, inserting)
 
         # Possible timezone stripping
         if config.EnableTimezonesByReference:
             component.stripKnownTimezones()
 
         # Check location/resource organizer requirement
-        yield self.validLocationResourceOrganizer(component, inserting, internal_state)
+        self.validLocationResourceOrganizer(component, inserting, internal_state)
 
         # Check access
         if config.EnablePrivateEvents:
             self.validAccess(component, inserting, internal_state)
+
+
+    @inlineCallbacks
+    def expandGroupAttendees(self, component):
+        """
+        Expand group attendees
+        """
+
+        if not config.Scheduling.Options.AllowGroupAsAttendee:
+            return
+
+        attendeeProps = component.getAllAttendeeProperties()
+        groupGUIDs = set([
+            uuid.UUID(attendeeProp.value()[len("urn:uuid:"):]) for attendeeProp in attendeeProps
+            if attendeeProp.parameterValue("CUTYPE") == "GROUP"
+        ])
+
+        for groupGUID in groupGUIDs:
+
+            groupRecord = yield self.directoryService().recordWithGUID(groupGUID)
+            if groupRecord:
+                members = yield groupRecord.expandedMembers()
+                memberGUIDs = sorted([member.guid for member in members])
+
+                membershipHashContent = hashlib.md5()
+                for memberGUID in memberGUIDs:
+                    membershipHashContent.update(str(memberGUID))
+                membershipHash = membershipHashContent.hexdigest()
+
+                # associate group ID with self
+                groupID, _ignore_name, membershipHash, _ignore_modDate = yield self._txn.groupByUID(str(groupGUID))
+                try:
+                    groupAttendee = schema.GROUP_ATTENDEE
+                    yield Insert({
+                        groupAttendee.RESOURCE_ID: self._resourceID,
+                        groupAttendee.GROUP_ID: groupID,
+                        groupAttendee.MEMBERSHIP_HASH: membershipHash,
+                    })
+                except AllRetriesFailed:
+                    pass
+
+                # get members
+                yield component.expandGroupAttendee(groupGUID, memberGUIDs, self.directoryService().recordWithCalendarUserAddress)
 
 
     def validCalendarDataCheck(self, component, inserting):
@@ -1938,7 +1984,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # Valid calendar data checks
         if not isinstance(component, VComponent):
-            raise InvalidObjectResourceError("Wrong type of object: %s" % (type(component),))
+            raise InvalidObjectResourceError("Wrong type of object: {0}".format(type(component),))
 
         try:
             component.validCalendarData(validateRecurrences=self._txn._migrating)
@@ -1983,7 +2029,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     oldAttendeeListLength = 0
 
                 if attendeeListLength > oldAttendeeListLength:
-                    raise TooManyAttendeesError("Attendee list size %d is larger than allowed limit %d" % (attendeeListLength, config.MaxAttendeesPerInstance))
+                    raise TooManyAttendeesError(
+                        "Attendee list size {0} is larger than allowed limit {1}".format(
+                            attendeeListLength, config.MaxAttendeesPerInstance
+                        )
+                )
 
 
     @inlineCallbacks
@@ -2001,7 +2051,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             if organizer is None and (
                 cutype == "ROOM" and not config.Scheduling.Options.AllowLocationWithoutOrganizer or
                 cutype == "RESOURCE" and not config.Scheduling.Options.AllowResourceWithoutOrganizer):
-                raise ValidOrganizerError("Organizer required in calendar data for a %s" % (cutype.lower(),))
+                raise ValidOrganizerError("Organizer required in calendar data for a {0}".format(cutype.lower(),))
 
             # Check for tracking the modifier
             if organizer is None and (
@@ -2294,11 +2344,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                                         "X-TITLE": title,
                                     }
                                     structured = Property("X-APPLE-STRUCTURED-LOCATION",
-                                        "geo:%s" % (geo.encode("utf-8"),), params=params,
+                                        "geo:{0}".format(geo.encode("utf-8"),), params=params,
                                         valuetype=Value.VALUETYPE_URI)
                                     sub.replaceProperty(structured)
                                     newLocProperty = Property("LOCATION",
-                                        "%s\n%s" % (title, street.encode("utf-8")))
+                                        "{0}\n{1}".format(title, street.encode("utf-8")))
                                     sub.replaceProperty(newLocProperty)
 
 
@@ -2435,7 +2485,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         new_uid = component.resourceUID()
         if internal_state == ComponentUpdateState.NORMAL:
-            yield NamedLock.acquire(self._txn, "ImplicitUIDLock:%s" % (hashlib.md5(new_uid).hexdigest(),))
+            yield NamedLock.acquire(self._txn, "ImplicitUIDLock:{0}".format(hashlib.md5(new_uid).hexdigest(),))
 
         # UID conflict check - note we do this after reserving the UID to avoid a race condition where two requests
         # try to write the same calendar data to two different resource URIs.
@@ -2452,7 +2502,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     if elsewhere.calendar().id() == self.calendar().id():
                         raise UIDExistsError("UID already exists in same calendar.")
                     else:
-                        raise UIDExistsElsewhereError("UID already exists in different calendar: %s." % (elsewhere.calendar().name(),))
+                        raise UIDExistsElsewhereError("UID already exists in different calendar: {0}".format(elsewhere.calendar().name(),))
 
 
     @inlineCallbacks
@@ -2555,10 +2605,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                         yield self._removeInternal(internal_state=ComponentRemoveState.INTERNAL)
                         raise ResourceDeletedError("Resource modified but immediately deleted by the server.")
                     else:
-                        raise AttendeeAllowedError("Attendee cannot create event for Organizer: %s" % (implicit_result,))
+                        raise AttendeeAllowedError("Attendee cannot create event for Organizer: {0}".format(implicit_result,))
 
                 else:
-                    msg = "Invalid return status code from ImplicitScheduler: %s" % (implicit_result,)
+                    msg = "Invalid return status code from ImplicitScheduler: {0}".format(implicit_result,)
                     log.error(msg)
                     raise InvalidObjectResourceError(msg)
             else:
@@ -2700,8 +2750,9 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 recurrenceLimit = instances.limit
                 recurrenceLowerLimit = instances.lowerLimit
             except InvalidOverriddenInstanceError, e:
-                self.log.error("Invalid instance %s when indexing %s in %s" %
-                               (e.rid, self._name, self._calendar,))
+                self.log.error("Invalid instance {0} when indexing {1} in {2}".format(
+                    e.rid, self._name, self._calendar,)
+                )
 
                 if txn._migrating:
                     # TODO: fix the data here by re-writing component then re-index
@@ -2924,20 +2975,27 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             except InvalidICalendarDataError, e:
                 # This is a really bad situation, so do raise
                 raise InternalDataStoreError(
-                    "Data corruption detected (%s) in id: %s"
-                    % (e, self._resourceID)
+                    "Data corruption detected ({0}) in id: {1}".format(
+                        e, self._resourceID
+                    )
                 )
 
             # Fix any bogus data we can
             fixed, unfixed = component.validCalendarData(doFix=True, doRaise=False)
 
             if unfixed:
-                self.log.error("Calendar data id=%s had unfixable problems:\n  %s" %
-                               (self._resourceID, "\n  ".join(unfixed),))
+                self.log.error(
+                    "Calendar data id={0} had unfixable problems:\n  {1}".format(
+                        self._resourceID, "\n  ".join(unfixed),
+                        )
+                    )
 
             if fixed:
-                self.log.error("Calendar data id=%s had fixable problems:\n  %s" %
-                               (self._resourceID, "\n  ".join(fixed),))
+                self.log.error(
+                    "Calendar data id={0} had fixable problems:\n  {1}".format(
+                        self._resourceID, "\n  ".join(fixed),
+                    )
+                )
 
             self._cachedComponent = component
             self._cachedCommponentPerUser = {}
@@ -3028,7 +3086,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 internal_request=(internal_state != ComponentUpdateState.NORMAL),
             ))
             if do_implicit_action:
-                yield NamedLock.acquire(self._txn, "ImplicitUIDLock:%s" % (hashlib.md5(calendar.resourceUID()).hexdigest(),))
+                yield NamedLock.acquire(self._txn, "ImplicitUIDLock:{0}".format(hashlib.md5(calendar.resourceUID()).hexdigest(),))
 
         # Need to also remove attachments
         if internal_state != ComponentRemoveState.INTERNAL:
@@ -3386,7 +3444,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             t = attachment.store(content_type, filename)
             yield readStream(stream, t.write)
         except Exception, e:
-            self.log.error("Unable to store attachment: %s" % (e,))
+            self.log.error("Unable to store attachment: {0}".format(e,))
             raise AttachmentStoreFailed
         yield t.loseConnection()
 
@@ -3444,7 +3502,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # Check that this is a proper update
             oldattachment = (yield self.attachmentWithManagedID(managed_id))
             if oldattachment is None:
-                self.log.error("Missing managed attachment even though ATTACHMENT_CALENDAR_OBJECT indicates it is present: %s" % (managed_id,))
+                self.log.error("Missing managed attachment even though ATTACHMENT_CALENDAR_OBJECT indicates it is present: {0}".format(managed_id,))
                 raise AttachmentStoreFailed
 
             # We actually create a brand new attachment object for the update, but with the same managed-id. That way, other resources
@@ -3453,7 +3511,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             t = attachment.store(content_type, filename)
             yield readStream(stream, t.write)
         except Exception, e:
-            self.log.error("Unable to store attachment: %s" % (e,))
+            self.log.error("Unable to store attachment: {0}".format(e,))
             raise AttachmentStoreFailed
         yield t.loseConnection()
 
@@ -3535,7 +3593,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             attachments = component.properties("ATTACH")
             removed = False
             for attachment in tuple(attachments):
-                if attachment.value().endswith("/dropbox/%s/%s" % (
+                if attachment.value().endswith("/dropbox/{0}/{1}".format(
                     urllib.quote(oldattachment.dropboxID()),
                     urllib.quote(oldattachment.name()),
                 )):
@@ -3800,7 +3858,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         """
 
         # First job is to grab a UID lock on this entire series of events
-        yield NamedLock.acquire(self._txn, "ImplicitUIDLock:%s" % (hashlib.md5(self._uid).hexdigest(),))
+        yield NamedLock.acquire(self._txn, "ImplicitUIDLock:{0}".format(hashlib.md5(self._uid).hexdigest(),))
 
         # Find all other calendar objects on this server with the same UID
         if onlyThis:
@@ -3832,7 +3890,12 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # Store changed data
         yield self._setComponentInternal(calendar_new, internal_state=ComponentUpdateState.SPLIT_OWNER, split_details=(rid, olderUID, True,))
-        olderObject = yield self.calendar()._createCalendarObjectWithNameInternal("%s.ics" % (olderUID,), calendar_old, ComponentUpdateState.SPLIT_OWNER, split_details=(rid, newerUID, False,))
+        olderObject = yield self.calendar()._createCalendarObjectWithNameInternal(
+            "{0}.ics".format(olderUID,),
+            calendar_old,
+            ComponentUpdateState.SPLIT_OWNER,
+            split_details=(rid, newerUID, False,)
+        )
 
         # Split each one - but not this resource
         for resource in resources:
@@ -3863,12 +3926,12 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # Create a new resource and store its data (but not if the parent is "inbox", or if it is empty)
         if not self.calendar().isInbox() and ical_old.mainType() is not None:
-            yield self.calendar()._createCalendarObjectWithNameInternal("%s.ics" % (olderUID,), ical_old, ComponentUpdateState.SPLIT_ATTENDEE)
+            yield self.calendar()._createCalendarObjectWithNameInternal("{0}.ics".format(olderUID,), ical_old, ComponentUpdateState.SPLIT_ATTENDEE)
 
 
     class CalendarObjectSplitterWork(WorkItem, fromTable(schema.CALENDAR_OBJECT_SPLITTER_WORK)):
 
-        group = property(lambda self: "CalendarObjectSplitterWork:%s" % (self.resourceID,))
+        group = property(lambda self: "CalendarObjectSplitterWork:{0}".format(self.resourceID,))
 
         @inlineCallbacks
         def doWork(self):
@@ -4013,7 +4076,10 @@ class Attachment(object):
 
 
     def __repr__(self):
-        return "<%s: %s>" % (self.__class__.__name__, self._attachmentID)
+        return (
+            "<{self.__class__.__name__}: {self._attachmentID}>"
+            .format(self=self)
+        )
 
 
     def _attachmentPathRoot(self):
@@ -4677,7 +4743,7 @@ class ManagedAttachment(Attachment):
         splits = name.rsplit(".", 1)
         fname = splits[0]
         suffix = splits[1] if len(splits) == 2 else "unknown"
-        return "%s-%s.%s" % (fname, managed_id[:8], suffix)
+        return "{0}-{1}.{2}".format(fname, managed_id[:8], suffix)
 
 
     @inlineCallbacks
@@ -4770,7 +4836,7 @@ class ManagedAttachment(Attachment):
         location = (yield self.location())
 
         attach.setParameter("MANAGED-ID", self.managedID())
-        attach.setParameter("FMTTYPE", "%s/%s" % (self.contentType().mediaType, self.contentType().mediaSubtype))
+        attach.setParameter("FMTTYPE", "{0}/{1}".format(self.contentType().mediaType, self.contentType().mediaSubtype))
         attach.setParameter("FILENAME", self.name())
         attach.setParameter("SIZE", str(self.size()))
         attach.setValue(location)
