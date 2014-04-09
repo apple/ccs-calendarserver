@@ -816,7 +816,7 @@ def updateFreeBusyHref(href, directory):
 
     recordType = pieces[2]
     shortName = pieces[3]
-    record = yield directory.recordWithShortName(recordType, shortName)
+    record = yield directory.recordWithShortName(directory.oldNameToRecordType(recordType), shortName)
     if record is None:
         # We will simply ignore this and not write out an fb-set entry
         log.error("Can't update free-busy href; %s is not in the directory" % shortName)
