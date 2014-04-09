@@ -25,9 +25,7 @@ from twext.who.idirectory import (
     FieldName as BaseFieldName, RecordType, DirectoryConfigurationError
 )
 from twext.who.ldap import (
-    DirectoryService as LDAPDirectoryService, LDAPAttribute,
-    FieldName as LDAPFieldName,
-    RecordTypeSchema, LDAPObjectClass
+    DirectoryService as LDAPDirectoryService, LDAPAttribute
 )
 from twext.who.util import ConstantsContainer
 from twisted.cred.credentials import UsernamePassword
@@ -113,33 +111,6 @@ def directoryFromConfig(config, store=None):
                     BaseFieldName.fullNames: (LDAPAttribute.cn.value,),
                     BaseFieldName.emailAddresses: (LDAPAttribute.mail.value,),
                     BaseFieldName.password: (LDAPAttribute.userPassword.value,),
-                    LDAPFieldName.memberDNs: (LDAPAttribute.uniqueMember.value,),
-                }),
-                recordTypeSchemas=MappingProxyType({
-                    RecordType.user: RecordTypeSchema(
-                        relativeDN=u"ou=People",
-
-                        # (objectClass=inetOrgPerson)
-                        attributes=(
-                            (
-                                LDAPAttribute.objectClass.value,
-                                LDAPObjectClass.inetOrgPerson.value,
-                            ),
-                        ),
-                    ),
-
-                    RecordType.group: RecordTypeSchema(
-                        relativeDN=u"ou=Groups",
-
-                        # (objectClass=groupOfNames)
-                        attributes=(
-                            (
-                                LDAPAttribute.objectClass.value,
-                                LDAPObjectClass.groupOfUniqueNames.value,
-                            ),
-                        ),
-                    ),
-
                 })
             )
 
