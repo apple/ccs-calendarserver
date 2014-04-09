@@ -793,6 +793,14 @@ class ImplicitScheduler(object):
                             if newrrule == oldrrule:
                                 recurrence_reschedule = False
 
+                        elif newrrule is not None:
+                            # RRULE added - all instances must have NEEDS-ACTION for attendees
+                            date_changed_rids.update(self.calendar.getComponentInstances())
+
+                        elif oldrrule is not None:
+                            # RRULE removed - just reset the master to NEEDS-ACTION
+                            date_changed_rids.add("")
+
                 # Check for addition of STATUS:CANCELLED
                 if "STATUS" in props:
                     if only_status is None and len(props) == 1:
