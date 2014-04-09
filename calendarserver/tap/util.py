@@ -376,21 +376,6 @@ def getRootResource(config, newStore, resources=None):
     principalCollection = principalResourceClass("/principals/", directory)
 
     #
-    # Setup the ProxyDB Service
-    #
-
-    # MOVE2WHO
-    # proxydbClass = namedClass(config.ProxyDBService.type)
-
-    # log.info("Configuring proxydb service of type: {cls}", cls=proxydbClass)
-
-    # try:
-    #     calendaruserproxy.ProxyDBService = proxydbClass(**config.ProxyDBService.params)
-    # except IOError:
-    #     log.error("Could not start proxydb service")
-    #     raise
-
-    #
     # Configure the Site and Wrappers
     #
     wireEncryptedCredentialFactories = []
