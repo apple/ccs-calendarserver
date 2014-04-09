@@ -16,27 +16,30 @@
 
 
 import os
-from twext.python.log import Logger
-from twisted.cred.credentials import UsernamePassword
-from twext.who.aggregate import DirectoryService as AggregateDirectoryService
-from txdav.who.augment import AugmentedDirectoryService
 
 from calendarserver.tap.util import getDBPool, storeFromConfig
+from twext.python.log import Logger
+from twext.python.types import MappingProxyType
+from twext.who.aggregate import DirectoryService as AggregateDirectoryService
 from twext.who.idirectory import (
-    RecordType, DirectoryConfigurationError
+    FieldName as BaseFieldName, RecordType, DirectoryConfigurationError
 )
-from twext.who.ldap import DirectoryService as LDAPDirectoryService
+from twext.who.ldap import (
+    DirectoryService as LDAPDirectoryService, LDAPAttribute
+)
 from twext.who.util import ConstantsContainer
+from twisted.cred.credentials import UsernamePassword
 from twisted.python.filepath import FilePath
 from twisted.python.reflect import namedClass
 from twistedcaldav.config import fullServerPath
+from txdav.who.augment import AugmentedDirectoryService
 from txdav.who.delegates import DirectoryService as DelegateDirectoryService
 from txdav.who.idirectory import (
     RecordType as CalRecordType,
     FieldName as CalFieldName
 )
-from txdav.who.xml import DirectoryService as XMLDirectoryService
 from txdav.who.wiki import DirectoryService as WikiDirectoryService
+from txdav.who.xml import DirectoryService as XMLDirectoryService
 
 
 log = Logger()
@@ -99,7 +102,16 @@ def directoryFromConfig(config, store=None):
             directory = LDAPDirectoryService(
                 params.uri,
                 params.rdnSchema.base,
-                credentials=creds
+                credentials=creds,
+                fieldNameToAttributesMap=MappingProxyType({
+                    # FieldName.dn: (LDAPAttribute.dn.value,),
+                    BaseFieldName.uid: ("apple-generateduid",),
+                    BaseFieldName.guid: ("apple-generateduid",),
+                    BaseFieldName.shortNames: (LDAPAttribute.uid.value,),
+                    BaseFieldName.fullNames: (LDAPAttribute.cn.value,),
+                    BaseFieldName.emailAddresses: (LDAPAttribute.mail.value,),
+                    BaseFieldName.password: (LDAPAttribute.userPassword.value,),
+                })
             )
 
         else:
