@@ -78,7 +78,7 @@ class Depth (WebDAVTextElement):
 
         depth = str(self)
         if depth not in ("0", "1", "infinity"):
-            raise ValueError("Invalid depth: %s" % (depth,))
+            raise ValueError("Invalid depth: {0}".format(depth,))
 
 
 
@@ -307,22 +307,35 @@ class Response (WebDAVElement):
                 propstat_count += 1
 
         if resource_count < 1:
-            raise ValueError("%s element must have at least one %s."
-                             % (cls.sname(), HRef.sname()))
+            raise ValueError(
+                "{0} element must have at least one {1}.".format(
+                    cls.sname(), HRef.sname()
+                )
+        )
 
         if status_count is 0:
             if propstat_count is 0:
-                raise ValueError("%s element must have one of %s or %s"
-                                 % (cls.sname(), Status.sname(), PropertyStatus.sname()))
+                raise ValueError(
+                    "{0} element must have one of {1} or {2}".format(
+                        cls.sname(), Status.sname(), PropertyStatus.sname()
+                    )
+                )
 
             if resource_count > 1:
-                raise ValueError("%s element with %s may only have one %s"
-                                 % (cls.sname(), PropertyStatus.sname(), HRef.sname()))
+                raise ValueError(
+                    "{0} element with {1} may only have one {2}".format(
+                        cls.sname(), PropertyStatus.sname(), HRef.sname()
+                    )
+            )
 
             return PropertyStatusResponse.__new__(PropertyStatusResponse, *children)
 
         if status_count > 1:
-            raise ValueError("%s element may only have one %s" % (cls.sname(), Status.sname()))
+            raise ValueError(
+                "{0} element may only have one {1}".format(
+                    cls.sname(), Status.sname()
+                )
+            )
 
         return StatusResponse.__new__(StatusResponse, *children)
 
@@ -393,9 +406,9 @@ class Status (WebDAVTextElement):
         txweb2.responsecode.RESPONSES.keys()
         """
         if code not in responsecode.RESPONSES:
-            raise ValueError("Invalid response code: %r" % (code,))
+            raise ValueError("Invalid response code: {0!r}".format(code,))
 
-        return cls(PCDATAElement("HTTP/1.1 %d %s" % (code, responsecode.RESPONSES[code])))
+        return cls(PCDATAElement("HTTP/1.1 {0} {1}".format(code, responsecode.RESPONSES[code])))
 
 
     def __init__(self, *children, **attributes):
@@ -403,11 +416,11 @@ class Status (WebDAVTextElement):
 
         status = str(self)
         if not status.startswith("HTTP/1.1 "):
-            raise ValueError("Invalid WebDAV status: %s" % (status,))
+            raise ValueError("Invalid WebDAV status: {0}".format(status,))
 
         code = int(status[9:12])
         if code not in responsecode.RESPONSES:
-            raise ValueError("Invalid status code: %s" % (code,))
+            raise ValueError("Invalid status code: {0}".format(code,))
 
         self.code = code
 
@@ -475,8 +488,9 @@ class PropertyBehavior (WebDAVElement):
 
         if len(self.children) != 1:
             raise ValueError(
-                "Exactly one of DAV:omit, DAV:keepalive required for %s, got: %s"
-                % (self.sname(), self.children)
+                "Exactly one of DAV:omit, DAV:keepalive required for {0}, got: {1}".format(
+                    self.sname(), self.children
+                )
             )
 
         self.behavior = children[0]
@@ -508,13 +522,14 @@ class KeepAlive (WebDAVElement):
                 type = child.qname()
             elif child.qname() != type:
                 raise ValueError(
-                    "Only one of DAV:href or PCDATA allowed for %s, got: %s"
-                    % (self.sname(), self.children)
+                    "Only one of DAV:href or PCDATA allowed for {0}, got: {1}".format(
+                        self.sname(), self.children
+                    )
                 )
 
         if type == "#PCDATA":
             if str(self) != "*":
-                raise ValueError("Invalid keepalive value: %r", (str(self),))
+                raise ValueError("Invalid keepalive value: {0!r}".format(str(self),))
 
 
 
@@ -592,8 +607,9 @@ class PropertyFind (WebDAVElement):
 
         if len(self.children) != 1:
             raise ValueError(
-                "Exactly one of DAV:allprop, DAV:propname or DAV:prop is required for %s, got: %r"
-                % (self.sname(), self.children)
+                "Exactly one of DAV:allprop, DAV:propname or DAV:prop is required for {0}, got: {1!r}".format(
+                    self.sname(), self.children
+                )
             )
 
 

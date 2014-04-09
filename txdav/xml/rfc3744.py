@@ -187,8 +187,9 @@ class Principal (WebDAVElement):
             raise ValueError(
                 "Exactly one of DAV:href, DAV:all, DAV:authenticated, "
                 "DAV:unauthenticated, DAV:property or DAV:self is required for "
-                "%s, got: %r"
-                % (self.sname(), self.children)
+                "{0}, got: {1!r}".format(
+                    self.sname(), self.children
+                )
             )
 
 
@@ -504,8 +505,9 @@ class ACE (WebDAVElement):
                 if name in ("principal", "invert"):
                     if self.principal is not None:
                         raise ValueError(
-                            "Only one of DAV:principal or DAV:invert allowed in %s, got: %s"
-                            % (self.sname(), self.children)
+                            "Only one of DAV:principal or DAV:invert allowed in {0}, got: {1}".format(
+                                self.sname(), self.children
+                            )
                         )
                     if name == "invert":
                         self.invert = True
@@ -517,8 +519,9 @@ class ACE (WebDAVElement):
                 elif name in ("grant", "deny"):
                     if self.allow is not None:
                         raise ValueError(
-                            "Only one of DAV:grant or DAV:deny allowed in %s, got: %s"
-                            % (self.sname(), self.children)
+                            "Only one of DAV:grant or DAV:deny allowed in {0}, got: {1}".format(
+                                self.sname(), self.children
+                            )
                         )
                     self.allow = (name == "grant")
                     self.privileges = child.children
@@ -535,15 +538,17 @@ class ACE (WebDAVElement):
 
         if self.principal is None:
             raise ValueError(
-                "One of DAV:principal or DAV:invert is required in %s, got: %s"
-                % (self.sname(), self.children)
+                "One of DAV:principal or DAV:invert is required in {0}, got: {1}".format(
+                    self.sname(), self.children
+                )
             )
         assert self.invert is not None
 
         if self.allow is None:
             raise ValueError(
-                "One of DAV:grant or DAV:deny is required in %s, got: %s"
-                % (self.sname(), self.children)
+                "One of DAV:grant or DAV:deny is required in {0}, got: {1}".format(
+                    self.sname(), self.children
+                )
             )
         assert self.privileges is not None
 
@@ -740,8 +745,9 @@ class RequiredPrincipal (WebDAVElement):
             elif child.qname() != type:
                 raise ValueError(
                     "Only one of DAV:all, DAV:authenticated, DAV:unauthenticated, "
-                    "DAV:self, DAV:href or DAV:property allowed for %s, got: %s"
-                    % (self.sname(), self.children)
+                    "DAV:self, DAV:href or DAV:property allowed for {0}, got: {1}".format(
+                        self.sname(), self.children
+                    )
                 )
 
 
@@ -835,8 +841,9 @@ class ACLPrincipalPropSet (WebDAVElement):
             if child.qname() == (dav_namespace, "prop"):
                 if prop:
                     raise ValueError(
-                        "Only one DAV:prop allowed for %s, got: %s"
-                        % (self.sname(), self.children)
+                        "Only one DAV:prop allowed for {0}, got: {1}".format(
+                            self.sname(), self.children
+                        )
                     )
                 prop = True
 
@@ -873,15 +880,17 @@ class PrincipalMatch (WebDAVElement):
             if (namespace == dav_namespace) and name in ("principal-property", "self"):
                 if principalPropertyOrSelf:
                     raise ValueError(
-                        "Only one of DAV:principal-property or DAV:self allowed in %s, got: %s"
-                        % (self.sname(), self.children)
+                        "Only one of DAV:principal-property or DAV:self allowed in {0}, got: {1}".format(
+                            self.sname(), self.children
+                        )
                     )
                 principalPropertyOrSelf = True
 
         if not principalPropertyOrSelf:
             raise ValueError(
-                "One of DAV:principal-property or DAV:self is required in %s, got: %s"
-                % (self.sname(), self.children)
+                "One of DAV:principal-property or DAV:self is required in {0}, got: {1}".format(
+                    self.sname(), self.children
+                )
             )
 
 
