@@ -139,29 +139,29 @@ setup_requirements = []
 
 install_requirements = [
     # Core frameworks
-    "zope.interface>=4.0.5",
-    "twisted>=13.2.0",
+    "zope.interface",
+    "Twisted>=13.2.0",
     "twextpy",
 
     # Security frameworks
-    "pyOpenSSL>=0.12",
-    "pycrypto>=2.6.1",
-    "pyasn1>=0.1.7",
+    "pyOpenSSL",
+    "pycrypto",
+    "pyasn1",
     "kerberos",
 
     # Data store
-    "xattr>=0.6.4",
+    "xattr",
     "twextpy[DAL]",
     "sqlparse==0.1.2",
 
     # Calendar
-    "python-dateutil>=1.5",
-    "pytz>=2013.8",
+    "python-dateutil",
+    "pytz",
     "pycalendar",
 
     # Process info
-    "psutil>=1.2.0",
-    "setproctitle>=1.1.8",
+    "psutil",
+    "setproctitle",
 ]
 
 extras_requirements = {
