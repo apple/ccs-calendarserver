@@ -306,7 +306,7 @@ www_get () {
     rm -rf "${path}";
     cd "$(dirname "${path}")";
     get | ${decompress} | ${unpack};
-    cd /;
+    cd "${wd}";
   fi;
 }
 
@@ -449,6 +449,7 @@ c_dependency () {
       ./configure --prefix="${dstroot}" "$@";
       jmake;
       jmake install;
+      cd "${wd}";
     else
       echo "Using built ${name}.";
       echo "";
@@ -603,6 +604,8 @@ py_dependencies () {
   fi;
 
   if ! "${do_setup}"; then return 0; fi;
+
+  cd "${wd}";
 
   # Set up virtual environment
 
