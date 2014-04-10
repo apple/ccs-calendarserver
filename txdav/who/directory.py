@@ -530,4 +530,4 @@ class CalendarDirectoryRecordMixin(object):
             if cuType is not "INDIVIDUAL":
                 params["CUTYPE"] = cuType
 
-        return Property("ATTENDEE", "urn:uuid:" + self.uid.encode("utf-8"), params=params)
+        return Property("ATTENDEE", self.canonicalCalendarUserAddress().encode("utf-8"), params=params)
