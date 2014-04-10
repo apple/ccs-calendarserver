@@ -404,7 +404,8 @@ class Scheduler(object):
             accountingType = "iTIP-VFREEBUSY" if self.calendar.mainType() == "VFREEBUSY" else "iTIP"
             if accountingEnabled(accountingType, self.organizer.principal):
                 emitAccounting(
-                    accountingType, self.organizer.principal,
+                    accountingType,
+                    self.organizer.principal,
                     "Originator: %s\nRecipients:\n%sMethod:%s\n\n%s"
                     % (
                         str(self.originator),

@@ -19,12 +19,12 @@ from pycalendar.duration import Duration
 from pycalendar.timezone import Timezone
 
 from twext.python.log import Logger
-from txweb2.dav.method.report import NumberOfMatchesWithinLimits
 from txweb2.http import HTTPError
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twistedcaldav import customxml, caldavxml
+from twistedcaldav.accounting import emitAccounting, accountingEnabled
 from twistedcaldav.config import config
 from twistedcaldav.ical import Property
 from twistedcaldav.instance import InvalidOverriddenInstanceError
@@ -35,11 +35,13 @@ from txdav.caldav.datastore.scheduling.itip import iTipProcessing, iTIPRequestSt
 from txdav.caldav.datastore.scheduling.utils import getCalendarObjectForRecord
 from txdav.caldav.datastore.scheduling.work import ScheduleRefreshWork, \
     ScheduleAutoReplyWork
-from txdav.caldav.icalendarstore import ComponentUpdateState, ComponentRemoveState
+from txdav.caldav.icalendarstore import ComponentUpdateState, \
+    ComponentRemoveState, QueryMaxResources
 from txdav.who.idirectory import AutoScheduleMode
 
 import collections
 import hashlib
+import json
 import uuid
 
 """
@@ -437,7 +439,15 @@ class ImplicitProcessor(object):
             if (yield self.recipient.principal.canAutoSchedule(organizer=organizer)):
                 # auto schedule mode can depend on who the organizer is
                 mode = yield self.recipient.principal.getAutoScheduleMode(organizer=organizer)
-                send_reply, store_inbox, partstat = (yield self.checkAttendeeAutoReply(new_calendar, mode))
+                send_reply, store_inbox, partstat, accounting = (yield self.checkAttendeeAutoReply(new_calendar, mode))
+                if accounting is not None:
+                    accounting["action"] = "create"
+                    emitAccounting(
+                        "AutoScheduling",
+                        self.recipient.principal,
+                        json.dumps(accounting) + "\r\n",
+                        filename=self.uid + ".txt"
+                    )
 
                 # Only store inbox item when reply is not sent or always for users
                 store_inbox = store_inbox or self.recipient.principal.getCUType() == "INDIVIDUAL"
@@ -470,7 +480,15 @@ class ImplicitProcessor(object):
                 if (yield self.recipient.principal.canAutoSchedule(organizer=organizer)) and not hasattr(self.txn, "doing_attendee_refresh"):
                     # auto schedule mode can depend on who the organizer is
                     mode = yield self.recipient.principal.getAutoScheduleMode(organizer=organizer)
-                    send_reply, store_inbox, partstat = (yield self.checkAttendeeAutoReply(new_calendar, mode))
+                    send_reply, store_inbox, partstat, accounting = (yield self.checkAttendeeAutoReply(new_calendar, mode))
+                    if accounting is not None:
+                        accounting["action"] = "modify"
+                        emitAccounting(
+                            "AutoScheduling",
+                            self.recipient.principal,
+                            json.dumps(accounting) + "\r\n",
+                            filename=self.uid + ".txt"
+                        )
 
                     # Only store inbox item when reply is not sent or always for users
                     store_inbox = store_inbox or self.recipient.principal.getCUType() == "INDIVIDUAL"
@@ -554,6 +572,19 @@ class ImplicitProcessor(object):
             # Check to see if this is a cancel of the entire event
             processed_message, delete_original, rids = iTipProcessing.processCancel(self.message, self.recipient_calendar, autoprocessing=autoprocessed)
             if processed_message:
+                if autoprocessed and accountingEnabled("AutoScheduling", self.recipient.principal):
+                    accounting = {
+                        "action": "cancel",
+                        "when": DateTime.getNowUTC().getText(),
+                        "deleting": delete_original,
+                    }
+                    emitAccounting(
+                        "AutoScheduling",
+                        self.recipient.principal,
+                        json.dumps(accounting) + "\r\n",
+                        filename=self.uid + ".txt"
+                    )
+
                 if delete_original:
 
                     # Delete the attendee's copy of the event
@@ -612,9 +643,18 @@ class ImplicitProcessor(object):
         @return: C{tuple} of C{bool}, C{bool}, C{str} indicating whether changes were made, whether the inbox item
             should be added, and the new PARTSTAT.
         """
+        if accountingEnabled("AutoScheduling", self.recipient.principal):
+            accounting = {
+                "when": DateTime.getNowUTC().getText(),
+                "automode": automode,
+                "changed": False,
+            }
+        else:
+            accounting = None
+
         # First ignore the none mode
         if automode == AutoScheduleMode.none:
-            returnValue((False, True, "",))
+            returnValue((False, True, "", accounting,))
         elif not automode:
             automode = {
                 "none": AutoScheduleMode.none,
@@ -637,6 +677,10 @@ class ImplicitProcessor(object):
         expand_max = DateTime.getToday() + default_future_expansion_duration
         instances = calendar.expandTimeRanges(expand_max, ignoreInvalidInstances=True)
 
+        if accounting is not None:
+            accounting["expand-max"] = expand_max.getText()
+            accounting["instances"] = len(instances.instances)
+
         # We are going to ignore auto-accept processing for anything more than a day old (actually use -2 days
         # to add some slop to account for possible timezone offsets)
         min_date = DateTime.getToday()
@@ -653,11 +697,15 @@ class ImplicitProcessor(object):
             if instance.active:
                 allOld = False
 
+        instances = sorted(instances.instances.values(), key=lambda x: x.rid)
+
         # If every instance is in the past we punt right here so we don't waste time on freebusy lookups etc.
         # There will be no auto-accept and no inbox item stored (so as not to waste storage on items that will
         # never be processed).
         if allOld:
-            returnValue((False, False, "",))
+            if accounting is not None:
+                accounting["status"] = "all instances are old"
+            returnValue((False, False, "", accounting,))
 
         # Extract UID from primary component as we want to ignore this one if we match it
         # in any calendars.
@@ -666,6 +714,9 @@ class ImplicitProcessor(object):
         # Now compare each instance time-range with the index and see if there is an overlap
         fbset = (yield self.recipient.inbox.ownerHome().loadCalendars())
         fbset = [fbcalendar for fbcalendar in fbset if fbcalendar.isUsedForFreeBusy()]
+        if accounting is not None:
+            accounting["fbset"] = [testcal.name() for testcal in fbset]
+            accounting["tr"] = []
 
         for testcal in fbset:
 
@@ -675,8 +726,11 @@ class ImplicitProcessor(object):
             tzinfo = tz.gettimezone() if tz is not None else Timezone(utc=True)
 
             # Now do search for overlapping time-range and set instance.free based
-            # on whether there is an overlap or not
-            for instance in instances.instances.itervalues():
+            # on whether there is an overlap or not.
+            # NB Do this in reverse order so that the date farthest in the future is tested first - that will
+            # ensure that freebusy that far into the future is determined and will trigger time-range caching
+            # and indexing out that far - and that will happen only once through this loop.
+            for instance in reversed(instances):
                 if instance.partstat == "NEEDS-ACTION" and instance.free and instance.active:
                     try:
                         # First list is BUSY, second BUSY-TENTATIVE, third BUSY-UNAVAILABLE
@@ -702,19 +756,26 @@ class ImplicitProcessor(object):
                         # If any fbinfo entries exist we have an overlap
                         if len(fbinfo[0]) or len(fbinfo[1]) or len(fbinfo[2]):
                             instance.free = False
-                    except NumberOfMatchesWithinLimits:
+                        if accounting is not None:
+                            accounting["tr"].insert(0, (tr.attributes["start"], tr.attributes["end"], instance.free,))
+                    except QueryMaxResources:
                         instance.free[instance] = False
                         log.info("Exceeded number of matches whilst trying to find free-time.")
+                        if accounting is not None:
+                            accounting["problem"] = "Exceeded number of matches"
 
             # If everything is declined we can exit now
-            if not any([instance.free for instance in instances.instances.itervalues()]):
+            if not any([instance.free for instance in instances]):
                 break
+
+        if accounting is not None:
+            accounting["tr"] = accounting["tr"][:30]
 
         # Now adjust the instance.partstat currently set to "NEEDS-ACTION" to the
         # value determined by auto-accept logic based on instance.free state. However,
         # ignore any instance in the past - leave them as NEEDS-ACTION.
         partstat_counts = collections.defaultdict(int)
-        for instance in instances.instances.itervalues():
+        for instance in instances:
             if instance.partstat == "NEEDS-ACTION" and instance.active:
                 if automode == AutoScheduleMode.accept:
                     freePartstat = busyPartstat = "ACCEPTED"
@@ -734,20 +795,28 @@ class ImplicitProcessor(object):
 
         if len(partstat_counts) == 0:
             # Nothing to do
-            returnValue((False, False, "",))
+            if accounting is not None:
+                accounting["status"] = "no partstat changes"
+            returnValue((False, False, "", accounting,))
 
         elif len(partstat_counts) == 1:
             # Do the simple case of all PARTSTATs the same separately
             # Extract the ATTENDEE property matching current recipient from the calendar data
             attendeeProps = calendar.getAttendeeProperties(cuas)
             if not attendeeProps:
-                returnValue((False, False, "",))
+                if accounting is not None:
+                    accounting["status"] = "no attendee to change"
+                returnValue((False, False, "", accounting,))
 
             made_changes = False
             partstat = partstat_counts.keys()[0]
             for component in calendar.subcomponents():
                 made_changes |= self.resetAttendeePartstat(component, cuas, partstat)
             store_inbox = partstat == "NEEDS-ACTION"
+
+            if accounting is not None:
+                accounting["status"] = "setting all partstats to {}".format(partstat) if made_changes else "all partstats correct"
+                accounting["changed"] = made_changes
 
         else:
             # Hard case: some accepted, some declined, some needs-action
@@ -774,7 +843,7 @@ class ImplicitProcessor(object):
                     made_changes |= self.resetAttendeePartstat(master, cuas, defaultPartStat)
 
             # Look at expanded instances and change partstat accordingly
-            for instance in sorted(instances.instances.values(), key=lambda x: x.rid):
+            for instance in instances:
 
                 overridden = calendar.overriddenComponent(instance.rid)
                 if not overridden and instance.partstat == defaultPartStat:
@@ -799,11 +868,15 @@ class ImplicitProcessor(object):
                             made_changes = True
                             calendar.addComponent(derived)
 
+            if accounting is not None:
+                accounting["status"] = "mixed partstat changes" if made_changes else "mixed partstats correct"
+                accounting["changed"] = made_changes
+
         # Fake a SCHEDULE-STATUS on the ORGANIZER property
         if made_changes:
             calendar.setParameterToValueForPropertyWithValue("SCHEDULE-STATUS", iTIPRequestStatus.MESSAGE_DELIVERED_CODE, "ORGANIZER", None)
 
-        returnValue((made_changes, store_inbox, partstat,))
+        returnValue((made_changes, store_inbox, partstat, accounting,))
 
 
     @inlineCallbacks
@@ -888,6 +961,10 @@ class ImplicitProcessor(object):
 
             # Adjust TRANSP to OPAQUE if PARTSTAT is ACCEPTED, otherwise TRANSPARENT
             component.replaceProperty(Property("TRANSP", "OPAQUE" if partstat == "ACCEPTED" else "TRANSPARENT"))
+
+            if madeChanges:
+                attendee.setParameter("X-CALENDARSERVER-AUTO", DateTime.getNowUTC().getText())
+                attendee.removeParameter("X-CALENDARSERVER-DTSTAMP")
 
         return madeChanges
 

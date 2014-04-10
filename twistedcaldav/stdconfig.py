@@ -477,7 +477,12 @@ DEFAULT_CONFIG = {
     "LogID"             : "",
 
     "AccountingCategories": {
+        "HTTP": False,
         "iTIP": False,
+        "iTIP-VFREEBUSY": False,
+        "Implicit Errors": False,
+        "AutoScheduling": False,
+        "iSchedule": False,
     },
     "AccountingPrincipals": [],
     "AccountingLogRoot"   : "accounting",

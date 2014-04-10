@@ -497,6 +497,7 @@ class iCalDiff(object):
             # If PARTSTAT was changed by the attendee, add a timestamp if needed
             if config.Scheduling.Options.TimestampAttendeePartStatChanges:
                 serverAttendee.setParameter("X-CALENDARSERVER-DTSTAMP", DateTime.getNowUTC().getText())
+            serverAttendee.removeParameter("X-CALENDARSERVER-AUTO")
 
             replyNeeded = True
 

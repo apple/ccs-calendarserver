@@ -33,13 +33,13 @@ from twistedcaldav.config import config
 
 log = Logger()
 
-def accountingEnabled(category, principal):
+def accountingEnabled(category, record):
     """
-    Determine if accounting is enabled for the given category and principal.
+    Determine if accounting is enabled for the given category and record.
     """
     return (
         accountingEnabledForCategory(category) and
-        accountingEnabledForPrincipal(principal)
+        accountingEnabledForRecord(record)
     )
 
 
@@ -55,45 +55,38 @@ def accountingEnabledForCategory(category):
 
 
 
-def accountingEnabledForPrincipal(principal):
+def accountingEnabledForRecord(record):
     """
-    Determine if accounting is enabled for the given principal.
+    Determine if accounting is enabled for the given record.
     """
-    enabledPrincipalURIs = config.AccountingPrincipals
+    enabledRecordGUIDs = config.AccountingPrincipals
 
-    if "*" in enabledPrincipalURIs:
+    if "*" in enabledRecordGUIDs:
         return True
 
-    if principal.principalURL() in enabledPrincipalURIs:
-        return True
-
-    for principal in principal.alternateURIs():
-        if principal in enabledPrincipalURIs:
-            return True
-
-    return False
+    return record.guid in enabledRecordGUIDs
 
 
 
-def emitAccounting(category, principal, data, tag=None):
+def emitAccounting(category, record, data, tag=None, filename=None):
     """
     Write the supplied data to the appropriate location for the given
-    category and principal.
+    category and record.
 
-    @param principal: the principal for whom a log entry is to be created.
-    @type principal: L{DirectoryPrincipalResource}
+    @param record: the record for whom a log entry is to be created.
+    @type record: L{DirectoryRecord}
     @param category: accounting category
     @type category: C{tuple}
     @param data: data to write.
     @type data: C{str}
     """
-    if isinstance(principal, str):
-        principalLogPath = principal
-    elif accountingEnabled(category, principal):
+    if isinstance(record, str):
+        principalLogPath = record
+    elif accountingEnabled(category, record):
         principalLogPath = os.path.join(
-            principal.record.guid[0:2],
-            principal.record.guid[2:4],
-            principal.record.guid
+            record.guid[0:2],
+            record.guid[2:4],
+            record.guid
         )
     else:
         return None
@@ -111,29 +104,31 @@ def emitAccounting(category, principal, data, tag=None):
             )
         logFilename = os.path.join(
             logDirectory,
-            datetime.datetime.now().isoformat()
+            datetime.datetime.now().isoformat() if filename is None else filename
         )
 
         if not os.path.isdir(os.path.join(logRoot, logDirectory)):
             os.makedirs(os.path.join(logRoot, logDirectory))
-            logFilename = "%s-01" % (logFilename,)
-            if tag:
-                logFilename += " (%s)" % (tag,)
-            logFilename += ".txt"
-        else:
-            index = 1
-            while True:
-                path = "%s-%02d" % (logFilename, index)
+            if filename is None:
+                logFilename = "%s-01" % (logFilename,)
                 if tag:
-                    path += " (%s)" % (tag,)
-                path += ".txt"
-                if not os.path.isfile(os.path.join(logRoot, path)):
-                    logFilename = path
-                    break
-                if index == 1000:
-                    log.error("Too many %s accounting files for %s" % (category, principal))
-                    return None
-                index += 1
+                    logFilename += " (%s)" % (tag,)
+                logFilename += ".txt"
+        else:
+            if filename is None:
+                index = 1
+                while True:
+                    path = "%s-%02d" % (logFilename, index)
+                    if tag:
+                        path += " (%s)" % (tag,)
+                    path += ".txt"
+                    if not os.path.isfile(os.path.join(logRoot, path)):
+                        logFilename = path
+                        break
+                    if index == 1000:
+                        log.error("Too many %s accounting files for %s" % (category, record))
+                        return None
+                    index += 1
 
         #
         # Now write out the data to the log file
