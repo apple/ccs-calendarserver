@@ -31,6 +31,7 @@ from txweb2.dav.resource import TwistedGETContentMD5, \
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twisted.python.util import FancyEqMixin
 from twisted.python import hashlib
+from twisted.python.failure import Failure
 
 from twistedcaldav import customxml
 from twistedcaldav.customxml import NotificationType
@@ -179,6 +180,41 @@ class CommonDataStore(DataStore):
         for callback in self._newTransactionCallbacks:
             callback(txn)
         return txn
+
+
+    @inlineCallbacks
+    def inTransaction(self, label, operation, transactionCreator=None):
+        """
+        Perform the given operation in a transaction, committing or aborting as
+        required.
+
+        @param label: the label to pass to the transaction creator
+
+        @param operation: a 1-arg callable that takes an L{IAsyncTransaction} and
+            returns a value.
+
+        @param transactionCreator: a 1-arg callable that takes a "label" arg and
+            returns a transaction
+
+        @return: a L{Deferred} that fires with C{operation}'s result or fails with
+            its error, unless there is an error creating, aborting or committing
+            the transaction.
+        """
+
+        if transactionCreator is None:
+            txn = self.newTransaction()
+        else:
+            txn = transactionCreator(label=label)
+
+        try:
+            result = yield operation(txn)
+        except:
+            f = Failure()
+            yield txn.abort()
+            returnValue(f)
+        else:
+            yield txn.commit()
+            returnValue(result)
 
 
     @inlineCallbacks

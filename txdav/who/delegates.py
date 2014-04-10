@@ -68,21 +68,26 @@ class DirectoryRecord(BaseDirectoryRecord):
         """
         parentUID, _ignore_proxyType = self.uid.split(u"#")
 
-        txn = self.service._store.newTransaction(label="DirectoryRecord.members")
+        @inlineCallbacks
+        def _members(txn):
+            if self.recordType in (
+                RecordType.readDelegateGroup, RecordType.writeDelegateGroup
+            ):  # Members are delegates of this record
+                readWrite = (self.recordType is RecordType.writeDelegateGroup)
+                delegateUIDs = (
+                    yield txn.delegates(parentUID, readWrite, expanded=expanded)
+                )
 
-        if self.recordType in (
-            RecordType.readDelegateGroup, RecordType.writeDelegateGroup
-        ):  # Members are delegates of this record
-            readWrite = (self.recordType is RecordType.writeDelegateGroup)
-            delegateUIDs = (
-                yield txn.delegates(parentUID, readWrite, expanded=expanded)
-            )
+            else:  # Members have delegated to this record
+                readWrite = (self.recordType is RecordType.writeDelegatorGroup)
+                delegateUIDs = (
+                    yield txn.delegators(parentUID, readWrite)
+                )
+            returnValue(delegateUIDs)
 
-        else:  # Members have delegated to this record
-            readWrite = (self.recordType is RecordType.writeDelegatorGroup)
-            delegateUIDs = (
-                yield txn.delegators(parentUID, readWrite)
-            )
+        delegateUIDs = yield self.service._store.inTransaction(
+            "DirectoryRecord.members", _members
+        )
 
         records = []
         for uid in delegateUIDs:
@@ -90,7 +95,6 @@ class DirectoryRecord(BaseDirectoryRecord):
                 record = yield self.service._masterDirectory.recordWithUID(uid)
                 if record is not None:
                     records.append(record)
-        yield txn.commit()
 
         returnValue(records)
 
@@ -117,19 +121,21 @@ class DirectoryRecord(BaseDirectoryRecord):
             m=[r.uid for r in memberRecords]
         )
 
-        txn = self.service._store.newTransaction(label="DirectoryRecord.setMembers")
+        @inlineCallbacks
+        def _setMembers(txn):
+            yield txn.removeDelegates(parentUID, readWrite)
+            yield txn.removeDelegateGroups(parentUID, readWrite)
 
-        yield txn.removeDelegates(parentUID, readWrite)
-        yield txn.removeDelegateGroups(parentUID, readWrite)
+            delegator = (
+                yield self.service._masterDirectory.recordWithUID(parentUID)
+            )
 
-        delegator = (
-            yield self.service._masterDirectory.recordWithUID(parentUID)
+            for delegate in memberRecords:
+                yield addDelegate(txn, delegator, delegate, readWrite)
+
+        yield self.service._store.inTransaction(
+            "DirectoryRecord.setMembers", _setMembers
         )
-
-        for delegate in memberRecords:
-            yield addDelegate(txn, delegator, delegate, readWrite)
-
-        yield txn.commit()
 
 
 

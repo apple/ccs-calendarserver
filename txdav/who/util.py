@@ -106,7 +106,6 @@ def directoryFromConfig(config, store=None):
                 params.rdnSchema.base,
                 credentials=creds,
                 fieldNameToAttributesMap=MappingProxyType({
-                    # FieldName.dn: (LDAPAttribute.dn.value,),
                     BaseFieldName.uid: ("apple-generateduid",),
                     BaseFieldName.guid: ("apple-generateduid",),
                     BaseFieldName.shortNames: (LDAPAttribute.uid.value,),

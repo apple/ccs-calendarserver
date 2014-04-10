@@ -484,7 +484,7 @@ class DirectoryPrincipalTypeProvisioningResource (DirectoryProvisioningResource)
                 for record in (
                     yield self.directory.recordsWithRecordType(self.recordType)
                 ):
-                    for shortName in record.shortNames:
+                    for shortName in getattr(record, "shortNames", []):
                         children.append(shortName)
             except AttributeError:
                 log.warn("Cannot list children of record type {rt}",
@@ -638,19 +638,17 @@ class DirectoryPrincipalDetailElement(Element):
             emailAddresses = record.emailAddresses
         except AttributeError:
             emailAddresses = []
+        try:
+            shortNames = record.shortNames
+        except AttributeError:
+            shortNames = []
         return tag.fillSlots(
             directoryGUID=str(record.service.guid),
             realm=record.service.realmName.encode("utf-8"),
             principalGUID=guid,
             recordType=record.service.recordTypeToOldName(record.recordType),
-            shortNames=",".join([n.encode("utf-8") for n in record.shortNames]),
-            # MOVE2WHO: need this?
-            # securityIDs=",".join(record.authIDs),
+            shortNames=",".join([n.encode("utf-8") for n in shortNames]),
             fullName=record.displayName.encode("utf-8"),
-            # MOVE2WHO: need this?
-            # firstName=str(record.firstName),
-            # MOVE2WHO: need this?
-            # lastName=str(record.lastName),
             emailAddresses=formatList(emailAddresses),
             principalUID=str(self.resource.principalUID()),
             principalURL=formatLink(self.resource.principalURL()),
@@ -815,12 +813,12 @@ class DirectoryPrincipalResource (
                 record.service.recordTypeToOldName(record.recordType),
                 quote(shortName.encode("utf-8"))
             ) + slash
-            for shortName in record.shortNames
+            for shortName in getattr(record, "shortNames", [])
         ])
 
 
     def __str__(self):
-        return "(%s)%s" % (self.record.recordType, self.record.shortNames[0])
+        return "(%s)%s" % (self.record.recordType, self.record.uid)
 
 
     def __eq__(self, other):

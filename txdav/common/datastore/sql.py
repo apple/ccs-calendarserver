@@ -293,6 +293,41 @@ class CommonDataStore(Service, object):
         return txn
 
 
+    @inlineCallbacks
+    def inTransaction(self, label, operation, transactionCreator=None):
+        """
+        Perform the given operation in a transaction, committing or aborting as
+        required.
+
+        @param label: the label to pass to the transaction creator
+
+        @param operation: a 1-arg callable that takes an L{IAsyncTransaction} and
+            returns a value.
+
+        @param transactionCreator: a 1-arg callable that takes a "label" arg and
+            returns a transaction
+
+        @return: a L{Deferred} that fires with C{operation}'s result or fails with
+            its error, unless there is an error creating, aborting or committing
+            the transaction.
+        """
+
+        if transactionCreator is None:
+            txn = self.newTransaction()
+        else:
+            txn = transactionCreator(label=label)
+
+        try:
+            result = yield operation(txn)
+        except:
+            f = Failure()
+            yield txn.abort()
+            returnValue(f)
+        else:
+            yield txn.commit()
+            returnValue(result)
+
+
     def setMigrating(self, state):
         """
         Set the "migrating" state

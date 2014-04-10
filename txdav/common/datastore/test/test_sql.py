@@ -21,7 +21,7 @@ Tests for L{txdav.common.datastore.sql}.
 from twext.enterprise.dal.syntax import Select
 from twext.enterprise.dal.syntax import Insert
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.internet.task import Clock
 from twisted.trial.unittest import TestCase
 from twisted.internet.defer import Deferred
@@ -433,3 +433,50 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         yield fixUUIDNormalization(self.storeUnderTest())
         self.assertEqual((yield self.allHomeUIDs(schema.ADDRESSBOOK_HOME)),
                          [[normalizedUID]])
+
+
+    @inlineCallbacks
+    def test_inTransaction(self):
+        """
+        Make sure a successful operation commits the transaction while an
+        unsuccessful operation (raised an exception) aborts the transaction.
+        """
+
+        store = self.storeUnderTest()
+
+        def txnCreator(label):
+            self.txn = StubTransaction(label)
+            return self.txn
+
+        def goodOperation(txn):
+            return succeed(None)
+
+        def badOperation(txn):
+            1 / 0
+            return succeed(None)
+
+        yield store.inTransaction("good", goodOperation, txnCreator)
+        self.assertEquals(self.txn.action, "committed")
+
+        try:
+            yield store.inTransaction("bad", badOperation, txnCreator)
+        except:
+            pass
+        self.assertEquals(self.txn.action, "aborted")
+
+
+
+class StubTransaction(object):
+
+    def __init__(self, label):
+        self.label = label
+        self.action = None
+
+    def commit(self):
+        self.action = "committed"
+        return succeed(None)
+
+    def abort(self):
+        self.action = "aborted"
+        return succeed(None)
+
