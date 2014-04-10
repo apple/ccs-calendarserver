@@ -600,16 +600,24 @@
     <!-- Enable accounting for certain operations -->
     <key>AccountingCategories</key>
     <dict>
+      <key>HTTP</key>
+      <false/>
       <key>iTIP</key>
       <false/>
-      <key>HTTP</key>
+      <key>iTIP-VFREEBUSY</key>
+      <false/>
+      <key>Implicit Errors</key>
+      <false/>
+      <key>AutoScheduling</key>
+      <false/>
+      <key>iSchedule</key>
       <false/>
     </dict>
 
-    <!-- Enable accounting for specific principals -->
+    <!-- Enable accounting for specific principal GUIDs or use "*" for all  -->
     <key>AccountingPrincipals</key>
     <array>
-      <!-- <string>/principals/__uids__/454D85C0-09F0-4DC6-A3C6-97DFEB4622CD/</string> -->
+      <!-- <string>454D85C0-09F0-4DC6-A3C6-97DFEB4622CD</string> -->
     </array>
 
 
