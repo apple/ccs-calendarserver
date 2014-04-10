@@ -33,16 +33,10 @@ class AccountingITIP (twistedcaldav.test.util.TestCase):
         os.mkdir(config.AccountingLogRoot)
 
 
-    class _Principal(object):
-
-        class _Record(object):
-
-            def __init__(self, guid):
-                self.guid = guid
+    class _Record(object):
 
         def __init__(self, guid):
-
-            self.record = self._Record(guid)
+            self.guid = guid
 
 
     def test_permissions_makedirs(self):
@@ -53,7 +47,7 @@ class AccountingITIP (twistedcaldav.test.util.TestCase):
         # Make log root non-writeable
         os.chmod(config.AccountingLogRoot, stat.S_IRUSR)
 
-        emitAccounting("iTIP", self._Principal("1234-5678"), "bogus")
+        emitAccounting("iTIP", self._Record("1234-5678"), "bogus")
 
 
     def test_file_instead_of_directory(self):
@@ -64,7 +58,7 @@ class AccountingITIP (twistedcaldav.test.util.TestCase):
         # Make log root a file
         config.AccountingLogRoot = "other"
         open(config.AccountingLogRoot, "w").close()
-        emitAccounting("iTIP", self._Principal("1234-5678"), "bogus")
+        emitAccounting("iTIP", self._Record("1234-5678"), "bogus")
 
 
 

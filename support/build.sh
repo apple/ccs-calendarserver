@@ -809,7 +809,7 @@ dependencies () {
 
   # XXX actually PyCalendar should be imported in-place.
   py_dependency -fe -i "src" -r HEAD \
-    "PyCalendar" "pycalendar" "pycalendar" \
+    "PyCalendar" "pycalendar" "pycalendar-2" \
     "${svn_uri_base}/PyCalendar/branches/CalendarServer-5.2";
 
   #
@@ -882,7 +882,7 @@ dependencies () {
     "${pypi}/p/${n}/${p}.tar.gz";
 
   svn_get "CalDAVTester" "${top}/CalDAVTester" \
-      "${svn_uri_base}/CalDAVTester/branches/release/CalDAVTester-5.2-dev" HEAD;
+      "${svn_uri_base}/CalDAVTester/branches/release/CalDAVTester-5.3-dev" HEAD;
 
   local v="3.0.1";
   local n="epydoc";
