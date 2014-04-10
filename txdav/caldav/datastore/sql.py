@@ -1937,30 +1937,29 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         """
         Expand group attendees
         """
-
         if not config.Scheduling.Options.AllowGroupAsAttendee:
             return
 
         attendeeProps = component.getAllAttendeeProperties()
-        groupGUIDs = set([
-            uuid.UUID(attendeeProp.value()[len("urn:uuid:"):]) for attendeeProp in attendeeProps
+        groupCUAs = set([
+            attendeeProp.value() for attendeeProp in attendeeProps
             if attendeeProp.parameterValue("CUTYPE") == "GROUP"
         ])
+        for groupCUA in groupCUAs:
 
-        for groupGUID in groupGUIDs:
-
-            groupRecord = yield self.directoryService().recordWithGUID(groupGUID)
+            groupRecord = yield self.directoryService().recordWithCalendarUserAddress(groupCUA)
             if groupRecord:
                 members = yield groupRecord.expandedMembers()
-                memberGUIDs = sorted([member.guid for member in members])
 
+                # calculate hash
+                memberUIDs = sorted([member.uid for member in members])
                 membershipHashContent = hashlib.md5()
-                for memberGUID in memberGUIDs:
-                    membershipHashContent.update(str(memberGUID))
+                for memberUID in memberUIDs:
+                    membershipHashContent.update(memberUID)
                 membershipHash = membershipHashContent.hexdigest()
 
                 # associate group ID with self
-                groupID, _ignore_name, membershipHash, _ignore_modDate = yield self._txn.groupByUID(str(groupGUID))
+                groupID, _ignore_name, membershipHash, _ignore_modDate = yield self._txn.groupByUID(groupRecord.uid)
                 try:
                     groupAttendee = schema.GROUP_ATTENDEE
                     yield Insert({
@@ -1972,7 +1971,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     pass
 
                 # get members
-                yield component.expandGroupAttendee(groupGUID, memberGUIDs, self.directoryService().recordWithCalendarUserAddress)
+                yield component.expandGroupAttendee(
+                    groupRecord.canonicalCalendarUserAddress(),
+                    set([member.canonicalCalendarUserAddress() for member in members]),
+                    self.directoryService().recordWithCalendarUserAddress
+                )
 
 
     def validCalendarDataCheck(self, component, inserting):

@@ -3384,22 +3384,20 @@ END:VCALENDAR
 
 
     @inlineCallbacks
-    def expandGroupAttendee(self, groupGUID, memberGUIDs, recordFunction):
+    def expandGroupAttendee(self, groupCUA, memberCUAs, recordFunction):
 
-        memberUUIDs = set(["urn:uuid:" + str(memberGUID) for memberGUID in memberGUIDs])
-        groupUUID = "urn:uuid:" + str(groupGUID)
         changed = False
         for component in self.subcomponents():
             if component.name() in ignoredComponents:
                 continue
 
             oldAttendeeProps = tuple(component.properties("ATTENDEE"))
-            oldAttendeeUUIDs = set([attendeeProp.value() for attendeeProp in oldAttendeeProps])
+            oldAttendeeCUAs = set([attendeeProp.value() for attendeeProp in oldAttendeeProps])
 
             # add new member attendees
-            for memberUUID in sorted(memberUUIDs - oldAttendeeUUIDs):
-                directoryRecord = yield recordFunction(memberUUID)
-                newAttendeeProp = directoryRecord.attendee(params={"MEMBER": groupUUID})
+            for memberCUA in sorted(set(memberCUAs) - oldAttendeeCUAs):
+                directoryRecord = yield recordFunction(memberCUA)
+                newAttendeeProp = directoryRecord.attendee(params={"MEMBER": groupCUA})
                 component.addProperty(newAttendeeProp)
                 changed = True
 
@@ -3407,15 +3405,15 @@ END:VCALENDAR
             for attendeeProp in oldAttendeeProps:
                 if attendeeProp.hasParameter("MEMBER"):
                     parameterValues = tuple(attendeeProp.parameterValues("MEMBER"))
-                    if groupUUID in parameterValues:
-                        if attendeeProp.value() not in memberUUIDs:
-                            attendeeProp.removeParameterValue("MEMBER", groupUUID)
+                    if groupCUA in parameterValues:
+                        if attendeeProp.value() not in memberCUAs:
+                            attendeeProp.removeParameterValue("MEMBER", groupCUA)
                             if not attendeeProp.parameterValues("MEMBER"):
                                 component.removeProperty(attendeeProp)
                             changed = True
                     else:
-                        if attendeeProp.value() in memberUUIDs:
-                            attendeeProp.setParameter("MEMBER", parameterValues + (groupUUID,))
+                        if attendeeProp.value() in memberCUAs:
+                            attendeeProp.setParameter("MEMBER", parameterValues + (groupCUA,))
                             changed = True
 
         returnValue(changed)

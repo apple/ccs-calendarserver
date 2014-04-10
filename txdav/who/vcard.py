@@ -322,7 +322,7 @@ def vCardFromRecord(record, forceKind=None, addProps=None, parentURI=None):
     # FIXME:  members() is a deferred, so all of vCardFromRecord is deferred.
     for memberRecord in (yield record.members()):
         if memberRecord:
-            vcard.addProperty(Property("X-ADDRESSBOOKSERVER-MEMBER", "urn:uuid:" + memberRecord.fields[FieldName.uid].encode("utf-8")))
+            vcard.addProperty(Property("X-ADDRESSBOOKSERVER-MEMBER", memberRecord.canonicalCalendarUserAddress().encode("utf-8")))
 
     #===================================================================
     # vCard 4.0  http://tools.ietf.org/html/rfc6350
