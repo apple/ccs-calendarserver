@@ -645,24 +645,20 @@ py_dependencies () {
 
 
 pip_install_from_cache () {
-  local require="$1"; shift;
-
   "${python}" -m pip install                 \
-    "${require}"                             \
-    --find-links="${wd}/requirements/cache"  \
+    --find-links="${dev_home}/pip_downloads" \
     --no-index                               \
-    --log="${dev_home}/pip.log";
+    --log="${dev_home}/pip.log"              \
+    "$@";
 }
 
 
 pip_download_and_install () {
-  local require="$1"; shift;
-
   "${python}" -m pip install                  \
-    "${require}"                              \
-    --pre                                     \
+    --pre --upgrade                           \
     --download-cache="${dev_home}/pip_cache"  \
-    --log="${dev_home}/pip.log";
+    --log="${dev_home}/pip.log"               \
+    "$@";
 }
 
 
