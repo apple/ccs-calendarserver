@@ -313,9 +313,9 @@ class CommonDataStore(Service, object):
         """
 
         if transactionCreator is None:
-            txn = self.newTransaction()
-        else:
-            txn = transactionCreator(label=label)
+            transactionCreator = self.newTransaction
+
+        txn = transactionCreator(label=label)
 
         try:
             result = yield operation(txn)

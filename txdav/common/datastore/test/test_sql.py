@@ -457,12 +457,14 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
 
         yield store.inTransaction("good", goodOperation, txnCreator)
         self.assertEquals(self.txn.action, "committed")
+        self.assertEquals(self.txn.label, "good")
 
         try:
             yield store.inTransaction("bad", badOperation, txnCreator)
         except:
             pass
         self.assertEquals(self.txn.action, "aborted")
+        self.assertEquals(self.txn.label, "bad")
 
 
 

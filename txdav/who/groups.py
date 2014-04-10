@@ -87,15 +87,20 @@ class GroupCacherPollingWork(
 
 @inlineCallbacks
 def scheduleNextGroupCachingUpdate(store, seconds):
-    txn = store.newTransaction(label="scheduleNextGroupCachingUpdate")
+
     notBefore = (
         datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds)
     )
+
     log.debug(
         "Scheduling next group cacher update: {when}", when=notBefore
     )
-    wp = (yield txn.enqueue(GroupCacherPollingWork, notBefore=notBefore))
-    yield txn.commit()
+
+    def _enqueue(txn):
+        return txn.enqueue(GroupCacherPollingWork, notBefore=notBefore)
+
+    wp = yield store.inTransaction("scheduleNextGroupCachingUpdate", _enqueue)
+
     returnValue(wp)
 
 
