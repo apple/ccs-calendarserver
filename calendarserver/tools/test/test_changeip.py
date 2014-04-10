@@ -15,65 +15,46 @@
 ##
 
 from twistedcaldav.test.util import TestCase
-from calendarserver.tools.changeip_calendar import updatePlist
+from calendarserver.tools.changeip_calendar import updateConfig
+
 
 class ChangeIPTestCase(TestCase):
 
-    def test_updatePlist(self):
+    def test_updateConfig(self):
 
         plist = {
-            "Authentication" : {
-                "Wiki" : {
-                    "Hostname" : "original_hostname",
-                    "Other" : "should_be_untouched",
-                },
-            },
-            "Untouched" : "dont_change_me",
-            "BindAddresses" : [
-                "10.1.1.1",
-                "192.168.1.1",
-                "original_hostname",
-            ],
-            "ServerHostName" : "",
-            "Scheduling" : {
-                "iMIP" : {
-                    "Receiving" : {
-                        "Server" : "original_hostname",
+            "Untouched": "dont_change_me",
+            "ServerHostName": "",
+            "Scheduling": {
+                "iMIP": {
+                    "Receiving": {
+                        "Server": "original_hostname",
                     },
-                    "Sending" : {
-                        "Server" : "original_hostname",
-                        "Address" : "user@original_hostname",
+                    "Sending": {
+                        "Server": "original_hostname",
+                        "Address": "user@original_hostname",
                     },
                 },
             },
         }
 
-        updatePlist(plist, "10.1.1.1", "10.1.1.2", "original_hostname",
-            "new_hostname")
+        updateConfig(
+            plist, "10.1.1.1", "10.1.1.2", "original_hostname", "new_hostname"
+        )
 
-        self.assertEquals(plist,
+        self.assertEquals(
+            plist,
             {
-                "Authentication" : {
-                    "Wiki" : {
-                        "Hostname" : "new_hostname",
-                        "Other" : "should_be_untouched",
-                    },
-                },
-                "Untouched" : "dont_change_me",
-                "BindAddresses" : [
-                    "10.1.1.2",
-                    "192.168.1.1",
-                    "new_hostname",
-                ],
-                "ServerHostName" : "",
-                "Scheduling" : {
-                    "iMIP" : {
-                        "Receiving" : {
-                            "Server" : "new_hostname",
+                "Untouched": "dont_change_me",
+                "ServerHostName": "",
+                "Scheduling": {
+                    "iMIP": {
+                        "Receiving": {
+                            "Server": "new_hostname",
                         },
-                        "Sending" : {
-                            "Server" : "new_hostname",
-                            "Address" : "user@new_hostname",
+                        "Sending": {
+                            "Server": "new_hostname",
+                            "Address": "user@new_hostname",
                         },
                     },
                 },
