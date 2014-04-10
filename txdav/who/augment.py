@@ -379,8 +379,13 @@ class AugmentedDirectoryRecord(DirectoryRecord, CalendarDirectoryRecordMixin):
     def groups(self):
         augmented = []
 
-        txn = self.service._store.newTransaction(label="AugmentedDirectoryRecord.groups")
-        groupUIDs = yield txn.groupsFor(self.uid)
+        def _groupsFor(txn):
+            return txn.groupsFor(self.uid)
+
+        groupUIDs = yield self.service._store.inTransaction(
+            "AugmentedDirectoryRecord.groups",
+            _groupsFor
+        )
 
         for groupUID in groupUIDs:
             groupRecord = yield self.service.recordWithUID(
@@ -388,8 +393,6 @@ class AugmentedDirectoryRecord(DirectoryRecord, CalendarDirectoryRecordMixin):
             )
             if groupRecord:
                 augmented.append((yield self.service._augment(groupRecord)))
-
-        yield txn.commit()
 
         returnValue(augmented)
 
