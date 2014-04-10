@@ -505,18 +505,17 @@ class CalendarDirectoryRecordMixin(object):
                     returnValue(True)
 
 
-    def attendee(self, params=None):
+    def attendee(self, params={}):
         """
         Returns a pycalendar ATTENDEE property for this record.
 
-        @param groupUIDs: group uids for the MEMBER parameter of returned property
-        @type organizer: C{List}
+        @params: extra parameters such as MEMBER to add to ATTENDEE property
+        @type: C{dict}
 
         @return: the attendee property
         @rtype: C{Property}
         """
-        params = {} if params is None else params.copy()
-
+        params = params.copy() if params else params
         if "PARTSTAT" not in params:
             params["PARTSTAT"] = "NEEDS-ACTION"
         if "CN"not in params:
