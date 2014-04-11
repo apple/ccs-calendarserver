@@ -39,10 +39,12 @@ from twext.python.log import Logger
 from txweb2.stream import IStream
 from txweb2.dav.util import allDataFromStream
 
+from twistedcaldav.accounting import accountingEnabledForCategory, \
+    emitAccounting
 from twistedcaldav.config import config
 from twistedcaldav.dateops import timeRangesOverlap, normalizeForIndex, differenceDateTime, \
     normalizeForExpand
-from twistedcaldav.instance import InstanceList
+from twistedcaldav.instance import InstanceList, InvalidOverriddenInstanceError
 from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.timezones import hasTZ, TimezoneException
 
@@ -1456,7 +1458,16 @@ class Component (object):
 
         # Set of instances to return
         instances = InstanceList(ignoreInvalidInstances=ignoreInvalidInstances, normalizeFunction=normalizeFunction)
-        instances.expandTimeRanges(componentSet, limit, lowerLimit=lowerLimit)
+        try:
+            instances.expandTimeRanges(componentSet, limit, lowerLimit=lowerLimit)
+        except InvalidOverriddenInstanceError as e:
+            if accountingEnabledForCategory("Invalid Instance"):
+                emitAccounting(
+                    "Invalid Instance",
+                    self.resourceUID().encode("base64")[:-1],
+                    "{}\n\n{}".format(str(e), str(self)),
+                )
+            raise
         return instances
 
 
