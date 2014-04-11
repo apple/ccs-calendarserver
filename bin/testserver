@@ -26,7 +26,7 @@ wd="$(cd "$(dirname "$0")/.." && pwd -L)";
 
 init_build > /dev/null;
 
-cdt="${py_root}/src/caldavtester";
+cdt="${py_virtualenv}/src/caldavtester";
 
 ##
 # Command line handling
