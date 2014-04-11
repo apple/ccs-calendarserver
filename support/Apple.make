@@ -134,10 +134,10 @@ OSL = $(USRDIR)/local/OpenSourceLicenses
 #install:: install-ossfiles
 
 install-ossfiles::
-	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)/$(OSV);
-	$(_v) $(INSTALL_FILE) $(Sources)/$(ProjectName).plist $(DSTROOT)/$(OSV)/$(ProjectName).plist;
-	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)/$(OSL);
-	$(_v) $(INSTALL_FILE) $(BuildDirectory)/$(Project)/LICENSE $(DSTROOT)/$(OSL)/$(ProjectName).txt;
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(OSV)";
+	$(_v) $(INSTALL_FILE) "$(Sources)/$(ProjectName).plist" "$(DSTROOT)/$(OSV)/$(ProjectName).plist";
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(OSL)";
+	$(_v) $(INSTALL_FILE) "$(BuildDirectory)/$(Project)/LICENSE" "$(DSTROOT)/$(OSL)/$(ProjectName).txt";
 
 #
 # B&I Hooey
@@ -145,8 +145,8 @@ install-ossfiles::
 
 cache_deps::
 	@echo "Downloading dependencies...";
-	$(_v) if [ ! -d requirements/cache ]; then ./support/_cache_deps ]; fi;
+	$(_v) if [ ! -d "$(Sources)/requirements/cache" ]; then "$(Sources)/support/_cache_deps" ]; fi;
 
 buildit: cache_deps
 	@echo "Running buildit...";
-	$(_v) sudo ~rc/bin/buildit $(CC_Archs) $(Sources);
+	$(_v) sudo ~rc/bin/buildit $(CC_Archs) "$(Sources)";

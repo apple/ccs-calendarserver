@@ -79,9 +79,9 @@ init_build () {
   dep_packages="${dev_home}/pkg";
    dep_sources="${dev_home}/src";
 
-    py_root="${dev_roots}/py_modules";
-  py_libdir="${py_root}/lib/python";
-  py_bindir="${py_root}/bin";
+  py_virtualenv="${dev_home}/virtualenv";
+      py_libdir="${py_virtualenv}/lib/python";
+      py_bindir="${py_virtualenv}/bin";
 
   python="${py_bindir}/python";
 
@@ -91,8 +91,8 @@ init_build () {
     dep_packages="${TWEXT_PKG_CACHE}";
   fi;
 
-  if [ ! -d "${py_root}" ]; then
-    "${bootstrap_python}" -m virtualenv "${py_root}";
+  if [ ! -d "${py_virtualenv}" ]; then
+    "${bootstrap_python}" -m virtualenv "${py_virtualenv}";
   fi;
 
   project="$(setup_print name)";
@@ -589,7 +589,7 @@ c_dependencies () {
 # Build Python dependencies
 #
 py_dependencies () {
-  export PATH="${py_root}/bin:${PATH}";
+  export PATH="${py_virtualenv}/bin:${PATH}";
   export PYTHON="${python}";
   export PYTHONPATH="${wd}:${PYTHONPATH:-}";
 
@@ -611,10 +611,10 @@ py_dependencies () {
 
   if "${force_setup}"; then
     # Nuke the virtual environment first
-    rm -rf "${py_root}";
+    rm -rf "${py_virtualenv}";
   fi;
 
-  "${bootstrap_python}" -m virtualenv "${py_root}";
+  "${bootstrap_python}" -m virtualenv "${py_virtualenv}";
 
   # Make sure setup got called enough to write the version file.
 
@@ -626,21 +626,30 @@ py_dependencies () {
     pip_install="pip_download_and_install";
   fi;
 
-  local requirements="${wd}/requirements.txt";
-
   ruler "Preparing Python requirements";
   echo "";
-  "${pip_install}" "--requirement=${requirements}";
+  "${pip_install}" --requirement="${wd}/requirements.txt";
 
   for option in $("${python}" -c 'import setup; print "\n".join(setup.extras_requirements.keys())'); do
     ruler "Preparing Python requirements for optional feature: ${option}";
     echo "";
-    if ! "${pip_install}" "--editable=${wd}[${option}]"; then
+    if ! "${pip_install}" --editable="${wd}[${option}]"; then
       echo "Feature ${option} is optional; continuing.";
     fi;
   done;
 
   echo "";
+}
+
+
+pip_download () {
+  mkdir -p "${dev_home}/pip_downloads";
+
+  "${python}" -m pip install                  \
+    --download="${dev_home}/pip_downloads"    \
+    --pre --allow-all-external                \
+    --log="${dev_home}/pip.log"               \
+    "$@";
 }
 
 
@@ -655,7 +664,8 @@ pip_install_from_cache () {
 
 pip_download_and_install () {
   "${python}" -m pip install                  \
-    --pre --upgrade                           \
+    --upgrade                                 \
+    --pre --allow-all-external                \
     --download-cache="${dev_home}/pip_cache"  \
     --log="${dev_home}/pip.log"               \
     "$@";
