@@ -143,10 +143,6 @@ install-ossfiles::
 # B&I Hooey
 #
 
-cache_deps:: install_source
-	@echo "Downloading dependencies...";
-	$(_v) if [ ! -d "./requirements/cache" ]; then "./support/_cache_deps" ]; fi;
-
 buildit: cache_deps
 	@echo "Running buildit...";
 	$(_v) sudo ~rc/bin/buildit $(CC_Archs) "$(Sources)";

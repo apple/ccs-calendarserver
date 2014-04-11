@@ -164,7 +164,7 @@ EOF
 
 echo "";
 echo "Preparing sources for ${project_version}...";
-make -C "${wc}" cache_deps;
+"${wc}/support/_cache_deps";
 
 if "${build}"; then
   echo "";
@@ -205,7 +205,9 @@ if "${build}"; then
     fi;
   fi;
 else
-  echo "${wc}"; exit 1;
+  # Clean up after _cache_deps
+  find "${wc}/.develop" -depth 1 ! -name pip_downloads -print0 | xargs -0 rm -r;
+
   echo "";
   echo "Submitting sources for ${project_version}...";
   rm -rf "${wc}/.dependencies";

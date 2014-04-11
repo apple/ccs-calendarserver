@@ -655,8 +655,9 @@ pip_download () {
 
 pip_install_from_cache () {
   "${python}" -m pip install                 \
-    --find-links="${dev_home}/pip_downloads" \
+    --pre --allow-all-external               \
     --no-index                               \
+    --find-links="${dev_home}/pip_downloads" \
     --log="${dev_home}/pip.log"              \
     "$@";
 }
