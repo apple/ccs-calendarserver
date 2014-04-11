@@ -143,9 +143,9 @@ install-ossfiles::
 # B&I Hooey
 #
 
-cache_deps::
+cache_deps:: install_source
 	@echo "Downloading dependencies...";
-	$(_v) if [ ! -d "$(Sources)/requirements/cache" ]; then "$(Sources)/support/_cache_deps" ]; fi;
+	$(_v) if [ ! -d "./requirements/cache" ]; then "./support/_cache_deps" ]; fi;
 
 buildit: cache_deps
 	@echo "Running buildit...";
