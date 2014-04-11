@@ -482,6 +482,7 @@ DEFAULT_CONFIG = {
         "Implicit Errors": False,
         "AutoScheduling": False,
         "iSchedule": False,
+        "Invalid Instance": False,
     },
     "AccountingPrincipals": [],
     "AccountingLogRoot"   : "accounting",

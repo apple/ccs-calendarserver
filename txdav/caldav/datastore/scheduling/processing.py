@@ -551,7 +551,7 @@ class ImplicitProcessor(object):
                         "AutoScheduling",
                         self.recipient.principal,
                         json.dumps(accounting) + "\r\n",
-                        filename=self.uid + ".txt"
+                        filename=self.uid.encode("base64")[:-1] + ".txt"
                 )
 
                 # Only store inbox item when reply is not sent or always for users
@@ -593,7 +593,7 @@ class ImplicitProcessor(object):
                             "AutoScheduling",
                             self.recipient.principal,
                             json.dumps(accounting) + "\r\n",
-                            filename=self.uid + ".txt"
+                            filename=self.uid.encode("base64")[:-1] + ".txt"
                         )
 
                     # Only store inbox item when reply is not sent or always for users
@@ -682,7 +682,7 @@ class ImplicitProcessor(object):
                         "AutoScheduling",
                         self.recipient.principal,
                         json.dumps(accounting) + "\r\n",
-                        filename=self.uid + ".txt"
+                        filename=self.uid.encode("base64")[:-1] + ".txt"
                     )
                 if delete_original:
 
