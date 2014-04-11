@@ -43,7 +43,8 @@ init_build;
 c_dependencies;
 
 requirements="${wd}/requirements.txt";
-extra_features="$("${python}" -c 'import setup; print ",".join(sorted(setup.extras_requirements.keys()))' | sed 's|Oracle,||')";
+#extra_features="$("${python}" -c 'import setup; print ",".join(sorted(setup.extras_requirements.keys()))' | sed 's|Oracle,||')";
+extra_features="OpenDirectory,Postgres";
 cs_repos="svn+http://svn.calendarserver.org/repository/calendarserver";
 
 ruler "Downloading Python requirements for .[${extra_features}]";

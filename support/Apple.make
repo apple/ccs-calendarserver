@@ -36,13 +36,13 @@ SIPP = $(SERVER_INSTALL_PATH_PREFIX)
 endif
 SERVERSETUP = $(SIPP)$(NSSYSTEMDIR)$(NSLIBRARYSUBDIR)/ServerSetup
 
-Cruft += .develop
+# Cruft += .develop
 # Extra_Environment += PATH="$(SIPP)/usr/bin:$$PATH"
 # Extra_Environment += PYTHONPATH="$(CS_PY_LIBS)"
 
 CALDAVDSUBDIR = /caldavd
 
-PYTHON = $(USRBINDIR)/python
+PYTHON = $(USRBINDIR)/python2.7
 CS_SHAREDIR = $(SHAREDIR)$(CALDAVDSUBDIR)
 CS_PY_LIBS = $(CS_SHAREDIR)/lib/python
 CS_LIBEXEC = $(SIPP)$(LIBEXECDIR)$(CALDAVDSUBDIR)
@@ -70,11 +70,14 @@ install:: build
 	# 	install $(PY_INSTALL_FLAGS) $(CS_INSTALL_FLAGS) \
 	# 	;
 	@echo "Installing Python packages...";
-	$(_v) pip install -e $(BuildDirectory)/$(Project)       \
-		--install-option --root="$(DSTROOT)"                \
-		--install-option --prefix="$(SIPP)"                 \
-		--install-option --install-lib="$(CS_PY_LIBS)"      \
-		--install-option --install-scripts="$(CS_LIBEXEC)"  \
+	$(_v) $(PYTHON) -m pip install                                          \
+   	    --pre --allow-all-external --no-index                               \
+        --find-links "$(Sources)/.develop/pip_downloads"                    \
+	    --editable "$(BuildDirectory)/$(Project)[OpenDirectory,Postgres]"   \
+		--install-option --root="$(DSTROOT)"                                \
+		--install-option --prefix="$(SIPP)"                                 \
+		--install-option --install-lib="$(CS_PY_LIBS)"                      \
+		--install-option --install-scripts="$(CS_LIBEXEC)"                  \
 		;
 	@echo "Cleaning up...";
 	$(_v) for so in $$(find "$(DSTROOT)$(CS_SHAREDIR)/lib" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done;
