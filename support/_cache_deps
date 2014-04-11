@@ -24,26 +24,34 @@ wd="$(cd "$(dirname "$0")/.." && pwd)";
 
 . "${wd}/bin/_build.sh";
 
-do_setup="false";
+#
+# It's entirely ridiculous that we have to *build* our C dependencies in order
+# to simply download our Python dependencies, but in order to calculate
+# dependencies, setuptools needs to basically run "setup.py egg_info", and
+# some packages require the C dependencies in order to do this, and several
+# even build stuff in this case.
+#
+# So the caclulation work here is enormous when it should be rather simple.
+#
+# Then, of course, we throw most of that work away, because we don't want build
+# products here, just the source files.
+#
+# Oy.
+#
 
-develop > /dev/null;
+init_build;
+c_dependencies;
 
-rm -rf "${wd}/requirements/cache";
-mkdir "${wd}/requirements/cache";
+requirements="${wd}/requirements.txt";
+extra_features="$("${python}" -c 'import setup; print ",".join(sorted(setup.extras_requirements.keys()))' | sed 's|Oracle,||')";
+cs_repos="svn+http://svn.calendarserver.org/repository/calendarserver";
 
-find "${wd}/requirements" -type f -name "py_*.txt" |\
-  while read requirements; do
-    case "${requirements}" in
-      */py_opt_OpenDirectory.txt) download=false; ;;
-      */py_opt_Oracle.txt) download=false; ;;
-      *) download=true; ;;
-    esac;
-
-    if "${download}"; then
-      echo "Downloading requirements from: ${requirements}";
-
-      "${python}" -m pip install               \
-        --download "${wd}/requirements/cache"  \
-        --requirement "${requirements}";
-    fi;
-  done;
+ruler "Downloading Python requirements for .[${extra_features}]";
+echo "";
+pip_download \
+  --allow-unverified cx-Oracle \
+  --editable="${cs_repos}/twext/trunk#egg=twextpy" \
+  --editable="${cs_repos}/PyKerberos/trunk#egg=kerberos" \
+  --editable="${cs_repos}/PyCalendar/trunk#egg=pycalendar" \
+  --editable=".[${extra_features}]" \
+  ;
