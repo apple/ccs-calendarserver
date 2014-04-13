@@ -3100,6 +3100,13 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # Do scheduling
         if scheduler is not None:
+            # Cannot do implicit in sharee's shared calendar
+            if not self.calendar().owned():
+                scheduler.setSchedulingNotAllowed(
+                    ShareeAllowedError,
+                    "Sharee's cannot schedule",
+                )
+
             yield scheduler.doImplicitScheduling()
 
 
