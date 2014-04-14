@@ -16,7 +16,9 @@
 
 from __future__ import with_statement
 
-from twistedcaldav.localization import translationTo, getLanguage, _
+from twistedcaldav.localization import (
+    translationTo, getLanguage, _remapLanguageCode, _
+)
 from twistedcaldav.ical import Component
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.config import ConfigDict
@@ -175,3 +177,13 @@ class LocalizationTests(TestCase):
         """
 
         self.assertEquals(getLanguage(ConfigDict({"Localization" : {"Language" : "xyzzy"}})), "xyzzy")
+
+
+    def test_remap(self):
+        """
+        Verify proper remapping of Chinese language codes
+        """
+        self.assertEquals(_remapLanguageCode("en"), "en")
+        self.assertEquals(_remapLanguageCode("zh-Hans"), "zh_CN")
+        self.assertEquals(_remapLanguageCode("zh-Hant"), "zh_TW")
+

@@ -484,6 +484,18 @@ def convertStringsFile(src, dest):
         outFile.write(result)
 
 
+def _remapLanguageCode(code):
+    """
+    Remap certain language codes to others, per the localization team
+    """
+
+    if code == "zh-Hans":  # Simplified Chinese
+        code = "zh_CN"
+    elif code == "zh-Hant":  # Traditional Chinese
+        code = "zh_TW"
+
+    return code
+
 
 def getLanguage(config):
     """
@@ -492,8 +504,8 @@ def getLanguage(config):
 
     @param config: The configuration object to examine
     @type config: ConfigDict
-    @return: The two-letter language code -- on OS X the supported ones are:
-        de, en, es, fr, it, ja, ko, nl
+    @return: The language code -- on OS X the supported ones are:
+        de, en, es, fr, it, ja, ko, nl, zh_CN, zh_TW
     @rtype: C{str}
     """
     if config.Localization.Language:
@@ -501,6 +513,7 @@ def getLanguage(config):
 
     try:
         language = NSLocale.preferredLanguages()[0]
+        language = _remapLanguageCode(language)
     except:
         language = "en"
 
