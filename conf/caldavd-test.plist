@@ -185,21 +185,21 @@
     <dict>
       <key>type</key>
       <string>twistedcaldav.directory.xmlfile.XMLDirectoryService</string>
-      
+
       <key>params</key>
       <dict>
         <key>xmlFile</key>
         <string>./conf/auth/accounts-test.xml</string>
       </dict>
     </dict>
-    
+
     <!-- Open Directory Service (Mac OS X) -->
     <!--
     <key>DirectoryService</key>
     <dict>
       <key>type</key>
       <string>twistedcaldav.directory.appleopendirectory.OpenDirectoryService</string>
-      
+
       <key>params</key>
       <dict>
         <key>node</key>
@@ -358,6 +358,10 @@
     </dict>
     -->
 
+    <!-- The realm to use for Digest Auth -->
+    <key>DirectoryRealmName</key>
+    <string>Test Realm</string>
+
     <!-- Resource and Location Service -->
     <key>ResourceService</key>
     <dict>
@@ -365,7 +369,7 @@
       <true/>
       <key>type</key>
       <string>twistedcaldav.directory.xmlfile.XMLDirectoryService</string>
-      
+
       <key>params</key>
       <dict>
         <key>xmlFile</key>
@@ -378,7 +382,7 @@
     <dict>
       <key>type</key>
       <string>twistedcaldav.directory.augment.AugmentXMLDB</string>
-      
+
       <key>params</key>
       <dict>
         <key>xmlFiles</key>
@@ -394,7 +398,7 @@
     <dict>
       <key>type</key>
       <string>twistedcaldav.directory.augment.AugmentSqliteDB</string>
-      
+
       <key>params</key>
       <dict>
         <key>dbpath</key>
@@ -409,7 +413,7 @@
     <dict>
       <key>type</key>
       <string>twistedcaldav.directory.augment.AugmentPostgreSQLDB</string>
-      
+
       <key>params</key>
       <dict>
         <key>host</key>
@@ -425,7 +429,7 @@
     <dict>
       <key>type</key>
       <string>twistedcaldav.directory.calendaruserproxy.ProxySqliteDB</string>
-      
+
       <key>params</key>
       <dict>
         <key>dbpath</key>
@@ -439,7 +443,7 @@
     <dict>
       <key>type</key>
       <string>twistedcaldav.directory.calendaruserproxy.ProxyPostgreSQLDB</string>
-      
+
       <key>params</key>
       <dict>
         <key>host</key>
@@ -803,7 +807,7 @@
 	        <key>DefaultMode</key>
 	        <string>automatic</string>
 		</dict>
-		
+
 		<key>WorkQueues</key>
 		<dict>
 			<key>Enabled</key>
@@ -853,7 +857,7 @@
     <!-- Private Events -->
     <key>EnablePrivateEvents</key>
     <true/>
-    
+
     <!-- Private Comment fix off for testing -->
     <key>RemoveDuplicatePrivateComments</key>
     <false/>
@@ -930,7 +934,7 @@
     <key>ResponseCompression</key>
     <false/>  <!-- Off for testing, as debugging is easier that way. -->
 
-    
+
     <!-- The retry-after value (in seconds) to return with a 503 error. -->
     <key>HTTPRetryAfter</key>
     <integer>180</integer>
