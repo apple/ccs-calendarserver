@@ -71,11 +71,11 @@ class WebAdminLandingResource(TemplateResource):
         from .principals import PrincipalsResource
         self.putChild(u"principals", PrincipalsResource(directory, store))
 
-        from .logs import LogsResource
-        self.putChild(u"logs", LogsResource())
+        # from .logs import LogsResource
+        # self.putChild(u"logs", LogsResource())
 
-        from .work import WorkMonitorResource
-        self.putChild(u"work", WorkMonitorResource(store))
+        # from .work import WorkMonitorResource
+        # self.putChild(u"work", WorkMonitorResource(store))
 
 
     def getChild(self, name):

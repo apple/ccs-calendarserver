@@ -257,9 +257,9 @@ class EventStream(object):
 
             return succeed(b"")
 
-        # This causes the client to poll, which is undesirable, but the
-        # deferred below doesn't seem to work in real use...
-        return succeed(None)
+        # # This causes the client to poll, which is undesirable, but the
+        # # deferred below doesn't seem to work in real use...
+        # return succeed(None)
 
         d = Deferred()
         self._deferredRead = d
