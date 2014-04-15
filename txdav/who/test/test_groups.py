@@ -35,6 +35,22 @@ class GroupCacherTest(StoreTestCase):
 
 
     @inlineCallbacks
+    def test_multipleCalls(self):
+        """
+        Ensure multiple calls to groupByUID() don't raise an exception
+        """
+
+        store = self.storeUnderTest()
+        txn = store.newTransaction()
+
+        record = yield self.directory.recordWithUID(u"__top_group_1__")
+        groupID, name, membershipHash, modified = (yield txn.groupByUID(record.uid))
+        groupID, name, membershipHash, modified = (yield txn.groupByUID(record.uid))
+
+        yield txn.commit()
+
+
+    @inlineCallbacks
     def test_refreshGroup(self):
         """
         Verify refreshGroup() adds a group to the Groups table with the
@@ -73,6 +89,8 @@ class GroupCacherTest(StoreTestCase):
         record = yield self.directory.recordWithUID(u"__sagen1__")
         groups = (yield self.groupCacher.cachedGroupsFor(txn, record.uid))
         self.assertEquals(set([u"__top_group_1__"]), groups)
+
+        yield txn.commit()
 
 
     @inlineCallbacks
@@ -123,6 +141,8 @@ class GroupCacherTest(StoreTestCase):
         records = (yield self.groupCacher.cachedMembers(txn, groupID))
         self.assertEquals(len(records), 0)
 
+        yield txn.commit()
+
 
     @inlineCallbacks
     def test_groupByID(self):
@@ -139,6 +159,8 @@ class GroupCacherTest(StoreTestCase):
         groupID, _ignore_name, _ignore_membershipHash, _ignore_modified = yield txn.groupByUID(uid)
         results = (yield txn.groupByID(groupID))
         self.assertEquals((uid, u"Top Group 1", hash), results)
+
+        yield txn.commit()
 
 
     @inlineCallbacks
@@ -310,6 +332,8 @@ class GroupCacherTest(StoreTestCase):
             )
         )
 
+        yield txn.commit()
+
 
     def test_diffAssignments(self):
         """
@@ -390,4 +414,3 @@ class GroupCacherTest(StoreTestCase):
                 {"D": ("7", "8"), "C": ("4", "5"), "A": ("1", "2")},
             )
         )
-
