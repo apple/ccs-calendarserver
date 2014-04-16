@@ -3380,11 +3380,8 @@ END:VCALENDAR
                     else:
                         prop.removeParameter("EMAIL")
 
-                if cutype == "INDIVIDUAL":
-                    cutype = None
-
                 if cutype != prop.parameterValue("CUTYPE"):
-                    if cutype:
+                    if cutype and cutype != "INDIVIDUAL":
                         prop.setParameter("CUTYPE", cutype)
                     else:
                         prop.removeParameter("CUTYPE")
