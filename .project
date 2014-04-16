@@ -1,12 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>trunk</name>
+	<name>CalendarServer</name>
 	<comment></comment>
 	<projects>
-		<project>caldavclientlibrary</project>
-		<project>kerberos</project>
+		<project>CalDAVClientLibrary</project>
+		<project>cffi</project>
+		<project>psutil</project>
+		<project>pyasn1</project>
 		<project>pycalendar</project>
-		<project>twextpy</project>
+		<project>pycparser</project>
+		<project>pycrypto</project>
+		<project>PyGreSQL</project>
+		<project>python-ldap-2.3.13</project>
+		<project>sqlparse</project>
+		<project>twext</project>
+		<project>Twisted</project>
+		<project>zope.interface-4.0.3</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>

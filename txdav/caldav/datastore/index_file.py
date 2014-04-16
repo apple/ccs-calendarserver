@@ -791,8 +791,8 @@ class CalendarIndex (AbstractCalendarIndex):
                     transp
                 )
                 instanceid = self.lastrowid
-                peruserdata = calendar.perUserTransparency(instance.rid)
-                for useruid, transp in peruserdata:
+                peruserdata = calendar.perUserData(instance.rid)
+                for useruid, (transp, _ignore_adjusted_start, _ignore_adjusted_end) in peruserdata:
                     peruserid = useruidmap[useruid]
                     self._db_execute(
                         """
@@ -814,8 +814,8 @@ class CalendarIndex (AbstractCalendarIndex):
                     """, resourceid, float, pyCalendarTodatetime(start), pyCalendarTodatetime(end), '?', '?'
                 )
                 instanceid = self.lastrowid
-                peruserdata = calendar.perUserTransparency(None)
-                for useruid, transp in peruserdata:
+                peruserdata = calendar.perUserData(None)
+                for useruid, (transp, _ignore_adjusted_start, _ignore_adjusted_end) in peruserdata:
                     peruserid = useruidmap[useruid]
                     self._db_execute(
                         """

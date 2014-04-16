@@ -3439,12 +3439,12 @@ END:VCALENDAR
         return results
 
 
-    def perUserTransparency(self, rid):
+    def perUserData(self, rid):
 
-        # We will create a cache of all user/rid/transparency values as we will likely
+        # We will create a cache of all user/rid/transparency/adjusted_start/adjusted_end values as we will likely
         # be calling this a lot
-        if not hasattr(self, "_perUserTransparency"):
-            self._perUserTransparency = {}
+        if not hasattr(self, "_perUserData"):
+            self._perUserData = {}
 
             # Do per-user data
             for component in self.subcomponents():
@@ -3454,22 +3454,28 @@ END:VCALENDAR
                         if subcomponent.name() == PERINSTANCE_COMPONENT:
                             instancerid = subcomponent.propertyValue("RECURRENCE-ID")
                             transp = subcomponent.propertyValue("TRANSP") == "TRANSPARENT"
-                            self._perUserTransparency.setdefault(uid, {})[instancerid] = transp
+                            adjusted_start = subcomponent.propertyValue("X-APPLE-TRAVEL-DURATION")
+                            if adjusted_start is None:
+                                adjusted_start = subcomponent.propertyValue("X-APPLE-TRAVEL-START")
+                            adjusted_end = subcomponent.propertyValue("X-APPLE-TRAVEL-RETURN-DURATION")
+                            if adjusted_end is None:
+                                adjusted_end = subcomponent.propertyValue("X-APPLE-TRAVEL-RETURN")
+                            self._perUserData.setdefault(uid, {})[instancerid] = (transp, adjusted_start, adjusted_end,)
                 elif component.name() not in ignoredComponents:
                     instancerid = component.propertyValue("RECURRENCE-ID")
                     transp = component.propertyValue("TRANSP") == "TRANSPARENT"
-                    self._perUserTransparency.setdefault("", {})[instancerid] = transp
+                    self._perUserData.setdefault("", {})[instancerid] = (transp, None, None,)
 
         # Now lookup in cache
         results = []
-        for uid, cachedRids in sorted(self._perUserTransparency.items(), key=lambda x: x[0]):
+        for uid, cachedRids in sorted(self._perUserData.items(), key=lambda x: x[0]):
             lookupRid = rid
             if lookupRid not in cachedRids:
                 lookupRid = None
             if lookupRid in cachedRids:
                 results.append((uid, cachedRids[lookupRid],))
             else:
-                results.append((uid, False,))
+                results.append((uid, (False, None, None,)))
 
         return tuple(results)
 

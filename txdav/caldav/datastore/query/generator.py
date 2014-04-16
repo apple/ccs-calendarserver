@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from twext.enterprise.dal.syntax import Select
+from twext.enterprise.dal.syntax import Select, Coalesce
 
 from txdav.common.datastore.query import expression
 from txdav.common.datastore.query.generator import SQLQueryGenerator
@@ -31,7 +31,7 @@ __all__ = [
 class CalDAVSQLQueryGenerator(SQLQueryGenerator):
 
     _timerange = schema.TIME_RANGE
-    _transparency = schema.TRANSPARENCY
+    _peruser = schema.PERUSER
 
     def __init__(self, expr, collection, whereid, userid=None, freebusy=False):
         """
@@ -40,9 +40,9 @@ class CalDAVSQLQueryGenerator(SQLQueryGenerator):
         @type expr: L{expression}
         @param collection: the resource targeted by the query
         @type collection: L{CommonHomeChild}
-        @param userid: user for whom query is being done - query will be scoped to that user's privileges and their transparency
+        @param userid: user for whom query is being done - query will be scoped to that user's privileges and their per-user data
         @type userid: C{str}
-        @param freebusy: whether or not a freebusy query is being done - if it is, additional time range and transparency information is returned
+        @param freebusy: whether or not a freebusy query is being done - if it is, additional time range and peruser information is returned
         @type freebusy: C{bool}
         """
         super(CalDAVSQLQueryGenerator, self).__init__(expr, collection, whereid)
@@ -69,11 +69,11 @@ class CalDAVSQLQueryGenerator(SQLQueryGenerator):
             columns.extend([
                 obj.ORGANIZER,
                 self._timerange.FLOATING,
-                self._timerange.START_DATE,
-                self._timerange.END_DATE,
+                Coalesce(self._peruser.ADJUSTED_START_DATE, self._timerange.START_DATE),
+                Coalesce(self._peruser.ADJUSTED_END_DATE, self._timerange.END_DATE),
                 self._timerange.FBTYPE,
                 self._timerange.TRANSPARENT,
-                self._transparency.TRANSPARENT,
+                self._peruser.TRANSPARENT,
             ])
 
         # For SQL data DB we need to restrict the query to just the targeted calendar resource-id if provided
@@ -135,8 +135,8 @@ class CalDAVSQLQueryGenerator(SQLQueryGenerator):
             if self.freebusy:
                 tables = obj.join(
                     self._timerange.join(
-                        self._transparency,
-                        on=(self._timerange.INSTANCE_ID == self._transparency.TIME_RANGE_INSTANCE_ID).And(self._transparency.USER_ID == self.userid),
+                        self._peruser,
+                        on=(self._timerange.INSTANCE_ID == self._peruser.TIME_RANGE_INSTANCE_ID).And(self._peruser.USER_ID == self.userid),
                         type="left outer"
                     ),
                     type=","
@@ -166,25 +166,32 @@ class CalDAVSQLQueryGenerator(SQLQueryGenerator):
         # Generate based on each type of expression we might encounter
         partial = None
 
+        if self.freebusy:
+            start_expr = Coalesce(self._peruser.ADJUSTED_START_DATE, self._timerange.START_DATE)
+            end_expr = Coalesce(self._peruser.ADJUSTED_END_DATE, self._timerange.END_DATE)
+        else:
+            start_expr = self._timerange.START_DATE
+            end_expr = self._timerange.END_DATE
+
         # time-range
         if isinstance(expr, expression.timerangeExpression):
             if expr.start and expr.end:
                 partial = (
-                    (self._timerange.FLOATING == False).And(self._timerange.START_DATE < expr.end).And(self._timerange.END_DATE > expr.start)
+                    (self._timerange.FLOATING == False).And(start_expr < expr.end).And(end_expr > expr.start)
                 ).Or(
-                    (self._timerange.FLOATING == True).And(self._timerange.START_DATE < expr.endfloat).And(self._timerange.END_DATE > expr.startfloat)
+                    (self._timerange.FLOATING == True).And(start_expr < expr.endfloat).And(end_expr > expr.startfloat)
                 )
             elif expr.start and expr.end is None:
                 partial = (
-                    (self._timerange.FLOATING == False).And(self._timerange.END_DATE > expr.start)
+                    (self._timerange.FLOATING == False).And(end_expr > expr.start)
                 ).Or(
-                    (self._timerange.FLOATING == True).And(self._timerange.END_DATE > expr.startfloat)
+                    (self._timerange.FLOATING == True).And(end_expr > expr.startfloat)
                 )
             elif not expr.start and expr.end:
                 partial = (
-                    (self._timerange.FLOATING == False).And(self._timerange.START_DATE < expr.end)
+                    (self._timerange.FLOATING == False).And(start_expr < expr.end)
                 ).Or(
-                    (self._timerange.FLOATING == True).And(self._timerange.START_DATE < expr.endfloat)
+                    (self._timerange.FLOATING == True).And(start_expr < expr.endfloat)
                 )
             self.usedtimerange = True
 

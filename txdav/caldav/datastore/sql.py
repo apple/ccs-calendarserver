@@ -2935,7 +2935,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     def _addInstanceDetails(self, component, rid, start, end, floating, transp, fbtype, isInboxItem, txn):
 
         tr = schema.TIME_RANGE
-        tpy = schema.TRANSPARENCY
+        tpy = schema.PERUSER
 
         instanceid = (yield Insert({
             tr.CALENDAR_RESOURCE_ID        : self._calendar._resourceID,
@@ -2949,13 +2949,24 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # Don't do transparency for inbox items - we never do freebusy on inbox
         if not isInboxItem:
-            peruserdata = component.perUserTransparency(rid)
-            for useruid, usertransp in peruserdata:
-                if usertransp != transp:
+            peruserdata = component.perUserData(rid)
+            for useruid, (usertransp, adjusted_start, adjusted_end) in peruserdata:
+
+                def _adjustDateTime(dt, adjustment, add_duration):
+                    if isinstance(adjustment, Duration):
+                        return pyCalendarTodatetime((dt + adjustment) if add_duration else (dt - adjustment))
+                    elif isinstance(adjustment, DateTime):
+                        return pyCalendarTodatetime(normalizeForIndex(adjustment))
+                    else:
+                        return None
+
+                if usertransp != transp or adjusted_start is not None or adjusted_end is not None:
                     (yield Insert({
                         tpy.TIME_RANGE_INSTANCE_ID : instanceid,
                         tpy.USER_ID                : useruid,
                         tpy.TRANSPARENT            : usertransp,
+                        tpy.ADJUSTED_START_DATE    : _adjustDateTime(start, adjusted_start, add_duration=False),
+                        tpy.ADJUSTED_END_DATE      : _adjustDateTime(end, adjusted_end, add_duration=True),
                     }).on(txn))
 
 

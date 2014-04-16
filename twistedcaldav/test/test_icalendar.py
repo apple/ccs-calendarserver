@@ -5696,7 +5696,7 @@ END:VCALENDAR
         )))
 
 
-    def test_perUserTransparency(self):
+    def test_perUserData(self):
         data = (
                     (
                         "No per-user, not recurring 1.1",
@@ -5719,7 +5719,7 @@ END:VCALENDAR
                             (
                                 None,
                                 (
-                                    ("", True,),
+                                    ("", (True, None, None,),),
                                 ),
                             ),
                         ),
@@ -5756,8 +5756,8 @@ END:VCALENDAR
                             (
                                 None,
                                 (
-                                    ("", False,),
-                                    ("user01", False,),
+                                    ("", (False, None, None,),),
+                                    ("user01", (False, None, None,),),
                                 ),
                             ),
                         ),
@@ -5801,9 +5801,9 @@ END:VCALENDAR
                             (
                                 None,
                                 (
-                                    ("", False,),
-                                    ("user01", False,),
-                                    ("user02", True,),
+                                    ("", (False, None, None,),),
+                                    ("user01", (False, None, None,),),
+                                    ("user02", (True, None, None,),),
                                 ),
                             ),
                         ),
@@ -5829,13 +5829,13 @@ END:VCALENDAR
                             (
                                 None,
                                 (
-                                    ("", False,),
+                                    ("", (False, None, None,),),
                                 ),
                             ),
                             (
                                 DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
                                 (
-                                    ("", False,),
+                                    ("", (False, None, None,),),
                                 ),
                             ),
                         ),
@@ -5873,15 +5873,15 @@ END:VCALENDAR
                             (
                                 None,
                                 (
-                                    ("", False,),
-                                    ("user01", False,),
+                                    ("", (False, None, None,),),
+                                    ("user01", (False, None, None,),),
                                 ),
                             ),
                             (
                                 DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
                                 (
-                                    ("", False,),
-                                    ("user01", False,),
+                                    ("", (False, None, None,),),
+                                    ("user01", (False, None, None,),),
                                 ),
                             ),
                         ),
@@ -5926,17 +5926,17 @@ END:VCALENDAR
                             (
                                 None,
                                 (
-                                    ("", False,),
-                                    ("user01", False,),
-                                    ("user02", True,),
+                                    ("", (False, None, None,),),
+                                    ("user01", (False, None, None,),),
+                                    ("user02", (True, None, None,),),
                                 ),
                             ),
                             (
                                 DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
                                 (
-                                    ("", False,),
-                                    ("user01", False,),
-                                    ("user02", True,),
+                                    ("", (False, None, None,),),
+                                    ("user01", (False, None, None,),),
+                                    ("user02", (True, None, None,),),
                                 ),
                             ),
                         ),
@@ -5974,25 +5974,25 @@ END:VCALENDAR
                             (
                                 None,
                                 (
-                                    ("", True,),
+                                    ("", (True, None, None,),),
                                 ),
                             ),
                             (
                                 DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
                                 (
-                                    ("", False,),
+                                    ("", (False, None, None,),),
                                 ),
                             ),
                             (
                                 DateTime(2008, 6, 3, 12, 0, 0, tzid=Timezone(utc=True)),
                                 (
-                                    ("", True,),
+                                    ("", (True, None, None,),),
                                 ),
                             ),
                             (
                                 DateTime(2008, 6, 4, 12, 0, 0, tzid=Timezone(utc=True)),
                                 (
-                                    ("", True,),
+                                    ("", (True, None, None,),),
                                 ),
                             ),
                         ),
@@ -6048,29 +6048,29 @@ END:VCALENDAR
                             (
                                 None,
                                 (
-                                    ("", False,),
-                                    ("user01", False,),
+                                    ("", (False, None, None,),),
+                                    ("user01", (False, None, None,),),
                                 ),
                             ),
                             (
                                 DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
                                 (
-                                    ("", False,),
-                                    ("user01", True,),
+                                    ("", (False, None, None,),),
+                                    ("user01", (True, None, None,),),
                                 ),
                             ),
                             (
                                 DateTime(2008, 6, 3, 12, 0, 0, tzid=Timezone(utc=True)),
                                 (
-                                    ("", False,),
-                                    ("user01", True,),
+                                    ("", (False, None, None,),),
+                                    ("user01", (True, None, None,),),
                                 ),
                             ),
                             (
                                 DateTime(2008, 6, 4, 12, 0, 0, tzid=Timezone(utc=True)),
                                 (
-                                    ("", False,),
-                                    ("user01", False,),
+                                    ("", (False, None, None,),),
+                                    ("user01", (False, None, None,),),
                                 ),
                             ),
                         ),
@@ -6146,33 +6146,72 @@ END:VCALENDAR
                             (
                                 None,
                                 (
-                                    ("", False,),
-                                    ("user01", False,),
-                                    ("user02", True,),
+                                    ("", (False, None, None,),),
+                                    ("user01", (False, None, None,),),
+                                    ("user02", (True, None, None,),),
                                 ),
                             ),
                             (
                                 DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
                                 (
-                                    ("", False,),
-                                    ("user01", True,),
-                                    ("user02", False,),
+                                    ("", (False, None, None,),),
+                                    ("user01", (True, None, None,),),
+                                    ("user02", (False, None, None,),),
                                 ),
                             ),
                             (
                                 DateTime(2008, 6, 3, 12, 0, 0, tzid=Timezone(utc=True)),
                                 (
-                                    ("", False,),
-                                    ("user01", True,),
-                                    ("user02", True,),
+                                    ("", (False, None, None,),),
+                                    ("user01", (True, None, None,),),
+                                    ("user02", (True, None, None,),),
                                 ),
                             ),
                             (
                                 DateTime(2008, 6, 4, 12, 0, 0, tzid=Timezone(utc=True)),
                                 (
-                                    ("", False,),
-                                    ("user01", False,),
-                                    ("user02", True,),
+                                    ("", (False, None, None,),),
+                                    ("user01", (False, None, None,),),
+                                    ("user02", (True, None, None,),),
+                                ),
+                            ),
+                        ),
+                    ),
+                    (
+                        "Single user, with travel time 4.1",
+                        """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+BEGIN:X-CALENDARSERVER-PERUSER
+UID:12345-67890
+X-CALENDARSERVER-PERUSER-UID:user01
+BEGIN:X-CALENDARSERVER-PERINSTANCE
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Test
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+TRANSP:OPAQUE
+X-APPLE-TRAVEL-DURATION:PT30M
+END:X-CALENDARSERVER-PERINSTANCE
+END:X-CALENDARSERVER-PERUSER
+END:VCALENDAR
+""".replace("\n", "\r\n"),
+                        (
+                            (
+                                None,
+                                (
+                                    ("", (False, None, None,),),
+                                    ("user01", (False, Duration(minutes=30), None,),),
                                 ),
                             ),
                         ),
@@ -6182,7 +6221,7 @@ END:VCALENDAR
         for title, text, results in data:
             calendar = Component.fromString(text)
             for rid, result in results:
-                self.assertEqual(calendar.perUserTransparency(rid), result, "Failed comparison: %s %s" % (title, rid,))
+                self.assertEqual(calendar.perUserData(rid), result, "Failed comparison: %s %s" % (title, rid,))
 
 
     def test_needsiTIPSequenceChange(self):
@@ -7658,7 +7697,7 @@ END:VCALENDAR
                     "http://example.com/principals/locations/buzz" : (
                         "{Restricted} Buzz",
                         "buzz",
-                        "INDIVIDUAL",
+                        "ROOM",
                         ("urn:uuid:buzz",)
                     ),
                 }[cuaddr]

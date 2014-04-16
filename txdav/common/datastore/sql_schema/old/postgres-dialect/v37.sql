@@ -350,20 +350,18 @@ insert into FREE_BUSY_TYPE values (3, 'busy-unavailable');
 insert into FREE_BUSY_TYPE values (4, 'busy-tentative'  );
 
 
--------------------
--- Per-user data --
--------------------
+------------------
+-- Transparency --
+------------------
 
-create table PERUSER (
+create table TRANSPARENCY (
   TIME_RANGE_INSTANCE_ID      integer      not null references TIME_RANGE on delete cascade,
   USER_ID                     varchar(255) not null,
-  TRANSPARENT                 boolean      not null,
-  ADJUSTED_START_DATE         timestamp	   default null,
-  ADJUSTED_END_DATE           timestamp    default null
+  TRANSPARENT                 boolean      not null
 );
 
-create index PERUSER_TIME_RANGE_INSTANCE_ID on
-  PERUSER(TIME_RANGE_INSTANCE_ID);
+create index TRANSPARENCY_TIME_RANGE_INSTANCE_ID on
+  TRANSPARENCY(TIME_RANGE_INSTANCE_ID);
 
 
 ----------------
@@ -1016,7 +1014,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '38');
+insert into CALENDARSERVER values ('VERSION', '37');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');

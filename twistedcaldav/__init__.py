@@ -66,3 +66,8 @@ Card.setPRODID("-//CALENDARSERVER.ORG//NONSGML Version 1//EN")
 # These are properties we use directly and we want the default value type set for TEXT
 Property.registerDefaultValue("X-CALENDARSERVER-PRIVATE-COMMENT", Value.VALUETYPE_TEXT)
 Property.registerDefaultValue("X-CALENDARSERVER-ATTENDEE-COMMENT", Value.VALUETYPE_TEXT)
+
+Property.registerDefaultValue("X-APPLE-TRAVEL-DURATION", Value.VALUETYPE_DURATION, always_write_value=True)
+Property.registerDefaultValue("X-APPLE-TRAVEL-START", Value.VALUETYPE_DATETIME, always_write_value=True)
+Property.registerDefaultValue("X-APPLE-TRAVEL-RETURN-DURATION", Value.VALUETYPE_DURATION, always_write_value=True)
+Property.registerDefaultValue("X-APPLE-TRAVEL-RETURN", Value.VALUETYPE_DATETIME, always_write_value=True)

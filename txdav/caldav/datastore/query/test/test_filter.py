@@ -125,7 +125,7 @@ class TestQueryFilter(TestCase):
         select, args, usedtimerange = sql.generate()
 
         self.assertEqual(select.toSQL(), SQLFragment(
-            "select distinct RESOURCE_NAME, ICALENDAR_UID, ICALENDAR_TYPE, ORGANIZER, FLOATING, START_DATE, END_DATE, FBTYPE, TIME_RANGE.TRANSPARENT, TRANSPARENCY.TRANSPARENT from CALENDAR_OBJECT, TIME_RANGE left outer join TRANSPARENCY on INSTANCE_ID = TIME_RANGE_INSTANCE_ID and USER_ID = ? where ICALENDAR_TYPE in (?, ?, ?) and (FLOATING = ? and START_DATE < ? and END_DATE > ? or FLOATING = ? and START_DATE < ? and END_DATE > ?) and CALENDAR_OBJECT_RESOURCE_ID = RESOURCE_ID and TIME_RANGE.CALENDAR_RESOURCE_ID = ?",
+            "select distinct RESOURCE_NAME, ICALENDAR_UID, ICALENDAR_TYPE, ORGANIZER, FLOATING, coalesce(ADJUSTED_START_DATE, START_DATE), coalesce(ADJUSTED_END_DATE, END_DATE), FBTYPE, TIME_RANGE.TRANSPARENT, PERUSER.TRANSPARENT from CALENDAR_OBJECT, TIME_RANGE left outer join PERUSER on INSTANCE_ID = TIME_RANGE_INSTANCE_ID and USER_ID = ? where ICALENDAR_TYPE in (?, ?, ?) and (FLOATING = ? and coalesce(ADJUSTED_START_DATE, START_DATE) < ? and coalesce(ADJUSTED_END_DATE, END_DATE) > ? or FLOATING = ? and coalesce(ADJUSTED_START_DATE, START_DATE) < ? and coalesce(ADJUSTED_END_DATE, END_DATE) > ?) and CALENDAR_OBJECT_RESOURCE_ID = RESOURCE_ID and TIME_RANGE.CALENDAR_RESOURCE_ID = ?",
             ['user01', Parameter('arg1', 3), False, datetime.datetime(2006, 6, 5, 17, 0, tzinfo=tzutc()), datetime.datetime(2006, 6, 5, 16, 0, tzinfo=tzutc()), True, datetime.datetime(2006, 6, 5, 13, 0, tzinfo=tzutc()), datetime.datetime(2006, 6, 5, 12, 0, tzinfo=tzutc()), 1234]
         ))
         self.assertEqual(args, {"arg1": ("VEVENT", "VFREEBUSY", "VAVAILABILITY")})
@@ -218,7 +218,7 @@ class TestQueryFilter(TestCase):
 
         self.assertTrue(sql.find("RESOURCE") != -1)
         self.assertTrue(sql.find("TIMESPAN") == -1)
-        self.assertTrue(sql.find("TRANSPARENCY") == -1)
+        self.assertTrue(sql.find("PERUSER") == -1)
         self.assertTrue("VEVENT" in args)
 
 

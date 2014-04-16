@@ -192,12 +192,10 @@ insert into FREE_BUSY_TYPE (DESCRIPTION, ID) values ('free', 1);
 insert into FREE_BUSY_TYPE (DESCRIPTION, ID) values ('busy', 2);
 insert into FREE_BUSY_TYPE (DESCRIPTION, ID) values ('busy-unavailable', 3);
 insert into FREE_BUSY_TYPE (DESCRIPTION, ID) values ('busy-tentative', 4);
-create table PERUSER (
+create table TRANSPARENCY (
     "TIME_RANGE_INSTANCE_ID" integer not null references TIME_RANGE on delete cascade,
     "USER_ID" nvarchar2(255),
-    "TRANSPARENT" integer not null,
-    "ADJUSTED_START_DATE" timestamp default null,
-    "ADJUSTED_END_DATE" timestamp default null
+    "TRANSPARENT" integer not null
 );
 
 create table ATTACHMENT (
@@ -540,7 +538,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '38');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '37');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');
@@ -591,7 +589,7 @@ create index TIME_RANGE_CALENDAR_O_acf37bd1 on TIME_RANGE (
     CALENDAR_OBJECT_RESOURCE_ID
 );
 
-create index PERUSER_TIME_RANGE_IN_5468a226 on PERUSER (
+create index TRANSPARENCY_TIME_RAN_5f34467f on TRANSPARENCY (
     TIME_RANGE_INSTANCE_ID
 );
 
