@@ -395,6 +395,7 @@ class CalVerifyService(WorkerService, object):
         self.reactor = reactor
         self.config = config
         self._directory = store.directoryService()
+        self._principalCollection = self.rootResource().getChild("principals")
 
         self.cuaCache = {}
 
@@ -1219,23 +1220,31 @@ class BadDataService(CalVerifyService):
     def noPrincipalPathCUAddresses(self, component, doFix):
 
         @inlineCallbacks
+        def recordWithCalendarUserAddress(address):
+            principal = yield self._principalCollection.principalForCalendarUserAddress(address)
+            returnValue(principal.record)
+
+        @inlineCallbacks
         def lookupFunction(cuaddr, recordFunction, conf):
 
-            # Return cached results, if any.
+            # Return cached results, if any.add
             if cuaddr in self.cuaCache:
                 returnValue(self.cuaCache[cuaddr])
 
             result = yield normalizationLookup(cuaddr, recordFunction, conf)
-            _ignore_name, guid, _ignore_cuaddrs = result
+            _ignore_name, guid, _ignore_cutype, _ignore_cuaddrs = result
             if guid is None:
                 if cuaddr.find("__uids__") != -1:
                     guid = cuaddr[cuaddr.find("__uids__/") + 9:][:36]
-                    result = "", guid, set()
+                    result = ("", guid, "", set(),)
 
             # Cache the result
             self.cuaCache[cuaddr] = result
             returnValue(result)
 
+        x = component.resourceUID()
+        if x == "BAD10":
+            x = None
         for subcomponent in component.subcomponents():
             if subcomponent.name() in ignoredComponents:
                 continue
@@ -1246,13 +1255,13 @@ class BadDataService(CalVerifyService):
                 # http(s) principals need to be converted to urn:uuid
                 if cuaddr.startswith("http"):
                     if doFix:
-                        yield component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().recordWithCalendarUserAddress)
+                        yield component.normalizeCalendarUserAddresses(lookupFunction, recordWithCalendarUserAddress)
                     else:
                         raise InvalidICalendarDataError("iCalendar ORGANIZER starts with 'http(s)'")
                 elif cuaddr.startswith("mailto:"):
-                    if (yield lookupFunction(cuaddr, self.directoryService().recordWithCalendarUserAddress, self.config))[1] is not None:
+                    if (yield lookupFunction(cuaddr, recordWithCalendarUserAddress, self.config))[1] is not None:
                         if doFix:
-                            yield component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().recordWithCalendarUserAddress)
+                            yield component.normalizeCalendarUserAddresses(lookupFunction, recordWithCalendarUserAddress)
                         else:
                             raise InvalidICalendarDataError("iCalendar ORGANIZER starts with 'mailto:' and record exists")
                 else:
@@ -1260,7 +1269,7 @@ class BadDataService(CalVerifyService):
                         if doFix:
                             # Add back in mailto: then re-normalize to urn:uuid if possible
                             organizer.setValue("mailto:%s" % (cuaddr,))
-                            yield component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().recordWithCalendarUserAddress)
+                            yield component.normalizeCalendarUserAddresses(lookupFunction, recordWithCalendarUserAddress)
 
                             # Remove any SCHEDULE-AGENT=NONE
                             if organizer.parameterValue("SCHEDULE-AGENT", "SERVER") == "NONE":
@@ -1283,13 +1292,13 @@ class BadDataService(CalVerifyService):
                 # http(s) principals need to be converted to urn:uuid
                 if cuaddr.startswith("http"):
                     if doFix:
-                        yield component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().recordWithCalendarUserAddress)
+                        yield component.normalizeCalendarUserAddresses(lookupFunction, recordWithCalendarUserAddress)
                     else:
                         raise InvalidICalendarDataError("iCalendar ATTENDEE starts with 'http(s)'")
                 elif cuaddr.startswith("mailto:"):
-                    if (yield lookupFunction(cuaddr, self.directoryService().recordWithCalendarUserAddress, self.config))[1] is not None:
+                    if (yield lookupFunction(cuaddr, recordWithCalendarUserAddress, self.config))[1] is not None:
                         if doFix:
-                            yield component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().recordWithCalendarUserAddress)
+                            yield component.normalizeCalendarUserAddresses(lookupFunction, recordWithCalendarUserAddress)
                         else:
                             raise InvalidICalendarDataError("iCalendar ATTENDEE starts with 'mailto:' and record exists")
                 else:
@@ -1297,7 +1306,7 @@ class BadDataService(CalVerifyService):
                         if doFix:
                             # Add back in mailto: then re-normalize to urn:uuid if possible
                             attendee.setValue("mailto:%s" % (cuaddr,))
-                            yield component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().recordWithCalendarUserAddress)
+                            yield component.normalizeCalendarUserAddresses(lookupFunction, recordWithCalendarUserAddress)
                         else:
                             raise InvalidICalendarDataError("iCalendar ATTENDEE missing mailto:")
 
@@ -1309,6 +1318,9 @@ class BadDataService(CalVerifyService):
                             attendee.setParameter("CALENDARSERVER-OLD-CUA", "base64-%s" % (base64.b64encode(oldcua)))
                         else:
                             raise InvalidICalendarDataError("iCalendar ATTENDEE CALENDARSERVER-OLD-CUA not base64")
+
+        if component.resourceUID() == "BAD10":
+            x = "bad"
 
 
     def attendeesWithoutOrganizer(self, component, doFix):
