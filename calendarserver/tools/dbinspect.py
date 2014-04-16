@@ -25,20 +25,26 @@ of simple commands.
 from calendarserver.tools import tables
 from calendarserver.tools.cmdline import utilityMain, WorkerService
 from pycalendar.datetime import DateTime
+
 from twext.enterprise.dal.syntax import Select, Parameter, Count, Delete, \
     Constant
+from twext.who.idirectory import RecordType
+
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python.filepath import FilePath
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options
+
 from twistedcaldav import caldavxml
 from twistedcaldav.config import config
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.directory import calendaruserproxy
-from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
+
 from txdav.caldav.datastore.query.filter import Filter
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
+from txdav.who.idirectory import RecordType as CalRecordType
+
 from uuid import UUID
 import os
 import sys
@@ -102,13 +108,13 @@ def UIDFromInput(txn, value):
     except (ValueError, TypeError):
         pass
 
-    record = txn.directoryService().recordWithShortName(DirectoryService.recordType_users, value)
+    record = txn.directoryService().recordWithShortName(RecordType.user, value)
     if record is None:
-        record = txn.directoryService().recordWithShortName(DirectoryService.recordType_locations, value)
+        record = txn.directoryService().recordWithShortName(CalRecordType.location, value)
     if record is None:
-        record = txn.directoryService().recordWithShortName(DirectoryService.recordType_resources, value)
+        record = txn.directoryService().recordWithShortName(CalRecordType.resource, value)
     if record is None:
-        record = txn.directoryService().recordWithShortName(DirectoryService.recordType_groups, value)
+        record = txn.directoryService().recordWithShortName(RecordType.group, value)
     return record.guid if record else None
 
 
