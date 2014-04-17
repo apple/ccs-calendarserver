@@ -74,6 +74,14 @@ find_header () {
 init_build () {
   init_py;
 
+  # These variables are defaults for things which might be configured by
+  # environment; only set them if they're un-set.
+  conditional_set wd "$(pwd)";
+  conditional_set do_get "true";
+  conditional_set do_setup "true";
+  conditional_set force_setup "false";
+  conditional_set requirements "${wd}/requirements-dev.txt"
+
       dev_home="${wd}/.develop";
      dev_roots="${dev_home}/roots";
   dep_packages="${dev_home}/pkg";
@@ -97,14 +105,6 @@ init_build () {
   project="$(setup_print name)";
 
   export _DEVELOP_PROJECT_="${project}";
-
-  # These variables are defaults for things which might be configured by
-  # environment; only set them if they're un-set.
-
-  conditional_set wd "$(pwd)";
-  conditional_set do_get "true";
-  conditional_set do_setup "true";
-  conditional_set force_setup "false";
 
   # Find some hashing commands
   # sha1() = sha1 hash, if available
@@ -621,7 +621,7 @@ py_dependencies () {
 
   "${python}" "${wd}/setup.py" check > /dev/null;
 
-  if [ -d "${wd}/requirements/cache" ]; then
+  if [ -d "${dev_home}/pip_downloads" ]; then
     pip_install="pip_install_from_cache";
   else
     pip_install="pip_download_and_install";
@@ -629,7 +629,7 @@ py_dependencies () {
 
   ruler "Preparing Python requirements";
   echo "";
-  "${pip_install}" --requirement="${wd}/requirements-dev.txt";
+  "${pip_install}" --requirement="${requirements}";
 
   for option in $("${python}" -c 'import setup; print "\n".join(setup.extras_requirements.keys())'); do
     ruler "Preparing Python requirements for optional feature: ${option}";
@@ -646,10 +646,10 @@ py_dependencies () {
 pip_download () {
   mkdir -p "${dev_home}/pip_downloads";
 
-  "${python}" -m pip install                  \
-    --download="${dev_home}/pip_downloads"    \
-    --pre --allow-all-external                \
-    --log="${dev_home}/pip.log"               \
+  "${python}" -m pip install               \
+    --download="${dev_home}/pip_downloads" \
+    --pre --allow-all-external             \
+    --log="${dev_home}/pip.log"            \
     "$@";
 }
 
@@ -665,10 +665,10 @@ pip_install_from_cache () {
 
 
 pip_download_and_install () {
-  "${python}" -m pip install                  \
-    --pre --allow-all-external                \
-    --download-cache="${dev_home}/pip_cache"  \
-    --log="${dev_home}/pip.log"               \
+  "${python}" -m pip install                 \
+    --pre --allow-all-external               \
+    --download-cache="${dev_home}/pip_cache" \
+    --log="${dev_home}/pip.log"              \
     "$@";
 }
 
