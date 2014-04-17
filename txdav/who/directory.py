@@ -68,16 +68,23 @@ class CalendarDirectoryServiceMixin(object):
         from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
         address = normalizeCUAddr(address)
         record = None
-        if address.startswith("urn:uuid:"):
+
+        if address.startswith("urn:x-uid:"):
+            uid = address[10:]
+            record = yield self.recordWithUID(uid)
+
+        elif address.startswith("urn:uuid:"):
             try:
                 guid = uuid.UUID(address[9:])
             except ValueError:
                 log.info("Invalid GUID: {guid}", guid=address[9:])
                 returnValue(None)
             record = yield self.recordWithGUID(guid)
+
         elif address.startswith("mailto:"):
             records = yield self.recordsWithEmailAddress(address[7:])
             record = records[0] if records else None
+
         elif address.startswith("/principals/"):
             parts = address.split("/")
             if len(parts) == 4:
@@ -85,7 +92,6 @@ class CalendarDirectoryServiceMixin(object):
                     uid = parts[3]
                     record = yield self.recordWithUID(uid)
                 else:
-                    # recordType = self.fieldName.lookupByName(parts[2])
                     recordType = self.oldNameToRecordType(parts[2])
                     record = yield self.recordWithShortName(recordType, parts[3])
 
@@ -259,30 +265,31 @@ class CalendarDirectoryRecordMixin(object):
         except AttributeError:
             pass
 
-        try:
-            cuas = set(
-                ["mailto:{0}".format(emailAddress,)
-                 for emailAddress in self.emailAddresses]
-            )
-        except AttributeError:
-            cuas = set()
+        cuas = set()
 
+        # urn:x-uid:
+        cuas.add("urn:x-uid:{}".format(self.uid))
+
+        # urn:uuid:
         try:
             if self.guid:
                 if isinstance(self.guid, uuid.UUID):
                     guid = unicode(self.guid).upper()
                 else:
                     guid = self.guid
-                cuas.add("urn:uuid:{guid}".format(guid=guid))
+                cuas.add("urn:uuid:{}".format(guid))
         except AttributeError:
             # No guid
             pass
-        cuas.add(u"/principals/__uids__/{uid}/".format(uid=self.uid))
-        for shortName in self.shortNames:
-            cuas.add(u"/principals/{rt}/{sn}/".format(
-                rt=self.service.recordTypeToOldName(self.recordType),
-                sn=shortName)
-            )
+
+        # mailto:
+        try:
+            for emailAddress in self.emailAddresses:
+                cuas.add(u"mailto:{}".format(emailAddress))
+        except AttributeError:
+            # No emailAddresses
+            pass
+
         return frozenset(cuas)
 
     # Mapping from directory record.recordType to RFC2445 CUTYPE values
@@ -346,6 +353,7 @@ class CalendarDirectoryRecordMixin(object):
     def canonicalCalendarUserAddress(self):
         """
             Return a CUA for this record, preferring in this order:
+            urn:x-uid: form
             urn:uuid: form
             mailto: form
             /principals/__uids__/ form
@@ -355,6 +363,7 @@ class CalendarDirectoryRecordMixin(object):
         sortedCuas = sorted(self.calendarUserAddresses)
 
         for prefix in (
+            "urn:x-uid:",
             "urn:uuid:",
             "mailto:",
             "/principals/__uids__/"

@@ -677,7 +677,7 @@ class PurgeOldEventsTests(StoreTestCase):
 
         # Purge home1
         total = yield PurgePrincipalService.purgeUIDs(self._sqlCalendarStore, self.directory,
-            self.rootResource, ("home1",), verbose=False, proxies=False,
+            ("home1",), verbose=False, proxies=False,
             when=DateTime(now, 4, 1, 12, 0, 0, 0, Timezone(utc=True)))
 
         # 4 items deleted: 3 events and 1 vcard
@@ -714,7 +714,7 @@ class PurgeOldEventsTests(StoreTestCase):
 
         # Purge home1 completely
         total = yield PurgePrincipalService.purgeUIDs(self._sqlCalendarStore, self.directory,
-            self.rootResource, ("home1",), verbose=False, proxies=False, completely=True)
+            ("home1",), verbose=False, proxies=False, completely=True)
 
         # 9 items deleted: 8 events and 1 vcard
         self.assertEquals(total, 9)

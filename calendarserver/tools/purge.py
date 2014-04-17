@@ -17,30 +17,190 @@
 ##
 from __future__ import print_function
 
-from calendarserver.tools import tables
-from calendarserver.tools.cmdline import utilityMain, WorkerService
-
-from getopt import getopt, GetoptError
-
-from pycalendar.datetime import DateTime
-
-from twext.python.log import Logger
-
-from twisted.internet.defer import inlineCallbacks, returnValue
-
-from twistedcaldav import caldavxml
-
-from txdav.caldav.datastore.query.filter import Filter
-
-
 import collections
+from getopt import getopt, GetoptError
 import os
 import sys
 
+from calendarserver.tools import tables
+from calendarserver.tools.cmdline import utilityMain, WorkerService
+from pycalendar.datetime import DateTime
+from twext.python.log import Logger
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twistedcaldav import caldavxml
+from txdav.caldav.datastore.query.filter import Filter
+from twext.enterprise.dal.record import fromTable
+from twext.enterprise.dal.syntax import Delete, Select
+from twext.enterprise.jobqueue import WorkItem
+from txdav.common.datastore.sql_tables import schema
+import datetime
+
 log = Logger()
+
 
 DEFAULT_BATCH_SIZE = 100
 DEFAULT_RETAIN_DAYS = 365
+
+
+
+class PrincipalPurgeScanPollingWork(
+    WorkItem,
+    fromTable(schema.PRINCIPAL_PURGE_SCAN_POLLING_WORK)
+):
+
+    group = "principal_purge_scan_polling"
+
+    @inlineCallbacks
+    def doWork(self):
+
+        # Delete all other work items
+        yield Delete(From=self.table, Where=None).on(self.transaction)
+
+        # Schedule next update, 7 days out
+        notBefore = (
+            datetime.datetime.utcnow() +
+            datetime.timedelta(days=7)
+        )
+        log.info(
+            "Scheduling next principal purge scan update: {when}", when=notBefore
+        )
+        yield self.transaction.enqueue(
+            PrincipalPurgeScanPollingWork,
+            notBefore=notBefore
+        )
+
+        # Do the scan
+        allUIDs = set()
+        for home in (schema.CALENDAR_HOME, schema.ADDRESSBOOK_HOME):
+            for [uid] in (
+                yield Select(
+                    [home.OWNER_UID],
+                    From=home
+                ).on(self.transaction)
+            ):
+                allUIDs.add(uid)
+
+        # Spread out the per-uid checks 1 second apart
+        seconds = 0
+        for uid in allUIDs:
+            notBefore = (
+                datetime.datetime.utcnow() +
+                datetime.timedelta(seconds=seconds)
+            )
+            seconds += 1
+            yield self.transaction.enqueue(
+                PrincipalPurgeCheckWork,
+                uid=uid,
+                notBefore=notBefore
+            )
+
+
+
+
+class PrincipalPurgeCheckWork(
+    WorkItem,
+    fromTable(schema.PRINCIPAL_PURGE_CHECK_WORK)
+):
+    """
+    Work item for checking for the existence of a UID in the directory
+    """
+
+    group = property(lambda self: self.uid)
+
+    @inlineCallbacks
+    def doWork(self):
+
+        # Delete any other work items for this UID
+        yield Delete(
+            From=self.table,
+            Where=self.table.UID == self.uid
+        ).on(self.transaction)
+
+        log.debug("Checking for existence of {uid} in directory", uid=self.uid)
+        directory = self.transaction.store().directoryService()
+        record = yield directory.recordWithUID(self.uid)
+
+        if record is None:
+            # Schedule purge of this UID a week from now
+            notBefore = (
+                datetime.datetime.utcnow() +
+                datetime.timedelta(minutes=1)
+            )
+            log.warn(
+                "Principal {uid} is no longer in the directory; scheduling clean-up at {when}",
+                uid=self.uid, when=notBefore
+            )
+            yield self.transaction.enqueue(
+                PrincipalPurgeWork,
+                uid=self.uid,
+                notBefore=notBefore
+            )
+        else:
+            log.debug("{uid} is still in the directory", uid=self.uid)
+
+
+
+class PrincipalPurgeWork(
+    WorkItem,
+    fromTable(schema.PRINCIPAL_PURGE_WORK)
+):
+    """
+    Work item for purging a UID's data
+    """
+
+    group = property(lambda self: self.uid)
+
+    @inlineCallbacks
+    def doWork(self):
+
+        # Delete any other work items for this UID
+        yield Delete(
+            From=self.table,
+            Where=self.table.UID == self.uid
+        ).on(self.transaction)
+
+        # Check for UID in directory again
+        log.debug("One last existence check for {uid}", uid=self.uid)
+        directory = self.transaction.store().directoryService()
+        record = yield directory.recordWithUID(self.uid)
+
+        if record is None:
+            # Time to go
+            service = PurgePrincipalService(self.transaction.store)
+            log.warn(
+                "Cleaning up future events for principal {uid} since they are no longer in directory",
+                uid=self.uid
+            )
+            yield service.purgeUIDs(
+                self.transaction.store,
+                directory,
+                [self.uid],
+                completely=False,
+                doimplicit=True,
+                proxies=True,
+                when=None
+            )
+        else:
+            log.debug("{uid} has re-appeared in the directory", uid=self.uid)
+
+
+@inlineCallbacks
+def scheduleNextPrincipalPurgeUpdate(store, seconds):
+
+    notBefore = (
+        datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds)
+    )
+
+    log.debug(
+        "Scheduling next principal purge update: {when}", when=notBefore
+    )
+
+    def _enqueue(txn):
+        return txn.enqueue(PrincipalPurgeScanPollingWork, notBefore=notBefore)
+
+    wp = yield store.inTransaction("scheduleNextPrincipalPurgeUpdate", _enqueue)
+
+    returnValue(wp)
 
 
 
@@ -681,11 +841,10 @@ class PurgePrincipalService(WorkerService):
 
     @classmethod
     @inlineCallbacks
-    def purgeUIDs(cls, store, directory, root, uids, verbose=False, dryrun=False,
+    def purgeUIDs(cls, store, directory, uids, verbose=False, dryrun=False,
                   completely=False, doimplicit=True, proxies=True, when=None):
 
         service = cls(store)
-        service.root = root
         service.directory = directory
         service.uids = uids
         service.verbose = verbose
@@ -701,10 +860,8 @@ class PurgePrincipalService(WorkerService):
     @inlineCallbacks
     def doWork(self):
 
-        if self.root is None:
-            self.root = self.rootResource()
         if self.directory is None:
-            self.directory = self.root.getDirectory()
+            self.directory = self.store.directoryService()
 
         total = 0
 

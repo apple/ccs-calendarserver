@@ -603,6 +603,11 @@ class WorkSchedulingService(Service):
             self.store,
             int(config.LogID) if config.LogID else 5
         )
+        from calendarserver.tools.purge import scheduleNextPrincipalPurgeUpdate
+        yield scheduleNextPrincipalPurgeUpdate(
+            self.store,
+            int(config.LogID) if config.LogID else 5
+        )
 
 
 

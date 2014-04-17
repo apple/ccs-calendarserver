@@ -1295,7 +1295,8 @@ END:VCALENDAR
 
         cobj = yield self.calendarObjectUnderTest(home="user01", name="test.ics")
         comp = yield cobj.component()
-        self.assertTrue(comp.getOrganizer().startswith("mailto:"))
+        # Because CUA normalization happens in component() now too...
+        self.assertTrue(comp.getOrganizer().startswith("urn:x-uid:"))
         self.assertFalse(comp.getOrganizerScheduleAgent())
 
         cobj = yield self.calendarObjectUnderTest(home="user01", name="test.ics")
@@ -1304,7 +1305,7 @@ END:VCALENDAR
 
         cobj = yield self.calendarObjectUnderTest(home="user01", name="test.ics")
         comp = yield cobj.component()
-        self.assertTrue(comp.getOrganizer().startswith("urn:uuid:"))
+        self.assertTrue(comp.getOrganizer().startswith("urn:x-uid:"))
         self.assertTrue(comp.getOrganizerScheduleAgent())
 
 

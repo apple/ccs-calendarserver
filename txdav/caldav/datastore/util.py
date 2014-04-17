@@ -104,8 +104,8 @@ def validateCalendarComponent(calendarObject, calendar, component, inserting, mi
 def normalizationLookup(cuaddr, recordFunction, config):
     """
     Lookup function to be passed to ical.normalizeCalendarUserAddresses.
-    Returns a tuple of (Full name C{str}, guid C{UUID}, cudtype C{str}, and
-    calendar user address list C{str}) for the given cuaddr.
+    Returns a tuple of (Full name C{unicode}, uid C{unicode}, cudtype C{str}, and
+    calendar user address list C{unicode}) for the given cuaddr.
     recordFunction is called to retrieve the record for the cuaddr.
     """
     try:
@@ -127,12 +127,7 @@ def normalizationLookup(cuaddr, recordFunction, config):
         cuas = set(
             [cua.encode("utf-8") for cua in record.calendarUserAddresses]
         )
-        try:
-            guid = record.guid
-        except AttributeError:
-            guid = None
-
-        returnValue((fullName, guid, record.getCUType(), cuas))
+        returnValue((fullName, record.uid, record.getCUType(), cuas))
 
 
 

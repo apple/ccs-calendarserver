@@ -612,21 +612,10 @@ class ProvisionedPrincipals(StoreTestCase):
             provisioningResource, recordType, recordResource, record
         ) in (yield self._allRecords()):
             if record.hasCalendars:
-                if self.directory.fieldName.guid in record.fields:
-                    self.failUnless(
-                        recordResource.canonicalCalendarUserAddress()
-                        .startswith("urn:uuid:")
-                    )
-                elif self.directory.fieldName.emailAddresses in record.fields:
-                    self.failUnless(
-                        recordResource.canonicalCalendarUserAddress()
-                        .startswith("mailto:")
-                    )
-                else:
-                    self.failUnless(
-                        recordResource.canonicalCalendarUserAddress()
-                        .startswith("/principals/__uids__/")
-                    )
+                self.failUnless(
+                    recordResource.canonicalCalendarUserAddress()
+                    .startswith("urn:x-uid:")
+                )
 
 
     @inlineCallbacks
