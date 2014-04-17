@@ -24,7 +24,7 @@ from twext.enterprise.dal.syntax import Delete, Select
 from twext.enterprise.jobqueue import WorkItem, PeerConnectionPool
 from twisted.internet.defer import inlineCallbacks, returnValue
 from txdav.common.datastore.sql_tables import schema
-from txdav.caldav.datastore.sql import Calendar
+from txdav.caldav.datastore.sql import CalendarStoreFeatures
 import datetime
 import hashlib
 
@@ -175,25 +175,13 @@ class GroupAttendeeReconciliationWork(
             )
         ).on(self.transaction)
 
-        # get calendar id
-        co = schema.CALENDAR_OBJECT
-        rows = yield Select(
-                [co.CALENDAR_RESOURCE_ID, ],
-                From=co,
-                Where=co.RESOURCE_ID == self.resourceID,
-        ).on(self.transaction)
-        calendarID = rows[0][0]
+        # get db object
+        calendarObject = (yield CalendarStoreFeatures(self.transaction._store).calendarObjectWithID(self.transaction, self.resourceID))
+        component = yield calendarObject.componentForUser()
 
-        # get home id
-        calendarHomeID = (yield Calendar._ownerHomeWithResourceID.on(
-            self.transaction, resourceID=calendarID)
-        )[0][0]
-
-        # get db objects
-        calendarHome = yield self.transaction.calendarHomeWithResourceID(calendarHomeID)
-        calendar = yield calendarHome.childWithID(calendarID)
-        calendarObject = yield calendar.objectResourceWithID(self.resourceID)
-        component = yield calendarObject.component()
+        # Change a copy of the original, as we need the original cached on the resource
+        # so we can do a diff to test implicit scheduling changes
+        component = component.duplicate()
 
         # TODO: Check performance because:
         #    1) if the component is changed then expandGroupAttendee() will be called again to validate

@@ -80,8 +80,8 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         populateTxn = self.storeUnderTest().newTransaction()
         for homeUID in self.requirements:
             addressbooks = self.requirements[homeUID]
+            home = yield populateTxn.addressbookHomeWithUID(homeUID, True)
             if addressbooks is not None:
-                home = yield populateTxn.addressbookHomeWithUID(homeUID, True)
                 addressbook = home.addressbook()
 
                 addressbookObjNames = addressbooks[addressbook.name()]

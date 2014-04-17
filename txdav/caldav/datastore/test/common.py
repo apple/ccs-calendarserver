@@ -252,7 +252,6 @@ class CommonTests(CommonCommonTests):
             "calendar_empty": {},
             "not_a_calendar": None
         },
-        "not_a_home": None,
         "home_splits": {
             "calendar_1": {
                 "1.ics": (cal1SplitsRoot.child("1.ics").getContent(), metadata1),
@@ -297,7 +296,6 @@ class CommonTests(CommonCommonTests):
             "calendar_empty": {},
             "not_a_calendar": None
         },
-        "not_a_home": None,
         "home_splits": {
             "calendar_1": {
                 "1.ics": md5Values[0],

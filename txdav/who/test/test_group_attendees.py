@@ -70,13 +70,21 @@ class GroupAttendeeReconciliation(CommonCommonTests, unittest.TestCase):
         self.notifierFactory.reset()
 
     requirements = {
-        "10000000-0000-0000-0000-000000000001" : {
-            "calendar" : {}
-        },
-        "10000000-0000-0000-0000-000000000002" : {
-            "calendar" : {}
-        },
+        "10000000-0000-0000-0000-000000000001" : None,
+        "10000000-0000-0000-0000-000000000002" : None,
+        "10000000-0000-0000-0000-000000000006" : None,
+        "10000000-0000-0000-0000-000000000007" : None,
+        "10000000-0000-0000-0000-000000000008" : None,
+        "10000000-0000-0000-0000-000000000009" : None,
+        "10000000-0000-0000-0000-000000000010" : None,
     }
+
+    @inlineCallbacks
+    def _verifyObjectResourceCount(self, home, expected_count):
+        cal6 = yield self.calendarUnderTest(name="calendar", home=home)
+        count = yield cal6.countObjectResources()
+        self.assertEqual(count, expected_count)
+
 
     @inlineCallbacks
     def test_simplePUT(self):
@@ -121,6 +129,9 @@ END:VEVENT
 END:VCALENDAR
 """
 
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000006", 0)
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000007", 0)
+
         vcalendar1 = Component.fromString(data_put_1)
         yield calendar.createCalendarObjectWithName("data1.ics", vcalendar1)
         yield self.commit()
@@ -128,6 +139,9 @@ END:VCALENDAR
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000001")
         vcalendar2 = yield cobj1.component()
         self.assertEqual(normalize_iCalStr(vcalendar2), normalize_iCalStr(data_get_1))
+
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000006", 1)
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000007", 1)
 
 
     @inlineCallbacks
@@ -236,6 +250,12 @@ END:VCALENDAR
         """
         Test that nested groups are expanded expanded on PUT
         """
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000006", 0)
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000007", 0)
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000008", 0)
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000009", 0)
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000010", 0)
+
         calendar = yield self.calendarUnderTest(name="calendar", home="10000000-0000-0000-0000-000000000001")
 
         data_put_1 = """BEGIN:VCALENDAR
@@ -285,12 +305,23 @@ END:VCALENDAR
         vcalendar2 = yield cobj1.component()
         self.assertEqual(normalize_iCalStr(vcalendar2), normalize_iCalStr(data_get_1))
 
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000006", 1)
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000007", 1)
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000008", 1)
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000009", 1)
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000010", 1)
+
 
     @inlineCallbacks
     def test_multiGroupPUT(self):
         """
         Test that expanded users in two primary groups have groups in MEMBERS param
         """
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000006", 0)
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000007", 0)
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000008", 0)
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000009", 0)
+
         calendar = yield self.calendarUnderTest(name="calendar", home="10000000-0000-0000-0000-000000000001")
 
         data_put_1 = """BEGIN:VCALENDAR
@@ -343,11 +374,16 @@ END:VCALENDAR
         vcalendar2 = yield cobj1.component()
         self.assertEqual(normalize_iCalStr(vcalendar2), normalize_iCalStr(data_get_1))
 
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000006", 1)
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000007", 1)
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000008", 1)
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000009", 1)
+
 
     @inlineCallbacks
     def test_groupChange(self):
         """
-        Test that group attendee is expanded on PUT
+        Test that group attendee changes are applied to existing resources.
         """
         data_put_1 = """BEGIN:VCALENDAR
 CALSCALE:GREGORIAN
@@ -365,23 +401,6 @@ ATTENDEE:mailto:user02@example.com
 ATTENDEE:MAILTO:group01@example.com
 END:VEVENT
 END:VCALENDAR"""
-
-        data_get_1 = """BEGIN:VCALENDAR
-VERSION:2.0
-CALSCALE:GREGORIAN
-PRODID:-//Example Inc.//Example Calendar//EN
-BEGIN:VEVENT
-UID:event1@ninevah.local
-DTSTART;TZID=US/Eastern:20140101T100000
-DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;RSVP=TRUE:urn:uuid:10000000-0000-0000-0000-000000000001
-ATTENDEE;CN=Group 02;CUTYPE=GROUP;EMAIL=group02@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:uuid:20000000-0000-0000-0000-000000000002
-CREATED:20060101T150000Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:10000000-0000-0000-0000-000000000001
-SUMMARY:event 1
-END:VEVENT
-END:VCALENDAR
-"""
 
         data_get_2 = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -410,16 +429,14 @@ DTSTART;TZID=US/Eastern:20140101T100000
 DURATION:PT1H
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:10000000-0000-0000-0000-000000000002
 ATTENDEE;CN=Group 01;CUTYPE=GROUP;EMAIL=group01@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:uuid:20000000-0000-0000-0000-000000000001
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;MEMBER="urn:uuid:20000000-0000-0000-0000-000000000001";PARTSTAT=NEEDS-ACTION:urn:uuid:10000000-0000-0000-0000-000000000001
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;MEMBER="urn:uuid:20000000-0000-0000-0000-000000000001";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:10000000-0000-0000-0000-000000000001
 CREATED:20060101T150000Z
 ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:uuid:10000000-0000-0000-0000-000000000002
+SEQUENCE:1
 SUMMARY:event 1
 END:VEVENT
 END:VCALENDAR
 """
-
-        #TODO: should User 01 have SCHEDULE-STATUS=3.7 ?
-
 
         @inlineCallbacks
         def expandedMembers(self, records=None):
@@ -442,6 +459,9 @@ END:VCALENDAR
         vcalendar2 = yield cobj1.component()
         self.assertEqual(normalize_iCalStr(vcalendar2), normalize_iCalStr(data_get_2))
 
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000001", 0)
+        yield self.commit()
+
         self.patch(CalendarDirectoryRecordMixin, "expandedMembers", unpatchedExpandedMembers)
 
         groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
@@ -454,3 +474,34 @@ END:VCALENDAR
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000002")
         vcalendar3 = yield cobj1.component()
         self.assertEqual(normalize_iCalStr(vcalendar3), normalize_iCalStr(data_get_3))
+
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000001", 1)
+        yield self.commit()
+
+        self.patch(CalendarDirectoryRecordMixin, "expandedMembers", expandedMembers)
+        groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
+        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
+        yield self.commit()
+        self.assertEqual(len(wps), 1)
+        for wp in wps:
+            yield wp.whenExecuted()
+
+        cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000002")
+        vcalendar3 = yield cobj1.component()
+        self.assertEqual(normalize_iCalStr(vcalendar3), normalize_iCalStr(data_get_2))
+
+        cal1 = yield self.calendarUnderTest(name="calendar", home="10000000-0000-0000-0000-000000000001")
+        cobjs = yield cal1.objectResources()
+        self.assertEqual(len(cobjs), 1)
+        comp1 = yield cobjs[0].componentForUser()
+        self.assertTrue("STATUS:CANCELLED" in str(comp1))
+
+
+    @inlineCallbacks
+    def test_groupRemoval(self):
+        """
+        Test that removing a group also removes the expanded attendees. This needs to make sure
+        that an attendee in two groups is NOT removed if only one of those groups is removed
+        """
+
+        self.fail("FIXME: implement this test")

@@ -170,7 +170,6 @@ class CommonTests(CommonCommonTests):
                 "6.vcf": adbk3Root.child("6.vcf").getContent(),
             },
         },
-        "not_a_home": None
     }
     md5s = {
         "home1": {
@@ -200,7 +199,6 @@ class CommonTests(CommonCommonTests):
                 "6.vcf": md5Values[5],
             },
         },
-        "not_a_home": None
     }
 
     def storeUnderTest(self):

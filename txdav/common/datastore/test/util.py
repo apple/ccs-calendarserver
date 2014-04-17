@@ -488,8 +488,8 @@ def populateCalendarsFrom(requirements, store, migrating=False):
         populateTxn._migrating = True
     for homeUID in requirements:
         calendars = requirements[homeUID]
+        home = yield populateTxn.calendarHomeWithUID(homeUID, True)
         if calendars is not None:
-            home = yield populateTxn.calendarHomeWithUID(homeUID, True)
             # We don't want the default calendar or inbox to appear unless it's
             # explicitly listed.
             try:
@@ -516,6 +516,7 @@ def populateCalendarsFrom(requirements, store, migrating=False):
                             internal_state=ComponentUpdateState.RAW,
                             options=metadata,
                         )
+
     yield populateTxn.commit()
 
 
