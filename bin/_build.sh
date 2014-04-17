@@ -80,7 +80,6 @@ init_build () {
    dep_sources="${dev_home}/src";
 
   py_virtualenv="${dev_home}/virtualenv";
-      py_libdir="${py_virtualenv}/lib/python";
       py_bindir="${py_virtualenv}/bin";
 
   python="${py_bindir}/python";
