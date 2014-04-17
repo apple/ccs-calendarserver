@@ -24,6 +24,7 @@ from twext.enterprise.dal.syntax import Delete, Select
 from twext.enterprise.jobqueue import WorkItem, PeerConnectionPool
 from twisted.internet.defer import inlineCallbacks, returnValue
 from txdav.common.datastore.sql_tables import schema
+from txdav.caldav.datastore.sql import Calendar
 import datetime
 import hashlib
 
@@ -160,7 +161,7 @@ class GroupAttendeeReconciliationWork(
 ):
 
     group = property(
-        lambda self: "{0}, {1}".format(self.groupID, self.eventID)
+        lambda self: "{0}, {1}".format(self.groupID, self.resourceID)
     )
 
     @inlineCallbacks
@@ -169,39 +170,46 @@ class GroupAttendeeReconciliationWork(
         # Delete all other work items for this group
         yield Delete(
             From=self.table,
-            Where=((self.table.GROUP_ID == self.self.groupID).And(
-                self.table.RESOURCE_ID == self.self.eventID)
+            Where=((self.table.GROUP_ID == self.groupID).And(
+                self.table.RESOURCE_ID == self.resourceID)
             )
         ).on(self.transaction)
 
-        # get calendar Object
-        calObject = schema.CALENDAR_OBJECT
+        # get calendar id
+        co = schema.CALENDAR_OBJECT
         rows = yield Select(
-                [calObject.CALENDAR_RESOURCE_ID, ],
-                From=calObject,
-                Where=calObject.RESOURCE_ID == self.eventID,
+                [co.CALENDAR_RESOURCE_ID, ],
+                From=co,
+                Where=co.RESOURCE_ID == self.resourceID,
         ).on(self.transaction)
-
         calendarID = rows[0][0]
-        calendarHome = (yield self.Calendar._ownerHomeWithResourceID.on(
+
+        # get home id
+        calendarHomeID = (yield Calendar._ownerHomeWithResourceID.on(
             self.transaction, resourceID=calendarID)
         )[0][0]
 
+        # get db objects
+        calendarHome = yield self.transaction.calendarHomeWithResourceID(calendarHomeID)
         calendar = yield calendarHome.childWithID(calendarID)
-        calendarObject = yield calendar.objectResourceWithID(self.eventID)
-
-        # get group individual UIDs
-        groupMemember = schema.GROUP_MEMBERSHIP
-        rows = yield Select(
-                [groupMemember.MEMBER_GUID, ],
-                From=groupMemember,
-                Where=groupMemember.GROUP_ID == self.groupID,
-        ).on(self.transaction)
-        memberGUIDs = [row[0] for row in rows]
-
+        calendarObject = yield calendar.objectResourceWithID(self.resourceID)
         component = yield calendarObject.component()
-        changed = component.expandGroupAttendee(self.groupGUID, memberGUIDs, self.directoryService().recordWithCalendarUserAddress)
 
+        # TODO: Check performance because:
+        #    1) if the component is changed then expandGroupAttendee() will be called again to validate
+        #    2) The group and members are in the group cache so could use them here
+
+        # get group record and members
+        groupUID, _ignore_name, _ignore_membershipHash = yield self.transaction.groupByID(self.groupID)
+        groupRecord = yield self.transaction.directoryService().recordWithUID(groupUID)
+        members = yield groupRecord.expandedMembers() if groupRecord else set()
+
+        # expand
+        changed = yield component.expandGroupAttendee(
+            groupRecord.canonicalCalendarUserAddress(),
+            set([member.canonicalCalendarUserAddress() for member in members]),
+            self.transaction.directoryService().recordWithCalendarUserAddress
+        )
         if changed:
             yield calendarObject.setComponent(component)
 
@@ -319,9 +327,12 @@ class GroupCacher(object):
 
     @inlineCallbacks
     def refreshGroup(self, txn, groupUID):
-        # Does the work of a per-group refresh work item
-        # Faults in the flattened membership of a group, as UIDs
-        # and updates the GROUP_MEMBERSHIP table
+        """
+            Does the work of a per-group refresh work item
+            Faults in the flattened membership of a group, as UIDs
+            and updates the GROUP_MEMBERSHIP table
+            WorkProposals are returned for tests
+        """
         self.log.debug("Faulting in group: {g}", g=groupUID)
         record = (yield self.directory.recordWithUID(groupUID))
         if record is None:
@@ -357,7 +368,9 @@ class GroupCacher(object):
                     newMemberUIDs.add(member.uid)
                 yield self.synchronizeMembers(txn, groupID, newMemberUIDs)
 
-            yield self.scheduleEventReconciliations(txn, groupID, groupUID)
+            wps = yield self.scheduleEventReconciliations(txn, groupID)
+
+        returnValue(wps)
 
 
     @inlineCallbacks
@@ -400,10 +413,11 @@ class GroupCacher(object):
 
 
     @inlineCallbacks
-    def scheduleEventReconciliations(self, txn, groupID, groupUID):
+    def scheduleEventReconciliations(self, txn, groupID):
         """
         Find all events who have this groupID as an attendee and create
         work items for them.
+        returns: WorkProposal list
         """
         groupAttendee = schema.GROUP_ATTENDEE
         rows = yield Select(
@@ -413,6 +427,7 @@ class GroupCacher(object):
         ).on(txn)
         eventIDs = [row[0] for row in rows]
 
+        wps = []
         for eventID in eventIDs:
 
             notBefore = (
@@ -421,19 +436,21 @@ class GroupCacher(object):
             )
             log.debug(
                 "scheduling group reconciliation for "
-                "({eventID}, {groupID}, {groupUID}): {when}",
-                eventID=eventID,
+                "({resourceID}, {groupID},): {when}",
+                resourceID=eventID,
                 groupID=groupID,
-                groupUID=groupUID,
-                when=notBefore)
+                when=notBefore
+            )
 
-            yield txn.enqueue(
+            wp = yield txn.enqueue(
                 GroupAttendeeReconciliationWork,
-                eventID=eventID,
+                resourceID=eventID,
                 groupID=groupID,
-                groupUID=groupUID,
                 notBefore=notBefore
             )
+            wps.append(wp)
+
+        returnValue(tuple(wps))
 
 
     @inlineCallbacks

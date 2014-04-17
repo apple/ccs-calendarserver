@@ -19,11 +19,13 @@
 """
 
 from twext.who.test.test_xml import xmlService
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.trial import unittest
 from twistedcaldav.config import config
 from twistedcaldav.ical import Component, normalize_iCalStr
 from txdav.caldav.datastore.test.util import buildCalendarStore, populateCalendarsFrom, CommonCommonTests
+from txdav.who.directory import CalendarDirectoryRecordMixin
+from txdav.who.groups import GroupCacher
 from txdav.who.util import directoryFromConfig
 import os
 
@@ -69,6 +71,9 @@ class GroupAttendeeReconciliation(CommonCommonTests, unittest.TestCase):
 
     requirements = {
         "10000000-0000-0000-0000-000000000001" : {
+            "calendar" : {}
+        },
+        "10000000-0000-0000-0000-000000000002" : {
             "calendar" : {}
         },
     }
@@ -337,3 +342,115 @@ END:VCALENDAR
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000001")
         vcalendar2 = yield cobj1.component()
         self.assertEqual(normalize_iCalStr(vcalendar2), normalize_iCalStr(data_get_1))
+
+
+    @inlineCallbacks
+    def test_groupChange(self):
+        """
+        Test that group attendee is expanded on PUT
+        """
+        data_put_1 = """BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART;TZID=US/Eastern:20140101T100000
+DURATION:PT1H
+SUMMARY:event 1
+UID:event1@ninevah.local
+ORGANIZER:MAILTO:user02@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:MAILTO:group01@example.com
+END:VEVENT
+END:VCALENDAR"""
+
+        data_get_1 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+BEGIN:VEVENT
+UID:event1@ninevah.local
+DTSTART;TZID=US/Eastern:20140101T100000
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;RSVP=TRUE:urn:uuid:10000000-0000-0000-0000-000000000001
+ATTENDEE;CN=Group 02;CUTYPE=GROUP;EMAIL=group02@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:uuid:20000000-0000-0000-0000-000000000002
+CREATED:20060101T150000Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:10000000-0000-0000-0000-000000000001
+SUMMARY:event 1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data_get_2 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+BEGIN:VEVENT
+UID:event1@ninevah.local
+DTSTART;TZID=US/Eastern:20140101T100000
+DURATION:PT1H
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:10000000-0000-0000-0000-000000000002
+ATTENDEE;CN=Group 01;CUTYPE=GROUP;EMAIL=group01@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:uuid:20000000-0000-0000-0000-000000000001
+CREATED:20060101T150000Z
+ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:uuid:10000000-0000-0000-0000-000000000002
+SUMMARY:event 1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data_get_3 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+BEGIN:VEVENT
+UID:event1@ninevah.local
+DTSTART;TZID=US/Eastern:20140101T100000
+DURATION:PT1H
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:10000000-0000-0000-0000-000000000002
+ATTENDEE;CN=Group 01;CUTYPE=GROUP;EMAIL=group01@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:uuid:20000000-0000-0000-0000-000000000001
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;MEMBER="urn:uuid:20000000-0000-0000-0000-000000000001";PARTSTAT=NEEDS-ACTION:urn:uuid:10000000-0000-0000-0000-000000000001
+CREATED:20060101T150000Z
+ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:uuid:10000000-0000-0000-0000-000000000002
+SUMMARY:event 1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        #TODO: should User 01 have SCHEDULE-STATUS=3.7 ?
+
+
+        @inlineCallbacks
+        def expandedMembers(self, records=None):
+            yield None
+            returnValue(set())
+
+        unpatchedExpandedMembers = CalendarDirectoryRecordMixin.expandedMembers
+        self.patch(CalendarDirectoryRecordMixin, "expandedMembers", expandedMembers)
+
+        groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
+        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
+        self.assertEqual(set(wps), set())
+
+        calendar = yield self.calendarUnderTest(name="calendar", home="10000000-0000-0000-0000-000000000002")
+        vcalendar1 = Component.fromString(data_put_1)
+        yield calendar.createCalendarObjectWithName("data1.ics", vcalendar1)
+        yield self.commit()
+
+        cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000002")
+        vcalendar2 = yield cobj1.component()
+        self.assertEqual(normalize_iCalStr(vcalendar2), normalize_iCalStr(data_get_2))
+
+        self.patch(CalendarDirectoryRecordMixin, "expandedMembers", unpatchedExpandedMembers)
+
+        groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
+        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
+        yield self.commit()
+        self.assertEqual(len(wps), 1)
+        for wp in wps:
+            yield wp.whenExecuted()
+
+        cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000002")
+        vcalendar3 = yield cobj1.component()
+        self.assertEqual(normalize_iCalStr(vcalendar3), normalize_iCalStr(data_get_3))

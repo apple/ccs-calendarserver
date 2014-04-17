@@ -1915,7 +1915,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             yield component.normalizeCalendarUserAddresses(normalizationLookup, self.directoryService().recordWithCalendarUserAddress)
 
             # Expand groups
-            yield self.expandGroupAttendees(component)
+            yield self.expandGroupAttendees(component, inserting)
 
             # Valid attendee list size check
             yield self.validAttendeeListSizeCheck(component, inserting)
@@ -1933,12 +1933,12 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def expandGroupAttendees(self, component):
+    def expandGroupAttendees(self, component, inserting):
         """
         Expand group attendees
         """
         if not config.Scheduling.Options.AllowGroupAsAttendee:
-            return
+            returnValue(None)
 
         attendeeProps = component.getAllAttendeeProperties()
         groupCUAs = set([
@@ -1951,31 +1951,33 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             if groupRecord:
                 members = yield groupRecord.expandedMembers()
 
-                # calculate hash
-                memberUIDs = sorted([member.uid for member in members])
-                membershipHashContent = hashlib.md5()
-                for memberUID in memberUIDs:
-                    membershipHashContent.update(memberUID)
-                membershipHash = membershipHashContent.hexdigest()
-
-                # associate group ID with self
-                groupID, _ignore_name, membershipHash, _ignore_modDate = yield self._txn.groupByUID(groupRecord.uid)
-                try:
-                    groupAttendee = schema.GROUP_ATTENDEE
-                    yield Insert({
-                        groupAttendee.RESOURCE_ID: self._resourceID,
-                        groupAttendee.GROUP_ID: groupID,
-                        groupAttendee.MEMBERSHIP_HASH: membershipHash,
-                    })
-                except AllRetriesFailed:
-                    pass
-
-                # get members
+                # add group attendees
                 yield component.expandGroupAttendee(
                     groupRecord.canonicalCalendarUserAddress(),
                     set([member.canonicalCalendarUserAddress() for member in members]),
                     self.directoryService().recordWithCalendarUserAddress
                 )
+
+                # tie event to group cacher
+                if not inserting:
+                    # calculate hash
+                    memberUIDs = sorted([member.uid for member in members])
+                    membershipHashContent = hashlib.md5()
+                    for memberUID in memberUIDs:
+                        membershipHashContent.update(memberUID)
+                    membershipHash = membershipHashContent.hexdigest()
+
+                    # associate group ID with self
+                    groupID, _ignore_name, membershipHash, _ignore_modDate = yield self._txn.groupByUID(groupRecord.uid)
+                    try:
+                        groupAttendee = schema.GROUP_ATTENDEE
+                        yield Insert({
+                            groupAttendee.RESOURCE_ID: self._resourceID,
+                            groupAttendee.GROUP_ID: groupID,
+                            groupAttendee.MEMBERSHIP_HASH: membershipHash,
+                            }).on(self._txn)
+                    except AllRetriesFailed:
+                        pass
 
 
     def validCalendarDataCheck(self, component, inserting):
@@ -2631,6 +2633,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             self.validCalendarDataCheck(component, inserting)
 
         yield self.updateDatabase(component, inserting=inserting)
+
+        # add GROUP_ATTENNDEE rows using just created _resourceID
+        if inserting:
+            yield self.expandGroupAttendees(component, False)
 
         # Post process managed attachments
         if internal_state in (
