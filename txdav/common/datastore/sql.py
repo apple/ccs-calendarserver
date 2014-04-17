@@ -1518,7 +1518,6 @@ class CommonStoreTransaction(object):
             pass
 
 
-
     @inlineCallbacks
     def addDelegateGroup(self, delegator, delegateGroupID, readWrite,
                          isExternal=False):
@@ -1548,7 +1547,6 @@ class CommonStoreTransaction(object):
             yield self.subtransaction(_addDelegateGroup, retries=0, failureOK=True)
         except AllRetriesFailed:
             pass
-
 
 
     def removeDelegate(self, delegator, delegate, readWrite):

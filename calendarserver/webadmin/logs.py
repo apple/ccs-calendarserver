@@ -155,13 +155,13 @@ class EventDecoder(object):
 
     @staticmethod
     def idForEvent(event):
-        observer, eventClass, logEvent = event
+        _ignore_observer, _ignore_eventClass, logEvent = event
         return id(logEvent)
 
 
     @staticmethod
     def classForEvent(event):
-        observer, eventClass, logEvent = event
+        _ignore_observer, eventClass, _ignore_logEvent = event
         return eventClass
 
 

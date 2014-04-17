@@ -158,7 +158,6 @@ class UtilTest(TestCase):
             set([WikiRecordType.macOSXServerWiki])
         )
 
-
         # And make sure it's functional:
         record = yield service.recordWithUID("group07")
         self.assertEquals(record.fullNames, [u'Group 07'])

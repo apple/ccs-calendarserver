@@ -495,7 +495,6 @@ class AuthorizedHTTPGetter(client.HTTPPageGetter):
 
 
 
-
 def bestAcceptType(accepts, allowedTypes):
     """
     Given a set of Accept headers and the set of types the server can return, determine the best choice

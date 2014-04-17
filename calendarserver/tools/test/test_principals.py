@@ -15,7 +15,6 @@
 ##
 
 import os
-import sys
 
 from calendarserver.tools.principals import (
     parseCreationArgs, matchStrings,
@@ -191,7 +190,6 @@ class ManagePrincipalsTestCase(TestCase):
             ("full name", "short name", "uid"),
             parseCreationArgs(("full name", "short name", "uid"))
         )
-
 
 
     def test_matchStrings(self):

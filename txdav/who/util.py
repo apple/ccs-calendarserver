@@ -61,11 +61,10 @@ def directoryFromConfig(config, store=None):
     # TODO: use proxyForInterface to ensure we're only using the DPS related
     # store API.  Also define an IDirectoryProxyStore Interface
     if store is None:
-        pool, txnFactory = getDBPool(config)
+        _ignore_pool, txnFactory = getDBPool(config)
         store = storeFromConfig(config, txnFactory, None)
 
     aggregatedServices = []
-
 
     for serviceKey in ("DirectoryService", "ResourceService"):
         serviceValue = config.get(serviceKey, None)

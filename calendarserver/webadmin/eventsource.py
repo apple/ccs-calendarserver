@@ -121,6 +121,7 @@ class IEventDecoder(Interface):
         """
 
 
+
 class EventSourceResource(Resource):
     """
     Resource that vends HTML5 EventSource events.
@@ -248,7 +249,6 @@ class EventStream(object):
             return succeed(
                 textAsEvent(eventText, eventID, eventClass, eventRetry)
             )
-
 
         if eventID is not None:
             # We just scanned all the messages, and none are the last one the

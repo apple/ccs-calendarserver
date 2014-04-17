@@ -190,7 +190,6 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
             # log.warn("Need to change shortName to unicode")
             shortName = shortName.decode("utf-8")
 
-
         return self._call(
             RecordWithShortNameCommand,
             self._processSingleRecord,
@@ -318,7 +317,6 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
         )
 
 
-
     def members(self):
         return self.service._call(
             MembersCommand,
@@ -347,9 +345,7 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
 
 
 
-
 # Test client:
-
 
 @inlineCallbacks
 def makeEvenBetterRequest():

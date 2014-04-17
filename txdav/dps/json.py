@@ -39,6 +39,7 @@ def expressionAsJSONText(expression):
     return to_json_text(json)
 
 
+
 def expressionAsJSON(expression):
     if isinstance(expression, CompoundExpression):
         return compoundExpressionAsJSON(expression)
@@ -51,12 +52,14 @@ def expressionAsJSON(expression):
     )
 
 
+
 def compoundExpressionAsJSON(expression):
     return dict(
         type=expression.__class__.__name__,
         operand=expression.operand.name,
         expressions=[expressionAsJSON(e) for e in expression.expressions],
     )
+
 
 
 def matchExpressionAsJSON(expression):
@@ -70,9 +73,11 @@ def matchExpressionAsJSON(expression):
     raise NotImplementedError()
 
 
+
 def expressionFromJSONText(jsonText):
     json = from_json_text(jsonText)
     return expressionFromJSON(json)
+
 
 
 def expressionFromJSON(json):
@@ -95,6 +100,7 @@ def expressionFromJSON(json):
     )
 
 
+
 def compoundExpressionFromJSON(json):
     try:
         expressions_json = json["expressions"]
@@ -108,6 +114,7 @@ def compoundExpressionFromJSON(json):
     operand = Operand.lookupByName(operand_json)
 
     return CompoundExpression(expressions, operand)
+
 
 
 def matchExpressionFromJSON(json):
@@ -134,6 +141,7 @@ def matchExpressionFromJSON(json):
         fieldName, fieldValue,
         matchType=matchType, flags=flags,
     )
+
 
 
 def to_json_text(obj):

@@ -88,11 +88,9 @@ class TemplateResource(Resource):
 
     #     return u""
 
-
     # @staticmethod
     # def queryValues(request, arguments):
     #     return request.args.get(arguments, [])
-
 
     def __init__(self, elementClass):
         Resource.__init__(self)

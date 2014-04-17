@@ -154,7 +154,6 @@ class NotFoundResource(DAVResource):
 
 
 
-
 def formatLink(url):
     """
     Convert a URL string into some twisted.web.template DOM objects for
@@ -169,6 +168,7 @@ def formatLinks(urls):
     Format a list of URL strings as a list of twisted.web.template DOM links.
     """
     return formatList(formatLink(link) for link in urls)
+
 
 
 def formatPrincipals(principals):
@@ -222,5 +222,3 @@ def formatList(iterable):
         yield "  ** %s **: %s\n" % (e.__class__.__name__, e)
     if not thereAreAny:
         yield " '()\n"
-
-

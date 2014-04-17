@@ -301,6 +301,7 @@ def searchTerms(request):
     return request._search_terms
 
 
+
 #
 # This should work when we switch to twext.who
 #
@@ -317,6 +318,7 @@ def slotsForRecord(record):
                 except UnicodeDecodeError:
                     return u"(error rendering value)"
 
+
     def joinWithBR(elements):
         noValues = True
 
@@ -330,7 +332,6 @@ def slotsForRecord(record):
 
         if noValues:
             yield u"(no values)"
-
 
     # slots = {}
 

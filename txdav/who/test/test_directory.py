@@ -34,6 +34,7 @@ class TestDirectoryRecord(DirectoryRecord, CalendarDirectoryRecordMixin):
     pass
 
 
+
 class DirectoryTestCase(StoreTestCase):
 
     @inlineCallbacks
@@ -69,7 +70,6 @@ class DirectoryTestCase(StoreTestCase):
             u"/principals/__uids__/uid/"
         )
 
-
         record = TestDirectoryRecord(
             self.directory,
             {
@@ -83,7 +83,6 @@ class DirectoryTestCase(StoreTestCase):
             record.canonicalCalendarUserAddress(),
             u"mailto:test@example.com"
         )
-
 
         record = TestDirectoryRecord(
             self.directory,

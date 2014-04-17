@@ -484,6 +484,7 @@ def convertStringsFile(src, dest):
         outFile.write(result)
 
 
+
 def _remapLanguageCode(code):
     """
     Remap certain language codes to others, per the localization team
@@ -495,6 +496,7 @@ def _remapLanguageCode(code):
         code = "zh_TW"
 
     return code
+
 
 
 def getLanguage(config):

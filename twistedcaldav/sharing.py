@@ -500,7 +500,7 @@ class SharedResourceMixin(object):
 
 
     @inlineCallbacks
-    def inviteSingleUserToShare(self, userid, cn, ace, summary, request):  #@UnusedVariable
+    def inviteSingleUserToShare(self, userid, cn, ace, summary, request): #@UnusedVariable
 
         # We currently only handle local users
         sharee = yield self.principalForCalendarUserAddress(userid)

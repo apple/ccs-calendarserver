@@ -51,6 +51,7 @@ def usage():
     print("    new-hostname - new FQDN for the server")
 
 
+
 def log(msg):
     serverRoot = serverRootLocation()
     logDir = os.path.join(serverRoot, "Logs")
@@ -64,6 +65,7 @@ def log(msg):
     except IOError:
         # Could not write to log
         pass
+
 
 
 def main():
@@ -144,6 +146,7 @@ def sendCommand(commandDict, configFile=None):
         return plistlib.readPlistFromString(output)["result"]
 
 
+
 def readConfig(configFile=None):
     """
     Ask calendarserver_config for the current configuration
@@ -165,6 +168,7 @@ def writeConfig(valuesDict, configFile=None):
         "Values": valuesDict,
     }
     return sendCommand(command)
+
 
 
 def updateConfig(

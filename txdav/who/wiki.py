@@ -53,8 +53,8 @@ log = Logger()
 
 # FIXME: Should this be Flags?
 class WikiAccessLevel(Names):
-    none  = NamedConstant()
-    read  = NamedConstant()
+    none = NamedConstant()
+    read = NamedConstant()
     write = NamedConstant()
 
 
@@ -217,6 +217,7 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
         except KeyError:
             self.log.error("Unknown wiki access level: {level}", level=access)
             returnValue(WikiAccessLevel.none)
+
 
 
 @inlineCallbacks

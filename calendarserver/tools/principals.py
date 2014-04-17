@@ -101,6 +101,7 @@ def usage(e=None):
         sys.exit(0)
 
 
+
 class PrincipalService(WorkerService):
     """
     Executes principals-related functions in a context which has access to the store
@@ -476,7 +477,6 @@ def action_removePrincipal(store, record):
 
 
 
-
 @inlineCallbacks
 def action_listProxies(store, record, *proxyTypes):
     directory = store.directoryService()
@@ -501,6 +501,7 @@ def action_listProxies(store, record, *proxyTypes):
             print("")
         else:
             print("No %s proxies for %s" % (proxyType, prettyRecord(record)))
+
 
 
 @inlineCallbacks
@@ -534,6 +535,7 @@ def action_listProxyFor(store, record, *proxyTypes):
             )
 
 
+
 @inlineCallbacks
 def _addRemoveProxy(msg, fn, store, record, proxyType, *proxyIDs):
     directory = store.directoryService()
@@ -554,9 +556,11 @@ def _addRemoveProxy(msg, fn, store, record, proxyType, *proxyIDs):
             )
 
 
+
 @inlineCallbacks
 def action_addProxy(store, record, proxyType, *proxyIDs):
     yield _addRemoveProxy("Added", addDelegate, store, record, proxyType, *proxyIDs)
+
 
 
 @inlineCallbacks
@@ -621,8 +625,6 @@ def getProxies(record):
 
 
 
-
-
 def action_getAutoScheduleMode(store, record):
     print(
         "Auto-schedule mode for {record} is {mode}".format(
@@ -633,6 +635,7 @@ def action_getAutoScheduleMode(store, record):
             )
         )
     )
+
 
 
 @inlineCallbacks
@@ -670,6 +673,7 @@ def action_setAutoScheduleMode(store, record, autoScheduleMode):
 
         updatedRecord = DirectoryRecord(record.service, newFields)
         yield record.service.updateRecords([updatedRecord], create=False)
+
 
 
 @inlineCallbacks
@@ -739,6 +743,7 @@ def action_getAutoAcceptGroup(store, record):
         )
 
 
+
 @inlineCallbacks
 def action_setValue(store, record, name, value):
     print(
@@ -754,6 +759,7 @@ def action_setValue(store, record, name, value):
 
     updatedRecord = DirectoryRecord(record.service, newFields)
     yield record.service.updateRecords([updatedRecord], create=False)
+
 
 
 def action_getValue(store, record, name):
@@ -772,6 +778,7 @@ def action_getValue(store, record, name):
         )
 
 
+
 @inlineCallbacks
 def printGroupCacherInfo(service, store):
     """
@@ -782,7 +789,7 @@ def printGroupCacherInfo(service, store):
     txn = store.newTransaction()
     groupUIDs = yield txn.allGroupDelegates()
     for groupUID in groupUIDs:
-        groupID, name, membershipHash, modified = yield txn.groupByUID(
+        groupID, name, _ignore_membershipHash, modified = yield txn.groupByUID(
             groupUID
         )
         print("Group: \"{name}\" ({uid})".format(name=name, uid=groupUID))
@@ -871,8 +878,6 @@ def printRecordList(records):
     print(format % ("---------", "----", "---", "-----------"))
     for fullName, recordType, uid, shortNames in results:
         print(format % (fullName, recordType, uid, u", ".join(shortNames)))
-
-
 
 
 

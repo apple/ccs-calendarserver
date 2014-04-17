@@ -858,7 +858,6 @@ class PurgePrincipalTests(StoreTestCase):
         yield txn.commit()
 
 
-
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())

@@ -253,6 +253,8 @@ class FilterChildBase(FilterBase):
         else:
             return not allof
 
+
+
 class PropertyFilter (FilterChildBase):
     """
     Limits a search to specific properties.

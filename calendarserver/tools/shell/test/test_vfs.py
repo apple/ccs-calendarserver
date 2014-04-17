@@ -174,7 +174,6 @@ class UIDsFolderTests(TestCase):
     #     )
     #     self.folder = UIDsFolder(self.svc, ())
 
-
     @inlineCallbacks
     def test_list(self):
         """

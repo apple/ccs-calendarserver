@@ -1444,6 +1444,3 @@ authReadACL = davxml.ACL(
         davxml.Protected(),
     ),
 )
-
-
-

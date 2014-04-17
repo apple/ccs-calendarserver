@@ -44,8 +44,8 @@ class GroupCacherTest(StoreTestCase):
         txn = store.newTransaction()
 
         record = yield self.directory.recordWithUID(u"__top_group_1__")
-        groupID, name, membershipHash, modified = (yield txn.groupByUID(record.uid))
-        groupID, name, membershipHash, modified = (yield txn.groupByUID(record.uid))
+        _ignore_groupID, _ignore_name, _ignore_membershipHash, _ignore_modified = (yield txn.groupByUID(record.uid))
+        _ignore_groupID, _ignore_name, _ignore_membershipHash, _ignore_modified = (yield txn.groupByUID(record.uid))
 
         yield txn.commit()
 

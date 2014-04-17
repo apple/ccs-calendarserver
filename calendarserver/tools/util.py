@@ -386,6 +386,7 @@ def principalForPrincipalID(principalID, checkOnly=False, directory=None):
     raise ValueError("Invalid principal identifier: %s" % (principalID,))
 
 
+
 @inlineCallbacks
 def recordForPrincipalID(directory, principalID, checkOnly=False):
 
@@ -547,6 +548,7 @@ def removeProxy(rootResource, directory, store, principal, proxyPrincipal, **kwa
 
 def prettyPrincipal(principal):
     prettyRecord(principal.record)
+
 
 
 def prettyRecord(record):

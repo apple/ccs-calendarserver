@@ -183,7 +183,7 @@ class SACLTests(RootTests):
         )
 
         try:
-            resrc, _ignore_segments = (yield maybeDeferred(
+            _ignore_resrc, _ignore_segments = (yield maybeDeferred(
                 self.actualRoot.locateChild, request, ["principals"]
             ))
             raise AssertionError(
@@ -210,7 +210,7 @@ class SACLTests(RootTests):
         )
 
         try:
-            resrc, _ignore_segments = (yield maybeDeferred(
+            _ignore_resrc, _ignore_segments = (yield maybeDeferred(
                 self.actualRoot.locateChild, request, ["principals"]
             ))
             raise AssertionError(
@@ -244,7 +244,7 @@ class SACLTests(RootTests):
         )
 
         try:
-            resrc, _ignore_segments = (yield maybeDeferred(
+            _ignore_resrc, _ignore_segments = (yield maybeDeferred(
                 self.actualRoot.locateChild, request, ["principals"]
             ))
             raise AssertionError(
@@ -389,7 +389,7 @@ class WikiTests(RootTests):
 
         request = SimpleStoreRequest(self, "GET", "/principals/")
 
-        resrc, _ignore_segments = (yield maybeDeferred(
+        _ignore_resrc, _ignore_segments = (yield maybeDeferred(
             self.actualRoot.locateChild, request, ["principals"]
         ))
         self.assertTrue(request.checkedWiki)

@@ -474,11 +474,12 @@ class StubTransaction(object):
         self.label = label
         self.action = None
 
+
     def commit(self):
         self.action = "committed"
         return succeed(None)
 
+
     def abort(self):
         self.action = "aborted"
         return succeed(None)
-

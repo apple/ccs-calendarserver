@@ -100,7 +100,6 @@ class DirectoryAddressBookHomeProvisioningResource(
         # FIXME: Smells like a hack
         directory.addressBookHomesCollection = self
 
-
         #
         # Create children
         #
