@@ -1242,9 +1242,6 @@ class BadDataService(CalVerifyService):
             self.cuaCache[cuaddr] = result
             returnValue(result)
 
-        x = component.resourceUID()
-        if x == "BAD10":
-            x = None
         for subcomponent in component.subcomponents():
             if subcomponent.name() in ignoredComponents:
                 continue
@@ -1318,9 +1315,6 @@ class BadDataService(CalVerifyService):
                             attendee.setParameter("CALENDARSERVER-OLD-CUA", "base64-%s" % (base64.b64encode(oldcua)))
                         else:
                             raise InvalidICalendarDataError("iCalendar ATTENDEE CALENDARSERVER-OLD-CUA not base64")
-
-        if component.resourceUID() == "BAD10":
-            x = "bad"
 
 
     def attendeesWithoutOrganizer(self, component, doFix):
