@@ -26,4 +26,6 @@ wd="$(cd "$(dirname "$0")/.." && pwd)";
 
 init_build > /dev/null;
 
-exec "${py_bindir}/twistd" "$@";
+exec "${python}"                                     \
+  -c "from twisted.scripts.twistd import run; run()" \
+  "$@";

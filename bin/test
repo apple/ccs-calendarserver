@@ -113,17 +113,17 @@ find "${wd}" -name \*.pyc -print0 | xargs -0 rm;
 # Unit tests
 #
 
-cd "${wd}" &&                           \
-  PYTHONPATH="${wd}"                    \
-  "${py_bindir}/trial"                  \
-  --temp-directory="${dev_home}/trial"  \
-  --rterrors                            \
-  ${reactor}                            \
-  ${random}                             \
-  ${until_fail}                         \
-  ${no_color}                           \
-  ${coverage}                           \
-  ${numjobs}                            \
+cd "${wd}" &&                                       \
+  "${python}"                                       \
+  -c "from twisted.scripts.trial import run; run()" \
+  --temp-directory="${dev_home}/trial"              \
+  --rterrors                                        \
+  ${reactor}                                        \
+  ${random}                                         \
+  ${until_fail}                                     \
+  ${no_color}                                       \
+  ${coverage}                                       \
+  ${numjobs}                                        \
   "$@";
 
 
