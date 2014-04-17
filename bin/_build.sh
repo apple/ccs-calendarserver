@@ -92,7 +92,7 @@ init_build () {
   fi;
 
   if [ ! -d "${py_virtualenv}" ]; then
-    "${bootstrap_python}" -m virtualenv "${py_virtualenv}";
+    "${bootstrap_python}" -m virtualenv --system-site-packages "${py_virtualenv}";
   fi;
 
   project="$(setup_print name)";
@@ -614,7 +614,7 @@ py_dependencies () {
     rm -rf "${py_virtualenv}";
   fi;
 
-  "${bootstrap_python}" -m virtualenv "${py_virtualenv}";
+  "${bootstrap_python}" -m virtualenv --system-site-packages "${py_virtualenv}";
 
   # Make sure setup got called enough to write the version file.
 
