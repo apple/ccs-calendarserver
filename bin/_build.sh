@@ -614,7 +614,9 @@ py_dependencies () {
     rm -rf "${py_virtualenv}";
   fi;
 
-  "${bootstrap_python}" -m virtualenv --system-site-packages "${py_virtualenv}";
+  if [ -f "${py_virtualenv}" ]; then
+    "${bootstrap_python}" -m virtualenv --system-site-packages "${py_virtualenv}";
+  fi;
 
   # Make sure setup got called enough to write the version file.
 
@@ -628,7 +630,7 @@ py_dependencies () {
 
   ruler "Preparing Python requirements";
   echo "";
-  "${pip_install}" --requirement="${wd}/requirements.txt";
+  "${pip_install}" --requirement="${wd}/requirements-dev.txt";
 
   for option in $("${python}" -c 'import setup; print "\n".join(setup.extras_requirements.keys())'); do
     ruler "Preparing Python requirements for optional feature: ${option}";

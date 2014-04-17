@@ -2,14 +2,6 @@
 --editable .
 
 # Specify editable dependencies explicitly since we want to get them from svn, not PyPI
---editable svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk#egg=twextpy
---editable svn+http://svn.calendarserver.org/repository/calendarserver/PyKerberos/trunk#egg=kerberos
---editable svn+http://svn.calendarserver.org/repository/calendarserver/PyCalendar/trunk#egg=pycalendar
-
-# Additional dependencies for development
-pyflakes
-docutils
-mockldap
-q
---editable svn+http://svn.calendarserver.org/repository/calendarserver/CalDAVClientLibrary/trunk#egg=CalDAVClientLibrary
---editable svn+http://svn.calendarserver.org/repository/calendarserver/CalDAVTester/trunk#egg=CalDAVTester
+--editable svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk@13311#egg=twextpy
+--editable svn+http://svn.calendarserver.org/repository/calendarserver/PyKerberos/trunk@13311#egg=kerberos
+--editable svn+http://svn.calendarserver.org/repository/calendarserver/PyCalendar/trunk@13311#egg=pycalendar
