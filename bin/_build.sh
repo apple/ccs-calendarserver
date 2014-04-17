@@ -665,7 +665,6 @@ pip_install_from_cache () {
 
 pip_download_and_install () {
   "${python}" -m pip install                  \
-    --upgrade                                 \
     --pre --allow-all-external                \
     --download-cache="${dev_home}/pip_cache"  \
     --log="${dev_home}/pip.log"               \
