@@ -3047,6 +3047,14 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # Fix any bogus data we can
             fixed, unfixed = component.validCalendarData(doFix=True, doRaise=False)
 
+            # Normalize CUAs:
+            # FIXME: update the DB copy as well so we don't keep going through
+            # this normalization?
+            yield component.normalizeCalendarUserAddresses(
+                normalizationLookup,
+                self.directoryService().recordWithCalendarUserAddress
+            )
+
             if unfixed:
                 self.log.error(
                     "Calendar data id={0} had unfixable problems:\n  {1}".format(

@@ -103,8 +103,8 @@ END:VCALENDAR
         calendar_resource1 = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
         calendar1 = (yield calendar_resource1.component())
         calendar1 = str(calendar1).replace("\r\n ", "")
-        self.assertTrue("urn:uuid:user01" in calendar1)
-        self.assertTrue("urn:uuid:user02" in calendar1)
+        self.assertTrue("urn:x-uid:user01" in calendar1)
+        self.assertTrue("urn:x-uid:user02" in calendar1)
         self.assertTrue("CN=" in calendar1)
         yield self.commit()
 
@@ -543,7 +543,7 @@ UID:12345-67890-organizer
 DTSTAMP:20080601T120000Z
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-X-CALENDARSERVER-ATTENDEE-COMMENT;X-CALENDARSERVER-ATTENDEE-REF="urn:uuid:user01";
+X-CALENDARSERVER-ATTENDEE-COMMENT;X-CALENDARSERVER-ATTENDEE-REF="urn:x-uid:user01";
  X-CALENDARSERVER-DTSTAMP=20131101T100000Z:Someone else's comment
 END:VEVENT
 END:VCALENDAR
@@ -577,7 +577,7 @@ END:VCALENDAR
         calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
         calendar1 = (yield calendar_resource.component())
         calendar1 = str(calendar1).replace("\r\n ", "")
-        self.assertTrue("X-CALENDARSERVER-ATTENDEE-COMMENT;X-CALENDARSERVER-ATTENDEE-REF=\"urn:uuid:user01\";X-CALENDARSERVER-DTSTAMP=20131101T100000Z:Someone else's comment" in calendar1)
+        self.assertTrue("X-CALENDARSERVER-ATTENDEE-COMMENT;X-CALENDARSERVER-ATTENDEE-REF=\"urn:x-uid:user01\";X-CALENDARSERVER-DTSTAMP=20131101T100000Z:Someone else's comment" in calendar1)
         self.assertTrue("SUMMARY:Changed" in calendar1)
         yield self.commit()
 

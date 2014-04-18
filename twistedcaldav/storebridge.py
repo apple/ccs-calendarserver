@@ -1539,7 +1539,7 @@ class CalendarObjectDropbox(_GetChildHelper):
         """
 
         attendees = (yield self._newStoreCalendarObject.component()).getAttendees()
-        attendees = [attendee.split("urn:uuid:")[-1] for attendee in attendees]
+        attendees = [attendee.split("urn:x-uid:")[-1] for attendee in attendees]
         document = yield davXMLFromStream(request.stream)
         for ace in document.root_element.children:
             for child in ace.children:
@@ -3928,7 +3928,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
             if jsondata["shared-type"] == "calendar":
                 owner = ownerPrincipal.principalURL()
             else:
-                owner = "urn:uuid:" + ownerPrincipal.principalUID()
+                owner = "urn:x-uid:" + ownerPrincipal.principalUID()
 
             shareePrincipal = yield self.principalForUID(jsondata["sharee"])
 
@@ -3949,7 +3949,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
                 customxml.DTStamp.fromString(jsondata["dtstamp"]),
                 customxml.InviteNotification(
                     customxml.UID.fromString(jsondata["uid"]),
-                    element.HRef.fromString("urn:uuid:" + jsondata["sharee"]),
+                    element.HRef.fromString("urn:x-uid:" + jsondata["sharee"]),
                     invitationBindStatusToXMLMap[jsondata["status"]](),
                     customxml.InviteAccess(invitationBindModeToXMLMap[jsondata["access"]]()),
                     customxml.HostURL(
@@ -3970,7 +3970,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
 
             shareePrincipal = yield self.principalForUID(jsondata["sharee"])
 
-            # FIXME:  use urn:uuid always?
+            # FIXME:  use urn:x-uid always?
             if jsondata["shared-type"] == "calendar":
                 # Prefer mailto:, otherwise use principal URL
                 for cua in shareePrincipal.calendarUserAddresses():
@@ -3979,7 +3979,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
                 else:
                     cua = shareePrincipal.principalURL()
             else:
-                cua = "urn:uuid:" + shareePrincipal.principalUID()
+                cua = "urn:x-uid:" + shareePrincipal.principalUID()
 
             commonName = shareePrincipal.displayName()
             # record = shareePrincipal.record

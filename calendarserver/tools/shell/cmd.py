@@ -36,7 +36,6 @@ from twisted.conch.manhole import ManholeInterpreter
 from txdav.common.icommondatastore import NotFoundError
 
 from calendarserver.version import version
-from calendarserver.tap.util import getRootResource
 from calendarserver.tools.tables import Table
 from calendarserver.tools.purge import PurgePrincipalService
 from calendarserver.tools.shell.vfs import Folder, RootFolder
@@ -668,11 +667,6 @@ class Commands(CommandsBase):
             self.terminal.write("Aborting.\n")
             return
 
-        rootResource = getRootResource(
-            self.protocol.service.config,
-            self.protocol.service.store,
-        )
-
         if dryRun:
             toPurge = "to purge"
         else:
@@ -683,7 +677,6 @@ class Commands(CommandsBase):
             count, _ignore_assignments = (yield PurgePrincipalService.purgeUIDs(
                 self.protocol.service.store,
                 directory,
-                rootResource,
                 (record.uid,),
                 verbose=False,
                 dryrun=dryRun,

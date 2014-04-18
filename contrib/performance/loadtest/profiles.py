@@ -205,7 +205,7 @@ class Inviter(ProfileBase):
             except IndexError:
                 continue
             cuaddr = u'mailto:%s' % (record.email,)
-            uuid = u'urn:uuid:%s' % (record.uid,)
+            uuid = u'urn:x-uid:%s' % (record.uid,)
             if cuaddr not in invitees and uuid not in invitees:
                 break
         else:

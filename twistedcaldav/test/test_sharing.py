@@ -80,6 +80,8 @@ class FakePrincipal(DirectoryCalendarPrincipalResource):
     def __init__(self, cuaddr, test):
         if cuaddr.startswith("mailto:"):
             name = cuaddr[7:].split('@')[0]
+        elif cuaddr.startswith("urn:x-uid:"):
+            name = cuaddr[10:]
         elif cuaddr.startswith("urn:uuid:"):
             name = cuaddr[9:]
         else:
@@ -324,7 +326,7 @@ class SharingTests(StoreTestCase):
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("urn:uuid:user02"),
+                davxml.HRef.fromString("urn:x-uid:user02"),
                 customxml.CommonName.fromString("User 02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
@@ -354,7 +356,7 @@ class SharingTests(StoreTestCase):
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("urn:uuid:user02"),
+                davxml.HRef.fromString("urn:x-uid:user02"),
                 customxml.CommonName.fromString("User 02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
@@ -403,7 +405,7 @@ class SharingTests(StoreTestCase):
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("urn:uuid:user02"),
+                davxml.HRef.fromString("urn:x-uid:user02"),
                 customxml.CommonName.fromString("User 02"),
                 customxml.InviteAccess(customxml.ReadAccess()),
                 customxml.InviteStatusNoResponse(),
@@ -478,21 +480,21 @@ class SharingTests(StoreTestCase):
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("urn:uuid:user02"),
+                davxml.HRef.fromString("urn:x-uid:user02"),
                 customxml.CommonName.fromString("User 02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             ),
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("urn:uuid:user03"),
+                davxml.HRef.fromString("urn:x-uid:user03"),
                 customxml.CommonName.fromString("User 03"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             ),
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("urn:uuid:user04"),
+                davxml.HRef.fromString("urn:x-uid:user04"),
                 customxml.CommonName.fromString("User 04"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
@@ -536,14 +538,14 @@ class SharingTests(StoreTestCase):
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("urn:uuid:user02"),
+                davxml.HRef.fromString("urn:x-uid:user02"),
                 customxml.CommonName.fromString("User 02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             ),
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("urn:uuid:user04"),
+                davxml.HRef.fromString("urn:x-uid:user04"),
                 customxml.CommonName.fromString("User 04"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
@@ -587,14 +589,14 @@ class SharingTests(StoreTestCase):
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("urn:uuid:user02"),
+                davxml.HRef.fromString("urn:x-uid:user02"),
                 customxml.CommonName.fromString("User 02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             ),
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("urn:uuid:user03"),
+                davxml.HRef.fromString("urn:x-uid:user03"),
                 customxml.CommonName.fromString("User 03"),
                 customxml.InviteAccess(customxml.ReadAccess()),
                 customxml.InviteStatusNoResponse(),
@@ -704,7 +706,7 @@ class SharingTests(StoreTestCase):
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("urn:uuid:user02"),
+                davxml.HRef.fromString("urn:x-uid:user02"),
                 customxml.CommonName.fromString("User 02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
@@ -719,7 +721,7 @@ class SharingTests(StoreTestCase):
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("urn:uuid:user02"),
+                davxml.HRef.fromString("urn:x-uid:user02"),
                 customxml.CommonName.fromString("user02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
@@ -848,7 +850,7 @@ class SharingTests(StoreTestCase):
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("urn:uuid:user02"),
+                davxml.HRef.fromString("urn:x-uid:user02"),
                 customxml.CommonName.fromString("User 02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
@@ -878,7 +880,7 @@ class SharingTests(StoreTestCase):
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("urn:uuid:user02"),
+                davxml.HRef.fromString("urn:x-uid:user02"),
                 customxml.CommonName.fromString("User 02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
@@ -922,7 +924,7 @@ class SharingTests(StoreTestCase):
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("urn:uuid:user02"),
+                davxml.HRef.fromString("urn:x-uid:user02"),
                 customxml.CommonName.fromString("User 02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),

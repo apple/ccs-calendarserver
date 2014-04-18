@@ -213,6 +213,7 @@ class DirectoryTestCase (TestCase):
 
         addresses = set(value("addresses"))
         if record.hasCalendars:
+            addresses.add("urn:x-uid:%s" % (record.uid,))
             addresses.add("urn:uuid:%s" % (record.guid,))
             addresses.add("/principals/__uids__/%s/" % (record.uid,))
             addresses.add("/principals/%s/%s/" % (record.recordType, record.shortNames[0],))

@@ -2022,10 +2022,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20130806T000000Z
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RRULE:FREQ=DAILY
 SUMMARY:1
 END:VEVENT
@@ -2034,10 +2034,10 @@ UID:12345-67890
 RECURRENCE-ID:20130807T120000Z
 DTSTART:20130807T000000Z
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 SUMMARY:1
 END:VEVENT
 END:VCALENDAR
@@ -2050,10 +2050,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20130806T000000Z
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RRULE:FREQ=DAILY
 SEQUENCE:1
 SUMMARY:1-2
@@ -2063,10 +2063,10 @@ UID:12345-67890
 RECURRENCE-ID:20130807T000000Z
 DTSTART:20130807T000000Z
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 SEQUENCE:1
 SUMMARY:1-3
 END:VEVENT
@@ -2080,10 +2080,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20130806T000000Z
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RRULE:FREQ=DAILY
 SEQUENCE:1
 SUMMARY:1-2
@@ -2093,10 +2093,10 @@ UID:12345-67890
 RECURRENCE-ID:20130807T000000Z
 DTSTART:20130807T000000Z
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 SEQUENCE:1
 SUMMARY:1-3
 END:VEVENT
@@ -2160,12 +2160,12 @@ UID:561F5DBB-3F38-4B3A-986F-DD05CBAF554F
 DTSTART;TZID=America/Los_Angeles:20131211T164500
 DTEND;TZID=America/Los_Angeles:20131211T174500
 ATTENDEE;CN=Conference Room One;CUTYPE=ROOM;PARTSTAT=ACCEPTED;ROLE=REQ-PARTICIPAN
- T;SCHEDULE-STATUS=2.0:urn:uuid:room1
+ T;SCHEDULE-STATUS=2.0:urn:x-uid:room1
 ATTENDEE;CN=User 01;CUTYPE=INDIVIDUAL;EMAIL=user01@example.com;PARTSTAT=AC
- CEPTED:urn:uuid:user01
+ CEPTED:urn:x-uid:user01
 CREATED:20131211T221854Z
 DTSTAMP:20131211T230632Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RRULE:FREQ=DAILY;COUNT=5
 SEQUENCE:8
 SUMMARY:locations
@@ -2177,12 +2177,12 @@ RECURRENCE-ID;TZID=America/Los_Angeles:20131214T164500
 DTSTART;TZID=America/Los_Angeles:20131214T160000
 DTEND;TZID=America/Los_Angeles:20131214T170000
 ATTENDEE;CN=Conference Room Two;CUTYPE=ROOM;PARTSTAT=ACCEPTED;ROLE=REQ-PARTICIPAN
- T;SCHEDULE-STATUS=2.0:urn:uuid:room2
+ T;SCHEDULE-STATUS=2.0:urn:x-uid:room2
 ATTENDEE;CN=User 01;CUTYPE=INDIVIDUAL;EMAIL=user01@example.com;PARTSTAT=AC
- CEPTED:urn:uuid:user01
+ CEPTED:urn:x-uid:user01
 CREATED:20131211T221854Z
 DTSTAMP:20131211T230632Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 SEQUENCE:8
 SUMMARY:locations
 TRANSP:OPAQUE
@@ -2571,11 +2571,11 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:%(now_back14)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
-ATTENDEE;CN=User 03;EMAIL=user03@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user03
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
+ATTENDEE;CN=User 03;EMAIL=user03@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user03
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY
 SEQUENCE:1
@@ -2589,10 +2589,10 @@ UID:12345-67890
 RECURRENCE-ID:%(now_fwd10)s
 DTSTART:%(now_fwd10)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 05;EMAIL=user05@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user05
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 05;EMAIL=user05@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user05
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
@@ -2606,11 +2606,11 @@ BEGIN:VEVENT
 UID:%(relID)s
 DTSTART:%(now_back30)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
-ATTENDEE;CN=User 03;EMAIL=user03@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user03
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
+ATTENDEE;CN=User 03;EMAIL=user03@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user03
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY;UNTIL=%(now_back14_1)s
 SEQUENCE:1
@@ -2624,11 +2624,11 @@ UID:%(relID)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
-ATTENDEE;CN=User 04;EMAIL=user04@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user04
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
+ATTENDEE;CN=User 04;EMAIL=user04@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user04
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
@@ -2637,10 +2637,10 @@ UID:%(relID)s
 RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
@@ -2654,12 +2654,12 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:%(now_back14)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
-ATTENDEE;CN=User 03;EMAIL=user03@example.com;RSVP=TRUE:urn:uuid:user03
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
+ATTENDEE;CN=User 03;EMAIL=user03@example.com;RSVP=TRUE:urn:x-uid:user03
 DTSTAMP:20051222T210507Z
 EXDATE:%(now_fwd10)s
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY
 SEQUENCE:1
@@ -2685,11 +2685,11 @@ BEGIN:VEVENT
 UID:%(relID)s
 DTSTART:%(now_back30)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
-ATTENDEE;CN=User 03;EMAIL=user03@example.com;RSVP=TRUE:urn:uuid:user03
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
+ATTENDEE;CN=User 03;EMAIL=user03@example.com;RSVP=TRUE:urn:x-uid:user03
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY;UNTIL=%(now_back14_1)s
 SEQUENCE:1
@@ -2703,11 +2703,11 @@ UID:%(relID)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
-ATTENDEE;CN=User 04;EMAIL=user04@example.com;RSVP=TRUE:urn:uuid:user04
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
+ATTENDEE;CN=User 04;EMAIL=user04@example.com;RSVP=TRUE:urn:x-uid:user04
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
@@ -2716,10 +2716,10 @@ UID:%(relID)s
 RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
@@ -2741,12 +2741,12 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:%(now_back14)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
-ATTENDEE;CN=User 03;EMAIL=user03@example.com;RSVP=TRUE:urn:uuid:user03
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
+ATTENDEE;CN=User 03;EMAIL=user03@example.com;RSVP=TRUE:urn:x-uid:user03
 DTSTAMP:20051222T210507Z
 EXDATE:%(now_fwd10)s
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY
 SEQUENCE:1
@@ -2765,12 +2765,12 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:%(now_back14)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
-ATTENDEE;CN=User 03;EMAIL=user03@example.com;RSVP=TRUE:urn:uuid:user03
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
+ATTENDEE;CN=User 03;EMAIL=user03@example.com;RSVP=TRUE:urn:x-uid:user03
 DTSTAMP:20051222T210507Z
 EXDATE:%(now_fwd10)s
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY
 SEQUENCE:1
@@ -2796,13 +2796,13 @@ BEGIN:VEVENT
 UID:%(relID)s
 DTSTART:%(now_back30)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
-ATTENDEE;CN=User 03;EMAIL=user03@example.com;RSVP=TRUE:urn:uuid:user03
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
+ATTENDEE;CN=User 03;EMAIL=user03@example.com;RSVP=TRUE:urn:x-uid:user03
 DTSTAMP:20051222T210507Z
 EXDATE:%(now_back25)s
 EXDATE:%(now_back24)s
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY;UNTIL=%(now_back14_1)s
 SEQUENCE:1
@@ -2829,12 +2829,12 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:%(now_back14)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
-ATTENDEE;CN=User 03;EMAIL=user03@example.com;RSVP=TRUE:urn:uuid:user03
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
+ATTENDEE;CN=User 03;EMAIL=user03@example.com;RSVP=TRUE:urn:x-uid:user03
 DTSTAMP:20051222T210507Z
 EXDATE:%(now_fwd10)s
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY
 SEQUENCE:1
@@ -2854,11 +2854,11 @@ UID:%(relID)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
-ATTENDEE;CN=User 04;EMAIL=user04@example.com;RSVP=TRUE:urn:uuid:user04
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
+ATTENDEE;CN=User 04;EMAIL=user04@example.com;RSVP=TRUE:urn:x-uid:user04
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
@@ -2881,10 +2881,10 @@ UID:12345-67890
 RECURRENCE-ID:%(now_fwd10)s
 DTSTART:%(now_fwd10)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 05;EMAIL=user05@example.com;RSVP=TRUE:urn:uuid:user05
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 05;EMAIL=user05@example.com;RSVP=TRUE:urn:x-uid:user05
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
@@ -2908,10 +2908,10 @@ UID:12345-67890
 RECURRENCE-ID:%(now_fwd10)s
 DTSTART:%(now_fwd10)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 05;EMAIL=user05@example.com;RSVP=TRUE:urn:uuid:user05
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 05;EMAIL=user05@example.com;RSVP=TRUE:urn:x-uid:user05
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
@@ -3188,10 +3188,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:%(now_back30)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RRULE:FREQ=DAILY
 SUMMARY:1234567890123456789012345678901234567890
  1234567890123456789012345678901234567890
@@ -3208,10 +3208,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:%(now_back30)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RRULE:FREQ=DAILY
 SUMMARY:1234567890123456789012345678901234567890
  1234567890123456789012345678901234567890
@@ -3235,10 +3235,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:%(now_back30)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RRULE:FREQ=DAILY
 SUMMARY:1234567890123456789012345678901234567890
  1234567890123456789012345678901234567890
@@ -3251,10 +3251,10 @@ UID:12345-67890
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 SUMMARY:1234567890123456789012345678901234567890
  1234567890123456789012345678901234567890
  1234567890123456789012345678901234567890
@@ -3270,10 +3270,10 @@ UID:12345-67890
 RECURRENCE-ID:%(now_fwd10)s
 DTSTART:%(now_fwd10)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 SUMMARY:1234567890123456789012345678901234567890
  1234567890123456789012345678901234567890
  1234567890123456789012345678901234567890
@@ -3294,10 +3294,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:%(now_back30)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RRULE:FREQ=DAILY
 SUMMARY:1234567890123456789012345678901234567890
  1234567890123456789012345678901234567890
@@ -3459,10 +3459,10 @@ UID:12345-67890
 DTSTART:%(now_back30)s
 DURATION:PT1H
 ATTACH;FILENAME=new.attachment;FMTTYPE=text/x-fixture;MANAGED-ID=%(mid)s;SIZE=14:%(att_uri)s
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
 DTSTAMP:%(dtstamp)s
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RRULE:FREQ=DAILY
 SEQUENCE:1
 END:VEVENT
@@ -3477,10 +3477,10 @@ UID:12345-67890
 DTSTART:%(now_back30)s
 DURATION:PT1H
 ATTACH;FILENAME=new.attachment;FMTTYPE=text/x-fixture;MANAGED-ID=%(mid)s;SIZE=14:%(att_uri)s
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
 DTSTAMP:%(dtstamp)s
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RRULE:FREQ=DAILY
 SEQUENCE:1
 SUMMARY:1234567890123456789012345678901234567890
@@ -3494,10 +3494,10 @@ RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
 ATTACH;FILENAME=new.attachment;FMTTYPE=text/x-fixture;MANAGED-ID=%(mid)s;SIZE=14:%(att_uri)s
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
 DTSTAMP:%(dtstamp)s
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 SEQUENCE:1
 END:VEVENT
 BEGIN:VEVENT
@@ -3506,10 +3506,10 @@ RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
 ATTACH;FILENAME=new.attachment;FMTTYPE=text/x-fixture;MANAGED-ID=%(mid)s;SIZE=14:%(att_uri)s
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
 DTSTAMP:%(dtstamp)s
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 SEQUENCE:1
 END:VEVENT
 BEGIN:VEVENT
@@ -3518,10 +3518,10 @@ RECURRENCE-ID:%(now_fwd10)s
 DTSTART:%(now_fwd10)s
 DURATION:PT1H
 ATTACH;FILENAME=new.attachment;FMTTYPE=text/x-fixture;MANAGED-ID=%(mid)s;SIZE=14:%(att_uri)s
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
 DTSTAMP:%(dtstamp)s
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 SEQUENCE:1
 END:VEVENT
 END:VCALENDAR
@@ -3535,10 +3535,10 @@ UID:12345-67890
 DTSTART:%(now_back14)s
 DURATION:PT1H
 ATTACH;FILENAME=new.attachment;FMTTYPE=text/x-fixture;MANAGED-ID=%(mid)s;SIZE=14:%(att_uri)s
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
 DTSTAMP:%(dtstamp)s
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY
 SEQUENCE:3
@@ -3553,10 +3553,10 @@ RECURRENCE-ID:%(now_fwd10)s
 DTSTART:%(now_fwd10)s
 DURATION:PT1H
 ATTACH;FILENAME=new.attachment;FMTTYPE=text/x-fixture;MANAGED-ID=%(mid)s;SIZE=14:%(att_uri)s
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
 DTSTAMP:%(dtstamp)s
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:3
 END:VEVENT
@@ -3571,10 +3571,10 @@ UID:%(relID)s
 DTSTART:%(now_back30)s
 DURATION:PT1H
 ATTACH;FILENAME=new.attachment;FMTTYPE=text/x-fixture;MANAGED-ID=%(past_mid)s;SIZE=14:%(att_past_uri)s
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
 DTSTAMP:%(dtstamp)s
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY;UNTIL=%(now_back14_1)s
 SEQUENCE:3
@@ -3589,10 +3589,10 @@ RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
 ATTACH;FILENAME=new.attachment;FMTTYPE=text/x-fixture;MANAGED-ID=%(past_mid)s;SIZE=14:%(att_past_uri)s
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
 DTSTAMP:%(dtstamp)s
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:3
 END:VEVENT
@@ -3602,10 +3602,10 @@ RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
 ATTACH;FILENAME=new.attachment;FMTTYPE=text/x-fixture;MANAGED-ID=%(past_mid)s;SIZE=14:%(att_past_uri)s
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
 DTSTAMP:%(dtstamp)s
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:3
 END:VEVENT
@@ -3620,10 +3620,10 @@ UID:12345-67890
 DTSTART:%(now_back14)s
 DURATION:PT1H
 ATTACH;FILENAME=new.attachment;FMTTYPE=text/x-fixture;MANAGED-ID=%(mid)s;SIZE=14:%(att_uri)s
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:%(dtstamp)s
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY
 SEQUENCE:3
@@ -3638,10 +3638,10 @@ RECURRENCE-ID:%(now_fwd10)s
 DTSTART:%(now_fwd10)s
 DURATION:PT1H
 ATTACH;FILENAME=new.attachment;FMTTYPE=text/x-fixture;MANAGED-ID=%(mid)s;SIZE=14:%(att_uri)s
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:%(dtstamp)s
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:3
 END:VEVENT
@@ -3663,10 +3663,10 @@ UID:%(relID)s
 DTSTART:%(now_back30)s
 DURATION:PT1H
 ATTACH;FILENAME=new.attachment;FMTTYPE=text/x-fixture;MANAGED-ID=%(past_mid)s;SIZE=14:%(att_past_uri)s
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:%(dtstamp)s
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY;UNTIL=%(now_back14_1)s
 SEQUENCE:3
@@ -3681,10 +3681,10 @@ RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
 ATTACH;FILENAME=new.attachment;FMTTYPE=text/x-fixture;MANAGED-ID=%(past_mid)s;SIZE=14:%(att_past_uri)s
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:%(dtstamp)s
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:3
 END:VEVENT
@@ -3694,10 +3694,10 @@ RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
 ATTACH;FILENAME=new.attachment;FMTTYPE=text/x-fixture;MANAGED-ID=%(past_mid)s;SIZE=14:%(att_past_uri)s
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:%(dtstamp)s
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:3
 END:VEVENT
@@ -3913,7 +3913,7 @@ UID:12345-67890
 DTSTART:%(now_back14)s
 DURATION:PT1H
 ATTENDEE;PARTSTAT=ACCEPTED:mailto:cuser01@example.org
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 DTSTAMP:20051222T210507Z
 ORGANIZER;SCHEDULE-AGENT=NONE:mailto:cuser01@example.org
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:C4526F4C-4324-4893-B769-BD766E4A4E7C
@@ -3930,7 +3930,7 @@ RECURRENCE-ID:%(now_fwd10)s
 DTSTART:%(now_fwd10)s
 DURATION:PT1H
 ATTENDEE;PARTSTAT=TENTATIVE:mailto:cuser01@example.org
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=TENTATIVE:urn:uuid:user01
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=TENTATIVE:urn:x-uid:user01
 DTSTAMP:20051222T210507Z
 ORGANIZER;SCHEDULE-AGENT=NONE:mailto:cuser01@example.org
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:C4526F4C-4324-4893-B769-BD766E4A4E7C
@@ -3966,7 +3966,7 @@ UID:C4526F4C-4324-4893-B769-BD766E4A4E7C
 DTSTART:%(now_back30)s
 DURATION:PT1H
 ATTENDEE;PARTSTAT=ACCEPTED:mailto:cuser01@example.org
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 DTSTAMP:20051222T210507Z
 ORGANIZER;SCHEDULE-AGENT=NONE:mailto:cuser01@example.org
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:C4526F4C-4324-4893-B769-BD766E4A4E7C
@@ -3983,7 +3983,7 @@ RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
 ATTENDEE;PARTSTAT=TENTATIVE:mailto:cuser01@example.org
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=NEEDS-ACTION:urn:uuid:user01
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=NEEDS-ACTION:urn:x-uid:user01
 DTSTAMP:20051222T210507Z
 ORGANIZER;SCHEDULE-AGENT=NONE:mailto:cuser01@example.org
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:C4526F4C-4324-4893-B769-BD766E4A4E7C
@@ -3995,7 +3995,7 @@ RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
 ATTENDEE;PARTSTAT=DECLINED:mailto:cuser01@example.org
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=DECLINED:urn:uuid:user01
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=DECLINED:urn:x-uid:user01
 DTSTAMP:20051222T210507Z
 ORGANIZER;SCHEDULE-AGENT=NONE:mailto:cuser01@example.org
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:C4526F4C-4324-4893-B769-BD766E4A4E7C
@@ -4044,7 +4044,7 @@ UID:C4526F4C-4324-4893-B769-BD766E4A4E7C
 DTSTART:%(now_back30)s
 DURATION:PT1H
 ATTENDEE;PARTSTAT=ACCEPTED:mailto:cuser01@example.org
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 DTSTAMP:20051222T210507Z
 ORGANIZER;SCHEDULE-AGENT=NONE:mailto:cuser01@example.org
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:C4526F4C-4324-4893-B769-BD766E4A4E7C
@@ -4061,7 +4061,7 @@ RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
 ATTENDEE;PARTSTAT=TENTATIVE:mailto:cuser01@example.org
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=NEEDS-ACTION:urn:uuid:user01
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=NEEDS-ACTION:urn:x-uid:user01
 DTSTAMP:20051222T210507Z
 ORGANIZER;SCHEDULE-AGENT=NONE:mailto:cuser01@example.org
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:C4526F4C-4324-4893-B769-BD766E4A4E7C
@@ -4073,7 +4073,7 @@ RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
 ATTENDEE;PARTSTAT=DECLINED:mailto:cuser01@example.org
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=DECLINED:urn:uuid:user01
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=DECLINED:urn:x-uid:user01
 DTSTAMP:20051222T210507Z
 ORGANIZER;SCHEDULE-AGENT=NONE:mailto:cuser01@example.org
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:C4526F4C-4324-4893-B769-BD766E4A4E7C
@@ -4096,7 +4096,7 @@ END:VCALENDAR
         processor.recipient_calendar = (yield cobj.componentForUser("user01"))
         processor.message = Component.fromString(itip1 % self.subs)
         processor.originator = RemoteCalendarUser("mailto:cuser01@example.org")
-        processor.recipient = LocalCalendarUser("urn:uuid:user01", None)
+        processor.recipient = LocalCalendarUser("urn:x-uid:user01", None)
         processor.method = "REQUEST"
         processor.uid = "12345-67890"
 
@@ -4143,7 +4143,7 @@ END:VCALENDAR
         processor.recipient_calendar = (yield cobj.componentForUser("user01"))
         processor.message = Component.fromString(itip2 % self.subs)
         processor.originator = RemoteCalendarUser("mailto:cuser01@example.org")
-        processor.recipient = LocalCalendarUser("urn:uuid:user01", None)
+        processor.recipient = LocalCalendarUser("urn:x-uid:user01", None)
         processor.method = "REQUEST"
         processor.uid = "C4526F4C-4324-4893-B769-BD766E4A4E7C"
 
@@ -4217,7 +4217,7 @@ RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
 ATTENDEE;PARTSTAT=TENTATIVE:mailto:cuser01@example.org
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=NEEDS-ACTION:urn:uuid:user01
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=NEEDS-ACTION:urn:x-uid:user01
 DTSTAMP:20051222T210507Z
 ORGANIZER;SCHEDULE-AGENT=NONE:mailto:cuser01@example.org
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:C4526F4C-4324-4893-B769-BD766E4A4E7C
@@ -4253,7 +4253,7 @@ END:VCALENDAR
         processor.recipient_calendar = (yield cobj.componentForUser("user01"))
         processor.message = Component.fromString(itip1 % self.subs)
         processor.originator = RemoteCalendarUser("mailto:cuser01@example.org")
-        processor.recipient = LocalCalendarUser("urn:uuid:user01", None)
+        processor.recipient = LocalCalendarUser("urn:x-uid:user01", None)
         processor.method = "CANCEL"
         processor.uid = "12345-67890"
 
@@ -4336,7 +4336,7 @@ RECURRENCE-ID:%(now_fwd10)s
 DTSTART:%(now_fwd10)s
 DURATION:PT1H
 ATTENDEE;PARTSTAT=TENTATIVE:mailto:cuser01@example.org
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=TENTATIVE:urn:uuid:user01
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=TENTATIVE:urn:x-uid:user01
 DTSTAMP:20051222T210507Z
 ORGANIZER;SCHEDULE-AGENT=NONE:mailto:cuser01@example.org
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:C4526F4C-4324-4893-B769-BD766E4A4E7C
@@ -4371,7 +4371,7 @@ END:VCALENDAR
         processor.recipient_calendar = (yield cobj.componentForUser("user01"))
         processor.message = Component.fromString(itip1 % self.subs)
         processor.originator = RemoteCalendarUser("mailto:cuser01@example.org")
-        processor.recipient = LocalCalendarUser("urn:uuid:user01", None)
+        processor.recipient = LocalCalendarUser("urn:x-uid:user01", None)
         processor.method = "REQUEST"
         processor.uid = "12345-67890"
 
@@ -4475,7 +4475,7 @@ RECURRENCE-ID:%(now_fwd10)s
 DTSTART:%(now_fwd10)s
 DURATION:PT1H
 ATTENDEE;PARTSTAT=TENTATIVE:mailto:cuser01@example.org
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=TENTATIVE:urn:uuid:user01
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=TENTATIVE:urn:x-uid:user01
 DTSTAMP:20051222T210507Z
 ORGANIZER;SCHEDULE-AGENT=NONE:mailto:cuser01@example.org
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:C4526F4C-4324-4893-B769-BD766E4A4E7C
@@ -4505,7 +4505,7 @@ RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
 ATTENDEE;PARTSTAT=TENTATIVE:mailto:cuser01@example.org
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=NEEDS-ACTION:urn:uuid:user01
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=NEEDS-ACTION:urn:x-uid:user01
 DTSTAMP:20051222T210507Z
 ORGANIZER;SCHEDULE-AGENT=NONE:mailto:cuser01@example.org
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:C4526F4C-4324-4893-B769-BD766E4A4E7C
@@ -4541,7 +4541,7 @@ END:VCALENDAR
         processor.recipient_calendar = (yield cobj.componentForUser("user01"))
         processor.message = Component.fromString(itip1 % self.subs)
         processor.originator = RemoteCalendarUser("mailto:cuser01@example.org")
-        processor.recipient = LocalCalendarUser("urn:uuid:user01", None)
+        processor.recipient = LocalCalendarUser("urn:x-uid:user01", None)
         processor.method = "REQUEST"
         processor.uid = "12345-67890"
 
@@ -4697,7 +4697,7 @@ UID:C4526F4C-4324-4893-B769-BD766E4A4E7C
 DTSTART:%(now_back30)s
 DURATION:PT1H
 ATTENDEE;PARTSTAT=ACCEPTED:mailto:cuser01@example.org
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 DTSTAMP:20051222T210507Z
 ORGANIZER;SCHEDULE-AGENT=NONE:mailto:cuser01@example.org
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:C4526F4C-4324-4893-B769-BD766E4A4E7C
@@ -4714,7 +4714,7 @@ RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
 ATTENDEE;PARTSTAT=TENTATIVE:mailto:cuser01@example.org
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=NEEDS-ACTION:urn:uuid:user01
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=NEEDS-ACTION:urn:x-uid:user01
 DTSTAMP:20051222T210507Z
 ORGANIZER;SCHEDULE-AGENT=NONE:mailto:cuser01@example.org
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:C4526F4C-4324-4893-B769-BD766E4A4E7C
@@ -4726,7 +4726,7 @@ RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
 ATTENDEE;PARTSTAT=DECLINED:mailto:cuser01@example.org
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=DECLINED:urn:uuid:user01
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=DECLINED:urn:x-uid:user01
 DTSTAMP:20051222T210507Z
 ORGANIZER;SCHEDULE-AGENT=NONE:mailto:cuser01@example.org
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:C4526F4C-4324-4893-B769-BD766E4A4E7C
@@ -4758,7 +4758,7 @@ END:VCALENDAR
         processor.recipient_calendar = (yield cobj.componentForUser("user01"))
         processor.message = Component.fromString(itip1 % self.subs)
         processor.originator = RemoteCalendarUser("mailto:cuser01@example.org")
-        processor.recipient = LocalCalendarUser("urn:uuid:user01", None)
+        processor.recipient = LocalCalendarUser("urn:x-uid:user01", None)
         processor.method = "REQUEST"
         processor.uid = "12345-67890"
 
@@ -4777,7 +4777,7 @@ END:VCALENDAR
         processor.recipient_calendar = None
         processor.message = Component.fromString(itip2 % self.subs)
         processor.originator = RemoteCalendarUser("mailto:cuser01@example.org")
-        processor.recipient = LocalCalendarUser("urn:uuid:user01", None)
+        processor.recipient = LocalCalendarUser("urn:x-uid:user01", None)
         processor.method = "REQUEST"
         processor.uid = "C4526F4C-4324-4893-B769-BD766E4A4E7C"
 
@@ -4858,11 +4858,11 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:%(now_back14)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
 ATTENDEE;RSVP=TRUE;SCHEDULE-STATUS=3.7:mailto:cuser01@example.org
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY
 SEQUENCE:1
@@ -4876,10 +4876,10 @@ UID:12345-67890
 RECURRENCE-ID:%(now_fwd10)s
 DTSTART:%(now_fwd10)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;RSVP=TRUE;SCHEDULE-STATUS=3.7:mailto:cuser01@example.org
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
@@ -4893,11 +4893,11 @@ BEGIN:VEVENT
 UID:%(relID)s
 DTSTART:%(now_back30)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
 ATTENDEE;RSVP=TRUE;SCHEDULE-STATUS=3.7:mailto:cuser01@example.org
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY;UNTIL=%(now_back14_1)s
 SEQUENCE:1
@@ -4911,11 +4911,11 @@ UID:%(relID)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
 ATTENDEE;RSVP=TRUE;SCHEDULE-STATUS=3.7:mailto:cuser01@example.org
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
@@ -4924,10 +4924,10 @@ UID:%(relID)s
 RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
@@ -4941,12 +4941,12 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:%(now_back14)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 ATTENDEE;RSVP=TRUE:mailto:cuser01@example.org
 DTSTAMP:20051222T210507Z
 EXDATE:%(now_fwd10)s
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY
 SEQUENCE:1
@@ -4972,11 +4972,11 @@ BEGIN:VEVENT
 UID:%(relID)s
 DTSTART:%(now_back30)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 ATTENDEE;RSVP=TRUE:mailto:cuser01@example.org
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY;UNTIL=%(now_back14_1)s
 SEQUENCE:1
@@ -4990,11 +4990,11 @@ UID:%(relID)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 ATTENDEE;RSVP=TRUE:mailto:cuser01@example.org
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
@@ -5003,10 +5003,10 @@ UID:%(relID)s
 RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
@@ -5028,12 +5028,12 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:%(now_back14)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 ATTENDEE;RSVP=TRUE:mailto:cuser01@example.org
 DTSTAMP:20051222T210507Z
 EXDATE:%(now_fwd10)s
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY
 SEQUENCE:1
@@ -5055,11 +5055,11 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:%(now_back14)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 ATTENDEE;RSVP=TRUE:mailto:cuser01@example.org
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY
 SEQUENCE:1
@@ -5073,10 +5073,10 @@ UID:12345-67890
 RECURRENCE-ID:%(now_fwd10)s
 DTSTART:%(now_fwd10)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;RSVP=TRUE:mailto:cuser01@example.org
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
@@ -5093,12 +5093,12 @@ BEGIN:VEVENT
 UID:%(relID)s
 DTSTART:%(now_back30)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 ATTENDEE;RSVP=TRUE:mailto:cuser01@example.org
 DTSTAMP:20051222T210507Z
 EXDATE:%(now_back24)s
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY;UNTIL=%(now_back14_1)s
 SEQUENCE:1
@@ -5112,11 +5112,11 @@ UID:%(relID)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 ATTENDEE;RSVP=TRUE:mailto:cuser01@example.org
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
@@ -5204,11 +5204,11 @@ END:VCALENDAR
 
         # Verify cuser02 data
         self.assertEqual(len(details), 2)
-        self.assertEqual(details[0][0], "urn:uuid:user01")
+        self.assertEqual(details[0][0], "urn:x-uid:user01")
         self.assertEqual(details[0][1], ("mailto:cuser01@example.org",))
         self.assertEqual(normalize_iCalStr(details[0][2]), normalize_iCalStr(data_future_external) % relsubs, "Failed future: %s\n%s" % (title, diff_iCalStrs(details[0][2], data_future_external % relsubs),))
 
-        self.assertEqual(details[1][0], "urn:uuid:user01")
+        self.assertEqual(details[1][0], "urn:x-uid:user01")
         self.assertEqual(details[1][1], ("mailto:cuser01@example.org",))
         self.assertEqual(normalize_iCalStr(details[1][2]), normalize_iCalStr(data_past_external) % relsubs, "Failed past: %s\n%s" % (title, diff_iCalStrs(details[1][2], data_past_external % relsubs),))
 
@@ -5325,10 +5325,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:%(now_back14)s
 DURATION:PT2H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY
 SEQUENCE:1
@@ -5342,10 +5342,10 @@ UID:12345-67890
 RECURRENCE-ID:%(now_fwd10)s
 DTSTART:%(now_fwd10)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
@@ -5359,10 +5359,10 @@ BEGIN:VEVENT
 UID:%(relID)s
 DTSTART:%(now_back30)s
 DURATION:PT2H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY;UNTIL=%(now_back14_1)s
 SEQUENCE:1
@@ -5376,10 +5376,10 @@ UID:%(relID)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
@@ -5388,10 +5388,10 @@ UID:%(relID)s
 RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
@@ -5405,10 +5405,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:%(now_back14)s
 DURATION:PT2H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY
 SEQUENCE:1
@@ -5422,10 +5422,10 @@ UID:12345-67890
 RECURRENCE-ID:%(now_fwd10)s
 DTSTART:%(now_fwd10)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
@@ -5446,10 +5446,10 @@ BEGIN:VEVENT
 UID:%(relID)s
 DTSTART:%(now_back30)s
 DURATION:PT2H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY;UNTIL=%(now_back14_1)s
 SEQUENCE:1
@@ -5463,10 +5463,10 @@ UID:%(relID)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
@@ -5475,10 +5475,10 @@ UID:%(relID)s
 RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
@@ -5500,10 +5500,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:%(now_back14)s
 DURATION:PT2H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY
 SEQUENCE:1
@@ -5517,10 +5517,10 @@ UID:12345-67890
 RECURRENCE-ID:%(now_fwd10)s
 DTSTART:%(now_fwd10)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
@@ -5706,10 +5706,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:%(now_back14)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY;COUNT=36
 SEQUENCE:1
@@ -5723,10 +5723,10 @@ UID:12345-67890
 RECURRENCE-ID:%(now_fwd10)s
 DTSTART:%(now_fwd10)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
@@ -5740,10 +5740,10 @@ BEGIN:VEVENT
 UID:%(relID)s
 DTSTART:%(now_back28)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY;UNTIL=%(now_back14_1)s
 SEQUENCE:1
@@ -5757,10 +5757,10 @@ UID:%(relID)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
@@ -5769,10 +5769,10 @@ UID:%(relID)s
 RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
@@ -5786,10 +5786,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:%(now_back14)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY;COUNT=36
 SEQUENCE:1
@@ -5803,10 +5803,10 @@ UID:12345-67890
 RECURRENCE-ID:%(now_fwd10)s
 DTSTART:%(now_fwd10)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
@@ -5827,10 +5827,10 @@ BEGIN:VEVENT
 UID:%(relID)s
 DTSTART:%(now_back28)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY;UNTIL=%(now_back14_1)s
 SEQUENCE:1
@@ -5844,10 +5844,10 @@ UID:%(relID)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
@@ -5856,10 +5856,10 @@ UID:%(relID)s
 RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
@@ -5881,10 +5881,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:%(now_back14)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY;COUNT=36
 SEQUENCE:1
@@ -5898,10 +5898,10 @@ UID:12345-67890
 RECURRENCE-ID:%(now_fwd10)s
 DTSTART:%(now_fwd10)s
 DURATION:PT1H
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:uuid:user01
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:uuid:user02
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
 DTSTAMP:20051222T210507Z
-ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:uuid:user01
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT

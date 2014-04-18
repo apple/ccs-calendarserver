@@ -65,7 +65,7 @@ class SharedResourceMixin(object):
             @inlineCallbacks
             def invitePropertyElement(invitation, includeUID=True):
 
-                userid = "urn:uuid:" + invitation.shareeUID
+                userid = "urn:x-uid:" + invitation.shareeUID
                 principal = yield self.principalForUID(invitation.shareeUID)
                 cn = principal.displayName() if principal else invitation.shareeUID
                 returnValue(customxml.InviteUser(
@@ -91,11 +91,11 @@ class SharedResourceMixin(object):
                     invitations = yield self.validateInvites(request, invitations)
 
                     ownerPrincipal = yield self.principalForUID(self._newStoreObject.ownerHome().uid())
-                    # FIXME:  use urn:uuid in all cases
+                    # FIXME:  use urn:x-uid in all cases
                     if self.isCalendarCollection():
                         owner = ownerPrincipal.principalURL()
                     else:
-                        owner = "urn:uuid:" + ownerPrincipal.principalUID()
+                        owner = "urn:x-uid:" + ownerPrincipal.principalUID()
                     ownerCN = ownerPrincipal.displayName()
 
                     returnValue(customxml.Invite(
@@ -437,7 +437,7 @@ class SharedResourceMixin(object):
             invitations = yield self._newStoreObject.allInvitations()
         for invitation in invitations:
             if invitation.status != _BIND_STATUS_INVALID:
-                if not (yield self.validUserIDForShare("urn:uuid:" + invitation.shareeUID, request)):
+                if not (yield self.validUserIDForShare("urn:x-uid:" + invitation.shareeUID, request)):
                     self.log.error("Invalid sharee detected: {uid}", uid=invitation.shareeUID)
 
         returnValue(invitations)

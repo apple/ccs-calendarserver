@@ -80,13 +80,13 @@ END:VEVENT
 
 attendee = """\
 ATTENDEE;CN=User %(SEQUENCE)02d;CUTYPE=INDIVIDUAL;EMAIL=user%(SEQUENCE)02d@example.com;PARTSTAT=NE
- EDS-ACTION;ROLE=REQ-PARTICIPANT;RSVP=TRUE:urn:uuid:user%(SEQUENCE)02d
+ EDS-ACTION;ROLE=REQ-PARTICIPANT;RSVP=TRUE:urn:x-uid:user%(SEQUENCE)02d
 """
 
 organizer = """\
-ORGANIZER;CN=User %(SEQUENCE)02d;EMAIL=user%(SEQUENCE)02d@example.com:urn:uuid:user%(SEQUENCE)02d
+ORGANIZER;CN=User %(SEQUENCE)02d;EMAIL=user%(SEQUENCE)02d@example.com:urn:x-uid:user%(SEQUENCE)02d
 ATTENDEE;CN=User %(SEQUENCE)02d;EMAIL=user%(SEQUENCE)02d@example.com;PARTSTAT=ACCEPTE
- D:urn:uuid:user%(SEQUENCE)02d
+ D:urn:x-uid:user%(SEQUENCE)02d
 """
 
 def formatDate(d):

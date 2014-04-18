@@ -40,7 +40,6 @@ multiple DBs for inconsistency would be good too.
 
 """
 
-import base64
 import collections
 import sys
 import time
@@ -256,7 +255,6 @@ Options for all modes:
 Options for --ical:
 
 --badcua   : only look for bad calendar user addresses.
---nobase64 : do not apply base64 encoding to CALENDARSERVER-OLD-CUA.
 --uuid     : only scan specified calendar homes. Can be a partial GUID
              to scan all GUIDs with that as a prefix.
 --uid      : scan only calendar data with the specific iCalendar UID.
@@ -299,7 +297,7 @@ Options for --split:
 CHANGES
 v8: Detects ORGANIZER or ATTENDEE properties with mailto: calendar user
     addresses for users that have valid directory records. Fix is to
-    replace the value with a urn:uuid: form.
+    replace the value with a urn:x-uid: form.
 
 v9: Detects double-bookings.
 
@@ -324,9 +322,7 @@ class CalVerifyOptions(Options):
 
     optFlags = [
         ['ical', 'i', "Calendar data check."],
-        ['badcua', 'b', "Calendar data check for bad CALENDARSERVER-OLD-CUA only."],
         ['debug', 'D', "Debug logging."],
-        ['nobase64', 'n', "Do not apply CALENDARSERVER-OLD-CUA base64 transform when fixing."],
         ['mismatch', 's', "Detect organizer/attendee mismatches."],
         ['missing', 'm', "Show 'orphaned' homes."],
         ['double', 'd', "Detect double-bookings."],
@@ -696,21 +692,6 @@ class CalVerifyService(WorkerService, object):
         try:
             caldata = Calendar.parseText(rows[0][0]) if rows else None
         except ErrorBase:
-            caltxt = rows[0][0] if rows else None
-            if caltxt:
-                caltxt = caltxt.replace("\r\n ", "")
-                if caltxt.find("CALENDARSERVER-OLD-CUA=\"//") != -1:
-                    if doFix:
-                        caltxt = (yield self.fixBadOldCua(resid, caltxt))
-                        try:
-                            caldata = Calendar.parseText(caltxt) if rows else None
-                        except ErrorBase:
-                            self.parseError = "No fix bad CALENDARSERVER-OLD-CUA"
-                            returnValue(None)
-                    else:
-                        self.parseError = "Bad CALENDARSERVER-OLD-CUA"
-                        returnValue(None)
-
             self.parseError = "Failed to parse"
             returnValue(None)
 
@@ -742,67 +723,6 @@ class CalVerifyService(WorkerService, object):
 
         returnValue((caldata, rows[0][1], rows[0][2], rows[0][3],) if rows else (None, None, None, None,))
 
-
-    @inlineCallbacks
-    def fixBadOldCua(self, resid, caltxt):
-        """
-        Fix bad CALENDARSERVER-OLD-CUA lines and write fixed data to store. Assumes iCalendar data lines unfolded.
-        """
-
-        # Get store objects
-        homeID, calendarID = yield self.getAllResourceInfoForResourceID(resid)
-        home = yield self.txn.calendarHomeWithResourceID(homeID)
-        calendar = yield home.childWithID(calendarID)
-        calendarObj = yield calendar.objectResourceWithID(resid)
-
-        # Do raw data fix one line at a time
-        caltxt = self.fixBadOldCuaLines(caltxt)
-
-        # Re-parse
-        try:
-            component = Component.fromString(caltxt)
-        except InvalidICalendarDataError:
-            returnValue(None)
-
-        # Write out fix, commit and get a new transaction
-        # Use _migrating to ignore possible overridden instance errors - we are either correcting or ignoring those
-        self.txn._migrating = True
-        component = yield calendarObj._setComponentInternal(component, internal_state=ComponentUpdateState.RAW)
-        yield self.txn.commit()
-        self.txn = self.store.newTransaction()
-
-        returnValue(caltxt)
-
-
-    def fixBadOldCuaLines(self, caltxt):
-        """
-        Fix bad CALENDARSERVER-OLD-CUA lines. Assumes iCalendar data lines unfolded.
-        """
-
-        # Do raw data fix one line at a time
-        lines = caltxt.splitlines()
-        for ctr, line in enumerate(lines):
-            startpos = line.find(";CALENDARSERVER-OLD-CUA=\"//")
-            if startpos != -1:
-                endpos = line.find("urn:uuid:")
-                if endpos != -1:
-                    endpos += len("urn:uuid:XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX\"")
-                    badparam = line[startpos + len(";CALENDARSERVER-OLD-CUA=\""):endpos]
-                    endbadparam = badparam.find(";")
-                    if endbadparam != -1:
-                        badparam = badparam[:endbadparam].replace("\\", "")
-                        if badparam.find("8443") != -1:
-                            badparam = "https:" + badparam
-                        else:
-                            badparam = "http:" + badparam
-                        if self.options["nobase64"]:
-                            badparam = "\"" + badparam + "\""
-                        else:
-                            badparam = "base64-%s" % (base64.b64encode(badparam),)
-                        badparam = ";CALENDARSERVER-OLD-CUA=" + badparam
-                        lines[ctr] = line[:startpos] + badparam + line[endpos:]
-        caltxt = "\r\n".join(lines) + "\r\n"
-        return caltxt
 
 
     @inlineCallbacks
@@ -1274,15 +1194,6 @@ class BadDataService(CalVerifyService):
                         else:
                             raise InvalidICalendarDataError("iCalendar ORGANIZER missing mailto:")
 
-                # CALENDARSERVER-OLD-CUA needs to be base64 encoded
-                if organizer.hasParameter("CALENDARSERVER-OLD-CUA"):
-                    oldcua = organizer.parameterValue("CALENDARSERVER-OLD-CUA")
-                    if not oldcua.startswith("base64-") and not self.options["nobase64"]:
-                        if doFix:
-                            organizer.setParameter("CALENDARSERVER-OLD-CUA", "base64-%s" % (base64.b64encode(oldcua)))
-                        else:
-                            raise InvalidICalendarDataError("iCalendar ORGANIZER CALENDARSERVER-OLD-CUA not base64")
-
             for attendee in subcomponent.properties("ATTENDEE"):
                 cuaddr = attendee.value()
 
@@ -1306,15 +1217,6 @@ class BadDataService(CalVerifyService):
                             yield component.normalizeCalendarUserAddresses(lookupFunction, recordWithCalendarUserAddress)
                         else:
                             raise InvalidICalendarDataError("iCalendar ATTENDEE missing mailto:")
-
-                # CALENDARSERVER-OLD-CUA needs to be base64 encoded
-                if attendee.hasParameter("CALENDARSERVER-OLD-CUA"):
-                    oldcua = attendee.parameterValue("CALENDARSERVER-OLD-CUA")
-                    if not oldcua.startswith("base64-") and not self.options["nobase64"]:
-                        if doFix:
-                            attendee.setParameter("CALENDARSERVER-OLD-CUA", "base64-%s" % (base64.b64encode(oldcua)))
-                        else:
-                            raise InvalidICalendarDataError("iCalendar ATTENDEE CALENDARSERVER-OLD-CUA not base64")
 
 
     def attendeesWithoutOrganizer(self, component, doFix):
@@ -1521,11 +1423,11 @@ class SchedulingMismatchService(CalVerifyService):
 
             # If targeting a specific organizer, skip events belonging to others
             if self.options["uuid"]:
-                if not organizer.startswith("urn:uuid:") or self.options["uuid"] != organizer[9:]:
+                if not organizer.startswith("urn:x-uid:") or self.options["uuid"] != organizer[10:]:
                     continue
 
             # Cache organizer/attendee states
-            if organizer.startswith("urn:uuid:") and owner == organizer[9:]:
+            if organizer.startswith("urn:x-uid:") and owner == organizer[10:]:
                 if not onlyAttendee:
                     self.organized.append((owner, resid, uid, md5, organizer, created, modified,))
                     self.organized_byuid[uid] = (owner, resid, uid, md5, organizer, created, modified,)
@@ -1789,9 +1691,9 @@ class SchedulingMismatchService(CalVerifyService):
                 continue
 
             # Only care about data for hosted organizers
-            if not organizer.startswith("urn:uuid:"):
+            if not organizer.startswith("urn:x-uid:"):
                 continue
-            organizer = organizer[9:]
+            organizer = organizer[10:]
 
             # Skip organizers not enabled for calendaring
             if not (yield self.testForCalendaringUUID(organizer)):
@@ -1913,7 +1815,7 @@ class SchedulingMismatchService(CalVerifyService):
         """
 
         try:
-            cuaddr = "urn:uuid:%s" % attendee
+            cuaddr = "urn:x-uid:%s" % attendee
 
             # Get the organizer's calendar data
             calendar = (yield self.getCalendar(orgresid))
@@ -2073,8 +1975,8 @@ class SchedulingMismatchService(CalVerifyService):
             props = item.getOwner().getProperties().get(definitions.cICalProperty_ATTENDEE, [])
             for prop in props:
                 caladdr = prop.getCalAddressValue().getValue()
-                if caladdr.startswith("urn:uuid:"):
-                    caladdr = caladdr[9:]
+                if caladdr.startswith("urn:x-uid:"):
+                    caladdr = caladdr[10:]
                 else:
                     continue
                 if attendee_only is not None and attendee_only != caladdr:
@@ -2610,8 +2512,8 @@ class DarkPurgeService(CalVerifyService):
             else:
                 principal = yield self.directoryService().recordWithCalendarUserAddress(organizer)
                 # FIXME: Why the mix of records and principals here?
-                if principal is None and organizer.startswith("urn:uuid:"):
-                    principal = yield self.directoryService().principalCollection.principalForUID(organizer[9:])
+                if principal is None and organizer.startswith("urn:x-uid:"):
+                    principal = yield self.directoryService().principalCollection.principalForUID(organizer[10:])
                 if principal is None:
                     if self.options["invalid-organizer"]:
                         fail = True

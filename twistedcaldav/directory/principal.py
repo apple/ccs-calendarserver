@@ -117,7 +117,10 @@ def cuAddressConverter(origCUAddr):
 
     cua = normalizeCUAddr(origCUAddr)
 
-    if cua.startswith("urn:uuid:"):
+    if cua.startswith("urn:x-uid:"):
+        return "uid", cua[10:]
+
+    elif cua.startswith("urn:uuid:"):
         return "guid", uuid.UUID(cua[9:])
 
     elif cua.startswith("mailto:"):
@@ -849,9 +852,7 @@ class DirectoryPrincipalResource (
         namespace, name = qname
 
         if qname == davxml.ResourceID.qname():
-            # FIXME: should this return a different CUA flavor if guid is not set on this record?
-            if hasattr(self.record, "guid"):
-                returnValue(davxml.ResourceID(davxml.HRef.fromString("urn:uuid:%s" % (self.record.guid,))))
+            returnValue(davxml.ResourceID(davxml.HRef.fromString("urn:x-uid:%s" % (self.record.uid,))))
 
         elif namespace == calendarserver_namespace:
 
@@ -1268,11 +1269,7 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
 
     def canonicalCalendarUserAddress(self):
         """
-        Return a CUA for this principal, preferring in this order:
-            urn:uuid: form
-            mailto: form
-            /principal/__uids__/ form
-            first in calendarUserAddresses( ) list
+        Return a CUA for this principal
         """
         return self.record.canonicalCalendarUserAddress()
 

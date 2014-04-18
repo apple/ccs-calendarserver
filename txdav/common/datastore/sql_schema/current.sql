@@ -1007,6 +1007,45 @@ create index SCHEDULE_REPLY_CANCEL_WORK_HOME_RESOURCE_ID on
 create index SCHEDULE_REPLY_CANCEL_WORK_JOB_ID on
   SCHEDULE_REPLY_CANCEL_WORK(JOB_ID);
 
+----------------------------------
+-- Principal Purge Polling Work --
+----------------------------------
+
+create table PRINCIPAL_PURGE_SCAN_POLLING_WORK (
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
+  JOB_ID                        integer      references JOB not null
+);
+
+create index PRINCIPAL_PURGE_SCAN_POLLING_WORK_JOB_ID on
+  PRINCIPAL_PURGE_SCAN_POLLING_WORK(JOB_ID);
+
+--------------------------------
+-- Principal Purge Check Work --
+--------------------------------
+
+create table PRINCIPAL_PURGE_CHECK_WORK (
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
+  JOB_ID                        integer      references JOB not null,
+  UID                           varchar(255) not null
+);
+
+create index PRINCIPAL_PURGE_CHECK_WORK_JOB_ID on
+  PRINCIPAL_PURGE_CHECK_WORK(JOB_ID);
+
+--------------------------
+-- Principal Purge Work --
+--------------------------
+
+create table PRINCIPAL_PURGE_WORK (
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
+  JOB_ID                        integer      references JOB not null,
+  UID                           varchar(255) not null
+);
+
+create index PRINCIPAL_PURGE_WORK_JOB_ID on
+  PRINCIPAL_PURGE_WORK(JOB_ID);
+
+
 --------------------
 -- Schema Version --
 --------------------
