@@ -1311,7 +1311,7 @@ class PostDBImportStep(object):
         txn = request._newStoreTransaction
 
         ownerPrincipal = principal
-        cua = "urn:uuid:%s" % (uuid,)
+        cua = "urn:x-uid:%s" % (uuid,)
         owner = LocalCalendarUser(
             cua, ownerPrincipal,
             inbox, ownerPrincipal.scheduleInboxURL()

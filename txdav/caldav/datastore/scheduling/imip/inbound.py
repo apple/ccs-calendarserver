@@ -327,9 +327,9 @@ class MailReceiver(object):
             fromAddr = attendee[7:]
             if organizer.startswith("mailto:"):
                 toAddr = organizer[7:]
-            elif organizer.startswith("urn:uuid:"):
-                guid = organizer[9:]
-                record = yield self.directory.recordWithGUID(guid)
+            elif organizer.startswith("urn:x-uid:"):
+                uid = organizer[10:]
+                record = yield self.directory.recordWithUID(uid)
                 try:
                     if record and record.emailAddresses:
                         toAddr = list(record.emailAddresses)[0]
