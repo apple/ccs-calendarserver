@@ -775,6 +775,13 @@ class AttachmentStoreFailed(Exception):
 
 
 
+class AttachmentSizeTooLarge(Exception):
+    """
+    Unable to store an attachment because it is too large.
+    """
+
+
+
 class AttachmentStoreValidManagedID(Exception):
     """
     Specified attachment managed-id is not valid.

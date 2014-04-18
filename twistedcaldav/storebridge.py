@@ -60,7 +60,7 @@ from txdav.caldav.icalendarstore import (
     InvalidPerUserDataMerge,
     AttendeeAllowedError, ResourceDeletedError, InvalidAttachmentOperation,
     ShareeAllowedError, DuplicatePrivateCommentsError, InvalidSplit
-)
+, AttachmentSizeTooLarge)
 from txdav.carddav.iaddressbookstore import (
     KindChangeNotAllowedError, GroupWithUnsharedAddressNotAllowedError
 )
@@ -2123,6 +2123,11 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
 
         try:
             yield t.loseConnection()
+        except AttachmentSizeTooLarge:
+            raise HTTPError(
+                ErrorResponse(FORBIDDEN,
+                              (caldav_namespace, "max-attachment-size"))
+            )
         except QuotaExceeded:
             raise HTTPError(
                 ErrorResponse(INSUFFICIENT_STORAGE_SPACE,
@@ -3175,6 +3180,12 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                     (caldav_namespace, "valid-action-parameter",),
                     "The action parameter in the request-URI is not valid",
                 ))
+
+        except AttachmentSizeTooLarge:
+            raise HTTPError(
+                ErrorResponse(FORBIDDEN,
+                              (caldav_namespace, "max-attachment-size"))
+            )
 
         except QuotaExceeded:
             raise HTTPError(ErrorResponse(

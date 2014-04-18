@@ -126,6 +126,10 @@
     <key>UserQuota</key>
     <integer>104857600</integer> <!-- 100Mb -->
 
+    <!-- Maximum size for a single attachment (in bytes) [0 = no limit] -->
+    <key>MaximumAttachmentSize</key>
+    <integer>10485760</integer> <!-- 10Mb -->
+
     <!-- Maximum number of calendars/address books allowed in a home -->
     <!-- 0 for no limit -->
     <key>MaxCollectionsPerHome</key>

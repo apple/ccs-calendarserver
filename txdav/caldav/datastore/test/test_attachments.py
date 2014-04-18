@@ -36,7 +36,7 @@ from txdav.caldav.datastore.sql import CalendarStoreFeatures, DropBoxAttachment,
 from txdav.caldav.datastore.test.common import CaptureProtocol
 from txdav.caldav.datastore.test.util import buildCalendarStore
 from txdav.caldav.icalendarstore import IAttachmentStorageTransport, IAttachment, \
-    QuotaExceeded
+    QuotaExceeded, AttachmentSizeTooLarge
 from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.test.util import CommonCommonTests, \
     populateCalendarsFrom, deriveQuota, withSpecialQuota
@@ -506,6 +506,77 @@ END:VCALENDAR
         t.write(sampleData)
         yield t.loseConnection()
         yield self.exceedQuotaTest(get)
+        @inlineCallbacks
+        def checkOriginal():
+            actual = yield self.attachmentToString(attachment)
+            expected = sampleData
+            # note: 60 is less than len(expected); trimming is just to make
+            # the error message look sane when the test fails.
+            actual = actual[:60]
+            self.assertEquals(actual, expected)
+        yield checkOriginal()
+        yield self.commit()
+        # Make sure that things go back to normal after a commit of that
+        # transaction.
+        obj = yield self.calendarObjectUnderTest()
+        attachment = yield get()
+        yield checkOriginal()
+
+
+    @inlineCallbacks
+    def exceedSizeTest(self, getit):
+        """
+        If too many bytes are passed to the transport returned by
+        L{ICalendarObject.createAttachmentWithName},
+        L{IAttachmentStorageTransport.loseConnection} will return a L{Deferred}
+        that fails with L{AttachmentSizeTooLarge}.
+        """
+        attachment = yield getit()
+        t = attachment.store(MimeType("text", "x-fixture"), "")
+        sample = "all work and no play makes jack a dull boy"
+        chunk = (sample * (config.MaximumAttachmentSize / len(sample)))
+
+        t.write(chunk)
+        t.writeSequence([chunk, chunk])
+
+        d = t.loseConnection()
+        yield self.failUnlessFailure(d, AttachmentSizeTooLarge)
+
+
+    @inlineCallbacks
+    def test_exceedSizeNew(self):
+        """
+        When size is exceeded on a new attachment, that attachment will no
+        longer exist.
+        """
+
+        self.patch(config, "MaximumAttachmentSize", 100)
+        obj = yield self.calendarObjectUnderTest()
+        yield self.exceedSizeTest(
+            lambda: obj.createAttachmentWithName("too-big.attachment")
+        )
+        self.assertEquals((yield obj.attachments()), [])
+        yield self.commit()
+        obj = yield self.calendarObjectUnderTest()
+        self.assertEquals((yield obj.attachments()), [])
+
+
+    @inlineCallbacks
+    def test_exceedSizeReplace(self):
+        """
+        When size is exceeded while replacing an attachment, that attachment's
+        contents will not be replaced.
+        """
+        self.patch(config, "MaximumAttachmentSize", 100)
+        obj = yield self.calendarObjectUnderTest()
+        create = lambda: obj.createAttachmentWithName("exists.attachment")
+        get = lambda: obj.attachmentWithName("exists.attachment")
+        attachment = yield create()
+        t = attachment.store(MimeType("text", "x-fixture"), "")
+        sampleData = "a reasonably sized attachment"
+        t.write(sampleData)
+        yield t.loseConnection()
+        yield self.exceedSizeTest(get)
         @inlineCallbacks
         def checkOriginal():
             actual = yield self.attachmentToString(attachment)
@@ -1044,6 +1115,76 @@ class ManagedAttachmentTests(AttachmentTests):
         t.write(sampleData)
         yield t.loseConnection()
         yield self.exceedQuotaTest(get, "exists.attachment")
+        @inlineCallbacks
+        def checkOriginal():
+            actual = yield self.attachmentToString(attachment)
+            expected = sampleData
+            # note: 60 is less than len(expected); trimming is just to make
+            # the error message look sane when the test fails.
+            actual = actual[:60]
+            self.assertEquals(actual, expected)
+        yield checkOriginal()
+        yield self.commit()
+        # Make sure that things go back to normal after a commit of that
+        # transaction.
+        obj = yield self.calendarObjectUnderTest()
+        attachment = yield get()
+        yield checkOriginal()
+
+
+    @inlineCallbacks
+    def exceedSizeTest(self, getit):
+        """
+        If too many bytes are passed to the transport returned by
+        L{ICalendarObject.createAttachmentWithName},
+        L{IAttachmentStorageTransport.loseConnection} will return a L{Deferred}
+        that fails with L{AttachmentSizeTooLarge}.
+        """
+        attachment = yield getit()
+        t = attachment.store(MimeType("text", "x-fixture"), "")
+        sample = "all work and no play makes jack a dull boy"
+        chunk = (sample * (config.MaximumAttachmentSize / len(sample)))
+
+        t.write(chunk)
+        t.writeSequence([chunk, chunk])
+
+        d = t.loseConnection()
+        yield self.failUnlessFailure(d, AttachmentSizeTooLarge)
+
+
+    @inlineCallbacks
+    def test_exceedSizeNew(self):
+        """
+        When size is exceeded on a new attachment, that attachment will no
+        longer exist.
+        """
+        self.patch(config, "MaximumAttachmentSize", 100)
+        obj = yield self.calendarObjectUnderTest()
+        yield self.exceedSizeTest(
+            lambda: obj.createAttachmentWithName("too-big.attachment")
+        )
+        self.assertEquals((yield obj.attachments()), [])
+        yield self.commit()
+        obj = yield self.calendarObjectUnderTest()
+        self.assertEquals((yield obj.attachments()), [])
+
+
+    @inlineCallbacks
+    def test_exceedSizeReplace(self):
+        """
+        When size is exceeded while replacing an attachment, that attachment's
+        contents will not be replaced.
+        """
+        self.patch(config, "MaximumAttachmentSize", 100)
+        obj = yield self.calendarObjectUnderTest()
+        create = lambda: obj.createAttachmentWithName("exists.attachment")
+        get = lambda: obj.attachmentWithName("exists.attachment")
+        attachment = yield create()
+        t = attachment.store(MimeType("text", "x-fixture"), "")
+        sampleData = "a reasonably sized attachment"
+        t.write(sampleData)
+        yield t.loseConnection()
+        yield self.exceedSizeTest(get)
         @inlineCallbacks
         def checkOriginal():
             actual = yield self.attachmentToString(attachment)

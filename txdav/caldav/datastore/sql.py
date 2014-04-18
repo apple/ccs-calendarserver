@@ -77,7 +77,8 @@ from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObjec
     ValidOrganizerError, ShareeAllowedError, ComponentRemoveState, \
     InvalidDefaultCalendar, \
     InvalidAttachmentOperation, DuplicatePrivateCommentsError, \
-    TimeRangeUpperLimit, TimeRangeLowerLimit, InvalidSplit
+    TimeRangeUpperLimit, TimeRangeLowerLimit, InvalidSplit, \
+    AttachmentSizeTooLarge
 from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
@@ -4053,6 +4054,15 @@ class AttachmentStorageTransport(StorageTransportBase):
         oldSize = self._attachment.size()
         newSize = self._file.tell()
         self._file.close()
+
+        # Check max size for attachment
+        if newSize > config.MaximumAttachmentSize:
+            self._path.remove()
+            if self._creating:
+                yield self._attachment._internalRemove()
+            raise AttachmentSizeTooLarge()
+
+        # Check overall user quota
         allowed = home.quotaAllowedBytes()
         if allowed is not None and allowed < ((yield home.quotaUsedBytes())
                                               + (newSize - oldSize)):

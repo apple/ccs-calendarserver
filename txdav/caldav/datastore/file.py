@@ -46,7 +46,7 @@ from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque, Transparent
 from twistedcaldav.config import config
 from twistedcaldav.ical import InvalidICalendarDataError
 
-from txdav.caldav.icalendarstore import IAttachment
+from txdav.caldav.icalendarstore import IAttachment, AttachmentSizeTooLarge
 from txdav.caldav.icalendarstore import ICalendar, ICalendarObject
 from txdav.caldav.icalendarstore import ICalendarHome
 
@@ -803,6 +803,13 @@ class AttachmentStorageTransport(StorageTransportBase):
         newSize = self._file.tell()
         # FIXME: do anything
         self._file.close()
+
+        # Check max size for attachment
+        if newSize > config.MaximumAttachmentSize:
+            self._path.remove()
+            return fail(AttachmentSizeTooLarge())
+
+        # Check overall user quota
         allowed = home.quotaAllowedBytes()
         if allowed is not None and allowed < (home.quotaUsedBytes()
                                               + (newSize - oldSize)):
