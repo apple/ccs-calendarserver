@@ -1537,13 +1537,13 @@ class UpgradeTests(StoreTestCase):
 
         records = {
             "mailto:a@example.com":
-                StubRecord(("User A",), u"123", ("mailto:a@example.com", "urn:uuid:123")),
+                StubRecord(("User A",), u"123", ("mailto:a@example.com", "urn:x-uid:123")),
             "mailto:b@example.com":
-                StubRecord(("User B",), u"234", ("mailto:b@example.com", "urn:uuid:234")),
+                StubRecord(("User B",), u"234", ("mailto:b@example.com", "urn:x-uid:234")),
             "/principals/users/a":
-                StubRecord(("User A",), u"123", ("mailto:a@example.com", "urn:uuid:123")),
+                StubRecord(("User A",), u"123", ("mailto:a@example.com", "urn:x-uid:123")),
             "/principals/users/b":
-                StubRecord(("User B",), u"234", ("mailto:b@example.com", "urn:uuid:234")),
+                StubRecord(("User B",), u"234", ("mailto:b@example.com", "urn:x-uid:234")),
         }
 
         directory = StubDirectory()
@@ -1681,17 +1681,18 @@ UID:1E238CA1-3C95-4468-B8CD-C8A399F78C71
 DTSTART;TZID=US/Pacific:20090203T120000
 DTEND;TZID=US/Pacific:20090203T130000
 ATTENDEE;CN=Wilfredo Sanchez;CUTYPE=INDIVIDUAL;EMAIL=wsanchez@example.com;
- PARTSTAT=ACCEPTED:urn:uuid:6423F94A-6B76-4A3A-815B-D52CFD77935D
+ PARTSTAT=ACCEPTED:urn:x-uid:6423F94A-6B76-4A3A-815B-D52CFD77935D
 ATTENDEE;CN=Double 'quotey' Quotes;CUTYPE=INDIVIDUAL;EMAIL=doublequotes@ex
- ample.com;PARTSTAT=ACCEPTED:urn:uuid:8E04787E-336D-41ED-A70B-D233AD0DCE6F
+ ample.com;PARTSTAT=ACCEPTED:urn:x-uid:8E04787E-336D-41ED-A70B-D233AD0DCE6
+ F
 ATTENDEE;CN=Cyrus Daboo;CUTYPE=INDIVIDUAL;EMAIL=cdaboo@example.com;PARTSTA
- T=ACCEPTED;ROLE=REQ-PARTICIPANT:urn:uuid:5A985493-EE2C-4665-94CF-4DFEA3A8
- 9500
+ T=ACCEPTED;ROLE=REQ-PARTICIPANT:urn:x-uid:5A985493-EE2C-4665-94CF-4DFEA3A
+ 89500
 CREATED:20090203T181910Z
 DESCRIPTION:This has " Bad Quotes " in it
 DTSTAMP:20090203T181924Z
-ORGANIZER;CN=Cyrus Daboo;EMAIL=cdaboo@example.com:urn:uuid:5A985493-EE2C-4
- 665-94CF-4DFEA3A89500
+ORGANIZER;CN=Cyrus Daboo;EMAIL=cdaboo@example.com:urn:x-uid:5A985493-EE2C-
+ 4665-94CF-4DFEA3A89500
 SEQUENCE:2
 SUMMARY:New Event
 TRANSP:OPAQUE

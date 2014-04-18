@@ -7598,7 +7598,7 @@ END:VCALENDAR
 
 
     @inlineCallbacks
-    def test_normalizeCalendarUserAddressesFromUUID(self):
+    def test_normalizeCalendarUserAddressesFromCanonical(self):
         """
         Ensure mailto is preferred, followed by path form, then http form.
         """
@@ -7612,6 +7612,7 @@ DTSTART:20071114T000000Z
 ATTENDEE:urn:uuid:foo
 ATTENDEE:urn:uuid:bar
 ATTENDEE:urn:uuid:baz
+ATTENDEE:urn:x-uid:buz
 DTSTAMP:20071114T000000Z
 END:VEVENT
 END:VCALENDAR
@@ -7627,24 +7628,30 @@ END:VCALENDAR
                         "Foo",
                         "foo",
                         "INDIVIDUAL",
-                        ("urn:uuid:foo", "http://example.com/foo", "/foo")
+                        ("urn:x-uid:foo", "urn:uuid:foo", "http://example.com/foo", "/foo")
                     ),
                     "urn:uuid:bar" : (
                         "Bar",
                         "bar",
                         "INDIVIDUAL",
-                        ("urn:uuid:bar", "mailto:bar@example.com", "http://example.com/bar", "/bar")
+                        ("urn:x-uid:bar", "urn:uuid:bar", "mailto:bar@example.com", "http://example.com/bar", "/bar")
                     ),
                     "urn:uuid:baz" : (
                         "Baz",
                         "baz",
                         "INDIVIDUAL",
-                       ("urn:uuid:baz", "http://example.com/baz")
+                       ("urn:x-uid:baz", "urn:uuid:baz", "http://example.com/baz")
+                    ),
+                    "urn:x-uid:buz" : (
+                        "Buz",
+                        "buz",
+                        "INDIVIDUAL",
+                       ("urn:x-uid:buz", "urn:uuid:buz", "http://example.com/buz")
                     ),
                 }[cuaddr]
             )
 
-        yield component.normalizeCalendarUserAddresses(lookupFunction, None, toUUID=False)
+        yield component.normalizeCalendarUserAddresses(lookupFunction, None, toCanonical=False)
 
         self.assertEquals("mailto:bar@example.com",
             component.getAttendeeProperty(("mailto:bar@example.com",)).value())
@@ -7652,6 +7659,8 @@ END:VCALENDAR
             component.getAttendeeProperty(("/foo",)).value())
         self.assertEquals("http://example.com/baz",
             component.getAttendeeProperty(("http://example.com/baz",)).value())
+        self.assertEquals("http://example.com/buz",
+            component.getAttendeeProperty(("http://example.com/buz",)).value())
 
 
     @inlineCallbacks
@@ -7686,30 +7695,30 @@ END:VCALENDAR
                         "Foo",
                         "foo",
                         "INDIVIDUAL",
-                        ("urn:uuid:foo",)
+                        ("urn:x-uid:foo", "urn:uuid:foo",)
                     ),
                     "http://example.com/principals/users/bar" : (
                         "Bar",
                         "bar",
                         "INDIVIDUAL",
-                        ("urn:uuid:bar",)
+                        ("urn:x-uid:bar", "urn:uuid:bar",)
                     ),
                     "http://example.com/principals/locations/buzz" : (
                         "{Restricted} Buzz",
                         "buzz",
                         "ROOM",
-                        ("urn:uuid:buzz",)
+                        ("urn:x-uid:buzz", "urn:uuid:buzz",)
                     ),
                 }[cuaddr]
             )
 
-        yield component.normalizeCalendarUserAddresses(lookupFunction, None, toUUID=True)
+        yield component.normalizeCalendarUserAddresses(lookupFunction, None, toCanonical=True)
 
         # Location value changed
         prop = component.mainComponent().getProperty("LOCATION")
         self.assertEquals(prop.value(), "{Restricted} Buzz")
-        prop = component.getAttendeeProperty(("urn:uuid:buzz",))
-        self.assertEquals("urn:uuid:buzz", prop.value())
+        prop = component.getAttendeeProperty(("urn:x-uid:buzz",))
+        self.assertEquals("urn:x-uid:buzz", prop.value())
         self.assertEquals(prop.parameterValue("CN"), "{Restricted} Buzz")
 
 
@@ -7745,30 +7754,30 @@ END:VCALENDAR
                         "Foo",
                         "foo",
                         "INDIVIDUAL",
-                        ("urn:uuid:foo",)
+                        ("urn:x-uid:foo", "urn:uuid:foo",)
                     ),
                     "http://example.com/principals/users/bar" : (
                         "Bar",
                         "bar",
                         "INDIVIDUAL",
-                        ("urn:uuid:bar",)
+                        ("urn:x-uid:bar", "urn:uuid:bar",)
                     ),
                     "http://example.com/principals/locations/buzz" : (
                         "{Restricted} Buzz",
                         "buzz",
                         "INDIVIDUAL",
-                        ("urn:uuid:buzz",)
+                        ("urn:x-uid:buzz", "urn:uuid:buzz",)
                     ),
                 }[cuaddr]
             )
 
-        yield component.normalizeCalendarUserAddresses(lookupFunction, None, toUUID=True)
+        yield component.normalizeCalendarUserAddresses(lookupFunction, None, toCanonical=True)
 
         # Location value changed
         prop = component.mainComponent().getProperty("LOCATION")
         self.assertEquals(prop.value(), "Fuzz")
-        prop = component.getAttendeeProperty(("urn:uuid:buzz",))
-        self.assertEquals("urn:uuid:buzz", prop.value())
+        prop = component.getAttendeeProperty(("urn:x-uid:buzz",))
+        self.assertEquals("urn:x-uid:buzz", prop.value())
         self.assertEquals(prop.parameterValue("CN"), "{Restricted} Buzz")
 
 
@@ -7804,30 +7813,30 @@ END:VCALENDAR
                         "Foo",
                         "foo",
                         "INDIVIDUAL",
-                        ("urn:uuid:foo",)
+                        ("urn:x-uid:foo", "urn:uuid:foo",)
                     ),
                     "http://example.com/principals/users/bar" : (
                         "Bar",
                         "bar",
                         "INDIVIDUAL",
-                        ("urn:uuid:bar",)
+                        ("urn:x-uid:bar", "urn:uuid:bar",)
                     ),
                     "http://example.com/principals/locations/buzz" : (
                         "{Restricted} Buzz",
                         "buzz",
                         "INDIVIDUAL",
-                        ("urn:uuid:buzz",)
+                        ("urn:x-uid:buzz", "urn:uuid:buzz",)
                     ),
                 }[cuaddr]
             )
 
-        yield component.normalizeCalendarUserAddresses(lookupFunction, None, toUUID=True)
+        yield component.normalizeCalendarUserAddresses(lookupFunction, None, toCanonical=True)
 
         # Location value changed
         prop = component.mainComponent().getProperty("LOCATION")
         self.assertEquals(prop.value(), "Buzz")
-        prop = component.getAttendeeProperty(("urn:uuid:buzz",))
-        self.assertEquals("urn:uuid:buzz", prop.value())
+        prop = component.getAttendeeProperty(("urn:x-uid:buzz",))
+        self.assertEquals("urn:x-uid:buzz", prop.value())
         self.assertEquals(prop.parameterValue("CN"), "{Restricted} Buzz")
 
 
@@ -8529,7 +8538,7 @@ END:VCALENDAR
 
 
     @inlineCallbacks
-    def test_normalizeCUAddressFromUUID(self):
+    def test_normalizeCUAddressFromCanonical(self):
         """
         Ensure mailto is preferred, followed by path form, then http form.
         If CALENDARSERVER-OLD-CUA parameter is present, restore that value.
@@ -8539,7 +8548,11 @@ END:VCALENDAR
             ("urn:uuid:foo", "/foo"),
             ("urn:uuid:bar", "mailto:bar@example.com",),
             ("urn:uuid:baz", "http://example.com/baz",),
-            ("urn:uuid:buz", "urn:uuid:buz",),
+            ("urn:uuid:buz", "urn:x-uid:buz",),
+            ("urn:x-uid:foo", "/foo"),
+            ("urn:x-uid:bar", "mailto:bar@example.com",),
+            ("urn:x-uid:baz", "http://example.com/baz",),
+            ("urn:x-uid:buz", "urn:x-uid:buz",),
         )
 
         def lookupFunction(cuaddr, ignored1, ignored2):
@@ -8549,44 +8562,68 @@ END:VCALENDAR
                         "Foo",
                         "foo",
                         "INDIVIDUAL",
-                        ("urn:uuid:foo", "http://example.com/foo", "/foo")
+                        ("urn:x-uid:foo", "urn:uuid:foo", "http://example.com/foo", "/foo")
                     ),
                     "urn:uuid:bar" : (
                         "Bar",
                         "bar",
                         "INDIVIDUAL",
-                        ("urn:uuid:bar", "mailto:bar@example.com", "http://example.com/bar", "/bar")
+                        ("urn:x-uid:bar", "urn:uuid:bar", "mailto:bar@example.com", "http://example.com/bar", "/bar")
                     ),
                     "urn:uuid:baz" : (
                         "Baz",
                         "baz",
                         "INDIVIDUAL",
-                        ("urn:uuid:baz", "http://example.com/baz")
+                        ("urn:x-uid:baz", "urn:uuid:baz", "http://example.com/baz")
                     ),
                     "urn:uuid:buz" : (
                         "Buz",
                         "buz",
                         "INDIVIDUAL",
-                        ("urn:uuid:buz",)
+                        ("urn:x-uid:buz", "urn:uuid:buz",)
+                    ),
+                    "urn:x-uid:foo" : (
+                        "Foo",
+                        "foo",
+                        "INDIVIDUAL",
+                        ("urn:x-uid:foo", "urn:uuid:foo", "http://example.com/foo", "/foo")
+                    ),
+                    "urn:x-uid:bar" : (
+                        "Bar",
+                        "bar",
+                        "INDIVIDUAL",
+                        ("urn:x-uid:bar", "urn:uuid:bar", "mailto:bar@example.com", "http://example.com/bar", "/bar")
+                    ),
+                    "urn:x-uid:baz" : (
+                        "Baz",
+                        "baz",
+                        "INDIVIDUAL",
+                        ("urn:x-uid:baz", "urn:uuid:baz", "http://example.com/baz")
+                    ),
+                    "urn:x-uid:buz" : (
+                        "Buz",
+                        "buz",
+                        "INDIVIDUAL",
+                        ("urn:x-uid:buz", "urn:uuid:buz",)
                     ),
                 }[cuaddr]
             )
 
         for cuaddr, result in data:
-            new_cuaddr = yield normalizeCUAddress(cuaddr, lookupFunction, None, toUUID=False)
+            new_cuaddr = yield normalizeCUAddress(cuaddr, lookupFunction, None, toCanonical=False)
             self.assertEquals(new_cuaddr, result)
 
 
     @inlineCallbacks
-    def test_normalizeCUAddressToUUID(self):
+    def test_normalizeCUAddressToCanonical(self):
         """
         Ensure http(s) and /path CUA values are tucked away into the property
         using CALENDARSERVER-OLD-CUA parameter.
         """
 
         data = (
-            ("/principals/users/foo", "urn:uuid:foo",),
-            ("http://example.com/principals/users/buz", "urn:uuid:buz",),
+            ("/principals/users/foo", "urn:x-uid:foo",),
+            ("http://example.com/principals/users/buz", "urn:x-uid:buz",),
         )
 
 
@@ -8597,19 +8634,19 @@ END:VCALENDAR
                         "Foo",
                         "foo",
                         "INDIVIDUAL",
-                        ("urn:uuid:foo",)
+                        ("urn:x-uid:foo", "urn:uuid:foo",)
                     ),
                     "http://example.com/principals/users/buz" : (
                         "Buz",
                         "buz",
                         "INDIVIDUAL",
-                        ("urn:uuid:buz",)
+                        ("urn:x-uid:buz", "urn:uuid:buz",)
                     ),
                 }[cuaddr]
             )
 
         for cuaddr, result in data:
-            new_cuaddr = yield normalizeCUAddress(cuaddr, lookupFunction, None, toUUID=True)
+            new_cuaddr = yield normalizeCUAddress(cuaddr, lookupFunction, None, toCanonical=True)
             self.assertEquals(new_cuaddr, result)
 
 

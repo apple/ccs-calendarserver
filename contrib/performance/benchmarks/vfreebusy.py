@@ -73,7 +73,7 @@ DTEND:%(end)s
 X-CALENDARSERVER-MASK-UID:EC75A61B-08A3-44FD-BFBB-2457BBD0D490
 DTSTAMP:20100729T174751Z
 ORGANIZER:mailto:user01@example.com
-SUMMARY:Availability for urn:uuid:user02
+SUMMARY:Availability for urn:x-uid:user02
 END:VFREEBUSY
 END:VCALENDAR
 """
@@ -124,6 +124,7 @@ def makeEvents(base, n):
 @inlineCallbacks
 def measure(host, port, dtrace, events, samples):
     user = password = "user01"
+    uid = "10000000-0000-0000-0000-000000000001"
     root = "/"
     principal = "/"
     calendar = "vfreebusy-benchmark"
@@ -150,12 +151,12 @@ def measure(host, port, dtrace, events, samples):
     headers = Headers({
             "content-type": ["text/calendar"],
             "originator": ["mailto:%s@example.com" % (user,)],
-            "recipient": ["urn:uuid:%s, urn:uuid:user02" % (user,)]})
+            "recipient": ["urn:x-uid:%s, urn:x-uid:10000000-0000-0000-0000-000000000002" % (uid,)]})
 
     vfb = VFREEBUSY % {
             "attendees": "".join([
-                    "ATTENDEE:urn:uuid:%s\n" % (user,),
-                    "ATTENDEE:urn:uuid:user02\n"]),
+                    "ATTENDEE:urn:x-uid:%s\n" % (uid,),
+                    "ATTENDEE:urn:x-uid:10000000-0000-0000-0000-000000000002\n"]),
             "start": formatDate(baseTime.replace(hour=0, minute=0)) + 'Z',
             "end": formatDate(
                 baseTime.replace(hour=0, minute=0) + timedelta(days=1)) + 'Z'}

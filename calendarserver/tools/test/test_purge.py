@@ -877,7 +877,7 @@ class PurgePrincipalTests(StoreTestCase):
         yield txn.commit()
 
         count = (yield PurgePrincipalService.purgeUIDs(self.storeUnderTest(), self.directory,
-            self.rootResource, (self.uid,), verbose=False, proxies=False, completely=True))
+            (self.uid,), verbose=False, proxies=False, completely=True))
         self.assertEquals(count, 2) # 2 events
 
         # Now you don't
@@ -892,7 +892,6 @@ class PurgePrincipalTests(StoreTestCase):
         count = yield PurgePrincipalService.purgeUIDs(
             self.storeUnderTest(),
             self.directory,
-            self.rootResource,
             (self.uid,),
             verbose=False,
             proxies=False,
@@ -922,7 +921,7 @@ class PurgePrincipalTests(StoreTestCase):
         yield txn.commit()
 
         count = (yield PurgePrincipalService.purgeUIDs(self.storeUnderTest(), self.directory,
-            self.rootResource, (self.uid,), verbose=False, proxies=False, completely=False))
+            (self.uid,), verbose=False, proxies=False, completely=False))
         self.assertEquals(count, 1) # 2 events
 
         # Now you still see it
@@ -935,7 +934,7 @@ class PurgePrincipalTests(StoreTestCase):
         yield txn.commit()
 
         count = yield PurgePrincipalService.purgeUIDs(self.storeUnderTest(), self.directory,
-            self.rootResource, (self.uid,), verbose=False, proxies=False, completely=False)
+            (self.uid,), verbose=False, proxies=False, completely=False)
         self.assertEquals(count, 1)
 
         # And you still do

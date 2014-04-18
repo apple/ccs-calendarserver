@@ -32,5 +32,44 @@ alter table PERUSER
 alter index TRANSPARENCY_TIME_RANGE_INSTANCE_ID
   rename to PERUSER_TIME_RANGE_INSTANCE_ID;
 
+----------------------------------
+-- Principal Purge Polling Work --
+----------------------------------
+
+create table PRINCIPAL_PURGE_POLLING_WORK (
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
+  JOB_ID                        integer      references JOB not null
+);
+
+create index PRINCIPAL_PURGE_POLLING_WORK_JOB_ID on
+  PRINCIPAL_PURGE_POLLING_WORK(JOB_ID);
+
+--------------------------------
+-- Principal Purge Check Work --
+--------------------------------
+
+create table PRINCIPAL_PURGE_CHECK_WORK (
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
+  JOB_ID                        integer      references JOB not null,
+  UID                           varchar(255) not null
+);
+
+create index PRINCIPAL_PURGE_CHECK_WORK_JOB_ID on
+  PRINCIPAL_PURGE_CHECK_WORK(JOB_ID);
+
+--------------------------
+-- Principal Purge Work --
+--------------------------
+
+create table PRINCIPAL_PURGE_WORK (
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
+  JOB_ID                        integer      references JOB not null,
+  UID                           varchar(255) not null
+);
+
+create index PRINCIPAL_PURGE_WORK_JOB_ID on
+  PRINCIPAL_PURGE_WORK(JOB_ID);
+
+
 -- update the version
 update CALENDARSERVER set VALUE = '38' where NAME = 'VERSION';

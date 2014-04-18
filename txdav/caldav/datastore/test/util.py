@@ -81,6 +81,7 @@ class TestCalendarStoreDirectoryRecord(TestStoreDirectoryRecord):
     def canonicalCalendarUserAddress(self):
         """
             Return a CUA for this record, preferring in this order:
+            urn:x-uid: form
             urn:uuid: form
             mailto: form
             /principals/__uids__/ form
@@ -90,6 +91,7 @@ class TestCalendarStoreDirectoryRecord(TestStoreDirectoryRecord):
         sortedCuas = sorted(self.calendarUserAddresses)
 
         for prefix in (
+            "urn:x-uid:",
             "urn:uuid:",
             "mailto:",
             "/principals/__uids__/"
@@ -147,6 +149,7 @@ def buildDirectory(homes=None):
             ("user%02d" % (ctr,),),
             "User %02d" % (ctr,),
             frozenset((
+                "urn:x-uid:user%02d" % (ctr,),
                 "urn:uuid:user%02d" % (ctr,),
                 "mailto:user%02d@example.com" % (ctr,),
             )),
@@ -188,13 +191,13 @@ def buildDirectory(homes=None):
     ))
     directory.addRecord(TestCalendarStoreDirectoryRecord(
         "room1", ("room1",), "Conference Room One",
-        frozenset(("urn:uuid:room1",)),
+        frozenset(("urn:x-uid:room1",)),
         cutype="ROOM",
         associatedAddress="il1",
     ))
     directory.addRecord(TestCalendarStoreDirectoryRecord(
         "room2", ("room2",), "Conference Room Two",
-        frozenset(("urn:uuid:room2",)),
+        frozenset(("urn:x-uid:room2",)),
         cutype="ROOM",
         associatedAddress="il2",
     ))
@@ -209,6 +212,7 @@ def buildDirectoryRecord(uid):
         (uid,),
         uid.capitalize(),
         frozenset((
+            "urn:x-uid:{0}".format(uid,),
             "urn:uuid:{0}".format(uid,),
             "mailto:{0}@example.com".format(uid,),
         )),

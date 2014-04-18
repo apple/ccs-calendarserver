@@ -359,7 +359,7 @@ class IScheduleRequest(object):
         # The Originator must be the ORGANIZER (for a request) or ATTENDEE (for a reply)
         originator = self.scheduler.organizer.cuaddr if self.scheduler.isiTIPRequest else self.scheduler.attendee
         if self.server.unNormalizeAddresses:
-            originator = yield normalizeCUAddress(originator, normalizationLookup, self.scheduler.txn.directoryService().recordWithCalendarUserAddress, toUUID=False)
+            originator = yield normalizeCUAddress(originator, normalizationLookup, self.scheduler.txn.directoryService().recordWithCalendarUserAddress, toCanonical=False)
         self.headers.addRawHeader("Originator", utf8String(originator))
         self.sign_headers.append("Originator")
 
@@ -417,7 +417,7 @@ class IScheduleRequest(object):
                 yield normalizedCalendar.normalizeCalendarUserAddresses(
                     normalizationLookup,
                     self.scheduler.txn.directoryService().recordWithCalendarUserAddress,
-                    toUUID=False)
+                    toCanonical=False)
 
             # For VFREEBUSY we need to strip out ATTENDEEs that do not match the recipient list
             if self.scheduler.isfreebusy:

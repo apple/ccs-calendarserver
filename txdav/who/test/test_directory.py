@@ -60,20 +60,22 @@ class DirectoryTestCase(StoreTestCase):
         record = TestDirectoryRecord(
             self.directory,
             {
-                FieldName.uid: u"uid",
+                FieldName.uid: u"test",
                 FieldName.shortNames: [u"name"],
                 FieldName.recordType: RecordType.user,
             }
         )
         self.assertEquals(
             record.canonicalCalendarUserAddress(),
-            u"/principals/__uids__/uid/"
+            u"urn:x-uid:test"
         )
+
+        # Even with email address, canonical still remains urn:x-uid:
 
         record = TestDirectoryRecord(
             self.directory,
             {
-                FieldName.uid: u"uid",
+                FieldName.uid: u"test",
                 FieldName.shortNames: [u"name"],
                 FieldName.emailAddresses: [u"test@example.com"],
                 FieldName.recordType: RecordType.user,
@@ -81,22 +83,54 @@ class DirectoryTestCase(StoreTestCase):
         )
         self.assertEquals(
             record.canonicalCalendarUserAddress(),
-            u"mailto:test@example.com"
+            u"urn:x-uid:test"
         )
+
+
+    def test_calendarUserAddresses(self):
+        """
+        Verify the right CUAs are advertised, which no longer includes the
+        /principals/ flavors (although those are still recognized by
+        recordWithCalendarUserAddress( ) for backwards compatibility).
+        """
 
         record = TestDirectoryRecord(
             self.directory,
             {
-                FieldName.uid: u"uid",
+                FieldName.uid: u"test",
                 FieldName.guid: UUID("E2F6C57F-BB15-4EF9-B0AC-47A7578386F1"),
-                FieldName.shortNames: [u"name"],
-                FieldName.emailAddresses: [u"test@example.com"],
+                FieldName.shortNames: [u"name1", u"name2"],
+                FieldName.emailAddresses: [u"test@example.com", u"another@example.com"],
                 FieldName.recordType: RecordType.user,
             }
         )
         self.assertEquals(
-            record.canonicalCalendarUserAddress(),
-            u"urn:uuid:E2F6C57F-BB15-4EF9-B0AC-47A7578386F1"
+            record.calendarUserAddresses,
+            frozenset(
+                [
+                    u"urn:x-uid:test",
+                    u"urn:uuid:E2F6C57F-BB15-4EF9-B0AC-47A7578386F1",
+                    u"mailto:test@example.com",
+                    u"mailto:another@example.com",
+                ]
+            )
+        )
+
+        record = TestDirectoryRecord(
+            self.directory,
+            {
+                FieldName.uid: u"test",
+                FieldName.shortNames: [u"name1", u"name2"],
+                FieldName.recordType: RecordType.user,
+            }
+        )
+        self.assertEquals(
+            record.calendarUserAddresses,
+            frozenset(
+                [
+                    u"urn:x-uid:test",
+                ]
+            )
         )
 
 
@@ -127,7 +161,9 @@ class DirectoryTestCase(StoreTestCase):
     @inlineCallbacks
     def test_recordWithCalendarUserAddress(self):
         """
-        Make sure hasCalendars is honored
+        Make sure various CUA forms are recognized and hasCalendars is honored.
+        Note: /principals/ CUAs are recognized but not advertised anymore; see
+        record.calendarUserAddresses.
         """
 
         # hasCalendars
@@ -135,6 +171,31 @@ class DirectoryTestCase(StoreTestCase):
             u"mailto:wsanchez@example.com"
         )
         self.assertNotEquals(record, None)
+        self.assertEquals(record.uid, u"6423F94A-6B76-4A3A-815B-D52CFD77935D")
+
+        record = yield self.directory.recordWithCalendarUserAddress(
+            u"urn:x-uid:6423F94A-6B76-4A3A-815B-D52CFD77935D"
+        )
+        self.assertNotEquals(record, None)
+        self.assertEquals(record.uid, u"6423F94A-6B76-4A3A-815B-D52CFD77935D")
+
+        record = yield self.directory.recordWithCalendarUserAddress(
+            u"urn:uuid:6423F94A-6B76-4A3A-815B-D52CFD77935D"
+        )
+        self.assertNotEquals(record, None)
+        self.assertEquals(record.uid, u"6423F94A-6B76-4A3A-815B-D52CFD77935D")
+
+        record = yield self.directory.recordWithCalendarUserAddress(
+            u"/principals/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D"
+        )
+        self.assertNotEquals(record, None)
+        self.assertEquals(record.uid, u"6423F94A-6B76-4A3A-815B-D52CFD77935D")
+
+        record = yield self.directory.recordWithCalendarUserAddress(
+            u"/principals/users/wsanchez"
+        )
+        self.assertNotEquals(record, None)
+        self.assertEquals(record.uid, u"6423F94A-6B76-4A3A-815B-D52CFD77935D")
 
         # no hasCalendars
         record = yield self.directory.recordWithCalendarUserAddress(

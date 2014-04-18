@@ -286,7 +286,7 @@ class SharerSQLUsage(object):
         for i in range(n - self.currentCount):
             index = self.currentCount + i + 2
             users.append("user%02d" % (index,))
-            uids.append("urn:uuid:user%02d" % (index,))
+            uids.append("urn:x-uid:user%02d" % (index,))
         session.addInvitees(URL(path=calendarhref), uids, True)
 
         # Now accept each one

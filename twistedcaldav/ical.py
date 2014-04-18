@@ -3267,13 +3267,21 @@ END:VCALENDAR
 
 
     @inlineCallbacks
-    def normalizeCalendarUserAddresses(self, lookupFunction, recordFunction,
-        toUUID=True):
+    def normalizeCalendarUserAddresses(
+        self, lookupFunction, recordFunction, toCanonical=True
+    ):
         """
         Do the ORGANIZER/ATTENDEE property normalization.
 
         @param lookupFunction: function returning full name, guid, CUAs for a given CUA
         @type lookupFunction: L{Function}
+
+        @param recordFunction: function taking a CUA and returning a record
+        @type recordFunction: L{Function}
+
+        @param toCanonical: whether to convert to the canonical CUA form (True)
+            or to the mailto: form (False)
+        @type toCanonical: L{bool}
         """
 
         for component in self.subcomponents():
@@ -3288,8 +3296,8 @@ END:VCALENDAR
                 # Check that we can lookup this calendar user address - if not
                 # we cannot do anything with it
                 cuaddr = normalizeCUAddr(prop.value())
-                name, guid, cutype, cuaddrs = yield lookupFunction(cuaddr, recordFunction, config)
-                if guid is None:
+                name, uid, cutype, cuaddrs = yield lookupFunction(cuaddr, recordFunction, config)
+                if uid is None:
                     continue
 
                 # Get any EMAIL parameter
@@ -3300,14 +3308,12 @@ END:VCALENDAR
                 # Get any CN parameter
                 oldCN = prop.parameterValue("CN")
 
-                if toUUID:
-                    # Always re-write value to urn:uuid
-                    if isinstance(guid, uuid.UUID):
-                        guid = unicode(guid).upper()
-                    prop.setValue("urn:uuid:{guid}".format(guid=guid))
+                if toCanonical:
+                    # Always re-write value to urn:x-uid
+                    prop.setValue("urn:x-uid:{uid}".format(uid=uid))
 
-                # If it is already a non-UUID address leave it be
-                elif cuaddr.startswith("urn:uuid:"):
+                # If it is already a non-x-uid address leave it be
+                elif (cuaddr.startswith("urn:x-uid:") or cuaddr.startswith("urn:uuid:")):
 
                     if oldemail:
                         # Use the EMAIL parameter if it exists
@@ -3364,7 +3370,7 @@ END:VCALENDAR
                     prop.removeParameter("CN")
 
                 # Re-write the EMAIL if its value no longer matches
-                if oldemail and oldemail not in cuaddrs or oldemail is None and toUUID:
+                if oldemail and oldemail not in cuaddrs or oldemail is None and toCanonical:
                     if cuaddr.startswith("mailto:") and cuaddr in cuaddrs:
                         email = cuaddr[7:]
                     else:
@@ -3388,7 +3394,7 @@ END:VCALENDAR
 
             # For VPOLL also do immediate children
             if component.name() == "VPOLL":
-                yield component.normalizeCalendarUserAddresses(lookupFunction, recordFunction, toUUID)
+                yield component.normalizeCalendarUserAddresses(lookupFunction, recordFunction, toCanonical)
 
 
     def _reconcileGroupAttendee(self, groupCUA, memberAtttendeeProps):
@@ -3652,21 +3658,21 @@ def tzexpandlocal(tzdata, start, end):
 
 # #
 # Utilities
-# #p
+# #
 
 @inlineCallbacks
-def normalizeCUAddress(cuaddr, lookupFunction, recordFunction, toUUID=True):
+def normalizeCUAddress(cuaddr, lookupFunction, recordFunction, toCanonical=True):
     # Check that we can lookup this calendar user address - if not
     # we cannot do anything with it
-    _ignore_name, guid, _ignore_cuType, cuaddrs = (yield lookupFunction(normalizeCUAddr(cuaddr), recordFunction, config))
+    _ignore_name, uid, _ignore_cuType, cuaddrs = (yield lookupFunction(normalizeCUAddr(cuaddr), recordFunction, config))
 
-    if toUUID:
-        # Always re-write value to urn:uuid
-        if guid:
-            returnValue("urn:uuid:{0}".format(guid,))
+    if toCanonical:
+        # Always re-write value to urn:x-uid
+        if uid:
+            returnValue("urn:x-uid:{0}".format(uid,))
 
-    # If it is already a non-UUID address leave it be
-    elif cuaddr.startswith("urn:uuid:"):
+    # If it is already a non-x-uid address leave it be
+    elif (cuaddr.startswith("urn:x-uid:") or cuaddr.startswith("urn:uuid:")):
 
         # Pick the first mailto,
         # or failing that the first path one,
@@ -3740,6 +3746,9 @@ def merge(*iterables):
 def normalize_iCalStr(icalstr, sort=False):
     """
     Normalize a string representation of ical data for easy test comparison.
+
+    @param sort: Whether to sort the output
+    @type sort: L{boolean}
     """
 
     icalstr = str(icalstr).replace("\r\n ", "")
@@ -3756,8 +3765,11 @@ def normalize_iCalStr(icalstr, sort=False):
 
 
 
-def diff_iCalStrs(icalstr1, icalstr2):
-
-    icalstr1 = normalize_iCalStr(icalstr1).splitlines()
-    icalstr2 = normalize_iCalStr(icalstr2).splitlines()
+def diff_iCalStrs(icalstr1, icalstr2, sort=False):
+    """
+    @param sort: Whether to sort the output
+    @type sort: L{boolean}
+    """
+    icalstr1 = normalize_iCalStr(icalstr1, sort=sort).splitlines()
+    icalstr2 = normalize_iCalStr(icalstr2, sort=sort).splitlines()
     return "\n".join(unified_diff(icalstr1, icalstr2))

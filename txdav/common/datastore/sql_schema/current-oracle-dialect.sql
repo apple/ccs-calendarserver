@@ -535,6 +535,23 @@ create table SCHEDULE_REPLY_CANCEL_WORK (
     "ICALENDAR_TEXT" nclob
 );
 
+create table PRINCIPAL_PURGE_POLLING_WORK (
+    "WORK_ID" integer primary key not null,
+    "JOB_ID" integer not null references JOB
+);
+
+create table PRINCIPAL_PURGE_CHECK_WORK (
+    "WORK_ID" integer primary key not null,
+    "JOB_ID" integer not null references JOB,
+    "UID" nvarchar2(255)
+);
+
+create table PRINCIPAL_PURGE_WORK (
+    "WORK_ID" integer primary key not null,
+    "JOB_ID" integer not null references JOB,
+    "UID" nvarchar2(255)
+);
+
 create table CALENDARSERVER (
     "NAME" nvarchar2(255) primary key,
     "VALUE" nvarchar2(255)
@@ -802,6 +819,18 @@ create index SCHEDULE_REPLY_CANCEL_dab513ef on SCHEDULE_REPLY_CANCEL_WORK (
 );
 
 create index SCHEDULE_REPLY_CANCEL_94a0c766 on SCHEDULE_REPLY_CANCEL_WORK (
+    JOB_ID
+);
+
+create index PRINCIPAL_PURGE_POLLI_6383e68a on PRINCIPAL_PURGE_POLLING_WORK (
+    JOB_ID
+);
+
+create index PRINCIPAL_PURGE_CHECK_b0c024c1 on PRINCIPAL_PURGE_CHECK_WORK (
+    JOB_ID
+);
+
+create index PRINCIPAL_PURGE_WORK__7a8141a3 on PRINCIPAL_PURGE_WORK (
     JOB_ID
 );
 

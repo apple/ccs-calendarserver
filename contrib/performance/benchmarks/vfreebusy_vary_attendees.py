@@ -34,6 +34,7 @@ from contrib.performance.benchlib import CalDAVAccount, sample
 
 from contrib.performance.benchmarks.vfreebusy import VFREEBUSY, formatDate, makeEventNear
 
+
 @inlineCallbacks
 def measure(host, port, dtrace, attendees, samples):
     userNumber = 1
@@ -51,7 +52,7 @@ def measure(host, port, dtrace, attendees, samples):
     for i in [userNumber] + targets:
         targetUser = "user%02d" % (i,)
         for path in ["calendars/users/%s/" % (targetUser,),
-                     "calendars/__uids__/%s/" % (targetUser,)]:
+                     "calendars/__uids__/10000000-0000-0000-0000-000000000%03d/" % (i,)]:
             authinfo.add_password(
                 realm="Test Realm",
                 uri="http://%s:%d/%s" % (host, port, path),
@@ -75,14 +76,14 @@ def measure(host, port, dtrace, attendees, samples):
 
     # And now issue the actual VFREEBUSY request
     method = 'POST'
-    uri = 'http://%s:%d/calendars/__uids__/%s/outbox/' % (host, port, user)
+    uri = 'http://%s:%d/calendars/__uids__/10000000-0000-0000-0000-000000000001/outbox/' % (host, port)
     headers = Headers({
             "content-type": ["text/calendar"],
             "originator": ["mailto:%s@example.com" % (user,)],
-            "recipient": [", ".join(["urn:uuid:user%02d" % (i,) for i in [userNumber] + targets])]})
+            "recipient": [", ".join(["urn:x-uid:10000000-0000-0000-0000-000000000%03d" % (i,) for i in [userNumber] + targets])]})
     body = StringProducer(VFREEBUSY % {
             "attendees": "".join([
-                    "ATTENDEE:urn:uuid:user%02d\n" % (i,)
+                    "ATTENDEE:urn:x-uid:10000000-0000-0000-0000-000000000%03d\n" % (i,)
                     for i in [userNumber] + targets]),
             "start": formatDate(baseTime.replace(hour=0, minute=0)) + 'Z',
             "end": formatDate(

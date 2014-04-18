@@ -587,7 +587,8 @@ def upgrade_to_1(config, directory):
 @inlineCallbacks
 def normalizeCUAddrs(data, directory, cuaCache):
     """
-    Normalize calendar user addresses to urn:uuid: form.
+    Normalize calendar user addresses in data.  Cache CUA lookup results for
+    great speed.
 
     @param data: the calendar data to convert
     @type data: C{str}
@@ -1310,7 +1311,7 @@ class PostDBImportStep(object):
         txn = request._newStoreTransaction
 
         ownerPrincipal = principal
-        cua = "urn:uuid:%s" % (uuid,)
+        cua = "urn:x-uid:%s" % (uuid,)
         owner = LocalCalendarUser(
             cua, ownerPrincipal,
             inbox, ownerPrincipal.scheduleInboxURL()
