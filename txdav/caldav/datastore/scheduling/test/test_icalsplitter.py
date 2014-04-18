@@ -720,7 +720,7 @@ END:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 DTSTART:%(now_back30)s
 DURATION:PT1H
 ATTENDEE:mailto:user1@example.com
@@ -753,7 +753,7 @@ RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY;UNTIL=%(now_back14_1)s
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
@@ -763,7 +763,7 @@ ORGANIZER:mailto:user1@example.com
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
@@ -884,7 +884,7 @@ END:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 DTSTART:%(now_back30)s
 DURATION:PT1H
 ATTENDEE:mailto:user1@example.com
@@ -919,7 +919,7 @@ RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY;UNTIL=%(now_back14_1)s
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
@@ -929,7 +929,7 @@ ORGANIZER:mailto:user1@example.com
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
@@ -1041,7 +1041,7 @@ END:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 DTSTART:%(now_back30)s
 DURATION:PT1H
 ATTENDEE:mailto:user1@example.com
@@ -1075,7 +1075,7 @@ RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY;UNTIL=%(now_back13_1)s
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
@@ -1085,7 +1085,7 @@ ORGANIZER:mailto:user1@example.com
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
@@ -1220,7 +1220,7 @@ END:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 DTSTART:%(now_back30)s
 DURATION:PT1H
 ATTENDEE:mailto:user1@example.com
@@ -1254,7 +1254,7 @@ RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY;UNTIL=%(now_back14_1)s;INTERVAL=10
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back30)s
 DTSTART:%(now_back30)s
 DURATION:PT1H
@@ -1264,7 +1264,7 @@ ORGANIZER:mailto:user1@example.com
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back20)s
 DTSTART:%(now_back20)s
 DURATION:PT1H
@@ -1421,7 +1421,7 @@ END:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 DTSTART:%(now_back30)s
 DURATION:PT1H
 ATTENDEE:mailto:user1@example.com
@@ -1454,7 +1454,7 @@ RDATE:%(now_back15)s
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back30)s
 DTSTART:%(now_back30)s
 DURATION:PT1H
@@ -1464,7 +1464,7 @@ ORGANIZER:mailto:user1@example.com
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back15)s
 DTSTART:%(now_back15)s
 DURATION:PT1H
@@ -1600,7 +1600,7 @@ END:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 DTSTART:%(now_back30)s
 DURATION:PT1H
 ATTENDEE:mailto:user1@example.com
@@ -1633,7 +1633,7 @@ RDATE:%(now_back15)s
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back30)s
 DTSTART:%(now_back30)s
 DURATION:PT1H
@@ -1643,7 +1643,7 @@ ORGANIZER:mailto:user1@example.com
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back15)s
 DTSTART:%(now_back15)s
 DURATION:PT1H
@@ -1805,7 +1805,7 @@ END:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 DTSTART:%(now_back30)s
 DURATION:PT1H
 ATTENDEE:mailto:user1@example.com
@@ -1838,7 +1838,7 @@ RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY;UNTIL=%(now_back14_1)s
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
@@ -1848,7 +1848,7 @@ ORGANIZER:mailto:user1@example.com
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
@@ -1858,7 +1858,7 @@ ORGANIZER:mailto:user1@example.com
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 END:VEVENT
 BEGIN:X-CALENDARSERVER-PERUSER
-UID:%(relID)s
+UID:%(uid)s
 X-CALENDARSERVER-PERUSER-UID:user01
 BEGIN:X-CALENDARSERVER-PERINSTANCE
 TRANSP:OPAQUE
@@ -1980,7 +1980,7 @@ END:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 DTSTART:%(now_back30)s
 DURATION:PT1H
 ATTENDEE:mailto:user1@example.com
@@ -2013,7 +2013,7 @@ RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY;UNTIL=%(now_back14_1)s
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
@@ -2023,7 +2023,7 @@ ORGANIZER:mailto:user1@example.com
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
@@ -2079,7 +2079,7 @@ END:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
@@ -2125,7 +2125,7 @@ END:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
@@ -2135,7 +2135,7 @@ ORGANIZER:mailto:user1@example.com
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
@@ -2212,7 +2212,8 @@ END:VCALENDAR
                 self.assertTrue(splitter.willSplit(ical), "Failed will split: %s" % (title,))
             icalOld, icalNew = splitter.split(ical)
             relsubs = dict(self.subs)
-            relsubs["relID"] = icalOld.resourceUID()
+            relsubs["uid"] = icalOld.resourceUID()
+            relsubs["relID"] = icalOld.mainComponent().propertyValue("RELATED-TO") if icalOld.mainComponent() else icalNew.mainComponent().propertyValue("RELATED-TO")
             self.assertEqual(str(icalNew).replace("\r\n ", ""), split_future.replace("\n", "\r\n") % relsubs, "Failed future: %s" % (title,))
             self.assertEqual(str(icalOld).replace("\r\n ", ""), split_past.replace("\n", "\r\n") % relsubs, "Failed past: %s" % (title,))
 
@@ -2333,7 +2334,7 @@ END:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 DTSTART:%(now)s
 DURATION:PT1H
 ATTENDEE:mailto:user1@example.com
@@ -2366,7 +2367,7 @@ RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY;UNTIL=%(now_fwd11_1)s
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_fwd10)s
 DTSTART:%(now_fwd10)s
 DURATION:PT1H
@@ -2385,7 +2386,8 @@ END:VCALENDAR
             splitter = iCalSplitter(1024, 14)
             icalOld, icalNew = splitter.split(ical, rid=DateTime.parseText("%(now_fwd11)s" % self.subs))
             relsubs = dict(self.subs)
-            relsubs["relID"] = icalOld.resourceUID()
+            relsubs["uid"] = icalOld.resourceUID()
+            relsubs["relID"] = icalOld.mainComponent().propertyValue("RELATED-TO") if icalOld.mainComponent() else icalNew.mainComponent().propertyValue("RELATED-TO")
             self.assertEqual(str(icalNew).replace("\r\n ", ""), split_future.replace("\n", "\r\n") % relsubs, "Failed future: %s" % (title,))
             self.assertEqual(str(icalOld).replace("\r\n ", ""), split_past.replace("\n", "\r\n") % relsubs, "Failed past: %s" % (title,))
 
@@ -2397,7 +2399,8 @@ END:VCALENDAR
             splitter = iCalSplitter(1024, 14)
             icalOld, icalNew = splitter.split(ical, rid=splitter.whereSplit(ical, break_point=DateTime.parseText("%(now_fwd10_12h)s" % self.subs)))
             relsubs = dict(self.subs)
-            relsubs["relID"] = icalOld.resourceUID()
+            relsubs["uid"] = icalOld.resourceUID()
+            relsubs["relID"] = icalOld.mainComponent().propertyValue("RELATED-TO") if icalOld.mainComponent() else icalNew.mainComponent().propertyValue("RELATED-TO")
             self.assertEqual(str(icalNew).replace("\r\n ", ""), split_future.replace("\n", "\r\n") % relsubs, "Failed future: %s" % (title,))
             self.assertEqual(str(icalOld).replace("\r\n ", ""), split_past.replace("\n", "\r\n") % relsubs, "Failed past: %s" % (title,))
 

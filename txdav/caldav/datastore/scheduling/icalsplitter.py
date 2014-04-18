@@ -18,12 +18,16 @@ from pycalendar.datetime import DateTime
 
 from twistedcaldav.ical import Property
 
+import uuid
+
 
 class iCalSplitter(object):
     """
     Class that manages the "splitting" of large iCalendar objects into two pieces so that we can keep the overall
     size of individual calendar objects to a reasonable limit. This should only be used on Organizer events.
     """
+
+    uuid_namespace = uuid.UUID("1F50F5E1-3E10-4A85-A8B4-3906DA3B8C52")
 
     def __init__(self, threshold, past):
         """
@@ -155,7 +159,7 @@ class iCalSplitter(object):
 
         # Relate them - add RELATED-TO;RELTYPE=RECURRENCE-SET if not already present
         if not icalOld.hasPropertyWithParameterMatch("RELATED-TO", "RELTYPE", "X-CALENDARSERVER-RECURRENCE-SET"):
-            property = Property("RELATED-TO", oldUID, params={"RELTYPE": "X-CALENDARSERVER-RECURRENCE-SET"})
+            property = Property("RELATED-TO", str(uuid.uuid5(self.uuid_namespace, oldUID)), params={"RELTYPE": "X-CALENDARSERVER-RECURRENCE-SET"})
             icalOld.addPropertyToAllComponents(property)
             icalNew.addPropertyToAllComponents(property)
 
