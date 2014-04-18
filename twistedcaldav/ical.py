@@ -3391,10 +3391,8 @@ END:VCALENDAR
                 yield component.normalizeCalendarUserAddresses(lookupFunction, recordFunction, toUUID)
 
 
-    @inlineCallbacks
-    def expandGroupAttendee(self, groupCUA, memberCUAs, recordFunction):
+    def _reconcileGroupAttendee(self, groupCUA, memberAtttendeeProps):
 
-        changed = False
         for component in self.subcomponents():
             if component.name() in ignoredComponents:
                 continue
@@ -3403,11 +3401,12 @@ END:VCALENDAR
             oldAttendeeCUAs = set([attendeeProp.value() for attendeeProp in oldAttendeeProps])
 
             # add new member attendees
-            for memberCUA in sorted(set(memberCUAs) - oldAttendeeCUAs):
-                directoryRecord = yield recordFunction(memberCUA)
-                newAttendeeProp = directoryRecord.attendee(params={"MEMBER": groupCUA})
-                component.addProperty(newAttendeeProp)
-                changed = True
+            memberCUAs = set()
+            for newAttendeeProp in memberAtttendeeProps:
+                memberCUA = newAttendeeProp.value()
+                if newAttendeeProp.value() not in oldAttendeeCUAs:
+                    component.addProperty(newAttendeeProp)
+                memberCUAs.add(memberCUA)
 
             # remove attendee or update MEMBER attribute for non-primary attendees in this group,
             for attendeeProp in oldAttendeeProps:
@@ -3418,13 +3417,28 @@ END:VCALENDAR
                             attendeeProp.removeParameterValue("MEMBER", groupCUA)
                             if not attendeeProp.parameterValues("MEMBER"):
                                 component.removeProperty(attendeeProp)
-                            changed = True
                     else:
                         if attendeeProp.value() in memberCUAs:
                             attendeeProp.setParameter("MEMBER", parameterValues + (groupCUA,))
-                            changed = True
 
-        returnValue(changed)
+
+    def reconcileGroupAttendees(self, groupCUAToAttendeeMemberPropMap):
+
+        allMemberCUAs = set()
+        for groupCUA, memberAttendeeProps in groupCUAToAttendeeMemberPropMap.iteritems():
+            self._reconcileGroupAttendee(groupCUA, memberAttendeeProps)
+            allMemberCUAs |= set([memberAttendeeProp.value() for memberAttendeeProp in memberAttendeeProps])
+
+        # remove orphans
+        for component in self.subcomponents():
+            if component.name() in ignoredComponents:
+                continue
+
+            for attendeeMemberProp in component.properties("ATTENDEE"):
+                if attendeeMemberProp.hasParameter("MEMBER"):
+                    attendeeCUA = attendeeMemberProp.value()
+                    if attendeeCUA not in allMemberCUAs:
+                        component.removeProperty(attendeeMemberProp)
 
 
     def allPerUserUIDs(self):
@@ -3723,7 +3737,7 @@ def merge(*iterables):
 
 
 
-def normalize_iCalStr(icalstr):
+def normalize_iCalStr(icalstr, sort=False):
     """
     Normalize a string representation of ical data for easy test comparison.
     """
@@ -3735,6 +3749,8 @@ def normalize_iCalStr(icalstr):
         pos = line.find(";X-CALENDARSERVER-DTSTAMP=")
         if pos != -1:
             lines[ctr] = line[:pos] + line[pos + len(";X-CALENDARSERVER-DTSTAMP=") + 16:]
+    if sort:
+        lines.sort()
     icalstr = "\r\n".join(lines)
     return icalstr + "\r\n"
 

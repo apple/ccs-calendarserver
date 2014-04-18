@@ -505,7 +505,7 @@ class CalendarDirectoryRecordMixin(object):
                     returnValue(True)
 
 
-    def attendee(self, params={}):
+    def attendeeProperty(self, params={}):
         """
         Returns a pycalendar ATTENDEE property for this record.
 

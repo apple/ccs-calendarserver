@@ -138,7 +138,7 @@ END:VCALENDAR
 
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000001")
         vcalendar2 = yield cobj1.component()
-        self.assertEqual(normalize_iCalStr(vcalendar2), normalize_iCalStr(data_get_1))
+        self.assertEqual(normalize_iCalStr(vcalendar2, sort=True), normalize_iCalStr(data_get_1, sort=True))
 
         yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000006", 1)
         yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000007", 1)
@@ -303,7 +303,7 @@ END:VCALENDAR
 
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000001")
         vcalendar2 = yield cobj1.component()
-        self.assertEqual(normalize_iCalStr(vcalendar2), normalize_iCalStr(data_get_1))
+        self.assertEqual(normalize_iCalStr(vcalendar2, sort=True), normalize_iCalStr(data_get_1, sort=True))
 
         yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000006", 1)
         yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000007", 1)
@@ -372,7 +372,7 @@ END:VCALENDAR
 
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000001")
         vcalendar2 = yield cobj1.component()
-        self.assertEqual(normalize_iCalStr(vcalendar2), normalize_iCalStr(data_get_1))
+        self.assertEqual(normalize_iCalStr(vcalendar2, sort=True), normalize_iCalStr(data_get_1, sort=True))
 
         yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000006", 1)
         yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000007", 1)
@@ -447,8 +447,8 @@ END:VCALENDAR
         self.patch(CalendarDirectoryRecordMixin, "expandedMembers", expandedMembers)
 
         groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
-        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
-        self.assertEqual(set(wps), set())
+        wp = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
+        self.assertEqual(wp, None)
 
         calendar = yield self.calendarUnderTest(name="calendar", home="10000000-0000-0000-0000-000000000002")
         vcalendar1 = Component.fromString(data_put_1)
@@ -465,11 +465,9 @@ END:VCALENDAR
         self.patch(CalendarDirectoryRecordMixin, "expandedMembers", unpatchedExpandedMembers)
 
         groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
-        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
+        wp = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
         yield self.commit()
-        self.assertEqual(len(wps), 1)
-        for wp in wps:
-            yield wp.whenExecuted()
+        yield wp.whenExecuted()
 
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000002")
         vcalendar3 = yield cobj1.component()
@@ -480,11 +478,9 @@ END:VCALENDAR
 
         self.patch(CalendarDirectoryRecordMixin, "expandedMembers", expandedMembers)
         groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
-        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
+        wp = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
         yield self.commit()
-        self.assertEqual(len(wps), 1)
-        for wp in wps:
-            yield wp.whenExecuted()
+        yield wp.whenExecuted()
 
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000002")
         vcalendar3 = yield cobj1.component()

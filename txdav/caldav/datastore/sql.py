@@ -92,7 +92,7 @@ from txdav.common.icommondatastore import IndexedSearchException, \
     ObjectResourceNameNotAllowedError, TooManyObjectResourcesError, \
     InvalidUIDError, UIDExistsError, UIDExistsElsewhereError, \
     InvalidResourceMove, InvalidComponentForStoreError, \
-    NoSuchObjectResourceError, AllRetriesFailed
+    NoSuchObjectResourceError
 from txdav.xml import element
 
 from txdav.idav import ChangeCategory
@@ -1915,9 +1915,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # calendar data
             yield component.normalizeCalendarUserAddresses(normalizationLookup, self.directoryService().recordWithCalendarUserAddress)
 
-            # Expand groups
-            yield self.expandGroupAttendees(component, inserting)
-
             # Valid attendee list size check
             yield self.validAttendeeListSizeCheck(component, inserting)
 
@@ -1934,9 +1931,9 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def expandGroupAttendees(self, component, inserting):
+    def reconcileGroupAttendees(self, component):
         """
-        Expand group attendees
+        reconcile group attendees
         """
         if not config.Scheduling.Options.AllowGroupAsAttendee:
             returnValue(None)
@@ -1946,39 +1943,82 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             attendeeProp.value() for attendeeProp in attendeeProps
             if attendeeProp.parameterValue("CUTYPE") == "GROUP"
         ])
+
+        groupCUAToAttendeeMemberPropMap = {}
         for groupCUA in groupCUAs:
 
             groupRecord = yield self.directoryService().recordWithCalendarUserAddress(groupCUA)
             if groupRecord:
                 members = yield groupRecord.expandedMembers()
-
-                # add group attendees
-                yield component.expandGroupAttendee(
-                    groupRecord.canonicalCalendarUserAddress(),
-                    set([member.canonicalCalendarUserAddress() for member in members]),
-                    self.directoryService().recordWithCalendarUserAddress
+                groupCUAToAttendeeMemberPropMap[groupRecord.canonicalCalendarUserAddress()] = set(
+                    [member.attendeeProperty(params={"MEMBER": groupCUA}) for member in members]
                 )
 
-                # tie event to group cacher
-                if not inserting:
-                    # calculate hash
-                    memberUIDs = sorted([member.uid for member in members])
-                    membershipHashContent = hashlib.md5()
-                    for memberUID in memberUIDs:
-                        membershipHashContent.update(memberUID)
-                    membershipHash = membershipHashContent.hexdigest()
+        # sync group attendees
+        component.reconcileGroupAttendees(groupCUAToAttendeeMemberPropMap)
 
-                    # associate group ID with self
-                    groupID, _ignore_name, membershipHash, _ignore_modDate = yield self._txn.groupByUID(groupRecord.uid)
-                    try:
-                        groupAttendee = schema.GROUP_ATTENDEE
-                        yield Insert({
-                            groupAttendee.RESOURCE_ID: self._resourceID,
-                            groupAttendee.GROUP_ID: groupID,
-                            groupAttendee.MEMBERSHIP_HASH: membershipHash,
-                            }).on(self._txn)
-                    except AllRetriesFailed:
-                        pass
+        # save for post processing
+        self._groupCUAToAttendeeMemberPropMap = groupCUAToAttendeeMemberPropMap
+
+
+    @inlineCallbacks
+    def updateGROUP_ATTENDEE(self):
+        """
+        update schema.GROUP_ATTENDEE
+        """
+        if not hasattr(self, "_groupCUAToAttendeeMemberPropMap"):
+            returnValue(None)
+
+        ga = schema.GROUP_ATTENDEE
+        rows = yield Select(
+            [ga.GROUP_ID, ga.MEMBERSHIP_HASH],
+            From=ga,
+            Where=ga.RESOURCE_ID == self._resourceID,
+        ).on(self._txn)
+        oldGAs = dict(rows)
+
+        for groupCUA, memberAttendeeProps in self._groupCUAToAttendeeMemberPropMap.iteritems():
+            groupRecord = yield self.directoryService().recordWithCalendarUserAddress(groupCUA)
+            if groupRecord:
+                members = set([(
+                        yield self.directoryService().recordWithCalendarUserAddress(
+                            memberAttendeeProp.value()
+                        )
+                    ) for memberAttendeeProp in memberAttendeeProps
+                ])
+
+                membershipHashContent = hashlib.md5()
+                for memberUID in sorted([member.uid for member in members]):
+                    membershipHashContent.update(memberUID)
+                membershipHash = membershipHashContent.hexdigest()
+
+                groupID, _ignore_name, _ignoreMembershipHash, _ignore_modDate = yield self._txn.groupByUID(groupRecord.uid)
+
+                if groupID in oldGAs:
+                    if oldGAs[groupID] != membershipHash:
+                        yield Update({
+                                ga.MEMBERSHIP_HASH: membershipHash,
+                            },
+                            Where=(ga.RESOURCE_ID == self._resourceID).And(
+                                ga.GROUP_ID == groupID
+                            )
+                        ).on(self._txn)
+                    del oldGAs[groupID]
+                else:
+                    yield Insert({
+                            ga.RESOURCE_ID: self._resourceID,
+                            ga.GROUP_ID: groupID,
+                            ga.MEMBERSHIP_HASH: membershipHash,
+                        }
+                    ).on(self._txn)
+
+        for groupID in oldGAs:
+            yield Delete(
+                From=ga,
+                Where=(ga.RESOURCE_ID == self._resourceID).And(
+                    ga.GROUP_ID == groupID
+                )
+            ).on(self._txn)
 
 
     def validCalendarDataCheck(self, component, inserting):
@@ -2391,6 +2431,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 internal_request=is_internal,
             ))
 
+            # group attendees
+            if scheduler.state == "organizer":
+                yield self.reconcileGroupAttendees(component)
+
             # Set an attribute on this object to indicate that it is valid to check for an event split. We need to do this here so that if a timeout
             # occurs whilst doing implicit processing (most likely because the event is too big) we are able to subsequently detect that it is OK
             # to split and then try that.
@@ -2635,9 +2679,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         yield self.updateDatabase(component, inserting=inserting)
 
-        # add GROUP_ATTENNDEE rows using just created _resourceID
-        if inserting:
-            yield self.expandGroupAttendees(component, False)
+        # update GROUP_ATTENNDEE rows using
+        yield self.updateGROUP_ATTENDEE()
 
         # Post process managed attachments
         if internal_state in (
