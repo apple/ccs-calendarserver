@@ -23,7 +23,6 @@ from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.syntax import Delete, Select
 from twext.enterprise.jobqueue import WorkItem, PeerConnectionPool
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twistedcaldav.ical import normalize_iCalStr
 from txdav.caldav.datastore.sql import CalendarStoreFeatures
 from txdav.common.datastore.sql_tables import schema
 import datetime
@@ -178,15 +177,14 @@ class GroupAttendeeReconciliationWork(
 
         # get db object
         calendarObject = (yield CalendarStoreFeatures(self.transaction._store).calendarObjectWithID(self.transaction, self.resourceID))
-        oldComponent = yield calendarObject.componentForUser()
+        component = yield calendarObject.componentForUser()
 
         # Change a copy of the original, as we need the original cached on the resource
         # so we can do a diff to test implicit scheduling changes
-        component = oldComponent.duplicate()
+        component = component.duplicate()
 
         # sync group attendees
-        calendarObject.reconcileGroupAttendees(component)
-        if normalize_iCalStr(oldComponent, sort=True) != normalize_iCalStr(component, sort=True):
+        if calendarObject.reconcileGroupAttendees(component):
             yield calendarObject.setComponent(component)
 
 

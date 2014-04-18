@@ -3399,6 +3399,7 @@ END:VCALENDAR
 
     def _reconcileGroupAttendee(self, groupCUA, memberAtttendeeProps):
 
+        changed = False
         for component in self.subcomponents():
             if component.name() in ignoredComponents:
                 continue
@@ -3412,6 +3413,7 @@ END:VCALENDAR
                 memberCUA = newAttendeeProp.value()
                 if newAttendeeProp.value() not in oldAttendeeCUAs:
                     component.addProperty(newAttendeeProp)
+                    changed = True
                 memberCUAs.add(memberCUA)
 
             # remove attendee or update MEMBER attribute for non-primary attendees in this group,
@@ -3423,16 +3425,21 @@ END:VCALENDAR
                             attendeeProp.removeParameterValue("MEMBER", groupCUA)
                             if not attendeeProp.parameterValues("MEMBER"):
                                 component.removeProperty(attendeeProp)
+                                changed = True
                     else:
                         if attendeeProp.value() in memberCUAs:
                             attendeeProp.setParameter("MEMBER", parameterValues + (groupCUA,))
+                            changed = True
+
+        return changed
 
 
     def reconcileGroupAttendees(self, groupCUAToAttendeeMemberPropMap):
 
+        changed = False
         allMemberCUAs = set()
         for groupCUA, memberAttendeeProps in groupCUAToAttendeeMemberPropMap.iteritems():
-            self._reconcileGroupAttendee(groupCUA, memberAttendeeProps)
+            changed |= self._reconcileGroupAttendee(groupCUA, memberAttendeeProps)
             allMemberCUAs |= set([memberAttendeeProp.value() for memberAttendeeProp in memberAttendeeProps])
 
         # remove orphans
@@ -3445,6 +3452,9 @@ END:VCALENDAR
                     attendeeCUA = attendeeMemberProp.value()
                     if attendeeCUA not in allMemberCUAs:
                         component.removeProperty(attendeeMemberProp)
+                        changed = True
+
+        return changed
 
 
     def allPerUserUIDs(self):

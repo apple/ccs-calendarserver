@@ -1936,7 +1936,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         reconcile group attendees
         """
         if not config.Scheduling.Options.AllowGroupAsAttendee:
-            returnValue(None)
+            returnValue(False)
 
         attendeeProps = component.getAllAttendeeProperties()
         groupCUAs = set([
@@ -1955,10 +1955,12 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 )
 
         # sync group attendees
-        component.reconcileGroupAttendees(groupCUAToAttendeeMemberPropMap)
+        changed = component.reconcileGroupAttendees(groupCUAToAttendeeMemberPropMap)
 
         # save for post processing
         self._groupCUAToAttendeeMemberPropMap = groupCUAToAttendeeMemberPropMap
+
+        returnValue(changed)
 
 
     @inlineCallbacks
