@@ -167,12 +167,10 @@ class GroupAttendeeReconciliationWork(
     @inlineCallbacks
     def doWork(self):
 
-        # Delete all other work items for this group
+        # Delete all other work items for this event
         yield Delete(
             From=self.table,
-            Where=((self.table.GROUP_ID == self.groupID).And(
-                self.table.RESOURCE_ID == self.resourceID)
-            )
+            Where=self.table.RESOURCE_ID == self.resourceID,
         ).on(self.transaction)
 
         # get db object
