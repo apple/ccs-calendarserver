@@ -25,6 +25,7 @@ from datetime import datetime, timedelta
 from contrib.performance._event_create import (
     makeAttendees, makeVCalendar, formatDate, measure as _measure)
 
+
 def makeEvent(i, organizerSequence, attendeeCount):
     """
     Create a new half-hour long event that starts soon and recurs
@@ -38,7 +39,7 @@ def makeEvent(i, organizerSequence, attendeeCount):
     attendees = makeAttendees(attendeeCount)
     attendees.append(
         'ATTENDEE;CN="Resource 01";CUTYPE=INDIVIDUAL;PARTSTAT=NEEDS-ACTION;RSVP=T\n'
-        ' RUE;SCHEDULE-STATUS="1.2":urn:uuid:resource01\n')
+        ' RUE;SCHEDULE-STATUS="1.2":urn:x-uid:40000000-0000-0000-0000-000000000001\n')
     return makeVCalendar(
         uuid4(), start, end, rrule, organizerSequence, attendees)
 
