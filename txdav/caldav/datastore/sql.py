@@ -1931,7 +1931,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def reconcileGroupAttendees(self, component):
+    def reconcileGroupAttendees(self, component, inserting=False):
         """
         reconcile group attendees
         """
@@ -1954,23 +1954,33 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     [member.attendeeProperty(params={"MEMBER": groupCUA}) for member in members]
                 )
 
-        # sync group attendees
-        changed = component.reconcileGroupAttendees(groupCUAToAttendeeMemberPropMap)
-
         # save for post processing
         self._groupCUAToAttendeeMemberPropMap = groupCUAToAttendeeMemberPropMap
+
+        # sync group attendee members if inserting or group changed
+        changed = False
+        if inserting or (yield self.updateGROUP_ATTENDEE(groupCUAToAttendeeMemberPropMap)):
+            changed = component.reconcileGroupAttendees(groupCUAToAttendeeMemberPropMap)
+
+        # save for post processing when self._resourceID is non-zero
+        if inserting:
+            self._groupCUAToAttendeeMemberPropMap = groupCUAToAttendeeMemberPropMap
 
         returnValue(changed)
 
 
     @inlineCallbacks
-    def updateGROUP_ATTENDEE(self):
+    def updateGROUP_ATTENDEE(self, groupCUAToAttendeeMemberPropMap=None):
         """
         update schema.GROUP_ATTENDEE
         """
-        if not hasattr(self, "_groupCUAToAttendeeMemberPropMap"):
-            returnValue(None)
+        if groupCUAToAttendeeMemberPropMap is None:
+            if not hasattr(self, "_groupCUAToAttendeeMemberPropMap"):
+                returnValue(False)
+            else:
+                groupCUAToAttendeeMemberPropMap = self._groupCUAToAttendeeMemberPropMap
 
+        changed = False
         ga = schema.GROUP_ATTENDEE
         rows = yield Select(
             [ga.GROUP_ID, ga.MEMBERSHIP_HASH],
@@ -1979,7 +1989,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         ).on(self._txn)
         oldGAs = dict(rows)
 
-        for groupCUA, memberAttendeeProps in self._groupCUAToAttendeeMemberPropMap.iteritems():
+        for groupCUA, memberAttendeeProps in groupCUAToAttendeeMemberPropMap.iteritems():
             groupRecord = yield self.directoryService().recordWithCalendarUserAddress(groupCUA)
             if groupRecord:
                 members = set([(
@@ -2005,6 +2015,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                                 ga.GROUP_ID == groupID
                             )
                         ).on(self._txn)
+                        changed = True
                     del oldGAs[groupID]
                 else:
                     yield Insert({
@@ -2013,6 +2024,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                             ga.MEMBERSHIP_HASH: membershipHash,
                         }
                     ).on(self._txn)
+                    changed = True
 
         for groupID in oldGAs:
             yield Delete(
@@ -2021,6 +2033,9 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     ga.GROUP_ID == groupID
                 )
             ).on(self._txn)
+            changed = True
+
+        returnValue(changed)
 
 
     def validCalendarDataCheck(self, component, inserting):
@@ -2435,7 +2450,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
             # group attendees
             if scheduler.state == "organizer":
-                yield self.reconcileGroupAttendees(component)
+                yield self.reconcileGroupAttendees(component, inserting)
 
             # Set an attribute on this object to indicate that it is valid to check for an event split. We need to do this here so that if a timeout
             # occurs whilst doing implicit processing (most likely because the event is too big) we are able to subsequently detect that it is OK
