@@ -26,6 +26,4 @@ wd="$(cd "$(dirname "$0")/.." && pwd)";
 
 init_build > /dev/null;
 
-exec "${python}"                                    \
-  -c "from twisted.scripts.trial import run; run()" \
-  "$@";
+exec "${py_bindir}/trial" "$@";
