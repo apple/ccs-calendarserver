@@ -53,7 +53,6 @@ class ProcessCountTestCase(TestCase):
 
 
 
-
 # Stub classes for MemoryLimitServiceTestCase
 
 class StubProtocol(object):

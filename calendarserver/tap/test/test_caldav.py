@@ -360,15 +360,18 @@ class CalDAVServiceMakerTestBase(StoreTestCase):
         self.options.parent["nodaemon"] = None
 
 
+
 class CalDAVServiceMakerTestSingle(CalDAVServiceMakerTestBase):
 
     def configure(self):
         super(CalDAVServiceMakerTestSingle, self).configure()
         config.ProcessType = "Single"
 
+
     def test_makeService(self):
         CalDAVServiceMaker().makeService(self.options)
         # No error
+
 
 
 class CalDAVServiceMakerTestSlave(CalDAVServiceMakerTestBase):
@@ -377,9 +380,11 @@ class CalDAVServiceMakerTestSlave(CalDAVServiceMakerTestBase):
         super(CalDAVServiceMakerTestSlave, self).configure()
         config.ProcessType = "Slave"
 
+
     def test_makeService(self):
         CalDAVServiceMaker().makeService(self.options)
         # No error
+
 
 
 class CalDAVServiceMakerTestUnknown(CalDAVServiceMakerTestBase):
@@ -387,6 +392,7 @@ class CalDAVServiceMakerTestUnknown(CalDAVServiceMakerTestBase):
     def configure(self):
         super(CalDAVServiceMakerTestUnknown, self).configure()
         config.ProcessType = "Unknown"
+
 
     def test_makeService(self):
         self.assertRaises(UsageError, CalDAVServiceMaker().makeService, self.options)
@@ -432,11 +438,13 @@ class ModesOnUNIXSocketsTests(CalDAVServiceMakerTestBase):
             self.assertEquals(socketService.gid, self.alternateGroup)
 
 
+
 class ProcessMonitorTests(CalDAVServiceMakerTestBase):
 
     def configure(self):
         super(ProcessMonitorTests, self).configure()
         config.ProcessType = "Combined"
+
 
     def test_processMonitor(self):
         """
@@ -483,7 +491,6 @@ class StoreQueuerSetInMasterTests(CalDAVServiceMakerTestBase):
             def directoryService(self):
                 return self.directory
 
-
         store = NotAStore(self.directory)
 
 
@@ -513,10 +520,6 @@ class StoreQueuerSetInMasterTests(CalDAVServiceMakerTestBase):
         maker.makeService(self.options)
         self.assertIsInstance(store.queuer, PeerConnectionPool)
         self.assertIn(something, store.queuer.proposalCallbacks)
-
-
-
-
 
 
 
@@ -626,6 +629,7 @@ class NoSSLTests(CalDAVServiceMakerTestBase):
         # config.SSLCertificate = pemFile
         # config.EnableSSL = True
 
+
     def test_noSSL(self):
         """
         Test the single service to make sure there is no SSL Service when SSL
@@ -641,6 +645,7 @@ class NoSSLTests(CalDAVServiceMakerTestBase):
         )
 
 
+
 class NoHTTPTests(CalDAVServiceMakerTestBase):
 
     def configure(self):
@@ -651,6 +656,7 @@ class NoHTTPTests(CalDAVServiceMakerTestBase):
         config.SSLPrivateKey = pemFile
         config.SSLCertificate = pemFile
         config.EnableSSL = True
+
 
     def test_noHTTP(self):
         """
@@ -667,6 +673,7 @@ class NoHTTPTests(CalDAVServiceMakerTestBase):
         )
 
 
+
 class SingleBindAddressesTests(CalDAVServiceMakerTestBase):
 
     def configure(self):
@@ -674,6 +681,7 @@ class SingleBindAddressesTests(CalDAVServiceMakerTestBase):
         config.ProcessType = "Slave"
         config.HTTPPort = 8008
         config.BindAddresses = ["127.0.0.1"]
+
 
     def test_singleBindAddresses(self):
         """
@@ -686,6 +694,7 @@ class SingleBindAddressesTests(CalDAVServiceMakerTestBase):
         for s in service.services:
             if isinstance(s, (internet.TCPServer, internet.SSLServer)):
                 self.assertEquals(s.kwargs["interface"], "127.0.0.1")
+
 
 
 class MultipleBindAddressesTests(CalDAVServiceMakerTestBase):
@@ -704,6 +713,7 @@ class MultipleBindAddressesTests(CalDAVServiceMakerTestBase):
             "10.0.0.2",
             "172.53.13.123",
         ]
+
 
     def test_multipleBindAddresses(self):
         """
@@ -757,6 +767,7 @@ class ListenBacklogTests(CalDAVServiceMakerTestBase):
             "10.0.0.2",
             "172.53.13.123",
         ]
+
 
     def test_listenBacklog(self):
         """
@@ -822,6 +833,7 @@ class ServicePrincipalNoneTests(CalDAVServiceMakerTestBase):
         config.Authentication.Kerberos.ServicePrincipal = ""
         config.Authentication.Basic.Enabled = True
 
+
     def test_servicePrincipalNone(self):
         """
         Test that the Kerberos principal look is attempted if the principal is empty.
@@ -857,8 +869,6 @@ class AuthWrapperPartialEnabledTests(CalDAVServiceMakerTestBase):
             len(expectedSchemes),
             len(authWrapper.credentialFactories)
         )
-
-
 
 
 
@@ -1318,7 +1328,7 @@ class SystemIDsTests(StoreTestCase):
             return 45
 
         return type(getSystemIDs)(
-            getSystemIDs.func_code,
+            getSystemIDs.func_code, #@UndefinedVariable
             {
                 "getpwnam": _getpwnam,
                 "getgrnam": _getgrnam,

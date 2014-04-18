@@ -16,7 +16,6 @@
 from __future__ import print_function
 
 import os
-import sys
 from plistlib import readPlistFromString
 import xml
 
@@ -253,7 +252,6 @@ class GatewayTestCase(RunCommandTestCase):
             record.displayName,
             "Created Address 01 %s %s" % (unichr(208), u"\ud83d\udca3")
         )
-
 
         self.assertEquals(record.abbreviatedName, "Addr1")
         self.assertEquals(record.streetAddress, "1 Infinite Loop\nCupertino, 95014\nCA")
