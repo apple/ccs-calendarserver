@@ -1,0 +1,16 @@
+-e svn+https://svn.calendarserver.org/repository/calendarserver/CalendarServer/trunk@13325#egg=CalendarServer-6.0b.trunk_r13316_13321-py2.7-dev_r13325
+PyGreSQL==4.1.1
+Twisted==13.2.0
+cffi==0.8.2
+funcparserlib==0.3.6
+-e svn+http://svn.calendarserver.org/repository/calendarserver/PyKerberos/trunk@13311#egg=kerberos-1.1.1-py2.7-dev_r13311
+psutil==2.1.0
+pyasn1==0.1.7
+pycparser==2.10
+pycrypto==2.6.1
+python-ldap==2.4.15
+setproctitle==1.1.8
+sqlparse==0.1.2
+-e svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk@13311#egg=twextpy-0.1b.trunk_r13311-py2.7-dev_r13311
+wheel==0.23.0
+--editable svn+http://svn.calendarserver.org/repository/calendarserver/PyCalendar/trunk@13311#egg=pycalendar

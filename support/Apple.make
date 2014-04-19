@@ -43,9 +43,11 @@ SERVERSETUP = $(SIPP)$(NSSYSTEMDIR)$(NSLIBRARYSUBDIR)/ServerSetup
 CALDAVDSUBDIR = /caldavd
 
 PYTHON = $(USRBINDIR)/python2.7
-CS_SHAREDIR = $(SHAREDIR)$(CALDAVDSUBDIR)
-CS_PY_LIBS = $(CS_SHAREDIR)/lib/python
-CS_LIBEXEC = $(SIPP)$(LIBEXECDIR)$(CALDAVDSUBDIR)
+CS_VIRTUALENV = $(SIPP)$(NSLOCALDIR)$(NSLIBRARYSUBDIR)/CalendarServer
+
+# CS_SHAREDIR = $(SHAREDIR)$(CALDAVDSUBDIR)
+# CS_PY_LIBS = $(CS_SHAREDIR)/lib/python
+# CS_LIBEXEC = $(SIPP)$(LIBEXECDIR)$(CALDAVDSUBDIR)
 # PY_INSTALL_FLAGS = --root="$(DSTROOT)" --prefix="$(SIPP)" --install-lib="$(CS_PY_LIBS)" --install-scripts="$(CS_LIBEXEC)"
 # CS_INSTALL_FLAGS = --install-scripts="$(SIPP)$(USRSBINDIR)" --install-data="$(SIPP)$(ETCDIR)"
 # CS_BUILD_EXT_FLAGS = --include-dirs="$(SIPP)/usr/include" --library-dirs="$(SIPP)/usr/lib"
@@ -60,33 +62,71 @@ CS_GROUP = _calendar
 .phony: build install install_source install-ossfiles cache_deps buildit
 
 build:: $(BuildDirectory)/$(Project)
-	# @echo "Building $(Project)...";
-	# $(_v) cd $(BuildDirectory)/$(Project) && $(Environment) $(PYTHON) setup.py build
 
-install:: build
-	# $(_v) cd $(BuildDirectory)/$(Project) && \
-	# 	$(Environment) $(PYTHON) setup.py \
-	# 	build_ext $(CS_BUILD_EXT_FLAGS) \
-	# 	install $(PY_INSTALL_FLAGS) $(CS_INSTALL_FLAGS) \
-	# 	;
+build-no::
+	@echo "Building $(Project)...";
+	$(_v) cd $(BuildDirectory)/$(Project) && $(Environment) $(PYTHON) setup.py build
+
+install:: install-python
+install-python:: build
+	@#
+	@# Set up a virtual environment in Server.app; we'll install into that.
+	@# Use --system-site-packages so that we use the packages provided by the OS.
+	@#
+	@echo "Creating virtual environment...";
+	$(_v) $(RMDIR) "$(DSTROOT)$(CS_VIRTUALENV)";
+	$(_v) $(PYTHON) -m virtualenv --system-site-packages "$(DSTROOT)$(CS_VIRTUALENV)";
+	@#
+	@# Use the pip in the virtual environment to install.
+	@# It knows about where things go in the virtual environment.
+	@#
 	@echo "Installing Python packages...";
-	$(_v) $(PYTHON) -m pip install                                          \
-   	    --pre --allow-all-external --no-index                               \
-        --find-links "$(Sources)/.develop/pip_downloads"                    \
-	    --editable "$(BuildDirectory)/$(Project)[OpenDirectory,Postgres]"   \
-		--install-option --root="$(DSTROOT)"                                \
-		--install-option --prefix="$(SIPP)"                                 \
-		--install-option --install-lib="$(CS_PY_LIBS)"                      \
-		--install-option --install-scripts="$(CS_LIBEXEC)"                  \
-		;
-	@echo "Cleaning up...";
-	$(_v) for so in $$(find "$(DSTROOT)$(CS_SHAREDIR)/lib" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done;
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)";
-	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)/caldavd-apple.plist";
-	$(_v) chmod -R ugo+r "$(DSTROOT)$(CS_SHAREDIR)";
-	$(_v) for f in $$(find "$(DSTROOT)$(SIPP)$(ETCDIR)" -type f ! -name '*.default'); do cp "$${f}" "$${f}.default"; done;
+	$(_v) "$(DSTROOT)$(CS_VIRTUALENV)/bin/pip" install                       \
+        --pre --allow-all-external --no-index                                \
+        --find-links="$(Sources)/.develop/pip_downloads"                     \
+	    --requirement="$(BuildDirectory)/$(Project)/requirements-apple.txt"  \
+	    ;
+	@#
+	@# Make the virtualenv relocatable
+	@#
+	@echo "Making virtual environment relocatable...";
+	$(PYTHON) -m virtualenv --relocatable "$(DSTROOT)$(CS_VIRTUALENV)";
+	@#
+	@# Clean up
+	@#
+	@echo "Cleaning up virtual environment...";
+	$(_v) $(FIND) "$(DSTROOT)$(CS_VIRTUALENV)" -type d -name .svn -print0 | xargs -0 rm -rf;
+	$(_v) $(FIND) "$(DSTROOT)$(CS_VIRTUALENV)" -type f -name '*.so' -print0 | xargs -0 $(STRIP) -Sx;
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(CS_VIRTUALENV)/etc";
+	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(CS_VIRTUALENV)/etc/caldavd.plist";
 
-install::
+
+# install-oldish::
+# 	@echo "Installing Python packages...";
+# 	$(_v) $(PYTHON) -m pip install                                          \
+#         --pre --allow-all-external --no-index                               \
+#         --find-links "$(Sources)/.develop/pip_downloads"                    \
+# 	    --editable "$(BuildDirectory)/$(Project)[OpenDirectory,Postgres]"   \
+# 		--install-option --root="$(DSTROOT)"                                \
+# 		--install-option --prefix="$(SIPP)"                                 \
+# 		--install-option --install-lib="$(CS_PY_LIBS)"                      \
+# 		--install-option --install-scripts="$(CS_LIBEXEC)"                  \
+# 		--ignore-installed													\
+# 		;
+# 	$(_v) cd $(BuildDirectory)/$(Project) && \
+# 		$(Environment) $(PYTHON) setup.py \
+# 		build_ext $(CS_BUILD_EXT_FLAGS) \
+# 		install $(PY_INSTALL_FLAGS) $(CS_INSTALL_FLAGS) \
+# 		;
+# 	@echo "Cleaning up...";
+# 	$(_v) for so in $$(find "$(DSTROOT)$(CS_SHAREDIR)/lib" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done;
+# 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)";
+# 	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)/caldavd-apple.plist";
+# 	$(_v) chmod -R ugo+r "$(DSTROOT)$(CS_SHAREDIR)";
+# 	$(_v) for f in $$(find "$(DSTROOT)$(SIPP)$(ETCDIR)" -type f ! -name '*.default'); do cp "$${f}" "$${f}.default"; done;
+
+# install:: install-man
+install-man::
 	@echo "Installing manual pages...";
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
 	$(_v) $(INSTALL_FILE) "$(Sources)/doc/caldavd.8"                           "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
@@ -100,20 +140,23 @@ install::
 	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_manage_timezones.8"   "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
 	$(_v) gzip -9 -f "$(DSTROOT)$(SIPP)$(MANDIR)/man8/"*.[0-9];
 
-install::
+# install:: install-launchd
+install-launchd::
 	@echo "Installing launchd config...";
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(NSLOCALDIR)/$(NSLIBRARYSUBDIR)/Server/Calendar and Contacts";
 	$(_v) $(INSTALL_DIRECTORY) -o "$(CS_USER)" -g "$(CS_GROUP)" -m 0755 "$(DSTROOT)$(VARDIR)/log$(CALDAVDSUBDIR)";
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(NSLIBRARYDIR)/LaunchDaemons";
 	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/launchd/calendarserver.plist" "$(DSTROOT)$(SIPP)$(NSLIBRARYDIR)/LaunchDaemons/org.calendarserver.calendarserver.plist";
 
-install::
+# install:: install-changeip
+install-changeip::
 	@echo "Installing changeip script...";
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(LIBEXECDIR)/changeip";
 	$(_v) $(INSTALL_FILE) "$(Sources)/calendarserver/tools/changeip_calendar.py" "$(DSTROOT)$(SIPP)$(LIBEXECDIR)/changeip/changeip_calendar.py";
 	$(_v) chmod ugo+x "$(DSTROOT)$(SIPP)$(LIBEXECDIR)/changeip/changeip_calendar.py";
 
-install::
+# install:: install-caldavtester
+install-caldavtester::
 	@echo "Installing CalDAVTester package...";
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/AppleInternal/ServerTools";
 	$(_v) cd "$(DSTROOT)/AppleInternal/ServerTools" && unzip "$(BuildDirectory)/$(Project)/requirements/cache/CalDAVTester-*.zip";
