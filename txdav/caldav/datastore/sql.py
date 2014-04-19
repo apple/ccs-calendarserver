@@ -1954,9 +1954,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     [member.attendeeProperty(params={"MEMBER": groupCUA}) for member in members]
                 )
 
-        # save for post processing
-        self._groupCUAToAttendeeMemberPropMap = groupCUAToAttendeeMemberPropMap
-
         # sync group attendee members if inserting or group changed
         changed = False
         if inserting or (yield self.updateGROUP_ATTENDEE(groupCUAToAttendeeMemberPropMap)):
