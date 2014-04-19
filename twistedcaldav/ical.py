@@ -3411,7 +3411,7 @@ END:VCALENDAR
             memberCUAs = set()
             for newAttendeeProp in memberAtttendeeProps:
                 memberCUA = newAttendeeProp.value()
-                if newAttendeeProp.value() not in oldAttendeeCUAs:
+                if memberCUA not in oldAttendeeCUAs:
                     component.addProperty(newAttendeeProp)
                     changed = True
                 memberCUAs.add(memberCUA)

@@ -508,18 +508,30 @@ class ImplicitScheduler(object):
                 "Only one organizer allowed in scheduling object resource",
             ))
 
+        # Attendee details
+        yield self.extractAttendees()
+
+        # Some other useful things
+        self.uid = self.calendar.resourceUID()
+        self.instances = set(self.calendar.getComponentInstances())
+
+
+    @inlineCallbacks
+    def extractAttendees(self):
+        """
+        Extract details about the attendees from the new calendar data. We do this
+        in its own method because we might need to refresh this information if the attendee
+        list changes after a test_X call but before scheduling itself needs to happen. That
+        can occur when group attendee reconciliation occurs.
+        """
         # Coerce any local with SCHEDULE-AGENT=CLIENT
         yield self.coerceAttendeeScheduleAgent()
 
         # Get the ATTENDEEs
         self.attendeesByInstance = self.calendar.getAttendeesByInstance(True, onlyScheduleAgentServer=True)
-        self.instances = set(self.calendar.getComponentInstances())
         self.attendees = set()
         for attendee, _ignore in self.attendeesByInstance:
             self.attendees.add(attendee)
-
-        # Some other useful things
-        self.uid = self.calendar.resourceUID()
 
 
     @inlineCallbacks

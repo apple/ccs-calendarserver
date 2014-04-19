@@ -2447,7 +2447,9 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
             # group attendees
             if scheduler.state == "organizer":
-                yield self.reconcileGroupAttendees(component, inserting)
+                changed = yield self.reconcileGroupAttendees(component, inserting)
+                if changed:
+                    yield scheduler.extractAttendees()
 
             # Set an attribute on this object to indicate that it is valid to check for an event split. We need to do this here so that if a timeout
             # occurs whilst doing implicit processing (most likely because the event is too big) we are able to subsequently detect that it is OK

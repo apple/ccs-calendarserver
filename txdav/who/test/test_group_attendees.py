@@ -444,6 +444,24 @@ END:VEVENT
 END:VCALENDAR
 """
 
+        data_get_4 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+BEGIN:VEVENT
+UID:event1@ninevah.local
+DTSTART;TZID=US/Eastern:20140101T100000
+DURATION:PT1H
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:10000000-0000-0000-0000-000000000002
+ATTENDEE;CN=Group 01;CUTYPE=GROUP;EMAIL=group01@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:x-uid:20000000-0000-0000-0000-000000000001
+CREATED:20060101T150000Z
+ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:x-uid:10000000-0000-0000-0000-000000000002
+SEQUENCE:2
+SUMMARY:event 1
+END:VEVENT
+END:VCALENDAR
+"""
+
         @inlineCallbacks
         def expandedMembers(self, records=None):
             yield None
@@ -490,7 +508,7 @@ END:VCALENDAR
 
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000002")
         vcalendar3 = yield cobj1.component()
-        self.assertEqual(normalize_iCalStr(vcalendar3), normalize_iCalStr(data_get_2))
+        self.assertEqual(normalize_iCalStr(vcalendar3), normalize_iCalStr(data_get_4))
 
         cal1 = yield self.calendarUnderTest(name="calendar", home="10000000-0000-0000-0000-000000000001")
         cobjs = yield cal1.objectResources()

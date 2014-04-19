@@ -182,7 +182,7 @@ class GroupAttendeeReconciliationWork(
         component = component.duplicate()
 
         # sync group attendees
-        if calendarObject.reconcileGroupAttendees(component):
+        if (yield calendarObject.reconcileGroupAttendees(component)):
             yield calendarObject.setComponent(component)
 
 
