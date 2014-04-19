@@ -2577,7 +2577,7 @@ END:VCALENDAR
 VERSION:2.0
 PRODID:-//Apple Inc.//iCal 4.0.1//EN
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 DTSTART:%(now)s
 DURATION:PT1H
 ATTENDEE;CN=Example User1;EMAIL=example1@example.com:urn:x-uid:%(uuid1)s
@@ -2596,7 +2596,7 @@ END:VCALENDAR
 VERSION:2.0
 PRODID:-//Apple Inc.//iCal 4.0.1//EN
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 DTSTART:%(now)s
 DURATION:PT1H
 ATTENDEE;CN=Example User1;EMAIL=example1@example.com:urn:x-uid:%(uuid1)s
@@ -2732,10 +2732,11 @@ END:VCALENDAR
         }
         output = StringIO()
         calverify = EventSplitService(self._sqlCalendarStore, options, output, reactor, config)
-        oldUID = yield calverify.doAction()
+        oldUID, oldRelatedTo = yield calverify.doAction()
 
         relsubs = dict(self.subs)
-        relsubs["relID"] = oldUID
+        relsubs["uid"] = oldUID
+        relsubs["relID"] = oldRelatedTo
 
         calendar = yield self.calendarUnderTest(home=CalVerifyMismatchTestsBase.uuid1, name="calendar")
         objs = yield calendar.listObjectResources()

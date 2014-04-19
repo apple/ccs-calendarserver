@@ -2286,6 +2286,27 @@ class CalendarObjectSplitting(CommonCommonTests, unittest.TestCase):
 
 
     @inlineCallbacks
+    def _splitDetails(self, home):
+        # Get home data
+        cal = yield self.calendarUnderTest(name="calendar", home=home)
+        cobjs = yield cal.calendarObjects()
+        self.assertEqual(len(cobjs), 2)
+        for cobj in cobjs:
+            self.assertTrue(cobj.isScheduleObject)
+            ical = yield cobj.component()
+            if ical.resourceUID() == "12345-67890":
+                ical_future = ical
+            else:
+                ical_past = ical
+                new_name = cobj.name()
+
+        relID = ical_future.mainComponent().propertyValue("RELATED-TO")
+        uid = ical_past.resourceUID()
+
+        returnValue((ical_future, ical_past, uid, relID, new_name,))
+
+
+    @inlineCallbacks
     def test_calendarObjectSplit(self):
         """
         Test that (manual) splitting of calendar objects works.
@@ -2402,7 +2423,7 @@ END:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 DTSTART:%(now_back30)s
 DURATION:PT1H
 ATTENDEE:mailto:user1@example.org
@@ -2437,7 +2458,7 @@ RRULE:FREQ=DAILY;UNTIL=%(now_back14_1)s
 SEQUENCE:1
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
@@ -2449,7 +2470,7 @@ RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
@@ -2481,20 +2502,15 @@ END:VCALENDAR
         will = yield cobj.willSplit()
         self.assertTrue(will)
 
-        newObj = yield cobj.split()
-        newUID = newObj.uid()
+        yield cobj.split()
         yield self.commit()
 
-        cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
-        cobj2 = yield self.calendarObjectUnderTest(name="%s.ics" % (newUID,), calendar_name="calendar", home="user01")
-        self.assertTrue(cobj2 is not None)
-
-        ical_future = yield cobj1.component()
-        ical_past = yield cobj2.component()
+        ical_future, ical_past, pastUID, relID, _ignore_new_name = yield self._splitDetails("user01")
 
         title = "temp"
         relsubs = dict(self.subs)
-        relsubs["relID"] = newUID
+        relsubs["uid"] = pastUID
+        relsubs["relID"] = relID
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s" % (title,))
         self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past) % relsubs, "Failed past: %s" % (title,))
 
@@ -2603,7 +2619,7 @@ END:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 DTSTART:%(now_back30)s
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
@@ -2620,7 +2636,7 @@ SUMMARY:1234567890123456789012345678901234567890
  1234567890123456789012345678901234567890
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
@@ -2633,7 +2649,7 @@ RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
@@ -2682,7 +2698,7 @@ END:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 DTSTART:%(now_back30)s
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
@@ -2699,7 +2715,7 @@ SUMMARY:1234567890123456789012345678901234567890
  1234567890123456789012345678901234567890
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
@@ -2712,7 +2728,7 @@ RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
@@ -2724,7 +2740,7 @@ RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
 BEGIN:X-CALENDARSERVER-PERUSER
-UID:%(relID)s
+UID:%(uid)s
 X-CALENDARSERVER-PERUSER-UID:user02
 BEGIN:X-CALENDARSERVER-PERINSTANCE
 TRANSP:TRANSPARENT
@@ -2793,7 +2809,7 @@ END:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 DTSTART:%(now_back30)s
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
@@ -2812,7 +2828,7 @@ SUMMARY:1234567890123456789012345678901234567890
  1234567890123456789012345678901234567890
 END:VEVENT
 BEGIN:X-CALENDARSERVER-PERUSER
-UID:%(relID)s
+UID:%(uid)s
 X-CALENDARSERVER-PERUSER-UID:user03
 BEGIN:X-CALENDARSERVER-PERINSTANCE
 TRANSP:TRANSPARENT
@@ -2850,7 +2866,7 @@ END:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
@@ -2863,7 +2879,7 @@ RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
 BEGIN:X-CALENDARSERVER-PERUSER
-UID:%(relID)s
+UID:%(uid)s
 X-CALENDARSERVER-PERUSER-UID:user04
 BEGIN:X-CALENDARSERVER-PERINSTANCE
 RECURRENCE-ID:%(now_back25)s
@@ -2944,35 +2960,18 @@ END:VCALENDAR
         yield self.abort()
 
         # Get the existing and new object data
-        cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
-        self.assertTrue(cobj1.isScheduleObject)
-        ical1 = yield cobj1.component()
-        newUID = ical1.masterComponent().propertyValue("RELATED-TO")
-
-        cobj2 = yield self.calendarObjectUnderTest(name="%s.ics" % (newUID,), calendar_name="calendar", home="user01")
-        self.assertTrue(cobj2 is not None)
-        self.assertTrue(cobj2.isScheduleObject)
-
-        ical_future = yield cobj1.component()
-        ical_past = yield cobj2.component()
+        ical_future, ical_past, pastUID, relID, _ignore_new_name = yield self._splitDetails("user01")
 
         # Verify user01 data
         title = "user01"
         relsubs = dict(self.subs)
-        relsubs["relID"] = newUID
+        relsubs["uid"] = pastUID
+        relsubs["relID"] = relID
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s" % (title,))
         self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past) % relsubs, "Failed past: %s" % (title,))
 
         # Get user02 data
-        cal = yield self.calendarUnderTest(name="calendar", home="user02")
-        cobjs = yield cal.calendarObjects()
-        self.assertEqual(len(cobjs), 2)
-        for cobj in cobjs:
-            ical = yield cobj.component()
-            if ical.resourceUID() == "12345-67890":
-                ical_future = ical
-            else:
-                ical_past = ical
+        ical_future, ical_past, pastUID, relID, _ignore_new_name = yield self._splitDetails("user02")
 
         cal = yield self.calendarUnderTest(name="inbox", home="user02")
         cobjs = yield cal.calendarObjects()
@@ -2986,16 +2985,7 @@ END:VCALENDAR
         self.assertEqual(normalize_iCalStr(ical_inbox), normalize_iCalStr(data_inbox2) % relsubs, "Failed inbox: %s" % (title,))
 
         # Get user03 data
-        cal = yield self.calendarUnderTest(name="calendar", home="user03")
-        cobjs = yield cal.calendarObjects()
-        self.assertEqual(len(cobjs), 2)
-        for cobj in cobjs:
-            ical = yield cobj.component()
-            if ical.resourceUID() == "12345-67890":
-                ical_future = ical
-            else:
-                ical_past = ical
-            self.assertTrue(cobj.isScheduleObject)
+        ical_future, ical_past, pastUID, relID, _ignore_new_name = yield self._splitDetails("user03")
 
         cal = yield self.calendarUnderTest(name="inbox", home="user03")
         cobjs = yield cal.calendarObjects()
@@ -3567,7 +3557,7 @@ END:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 DTSTART:%(now_back30)s
 DURATION:PT1H
 ATTACH;FILENAME=new.attachment;FMTTYPE=text/x-fixture;MANAGED-ID=%(past_mid)s;SIZE=14:%(att_past_uri)s
@@ -3584,7 +3574,7 @@ SUMMARY:1234567890123456789012345678901234567890
  1234567890123456789012345678901234567890
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
@@ -3597,7 +3587,7 @@ RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:3
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
@@ -3659,7 +3649,7 @@ END:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 DTSTART:%(now_back30)s
 DURATION:PT1H
 ATTACH;FILENAME=new.attachment;FMTTYPE=text/x-fixture;MANAGED-ID=%(past_mid)s;SIZE=14:%(att_past_uri)s
@@ -3676,7 +3666,7 @@ SUMMARY:1234567890123456789012345678901234567890
  1234567890123456789012345678901234567890
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
@@ -3689,7 +3679,7 @@ RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:3
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
@@ -3702,7 +3692,7 @@ RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:3
 END:VEVENT
 BEGIN:X-CALENDARSERVER-PERUSER
-UID:%(relID)s
+UID:%(uid)s
 X-CALENDARSERVER-PERUSER-UID:user02
 BEGIN:X-CALENDARSERVER-PERINSTANCE
 TRANSP:TRANSPARENT
@@ -3747,15 +3737,11 @@ END:VCALENDAR
         yield work.whenExecuted()
 
         # Get the existing and new object data
-        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
-        ical_future = yield cobj.component()
-        newUID = ical_future.masterComponent().propertyValue("RELATED-TO")
-        relsubs["relID"] = newUID
+        ical_future, ical_past, pastUID, relID, _ignore_new_name = yield self._splitDetails("user01")
+        relsubs["uid"] = pastUID
+        relsubs["relID"] = relID
         relsubs["dtstamp"] = str(ical_future.masterComponent().propertyValue("DTSTAMP"))
 
-        cobj = yield self.calendarObjectUnderTest(name="%s.ics" % (newUID,), calendar_name="calendar", home="user01")
-        self.assertTrue(cobj is not None)
-        ical_past = yield cobj.component()
         attachment = ical.masterComponent().getProperty("ATTACH")
         self.assertEqual(attachment.parameterValue("MANAGED-ID"), mid)
         self.assertEqual(attachment.value(), location)
@@ -3769,15 +3755,7 @@ END:VCALENDAR
         self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past) % relsubs, "Failed past: %s" % (title,))
 
         # Get user02 data
-        cal = yield self.calendarUnderTest(name="calendar", home="user02")
-        cobjs = yield cal.calendarObjects()
-        self.assertEqual(len(cobjs), 2)
-        for cobj in cobjs:
-            ical = yield cobj.component()
-            if ical.resourceUID() == "12345-67890":
-                ical_future = ical
-            else:
-                ical_past = ical
+        ical_future, ical_past, pastUID, relID, _ignore_new_name = yield self._splitDetails("user02")
 
         # Verify user02 data
         title = "user02"
@@ -3916,7 +3894,7 @@ ATTENDEE;PARTSTAT=ACCEPTED:mailto:cuser01@example.org
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 DTSTAMP:20051222T210507Z
 ORGANIZER;SCHEDULE-AGENT=NONE:mailto:cuser01@example.org
-RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:C4526F4C-4324-4893-B769-BD766E4A4E7C
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY
 SEQUENCE:1
 SUMMARY:1234567890123456789012345678901234567890
@@ -3933,7 +3911,7 @@ ATTENDEE;PARTSTAT=TENTATIVE:mailto:cuser01@example.org
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=TENTATIVE:urn:x-uid:user01
 DTSTAMP:20051222T210507Z
 ORGANIZER;SCHEDULE-AGENT=NONE:mailto:cuser01@example.org
-RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:C4526F4C-4324-4893-B769-BD766E4A4E7C
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
 BEGIN:X-CALENDARSERVER-PERUSER
@@ -3969,7 +3947,7 @@ ATTENDEE;PARTSTAT=ACCEPTED:mailto:cuser01@example.org
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 DTSTAMP:20051222T210507Z
 ORGANIZER;SCHEDULE-AGENT=NONE:mailto:cuser01@example.org
-RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:C4526F4C-4324-4893-B769-BD766E4A4E7C
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY;UNTIL=%(now_back14_1)s
 SEQUENCE:1
 SUMMARY:1234567890123456789012345678901234567890
@@ -3986,7 +3964,7 @@ ATTENDEE;PARTSTAT=TENTATIVE:mailto:cuser01@example.org
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=NEEDS-ACTION:urn:x-uid:user01
 DTSTAMP:20051222T210507Z
 ORGANIZER;SCHEDULE-AGENT=NONE:mailto:cuser01@example.org
-RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:C4526F4C-4324-4893-B769-BD766E4A4E7C
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
 BEGIN:VEVENT
@@ -3998,7 +3976,7 @@ ATTENDEE;PARTSTAT=DECLINED:mailto:cuser01@example.org
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=DECLINED:urn:x-uid:user01
 DTSTAMP:20051222T210507Z
 ORGANIZER;SCHEDULE-AGENT=NONE:mailto:cuser01@example.org
-RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:C4526F4C-4324-4893-B769-BD766E4A4E7C
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
 BEGIN:X-CALENDARSERVER-PERUSER
@@ -4047,7 +4025,7 @@ ATTENDEE;PARTSTAT=ACCEPTED:mailto:cuser01@example.org
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
 DTSTAMP:20051222T210507Z
 ORGANIZER;SCHEDULE-AGENT=NONE:mailto:cuser01@example.org
-RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:C4526F4C-4324-4893-B769-BD766E4A4E7C
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 RRULE:FREQ=DAILY;UNTIL=%(now_back14_1)s
 SEQUENCE:1
 SUMMARY:1234567890123456789012345678901234567890
@@ -4064,7 +4042,7 @@ ATTENDEE;PARTSTAT=TENTATIVE:mailto:cuser01@example.org
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=NEEDS-ACTION:urn:x-uid:user01
 DTSTAMP:20051222T210507Z
 ORGANIZER;SCHEDULE-AGENT=NONE:mailto:cuser01@example.org
-RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:C4526F4C-4324-4893-B769-BD766E4A4E7C
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
 BEGIN:VEVENT
@@ -4076,7 +4054,7 @@ ATTENDEE;PARTSTAT=DECLINED:mailto:cuser01@example.org
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=DECLINED:urn:x-uid:user01
 DTSTAMP:20051222T210507Z
 ORGANIZER;SCHEDULE-AGENT=NONE:mailto:cuser01@example.org
-RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:C4526F4C-4324-4893-B769-BD766E4A4E7C
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
 END:VCALENDAR
@@ -4104,26 +4082,21 @@ END:VCALENDAR
         self.assertEqual(result, (True, False, False, None,))
         yield self.commit()
 
-        new_name = []
+        new_names = []
+        relsubs = dict(self.subs)
 
         @inlineCallbacks
         def _verify_state():
             # Get user01 data
-            cal = yield self.calendarUnderTest(name="calendar", home="user01")
-            cobjs = yield cal.calendarObjects()
-            self.assertEqual(len(cobjs), 2)
-            for cobj in cobjs:
-                ical = yield cobj.component()
-                if ical.resourceUID() == "12345-67890":
-                    ical_future = ical
-                else:
-                    ical_past = ical
-                    new_name.append(cobj.name())
+            ical_future, ical_past, pastUID, relID, new_name = yield self._splitDetails("user01")
+            relsubs["uid"] = pastUID
+            relsubs["relID"] = relID
+            new_names.append(new_name)
 
             # Verify user01 data
             title = "user01"
-            self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % self.subs, "Failed future: %s\n%s" % (title, diff_iCalStrs(ical_future, data_future % self.subs),))
-            self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past) % self.subs, "Failed past: %s\n%s" % (title, diff_iCalStrs(ical_past, data_past % self.subs),))
+            self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s\n%s" % (title, diff_iCalStrs(ical_future, data_future % relsubs),))
+            self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past) % relsubs, "Failed past: %s\n%s" % (title, diff_iCalStrs(ical_past, data_past % relsubs),))
 
             # No inbox
             cal = yield self.calendarUnderTest(name="inbox", home="user01")
@@ -4137,11 +4110,11 @@ END:VCALENDAR
         processor = ImplicitProcessor()
         processor.getRecipientsCopy = lambda : succeed(None)
 
-        cobj = yield self.calendarObjectUnderTest(name=new_name[0], calendar_name="calendar", home="user01")
+        cobj = yield self.calendarObjectUnderTest(name=new_names[0], calendar_name="calendar", home="user01")
         self.assertTrue(cobj is not None)
         processor.recipient_calendar_resource = cobj
         processor.recipient_calendar = (yield cobj.componentForUser("user01"))
-        processor.message = Component.fromString(itip2 % self.subs)
+        processor.message = Component.fromString(itip2 % relsubs)
         processor.originator = RemoteCalendarUser("mailto:cuser01@example.org")
         processor.recipient = LocalCalendarUser("urn:x-uid:user01", None)
         processor.method = "REQUEST"
@@ -4220,7 +4193,7 @@ ATTENDEE;PARTSTAT=TENTATIVE:mailto:cuser01@example.org
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=NEEDS-ACTION:urn:x-uid:user01
 DTSTAMP:20051222T210507Z
 ORGANIZER;SCHEDULE-AGENT=NONE:mailto:cuser01@example.org
-RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:C4526F4C-4324-4893-B769-BD766E4A4E7C
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
 BEGIN:X-CALENDARSERVER-PERUSER
@@ -4262,15 +4235,18 @@ END:VCALENDAR
         yield self.commit()
 
         # Get user01 data
+        relsubs = dict(self.subs)
         cal = yield self.calendarUnderTest(name="calendar", home="user01")
         cobjs = yield cal.calendarObjects()
         self.assertEqual(len(cobjs), 1)
         ical = yield cobjs[0].component()
         ical_past = ical
+        relsubs["uid"] = ical.resourceUID()
+        relsubs["relID"] = ical.mainComponent().propertyValue("RELATED-TO")
 
         # Verify user01 data
         title = "user01"
-        self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past) % self.subs, "Failed past: %s\n%s" % (title, diff_iCalStrs(ical_past, data_past % self.subs),))
+        self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past) % relsubs, "Failed past: %s\n%s" % (title, diff_iCalStrs(ical_past, data_past % relsubs),))
 
 
     @inlineCallbacks
@@ -4339,7 +4315,7 @@ ATTENDEE;PARTSTAT=TENTATIVE:mailto:cuser01@example.org
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=TENTATIVE:urn:x-uid:user01
 DTSTAMP:20051222T210507Z
 ORGANIZER;SCHEDULE-AGENT=NONE:mailto:cuser01@example.org
-RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:C4526F4C-4324-4893-B769-BD766E4A4E7C
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
 BEGIN:X-CALENDARSERVER-PERUSER
@@ -4380,15 +4356,18 @@ END:VCALENDAR
         yield self.commit()
 
         # Get user01 data
+        relsubs = dict(self.subs)
         cal = yield self.calendarUnderTest(name="calendar", home="user01")
         cobjs = yield cal.calendarObjects()
         self.assertEqual(len(cobjs), 1)
         ical = yield cobjs[0].component()
         ical_future = ical
+        relsubs["uid"] = ical.resourceUID()
+        relsubs["relID"] = ical.mainComponent().propertyValue("RELATED-TO")
 
         # Verify user01 data
         title = "user01"
-        self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % self.subs, "Failed future: %s\n%s" % (title, diff_iCalStrs(ical_future, data_future % self.subs),))
+        self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s\n%s" % (title, diff_iCalStrs(ical_future, data_future % relsubs),))
 
 
     @inlineCallbacks
@@ -4478,7 +4457,7 @@ ATTENDEE;PARTSTAT=TENTATIVE:mailto:cuser01@example.org
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=TENTATIVE:urn:x-uid:user01
 DTSTAMP:20051222T210507Z
 ORGANIZER;SCHEDULE-AGENT=NONE:mailto:cuser01@example.org
-RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:C4526F4C-4324-4893-B769-BD766E4A4E7C
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
 BEGIN:X-CALENDARSERVER-PERUSER
@@ -4508,7 +4487,7 @@ ATTENDEE;PARTSTAT=TENTATIVE:mailto:cuser01@example.org
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=NEEDS-ACTION:urn:x-uid:user01
 DTSTAMP:20051222T210507Z
 ORGANIZER;SCHEDULE-AGENT=NONE:mailto:cuser01@example.org
-RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:C4526F4C-4324-4893-B769-BD766E4A4E7C
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
 BEGIN:X-CALENDARSERVER-PERUSER
@@ -4550,20 +4529,15 @@ END:VCALENDAR
         yield self.commit()
 
         # Get user01 data
-        cal = yield self.calendarUnderTest(name="calendar", home="user01")
-        cobjs = yield cal.calendarObjects()
-        self.assertEqual(len(cobjs), 2)
-        for cobj in cobjs:
-            ical = yield cobj.component()
-            if ical.resourceUID() == "12345-67890":
-                ical_future = ical
-            else:
-                ical_past = ical
+        ical_future, ical_past, pastUID, relID, _ignore_new_name = yield self._splitDetails("user01")
+        relsubs = dict(self.subs)
+        relsubs["uid"] = pastUID
+        relsubs["relID"] = relID
 
         # Verify user01 data
         title = "user01"
-        self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % self.subs, "Failed future: %s\n%s" % (title, diff_iCalStrs(ical_future, data_future % self.subs),))
-        self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past) % self.subs, "Failed past: %s\n%s" % (title, diff_iCalStrs(ical_past, data_past % self.subs),))
+        self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s\n%s" % (title, diff_iCalStrs(ical_future, data_future % relsubs),))
+        self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past) % relsubs, "Failed past: %s\n%s" % (title, diff_iCalStrs(ical_past, data_past % relsubs),))
 
 
     @inlineCallbacks
@@ -4890,7 +4864,7 @@ END:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 DTSTART:%(now_back30)s
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
@@ -4907,7 +4881,7 @@ SUMMARY:1234567890123456789012345678901234567890
  1234567890123456789012345678901234567890
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
@@ -4920,7 +4894,7 @@ RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
@@ -4969,7 +4943,7 @@ END:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 DTSTART:%(now_back30)s
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
@@ -4986,7 +4960,7 @@ SUMMARY:1234567890123456789012345678901234567890
  1234567890123456789012345678901234567890
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
@@ -4999,7 +4973,7 @@ RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
@@ -5011,7 +4985,7 @@ RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
 BEGIN:X-CALENDARSERVER-PERUSER
-UID:%(relID)s
+UID:%(uid)s
 X-CALENDARSERVER-PERUSER-UID:user02
 BEGIN:X-CALENDARSERVER-PERINSTANCE
 TRANSP:TRANSPARENT
@@ -5049,7 +5023,7 @@ END:VCALENDAR
 VERSION:2.0
 METHOD:REQUEST
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-X-CALENDARSERVER-SPLIT-OLDER-UID:%(relID)s
+X-CALENDARSERVER-SPLIT-OLDER-UID:%(uid)s
 X-CALENDARSERVER-SPLIT-RID;VALUE=DATE-TIME:%(now_back14)s
 BEGIN:VEVENT
 UID:12345-67890
@@ -5090,7 +5064,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 X-CALENDARSERVER-SPLIT-NEWER-UID:12345-67890
 X-CALENDARSERVER-SPLIT-RID;VALUE=DATE-TIME:%(now_back14)s
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 DTSTART:%(now_back30)s
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
@@ -5108,7 +5082,7 @@ SUMMARY:1234567890123456789012345678901234567890
  1234567890123456789012345678901234567890
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
@@ -5161,22 +5135,23 @@ END:VCALENDAR
         yield self.abort()
 
         # Get the existing and new object data
-        cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
-        self.assertTrue(cobj1.isScheduleObject)
-        ical1 = yield cobj1.component()
-        newUID = ical1.masterComponent().propertyValue("RELATED-TO")
-
-        cobj2 = yield self.calendarObjectUnderTest(name="%s.ics" % (newUID,), calendar_name="calendar", home="user01")
-        self.assertTrue(cobj2 is not None)
-        self.assertTrue(cobj2.isScheduleObject)
-
-        ical_future = yield cobj1.component()
-        ical_past = yield cobj2.component()
+        cal = yield self.calendarUnderTest(name="calendar", home="user01")
+        cobjs = yield cal.calendarObjects()
+        self.assertEqual(len(cobjs), 2)
+        for cobj in cobjs:
+            ical = yield cobj.component()
+            if ical.resourceUID() == "12345-67890":
+                ical_future = ical
+            else:
+                ical_past = ical
+        relID = ical_future.masterComponent().propertyValue("RELATED-TO")
+        newUID = ical_past.masterComponent().propertyValue("UID")
 
         # Verify user01 data
         title = "user01"
         relsubs = dict(self.subs)
-        relsubs["relID"] = newUID
+        relsubs["uid"] = newUID
+        relsubs["relID"] = relID
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s\n%s" % (title, diff_iCalStrs(ical_future, data_future % relsubs),))
         self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past) % relsubs, "Failed past: %s\n%s" % (title, diff_iCalStrs(ical_past, data_past % relsubs),))
 
@@ -5356,7 +5331,7 @@ END:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 DTSTART:%(now_back30)s
 DURATION:PT2H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
@@ -5372,7 +5347,7 @@ SUMMARY:1234567890123456789012345678901234567890
  1234567890123456789012345678901234567890
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
@@ -5384,7 +5359,7 @@ RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
@@ -5443,7 +5418,7 @@ END:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 DTSTART:%(now_back30)s
 DURATION:PT2H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
@@ -5459,7 +5434,7 @@ SUMMARY:1234567890123456789012345678901234567890
  1234567890123456789012345678901234567890
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
@@ -5471,7 +5446,7 @@ RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
@@ -5483,7 +5458,7 @@ RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
 BEGIN:X-CALENDARSERVER-PERUSER
-UID:%(relID)s
+UID:%(uid)s
 X-CALENDARSERVER-PERUSER-UID:user02
 BEGIN:X-CALENDARSERVER-PERINSTANCE
 TRANSP:TRANSPARENT
@@ -5594,22 +5569,25 @@ END:VCALENDAR
         yield self.abort()
 
         # Get the existing and new object data
-        cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
-        self.assertTrue(cobj1.isScheduleObject)
-        ical1 = yield cobj1.component()
-        newUID = ical1.masterComponent().propertyValue("RELATED-TO")
+        cal = yield self.calendarUnderTest(name="calendar", home="user01")
+        cobjs = yield cal.calendarObjects()
+        self.assertEqual(len(cobjs), 2)
+        for cobj in cobjs:
+            self.assertTrue(cobj.isScheduleObject)
+            ical = yield cobj.component()
+            if ical.resourceUID() == "12345-67890":
+                ical_future = ical
+            else:
+                ical_past = ical
 
-        cobj2 = yield self.calendarObjectUnderTest(name="%s.ics" % (newUID,), calendar_name="calendar", home="user01")
-        self.assertTrue(cobj2 is not None)
-        self.assertTrue(cobj2.isScheduleObject)
-
-        ical_future = yield cobj1.component()
-        ical_past = yield cobj2.component()
+        relID = ical_future.masterComponent().propertyValue("RELATED-TO")
+        newUID = ical_past.masterComponent().propertyValue("UID")
 
         # Verify user01 data
         title = "user01"
         relsubs = dict(self.subs)
-        relsubs["relID"] = newUID
+        relsubs["uid"] = newUID
+        relsubs["relID"] = relID
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s" % (title,))
         self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past) % relsubs, "Failed past: %s" % (title,))
 
@@ -5737,7 +5715,7 @@ END:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 DTSTART:%(now_back28)s
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
@@ -5753,7 +5731,7 @@ SUMMARY:1234567890123456789012345678901234567890
  1234567890123456789012345678901234567890
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
@@ -5765,7 +5743,7 @@ RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
@@ -5824,7 +5802,7 @@ END:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 DTSTART:%(now_back28)s
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
@@ -5840,7 +5818,7 @@ SUMMARY:1234567890123456789012345678901234567890
  1234567890123456789012345678901234567890
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
@@ -5852,7 +5830,7 @@ RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
@@ -5864,7 +5842,7 @@ RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 SEQUENCE:1
 END:VEVENT
 BEGIN:X-CALENDARSERVER-PERUSER
-UID:%(relID)s
+UID:%(uid)s
 X-CALENDARSERVER-PERUSER-UID:user02
 BEGIN:X-CALENDARSERVER-PERINSTANCE
 TRANSP:TRANSPARENT
@@ -6006,7 +5984,7 @@ END:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 DTSTART:%(now_back28)s
 DURATION:PT1H
 DTSTAMP:20051222T210507Z
@@ -6018,7 +5996,7 @@ SUMMARY:1234567890123456789012345678901234567890
  1234567890123456789012345678901234567890
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back25)s
 DTSTART:%(now_back25)s
 DURATION:PT1H
@@ -6026,7 +6004,7 @@ DTSTAMP:20051222T210507Z
 RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
 END:VEVENT
 BEGIN:VEVENT
-UID:%(relID)s
+UID:%(uid)s
 RECURRENCE-ID:%(now_back24)s
 DTSTART:%(now_back24)s
 DURATION:PT1H
@@ -6087,11 +6065,13 @@ END:VCALENDAR
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
         self.assertTrue(cobj1.isScheduleObject)
         ical1 = yield cobj1.component()
-        newUID = ical1.masterComponent().propertyValue("RELATED-TO")
+        relID = ical1.masterComponent().propertyValue("RELATED-TO")
 
         cobj2 = yield self.calendarObjectUnderTest(name=oldname, calendar_name="calendar", home="user01")
         self.assertTrue(cobj2 is not None)
         self.assertTrue(cobj2.isScheduleObject)
+        ical2 = yield cobj2.component()
+        newUID = ical2.masterComponent().propertyValue("UID")
 
         ical_future = yield cobj1.component()
         ical_past = yield cobj2.component()
@@ -6099,7 +6079,8 @@ END:VCALENDAR
         # Verify user01 data
         title = "user01"
         relsubs = dict(self.subs)
-        relsubs["relID"] = newUID
+        relsubs["uid"] = newUID
+        relsubs["relID"] = relID
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s" % (title,))
         self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past) % relsubs, "Failed past: %s" % (title,))
 
@@ -6160,11 +6141,13 @@ END:VCALENDAR
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
         self.assertTrue(cobj1.isScheduleObject)
         ical1 = yield cobj1.component()
-        newUID = ical1.masterComponent().propertyValue("RELATED-TO")
+        relID = ical1.masterComponent().propertyValue("RELATED-TO")
 
         cobj2 = yield self.calendarObjectUnderTest(name=oldname, calendar_name="calendar", home="user01")
         self.assertTrue(cobj2 is not None)
         self.assertTrue(cobj2.isScheduleObject)
+        ical2 = yield cobj2.component()
+        newUID = ical2.masterComponent().propertyValue("UID")
 
         ical_future = yield cobj1.component()
         ical_past = yield cobj2.component()
@@ -6172,7 +6155,8 @@ END:VCALENDAR
         # Verify user01 data
         title = "user01"
         relsubs = dict(self.subs)
-        relsubs["relID"] = newUID
+        relsubs["uid"] = newUID
+        relsubs["relID"] = relID
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s" % (title,))
         self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past) % relsubs, "Failed past: %s" % (title,))
 
@@ -6233,11 +6217,13 @@ END:VCALENDAR
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
         self.assertTrue(cobj1.isScheduleObject)
         ical1 = yield cobj1.component()
-        newUID = ical1.masterComponent().propertyValue("RELATED-TO")
+        relID = ical1.masterComponent().propertyValue("RELATED-TO")
 
         cobj2 = yield self.calendarObjectUnderTest(name=oldname, calendar_name="calendar", home="user01")
         self.assertTrue(cobj2 is not None)
         self.assertTrue(cobj2.isScheduleObject)
+        ical2 = yield cobj2.component()
+        newUID = ical2.masterComponent().propertyValue("UID")
 
         ical_future = yield cobj1.component()
         ical_past = yield cobj2.component()
@@ -6245,7 +6231,8 @@ END:VCALENDAR
         # Verify user01 data
         title = "user01"
         relsubs = dict(self.subs)
-        relsubs["relID"] = newUID
+        relsubs["uid"] = newUID
+        relsubs["relID"] = relID
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future) % relsubs, "Failed future: %s" % (title,))
         self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past) % relsubs, "Failed past: %s" % (title,))
 

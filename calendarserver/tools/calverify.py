@@ -2679,6 +2679,7 @@ class EventSplitService(CalVerifyService):
 
         oldObj = yield calendarObj.split(rid=rid)
         oldUID = oldObj.uid()
+        oldRelated = (yield oldObj.component()).mainComponent().propertyValue("RELATED-TO")
 
         self.output.write("\n")
         self.output.write("Split Resource: %s at %s, old UID: %s.\n" % (resid, rid, oldUID,))
@@ -2686,7 +2687,7 @@ class EventSplitService(CalVerifyService):
         yield self.txn.commit()
         self.txn = None
 
-        returnValue(oldUID)
+        returnValue((oldUID, oldRelated,))
 
 
 
