@@ -100,32 +100,17 @@ install-python:: build
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(CS_VIRTUALENV)/etc";
 	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(CS_VIRTUALENV)/etc/caldavd.plist";
 
+install:: install-commands
+install-commands::
+	@echo "Installing links to executables...";
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)/usr/bin";
+	$(_v) ln -fs "../..$(NSLOCALDIR)$(NSLIBRARYSUBDIR)/CalendarServer/bin/caldavd" "$(DSTROOT)$(SIPP)/usr/sbin";
+	$(_v) cd "$(DSTROOT)$(SIPP)/usr/bin/" &&                                                         \
+	      for cmd in "../..$(NSLOCALDIR)$(NSLIBRARYSUBDIR)/CalendarServer/bin/calendarserver_"*; do  \
+	          ln -fs "$${cmd}" .;                                                                    \
+	      done;
 
-# install-oldish::
-# 	@echo "Installing Python packages...";
-# 	$(_v) $(PYTHON) -m pip install                                          \
-#         --pre --allow-all-external --no-index                               \
-#         --find-links "$(Sources)/.develop/pip_downloads"                    \
-# 	    --editable "$(BuildDirectory)/$(Project)[OpenDirectory,Postgres]"   \
-# 		--install-option --root="$(DSTROOT)"                                \
-# 		--install-option --prefix="$(SIPP)"                                 \
-# 		--install-option --install-lib="$(CS_PY_LIBS)"                      \
-# 		--install-option --install-scripts="$(CS_LIBEXEC)"                  \
-# 		--ignore-installed													\
-# 		;
-# 	$(_v) cd $(BuildDirectory)/$(Project) && \
-# 		$(Environment) $(PYTHON) setup.py \
-# 		build_ext $(CS_BUILD_EXT_FLAGS) \
-# 		install $(PY_INSTALL_FLAGS) $(CS_INSTALL_FLAGS) \
-# 		;
-# 	@echo "Cleaning up...";
-# 	$(_v) for so in $$(find "$(DSTROOT)$(CS_SHAREDIR)/lib" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done;
-# 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)";
-# 	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)/caldavd-apple.plist";
-# 	$(_v) chmod -R ugo+r "$(DSTROOT)$(CS_SHAREDIR)";
-# 	$(_v) for f in $$(find "$(DSTROOT)$(SIPP)$(ETCDIR)" -type f ! -name '*.default'); do cp "$${f}" "$${f}.default"; done;
-
-# install:: install-man
+install:: install-man
 install-man::
 	@echo "Installing manual pages...";
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
@@ -140,26 +125,23 @@ install-man::
 	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_manage_timezones.8"   "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
 	$(_v) gzip -9 -f "$(DSTROOT)$(SIPP)$(MANDIR)/man8/"*.[0-9];
 
-# install:: install-launchd
+install:: install-launchd
 install-launchd::
 	@echo "Installing launchd config...";
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(NSLOCALDIR)/$(NSLIBRARYSUBDIR)/Server/Calendar and Contacts";
-	$(_v) $(INSTALL_DIRECTORY) -o "$(CS_USER)" -g "$(CS_GROUP)" -m 0755 "$(DSTROOT)$(VARDIR)/log$(CALDAVDSUBDIR)";
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(NSLIBRARYDIR)/LaunchDaemons";
 	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/launchd/calendarserver.plist" "$(DSTROOT)$(SIPP)$(NSLIBRARYDIR)/LaunchDaemons/org.calendarserver.calendarserver.plist";
 
-# install:: install-changeip
+install:: install-changeip
 install-changeip::
 	@echo "Installing changeip script...";
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(LIBEXECDIR)/changeip";
-	$(_v) $(INSTALL_FILE) "$(Sources)/calendarserver/tools/changeip_calendar.py" "$(DSTROOT)$(SIPP)$(LIBEXECDIR)/changeip/changeip_calendar.py";
-	$(_v) chmod ugo+x "$(DSTROOT)$(SIPP)$(LIBEXECDIR)/changeip/changeip_calendar.py";
+	$(_v) $(INSTALL_SCRIPT) "$(Sources)/calendarserver/tools/changeip_calendar.py" "$(DSTROOT)$(SIPP)$(LIBEXECDIR)/changeip/changeip_calendar";
 
 # install:: install-caldavtester
-install-caldavtester::
-	@echo "Installing CalDAVTester package...";
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/AppleInternal/ServerTools";
-	$(_v) cd "$(DSTROOT)/AppleInternal/ServerTools" && unzip "$(BuildDirectory)/$(Project)/requirements/cache/CalDAVTester-*.zip";
+# install-caldavtester::
+# 	@echo "Installing CalDAVTester package...";
+# 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/AppleInternal/ServerTools";
+# 	$(_v) cd "$(DSTROOT)/AppleInternal/ServerTools" && unzip "$(BuildDirectory)/$(Project)/requirements/cache/CalDAVTester-*.zip";
 
 #
 # Automatic Extract
@@ -178,7 +160,6 @@ OSV = $(USRDIR)/local/OpenSourceVersions
 OSL = $(USRDIR)/local/OpenSourceLicenses
 
 #install:: install-ossfiles
-
 install-ossfiles::
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(OSV)";
 	$(_v) $(INSTALL_FILE) "$(Sources)/$(ProjectName).plist" "$(DSTROOT)/$(OSV)/$(ProjectName).plist";
