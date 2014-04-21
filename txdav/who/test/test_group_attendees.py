@@ -527,10 +527,11 @@ END:VCALENDAR
 
 
     @inlineCallbacks
-    def test_groupRemoval(self):
+    def test_groupRemovalFromDirectory(self):
         """
-        Test that removing a group also removes the expanded attendees. This needs to make sure
-        that an attendee in two groups is NOT removed if only one of those groups is removed
+        Test that removing a group from the directory also removes the expanded attendees.
+        This needs to make sure that an attendee in two groups is NOT removed if only one
+        of those groups is removed
         """
 
         yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000006", 0)
@@ -599,6 +600,7 @@ ATTENDEE;CN=User 08;EMAIL=user08@example.com;MEMBER="urn:x-uid:20000000-0000-000
 ATTENDEE;CN=User 09;EMAIL=user09@example.com;MEMBER="urn:x-uid:20000000-0000-0000-0000-000000000003";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:10000000-0000-0000-0000-000000000009
 CREATED:20060101T150000Z
 ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:10000000-0000-0000-0000-000000000001
+SEQUENCE:1
 SUMMARY:event 1
 END:VEVENT
 END:VCALENDAR
@@ -656,6 +658,7 @@ END:VCALENDAR
         self.assertEqual(len(cobjs), 1)
         comp1 = yield cobjs[0].componentForUser()
         self.assertTrue("STATUS:CANCELLED" in str(comp1))
+        yield self.commit()
 
         # add group back, run cacher
         self.patch(DirectoryService, "recordWithUID", unpatchedRecordWithUID)
@@ -669,3 +672,13 @@ END:VCALENDAR
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000001")
         vcalendar5 = yield cobj1.component()
         self._assertICalStrEqual(vcalendar5, data_get_1)
+
+
+    @inlineCallbacks
+    def test_groupRemovalFromEvent(self):
+        """
+        Test that removing a group from the calendar data also removes the expanded attendees.
+        This needs to make sure that an attendee in two groups is NOT removed if only one of
+        those groups is removed
+        """
+        self.fail("FIXME: need to implement this test")
