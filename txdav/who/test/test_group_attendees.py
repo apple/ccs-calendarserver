@@ -18,6 +18,7 @@
     group attendee tests
 """
 
+from twext.who.directory import DirectoryService
 from twext.who.test.test_xml import xmlService
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.trial import unittest
@@ -92,6 +93,13 @@ class GroupAttendeeReconciliation(CommonCommonTests, unittest.TestCase):
         self.assertEqual(count, expected_count)
 
 
+    # better error output
+    def _assertICalStrEqual(self, iCalStr1, iCalStr2):
+        if normalize_iCalStr(iCalStr1, sort=True) != normalize_iCalStr(iCalStr2, sort=True):
+            self.assertEqual(normalize_iCalStr(iCalStr1), normalize_iCalStr(iCalStr2))
+            self.assertTrue(False)
+
+
     @inlineCallbacks
     def test_simplePUT(self):
         """
@@ -128,6 +136,7 @@ ATTENDEE;CN=User 01;EMAIL=user01@example.com;RSVP=TRUE:urn:x-uid:10000000-0000-0
 ATTENDEE;CN=Group 02;CUTYPE=GROUP;EMAIL=group02@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:x-uid:20000000-0000-0000-0000-000000000002
 ATTENDEE;CN=User 06;EMAIL=user06@example.com;MEMBER="urn:x-uid:20000000-0000-0000-0000-000000000002";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:10000000-0000-0000-0000-000000000006
 ATTENDEE;CN=User 07;EMAIL=user07@example.com;MEMBER="urn:x-uid:20000000-0000-0000-0000-000000000002";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:10000000-0000-0000-0000-000000000007
+ATTENDEE;CN=User 08;EMAIL=user08@example.com;MEMBER="urn:x-uid:20000000-0000-0000-0000-000000000002";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:10000000-0000-0000-0000-000000000008
 CREATED:20060101T150000Z
 ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:10000000-0000-0000-0000-000000000001
 SUMMARY:event 1
@@ -144,7 +153,7 @@ END:VCALENDAR
 
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000001")
         vcalendar2 = yield cobj1.component()
-        self.assertEqual(normalize_iCalStr(vcalendar2, sort=True), normalize_iCalStr(data_get_1, sort=True))
+        self._assertICalStrEqual(vcalendar2, data_get_1)
 
         yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000006", 1)
         yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000007", 1)
@@ -309,7 +318,7 @@ END:VCALENDAR
 
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000001")
         vcalendar2 = yield cobj1.component()
-        self.assertEqual(normalize_iCalStr(vcalendar2, sort=True), normalize_iCalStr(data_get_1, sort=True))
+        self._assertICalStrEqual(vcalendar2, data_get_1)
 
         yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000006", 1)
         yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000007", 1)
@@ -361,16 +370,15 @@ ATTENDEE;CN=User 01;EMAIL=user01@example.com;RSVP=TRUE:urn:x-uid:10000000-0000-0
 ATTENDEE;CN=Group 01;CUTYPE=GROUP;EMAIL=group01@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:x-uid:20000000-0000-0000-0000-000000000001
 ATTENDEE;CN=Group 02;CUTYPE=GROUP;EMAIL=group02@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:x-uid:20000000-0000-0000-0000-000000000002
 ATTENDEE;CN=Group 03;CUTYPE=GROUP;EMAIL=group03@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:x-uid:20000000-0000-0000-0000-000000000003
-ATTENDEE;CN=User 08;EMAIL=user08@example.com;MEMBER="urn:x-uid:20000000-0000-0000-0000-000000000003";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:10000000-0000-0000-0000-000000000008
-ATTENDEE;CN=User 09;EMAIL=user09@example.com;MEMBER="urn:x-uid:20000000-0000-0000-0000-000000000003";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:10000000-0000-0000-0000-000000000009
 ATTENDEE;CN=User 06;EMAIL=user06@example.com;MEMBER="urn:x-uid:20000000-0000-0000-0000-000000000002";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:10000000-0000-0000-0000-000000000006
-ATTENDEE;CN=User 07;EMAIL=user07@example.com;MEMBER="urn:x-uid:20000000-0000-0000-0000-000000000002";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:10000000-0000-0000-0000-000000000007
+ATTENDEE;CN=User 07;EMAIL=user07@example.com;MEMBER="urn:x-uid:20000000-0000-0000-0000-000000000002","urn:x-uid:20000000-0000-0000-0000-000000000003";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:10000000-0000-0000-0000-000000000007
+ATTENDEE;CN=User 08;EMAIL=user08@example.com;MEMBER="urn:x-uid:20000000-0000-0000-0000-000000000002","urn:x-uid:20000000-0000-0000-0000-000000000003";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:10000000-0000-0000-0000-000000000008
+ATTENDEE;CN=User 09;EMAIL=user09@example.com;MEMBER="urn:x-uid:20000000-0000-0000-0000-000000000003";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:10000000-0000-0000-0000-000000000009
 CREATED:20060101T150000Z
 ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:10000000-0000-0000-0000-000000000001
 SUMMARY:event 1
 END:VEVENT
-END:VCALENDAR
-"""
+END:VCALENDAR"""
 
         vcalendar1 = Component.fromString(data_put_1)
         yield calendar.createCalendarObjectWithName("data1.ics", vcalendar1)
@@ -378,7 +386,7 @@ END:VCALENDAR
 
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000001")
         vcalendar2 = yield cobj1.component()
-        self.assertEqual(normalize_iCalStr(vcalendar2, sort=True), normalize_iCalStr(data_get_1, sort=True))
+        self._assertICalStrEqual(vcalendar2, data_get_1)
 
         yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000006", 1)
         yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000007", 1)
@@ -386,6 +394,7 @@ END:VCALENDAR
         yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000009", 1)
 
 
+    #TODO:  Change to multigroup case
     @inlineCallbacks
     def test_groupChange(self):
         """
@@ -524,4 +533,139 @@ END:VCALENDAR
         that an attendee in two groups is NOT removed if only one of those groups is removed
         """
 
-        self.fail("FIXME: implement this test")
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000006", 0)
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000007", 0)
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000008", 0)
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000009", 0)
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000010", 0)
+
+        calendar = yield self.calendarUnderTest(name="calendar", home="10000000-0000-0000-0000-000000000001")
+
+        data_put_1 = """BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART;TZID=US/Eastern:20140101T100000
+DURATION:PT1H
+SUMMARY:event 1
+UID:event1@ninevah.local
+ORGANIZER:MAILTO:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:MAILTO:group01@example.com
+ATTENDEE:MAILTO:group02@example.com
+ATTENDEE:MAILTO:group03@example.com
+END:VEVENT
+END:VCALENDAR"""
+
+        data_get_1 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+BEGIN:VEVENT
+UID:event1@ninevah.local
+DTSTART;TZID=US/Eastern:20140101T100000
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;RSVP=TRUE:urn:x-uid:10000000-0000-0000-0000-000000000001
+ATTENDEE;CN=Group 01;CUTYPE=GROUP;EMAIL=group01@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:x-uid:20000000-0000-0000-0000-000000000001
+ATTENDEE;CN=Group 02;CUTYPE=GROUP;EMAIL=group02@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:x-uid:20000000-0000-0000-0000-000000000002
+ATTENDEE;CN=Group 03;CUTYPE=GROUP;EMAIL=group03@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:x-uid:20000000-0000-0000-0000-000000000003
+ATTENDEE;CN=User 06;EMAIL=user06@example.com;MEMBER="urn:x-uid:20000000-0000-0000-0000-000000000002";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:10000000-0000-0000-0000-000000000006
+ATTENDEE;CN=User 07;EMAIL=user07@example.com;MEMBER="urn:x-uid:20000000-0000-0000-0000-000000000002","urn:x-uid:20000000-0000-0000-0000-000000000003";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:10000000-0000-0000-0000-000000000007
+ATTENDEE;CN=User 08;EMAIL=user08@example.com;MEMBER="urn:x-uid:20000000-0000-0000-0000-000000000002","urn:x-uid:20000000-0000-0000-0000-000000000003";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:10000000-0000-0000-0000-000000000008
+ATTENDEE;CN=User 09;EMAIL=user09@example.com;MEMBER="urn:x-uid:20000000-0000-0000-0000-000000000003";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:10000000-0000-0000-0000-000000000009
+CREATED:20060101T150000Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:10000000-0000-0000-0000-000000000001
+SUMMARY:event 1
+END:VEVENT
+END:VCALENDAR"""
+
+        data_get_2 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+BEGIN:VEVENT
+UID:event1@ninevah.local
+DTSTART;TZID=US/Eastern:20140101T100000
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;RSVP=TRUE:urn:x-uid:10000000-0000-0000-0000-000000000001
+ATTENDEE;CN=Group 01;CUTYPE=GROUP;EMAIL=group01@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:x-uid:20000000-0000-0000-0000-000000000001
+ATTENDEE;CN=Group 02;CUTYPE=GROUP;EMAIL=group02@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:x-uid:20000000-0000-0000-0000-000000000002
+ATTENDEE;CN=Group 03;CUTYPE=GROUP;EMAIL=group03@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:x-uid:20000000-0000-0000-0000-000000000003
+ATTENDEE;CN=User 07;EMAIL=user07@example.com;MEMBER="urn:x-uid:20000000-0000-0000-0000-000000000003";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:10000000-0000-0000-0000-000000000007
+ATTENDEE;CN=User 08;EMAIL=user08@example.com;MEMBER="urn:x-uid:20000000-0000-0000-0000-000000000003";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:10000000-0000-0000-0000-000000000008
+ATTENDEE;CN=User 09;EMAIL=user09@example.com;MEMBER="urn:x-uid:20000000-0000-0000-0000-000000000003";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:10000000-0000-0000-0000-000000000009
+CREATED:20060101T150000Z
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:10000000-0000-0000-0000-000000000001
+SUMMARY:event 1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        unpatchedRecordWithUID = DirectoryService.recordWithUID
+
+        @inlineCallbacks
+        def recordWithUID(self, uid):
+
+            if uid == "20000000-0000-0000-0000-000000000002":
+                result = None
+            else:
+                result = yield unpatchedRecordWithUID(self, uid)
+            returnValue(result)
+
+        vcalendar1 = Component.fromString(data_put_1)
+        yield calendar.createCalendarObjectWithName("data1.ics", vcalendar1)
+        yield self.commit()
+
+        cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000001")
+        vcalendar2 = yield cobj1.component()
+        self._assertICalStrEqual(vcalendar2, data_get_1)
+
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000006", 1)
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000007", 1)
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000008", 1)
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000009", 1)
+
+        # cache group
+        groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
+        wp = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000002")
+        yield self.commit()
+        yield wp.whenExecuted()
+
+        cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000001")
+        vcalendar3 = yield cobj1.component()
+        self._assertICalStrEqual(vcalendar3, data_get_1)
+
+        # remove group  run cacher again
+        self.patch(DirectoryService, "recordWithUID", recordWithUID)
+
+        groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
+        wp = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000002")
+        yield self.commit()
+        yield wp.whenExecuted()
+
+        cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000001")
+        vcalendar4 = yield cobj1.component()
+        self._assertICalStrEqual(vcalendar4, data_get_2)
+
+        cal1 = yield self.calendarUnderTest(name="calendar", home="10000000-0000-0000-0000-000000000006")
+        cobjs = yield cal1.objectResources()
+        #FIXME: Need schema change to handle case where group comes back
+        self.assertEqual(len(cobjs), 1)
+        comp1 = yield cobjs[0].componentForUser()
+        self.assertTrue("STATUS:CANCELLED" in str(comp1))
+
+        # add group back, run cacher
+        self.patch(DirectoryService, "recordWithUID", unpatchedRecordWithUID)
+
+        groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
+        wp = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000002")
+        self.assertNotEqual(wp, None)
+        yield self.commit()
+        yield wp.whenExecuted()
+
+        cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000001")
+        vcalendar5 = yield cobj1.component()
+        self._assertICalStrEqual(vcalendar5, data_get_1)

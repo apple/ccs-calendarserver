@@ -3425,7 +3425,7 @@ END:VCALENDAR
                             attendeeProp.removeParameterValue("MEMBER", groupCUA)
                             if not attendeeProp.parameterValues("MEMBER"):
                                 component.removeProperty(attendeeProp)
-                                changed = True
+                            changed = True
                     else:
                         if attendeeProp.value() in memberCUAs:
                             attendeeProp.setParameter("MEMBER", parameterValues + (groupCUA,))
@@ -3438,20 +3438,32 @@ END:VCALENDAR
 
         changed = False
         allMemberCUAs = set()
+        nonemptyGroupCUAs = set()
         for groupCUA, memberAttendeeProps in groupCUAToAttendeeMemberPropMap.iteritems():
             changed |= self._reconcileGroupAttendee(groupCUA, memberAttendeeProps)
             allMemberCUAs |= set([memberAttendeeProp.value() for memberAttendeeProp in memberAttendeeProps])
+            if memberAttendeeProps:
+                nonemptyGroupCUAs.add(groupCUA)
 
         # remove orphans
         for component in self.subcomponents():
             if component.name() in ignoredComponents:
                 continue
 
-            for attendeeMemberProp in component.properties("ATTENDEE"):
-                if attendeeMemberProp.hasParameter("MEMBER"):
-                    attendeeCUA = attendeeMemberProp.value()
-                    if attendeeCUA not in allMemberCUAs:
-                        component.removeProperty(attendeeMemberProp)
+            for attendeeProp in tuple(component.properties("ATTENDEE")):
+                if attendeeProp.hasParameter("MEMBER"):
+                    attendeeCUA = attendeeProp.value()
+                    if attendeeCUA in allMemberCUAs:
+                        # remove orphan member values
+                        parameterValues = tuple(attendeeProp.parameterValues("MEMBER"))
+                        for orphanGroupCUA in set(parameterValues) - nonemptyGroupCUAs:
+                            attendeeProp.removeParameterValue("MEMBER", orphanGroupCUA)
+                            if not attendeeProp.parameterValues("MEMBER"):
+                                component.removeProperty(attendeeProp)
+                            changed = True
+                    else:
+                        # remove orphaned member property
+                        component.removeProperty(attendeeProp)
                         changed = True
 
         return changed

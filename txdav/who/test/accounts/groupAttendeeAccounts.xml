@@ -115,6 +115,7 @@ limitations under the License.
 	    <email>group02@example.com</email>
 	    <member-uid>10000000-0000-0000-0000-000000000006</member-uid>
 	    <member-uid>10000000-0000-0000-0000-000000000007</member-uid>
+	    <member-uid>10000000-0000-0000-0000-000000000008</member-uid>
 	</record>
 	<record type="group">
 	    <short-name>group03</short-name>
@@ -122,6 +123,7 @@ limitations under the License.
 	    <guid>20000000-0000-0000-0000-000000000003</guid>
 	    <full-name>Group 03</full-name>
 	    <email>group03@example.com</email>
+	    <member-uid>10000000-0000-0000-0000-000000000007</member-uid>
 	    <member-uid>10000000-0000-0000-0000-000000000008</member-uid>
 	    <member-uid>10000000-0000-0000-0000-000000000009</member-uid>
 	</record>

@@ -1054,7 +1054,7 @@ class CommonStoreTransaction(object):
 
 
     @inlineCallbacks
-    def groupByUID(self, groupUID):
+    def groupByUID(self, groupUID, create=True):
         """
         Return or create a record for the group UID.
 
@@ -1075,7 +1075,7 @@ class CommonStoreTransaction(object):
                 results[0][2],  # membership hash
                 results[0][3],  # modified timestamp
             ))
-        else:
+        elif create:
             savepoint = SavepointAction("groupByUID")
             yield savepoint.acquire(self)
             try:
@@ -1112,6 +1112,8 @@ class CommonStoreTransaction(object):
                     ))
                 else:
                     raise
+        else:
+            returnValue((None, None, None, None))
 
 
     @inlineCallbacks

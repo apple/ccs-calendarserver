@@ -306,40 +306,51 @@ class GroupCacher(object):
             WorkProposal is returned for tests
         """
         self.log.debug("Faulting in group: {g}", g=groupUID)
-        wp = None
         record = (yield self.directory.recordWithUID(groupUID))
         if record is None:
-            # FIXME: the group has disappeared from the directory.
-            # How do we want to handle this?
+            # the group has disappeared from the directory - OK
+            # FIXME: If group reappears, it will not be used in existing events
             self.log.info("Group has disappeared: {g}", g=groupUID)
         else:
             self.log.debug("Got group record: {u}", u=record.uid)
-            membershipHashContent = hashlib.md5()
-            members = yield record.expandedMembers()
-            members = list(members)
-            members.sort(cmp=lambda x, y: cmp(x.uid, y.uid))
-            for member in members:
-                membershipHashContent.update(str(member.uid))
-            membershipHash = membershipHashContent.hexdigest()
-            groupID, _ignore_cachedName, cachedMembershipHash, _ignore_modified = (
-                yield txn.groupByUID(groupUID)
+
+        groupID, _ignore_cachedName, cachedMembershipHash, _ignore_modified = (
+            yield txn.groupByUID(
+                groupUID,
+                create=(record is not None)
             )
-
-            if cachedMembershipHash != membershipHash:
-                membershipChanged = True
-                self.log.debug(
-                    "Group '{group}' changed", group=record.fullNames[0]
-                )
-            else:
-                membershipChanged = False
-
-            yield txn.updateGroup(groupUID, record.fullNames[0], membershipHash)
-
-            if membershipChanged:
-                newMemberUIDs = set()
+        )
+        wp = None
+        if groupID:
+            if record is not None:
+                membershipHashContent = hashlib.md5()
+                members = yield record.expandedMembers()
+                members = list(members)
+                members.sort(cmp=lambda x, y: cmp(x.uid, y.uid))
                 for member in members:
-                    newMemberUIDs.add(member.uid)
-                yield self.synchronizeMembers(txn, groupID, newMemberUIDs)
+                    membershipHashContent.update(str(member.uid))
+                membershipHash = membershipHashContent.hexdigest()
+
+                if cachedMembershipHash != membershipHash:
+                    membershipChanged = True
+                    self.log.debug(
+                        "Group '{group}' changed", group=record.fullNames[0]
+                    )
+                else:
+                    membershipChanged = False
+
+                yield txn.updateGroup(groupUID, record.fullNames[0], membershipHash)
+
+                if membershipChanged:
+                    newMemberUIDs = set()
+                    for member in members:
+                        newMemberUIDs.add(member.uid)
+                    yield self.synchronizeMembers(txn, groupID, newMemberUIDs)
+
+            else:
+                # FIXME: Use schema's delete cascade
+                yield self.synchronizeMembers(txn, groupID, set())
+                yield txn.deleteGroup(groupID)
 
             wp = yield self.scheduleEventReconciliations(txn, groupID)
 
