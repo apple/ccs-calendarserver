@@ -7,4 +7,4 @@ docutils
 mockldap
 q
 --editable svn+http://svn.calendarserver.org/repository/calendarserver/CalDAVClientLibrary/trunk@13311#egg=CalDAVClientLibrary
---editable svn+http://svn.calendarserver.org/repository/calendarserver/CalDAVTester/trunk@13342#egg=CalDAVTester
+--editable svn+http://svn.calendarserver.org/repository/calendarserver/CalDAVTester/trunk@13349#egg=CalDAVTester

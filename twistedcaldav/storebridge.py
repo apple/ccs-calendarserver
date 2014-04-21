@@ -3025,8 +3025,14 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                 (caldav_namespace, "valid-rid-parameter",),
                 "The rid parameter in the request-URI contains an invalid value",
             ))
+
+        # Client may provide optional UID for the split-off past component
+        pastUID = request.args.get("uid")
+        if pastUID is not None:
+            pastUID = pastUID[0]
+
         try:
-            otherStoreObject = yield self._newStoreObject.splitAt(rid)
+            otherStoreObject = yield self._newStoreObject.splitAt(rid, pastUID)
         except InvalidSplit:
             raise HTTPError(ErrorResponse(
                 FORBIDDEN,
