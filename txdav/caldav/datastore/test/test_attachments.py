@@ -856,6 +856,11 @@ class ManagedAttachmentTests(AttachmentTests):
         self.patch(config, "EnableManagedAttachments", True)
         self._sqlCalendarStore.enableManagedAttachments = True
 
+        # Make it look like we have migrated
+        if (yield self.transactionUnderTest().calendarserverValue("MANAGED-ATTACHMENTS", raiseIfMissing=False)) is None:
+            yield self.transactionUnderTest().setCalendarserverValue("MANAGED-ATTACHMENTS", "1")
+        yield self.commit()
+
 
     @inlineCallbacks
     def createAttachmentTest(self, refresh):
@@ -1133,7 +1138,7 @@ class ManagedAttachmentTests(AttachmentTests):
 
 
     @inlineCallbacks
-    def exceedSizeTest(self, getit):
+    def exceedSizeTest(self, getit, name):
         """
         If too many bytes are passed to the transport returned by
         L{ICalendarObject.createAttachmentWithName},
@@ -1141,7 +1146,7 @@ class ManagedAttachmentTests(AttachmentTests):
         that fails with L{AttachmentSizeTooLarge}.
         """
         attachment = yield getit()
-        t = attachment.store(MimeType("text", "x-fixture"), "")
+        t = attachment.store(MimeType("text", "x-fixture"), name)
         sample = "all work and no play makes jack a dull boy"
         chunk = (sample * (config.MaximumAttachmentSize / len(sample)))
 
@@ -1161,12 +1166,12 @@ class ManagedAttachmentTests(AttachmentTests):
         self.patch(config, "MaximumAttachmentSize", 100)
         obj = yield self.calendarObjectUnderTest()
         yield self.exceedSizeTest(
-            lambda: obj.createAttachmentWithName("too-big.attachment")
+            lambda: obj.createManagedAttachment(), "too-big.attachment"
         )
-        self.assertEquals((yield obj.attachments()), [])
+        self.assertEquals((yield obj.managedAttachmentList()), [])
         yield self.commit()
         obj = yield self.calendarObjectUnderTest()
-        self.assertEquals((yield obj.attachments()), [])
+        self.assertEquals((yield obj.managedAttachmentList()), [])
 
 
     @inlineCallbacks
@@ -1177,14 +1182,14 @@ class ManagedAttachmentTests(AttachmentTests):
         """
         self.patch(config, "MaximumAttachmentSize", 100)
         obj = yield self.calendarObjectUnderTest()
-        create = lambda: obj.createAttachmentWithName("exists.attachment")
-        get = lambda: obj.attachmentWithName("exists.attachment")
+        create = lambda: obj.createManagedAttachment()
         attachment = yield create()
-        t = attachment.store(MimeType("text", "x-fixture"), "")
+        get = lambda: obj.attachmentWithManagedID(attachment.managedID())
+        t = attachment.store(MimeType("text", "x-fixture"), "new.attachment")
         sampleData = "a reasonably sized attachment"
         t.write(sampleData)
         yield t.loseConnection()
-        yield self.exceedSizeTest(get)
+        yield self.exceedSizeTest(get, "exists.attachment")
         @inlineCallbacks
         def checkOriginal():
             actual = yield self.attachmentToString(attachment)
@@ -1561,6 +1566,12 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         yield Delete(
             From=schema.ATTACHMENT_CALENDAR_OBJECT,
             Where=None
+        ).on(txn)
+
+        cs = schema.CALENDARSERVER
+        yield Delete(
+            From=cs,
+            Where=cs.NAME == "MANAGED-ATTACHMENTS"
         ).on(txn)
 
         yield txn.commit()
