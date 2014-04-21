@@ -649,7 +649,7 @@ pip_download () {
   "${python}" -m pip install               \
     --download="${dev_home}/pip_downloads" \
     --pre --allow-all-external             \
-    --log="${dev_home}/pip.log"            \
+    --log-file="${dev_home}/pip.log"       \
     "$@";
 }
 
@@ -659,7 +659,7 @@ pip_install_from_cache () {
     --pre --allow-all-external               \
     --no-index                               \
     --find-links="${dev_home}/pip_downloads" \
-    --log="${dev_home}/pip.log"              \
+    --log-file="${dev_home}/pip.log"         \
     "$@";
 }
 
@@ -668,7 +668,7 @@ pip_download_and_install () {
   "${python}" -m pip install                 \
     --pre --allow-all-external               \
     --download-cache="${dev_home}/pip_cache" \
-    --log="${dev_home}/pip.log"              \
+    --log-file="${dev_home}/pip.log"         \
     "$@";
 }
 
