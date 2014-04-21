@@ -1,4 +1,4 @@
--e svn+https://svn.calendarserver.org/repository/calendarserver/CalendarServer/trunk@13325#egg=CalendarServer-6.0b.trunk_r13316_13321-py2.7-dev_r13325
+-e svn+http://svn.calendarserver.org/repository/calendarserver/CalendarServer/trunk@13325#egg=CalendarServer-6.0b.trunk_r13316_13321-py2.7-dev_r13325
 PyGreSQL==4.1.1
 Twisted==13.2.0
 cffi==0.8.2
