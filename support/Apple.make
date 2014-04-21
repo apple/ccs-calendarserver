@@ -37,20 +37,13 @@ endif
 SERVERSETUP = $(SIPP)$(NSSYSTEMDIR)$(NSLIBRARYSUBDIR)/ServerSetup
 
 # Cruft += .develop
-# Extra_Environment += PATH="$(SIPP)/usr/bin:$$PATH"
+Extra_Environment += PATH="$(SIPP)/usr/bin:$$PATH"
 # Extra_Environment += PYTHONPATH="$(CS_PY_LIBS)"
 
 CALDAVDSUBDIR = /caldavd
 
 PYTHON = $(USRBINDIR)/python2.7
 CS_VIRTUALENV = $(SIPP)$(NSLOCALDIR)$(NSLIBRARYSUBDIR)/CalendarServer
-
-# CS_SHAREDIR = $(SHAREDIR)$(CALDAVDSUBDIR)
-# CS_PY_LIBS = $(CS_SHAREDIR)/lib/python
-# CS_LIBEXEC = $(SIPP)$(LIBEXECDIR)$(CALDAVDSUBDIR)
-# PY_INSTALL_FLAGS = --root="$(DSTROOT)" --prefix="$(SIPP)" --install-lib="$(CS_PY_LIBS)" --install-scripts="$(CS_LIBEXEC)"
-# CS_INSTALL_FLAGS = --install-scripts="$(SIPP)$(USRSBINDIR)" --install-data="$(SIPP)$(ETCDIR)"
-# CS_BUILD_EXT_FLAGS = --include-dirs="$(SIPP)/usr/include" --library-dirs="$(SIPP)/usr/lib"
 
 CS_USER  = _calendar
 CS_GROUP = _calendar
@@ -67,8 +60,14 @@ build-no::
 	@echo "Building $(Project)...";
 	$(_v) cd $(BuildDirectory)/$(Project) && $(Environment) $(PYTHON) setup.py build
 
+cache_deps: $(Sources)/.develop/pip_downloads
+
+$(Sources)/.develop/pip_downloads: install_source
+	@echo "Caching dependencies...";
+	$(_v) $(Environment) $(Sources)/support/_cache_deps;
+
 install:: install-python
-install-python:: build
+install-python:: cache_deps build
 	@#
 	@# Set up a virtual environment in Server.app; we'll install into that.
 	@# Use --system-site-packages so that we use the packages provided by the OS.
@@ -81,7 +80,7 @@ install-python:: build
 	@# It knows about where things go in the virtual environment.
 	@#
 	@echo "Installing Python packages...";
-	$(_v) "$(DSTROOT)$(CS_VIRTUALENV)/bin/pip" install                       \
+	$(_v) $(Environment) "$(DSTROOT)$(CS_VIRTUALENV)/bin/pip" install        \
         --pre --allow-all-external --no-index                                \
         --find-links="$(Sources)/.develop/pip_downloads"                     \
 	    --requirement="$(BuildDirectory)/$(Project)/requirements-apple.txt"  \
