@@ -166,6 +166,9 @@ echo "";
 echo "Preparing sources for ${project_version}...";
 "${wc}/support/_cache_deps";
 
+# Clean up after _cache_deps
+find "${wc}/.develop" -depth 1 ! -name pip_downloads -print0 | xargs -0 rm -r;
+
 if "${build}"; then
   echo "";
   echo "Building ${project_version}...";
@@ -205,9 +208,6 @@ if "${build}"; then
     fi;
   fi;
 else
-  # Clean up after _cache_deps
-  find "${wc}/.develop" -depth 1 ! -name pip_downloads -print0 | xargs -0 rm -r;
-
   echo "";
   echo "Submitting sources for ${project_version}...";
   rm -rf "${wc}/.dependencies";
