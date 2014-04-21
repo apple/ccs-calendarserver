@@ -351,8 +351,10 @@ class GroupCacher(object):
                 # FIXME: Use schema's delete cascade
                 yield self.synchronizeMembers(txn, groupID, set())
                 yield txn.deleteGroup(groupID)
+                membershipChanged = True
 
-            wp = yield self.scheduleEventReconciliations(txn, groupID)
+            if membershipChanged:
+                wp = yield self.scheduleEventReconciliations(txn, groupID)
 
         returnValue(wp)
 
