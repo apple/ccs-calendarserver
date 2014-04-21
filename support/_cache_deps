@@ -24,22 +24,9 @@ wd="$(cd "$(dirname "$0")/.." && pwd)";
 
 . "${wd}/bin/_build.sh";
 
-#
-# It's entirely ridiculous that we have to *build* our C dependencies in order
-# to simply download our Python dependencies, but in order to calculate
-# dependencies, setuptools needs to basically run "setup.py egg_info", and
-# some packages require the C dependencies in order to do this, and several
-# even build stuff in this case.
-#
-# So the caclulation work here is enormous when it should be rather simple.
-#
-# Then, of course, we throw most of that work away, because we don't want build
-# products here, just the source files.
-#
-# Oy.
-#
-
 init_build;
+
+export PATH="/Applications/Server.app/Contents/ServerRoot/usr/bin:${PATH}";
 
 requirements="${wd}/requirements-apple.txt";
 extra_features="OpenDirectory,Postgres";

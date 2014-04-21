@@ -60,14 +60,14 @@ build-no::
 	@echo "Building $(Project)...";
 	$(_v) cd $(BuildDirectory)/$(Project) && $(Environment) $(PYTHON) setup.py build
 
-cache_deps: $(Sources)/.develop/pip_downloads
+# cache_deps: $(Sources)/.develop/pip_downloads
 
-$(Sources)/.develop/pip_downloads: install_source
-	@echo "Caching dependencies...";
-	$(_v) $(Environment) $(Sources)/support/_cache_deps;
+# $(Sources)/.develop/pip_downloads: install_source
+# 	@echo "Caching dependencies...";
+# 	$(_v) $(Environment) $(Sources)/support/_cache_deps;
 
 install:: install-python
-install-python:: cache_deps build
+install-python:: build
 	@#
 	@# Set up a virtual environment in Server.app; we'll install into that.
 	@# Use --system-site-packages so that we use the packages provided by the OS.
@@ -164,11 +164,3 @@ install-ossfiles::
 	$(_v) $(INSTALL_FILE) "$(Sources)/$(ProjectName).plist" "$(DSTROOT)/$(OSV)/$(ProjectName).plist";
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(OSL)";
 	$(_v) $(INSTALL_FILE) "$(BuildDirectory)/$(Project)/LICENSE" "$(DSTROOT)/$(OSL)/$(ProjectName).txt";
-
-#
-# B&I Hooey
-#
-
-buildit: cache_deps
-	@echo "Running buildit...";
-	$(_v) sudo ~rc/bin/buildit $(CC_Archs) "$(Sources)";
