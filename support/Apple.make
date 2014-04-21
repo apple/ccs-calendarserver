@@ -80,11 +80,12 @@ install-python:: build
 	@# It knows about where things go in the virtual environment.
 	@#
 	@echo "Installing Python packages...";
-	$(_v) $(Environment) "$(DSTROOT)$(CS_VIRTUALENV)/bin/pip" install        \
-        --pre --allow-all-external --no-index                                \
-        --find-links="$(Sources)/.develop/pip_downloads"                     \
-	    --requirement="$(BuildDirectory)/$(Project)/requirements-apple.txt"  \
-	    ;
+	$(_v) for pkg in $$(find "$(Sources)/.develop/pip_downloads" -type f); do \
+	          $(Environment) "$(DSTROOT)$(CS_VIRTUALENV)/bin/pip" install    \
+                  --pre --allow-all-external --no-index --no-deps            \
+	              --log=/tmp/pip.log                                         \
+	              "$${pkg}";                                                 \
+	      done;
 	@#
 	@# Make the virtualenv relocatable
 	@#
@@ -96,6 +97,7 @@ install-python:: build
 	@echo "Cleaning up virtual environment...";
 	$(_v) $(FIND) "$(DSTROOT)$(CS_VIRTUALENV)" -type d -name .svn -print0 | xargs -0 rm -rf;
 	$(_v) $(FIND) "$(DSTROOT)$(CS_VIRTUALENV)" -type f -name '*.so' -print0 | xargs -0 $(STRIP) -Sx;
+	$(_v) $(FIND) "$(DSTROOT)$(CS_VIRTUALENV)" -type f -size 0 -exec sh -c 'printf "# empty\n" > {}' ";";
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(CS_VIRTUALENV)/etc";
 	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(CS_VIRTUALENV)/etc/caldavd.plist";
 
@@ -113,15 +115,15 @@ install:: install-man
 install-man::
 	@echo "Installing manual pages...";
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/caldavd.8"                           "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_command_gateway.8"    "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_export.8"             "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_manage_principals.8"  "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_purge_attachments.8"  "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_purge_events.8"       "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_purge_principals.8"   "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_shell.8"              "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_manage_timezones.8"   "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/caldavd.8"                          "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_command_gateway.8"   "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_export.8"            "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_manage_principals.8" "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_purge_attachments.8" "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_purge_events.8"      "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_purge_principals.8"  "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_shell.8"             "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_manage_timezones.8"  "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
 	$(_v) gzip -9 -f "$(DSTROOT)$(SIPP)$(MANDIR)/man8/"*.[0-9];
 
 install:: install-launchd
