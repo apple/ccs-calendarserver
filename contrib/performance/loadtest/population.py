@@ -29,6 +29,7 @@ from itertools import izip
 from datetime import datetime
 from urllib2 import HTTPBasicAuthHandler
 from urllib2 import HTTPDigestAuthHandler
+from urllib2 import HTTPPasswordMgrWithDefaultRealm
 import collections
 import json
 import os
@@ -190,15 +191,15 @@ class CalendarClientSimulator(object):
     def _createUser(self, number):
         record = self._records[number]
         user = record.uid
-        authBasic = HTTPBasicAuthHandler()
+        authBasic = HTTPBasicAuthHandler(passwd_mgr=HTTPPasswordMgrWithDefaultRealm())
         authBasic.add_password(
-            realm="Test Realm",
+            realm=None,
             uri=self.server,
             user=user.encode('utf-8'),
             passwd=record.password.encode('utf-8'))
-        authDigest = HTTPDigestAuthHandler()
+        authDigest = HTTPDigestAuthHandler(passwd=HTTPPasswordMgrWithDefaultRealm())
         authDigest.add_password(
-            realm="Test Realm",
+            realm=None,
             uri=self.server,
             user=user.encode('utf-8'),
             passwd=record.password.encode('utf-8'))
