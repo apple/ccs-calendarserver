@@ -787,7 +787,7 @@ create index GROUPS_GROUP_UID on
   GROUPS(GROUP_UID);
 
 create table GROUP_MEMBERSHIP (
-  GROUP_ID                     integer not null references GROUPS on delete cascade,
+  GROUP_ID                      integer,
   MEMBER_UID                   varchar(255) not null
 );
 create index GROUP_MEMBERSHIP_GROUP on
@@ -796,8 +796,8 @@ create index GROUP_MEMBERSHIP_MEMBER on
   GROUP_MEMBERSHIP(MEMBER_UID);
 
 create table GROUP_ATTENDEE (
-  GROUP_ID                      integer not null references GROUPS on delete cascade,
-  RESOURCE_ID                   integer not null references CALENDAR_OBJECT on delete cascade,
+  GROUP_ID                      integer,
+  RESOURCE_ID                   integer,
   MEMBERSHIP_HASH               varchar(255) not null
 );
 
@@ -817,7 +817,7 @@ create index DELEGATE_TO_DELEGATOR on
 
 create table DELEGATE_GROUPS (
   DELEGATOR                     varchar(255) not null,
-  GROUP_ID                      integer      not null references GROUPS on delete cascade,
+  GROUP_ID                      integer      not null,
   READ_WRITE                    integer      not null, -- 1 = ReadWrite, 0 = ReadOnly
   IS_EXTERNAL                   integer      not null, -- 1 = ReadWrite, 0 = ReadOnly
 
@@ -1055,7 +1055,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '39');
+insert into CALENDARSERVER values ('VERSION', '38');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');

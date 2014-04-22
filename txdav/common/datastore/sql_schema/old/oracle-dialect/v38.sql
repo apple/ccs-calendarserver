@@ -415,13 +415,13 @@ create table GROUPS (
 );
 
 create table GROUP_MEMBERSHIP (
-    "GROUP_ID" integer not null references GROUPS on delete cascade,
+    "GROUP_ID" integer,
     "MEMBER_UID" nvarchar2(255)
 );
 
 create table GROUP_ATTENDEE (
-    "GROUP_ID" integer not null references GROUPS on delete cascade,
-    "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade,
+    "GROUP_ID" integer,
+    "RESOURCE_ID" integer,
     "MEMBERSHIP_HASH" nvarchar2(255)
 );
 
@@ -434,7 +434,7 @@ create table DELEGATES (
 
 create table DELEGATE_GROUPS (
     "DELEGATOR" nvarchar2(255),
-    "GROUP_ID" integer not null references GROUPS on delete cascade,
+    "GROUP_ID" integer not null,
     "READ_WRITE" integer not null,
     "IS_EXTERNAL" integer not null, 
     primary key("DELEGATOR", "READ_WRITE", "GROUP_ID")
@@ -557,7 +557,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '39');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '38');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');
