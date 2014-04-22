@@ -191,7 +191,7 @@ class CalendarClientSimulator(object):
     def _createUser(self, number):
         record = self._records[number]
         user = record.uid
-        authBasic = HTTPBasicAuthHandler(passwd_mgr=HTTPPasswordMgrWithDefaultRealm())
+        authBasic = HTTPBasicAuthHandler(password_mgr=HTTPPasswordMgrWithDefaultRealm())
         authBasic.add_password(
             realm=None,
             uri=self.server,
