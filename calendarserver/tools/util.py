@@ -273,11 +273,15 @@ def checkDirectory(dirpath, description, access=None, create=None, wait=False):
         created by someone else (or mounted, etc.)
     @type wait: boolean
     """
+
+    # Note: we have to use print here because the logging mechanism has not
+    # been set up yet.
+
     if not os.path.exists(dirpath):
 
         if wait:
             while not os.path.exists(dirpath):
-                log.error("Path does not exist: %s" % (dirpath,))
+                print("Path does not exist: %s" % (dirpath,))
                 sleep(1)
         else:
             try:
@@ -288,7 +292,7 @@ def checkDirectory(dirpath, description, access=None, create=None, wait=False):
             try:
                 os.mkdir(dirpath)
             except (OSError, IOError), e:
-                log.error("Could not create %s: %s" % (dirpath, e))
+                print("Could not create %s: %s" % (dirpath, e))
                 raise ConfigurationError(
                     "%s does not exist and cannot be created: %s"
                     % (description, dirpath)
@@ -308,10 +312,10 @@ def checkDirectory(dirpath, description, access=None, create=None, wait=False):
                 os.chmod(dirpath, mode)
                 os.chown(dirpath, uid, gid)
             except (OSError, IOError), e:
-                log.error("Unable to change mode/owner of %s: %s"
+                print("Unable to change mode/owner of %s: %s"
                                % (dirpath, e))
 
-            log.info("Created directory: %s" % (dirpath,))
+            print("Created directory: %s" % (dirpath,))
 
     if not os.path.isdir(dirpath):
         raise ConfigurationError("%s is not a directory: %s"
