@@ -23,7 +23,7 @@ from twext.who.test.test_xml import xmlService
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.trial import unittest
 from twistedcaldav.config import config
-from twistedcaldav.ical import Component, normalize_iCalStr
+from twistedcaldav.ical import Component, normalize_iCalStr, ignoredComponents
 from txdav.caldav.datastore.test.util import buildCalendarStore, populateCalendarsFrom, CommonCommonTests
 from txdav.who.directory import CalendarDirectoryRecordMixin
 from txdav.who.groups import GroupCacher
@@ -93,11 +93,39 @@ class GroupAttendeeReconciliation(CommonCommonTests, unittest.TestCase):
         self.assertEqual(count, expected_count)
 
 
-    # better error output
     def _assertICalStrEqual(self, iCalStr1, iCalStr2):
-        if normalize_iCalStr(iCalStr1, sort=True) != normalize_iCalStr(iCalStr2, sort=True):
-            self.assertEqual(normalize_iCalStr(iCalStr1), normalize_iCalStr(iCalStr2))
-            self.assertTrue(False)
+
+        def orderMemberValues(event):
+
+            for component in event.subcomponents():
+                if component.name() in ignoredComponents:
+                    continue
+
+                # remove all values and add them again
+                # this is sort of a hack, better pycalendar has ordering
+                for attendeeProp in tuple(component.properties("ATTENDEE")):
+                    if attendeeProp.hasParameter("MEMBER"):
+                        parameterValues = tuple(attendeeProp.parameterValues("MEMBER"))
+                        for paramterValue in parameterValues:
+                            attendeeProp.removeParameterValue("MEMBER", paramterValue)
+                        attendeeProp.setParameter("MEMBER", sorted(parameterValues))
+
+        self.assertEqual(
+            orderMemberValues(
+                Component.fromString(
+                    normalize_iCalStr(
+                        iCalStr1
+                    )
+                )
+            ),
+            orderMemberValues(
+                Component.fromString(
+                    normalize_iCalStr(
+                        iCalStr2
+                    )
+                )
+            )
+        )
 
 
     @inlineCallbacks
@@ -394,7 +422,6 @@ END:VCALENDAR"""
         yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000009", 1)
 
 
-    #TODO:  Change to multigroup case
     @inlineCallbacks
     def test_groupChange(self):
         """
@@ -480,8 +507,8 @@ END:VCALENDAR
         self.patch(CalendarDirectoryRecordMixin, "expandedMembers", expandedMembers)
 
         groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
-        wp = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
-        self.assertEqual(wp, None)
+        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
+        self.assertEqual(len(wps), 0)
 
         calendar = yield self.calendarUnderTest(name="calendar", home="10000000-0000-0000-0000-000000000002")
         vcalendar1 = Component.fromString(data_put_1)
@@ -498,9 +525,10 @@ END:VCALENDAR
         self.patch(CalendarDirectoryRecordMixin, "expandedMembers", unpatchedExpandedMembers)
 
         groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
-        wp = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
+        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
         yield self.commit()
-        yield wp.whenExecuted()
+        self.assertEqual(len(wps), 1)
+        yield wps[0].whenExecuted()
 
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000002")
         vcalendar3 = yield cobj1.component()
@@ -511,9 +539,10 @@ END:VCALENDAR
 
         self.patch(CalendarDirectoryRecordMixin, "expandedMembers", expandedMembers)
         groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
-        wp = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
+        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
         yield self.commit()
-        yield wp.whenExecuted()
+        self.assertEqual(len(wps), 1)
+        yield wps[0].whenExecuted()
 
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000002")
         vcalendar3 = yield cobj1.component()
@@ -524,6 +553,15 @@ END:VCALENDAR
         self.assertEqual(len(cobjs), 1)
         comp1 = yield cobjs[0].componentForUser()
         self.assertTrue("STATUS:CANCELLED" in str(comp1))
+
+
+    @inlineCallbacks
+    def test_multieventGroupChange(self):
+        """
+        Test that every event associated with a group chagnes when the group changes
+        """
+
+        self.fail("FIXME: implement this test")
 
 
     @inlineCallbacks
@@ -619,8 +657,8 @@ ATTENDEE;CN=Group 01;CUTYPE=GROUP;EMAIL=group01@example.com;RSVP=TRUE;SCHEDULE-S
 ATTENDEE;CN=Group 02;CUTYPE=GROUP;EMAIL=group02@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:x-uid:20000000-0000-0000-0000-000000000002
 ATTENDEE;CN=Group 03;CUTYPE=GROUP;EMAIL=group03@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:x-uid:20000000-0000-0000-0000-000000000003
 ATTENDEE;CN=User 06;EMAIL=user06@example.com;MEMBER="urn:x-uid:20000000-0000-0000-0000-000000000002";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:10000000-0000-0000-0000-000000000006
-ATTENDEE;CN=User 07;EMAIL=user07@example.com;MEMBER="urn:x-uid:20000000-0000-0000-0000-000000000003","urn:x-uid:20000000-0000-0000-0000-000000000002";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:10000000-0000-0000-0000-000000000007
-ATTENDEE;CN=User 08;EMAIL=user08@example.com;MEMBER="urn:x-uid:20000000-0000-0000-0000-000000000003","urn:x-uid:20000000-0000-0000-0000-000000000002";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:10000000-0000-0000-0000-000000000008
+ATTENDEE;CN=User 07;EMAIL=user07@example.com;MEMBER="urn:x-uid:20000000-0000-0000-0000-000000000002","urn:x-uid:20000000-0000-0000-0000-000000000003";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:10000000-0000-0000-0000-000000000007
+ATTENDEE;CN=User 08;EMAIL=user08@example.com;MEMBER="urn:x-uid:20000000-0000-0000-0000-000000000002","urn:x-uid:20000000-0000-0000-0000-000000000003";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:10000000-0000-0000-0000-000000000008
 ATTENDEE;CN=User 09;EMAIL=user09@example.com;MEMBER="urn:x-uid:20000000-0000-0000-0000-000000000003";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:10000000-0000-0000-0000-000000000009
 CREATED:20060101T150000Z
 ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:10000000-0000-0000-0000-000000000001
@@ -655,9 +693,10 @@ END:VCALENDAR"""
 
         # cache group
         groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
-        wp = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000002")
+        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000002")
         yield self.commit()
-        yield wp.whenExecuted()
+        self.assertEqual(len(wps), 1)
+        yield wps[0].whenExecuted()
 
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000001")
         vcalendar3 = yield cobj1.component()
@@ -667,9 +706,10 @@ END:VCALENDAR"""
         self.patch(DirectoryService, "recordWithUID", recordWithUID)
 
         groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
-        wp = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000002")
+        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000002")
         yield self.commit()
-        yield wp.whenExecuted()
+        self.assertEqual(len(wps), 1)
+        yield wps[0].whenExecuted()
 
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000001")
         vcalendar4 = yield cobj1.component()
@@ -686,10 +726,10 @@ END:VCALENDAR"""
         self.patch(DirectoryService, "recordWithUID", unpatchedRecordWithUID)
 
         groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
-        wp = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000002")
-        self.assertNotEqual(wp, None)
+        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000002")
+        self.assertEqual(len(wps), 1)
         yield self.commit()
-        yield wp.whenExecuted()
+        yield wps[0].whenExecuted()
 
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000001")
         vcalendar5 = yield cobj1.component()
@@ -811,12 +851,14 @@ END:VCALENDAR
 
         # cache groups
         groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
-        wp = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000002")
+        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000002")
         yield self.commit()
-        yield wp.whenExecuted()
-        wp = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000003")
+        self.assertEqual(len(wps), 1)
+        yield wps[0].whenExecuted()
+        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000003")
         yield self.commit()
-        yield wp.whenExecuted()
+        self.assertEqual(len(wps), 1)
+        yield wps[0].whenExecuted()
 
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000001")
         vcalendar3 = yield cobj1.component()
@@ -836,10 +878,10 @@ END:VCALENDAR
         yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000009", 1)
 
         # groups did not change so no work proposals
-        wp = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000002")
-        self.assertEqual(wp, None)
-        wp = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000003")
-        self.assertEqual(wp, None)
+        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000002")
+        self.assertEqual(len(wps), 0)
+        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000003")
+        self.assertEqual(len(wps), 0)
 
         cal1 = yield self.calendarUnderTest(name="calendar", home="10000000-0000-0000-0000-000000000009")
         cobjs = yield cal1.objectResources()

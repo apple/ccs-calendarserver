@@ -308,55 +308,54 @@ class GroupCacher(object):
         self.log.debug("Faulting in group: {g}", g=groupUID)
         record = (yield self.directory.recordWithUID(groupUID))
         if record is None:
-            # the group has disappeared from the directory - OK
-            # FIXME: If group reappears, it will not be used in existing events
-            self.log.info("Group has disappeared: {g}", g=groupUID)
+            # the group has disappeared from the directory
+            self.log.info("Group is missing: {g}", g=groupUID)
         else:
             self.log.debug("Got group record: {u}", u=record.uid)
 
-        groupID, _ignore_cachedName, cachedMembershipHash, _ignore_modified = (
+        groupID, cachedName, cachedMembershipHash, _ignore_modified = (
             yield txn.groupByUID(
                 groupUID,
                 create=(record is not None)
             )
         )
-        wp = None
+        wps = tuple()
         if groupID:
             if record is not None:
-                membershipHashContent = hashlib.md5()
                 members = yield record.expandedMembers()
-                members = list(members)
-                members.sort(cmp=lambda x, y: cmp(x.uid, y.uid))
-                for member in members:
-                    membershipHashContent.update(str(member.uid))
-                membershipHash = membershipHashContent.hexdigest()
-
-                if cachedMembershipHash != membershipHash:
-                    membershipChanged = True
-                    self.log.debug(
-                        "Group '{group}' changed", group=record.fullNames[0]
-                    )
-                else:
-                    membershipChanged = False
-
-                yield txn.updateGroup(groupUID, record.fullNames[0], membershipHash)
-
-                if membershipChanged:
-                    newMemberUIDs = set()
-                    for member in members:
-                        newMemberUIDs.add(member.uid)
-                    yield self.synchronizeMembers(txn, groupID, newMemberUIDs)
-
+                name = record.fullNames[0]
             else:
-                # FIXME: Use schema's delete cascade
-                yield self.synchronizeMembers(txn, groupID, set())
-                yield txn.deleteGroup(groupID)
+                members = frozenset()
+                name = cachedName
+
+            membershipHashContent = hashlib.md5()
+            members = list(members)
+            members.sort(cmp=lambda x, y: cmp(x.uid, y.uid))
+            for member in members:
+                membershipHashContent.update(str(member.uid))
+            membershipHash = membershipHashContent.hexdigest()
+
+            if cachedMembershipHash != membershipHash:
                 membershipChanged = True
+                self.log.debug(
+                    "Group '{group}' changed", group=name
+                )
+            else:
+                membershipChanged = False
+
+            if membershipChanged or record is not None:
+                # also updates group mod date
+                yield txn.updateGroup(groupUID, name, membershipHash)
 
             if membershipChanged:
-                wp = yield self.scheduleEventReconciliations(txn, groupID)
+                newMemberUIDs = set()
+                for member in members:
+                    newMemberUIDs.add(member.uid)
+                yield self.synchronizeMembers(txn, groupID, newMemberUIDs)
 
-        returnValue(wp)
+                wps = yield self.scheduleEventReconciliations(txn, groupID)
+
+        returnValue(wps)
 
 
     @inlineCallbacks
@@ -412,9 +411,8 @@ class GroupCacher(object):
             Where=ga.GROUP_ID == groupID,
         ).on(txn)
 
-        wp = None
-        if rows:
-            eventID = rows[0][0]
+        wps = []
+        for [eventID] in rows:
 
             notBefore = (
                 datetime.datetime.utcnow() +
@@ -434,8 +432,9 @@ class GroupCacher(object):
                 groupID=groupID,
                 notBefore=notBefore
             )
+            wps.append(wp)
 
-        returnValue(wp)
+        returnValue(tuple(wps))
 
 
     @inlineCallbacks

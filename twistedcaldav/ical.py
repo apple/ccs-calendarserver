@@ -3765,12 +3765,9 @@ def merge(*iterables):
 
 
 
-def normalize_iCalStr(icalstr, sort=False):
+def normalize_iCalStr(icalstr):
     """
     Normalize a string representation of ical data for easy test comparison.
-
-    @param sort: Whether to sort the output
-    @type sort: L{boolean}
     """
 
     icalstr = str(icalstr).replace("\r\n ", "")
@@ -3780,8 +3777,6 @@ def normalize_iCalStr(icalstr, sort=False):
         pos = line.find(";X-CALENDARSERVER-DTSTAMP=")
         if pos != -1:
             lines[ctr] = line[:pos] + line[pos + len(";X-CALENDARSERVER-DTSTAMP=") + 16:]
-    if sort:
-        lines.sort()
     icalstr = "\r\n".join(lines)
     return icalstr + "\r\n"
 

@@ -34,6 +34,7 @@ from twisted.cred.credentials import UsernamePassword
 from twisted.python.filepath import FilePath
 from twisted.python.reflect import namedClass
 from twistedcaldav.config import fullServerPath
+from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
 from txdav.who.augment import AugmentedDirectoryService
 from txdav.who.delegates import DirectoryService as DelegateDirectoryService
 from txdav.who.idirectory import (
@@ -42,6 +43,7 @@ from txdav.who.idirectory import (
 )
 from txdav.who.wiki import DirectoryService as WikiDirectoryService
 from txdav.who.xml import DirectoryService as XMLDirectoryService
+from uuid import UUID
 
 
 log = Logger()
@@ -240,3 +242,34 @@ def directoryFromConfig(config, store=None):
         raise
 
     return augmented
+
+
+
+def uidFromCalendarUserAddress(address):
+    """
+        Get a uid from a calendar user address
+        May return None
+    """
+
+    address = normalizeCUAddr(address)
+
+    if address.startswith("urn:x-uid:"):
+        return address[10:]
+
+    elif address.startswith("urn:uuid:"):
+        try:
+            UUID(address[9:])
+        except ValueError:
+            log.info("Invalid GUID: {guid}", guid=address[9:])
+        else:
+            return address[9:]
+
+    elif address.startswith("mailto:"):
+        return address[7:]
+
+    elif address.startswith("/principals/"):
+        parts = address.split("/")
+        if len(parts) == 4:
+            return parts[3]
+
+    return None

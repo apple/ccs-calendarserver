@@ -1950,9 +1950,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             groupRecord = yield self.directoryService().recordWithCalendarUserAddress(groupCUA)
             if groupRecord:
                 members = yield groupRecord.expandedMembers()
-                groupCUAToAttendeeMemberPropMap[groupRecord.canonicalCalendarUserAddress()] = set(
+                groupCUAToAttendeeMemberPropMap[groupRecord.canonicalCalendarUserAddress()] = frozenset(
                     [member.attendeeProperty(params={"MEMBER": groupCUA}) for member in members]
                 )
+            else:
+                groupCUAToAttendeeMemberPropMap[groupCUA] = frozenset()
 
         # sync group attendee members if inserting or group changed
         changed = False
@@ -1984,52 +1986,51 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             From=ga,
             Where=ga.RESOURCE_ID == self._resourceID,
         ).on(self._txn)
-        oldGAs = dict(rows)
+        groupIDToMembershipHashMap = dict(rows)
 
-        for groupCUA, memberAttendeeProps in groupCUAToAttendeeMemberPropMap.iteritems():
+        for groupCUA in groupCUAToAttendeeMemberPropMap:
             groupRecord = yield self.directoryService().recordWithCalendarUserAddress(groupCUA)
-            if groupRecord:
-                members = set([(
-                        yield self.directoryService().recordWithCalendarUserAddress(
-                            memberAttendeeProp.value()
-                        )
-                    ) for memberAttendeeProp in memberAttendeeProps
-                ])
+            if groupRecord is not None:
+                groupUID = groupRecord.uid
+            else:
+                #FIXME:  here to avoid circular import
+                from txdav.who.util import uidFromCalendarUserAddress
+                groupUID = uidFromCalendarUserAddress(groupCUA)
+            groupID, _ignore_name, membershipHash, _ignore_modDate = yield self._txn.groupByUID(groupUID)
 
-                membershipHashContent = hashlib.md5()
-                for memberUID in sorted([member.uid for member in members]):
-                    membershipHashContent.update(memberUID)
-                membershipHash = membershipHashContent.hexdigest()
-
-                groupID, _ignore_name, _ignoreMembershipHash, _ignore_modDate = yield self._txn.groupByUID(groupRecord.uid)
-
-                if groupID in oldGAs:
-                    if oldGAs[groupID] != membershipHash:
-                        yield Update({
-                                ga.MEMBERSHIP_HASH: membershipHash,
-                            },
-                            Where=(ga.RESOURCE_ID == self._resourceID).And(
-                                ga.GROUP_ID == groupID
-                            )
-                        ).on(self._txn)
-                        changed = True
-                    del oldGAs[groupID]
-                else:
-                    yield Insert({
-                            ga.RESOURCE_ID: self._resourceID,
-                            ga.GROUP_ID: groupID,
+            if groupID in groupIDToMembershipHashMap:
+                if groupIDToMembershipHashMap[groupID] != membershipHash:
+                    yield Update({
                             ga.MEMBERSHIP_HASH: membershipHash,
-                        }
+                        },
+                        Where=(ga.RESOURCE_ID == self._resourceID).And(
+                            ga.GROUP_ID == groupID
+                        )
                     ).on(self._txn)
                     changed = True
+                del groupIDToMembershipHashMap[groupID]
+            else:
+                yield Insert({
+                        ga.RESOURCE_ID: self._resourceID,
+                        ga.GROUP_ID: groupID,
+                        ga.MEMBERSHIP_HASH: membershipHash,
+                    }
+                ).on(self._txn)
+                changed = True
 
-        for groupID in oldGAs:
+        if groupIDToMembershipHashMap:
+            groupIDsToRemove = groupIDToMembershipHashMap.keys()
             yield Delete(
                 From=ga,
                 Where=(ga.RESOURCE_ID == self._resourceID).And(
-                    ga.GROUP_ID == groupID
+                    ga.GROUP_ID.In(
+                        Parameter(
+                            "groupIDsToRemove",
+                            len(groupIDsToRemove)
+                        )
+                    )
                 )
-            ).on(self._txn)
+            ).on(self._txn, groupIDsToRemove=groupIDsToRemove)
             changed = True
 
         returnValue(changed)
