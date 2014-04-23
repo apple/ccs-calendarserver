@@ -986,7 +986,7 @@ class DirectoryPrincipalResource (
 
 
     @inlineCallbacks
-    def proxyFor(self, readWrite):
+    def proxyFor(self, readWrite, ignoreDisabled=True):
         """
         Returns the set of principals currently delegating to this principal
         with the access indicated by the readWrite argument.  If readWrite is
@@ -995,7 +995,9 @@ class DirectoryPrincipalResource (
 
         @param readWrite: Whether to look up read-write delegators, or
             read-only delegators
-        @type readWrite: C{bool}
+        @type readWrite: L{bool}
+        @param ignoreDisabled: If L{True} disabled delegators are not returned
+        @type ignoreDisabled: L{bool}
 
         @return: A Deferred firing with a set of principals
         """
@@ -1021,7 +1023,7 @@ class DirectoryPrincipalResource (
 
                 for record in proxyForRecords:
                     principal = yield self.parent.principalForRecord(record)
-                    if principal is not None:
+                    if principal is not None and (not ignoreDisabled or principal.record.hasCalendars):
                         proxyFors.add(principal)
 
         returnValue(proxyFors)

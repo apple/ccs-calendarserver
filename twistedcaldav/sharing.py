@@ -91,12 +91,16 @@ class SharedResourceMixin(object):
                     invitations = yield self.validateInvites(request, invitations)
 
                     ownerPrincipal = yield self.principalForUID(self._newStoreObject.ownerHome().uid())
-                    # FIXME:  use urn:x-uid in all cases
-                    if self.isCalendarCollection():
-                        owner = ownerPrincipal.principalURL()
+                    if ownerPrincipal is None:
+                        owner = "invalid"
+                        ownerCN = "Invalid"
                     else:
-                        owner = "urn:x-uid:" + ownerPrincipal.principalUID()
-                    ownerCN = ownerPrincipal.displayName()
+                        # FIXME:  use urn:x-uid in all cases
+                        if self.isCalendarCollection():
+                            owner = ownerPrincipal.principalURL()
+                        else:
+                            owner = "urn:x-uid:" + ownerPrincipal.principalUID()
+                        ownerCN = ownerPrincipal.displayName()
 
                     returnValue(customxml.Invite(
                         customxml.Organizer(
@@ -435,12 +439,15 @@ class SharedResourceMixin(object):
         # assert request
         if invitations is None:
             invitations = yield self._newStoreObject.allInvitations()
+        adjusted_invitations = []
         for invitation in invitations:
             if invitation.status != _BIND_STATUS_INVALID:
                 if not (yield self.validUserIDForShare("urn:x-uid:" + invitation.shareeUID, request)):
                     self.log.error("Invalid sharee detected: {uid}", uid=invitation.shareeUID)
+                    invitation = invitation._replace(status=_BIND_STATUS_INVALID)
+            adjusted_invitations.append(invitation)
 
-        returnValue(invitations)
+        returnValue(adjusted_invitations)
 
 
     def inviteUserToShare(self, userid, cn, ace, summary, request):
@@ -519,12 +526,18 @@ class SharedResourceMixin(object):
     @inlineCallbacks
     def uninviteSingleUserFromShare(self, userid, aces, request): #@UnusedVariable
 
-        # Cancel invites - we'll just use whatever userid we are given
+        # Cancel invites - we'll just use whatever userid we are given. However, if we
+        # cannot find a matching principal, try to extract the uid from the userid
+        # and use that (to allow invalid principals to be removed).
         sharee = yield self.principalForCalendarUserAddress(userid)
-        if not sharee:
+        if sharee is not None:
+            uid = sharee.principalUID()
+        elif userid.startswith("urn:x-uid:"):
+            uid = userid[10:]
+        else:
             returnValue(False)
 
-        result = (yield self._newStoreObject.uninviteUserFromShare(sharee.principalUID()))
+        result = (yield self._newStoreObject.uninviteUserFromShare(uid))
 
         returnValue(result)
 
@@ -793,7 +806,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
         if child._newStoreObject is not None and not child._newStoreObject.owned():
             ownerHomeURL = (yield self._otherPrincipalHomeURL(child._newStoreObject.ownerHome().uid()))
             ownerView = yield child._newStoreObject.ownerView()
-            child.setShare(joinURL(ownerHomeURL, ownerView.name()))
+            child.setShare(joinURL(ownerHomeURL, ownerView.name()) if ownerHomeURL else None)
             access = yield child._checkAccessControl()
             if access is None:
                 returnValue(None)

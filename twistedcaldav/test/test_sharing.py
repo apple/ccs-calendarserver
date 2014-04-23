@@ -23,7 +23,6 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 
 from twistedcaldav import customxml
 from twistedcaldav.config import config
-from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 from twistedcaldav.test.test_cache import StubResponseCacheResource
 from twistedcaldav.test.util import norequest, StoreTestCase, SimpleStoreRequest
 
@@ -35,7 +34,6 @@ from xml.etree.cElementTree import XML
 from txdav.who.wiki import (
     DirectoryRecord as WikiDirectoryRecord,
     DirectoryService as WikiDirectoryService,
-    RecordType as WikiRecordType,
     WikiAccessLevel
 )
 
@@ -50,78 +48,6 @@ def normalize(x):
     pretty-printing.
     """
     return WebDAVDocument.fromString(x).toxml()
-
-
-
-class FakeHome(object):
-    pass
-
-
-
-class FakeRecord(object):
-
-    def __init__(self, name, cuaddr):
-        self.fullName = name
-        self.guid = name
-        self.calendarUserAddresses = set((cuaddr,))
-        if name.startswith(WikiDirectoryService.uidPrefix):
-            recordType = WikiRecordType.macOSXServerWiki
-        else:
-            recordType = None
-        self.recordType = recordType
-        self.shortNames = [name]
-
-
-
-class FakePrincipal(DirectoryCalendarPrincipalResource):
-
-    invalid_names = set()
-
-    def __init__(self, cuaddr, test):
-        if cuaddr.startswith("mailto:"):
-            name = cuaddr[7:].split('@')[0]
-        elif cuaddr.startswith("urn:x-uid:"):
-            name = cuaddr[10:]
-        elif cuaddr.startswith("urn:uuid:"):
-            name = cuaddr[9:]
-        else:
-            name = cuaddr
-
-        self.path = "/principals/__uids__/%s" % (name,)
-        self.homepath = "/calendars/__uids__/%s" % (name,)
-        self.displayname = name.upper()
-        self.record = FakeRecord(name, cuaddr)
-        self._test = test
-        self._name = name
-
-
-    @inlineCallbacks
-    def calendarHome(self, request):
-        if self._name in self.invalid_names:
-            returnValue(None)
-        a, _ignore_seg = yield self._test.calendarCollection.locateChild(request, ["__uids__"])
-        b, _ignore_seg = yield a.locateChild(request, [self._name])
-        if b is None:
-            # XXX all tests except test_noWikiAccess currently rely on the
-            # fake thing here.
-            returnValue(FakeHome())
-        returnValue(b)
-
-
-    def calendarHomeURLs(self):
-        return (self.homepath,)
-
-
-    def principalURL(self):
-        return self.path
-
-
-    def principalUID(self):
-        return self.record.guid
-
-
-    def displayName(self):
-        return self.displayname
 
 
 
@@ -140,39 +66,6 @@ class SharingTests(StoreTestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(SharingTests, self).setUp()
-
-        # FIXME: not sure what these were for:
-
-        #     def patched(c):
-        #         """
-        #         The decorated method is patched on L{CalDAVResource} for the
-        #         duration of the test.
-        #         """
-        #         self.patch(CalDAVResource, c.__name__, c)
-        #         return c
-
-        #     @patched
-        #     def principalForCalendarUserAddress(resourceSelf, cuaddr):
-        #         if "bogus" in cuaddr:
-        #             return None
-        #         else:
-        #             return FakePrincipal(cuaddr, self)
-
-        #     @patched
-        #     def validUserIDForShare(resourceSelf, userid, request):
-        #         """
-        #         Temporary replacement for L{CalDAVResource.validUserIDForShare}
-        #         that marks any principal without 'bogus' in its name.
-        #         """
-        #         result = principalForCalendarUserAddress(resourceSelf, userid)
-        #         if result is None:
-        #             return result
-        #         return result.principalURL()
-
-        #     @patched
-        #     def principalForUID(resourceSelf, principalUID):
-        #         return FakePrincipal("urn:uuid:" + principalUID, self)
-
         self.resource = yield self._getResource()
 
 
@@ -216,9 +109,9 @@ class SharingTests(StoreTestCase):
 
 
     @inlineCallbacks
-    def _doPOSTSharerAccept(self, body, resultcode=responsecode.OK):
-        authRecord = yield self.directory.recordWithUID(u"user02")
-        request = SimpleStoreRequest(self, "POST", "/calendars/__uids__/user02/", content=body, authRecord=authRecord)
+    def _doPOSTSharerAccept(self, body, resultcode=responsecode.OK, sharer="user02"):
+        authRecord = yield self.directory.recordWithUID(unicode(sharer))
+        request = SimpleStoreRequest(self, "POST", "/calendars/__uids__/{}/".format(sharer), content=body, authRecord=authRecord)
         request.headers.setHeader("content-type", MimeType("text", "xml"))
         response = yield self.send(request)
         response = IResponse(response)
@@ -248,12 +141,22 @@ class SharingTests(StoreTestCase):
         return None
 
 
+    def _getUIDElementValues(self, xml):
+
+        results = {}
+        for user in xml.children:
+            href = str(user.childOfType(davxml.HRef))
+            uid = str(user.childOfType(customxml.UID))
+            results[href] = uid
+        return results
+
+
     def _clearUIDElementValue(self, xml):
 
         for user in xml.children:
-            for element in user.children:
-                if type(element) == customxml.UID:
-                    element.children[0].data = ""
+            uid = user.childOfType(customxml.UID)
+            if uid is not None:
+                uid.children[0].data = ""
         return xml
 
 
@@ -713,25 +616,24 @@ class SharingTests(StoreTestCase):
             )
         ))
 
-        self.resource.validUserIDForShare = lambda userid, request: None
-        self.resource.principalForCalendarUserAddress = lambda cuaddr: None
-        self.resource.principalForUID = lambda principalUID: None
+        record = yield self.userRecordWithShortName("user02")
+        yield self.changeRecord(record, self.directory.fieldName.hasCalendars, False)
 
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
                 davxml.HRef.fromString("urn:x-uid:user02"),
-                customxml.CommonName.fromString("user02"),
+                customxml.CommonName.fromString("User 02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
-                customxml.InviteStatusNoResponse(),
+                customxml.InviteStatusInvalid(),
             )
         ))
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
             <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
                 <CS:remove>
-                    <D:href>mailto:user02@example.com</D:href>
+                    <D:href>urn:x-uid:user02</D:href>
                 </CS:remove>
             </CS:share>
             """)
@@ -832,7 +734,7 @@ class SharingTests(StoreTestCase):
 
 
     @inlineCallbacks
-    def test_POSTDowngradeWithDisabledInvitee(self):
+    def test_POSTDowngradeWithMissingInvitee(self):
 
         yield self.resource.upgradeToShare()
 
@@ -857,12 +759,14 @@ class SharingTests(StoreTestCase):
             ),
         ))
 
-        self.patch(FakePrincipal, "invalid_names", set(("user02",)))
+        yield self.directory.removeRecords(((yield self.userUIDFromShortName("user02")),))
+        self.assertTrue((yield self.userUIDFromShortName("user02")) is None)
+
         yield self.resource.downgradeFromShare(norequest())
 
 
     @inlineCallbacks
-    def test_POSTRemoveWithDisabledInvitee(self):
+    def test_POSTRemoveWithMissingInvitee(self):
 
         yield self.resource.upgradeToShare()
 
@@ -887,12 +791,13 @@ class SharingTests(StoreTestCase):
             ),
         ))
 
-        self.patch(FakePrincipal, "invalid_names", set(("user02",)))
+        yield self.directory.removeRecords(((yield self.userUIDFromShortName("user02")),))
+        self.assertTrue((yield self.userUIDFromShortName("user02")) is None)
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
             <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
                 <CS:remove>
-                    <D:href>mailto:user02@example.com</D:href>
+                    <D:href>urn:x-uid:user02</D:href>
                 </CS:remove>
             </CS:share>
             """)
@@ -948,10 +853,286 @@ class SharingTests(StoreTestCase):
         )
         href = self._getHRefElementValue(result) + "/"
 
-        self.patch(FakePrincipal, "invalid_names", set(("user01",)))
+        record = yield self.userRecordWithShortName("user01")
+        yield self.changeRecord(record, self.directory.fieldName.hasCalendars, False)
 
         resource = (yield self._getResourceSharer(href))
         yield resource.removeShareeResource(SimpleStoreRequest(self, "DELETE", href))
 
         resource = (yield self._getResourceSharer(href))
         self.assertFalse(resource.exists())
+
+
+    @inlineCallbacks
+    def test_POSTShareeRemoveWithMissingSharer(self):
+
+        yield self.resource.upgradeToShare()
+
+        yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
+            <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+                <CS:set>
+                    <D:href>mailto:user02@example.com</D:href>
+                    <CS:summary>My Shared Calendar</CS:summary>
+                    <CS:read-write/>
+                </CS:set>
+            </CS:share>
+            """)
+
+        propInvite = (yield self.resource.readProperty(customxml.Invite, None))
+        uid = self._getUIDElementValue(propInvite)
+        self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
+            customxml.InviteUser(
+                customxml.UID.fromString(""),
+                davxml.HRef.fromString("urn:x-uid:user02"),
+                customxml.CommonName.fromString("User 02"),
+                customxml.InviteAccess(customxml.ReadWriteAccess()),
+                customxml.InviteStatusNoResponse(),
+            ),
+        ))
+
+        result = (yield self._doPOSTSharerAccept("""<?xml version='1.0' encoding='UTF-8'?>
+            <invite-reply xmlns='http://calendarserver.org/ns/'>
+              <href xmlns='DAV:'>mailto:user01@example.com</href>
+              <invite-accepted/>
+              <hosturl>
+                <href xmlns='DAV:'>/calendars/__uids__/user01/calendar/</href>
+              </hosturl>
+              <in-reply-to>%s</in-reply-to>
+              <summary>The Shared Calendar</summary>
+              <common-name>User 02</common-name>
+              <first-name>user</first-name>
+              <last-name>02</last-name>
+            </invite-reply>
+            """ % (uid,))
+        )
+        href = self._getHRefElementValue(result) + "/"
+
+        yield self.directory.removeRecords(((yield self.userUIDFromShortName("user01")),))
+        self.assertTrue((yield self.userUIDFromShortName("user01")) is None)
+
+        resource = (yield self._getResourceSharer(href))
+        yield resource.removeShareeResource(SimpleStoreRequest(self, "DELETE", href))
+
+        resource = (yield self._getResourceSharer(href))
+        self.assertFalse(resource.exists())
+
+
+    @inlineCallbacks
+    def test_shareeInviteWithDisabledSharer(self):
+
+        yield self.resource.upgradeToShare()
+
+        yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
+            <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+                <CS:set>
+                    <D:href>mailto:user02@example.com</D:href>
+                    <CS:summary>My Shared Calendar</CS:summary>
+                    <CS:read-write/>
+                </CS:set>
+            </CS:share>
+            """)
+
+        propInvite = (yield self.resource.readProperty(customxml.Invite, None))
+        uid = self._getUIDElementValue(propInvite)
+        self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
+            customxml.InviteUser(
+                customxml.UID.fromString(""),
+                davxml.HRef.fromString("urn:x-uid:user02"),
+                customxml.CommonName.fromString("User 02"),
+                customxml.InviteAccess(customxml.ReadWriteAccess()),
+                customxml.InviteStatusNoResponse(),
+            ),
+        ))
+
+        result = (yield self._doPOSTSharerAccept("""<?xml version='1.0' encoding='UTF-8'?>
+            <invite-reply xmlns='http://calendarserver.org/ns/'>
+              <href xmlns='DAV:'>mailto:user01@example.com</href>
+              <invite-accepted/>
+              <hosturl>
+                <href xmlns='DAV:'>/calendars/__uids__/user01/calendar/</href>
+              </hosturl>
+              <in-reply-to>%s</in-reply-to>
+              <summary>The Shared Calendar</summary>
+              <common-name>User 02</common-name>
+              <first-name>user</first-name>
+              <last-name>02</last-name>
+            </invite-reply>
+            """ % (uid,))
+        )
+        href = self._getHRefElementValue(result) + "/"
+
+        record = yield self.userRecordWithShortName("user01")
+        yield self.changeRecord(record, self.directory.fieldName.hasCalendars, False)
+
+        resource = (yield self._getResourceSharer(href))
+        propInvite = yield resource.inviteProperty(None)
+        self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
+            customxml.Organizer(
+                davxml.HRef.fromString("/principals/__uids__/user01/"),
+                customxml.CommonName.fromString("User 01"),
+            ),
+            customxml.InviteUser(
+                davxml.HRef.fromString("urn:x-uid:user02"),
+                customxml.CommonName.fromString("User 02"),
+                customxml.InviteAccess(customxml.ReadWriteAccess()),
+                customxml.InviteStatusAccepted(),
+            ),
+        ))
+
+
+    @inlineCallbacks
+    def test_shareeInviteWithMissingSharer(self):
+
+        yield self.resource.upgradeToShare()
+
+        yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
+            <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+                <CS:set>
+                    <D:href>mailto:user02@example.com</D:href>
+                    <CS:summary>My Shared Calendar</CS:summary>
+                    <CS:read-write/>
+                </CS:set>
+            </CS:share>
+            """)
+
+        propInvite = (yield self.resource.readProperty(customxml.Invite, None))
+        uid = self._getUIDElementValue(propInvite)
+        self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
+            customxml.InviteUser(
+                customxml.UID.fromString(""),
+                davxml.HRef.fromString("urn:x-uid:user02"),
+                customxml.CommonName.fromString("User 02"),
+                customxml.InviteAccess(customxml.ReadWriteAccess()),
+                customxml.InviteStatusNoResponse(),
+            ),
+        ))
+
+        result = (yield self._doPOSTSharerAccept("""<?xml version='1.0' encoding='UTF-8'?>
+            <invite-reply xmlns='http://calendarserver.org/ns/'>
+              <href xmlns='DAV:'>mailto:user01@example.com</href>
+              <invite-accepted/>
+              <hosturl>
+                <href xmlns='DAV:'>/calendars/__uids__/user01/calendar/</href>
+              </hosturl>
+              <in-reply-to>%s</in-reply-to>
+              <summary>The Shared Calendar</summary>
+              <common-name>User 02</common-name>
+              <first-name>user</first-name>
+              <last-name>02</last-name>
+            </invite-reply>
+            """ % (uid,))
+        )
+        href = self._getHRefElementValue(result) + "/"
+
+        yield self.directory.removeRecords(((yield self.userUIDFromShortName("user01")),))
+        self.assertTrue((yield self.userUIDFromShortName("user01")) is None)
+
+        resource = (yield self._getResourceSharer(href))
+        propInvite = yield resource.inviteProperty(None)
+        self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
+            customxml.Organizer(
+                davxml.HRef.fromString("invalid"),
+                customxml.CommonName.fromString("Invalid"),
+            ),
+            customxml.InviteUser(
+                davxml.HRef.fromString("urn:x-uid:user02"),
+                customxml.CommonName.fromString("User 02"),
+                customxml.InviteAccess(customxml.ReadWriteAccess()),
+                customxml.InviteStatusAccepted(),
+            ),
+        ))
+
+
+    @inlineCallbacks
+    def test_hideInvalidSharers(self):
+
+        yield self.resource.upgradeToShare()
+
+        yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
+            <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+                <CS:set>
+                    <D:href>mailto:user02@example.com</D:href>
+                    <CS:summary>My Shared Calendar</CS:summary>
+                    <CS:read-write/>
+                </CS:set>
+                <CS:set>
+                    <D:href>mailto:user03@example.com</D:href>
+                    <CS:summary>My Shared Calendar</CS:summary>
+                    <CS:read-write/>
+                </CS:set>
+            </CS:share>
+            """)
+
+        propInvite = (yield self.resource.readProperty(customxml.Invite, None))
+        uids = self._getUIDElementValues(propInvite)
+        self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
+            customxml.InviteUser(
+                customxml.UID.fromString(""),
+                davxml.HRef.fromString("urn:x-uid:user02"),
+                customxml.CommonName.fromString("User 02"),
+                customxml.InviteAccess(customxml.ReadWriteAccess()),
+                customxml.InviteStatusNoResponse(),
+            ),
+            customxml.InviteUser(
+                customxml.UID.fromString(""),
+                davxml.HRef.fromString("urn:x-uid:user03"),
+                customxml.CommonName.fromString("User 03"),
+                customxml.InviteAccess(customxml.ReadWriteAccess()),
+                customxml.InviteStatusNoResponse(),
+            ),
+        ))
+
+        yield self._doPOSTSharerAccept("""<?xml version='1.0' encoding='UTF-8'?>
+            <invite-reply xmlns='http://calendarserver.org/ns/'>
+              <href xmlns='DAV:'>mailto:user01@example.com</href>
+              <invite-accepted/>
+              <hosturl>
+                <href xmlns='DAV:'>/calendars/__uids__/user01/calendar/</href>
+              </hosturl>
+              <in-reply-to>%s</in-reply-to>
+              <summary>The Shared Calendar</summary>
+              <common-name>User 02</common-name>
+              <first-name>user</first-name>
+              <last-name>02</last-name>
+            </invite-reply>
+            """ % (uids["urn:x-uid:user02"],))
+
+        yield self._doPOSTSharerAccept(
+            """<?xml version='1.0' encoding='UTF-8'?>
+                <invite-reply xmlns='http://calendarserver.org/ns/'>
+                  <href xmlns='DAV:'>mailto:user01@example.com</href>
+                  <invite-accepted/>
+                  <hosturl>
+                    <href xmlns='DAV:'>/calendars/__uids__/user01/calendar/</href>
+                  </hosturl>
+                  <in-reply-to>%s</in-reply-to>
+                  <summary>The Shared Calendar</summary>
+                  <common-name>User 03</common-name>
+                  <first-name>user</first-name>
+                  <last-name>03</last-name>
+                </invite-reply>
+            """ % (uids["urn:x-uid:user03"],),
+            sharer="user03"
+        )
+
+        record = yield self.directory.recordWithUID((yield self.userUIDFromShortName("user02")))
+        yield self.changeRecord(record, self.directory.fieldName.hasCalendars, False)
+
+        resource = yield self._getResource()
+        propInvite = yield resource.inviteProperty(None)
+        self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
+            customxml.InviteUser(
+                customxml.UID.fromString(""),
+                davxml.HRef.fromString("urn:x-uid:user02"),
+                customxml.CommonName.fromString("User 02"),
+                customxml.InviteAccess(customxml.ReadWriteAccess()),
+                customxml.InviteStatusInvalid(),
+            ),
+            customxml.InviteUser(
+                customxml.UID.fromString(""),
+                davxml.HRef.fromString("urn:x-uid:user03"),
+                customxml.CommonName.fromString("User 03"),
+                customxml.InviteAccess(customxml.ReadWriteAccess()),
+                customxml.InviteStatusAccepted(),
+            ),
+        ))

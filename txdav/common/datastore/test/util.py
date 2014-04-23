@@ -38,10 +38,9 @@ from random import Random
 
 from twext.python.log import Logger
 from twext.python.filepath import CachingFilePath
-from twistedcaldav.ical import Component as VComponent, Component
 from twext.enterprise.adbapi2 import ConnectionPool
 from twext.enterprise.ienterprise import AlreadyFinishedError
-from txweb2.dav.resource import TwistedGETContentMD5
+from twext.who.directory import DirectoryRecord
 
 from twisted.application.service import Service
 from twisted.internet import reactor
@@ -52,6 +51,7 @@ from twisted.trial.unittest import TestCase
 
 from twistedcaldav import ical
 from twistedcaldav.config import config
+from twistedcaldav.ical import Component as VComponent, Component
 from twistedcaldav.stdconfig import DEFAULT_CONFIG
 from twistedcaldav.vcard import Component as ABComponent
 
@@ -62,6 +62,8 @@ from txdav.caldav.icalendarstore import ComponentUpdateState
 from txdav.common.datastore.sql import CommonDataStore, current_sql_schema
 from txdav.common.datastore.sql_tables import schema
 from txdav.common.icommondatastore import NoSuchHomeChildError
+
+from txweb2.dav.resource import TwistedGETContentMD5
 
 from zope.interface.exceptions import BrokenMethodImplementation, \
     DoesNotImplement
@@ -821,6 +823,26 @@ class CommonCommonTests(object):
         """
         returnValue((yield (yield self.addressbookUnderTest(txn=txn, name=addressbook_name, home=home))
                     .addressbookObjectWithName(name)))
+
+
+    @inlineCallbacks
+    def userRecordWithShortName(self, shortname):
+        record = yield self.directory.recordWithShortName(self.directory.recordType.user, shortname)
+        returnValue(record)
+
+
+    @inlineCallbacks
+    def userUIDFromShortName(self, shortname):
+        record = yield self.directory.recordWithShortName(self.directory.recordType.user, shortname)
+        returnValue(record.uid if record is not None else None)
+
+
+    @inlineCallbacks
+    def changeRecord(self, record, fieldname, value):
+        fields = record.fields.copy()
+        fields[fieldname] = value
+        updatedRecord = DirectoryRecord(self.directory, fields)
+        yield self.directory.updateRecords((updatedRecord,))
 
 
 

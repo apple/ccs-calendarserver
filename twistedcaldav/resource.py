@@ -2567,7 +2567,10 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
     @inlineCallbacks
     def _otherPrincipalHomeURL(self, otherUID):
         ownerPrincipal = (yield self.principalForUID(otherUID))
-        returnValue(ownerPrincipal.calendarHomeURLs()[0])
+        if ownerPrincipal and len(ownerPrincipal.calendarHomeURLs()):
+            returnValue(ownerPrincipal.calendarHomeURLs()[0])
+        else:
+            returnValue(None)
 
 
     @inlineCallbacks
@@ -2822,7 +2825,7 @@ class AddressBookHomeResource (CommonHomeResource):
     @inlineCallbacks
     def _otherPrincipalHomeURL(self, otherUID):
         ownerPrincipal = (yield self.principalForUID(otherUID))
-        returnValue(ownerPrincipal.addressBookHomeURLs()[0])
+        returnValue(ownerPrincipal.addressBookHomeURLs()[0] if ownerPrincipal else None)
 
 
     @inlineCallbacks

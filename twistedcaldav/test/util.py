@@ -77,8 +77,6 @@ proxiesFile = dirTest.child("proxies.xml")
 
 
 
-
-
 class SimpleStoreRequest(SimpleRequest):
     """
     A SimpleRequest that automatically grabs the proper transaction for a test.
@@ -188,7 +186,6 @@ class StoreTestCase(CommonCommonTests, txweb2.dav.test.util.TestCase):
 
         proxies = FilePath(config.DataRoot).child("proxies.xml")
         proxies.setContent(proxiesFile.getContent())
-
 
 
     def createHierarchy(self, structure, root=None):
@@ -407,7 +404,6 @@ class TestCase(txweb2.dav.test.util.TestCase):
         config.UsePackageTimezones = True
 
 
-
     def setUp(self):
         super(TestCase, self).setUp()
 
@@ -427,7 +423,6 @@ class TestCase(txweb2.dav.test.util.TestCase):
             os.makedirs(config.ConfigRoot)
         if not os.path.exists(config.LogRoot):
             os.makedirs(config.LogRoot)
-
 
 
 

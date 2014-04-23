@@ -15,17 +15,10 @@
 ##
 from __future__ import print_function
 
-from urllib import quote
-from uuid import UUID
+from twext.who.idirectory import RecordType
 
-from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.cred.credentials import UsernamePassword
-
-from txweb2.dav.resource import AccessDeniedError
-from txweb2.http import HTTPError
-from txweb2.test.test_server import SimpleRequest
-
-from txdav.xml import element as davxml
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twistedcaldav import carddavxml
 from twistedcaldav.cache import DisabledCacheNotifier
@@ -38,8 +31,17 @@ from twistedcaldav.directory.principal import (
     DirectoryPrincipalTypeProvisioningResource,
 )
 from twistedcaldav.test.util import StoreTestCase
+
+from txdav.who.delegates import addDelegate
 from txdav.who.idirectory import AutoScheduleMode, RecordType as CalRecordType
-from twext.who.idirectory import RecordType
+from txdav.xml import element as davxml
+
+from txweb2.dav.resource import AccessDeniedError
+from txweb2.http import HTTPError
+from txweb2.test.test_server import SimpleRequest
+
+from urllib import quote
+from uuid import UUID
 
 
 class ProvisionedPrincipals(StoreTestCase):
@@ -51,7 +53,6 @@ class ProvisionedPrincipals(StoreTestCase):
         yield super(ProvisionedPrincipals, self).setUp()
 
         self.principalRootResource = self.actualRoot.getChild("principals")
-
 
 
     @inlineCallbacks
@@ -169,7 +170,7 @@ class ProvisionedPrincipals(StoreTestCase):
         Test of a test routine...
         """
         for (
-            provisioningResource, recordType, recordResource, record
+            _ignore_provisioningResource, _ignore_recordType, recordResource, record
         ) in (yield self._allRecords()):
             if True:  # user.enabled:
                 self.assertEquals(recordResource.record, record)
@@ -185,7 +186,7 @@ class ProvisionedPrincipals(StoreTestCase):
         DirectoryPrincipalProvisioningResource.principalForShortName()
         """
         for (
-            provisioningResource, recordType, recordResource, record
+            provisioningResource, recordType, _ignore_recordResource, record
         ) in (yield self._allRecords()):
             principal = yield provisioningResource.principalForShortName(
                 recordType, record.shortNames[0]
@@ -246,7 +247,7 @@ class ProvisionedPrincipals(StoreTestCase):
         DirectoryPrincipalProvisioningResource.principalForUID()
         """
         for (
-            provisioningResource, recordType, recordResource, record
+            provisioningResource, _ignore_recordType, _ignore_recordResource, record
         ) in (yield self._allRecords()):
             principal = yield provisioningResource.principalForUID(record.uid)
             if True:  # user.enabled:
@@ -262,7 +263,7 @@ class ProvisionedPrincipals(StoreTestCase):
         DirectoryPrincipalProvisioningResource.principalForRecord()
         """
         for (
-            provisioningResource, recordType, recordResource, record
+            provisioningResource, _ignore_recordType, _ignore_recordResource, record
         ) in (yield self._allRecords()):
             principal = yield provisioningResource.principalForRecord(record)
             if True:  # user.enabled:
@@ -279,7 +280,7 @@ class ProvisionedPrincipals(StoreTestCase):
         .principalForCalendarUserAddress()
         """
         for (
-            provisioningResource, recordType, recordResource, record
+            provisioningResource, _ignore_recordType, recordResource, record
         ) in (yield self._allRecords()):
 
             test_items = tuple(record.calendarUserAddresses)
@@ -347,7 +348,7 @@ class ProvisionedPrincipals(StoreTestCase):
         .principalForCalendarUserAddress()
         """
         for (
-            provisioningResource, recordType, recordResource, record
+            provisioningResource, _ignore_recordType, _ignore_recordResource, record
         ) in (yield self._allRecords()):
             principal = yield provisioningResource.principalForRecord(record)
             if True:  # user.enabled:
@@ -465,7 +466,7 @@ class ProvisionedPrincipals(StoreTestCase):
             self.directory.recordType.user,
         )
         for (
-            provisioningResource, recordType, recordResource, record
+            provisioningResource, recordType, _ignore_recordResource, record
         ) in (yield self._allRecords()):
 
             if record.hasCalendars:
@@ -488,7 +489,7 @@ class ProvisionedPrincipals(StoreTestCase):
             self.directory.recordType.resource,
         )
         for (
-            provisioningResource, recordType, recordResource, record
+            provisioningResource, recordType, _ignore_recordResource, record
         ) in (yield self._allRecords()):
             if record.hasCalendars:
                 principal = (
@@ -515,7 +516,7 @@ class ProvisionedPrincipals(StoreTestCase):
         that is an instance of DisabledCacheNotifier
         """
         for (
-            provisioningResource, recordType, recordResource, record
+            _ignore_provisioningResource, _ignore_recordType, recordResource, _ignore_record
         ) in (yield self._allRecords()):
             if True:  # user.enabled:
                 self.failUnless(
@@ -532,7 +533,7 @@ class ProvisionedPrincipals(StoreTestCase):
         DirectoryPrincipalResource.displayName()
         """
         for (
-            provisioningResource, recordType, recordResource, record
+            _ignore_provisioningResource, _ignore_recordType, recordResource, _ignore_record
         ) in (yield self._allRecords()):
             self.failUnless(recordResource.displayName())
 
@@ -543,7 +544,7 @@ class ProvisionedPrincipals(StoreTestCase):
         DirectoryPrincipalResource.groupMembers()
         """
         for (
-            provisioningResource, recordType, recordResource, record
+            _ignore_provisioningResource, _ignore_recordType, recordResource, record
         ) in (yield self._allRecords()):
             members = yield recordResource.groupMembers()
             self.failUnless(
@@ -559,7 +560,7 @@ class ProvisionedPrincipals(StoreTestCase):
         DirectoryPrincipalResource.groupMemberships()
         """
         for (
-            provisioningResource, recordType, recordResource, record
+            _ignore_provisioningResource, _ignore_recordType, recordResource, record
         ) in (yield self._allRecords()):
             if True:  # user.enabled:
                 memberships = yield recordResource.groupMemberships()
@@ -579,7 +580,7 @@ class ProvisionedPrincipals(StoreTestCase):
         DirectoryPrincipalResource.principalUID()
         """
         for (
-            provisioningResource, recordType, recordResource, record
+            _ignore_provisioningResource, _ignore_recordType, recordResource, record
         ) in (yield self._allRecords()):
             self.assertEquals(record.uid, recordResource.principalUID())
 
@@ -590,7 +591,7 @@ class ProvisionedPrincipals(StoreTestCase):
         DirectoryPrincipalResource.calendarUserAddresses()
         """
         for (
-            provisioningResource, recordType, recordResource, record
+            _ignore_provisioningResource, _ignore_recordType, recordResource, record
         ) in (yield self._allRecords()):
             if record.hasCalendars:
                 self.assertEqual(
@@ -609,7 +610,7 @@ class ProvisionedPrincipals(StoreTestCase):
         DirectoryPrincipalResource.canonicalCalendarUserAddress()
         """
         for (
-            provisioningResource, recordType, recordResource, record
+            _ignore_provisioningResource, _ignore_recordType, recordResource, record
         ) in (yield self._allRecords()):
             if record.hasCalendars:
                 self.failUnless(
@@ -625,7 +626,7 @@ class ProvisionedPrincipals(StoreTestCase):
         """
 
         for (
-            provisioningResource, recordType, recordResource, record
+            _ignore_provisioningResource, _ignore_recordType, recordResource, record
         ) in (yield self._allRecords()):
             if record.hasContacts:
                 homeURLs = tuple(recordResource.addressBookHomeURLs())
@@ -684,7 +685,7 @@ class ProvisionedPrincipals(StoreTestCase):
 
         # Calendar home provisioners should result in calendar homes.
         for (
-            provisioningResource, recordType, recordResource, record
+            _ignore_provisioningResource, _ignore_recordType, recordResource, record
         ) in (yield self._allRecords()):
             if record.hasCalendars:
                 homeURLs = tuple(recordResource.calendarHomeURLs())
@@ -746,7 +747,7 @@ class ProvisionedPrincipals(StoreTestCase):
 
         # Default state - resources and locations, enabled, others not
         for (
-            provisioningResource, recordType, recordResource, record
+            _ignore_provisioningResource, recordType, recordResource, record
         ) in (yield self._allRecords()):
             if record.hasCalendars:
                 if recordType in (CalRecordType.location, CalRecordType.resource):
@@ -757,7 +758,7 @@ class ProvisionedPrincipals(StoreTestCase):
         # Set config to allow users
         self.patch(config.Scheduling.Options.AutoSchedule, "AllowUsers", True)
         for (
-            provisioningResource, recordType, recordResource, record
+            _ignore_provisioningResource, recordType, recordResource, record
         ) in (yield self._allRecords()):
             if record.hasCalendars:
                 if (
@@ -777,7 +778,7 @@ class ProvisionedPrincipals(StoreTestCase):
         # Set config to disallow all
         self.patch(config.Scheduling.Options.AutoSchedule, "Enabled", False)
         for (
-            provisioningResource, recordType, recordResource, record
+            _ignore_provisioningResource, recordType, recordResource, record
         ) in (yield self._allRecords()):
             if record.hasCalendars:
                 self.assertFalse((yield recordResource.canAutoSchedule()))
@@ -829,7 +830,7 @@ class ProvisionedPrincipals(StoreTestCase):
         Default access controls for principals.
         """
         for (
-            provisioningResource, recordType, recordResource, record
+            _ignore_provisioningResource, _ignore_recordType, recordResource, _ignore_record
         ) in (yield self._allRecords()):
             if True:  # user.enabled:
                 for args in (
@@ -1016,7 +1017,7 @@ class ProvisionedPrincipals(StoreTestCase):
 def _authReadOnlyPrivileges(self, resource, url):
     items = []
     for (
-        provisioningResource, recordType, recordResource, record
+        _ignore_provisioningResource, _ignore_recordType, recordResource, _ignore_record
     ) in (yield self._allRecords()):
         if True:  # user.enabled:
             items.append((
@@ -1039,3 +1040,62 @@ def _authReadOnlyPrivileges(self, resource, url):
         results.append((resource, url, principal, privilege, allowed))
 
     returnValue(results)
+
+
+
+class ProxyPrincipals(StoreTestCase):
+    """
+    Directory service proxy principals.
+    """
+    @inlineCallbacks
+    def setUp(self):
+        yield super(ProxyPrincipals, self).setUp()
+
+        self.principalRootResource = self.actualRoot.getChild("principals")
+
+
+    @inlineCallbacks
+    def test_hideDisabledProxies(self):
+        """
+        Make sure users that are missing or not enabled for calendaring are removed
+        from the proxyFor list.
+        """
+
+        # Check proxies empty right now
+        principal01 = yield self.principalRootResource.principalForUID((yield self.userUIDFromShortName("user01")))
+        self.assertTrue(len((yield principal01.proxyFor(False))) == 0)
+        self.assertTrue(len((yield principal01.proxyFor(True))) == 0)
+
+        principal02 = yield self.principalRootResource.principalForUID((yield self.userUIDFromShortName("user02")))
+        self.assertTrue(len((yield principal02.proxyFor(False))) == 0)
+        self.assertTrue(len((yield principal02.proxyFor(True))) == 0)
+
+        principal03 = yield self.principalRootResource.principalForUID((yield self.userUIDFromShortName("user03")))
+        self.assertTrue(len((yield principal03.proxyFor(False))) == 0)
+        self.assertTrue(len((yield principal03.proxyFor(True))) == 0)
+
+        # Make user01 a read-only proxy for user02 and user03
+        yield addDelegate(self.transactionUnderTest(), principal02.record, principal01.record, False)
+        yield addDelegate(self.transactionUnderTest(), principal03.record, principal01.record, False)
+        yield self.commit()
+
+        self.assertTrue(len((yield principal01.proxyFor(False))) == 2)
+        self.assertTrue(len((yield principal01.proxyFor(True))) == 0)
+
+        # Now disable user02
+        yield self.changeRecord(principal02.record, self.directory.fieldName.hasCalendars, False)
+
+        self.assertTrue(len((yield principal01.proxyFor(False))) == 1)
+        self.assertTrue(len((yield principal01.proxyFor(True))) == 0)
+
+        # Now enable user02
+        yield self.changeRecord(principal02.record, self.directory.fieldName.hasCalendars, True)
+
+        self.assertTrue(len((yield principal01.proxyFor(False))) == 2)
+        self.assertTrue(len((yield principal01.proxyFor(True))) == 0)
+
+        # Now remove user02
+        yield self.directory.removeRecords((principal02.record.uid,))
+
+        self.assertTrue(len((yield principal01.proxyFor(False))) == 1)
+        self.assertTrue(len((yield principal01.proxyFor(True))) == 0)

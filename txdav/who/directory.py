@@ -377,9 +377,6 @@ class CalendarDirectoryRecordMixin(object):
 
 
     def enabledAsOrganizer(self):
-        # FIXME:
-        from twistedcaldav.config import config
-
         if self.recordType == self.service.recordType.user:
             return True
         elif self.recordType == self.service.recordType.group:
@@ -396,9 +393,6 @@ class CalendarDirectoryRecordMixin(object):
         """
         URL of the server hosting this record. Return None if hosted on this server.
         """
-        # FIXME:
-        from twistedcaldav.config import config
-
         if config.Servers.Enabled and getattr(self, "serviceNodeUID", None):
             return Servers.getServerURIById(self.serviceNodeUID)
         else:
@@ -409,9 +403,6 @@ class CalendarDirectoryRecordMixin(object):
         """
         Server hosting this record. Return None if hosted on this server.
         """
-        # FIXME:
-        from twistedcaldav.config import config
-
         if config.Servers.Enabled and getattr(self, "serviceNodeUID", None):
             return Servers.getServerById(self.serviceNodeUID)
         else:
@@ -428,17 +419,11 @@ class CalendarDirectoryRecordMixin(object):
 
 
     def calendarsEnabled(self):
-        # FIXME:
-        from twistedcaldav.config import config
-
         return config.EnableCalDAV and self.hasCalendars
 
 
     @inlineCallbacks
     def canAutoSchedule(self, organizer=None):
-        # FIXME:
-        from twistedcaldav.config import config
-
         if config.Scheduling.Options.AutoSchedule.Enabled:
             if (
                 config.Scheduling.Options.AutoSchedule.Always or
