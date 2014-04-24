@@ -3777,15 +3777,13 @@ def normalize_iCalStr(icalstr):
         pos = line.find(";X-CALENDARSERVER-DTSTAMP=")
         if pos != -1:
             lines[ctr] = line[:pos] + line[pos + len(";X-CALENDARSERVER-DTSTAMP=") + 16:]
-    icalstr = "\r\n".join(lines) + "\r\n"
-
-    return str(Component.fromString(icalstr))
+    icalstr = "\r\n".join(lines)
+    return icalstr + "\r\n"
 
 
 
 def diff_iCalStrs(icalstr1, icalstr2):
-    """
-    """
+
     icalstr1 = normalize_iCalStr(icalstr1).splitlines()
     icalstr2 = normalize_iCalStr(icalstr2).splitlines()
     return "\n".join(unified_diff(icalstr1, icalstr2))
