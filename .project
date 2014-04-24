@@ -13,7 +13,7 @@
 		<project>PyGreSQL</project>
 		<project>python-ldap-2.3.13</project>
 		<project>sqlparse</project>
-		<project>twext</project>
+		<project>twextpy</project>
 		<project>Twisted</project>
 		<project>zope.interface-4.0.3</project>
 	</projects>
