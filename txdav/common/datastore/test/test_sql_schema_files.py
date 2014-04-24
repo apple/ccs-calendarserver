@@ -102,6 +102,9 @@ class SQLSchemaFiles(TestCase):
 
         self.assertEqual(current_version, current_oracle_version)
 
+        mismatched = schemaFromPath(currentSchema).compare(schemaFromPath(currentOracleSchema))
+        self.assertEqual(len(mismatched), 0, msg=", ".join(mismatched))
+
 
     def test_schema_compare(self):
 
@@ -117,7 +120,7 @@ class SQLSchemaFiles(TestCase):
         v6Schema = schemaFromPath(sqlSchema.child("old").child("postgres-dialect").child("v6.sql"))
         v5Schema = schemaFromPath(sqlSchema.child("old").child("postgres-dialect").child("v5.sql"))
         mismatched = v6Schema.compare(v5Schema)
-        self.assertEqual(len(mismatched), 3, msg="\n".join(mismatched))
+        self.assertEqual(len(mismatched), 4, msg="\n".join(mismatched))
 
 
     def test_references_index(self):
@@ -143,3 +146,26 @@ class SQLSchemaFiles(TestCase):
                         failures.append(id)
 
         self.assertEqual(len(failures), 0, msg="Missing index for references columns: %s" % (", ".join(sorted(failures))))
+
+
+    def test_primary_keys(self):
+        """
+        Make sure current-oracle-dialect.sql matches current.sql
+        """
+
+        schema = schemaFromPath(getModule(__name__).filePath.parent().sibling("sql_schema").child("current.sql"))
+
+        # Set of tables for which missing primary key is allowed
+        table_exceptions = (
+            "ADDRESSBOOK_OBJECT_REVISIONS",
+            "CALENDAR_OBJECT_REVISIONS",
+            "NOTIFICATION_OBJECT_REVISIONS",
+            "PERUSER",
+        )
+        # Look at each table
+        failures = []
+        for table in schema.tables:
+            if table.primaryKey is None and table.name not in table_exceptions:
+                failures.append(table.name)
+
+        self.assertEqual(len(failures), 0, msg="Missing primary key for tables: %s" % (", ".join(sorted(failures))))

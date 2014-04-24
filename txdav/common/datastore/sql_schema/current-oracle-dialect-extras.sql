@@ -1,4 +1,5 @@
 create or replace function next_job return integer is
+declare
   cursor c1 is select JOB_ID from JOB for update skip locked;
   result integer;
 begin

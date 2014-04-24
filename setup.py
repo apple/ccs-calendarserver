@@ -152,7 +152,7 @@ install_requirements = [
     # Data store
     "xattr",
     "twextpy[DAL]",
-    "sqlparse==0.1.2",
+    "sqlparse>=0.1.11",
 
     # Calendar
     "python-dateutil",

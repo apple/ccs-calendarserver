@@ -116,7 +116,7 @@ class SampleSomeColumns(TestCase, SchemaTestHelper):
         """
         stx = SchemaSyntax(
             self.schemaFromString(
-                "create table alpha (beta integer, unique(beta))"
+                "create table alpha (beta integer, unique (beta))"
             )
         )
         self.assertSortaEquals(
@@ -133,13 +133,13 @@ class SampleSomeColumns(TestCase, SchemaTestHelper):
         stx = SchemaSyntax(
             self.schemaFromString(
                 "create table alpha ("
-                "beta integer, gamma text, unique(beta, gamma))"
+                "beta integer, gamma text, unique (beta, gamma))"
             )
         )
         self.assertSortaEquals(
             self.translated(stx),
             'create table alpha ( "beta" integer, "gamma" nclob, '
-            'unique("beta", "gamma") );'
+            'unique ("beta", "gamma") );'
         )
 
 
@@ -167,7 +167,7 @@ class SampleSomeColumns(TestCase, SchemaTestHelper):
         """
         stx = SchemaSyntax(
             self.schemaFromString(
-                "create table alpha (beta integer, primary key(beta))"
+                "create table alpha (beta integer, primary key (beta))"
             )
         )
         self.assertSortaEquals(
@@ -184,13 +184,13 @@ class SampleSomeColumns(TestCase, SchemaTestHelper):
         stx = SchemaSyntax(
             self.schemaFromString(
                 "create table alpha ("
-                "beta integer, gamma text, primary key(beta, gamma))"
+                "beta integer, gamma text, primary key (beta, gamma))"
             )
         )
         self.assertSortaEquals(
             self.translated(stx),
             'create table alpha ( "beta" integer, "gamma" nclob, '
-            'primary key("beta", "gamma") );'
+            'primary key ("beta", "gamma") );'
         )
 
 
@@ -203,14 +203,14 @@ class SampleSomeColumns(TestCase, SchemaTestHelper):
             self.schemaFromString(
                 "create table alpha ("
                 "beta integer, gamma text, delta integer, "
-                "unique(beta, delta), primary key(beta, gamma))"
+                "unique (beta, delta), primary key (beta, gamma))"
             )
         )
         self.assertSortaEquals(
             self.translated(stx),
             'create table alpha ( '
             '"beta" integer, "gamma" nclob, "delta" integer, '
-            'primary key("beta", "gamma"), unique("beta", "delta") );'
+            'primary key ("beta", "gamma"), unique ("beta", "delta") );'
         )
 
 
@@ -222,11 +222,11 @@ class SampleSomeColumns(TestCase, SchemaTestHelper):
         self.assertSortaEquals(
             self.translated(SchemaSyntax(self.schemaFromString(
                             "create table alpha ( "
-                            'beta integer, check(beta > 3)'
+                            'beta integer, check (beta > 3)'
                             " );"
                         ))),
             "create table alpha ( "
-            '"beta" integer, check("beta" > 3)'
+            '"beta" integer, check ("beta" > 3)'
             " );"
         )
 
@@ -239,11 +239,11 @@ class SampleSomeColumns(TestCase, SchemaTestHelper):
         self.assertSortaEquals(
             self.translated(SchemaSyntax(self.schemaFromString(
                             "create table alpha ( "
-                            'beta integer, constraint beta_lt_3 check(beta > 3)'
+                            'beta integer, constraint beta_lt_3 check (beta > 3)'
                             " );"
                         ))),
             "create table alpha ( "
-            '"beta" integer, constraint "beta_lt_3" check("beta" > 3)'
+            '"beta" integer, constraint "beta_lt_3" check ("beta" > 3)'
             " );"
         )
 

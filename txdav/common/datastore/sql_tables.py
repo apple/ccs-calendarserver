@@ -209,8 +209,8 @@ _TRANSP_TRANSPARENT = _transpValues('transparent')
 
 
 _attachmentsMode = _schemaConstants(
-    schema.CALENDAR_OBJECT_ATTACHMENTS_MODE.DESCRIPTION,
-    schema.CALENDAR_OBJECT_ATTACHMENTS_MODE.ID
+    schema.CALENDAR_OBJ_ATTACHMENTS_MODE.DESCRIPTION,
+    schema.CALENDAR_OBJ_ATTACHMENTS_MODE.ID
 )
 
 _ATTACHMENTS_MODE_NONE = _attachmentsMode('none')
@@ -318,19 +318,15 @@ def _translateSchema(out, schema=schema):
     only postgres and oracle are supported, and native format is postgres, so
     emit in oracle format.
     """
-    shortNames = {}
     for sequence in schema.model.sequences:
         out.write('create sequence %s;\n' % (sequence.name,))
     for table in schema:
         # The only table name which actually exceeds the length limit right now
         # is CALENDAR_OBJECT_ATTACHMENTS_MODE, which isn't actually _used_
         # anywhere, so we can fake it for now.
-        shortName = table.model.name[:ORACLE_TABLE_NAME_MAX]
-        if shortName in shortNames:
-            raise SchemaBroken("short-name conflict between %s and %s" %
-                               (table.model.name, shortNames[shortName]))
-        shortNames[shortName] = table.model.name
-        out.write('create table %s (\n' % (shortName,))
+        if len(table.model.name) > ORACLE_TABLE_NAME_MAX:
+            raise SchemaBroken("Table name too long: %s" % (table.model.name,))
+        out.write('create table %s (\n' % (table.model.name[:ORACLE_TABLE_NAME_MAX],))
         first = True
         for column in table:
             if first:
@@ -387,19 +383,19 @@ def _translateSchema(out, schema=schema):
 
         pk = table.model.primaryKey
         if pk is not None and len(pk) > 1:
-            writeConstraint("primary key", pk)
+            writeConstraint("primary key ", pk)
 
         for uniqueColumns in table.model.uniques():
             if len(uniqueColumns) == 1:
                 continue # already done inline, skip
-            writeConstraint("unique", uniqueColumns)
+            writeConstraint("unique ", uniqueColumns)
 
         for checkConstraint in table.model.constraints:
             if checkConstraint.type == 'CHECK':
                 out.write(", \n    ")
                 if checkConstraint.name is not None:
                     out.write('constraint "%s" ' % (checkConstraint.name,))
-                out.write("check(%s)" %
+                out.write("check (%s)" %
                           (_staticSQL(checkConstraint.expression, True)))
 
         out.write('\n);\n\n')

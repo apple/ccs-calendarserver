@@ -157,7 +157,7 @@ class GroupRefreshWork(WorkItem, fromTable(schema.GROUP_REFRESH_WORK)):
 
 
 class GroupAttendeeReconciliationWork(
-    WorkItem, fromTable(schema.GROUP_ATTENDEE_RECONCILIATION_WORK)
+    WorkItem, fromTable(schema.GROUP_ATTENDEE_RECONCILE_WORK)
 ):
 
     group = property(

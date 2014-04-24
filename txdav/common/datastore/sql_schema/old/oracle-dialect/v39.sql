@@ -9,7 +9,7 @@ create table NODE_INFO (
     "PID" integer not null,
     "PORT" integer not null,
     "TIME" timestamp default CURRENT_TIMESTAMP at time zone 'UTC' not null, 
-    primary key ("HOSTNAME", "PORT")
+    primary key("HOSTNAME", "PORT")
 );
 
 create table NAMED_LOCK (
@@ -81,7 +81,7 @@ create table NOTIFICATION (
     "MD5" nchar(32),
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC', 
-    unique ("NOTIFICATION_UID", "NOTIFICATION_HOME_RESOURCE_ID")
+    unique("NOTIFICATION_UID", "NOTIFICATION_HOME_RESOURCE_ID")
 );
 
 create table CALENDAR_BIND (
@@ -99,8 +99,8 @@ create table CALENDAR_BIND (
     "ALARM_VTODO_TIMED" nclob default null,
     "ALARM_VTODO_ALLDAY" nclob default null,
     "TIMEZONE" nclob default null, 
-    primary key ("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_ID"), 
-    unique ("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_NAME")
+    primary key("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_ID"), 
+    unique("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_NAME")
 );
 
 create table CALENDAR_BIND_MODE (
@@ -150,17 +150,17 @@ create table CALENDAR_OBJECT (
     "MD5" nchar(32),
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC', 
-    unique ("CALENDAR_RESOURCE_ID", "RESOURCE_NAME")
+    unique("CALENDAR_RESOURCE_ID", "RESOURCE_NAME")
 );
 
-create table CALENDAR_OBJ_ATTACHMENTS_MODE (
+create table CALENDAR_OBJECT_ATTACHMENTS_MO (
     "ID" integer primary key,
     "DESCRIPTION" nvarchar2(16) unique
 );
 
-insert into CALENDAR_OBJ_ATTACHMENTS_MODE (DESCRIPTION, ID) values ('none', 0);
-insert into CALENDAR_OBJ_ATTACHMENTS_MODE (DESCRIPTION, ID) values ('read', 1);
-insert into CALENDAR_OBJ_ATTACHMENTS_MODE (DESCRIPTION, ID) values ('write', 2);
+insert into CALENDAR_OBJECT_ATTACHMENTS_MO (DESCRIPTION, ID) values ('none', 0);
+insert into CALENDAR_OBJECT_ATTACHMENTS_MO (DESCRIPTION, ID) values ('read', 1);
+insert into CALENDAR_OBJECT_ATTACHMENTS_MO (DESCRIPTION, ID) values ('write', 2);
 create table CALENDAR_ACCESS_TYPE (
     "ID" integer primary key,
     "DESCRIPTION" nvarchar2(32) unique
@@ -216,8 +216,8 @@ create table ATTACHMENT_CALENDAR_OBJECT (
     "ATTACHMENT_ID" integer not null references ATTACHMENT on delete cascade,
     "MANAGED_ID" nvarchar2(255),
     "CALENDAR_OBJECT_RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade, 
-    primary key ("ATTACHMENT_ID", "CALENDAR_OBJECT_RESOURCE_ID"), 
-    unique ("MANAGED_ID", "CALENDAR_OBJECT_RESOURCE_ID")
+    primary key("ATTACHMENT_ID", "CALENDAR_OBJECT_RESOURCE_ID"), 
+    unique("MANAGED_ID", "CALENDAR_OBJECT_RESOURCE_ID")
 );
 
 create table RESOURCE_PROPERTY (
@@ -225,7 +225,7 @@ create table RESOURCE_PROPERTY (
     "NAME" nvarchar2(255),
     "VALUE" nclob,
     "VIEWER_UID" nvarchar2(255), 
-    primary key ("RESOURCE_ID", "NAME", "VIEWER_UID")
+    primary key("RESOURCE_ID", "NAME", "VIEWER_UID")
 );
 
 create table ADDRESSBOOK_HOME (
@@ -252,8 +252,8 @@ create table SHARED_ADDRESSBOOK_BIND (
     "BIND_STATUS" integer not null,
     "BIND_REVISION" integer default 0 not null,
     "MESSAGE" nclob, 
-    primary key ("ADDRESSBOOK_HOME_RESOURCE_ID", "OWNER_HOME_RESOURCE_ID"), 
-    unique ("ADDRESSBOOK_HOME_RESOURCE_ID", "ADDRESSBOOK_RESOURCE_NAME")
+    primary key("ADDRESSBOOK_HOME_RESOURCE_ID", "OWNER_HOME_RESOURCE_ID"), 
+    unique("ADDRESSBOOK_HOME_RESOURCE_ID", "ADDRESSBOOK_RESOURCE_NAME")
 );
 
 create table ADDRESSBOOK_OBJECT (
@@ -266,8 +266,8 @@ create table ADDRESSBOOK_OBJECT (
     "MD5" nchar(32),
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC', 
-    unique ("ADDRESSBOOK_HOME_RESOURCE_ID", "RESOURCE_NAME"), 
-    unique ("ADDRESSBOOK_HOME_RESOURCE_ID", "VCARD_UID")
+    unique("ADDRESSBOOK_HOME_RESOURCE_ID", "RESOURCE_NAME"), 
+    unique("ADDRESSBOOK_HOME_RESOURCE_ID", "VCARD_UID")
 );
 
 create table ADDRESSBOOK_OBJECT_KIND (
@@ -286,14 +286,14 @@ create table ABO_MEMBERS (
     "REVISION" integer not null,
     "REMOVED" integer default 0 not null,
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC', 
-    primary key ("GROUP_ID", "MEMBER_ID", "REVISION")
+    primary key("GROUP_ID", "MEMBER_ID", "REVISION")
 );
 
 create table ABO_FOREIGN_MEMBERS (
     "GROUP_ID" integer not null references ADDRESSBOOK_OBJECT on delete cascade,
     "ADDRESSBOOK_ID" integer not null references ADDRESSBOOK_HOME on delete cascade,
     "MEMBER_ADDRESS" nvarchar2(255), 
-    primary key ("GROUP_ID", "MEMBER_ADDRESS")
+    primary key("GROUP_ID", "MEMBER_ADDRESS")
 );
 
 create table SHARED_GROUP_BIND (
@@ -305,8 +305,8 @@ create table SHARED_GROUP_BIND (
     "BIND_STATUS" integer not null,
     "BIND_REVISION" integer default 0 not null,
     "MESSAGE" nclob, 
-    primary key ("ADDRESSBOOK_HOME_RESOURCE_ID", "GROUP_RESOURCE_ID"), 
-    unique ("ADDRESSBOOK_HOME_RESOURCE_ID", "GROUP_ADDRESSBOOK_NAME")
+    primary key("ADDRESSBOOK_HOME_RESOURCE_ID", "GROUP_RESOURCE_ID"), 
+    unique("ADDRESSBOOK_HOME_RESOURCE_ID", "GROUP_ADDRESSBOOK_NAME")
 );
 
 create table CALENDAR_OBJECT_REVISIONS (
@@ -336,7 +336,7 @@ create table NOTIFICATION_OBJECT_REVISIONS (
     "REVISION" integer not null,
     "DELETED" integer not null,
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC', 
-    unique ("NOTIFICATION_HOME_RESOURCE_ID", "RESOURCE_NAME")
+    unique("NOTIFICATION_HOME_RESOURCE_ID", "RESOURCE_NAME")
 );
 
 create table APN_SUBSCRIPTIONS (
@@ -346,7 +346,7 @@ create table APN_SUBSCRIPTIONS (
     "SUBSCRIBER_GUID" nvarchar2(255),
     "USER_AGENT" nvarchar2(255) default null,
     "IP_ADDR" nvarchar2(255) default null, 
-    primary key ("TOKEN", "RESOURCE_KEY")
+    primary key("TOKEN", "RESOURCE_KEY")
 );
 
 create table IMIP_TOKENS (
@@ -355,7 +355,7 @@ create table IMIP_TOKENS (
     "ATTENDEE" nvarchar2(255),
     "ICALUID" nvarchar2(255),
     "ACCESSED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC', 
-    primary key ("ORGANIZER", "ATTENDEE", "ICALUID")
+    primary key("ORGANIZER", "ATTENDEE", "ICALUID")
 );
 
 create table IMIP_INVITATION_WORK (
@@ -397,7 +397,7 @@ create table GROUP_REFRESH_WORK (
     "GROUP_UID" nvarchar2(255)
 );
 
-create table GROUP_ATTENDEE_RECONCILE_WORK (
+create table GROUP_ATTENDEE_RECONCILIATION_ (
     "WORK_ID" integer primary key not null,
     "JOB_ID" integer not null references JOB,
     "RESOURCE_ID" integer,
@@ -416,22 +416,20 @@ create table GROUPS (
 
 create table GROUP_MEMBERSHIP (
     "GROUP_ID" integer not null references GROUPS on delete cascade,
-    "MEMBER_UID" nvarchar2(255), 
-    primary key ("GROUP_ID", "MEMBER_UID")
+    "MEMBER_UID" nvarchar2(255)
 );
 
 create table GROUP_ATTENDEE (
     "GROUP_ID" integer not null references GROUPS on delete cascade,
     "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade,
-    "MEMBERSHIP_HASH" nvarchar2(255), 
-    primary key ("GROUP_ID", "RESOURCE_ID")
+    "MEMBERSHIP_HASH" nvarchar2(255)
 );
 
 create table DELEGATES (
     "DELEGATOR" nvarchar2(255),
     "DELEGATE" nvarchar2(255),
     "READ_WRITE" integer not null, 
-    primary key ("DELEGATOR", "READ_WRITE", "DELEGATE")
+    primary key("DELEGATOR", "READ_WRITE", "DELEGATE")
 );
 
 create table DELEGATE_GROUPS (
@@ -439,7 +437,7 @@ create table DELEGATE_GROUPS (
     "GROUP_ID" integer not null references GROUPS on delete cascade,
     "READ_WRITE" integer not null,
     "IS_EXTERNAL" integer not null, 
-    primary key ("DELEGATOR", "READ_WRITE", "GROUP_ID")
+    primary key("DELEGATOR", "READ_WRITE", "GROUP_ID")
 );
 
 create table EXTERNAL_DELEGATE_GROUPS (
@@ -486,8 +484,7 @@ create table SCHEDULE_REFRESH_WORK (
 
 create table SCHEDULE_REFRESH_ATTENDEES (
     "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade,
-    "ATTENDEE" nvarchar2(255), 
-    primary key ("RESOURCE_ID", "ATTENDEE")
+    "ATTENDEE" nvarchar2(255)
 );
 
 create table SCHEDULE_AUTO_REPLY_WORK (
@@ -560,7 +557,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '40');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '39');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');
@@ -718,7 +715,7 @@ create index GROUP_REFRESH_WORK_JO_717ede20 on GROUP_REFRESH_WORK (
     JOB_ID
 );
 
-create index GROUP_ATTENDEE_RECONC_da73d3c2 on GROUP_ATTENDEE_RECONCILE_WORK (
+create index GROUP_ATTENDEE_RECONC_cd2d61b9 on GROUP_ATTENDEE_RECONCILIATION_ (
     JOB_ID
 );
 
@@ -726,22 +723,18 @@ create index GROUPS_GROUP_UID_b35cce23 on GROUPS (
     GROUP_UID
 );
 
-create index GROUP_MEMBERSHIP_MEMB_0ca508e8 on GROUP_MEMBERSHIP (
-    MEMBER_UID
+create index GROUP_MEMBERSHIP_GROU_9560a5e6 on GROUP_MEMBERSHIP (
+    GROUP_ID
 );
 
-create index GROUP_ATTENDEE_RESOUR_855124dc on GROUP_ATTENDEE (
-    RESOURCE_ID
+create index GROUP_MEMBERSHIP_MEMB_0ca508e8 on GROUP_MEMBERSHIP (
+    MEMBER_UID
 );
 
 create index DELEGATE_TO_DELEGATOR_5e149b11 on DELEGATES (
     DELEGATE,
     READ_WRITE,
     DELEGATOR
-);
-
-create index DELEGATE_GROUPS_GROUP_25117446 on DELEGATE_GROUPS (
-    GROUP_ID
 );
 
 create index CALENDAR_OBJECT_SPLIT_af71dcda on CALENDAR_OBJECT_SPLITTER_WORK (
@@ -846,7 +839,6 @@ create index PRINCIPAL_PURGE_WORK__7a8141a3 on PRINCIPAL_PURGE_WORK (
 -- Extras
 
 create or replace function next_job return integer is
-declare
   cursor c1 is select JOB_ID from JOB for update skip locked;
   result integer;
 begin

@@ -162,7 +162,7 @@ create table NOTIFICATION (
   CREATED                       timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                      timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
 
-  unique (NOTIFICATION_UID, NOTIFICATION_HOME_RESOURCE_ID) -- implicit index
+  unique(NOTIFICATION_UID, NOTIFICATION_HOME_RESOURCE_ID) -- implicit index
 );
 
 create index NOTIFICATION_NOTIFICATION_HOME_RESOURCE_ID on
@@ -191,8 +191,8 @@ create table CALENDAR_BIND (
   ALARM_VTODO_ALLDAY        text         default null,
   TIMEZONE                  text         default null,
 
-  primary key (CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_ID), -- implicit index
-  unique (CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_NAME)     -- implicit index
+  primary key(CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_ID), -- implicit index
+  unique(CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_NAME)     -- implicit index
 );
 
 create index CALENDAR_BIND_RESOURCE_ID on
@@ -247,7 +247,7 @@ create table CALENDAR_OBJECT (
   ICALENDAR_TEXT       text         not null,
   ICALENDAR_UID        varchar(255) not null,
   ICALENDAR_TYPE       varchar(255) not null,
-  ATTACHMENTS_MODE     integer      default 0 not null, -- enum CALENDAR_OBJ_ATTACHMENTS_MODE
+  ATTACHMENTS_MODE     integer      default 0 not null, -- enum CALENDAR_OBJECT_ATTACHMENTS_MODE
   DROPBOX_ID           varchar(255),
   ORGANIZER            varchar(255),
   RECURRANCE_MIN       date,        -- minimum date that recurrences have been expanded to.
@@ -267,7 +267,7 @@ create table CALENDAR_OBJECT (
   -- calendar objects, this constraint has to be selectively enforced by the
   -- application layer.
 
-  -- unique (CALENDAR_RESOURCE_ID, ICALENDAR_UID)
+  -- unique(CALENDAR_RESOURCE_ID, ICALENDAR_UID)
 );
 
 create index CALENDAR_OBJECT_CALENDAR_RESOURCE_ID_AND_ICALENDAR_UID on
@@ -284,14 +284,14 @@ create index CALENDAR_OBJECT_DROPBOX_ID on
 
 -- Enumeration of attachment modes
 
-create table CALENDAR_OBJ_ATTACHMENTS_MODE (
+create table CALENDAR_OBJECT_ATTACHMENTS_MODE (
   ID          integer     primary key,
   DESCRIPTION varchar(16) not null unique
 );
 
-insert into CALENDAR_OBJ_ATTACHMENTS_MODE values (0, 'none' );
-insert into CALENDAR_OBJ_ATTACHMENTS_MODE values (1, 'read' );
-insert into CALENDAR_OBJ_ATTACHMENTS_MODE values (2, 'write');
+insert into CALENDAR_OBJECT_ATTACHMENTS_MODE values (0, 'none' );
+insert into CALENDAR_OBJECT_ATTACHMENTS_MODE values (1, 'read' );
+insert into CALENDAR_OBJECT_ATTACHMENTS_MODE values (2, 'write');
 
 
 -- Enumeration of calendar access types
@@ -633,7 +633,7 @@ create table NOTIFICATION_OBJECT_REVISIONS (
   DELETED                       boolean      not null,
   MODIFIED                      timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
 
-  unique (NOTIFICATION_HOME_RESOURCE_ID, RESOURCE_NAME) -- implicit index
+  unique(NOTIFICATION_HOME_RESOURCE_ID, RESOURCE_NAME) -- implicit index
 );
 
 create index NOTIFICATION_OBJECT_REVISIONS_RESOURCE_ID_REVISION
@@ -763,15 +763,15 @@ create table GROUP_REFRESH_WORK (
 create index GROUP_REFRESH_WORK_JOB_ID on
   GROUP_REFRESH_WORK(JOB_ID);
 
-create table GROUP_ATTENDEE_RECONCILE_WORK (
+create table GROUP_ATTENDEE_RECONCILIATION_WORK (
   WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   JOB_ID                        integer      references JOB not null,
   RESOURCE_ID                   integer,
   GROUP_ID                      integer
 );
 
-create index GROUP_ATTENDEE_RECONCILE_WORK_JOB_ID on
-  GROUP_ATTENDEE_RECONCILE_WORK(JOB_ID);
+create index GROUP_ATTENDEE_RECONCILIATION_WORK_JOB_ID on
+  GROUP_ATTENDEE_RECONCILIATION_WORK(JOB_ID);
 
 
 create table GROUPS (
@@ -788,23 +788,18 @@ create index GROUPS_GROUP_UID on
 
 create table GROUP_MEMBERSHIP (
   GROUP_ID                     integer not null references GROUPS on delete cascade,
-  MEMBER_UID                   varchar(255) not null,
-  
-  primary key (GROUP_ID, MEMBER_UID)
+  MEMBER_UID                   varchar(255) not null
 );
-
+create index GROUP_MEMBERSHIP_GROUP on
+  GROUP_MEMBERSHIP(GROUP_ID);
 create index GROUP_MEMBERSHIP_MEMBER on
   GROUP_MEMBERSHIP(MEMBER_UID);
 
 create table GROUP_ATTENDEE (
   GROUP_ID                      integer not null references GROUPS on delete cascade,
   RESOURCE_ID                   integer not null references CALENDAR_OBJECT on delete cascade,
-  MEMBERSHIP_HASH               varchar(255) not null,
-  
-  primary key (GROUP_ID, RESOURCE_ID)
+  MEMBERSHIP_HASH               varchar(255) not null
 );
-create index GROUP_ATTENDEE_RESOURCE_ID on
-  GROUP_ATTENDEE(RESOURCE_ID);
 
 ---------------
 -- Delegates --
@@ -828,8 +823,6 @@ create table DELEGATE_GROUPS (
 
   primary key (DELEGATOR, READ_WRITE, GROUP_ID)
 );
-create index DELEGATE_GROUPS_GROUP_ID on
-  DELEGATE_GROUPS(GROUP_ID);
 
 create table EXTERNAL_DELEGATE_GROUPS (
   DELEGATOR                     varchar(255) primary key not null,
@@ -915,9 +908,7 @@ create index SCHEDULE_REFRESH_WORK_JOB_ID on
 
 create table SCHEDULE_REFRESH_ATTENDEES (
   RESOURCE_ID                   integer      not null references CALENDAR_OBJECT on delete cascade,
-  ATTENDEE                      varchar(255) not null,
-  
-  primary key (RESOURCE_ID, ATTENDEE)
+  ATTENDEE                      varchar(255) not null
 );
 
 create index SCHEDULE_REFRESH_ATTENDEES_RESOURCE_ID_ATTENDEE on
@@ -1064,7 +1055,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '40');
+insert into CALENDARSERVER values ('VERSION', '39');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');
