@@ -111,20 +111,8 @@ class GroupAttendeeReconciliation(CommonCommonTests, unittest.TestCase):
                         attendeeProp.setParameter("MEMBER", sorted(parameterValues))
 
         self.assertEqual(
-            orderMemberValues(
-                Component.fromString(
-                    normalize_iCalStr(
-                        iCalStr1
-                    )
-                )
-            ),
-            orderMemberValues(
-                Component.fromString(
-                    normalize_iCalStr(
-                        iCalStr2
-                    )
-                )
-            )
+            orderMemberValues(Component.fromString(normalize_iCalStr(iCalStr1))),
+            orderMemberValues(Component.fromString(normalize_iCalStr(iCalStr2)))
         )
 
 
