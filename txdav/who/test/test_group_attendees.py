@@ -561,7 +561,140 @@ END:VCALENDAR
         Test that every event associated with a group chagnes when the group changes
         """
 
-        self.fail("FIXME: implement this test")
+        data_put_1 = """BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART;TZID=US/Eastern:20140101T100000
+DURATION:PT1H
+SUMMARY:event {0}
+UID:event{0}@ninevah.local
+ORGANIZER:MAILTO:user0{0}@example.com
+ATTENDEE:mailto:user0{0}@example.com
+ATTENDEE:MAILTO:group01@example.com
+END:VEVENT
+END:VCALENDAR"""
+
+        data_get_2 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+BEGIN:VEVENT
+UID:event{0}@ninevah.local
+DTSTART;TZID=US/Eastern:20140101T100000
+DURATION:PT1H
+ATTENDEE;CN=User 0{0};EMAIL=user0{0}@example.com;RSVP=TRUE:urn:x-uid:10000000-0000-0000-0000-00000000000{0}
+ATTENDEE;CN=Group 01;CUTYPE=GROUP;EMAIL=group01@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:x-uid:20000000-0000-0000-0000-000000000001
+CREATED:20060101T150000Z
+ORGANIZER;CN=User 0{0};EMAIL=user0{0}@example.com:urn:x-uid:10000000-0000-0000-0000-00000000000{0}
+SUMMARY:event {0}
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data_get_3 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+BEGIN:VEVENT
+UID:event{0}@ninevah.local
+DTSTART;TZID=US/Eastern:20140101T100000
+DURATION:PT1H
+ATTENDEE;CN=User 0{0};EMAIL=user0{0}@example.com;RSVP=TRUE:urn:x-uid:10000000-0000-0000-0000-00000000000{0}
+ATTENDEE;CN=Group 01;CUTYPE=GROUP;EMAIL=group01@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:x-uid:20000000-0000-0000-0000-000000000001
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;MEMBER="urn:x-uid:20000000-0000-0000-0000-000000000001";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:10000000-0000-0000-0000-000000000001
+CREATED:20060101T150000Z
+ORGANIZER;CN=User 0{0};EMAIL=user0{0}@example.com:urn:x-uid:10000000-0000-0000-0000-00000000000{0}
+SEQUENCE:1
+SUMMARY:event {0}
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data_get_4 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+BEGIN:VEVENT
+UID:event{0}@ninevah.local
+DTSTART;TZID=US/Eastern:20140101T100000
+DURATION:PT1H
+ATTENDEE;CN=User 0{0};EMAIL=user0{0}@example.com;RSVP=TRUE:urn:x-uid:10000000-0000-0000-0000-00000000000{0}
+ATTENDEE;CN=Group 01;CUTYPE=GROUP;EMAIL=group01@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:x-uid:20000000-0000-0000-0000-000000000001
+CREATED:20060101T150000Z
+ORGANIZER;CN=User 0{0};EMAIL=user0{0}@example.com:urn:x-uid:10000000-0000-0000-0000-00000000000{0}
+SEQUENCE:2
+SUMMARY:event {0}
+END:VEVENT
+END:VCALENDAR
+"""
+
+        @inlineCallbacks
+        def expandedMembers(self, records=None):
+            yield None
+            returnValue(set())
+
+        unpatchedExpandedMembers = CalendarDirectoryRecordMixin.expandedMembers
+        self.patch(CalendarDirectoryRecordMixin, "expandedMembers", expandedMembers)
+
+        groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
+        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
+        self.assertEqual(len(wps), 0)
+
+        userRange = range(6, 10) # have to be 1 diget and homes in requirements
+
+        for i in userRange:
+            calendar = yield self.calendarUnderTest(name="calendar", home="10000000-0000-0000-0000-00000000000{0}".format(i))
+            vcalendar1 = Component.fromString(data_put_1.format(i))
+            yield calendar.createCalendarObjectWithName("data1.ics", vcalendar1)
+            yield self.commit()
+
+            cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-00000000000{0}".format(i))
+            vcalendar2 = yield cobj1.component()
+            self.assertEqual(normalize_iCalStr(vcalendar2), normalize_iCalStr(data_get_2.format(i)))
+
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000001", 0)
+        yield self.commit()
+
+        self.patch(CalendarDirectoryRecordMixin, "expandedMembers", unpatchedExpandedMembers)
+
+        groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
+        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
+        yield self.commit()
+        self.assertEqual(len(wps), len(userRange))
+        for wp in wps:
+            yield wp.whenExecuted()
+
+        for i in userRange:
+            cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-00000000000{0}".format(i))
+            vcalendar3 = yield cobj1.component()
+            self.assertEqual(normalize_iCalStr(vcalendar3), normalize_iCalStr(data_get_3.format(i)))
+
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000001", len(userRange))
+        yield self.commit()
+
+        self.patch(CalendarDirectoryRecordMixin, "expandedMembers", expandedMembers)
+        groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
+        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
+        yield self.commit()
+        self.assertEqual(len(wps), len(userRange))
+        for wp in wps:
+            yield wp.whenExecuted()
+
+        for i in userRange:
+            cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-00000000000{0}".format(i))
+            vcalendar3 = yield cobj1.component()
+            self.assertEqual(normalize_iCalStr(vcalendar3), normalize_iCalStr(data_get_4.format(i)))
+
+        cal1 = yield self.calendarUnderTest(name="calendar", home="10000000-0000-0000-0000-000000000001")
+        cobjs = yield cal1.objectResources()
+        self.assertEqual(len(cobjs), len(userRange))
+        for cobj in cobjs:
+            comp1 = yield cobj.componentForUser()
+            self.assertTrue("STATUS:CANCELLED" in str(comp1))
 
 
     @inlineCallbacks
