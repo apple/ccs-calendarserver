@@ -1950,11 +1950,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             groupRecord = yield self.directoryService().recordWithCalendarUserAddress(groupCUA)
             if groupRecord:
                 members = yield groupRecord.expandedMembers()
-                groupCUAToAttendeeMemberPropMap[groupRecord.canonicalCalendarUserAddress()] = frozenset(
-                    [member.attendeeProperty(params={"MEMBER": groupCUA}) for member in members]
+                groupCUAToAttendeeMemberPropMap[groupRecord.canonicalCalendarUserAddress()] = tuple(
+                    [member.attendeeProperty(params={"MEMBER": groupCUA}) for member in sorted(members, key=lambda x: x.uid)]
                 )
             else:
-                groupCUAToAttendeeMemberPropMap[groupCUA] = frozenset()
+                groupCUAToAttendeeMemberPropMap[groupCUA] = ()
 
         # sync group attendee members if inserting or group changed
         changed = False
