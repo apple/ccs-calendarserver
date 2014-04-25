@@ -1974,10 +1974,33 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         update schema.GROUP_ATTENDEE
         """
         if groupCUAToAttendeeMemberPropMap is None:
-            if not hasattr(self, "_groupCUAToAttendeeMemberPropMap"):
-                returnValue(False)
+            # post processing.
+
+            # see if this event ends in the past
+            tr = schema.TIME_RANGE
+            rows = yield Select(
+                [Count(tr.CALENDAR_OBJECT_RESOURCE_ID)],
+                From=tr,
+                Where=(
+                    tr.CALENDAR_OBJECT_RESOURCE_ID == self._resourceID).And(
+                    tr.END_DATE > datetime.datetime.utcnow()
+                ),
+            ).on(self._txn)
+
+            if rows[0][0] == 0:
+                # delete group attendee rows and exit
+                ga = schema.GROUP_ATTENDEE
+                rows = yield Delete(
+                    From=ga,
+                    Where=ga.RESOURCE_ID == self._resourceID,
+                    Return=[ga.GROUP_ID]
+                ).on(self._txn)
+                returnValue(bool(rows))
+
+            if hasattr(self, "_groupCUAToAttendeeMemberPropMap"):
+                    groupCUAToAttendeeMemberPropMap = self._groupCUAToAttendeeMemberPropMap
             else:
-                groupCUAToAttendeeMemberPropMap = self._groupCUAToAttendeeMemberPropMap
+                returnValue(False)
 
         changed = False
         ga = schema.GROUP_ATTENDEE
@@ -2696,7 +2719,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         yield self.updateDatabase(component, inserting=inserting)
 
-        # update GROUP_ATTENNDEE rows using
+        # update GROUP_ATTENDEE table rows
         yield self.updateGROUP_ATTENDEE()
 
         # Post process managed attachments
