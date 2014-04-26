@@ -228,8 +228,28 @@ class IScheduleScheduler(RemoteScheduler):
         # For remote requests we do not allow the originator to be a local user or one within our domain.
         originatorPrincipal = (yield self.txn.directoryService().recordWithCalendarUserAddress(self.originator))
         localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(self.originator))
+
+        if (originatorPrincipal or localUser) and not self._podding:
+            log.error("Cannot use originator that is external to this server: %s" % (self.originator,))
+            raise HTTPError(self.errorResponse(
+                responsecode.FORBIDDEN,
+                self.errorElements["originator-denied"],
+                "Originator cannot be external to server",
+            ))
+
         if originatorPrincipal or localUser:
-            if originatorPrincipal.thisServer():
+
+            # iSchedule must never deliver for users hosted on the server or any pod
+            if not self._podding:
+                log.error("Cannot use originator that is local to this server: %s" % (self.originator,))
+                raise HTTPError(self.errorResponse(
+                    responsecode.FORBIDDEN,
+                    self.errorElements["originator-denied"],
+                    "Originator cannot be external to server",
+                ))
+
+            # Cannot deliver message for someone hosted on the same pod
+            elif originatorPrincipal.thisServer():
                 log.error("Cannot use originator that is on this server: %s" % (self.originator,))
                 raise HTTPError(self.errorResponse(
                     responsecode.FORBIDDEN,
@@ -240,8 +260,16 @@ class IScheduleScheduler(RemoteScheduler):
                 self.originator = calendarUserFromPrincipal(self.originator, originatorPrincipal)
                 self._validAlternateServer(originatorPrincipal)
         else:
-            self.originator = RemoteCalendarUser(self.originator)
-            self._validiScheduleServer()
+            if self._podding:
+                log.error("Cannot use originator that is external to this server: %s" % (self.originator,))
+                raise HTTPError(self.errorResponse(
+                    responsecode.FORBIDDEN,
+                    self.errorElements["originator-denied"],
+                    "Originator cannot be external to server",
+                ))
+            else:
+                self.originator = RemoteCalendarUser(self.originator)
+                self._validiScheduleServer()
 
 
     def _validiScheduleServer(self):

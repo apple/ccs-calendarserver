@@ -18,29 +18,21 @@ limitations under the License.
 
 <!DOCTYPE accounts SYSTEM "accounts.dtd">
 
-<accounts realm="Test Realm">
-  <user>
-    <uid>admin</uid>
+<directory realm="Test Realm">
+<record>
+    <uid>0C8BDE62-E600-4696-83D3-8B5ECABDFD2E</uid>
+    <guid>0C8BDE62-E600-4696-83D3-8B5ECABDFD2E</guid>
+    <short-name>admin</short-name>
     <password>admin</password>
-    <name>Super User</name>
-  </user>
-  <user>
-    <uid>test</uid>
+    <full-name>Super User</full-name>
+    <email>admin@example.com</email>
+</record>
+<record>
+    <uid>29B6C503-11DF-43EC-8CCA-40C7003149CE</uid>
+    <guid>29B6C503-11DF-43EC-8CCA-40C7003149CE</guid>
+    <short-name>test</short-name>
     <password>test</password>
-    <name>Test User</name>
-  </user>
-  <group>
-    <uid>users</uid>
-    <password>users</password>
-    <name>Users Group</name>
-    <members>
-      <member type="users">test</member>
-    </members>
-  </group>
-  <location>
-    <uid>mercury</uid>
-    <password>mercury</password>
-    <name>Mecury Conference Room, Building 1, 2nd Floor</name>
-  </location>
-</accounts>
-
+    <full-name>Test User</full-name>
+    <email>test@example.com</email>
+</record>
+</directory>

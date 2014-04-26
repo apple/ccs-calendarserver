@@ -18,7 +18,7 @@ limitations under the License.
 
 <!DOCTYPE augments SYSTEM "../../../conf/auth/augments.dtd">
 
-<augments realm="Test">
+<augments>
   <!--
   <record>
     <uid>Location-Default</uid>
@@ -41,15 +41,15 @@ limitations under the License.
   </record>
   <record>
     <uid>6423F94A-6B76-4A3A-815B-D52CFD77935D</uid>
+    <server-id>00001</server-id>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
-    <server-id>00001</server-id>
   </record>
   <record>
     <uid>5A985493-EE2C-4665-94CF-4DFEA3A89500</uid>
+    <server-id>00002</server-id>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
-    <server-id>00002</server-id>
   </record>
   <record>
     <uid>8B4288F6-CC82-491D-8EF9-642EF4F3E7D0</uid>
@@ -181,7 +181,7 @@ limitations under the License.
   <record>
     <uid>75EA36BE-F71B-40F9-81F9-CF59BF40CA8F</uid>
     <enable-calendar>true</enable-calendar>
-    <auto-schedule>true</auto-schedule>
+    <auto-schedule-mode>automatic</auto-schedule-mode>
   </record>
 
 </augments>

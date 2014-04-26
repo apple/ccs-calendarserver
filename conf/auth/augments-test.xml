@@ -16,6 +16,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
  -->
 
+<!DOCTYPE augments SYSTEM "augments.dtd">
+
 <augments>
 <record>
     <uid>Default</uid>
@@ -36,45 +38,45 @@ limitations under the License.
 </record>
 <record>
     <uid>40000000-0000-0000-0000-000000000005</uid>
-    <auto-schedule-mode>none</auto-schedule-mode>
-    <enable-addressbook>true</enable-addressbook>
     <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <auto-schedule-mode>none</auto-schedule-mode>
 </record>
 <record>
     <uid>40000000-0000-0000-0000-000000000006</uid>
-    <auto-schedule-mode>accept-always</auto-schedule-mode>
-    <enable-addressbook>true</enable-addressbook>
     <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <auto-schedule-mode>accept-always</auto-schedule-mode>
 </record>
 <record>
     <uid>40000000-0000-0000-0000-000000000007</uid>
-    <auto-schedule-mode>decline-always</auto-schedule-mode>
-    <enable-addressbook>true</enable-addressbook>
     <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <auto-schedule-mode>decline-always</auto-schedule-mode>
 </record>
 <record>
     <uid>40000000-0000-0000-0000-000000000008</uid>
-    <auto-schedule-mode>accept-if-free</auto-schedule-mode>
-    <enable-addressbook>true</enable-addressbook>
     <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <auto-schedule-mode>accept-if-free</auto-schedule-mode>
 </record>
 <record>
     <uid>40000000-0000-0000-0000-000000000009</uid>
-    <auto-schedule-mode>decline-if-busy</auto-schedule-mode>
-    <enable-addressbook>true</enable-addressbook>
     <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <auto-schedule-mode>decline-if-busy</auto-schedule-mode>
 </record>
 <record>
     <uid>40000000-0000-0000-0000-000000000010</uid>
-    <auto-schedule-mode>automatic</auto-schedule-mode>
-    <enable-addressbook>true</enable-addressbook>
     <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <auto-schedule-mode>automatic</auto-schedule-mode>
 </record>
 <record>
     <uid>40000000-0000-0000-0000-000000000011</uid>
-    <auto-schedule-mode>decline-always</auto-schedule-mode>
-    <enable-addressbook>true</enable-addressbook>
     <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <auto-schedule-mode>decline-always</auto-schedule-mode>
     <auto-accept-group>20000000-0000-0000-0000-000000000001</auto-accept-group>
 </record>
 </augments>

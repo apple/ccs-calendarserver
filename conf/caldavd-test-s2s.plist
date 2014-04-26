@@ -26,12 +26,12 @@
 
     <!-- HTTP port [0 = disable HTTP] -->
     <key>HTTPPort</key>
-    <integer>8008</integer>
+    <integer>8208</integer>
 
     <!-- SSL port [0 = disable HTTPS] -->
     <!-- (Must also configure SSLCertificate and SSLPrivateKey below) -->
     <key>SSLPort</key>
-    <integer>8443</integer>
+    <integer>8643</integer>
 
     <!-- List of port numbers to bind to for HTTP [empty = same as "Port"] -->
     <key>BindHTTPPorts</key>
@@ -45,7 +45,7 @@
 
     <!-- Server root -->
     <key>ServerRoot</key>
-    <string>./data/podA</string>
+    <string>./data/s2s</string>
 
     <!-- Configuration root -->
     <key>ConfigRoot</key>
@@ -60,7 +60,7 @@
       <key>params</key>
       <dict>
         <key>xmlFile</key>
-        <string>./conf/auth/accounts-test-pod.xml</string>
+        <string>./conf/auth/accounts-test-s2s.xml</string>
       </dict>
     </dict>
     
@@ -75,7 +75,7 @@
       <key>params</key>
       <dict>
         <key>xmlFile</key>
-        <string>./conf/auth/resources-test-pod.xml</string>
+        <string>./conf/auth/resources-test-s2s.xml</string>
       </dict>
     </dict>
 
@@ -89,26 +89,13 @@
       <dict>
         <key>xmlFiles</key>
         <array>
-	      <string>./conf/auth/augments-test-pod.xml</string>
+	      <string>./conf/auth/augments-test-s2s.xml</string>
         </array>
       </dict>
     </dict>
 
     <key>ProxyLoadFromFile</key>
-    <string>./conf/auth/proxies-test-pod.xml</string>
-
-    <!--  Servers -->
-    <key>Servers</key>
-    <dict>
-	    <key>Enabled</key>
-	    <true/>
-	    <key>ConfigFile</key>
-	    <string>./conf/localservers-test.xml</string>
-	    <key>MaxClients</key>
-	    <integer>5</integer>
-	    <key>InboxName</key>
-	    <string>podding</string>
-	</dict>
+    <string>./conf/auth/proxies-test-s2s.xml</string>
 
     <key>Scheduling</key>
     <dict>
@@ -121,7 +108,7 @@
         <array>
         </array>
         <key>RemoteServers</key>
-        <string>remoteservers-test.xml</string>
+        <string>remoteservers-test-s2s.xml</string>
         <key>DNSDebug</key>
         <string>test-db.zones</string>
         <key>DKIM</key>
@@ -129,9 +116,9 @@
         	<key>Enabled</key>
         	<true/>
         	<key>Domain</key>
-        	<string>example.com</string>
+        	<string>example.org</string>
         	<key>KeySelector</key>
-        	<string>ischedule</string>
+        	<string>ischedule2</string>
         	<key>UseDNSKey</key>
         	<false/>
         	<key>UseHTTPKey</key>
@@ -141,11 +128,11 @@
         	<key>ExpireSeconds</key>
         	<integer>3600</integer>
         	<key>PrivateKeyFile</key>
-        	<string>dkim-test/priv.pem</string>
+        	<string>dkim-test-s2s/priv.pem</string>
         	<key>PublicKeyFile</key>
-        	<string>dkim-test/pub.pem</string>
+        	<string>dkim-test-s2s/pub.pem</string>
         	<key>PrivateExchanges</key>
-        	<string>dkim-test/other_keys</string>
+        	<string>dkim-test-s2s/other_keys</string>
         	<key>ProtocolDebug</key>
         	<true/>
         </dict>
@@ -180,24 +167,7 @@
 		    <key>BindAddress</key>
 		    <string>localhost</string>
 		    <key>Port</key>
-		    <integer>11211</integer>
-		  </dict>
-		  <key>ProxyDB</key>
-		  <dict>
-		    <key>ClientEnabled</key>
-		    <true/>
-		    <key>ServerEnabled</key>
-		    <true/>
-		    <key>BindAddress</key>
-		    <string>localhost</string>
-		    <key>Port</key>
-		    <integer>11311</integer>
-		    <key>HandleCacheTypes</key>
-		    <array>
-		      <string>ProxyDB</string>
-		      <string>PrincipalToken</string>
-		      <string>DIGESTCREDENTIALS</string>
-		    </array>
+		    <integer>11511</integer>
 		  </dict>
 		</dict>
       <key>MaxClients</key>

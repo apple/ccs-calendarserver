@@ -14,30 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-<!ELEMENT accounts (user*, group*, resource*, location*) >
-  <!ATTLIST accounts realm CDATA "">
+<!ELEMENT directory (record*) >
+  <!ATTLIST directory realm CDATA "">
 
-  <!ELEMENT user (uid*, guid, password?, name?, first-name?, last-name?, email-address*)>
-    <!ATTLIST user repeat CDATA "1">
+  <!ELEMENT record (uid, guid?, short-name*, password?, full-name*, email*, member-uid*,
+  					capacity?, floor?, associated-address?, abbreviated-name?, street-address?, geographic-location?)>
+    <!ATTLIST record type (user|group|location|resource|address) "user">
 
-  <!ELEMENT group (uid*, guid, password?, name?, members)>
-    <!ATTLIST group repeat CDATA "1">
-
-  <!ELEMENT resource (uid*, guid, password?, name?,)>
-    <!ATTLIST resource repeat CDATA "1">
-
-  <!ELEMENT location (uid*, guid, password?, name?,)>
-    <!ATTLIST location repeat CDATA "1">
-
-  <!ELEMENT member (#PCDATA)>
-    <!ATTLIST member type (users|groups|locations|resources) "users">
-
-  <!ELEMENT uid               (#PCDATA)>
-  <!ELEMENT guid              (#PCDATA)>
-  <!ELEMENT password          (#PCDATA)>
-  <!ELEMENT name              (#PCDATA)>
-  <!ELEMENT first-name        (#PCDATA)>
-  <!ELEMENT last-name         (#PCDATA)>
-  <!ELEMENT email-address     (#PCDATA)>
-  <!ELEMENT members           (member*)>
->
+    <!ELEMENT uid                 (#PCDATA)>
+    <!ELEMENT guid                (#PCDATA)>
+    <!ELEMENT password            (#PCDATA)>
+    <!ELEMENT short-name          (#PCDATA)>
+    <!ELEMENT full-name           (#PCDATA)>
+    <!ELEMENT email               (#PCDATA)>
+    <!ELEMENT member-uid          (#PCDATA)>
+    <!ELEMENT capacity            (#PCDATA)>
+    <!ELEMENT floor               (#PCDATA)>
+    <!ELEMENT associated-address  (#PCDATA)>
+    <!ELEMENT abbreviated-name    (#PCDATA)>
+    <!ELEMENT street-address      (#PCDATA)>
+    <!ELEMENT geographic-location (#PCDATA)>

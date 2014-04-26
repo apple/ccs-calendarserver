@@ -16,13 +16,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
  -->
 
-<!DOCTYPE accounts SYSTEM "accounts.dtd">
+<!DOCTYPE augments SYSTEM "augments.dtd">
 
-<accounts realm="Test Realm">
-  <location>
-    <uid>location01</uid>
-    <guid>location01</guid>
-    <password>test</password>
-    <name>Room 01</name>
-  </location>
-</accounts>
+<augments>
+<record>
+    <uid>Default</uid>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+</augments>

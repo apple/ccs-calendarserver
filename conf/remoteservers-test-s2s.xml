@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <!--
-Copyright (c) 2009-2014 Apple Inc. All rights reserved.
+Copyright (c) 2006-2014 Apple Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,19 +16,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
  -->
 
-<!DOCTYPE accounts SYSTEM "../../../conf/auth/augments.dtd">
+<!DOCTYPE servers SYSTEM "remoteservers.dtd">
 
-<augments>
-  <record>
-    <uid>user01</uid>
-    <enable>true</enable>
-    <enable-calendar>true</enable-calendar>
-    <enable-addressbook>true</enable-addressbook>
-  </record>
-  <record>
-    <uid>user02</uid>
-    <enable>false</enable>
-    <enable-calendar>false</enable-calendar>
-    <enable-addressbook>false</enable-addressbook>
-  </record>
-</augments>
+<servers>
+  <server>
+    <uri>https://localhost:8443/ischedule</uri>
+    <allow-requests-from/>
+    <allow-requests-to/>
+    <domains>
+    	<domain>example.com</domain>
+    </domains>
+    <hosts>
+    	<host>127.0.0.1</host>
+    </hosts>
+  </server>
+</servers>

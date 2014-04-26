@@ -130,6 +130,62 @@
 	    <string>podding</string>
 	</dict>
 
+    <key>Scheduling</key>
+    <dict>
+      <!-- iSchedule protocol options -->
+      <key>iSchedule</key>
+      <dict>
+        <key>Enabled</key>
+        <true/>
+        <key>AddressPatterns</key>
+        <array>
+        </array>
+        <key>RemoteServers</key>
+        <string>remoteservers-test.xml</string>
+        <key>DNSDebug</key>
+        <string>test-db.zones</string>
+        <key>DKIM</key>
+        <dict>
+        	<key>Enabled</key>
+        	<true/>
+        	<key>Domain</key>
+        	<string>example.com</string>
+        	<key>KeySelector</key>
+        	<string>ischedule</string>
+        	<key>UseDNSKey</key>
+        	<false/>
+        	<key>UseHTTPKey</key>
+        	<true/>
+        	<key>UsePrivateExchangeKey</key>
+        	<true/>
+        	<key>ExpireSeconds</key>
+        	<integer>3600</integer>
+        	<key>PrivateKeyFile</key>
+        	<string>dkim-test/priv.pem</string>
+        	<key>PublicKeyFile</key>
+        	<string>dkim-test/pub.pem</string>
+        	<key>PrivateExchanges</key>
+        	<string>dkim-test/other_keys</string>
+        	<key>ProtocolDebug</key>
+        	<true/>
+        </dict>
+      </dict>
+    </dict>
+
+    <key>Notifications</key>
+    <dict>
+      <key>Services</key>
+      <dict>
+
+        <key>AMP</key>
+        <dict>
+          <key>Enabled</key>
+          <false/>
+        </dict>
+
+      </dict>
+    </dict>
+
     <!-- Support for Memcached -->
     <key>Memcached</key>
     <dict>

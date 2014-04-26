@@ -37,8 +37,8 @@ ELEMENT_PROXIES = "proxies"
 ELEMENT_RECORD = "record"
 
 ELEMENT_GUID = "guid"
-ELEMENT_PROXIES = "proxies"
-ELEMENT_READ_ONLY_PROXIES = "read-only-proxies"
+ELEMENT_WRITE_PROXIES = "write-proxies"
+ELEMENT_READ_PROXIES = "read-proxies"
 ELEMENT_MEMBER = "member"
 
 ATTRIBUTE_REPEAT = "repeat"
@@ -89,10 +89,10 @@ class XMLCalendarUserProxyLoader(object):
                     guid = node.text
 
                 elif node.tag in (
-                    ELEMENT_PROXIES,
-                    ELEMENT_READ_ONLY_PROXIES,
+                    ELEMENT_WRITE_PROXIES,
+                    ELEMENT_READ_PROXIES,
                 ):
-                    self._parseMembers(node, write_proxies if node.tag == ELEMENT_PROXIES else read_proxies)
+                    self._parseMembers(node, write_proxies if node.tag == ELEMENT_WRITE_PROXIES else read_proxies)
                 else:
                     raise RuntimeError("Invalid element '%s' in proxies file: '%s'" % (node.tag, self.xmlFile,))
 

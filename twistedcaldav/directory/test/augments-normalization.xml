@@ -21,6 +21,5 @@ limitations under the License.
 <augments>
   <record>
     <uid>aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa</uid>
-    <enable>true</enable>
   </record>
 </augments>

@@ -150,6 +150,10 @@ class TestStoreDirectoryRecord(object):
         return self._server
 
 
+    def serverURI(self):
+        return self._server.uri
+
+
 
 def buildDirectory(homes=None):
 

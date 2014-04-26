@@ -20,7 +20,7 @@ limitations under the License.
 
 <servers>
   <server>
-    <uri>https://localhost:8543/inbox</uri>
+    <uri>https://localhost:8643/ischedule</uri>
     <allow-requests-from/>
     <allow-requests-to/>
     <domains>

@@ -16,54 +16,54 @@ See the License for the specific language governing permissions and
 limitations under the License.
  -->
 
-<!DOCTYPE proxies SYSTEM "proxies.dtd">
+<!DOCTYPE proxies SYSTEM "../../../conf/auth/proxies.dtd">
 
 <proxies>
   <record>
     <guid>mercury</guid>
-    <proxies>
+    <write-proxies>
       <member>left_coast</member>
-    </proxies>
+    </write-proxies>
   </record>
   <record>
     <guid>gemini</guid>
-    <proxies>
+    <write-proxies>
       <member>6423F94A-6B76-4A3A-815B-D52CFD77935D</member>
-    </proxies>
+    </write-proxies>
   </record>
   <record>
     <guid>apollo</guid>
-    <proxies>
+    <write-proxies>
       <member>both_coasts</member>
-    </proxies>
+    </write-proxies>
   </record>
   <record>
     <guid>orion</guid>
-    <proxies>
+    <write-proxies>
       <member>recursive1_coasts</member>
-    </proxies>
+    </write-proxies>
   </record>
   <record>
     <guid>non_calendar_proxy</guid>
-    <proxies>
+    <write-proxies>
       <member>non_calendar_group</member>
-    </proxies>
-    <read-only-proxies>
+    </write-proxies>
+    <read-proxies>
       <member>recursive2_coasts</member>
-    </read-only-proxies>
+    </read-proxies>
   </record>
   <record>
     <guid>7423F94A-6B76-4A3A-815B-D52CFD77935D</guid>
-    <proxies>
+    <write-proxies>
       <member>8A985493-EE2C-4665-94CF-4DFEA3A89500</member>
       <member>9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD2</member>
-    </proxies>
+    </write-proxies>
   </record>
   <record>
     <guid>FC465590-E9E9-4746-ACE8-6C756A49FE4D</guid>
-    <proxies>
+    <write-proxies>
       <member>EC465590-E9E9-4746-ACE8-6C756A49FE4D</member>
       <member>00599DAF-3E75-42DD-9DB7-52617E79943F</member>
-    </proxies>
+    </write-proxies>
   </record>
 </proxies>

@@ -81,37 +81,37 @@ limitations under the License.
     <full-name>Sanchez Office</full-name>
   </record>
   <record type="location">
-    <short-name>location01</short-name>
     <uid>75EA36BE-F71B-40F9-81F9-CF59BF40CA8F</uid>
     <guid>75EA36BE-F71B-40F9-81F9-CF59BF40CA8F</guid>
+    <short-name>location01</short-name>
     <password>location01</password>
     <full-name>Room 01</full-name>
   </record>
   <record type="location">
-    <short-name>room-with-address-1</short-name>
     <uid>room-addr-1</uid>
     <guid>634A102B-6902-464F-9451-8A86A31628C1</guid>
+    <short-name>room-with-address-1</short-name>
     <password>room-addr-2</password>
     <full-name>Room with Address 1</full-name>
     <associated-address>1-infinite-loop</associated-address>
   </record>
   <record type="location">
-    <short-name>room-with-address-2</short-name>
     <uid>room-addr-2</uid>
+    <short-name>room-with-address-2</short-name>
     <password>room-addr-2</password>
     <full-name>Room with Address 2</full-name>
     <associated-address>2-infinite-loop</associated-address>
   </record>
   <record type="address">
-    <short-name>il1</short-name>
     <uid>1-infinite-loop</uid>
+    <short-name>il1</short-name>
     <full-name>One Infinite Loop</full-name>
     <street-address>1 Infinite Loop, Cupertino, CA 95014</street-address>
     <geographic-location>37.331741,-122.030333</geographic-location>
   </record>
   <record type="address">
-    <short-name>il2</short-name>
     <uid>2-infinite-loop</uid>
+    <short-name>il2</short-name>
     <full-name>Two Infinite Loop</full-name>
     <street-address>2 Infinite Loop, Cupertino, CA 95014</street-address>
     <geographic-location>37.332633,-122.030502</geographic-location>

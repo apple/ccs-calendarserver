@@ -21,107 +21,84 @@ limitations under the License.
 <augments>
   <record>
     <uid>Default</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
   </record>
   <record>
     <uid>Location-Default</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
-    <auto-schedule>true</auto-schedule>
+    <auto-schedule-mode>automatic</auto-schedule-mode>
   </record>
   <record>
     <uid>Location-AA*</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
-    <auto-schedule>true</auto-schedule>
+    <auto-schedule-mode>automatic</auto-schedule-mode>
   </record>
   <record>
     <uid>Resource-Default</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
-    <auto-schedule>true</auto-schedule>
+    <auto-schedule-mode>automatic</auto-schedule-mode>
   </record>
   <record>
     <uid>Resource-AA*</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
-    <auto-schedule>true</auto-schedule>
+    <auto-schedule-mode>automatic</auto-schedule-mode>
   </record>
   <record>
     <uid>AA*</uid>
-    <enable>true</enable>
   </record>
   <record>
     <uid>AB*</uid>
-    <enable>false</enable>
   </record>
   <record>
     <uid>B*</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
   </record>
   <record>
     <uid>C*</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
-    <auto-schedule>true</auto-schedule>
     <auto-schedule-mode>accept-always</auto-schedule-mode>
   </record>
   <record>
     <uid>D11F03A0-97EA-48AF-9A6C-FAC7F3975766</uid>
-    <enable>true</enable>
   </record>
   <record>
     <uid>6423F94A-6B76-4A3A-815B-D52CFD77935D</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
   </record>
   <record>
     <uid>5A985493-EE2C-4665-94CF-4DFEA3A89500</uid>
-    <enable>false</enable>
   </record>
   <record>
     <uid>8B4288F6-CC82-491D-8EF9-642EF4F3E7D0</uid>
-    <enable>true</enable>
     <enable-calendar>false</enable-calendar>
     <enable-addressbook>false</enable-addressbook>
   </record>
   <record>
     <uid>5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1</uid>
-    <enable>true</enable>
   </record>
   <record>
     <uid>543D28BA-F74F-4D5F-9243-B3E3A61171E5</uid>
-    <enable>true</enable>
   </record>
   <record>
     <uid>6A73326A-F781-47E7-A9F8-AF47364D4152</uid>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
-    <auto-schedule>true</auto-schedule>
+    <auto-schedule-mode>automatic</auto-schedule-mode>
   </record>
   <record>
     <uid>C5BAADEE-6B35-4FD5-A98A-5DF6BBAAC47A</uid>
-    <enable>true</enable>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
-    <auto-schedule>true</auto-schedule>
-    <auto-schedule-mode/>
+    <auto-schedule-mode>automatic</auto-schedule-mode>
   </record>
   <record>
     <uid>8AB34DF9-0297-4BA3-AADB-DB557DDD21E7</uid>
-    <enable>true</enable>
-    <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
-    <auto-schedule>true</auto-schedule>
     <auto-schedule-mode>accept-always</auto-schedule-mode>
   </record>
   <record>

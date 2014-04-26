@@ -16,11 +16,9 @@ limitations under the License.
 
 <!ELEMENT proxies (record*) >
 
-  <!ELEMENT record (guid, proxies?, read-only-proxies?)>
-    <!ATTLIST record repeat CDATA "1">
+  <!ELEMENT record (guid, write-proxies?, read-proxies?)>
 
-  <!ELEMENT guid              (#PCDATA)>
-  <!ELEMENT proxies           (member*)>
-  <!ELEMENT read-only-proxies (member*)>
-  <!ELEMENT member            (#PCDATA)>
->
+    <!ELEMENT guid              (#PCDATA)>
+    <!ELEMENT write-proxies     (member*)>
+    <!ELEMENT read-proxies      (member*)>
+      <!ELEMENT member            (#PCDATA)>

@@ -29,7 +29,10 @@ from txdav.common.datastore.test.util import populateCalendarsFrom, \
     CommonCommonTests
 from twext.python.clsprop import classproperty
 import txweb2.dav.test.util
-from txdav.caldav.datastore.test.util import buildCalendarStore
+from txdav.caldav.datastore.test.util import buildCalendarStore, \
+    TestCalendarStoreDirectoryRecord
+from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers, \
+    Server
 
 class iSchedulePOST (CommonCommonTests, txweb2.dav.test.util.TestCase):
 
@@ -40,8 +43,37 @@ class iSchedulePOST (CommonCommonTests, txweb2.dav.test.util.TestCase):
         self.directory = self._sqlCalendarStore.directoryService()
 
         self.site.resource.putChild("ischedule", IScheduleInboxResource(self.site.resource, self.storeUnderTest()))
+        self.site.resource.putChild("podding", IScheduleInboxResource(self.site.resource, self.storeUnderTest(), podding=True))
 
         yield self.populate()
+
+        # Pod servers
+        a_server = Server(id="A", uri="http://localhost:8008", thisServer=True)
+        Servers.addServer(a_server)
+        b_server = Server(id="B", uri="http://localhost:8108", thisServer=False)
+        Servers.addServer(b_server)
+        Servers._thisServer = a_server
+
+        # Podded users
+        for ctr in range(1, 100):
+            self.directory.addRecord(TestCalendarStoreDirectoryRecord(
+                "puser{:02d}".format(ctr),
+                ("puser{:02d}".format(ctr),),
+                "Puser {:02d}".format(ctr),
+                frozenset((
+                    "urn:uuid:puser{:02d}".format(ctr),
+                    "mailto:puser{:02d}@example.com".format(ctr),
+                )),
+                thisServer=False,
+                server=b_server,
+            ))
+
+        # iSchedule server
+        IScheduleServers()
+        server = IScheduleServerRecord("http://127.0.0.1")
+        server.allow_from = True
+        IScheduleServers._domainMap["example.org"] = server
+        self.addCleanup(lambda : IScheduleServers._domainMap.pop("example.org")) #@UndefinedVariable
 
 
     def storeUnderTest(self):
@@ -132,12 +164,6 @@ END:VCALENDAR
         Make calendar
         """
 
-        IScheduleServers()
-        server = IScheduleServerRecord("http://127.0.0.1")
-        server.allow_from = True
-        IScheduleServers._domainMap["example.org"] = server
-        self.addCleanup(lambda : IScheduleServers._domainMap.pop("example.org")) #@UndefinedVariable
-
         request = SimpleRequest(
             self.site,
             "POST",
@@ -177,3 +203,246 @@ END:VCALENDAR
         inbox = (yield self.calendarUnderTest(name="inbox", home="user02"))
         count = (yield inbox.listCalendarObjects())
         self.assertEqual(len(count), 1)
+
+
+    @inlineCallbacks
+    def test_receive_reject_local_originator(self):
+        """
+        Make calendar
+        """
+
+        request = SimpleRequest(
+            self.site,
+            "POST",
+            "/ischedule",
+            headers=http_headers.Headers(rawHeaders={
+                "Originator": ("mailto:user01@example.com",),
+                "Recipient": ("mailto:user02@example.com",),
+                "Content-Type": ("text/calendar",)
+            }),
+            content="""BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+METHOD:REQUEST
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART:20060101T100000Z
+DURATION:PT1H
+SUMMARY:event 1
+UID:deadlocked
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+        )
+
+        response = (yield self.send(request))
+        self.assertEqual(response.code, responsecode.FORBIDDEN)
+
+        calendar = (yield self.calendarUnderTest(name="calendar_1", home="user01"))
+        count = (yield calendar.listCalendarObjects())
+        self.assertEqual(len(count), 0)
+
+        inbox = (yield self.calendarUnderTest(name="inbox", home="user01"))
+        count = (yield inbox.listCalendarObjects())
+        self.assertEqual(len(count), 0)
+
+        calendar = (yield self.calendarUnderTest(name="calendar_1", home="user02"))
+        count = (yield calendar.listCalendarObjects())
+        self.assertEqual(len(count), 0)
+
+        inbox = (yield self.calendarUnderTest(name="inbox", home="user02"))
+        count = (yield inbox.listCalendarObjects())
+        self.assertEqual(len(count), 0)
+
+
+    @inlineCallbacks
+    def test_receive_reject_podded_originator(self):
+        """
+        Make calendar
+        """
+
+        request = SimpleRequest(
+            self.site,
+            "POST",
+            "/ischedule",
+            headers=http_headers.Headers(rawHeaders={
+                "Originator": ("mailto:puser01@example.com",),
+                "Recipient": ("mailto:user02@example.com",),
+                "Content-Type": ("text/calendar",)
+            }),
+            content="""BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+METHOD:REQUEST
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART:20060101T100000Z
+DURATION:PT1H
+SUMMARY:event 1
+UID:deadlocked
+ORGANIZER:mailto:puser01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:puser01@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+        )
+
+        response = (yield self.send(request))
+        self.assertEqual(response.code, responsecode.FORBIDDEN)
+
+        calendar = (yield self.calendarUnderTest(name="calendar_1", home="user02"))
+        count = (yield calendar.listCalendarObjects())
+        self.assertEqual(len(count), 0)
+
+        inbox = (yield self.calendarUnderTest(name="inbox", home="user02"))
+        count = (yield inbox.listCalendarObjects())
+        self.assertEqual(len(count), 0)
+
+
+    @inlineCallbacks
+    def test_receive_podding(self):
+        """
+        Make calendar
+        """
+
+        request = SimpleRequest(
+            self.site,
+            "POST",
+            "/podding",
+            headers=http_headers.Headers(rawHeaders={
+                "Originator": ("mailto:puser01@example.com",),
+                "Recipient": ("mailto:user02@example.com",),
+                "Content-Type": ("text/calendar",)
+            }),
+            content="""BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+METHOD:REQUEST
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART:20060101T100000Z
+DURATION:PT1H
+SUMMARY:event 1
+UID:deadlocked
+ORGANIZER:mailto:puser01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:puser01@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+        )
+
+        response = (yield self.send(request))
+        self.assertEqual(response.code, responsecode.OK)
+
+        calendar = (yield self.calendarUnderTest(name="calendar_1", home="user02"))
+        count = (yield calendar.listCalendarObjects())
+        self.assertEqual(len(count), 1)
+
+        inbox = (yield self.calendarUnderTest(name="inbox", home="user02"))
+        count = (yield inbox.listCalendarObjects())
+        self.assertEqual(len(count), 1)
+
+
+    @inlineCallbacks
+    def test_receive_podding_reject_external_originator(self):
+        """
+        Make calendar
+        """
+
+        request = SimpleRequest(
+            self.site,
+            "POST",
+            "/podding",
+            headers=http_headers.Headers(rawHeaders={
+                "Originator": ("mailto:user01@example.org",),
+                "Recipient": ("mailto:user02@example.com",),
+                "Content-Type": ("text/calendar",)
+            }),
+            content="""BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+METHOD:REQUEST
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART:20060101T100000Z
+DURATION:PT1H
+SUMMARY:event 1
+UID:deadlocked
+ORGANIZER:mailto:user01@example.org
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.org
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+        )
+
+        response = (yield self.send(request))
+        self.assertEqual(response.code, responsecode.FORBIDDEN)
+
+        calendar = (yield self.calendarUnderTest(name="calendar_1", home="user02"))
+        count = (yield calendar.listCalendarObjects())
+        self.assertEqual(len(count), 0)
+
+        inbox = (yield self.calendarUnderTest(name="inbox", home="user02"))
+        count = (yield inbox.listCalendarObjects())
+        self.assertEqual(len(count), 0)
+
+
+    @inlineCallbacks
+    def test_receive_podding_reject_same_pod_originator(self):
+        """
+        Make calendar
+        """
+
+        request = SimpleRequest(
+            self.site,
+            "POST",
+            "/podding",
+            headers=http_headers.Headers(rawHeaders={
+                "Originator": ("mailto:user01@example.com",),
+                "Recipient": ("mailto:user02@example.com",),
+                "Content-Type": ("text/calendar",)
+            }),
+            content="""BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+METHOD:REQUEST
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART:20060101T100000Z
+DURATION:PT1H
+SUMMARY:event 1
+UID:deadlocked
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+        )
+
+        response = (yield self.send(request))
+        self.assertEqual(response.code, responsecode.FORBIDDEN)
+
+        calendar = (yield self.calendarUnderTest(name="calendar_1", home="user02"))
+        count = (yield calendar.listCalendarObjects())
+        self.assertEqual(len(count), 0)
+
+        inbox = (yield self.calendarUnderTest(name="inbox", home="user02"))
+        count = (yield inbox.listCalendarObjects())
+        self.assertEqual(len(count), 0)

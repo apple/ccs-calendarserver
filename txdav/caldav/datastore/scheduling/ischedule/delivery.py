@@ -426,12 +426,12 @@ class IScheduleRequest(object):
             component = normalizedCalendar.mainType()
             method = normalizedCalendar.propertyValue("METHOD")
             self.data = str(normalizedCalendar)
-            returnValue(component, method)
+            returnValue((component, method,))
         else:
             cal = Component.fromString(self.data)
             component = cal.mainType()
             method = cal.propertyValue("METHOD")
-            returnValue(component, method)
+            returnValue((component, method,))
 
 
     @inlineCallbacks

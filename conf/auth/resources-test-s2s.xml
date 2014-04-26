@@ -18,23 +18,4 @@ limitations under the License.
 
 <!DOCTYPE accounts SYSTEM "accounts.dtd">
 
-<accounts realm="Test Realm">
-  <user repeat="10">
-    <uid>user%02d</uid>
-    <guid>user%02d</guid>
-    <password>test</password>
-    <name>Test User %02d</name>
-    <first-name>Test</first-name>
-    <last-name>User %02d</last-name>
-  </user>
-  <group>
-    <uid>testgroup1</uid>
-    <guid>e5a6142c-4189-4e9e-90b0-9cd0268b314b</guid>
-    <password>test</password>
-    <name>Group 01</name>
-    <members>
-      <member type="users">user01</member>
-      <member type="users">user02</member>
-    </members>
-  </group>
-</accounts>
+<directory realm="Test Realm 2" />
