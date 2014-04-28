@@ -91,6 +91,7 @@ init_build () {
       py_bindir="${py_virtualenv}/bin";
 
   python="${py_bindir}/python";
+  export PYTHON="${python}";
 
   if [ -z "${TWEXT_PKG_CACHE-}" ]; then
     dep_packages="${dev_home}/pkg";
@@ -153,7 +154,7 @@ init_build () {
 setup_print () {
   what="$1"; shift;
 
-  PYTHONPATH="${wd}" "${python}" - << EOF
+  PYTHONPATH="${wd}:${PYTHONPATH:-}" "${python}" - << EOF
 from __future__ import print_function
 import setup
 print(setup.${what})
@@ -589,7 +590,6 @@ c_dependencies () {
 #
 py_dependencies () {
   export PATH="${py_virtualenv}/bin:${PATH}";
-  export PYTHON="${python}";
   export PYTHONPATH="${wd}:${PYTHONPATH:-}";
 
   # Work around a change in Xcode tools that breaks Python modules in OS X
