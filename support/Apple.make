@@ -69,22 +69,43 @@ build-no::
 install:: install-python
 install-python:: build
 	@#
+	@# Install virtualenv someplace and put it in PYTHONPATH in case it's not
+	@# on the host system.
+	@#
+	@echo "Installing virtualenv and friends...";
+	$(_v) mkdir -p "$(BuildDirectory)/pytools";
+	$(_v) mkdir -p "$(BuildDirectory)/pytools/lib";
+	$(_v) mkdir -p "$(BuildDirectory)/pytools/junk";
+	$(_v) for pkg in $$(find "$(Sources)/.develop/tools" -type f -name "*.tgz"); do \
+	          tar -C "$(BuildDirectory)" -xvzf "$${pkg}"; 							\
+	          cd "$(BuildDirectory)/$$(basename "$${pkg}" .tgz)" && 				\
+	              PYTHONPATH="$(BuildDirectory)/pytools/lib" 						\
+	              "$(PYTHON)" setup.py install 										\
+	                  --install-base="$(BuildDirectory)/pytools" 					\
+	                  --install-lib="$(BuildDirectory)/pytools/lib" 				\
+	                  --install-headers="$(BuildDirectory)/pytools/junk" 		\
+	                  --install-scripts="$(BuildDirectory)/pytools/junk" 			\
+	                  --install-data="$(BuildDirectory)/pytools/junk" 				\
+	                  ; 															\
+	      done;
+	@#
 	@# Set up a virtual environment in Server.app; we'll install into that.
 	@# Use --system-site-packages so that we use the packages provided by the OS.
 	@#
 	@echo "Creating virtual environment...";
 	$(_v) $(RMDIR) "$(DSTROOT)$(CS_VIRTUALENV)";
-	$(_v) $(PYTHON) -m virtualenv --system-site-packages "$(DSTROOT)$(CS_VIRTUALENV)";
+	$(_v) PYTHONPATH="$(BuildDirectory)/pytools/lib" \
+	          "$(PYTHON)" -m virtualenv --system-site-packages "$(DSTROOT)$(CS_VIRTUALENV)";
 	@#
 	@# Use the pip in the virtual environment to install.
 	@# It knows about where things go in the virtual environment.
 	@#
 	@echo "Installing Python packages...";
 	$(_v) for pkg in $$(find "$(Sources)/.develop/pip_downloads" -type f); do \
-	          $(Environment) "$(DSTROOT)$(CS_VIRTUALENV)/bin/pip" install    \
-                  --pre --allow-all-external --no-index --no-deps            \
-	              --log=/tmp/pip.log                                         \
-	              "$${pkg}";                                                 \
+	          $(Environment) "$(DSTROOT)$(CS_VIRTUALENV)/bin/pip" install     \
+                  --pre --allow-all-external --no-index --no-deps             \
+	              --log=/tmp/pip.log                                          \
+	              "$${pkg}";                                                  \
 	      done;
 	@#
 	@# Make the virtualenv relocatable

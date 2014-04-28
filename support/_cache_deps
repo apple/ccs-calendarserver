@@ -31,6 +31,33 @@ export PATH="/Applications/Server.app/Contents/ServerRoot/usr/bin:${PATH}";
 requirements="${wd}/requirements-apple.txt";
 extra_features="OpenDirectory,Postgres";
 
+
+#
+# Download virtualenv and friends.
+#
+
+mkdir -p "${wd}/.develop/tools";
+
+for pkg in \
+    pip-1.5.4 \
+    virtualenv-1.11.4 \
+    setuptools-3.4.4 \
+; do
+       name="${pkg%-*}";
+    version="${pkg#*-}";
+     first="$(echo "${name}" | sed 's|^\(.\).*$|\1|')";
+       url="https://pypi.python.org/packages/source/${first}/${name}/${pkg}.tar.gz";
+
+    ruler "Downloading ${pkg}";
+
+    curl -L -o "${wd}/.develop/tools/${pkg}.tgz" "${url}";
+done;
+
+
+#
+# Download dependencies
+#
+
 ruler "Downloading Python requirements for .[${extra_features}]";
 echo "";
 pip_download \
