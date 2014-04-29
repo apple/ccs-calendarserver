@@ -32,7 +32,7 @@ class DirectoryReverseProxyResource(ReverseProxyResource):
         self.parent = parent
         self.record = record
 
-        super(DirectoryReverseProxyResource, self).__init__(self.record.serverID)
+        super(DirectoryReverseProxyResource, self).__init__(self.record.serviceNodeUID)
 
 
     def url(self):
