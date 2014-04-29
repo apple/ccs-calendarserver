@@ -53,14 +53,6 @@ for pkg in \
     curl -L -o "${wd}/.develop/tools/${pkg}.tgz" "${url}";
 done;
 
-for archive in $(find "${wd}/.develop/tools" -depth 1 -type f -name '*.tgz'); do
-  ruler "Cleaning up ${archive}";
-  tmp="$(mktemp -d -t fooXXXX)";
-  tar -C "${tmp}" --exclude '*.exe' -xvzf "${archive}";
-  tar -C "${tmp}" -cvzf "${archive}" .;
-  rm -rf "${tmp}";
-done;
-
 
 #
 # Download dependencies
@@ -72,3 +64,17 @@ pip_download \
   --allow-unverified cx-Oracle \
   --requirement="${requirements}" \
   ;
+
+
+
+#
+# Remove .exe files from arvhives
+#
+
+for archive in $(find "${wd}/.develop" -type f -name '*.tgz'); do
+  ruler "Cleaning up ${archive}";
+  tmp="$(mktemp -d -t fooXXXX)";
+  tar -C "${tmp}" --exclude '*.exe' -xzf "${archive}";
+  tar -C "${tmp}" -czf "${archive}" .;
+  rm -rf "${tmp}";
+done;
