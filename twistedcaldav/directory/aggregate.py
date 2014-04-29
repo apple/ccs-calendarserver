@@ -192,6 +192,15 @@ class AggregateDirectoryService(DirectoryService):
 
 
     def recordWithCalendarUserAddress(self, address):
+        # FIXME: These temporary records shouldn't be needed when we move
+        # to the new data store API.  They're currently needed when purging
+        # deprovisioned users' data.
+        if address.startswith("urn:uuid:"):
+            uid = address[9:]
+            record = self._tmpRecords["uids"].get(uid, None)
+            if record:
+                return record
+
         return self._queryAll("recordWithCalendarUserAddress", address)
 
 

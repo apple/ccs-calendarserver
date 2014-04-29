@@ -796,6 +796,25 @@ END:VCALENDAR
 """.replace("\n", "\r\n") % (past,)
 
 
+# Purging non-existent organizer; has existing attendee
+EVENT_MISSING_ORGANIZER_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+X-CALENDARSERVER-ACCESS:PRIVATE
+BEGIN:VEVENT
+UID:8ED97931-9A19-4596-9D4D-52B36D6AB803
+SUMMARY:Repeating Organizer
+DTSTART:%s
+DURATION:PT1H
+ORGANIZER:urn:uuid:89D79D4C-DDF3-48EA-8C6A-71BD01FDC60D
+ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:89D79D4C-DDF3-48EA-8C6A-71BD01FDC60D
+ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:37DB0C90-4DB1-4932-BC69-3DAB66F374F5
+DTSTAMP:20100303T195203Z
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % (past,)
+
+
 
 class PurgePrincipalTests(StoreTestCase):
     """
@@ -803,6 +822,7 @@ class PurgePrincipalTests(StoreTestCase):
     """
     uid = "6423F94A-6B76-4A3A-815B-D52CFD77935D"
     uid2 = "37DB0C90-4DB1-4932-BC69-3DAB66F374F5"
+    uid3 = "89D79D4C-DDF3-48EA-8C6A-71BD01FDC60D"
 
     metadata = {
         "accessMode": "PUBLIC",
@@ -817,26 +837,25 @@ class PurgePrincipalTests(StoreTestCase):
             "calendar1" : {
                 "attachment.ics" : (ATTACHMENT_ICS, metadata,),
                 "organizer.ics" : (REPEATING_PUBLIC_EVENT_ORGANIZER_ICS, metadata,),
-            }
+            },
+            "inbox" : {},
         },
         uid2 : {
             "calendar2" : {
-            }
+                "missing.ics" : (EVENT_MISSING_ORGANIZER_ICS, metadata,),
+            },
+            "inbox" : {},
+        },
+        uid3 : {
+            "calendar3" : {
+                "missing.ics" : (EVENT_MISSING_ORGANIZER_ICS, metadata,),
+            },
+            "inbox" : {},
         },
     }
 
     @inlineCallbacks
     def setUp(self):
-        self.patch(config.DirectoryService.params, "xmlFile",
-            os.path.join(
-                os.path.dirname(__file__), "purge", "accounts.xml"
-            )
-        )
-        self.patch(config.ResourceService.params, "xmlFile",
-            os.path.join(
-                os.path.dirname(__file__), "purge", "resources.xml"
-            )
-        )
         yield super(PurgePrincipalTests, self).setUp()
 
         txn = self._sqlCalendarStore.newTransaction()
@@ -869,6 +888,20 @@ class PurgePrincipalTests(StoreTestCase):
         calendar1 = (yield home2.childWithName(self.sharedName2))
         self.assertNotEquals(calendar1, None)
         (yield txn.commit())
+
+
+    def configure(self):
+        super(PurgePrincipalTests, self).configure()
+        self.patch(config.DirectoryService.params, "xmlFile",
+            os.path.join(
+                os.path.dirname(__file__), "purge", "accounts.xml"
+            )
+        )
+        self.patch(config.ResourceService.params, "xmlFile",
+            os.path.join(
+                os.path.dirname(__file__), "purge", "resources.xml"
+            )
+        )
 
 
     @inlineCallbacks
@@ -949,3 +982,30 @@ class PurgePrincipalTests(StoreTestCase):
         home = (yield txn.calendarHomeWithUID(self.uid))
         self.assertNotEquals(home, None)
         (yield txn.commit())
+
+
+    @inlineCallbacks
+    def test_purgeWithMissingOrganizer(self):
+        """
+        Verify purgeUID sends cancels even when organizer is not in the directory
+        """
+
+        # Now you see it
+        home2 = yield self.homeUnderTest(name=self.uid2)
+        self.assertNotEquals(home2, None)
+        home3 = yield self.homeUnderTest(name=self.uid3)
+        self.assertNotEquals(home3, None)
+
+        calobj2 = yield self.calendarObjectUnderTest(name="missing.ics", calendar_name="calendar2", home=self.uid2)
+        comp = yield calobj2.componentForUser()
+        self.assertTrue("STATUS:CANCELLED" not in str(comp))
+
+        yield self.commit()
+
+        count, ignored = (yield PurgePrincipalService.purgeUIDs(self.storeUnderTest(), self.directory,
+            self.rootResource, (self.uid3,), verbose=False, proxies=False, completely=True))
+        self.assertEquals(count, 1) # 1 events
+
+        calobj2 = yield self.calendarObjectUnderTest(name="missing.ics", calendar_name="calendar2", home=self.uid2)
+        comp = yield calobj2.componentForUser()
+        self.assertTrue("STATUS:CANCELLED" in str(comp))
