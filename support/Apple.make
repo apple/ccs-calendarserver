@@ -102,7 +102,7 @@ install-python:: build
 	@#
 	@echo "Installing Python packages...";
 	$(_v) for pkg in $$(find "$(Sources)/.develop/pip_downloads" -type f); do \
-	          $(Environment) PYTHONPATH="$(BuildDirectory)/pytools/lib"       \
+	          $(Environment)                                                  \
 	              "$(DSTROOT)$(CS_VIRTUALENV)/bin/pip" install                \
                       --pre --allow-all-external --no-index --no-deps         \
 	                  --log=/tmp/pip.log                                      \
@@ -112,7 +112,8 @@ install-python:: build
 	@# Make the virtualenv relocatable
 	@#
 	@echo "Making virtual environment relocatable...";
-	$(PYTHON) -m virtualenv --relocatable "$(DSTROOT)$(CS_VIRTUALENV)";
+	PYTHONPATH="$(BuildDirectory)/pytools/lib" \
+	    $(PYTHON) -m virtualenv --relocatable "$(DSTROOT)$(CS_VIRTUALENV)";
 	@#
 	@# Clean up
 	@#
