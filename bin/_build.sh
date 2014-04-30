@@ -90,17 +90,13 @@ init_build () {
   py_virtualenv="${dev_home}/virtualenv";
       py_bindir="${py_virtualenv}/bin";
 
-  python="${py_bindir}/python";
+  python="${bootstrap_python}";
   export PYTHON="${python}";
 
   if [ -z "${TWEXT_PKG_CACHE-}" ]; then
     dep_packages="${dev_home}/pkg";
   else
     dep_packages="${TWEXT_PKG_CACHE}";
-  fi;
-
-  if [ ! -d "${py_virtualenv}" ]; then
-    "${bootstrap_python}" -m virtualenv --system-site-packages "${py_virtualenv}";
   fi;
 
   project="$(setup_print name)";
@@ -154,7 +150,7 @@ init_build () {
 setup_print () {
   what="$1"; shift;
 
-  PYTHONPATH="${wd}:${PYTHONPATH:-}" "${python}" - << EOF
+  PYTHONPATH="${wd}:${PYTHONPATH:-}" "${bootstrap_python}" - << EOF
 from __future__ import print_function
 import setup
 print(setup.${what})
@@ -589,14 +585,17 @@ c_dependencies () {
 # Build Python dependencies
 #
 py_dependencies () {
+  python="${py_bindir}/python";
+
   export PATH="${py_virtualenv}/bin:${PATH}";
+  export PYTHON="${python}";
   export PYTHONPATH="${wd}:${PYTHONPATH:-}";
 
   # Work around a change in Xcode tools that breaks Python modules in OS X
   # 10.9.2 and prior due to a hard error if the -mno-fused-madd is used, as
   # it was in the system Python, and is therefore passed along by disutils.
   if [ "$(uname -s)" = "Darwin" ]; then
-    if "${python}" -c 'import distutils.sysconfig; print distutils.sysconfig.get_config_var("CFLAGS")' \
+    if "${bootstrap_python}" -c 'import distutils.sysconfig; print distutils.sysconfig.get_config_var("CFLAGS")' \
        | grep -e -mno-fused-madd > /dev/null; then
       export ARCHFLAGS="-Wno-error=unused-command-line-argument-hard-error-in-future";
     fi;
