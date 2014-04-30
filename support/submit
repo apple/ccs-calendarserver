@@ -202,6 +202,7 @@ if "${build}"; then
     package_file="${project_version}.tgz";
     echo "Creating package: ${package_file}...";
     tar -C "${package_tmp}" -cvzf "${package_file}" .;
+    rm -rf "${package_tmp}";
     if "${install}"; then
       echo "Installing package: ${package_file}";
       tar -C / -xvzf "${package_file}";
