@@ -332,7 +332,10 @@ class CalendarDirectoryRecordMixin(object):
 
     @property
     def displayName(self):
-        return self.fullNames[0]
+        try:
+            return self.fullNames[0]
+        except AttributeError:
+            return u""
 
 
     def cacheToken(self):
@@ -513,11 +516,11 @@ class CalendarDirectoryRecordMixin(object):
         if "PARTSTAT" not in params:
             params["PARTSTAT"] = "NEEDS-ACTION"
         if "CN"not in params:
-            if self.fullNames:
-                params["CN"] = list(self.fullNames)[0]
+            if self.displayName:
+                params["CN"] = self.displayName.encode("utf-8")
         if "EMAIL" not in params:
-            if self.emailAddresses:
-                params["EMAIL"] = list(self.emailAddresses)[0]
+            if hasattr(self, "emailAddresses"):
+                params["EMAIL"] = list(self.emailAddresses)[0].encode("utf-8")
         if "CUTYPE" not in params:
             cuType = self.getCUType()
             if cuType is not "INDIVIDUAL":
