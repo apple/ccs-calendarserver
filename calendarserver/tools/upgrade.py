@@ -77,7 +77,7 @@ class UpgradeOptions(Options):
     optFlags = [
         ['status', 's', "Check database status and exit."],
         ['postprocess', 'p', "Perform post-database-import processing."],
-        ['debug', 'D', "Debug logging."],
+        ['debug', 'D', "Print log messages to STDOUT."],
     ]
 
     optParameters = [
