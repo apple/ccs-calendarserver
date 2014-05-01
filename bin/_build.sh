@@ -618,7 +618,7 @@ py_dependencies () {
 
   # Make sure setup got called enough to write the version file.
 
-  "${python}" "${wd}/setup.py" check > /dev/null;
+  "${bootstrap_python}" "${wd}/setup.py" check > /dev/null;
 
   if [ -d "${dev_home}/pip_downloads" ]; then
     pip_install="pip_install_from_cache";
@@ -630,7 +630,7 @@ py_dependencies () {
   echo "";
   "${pip_install}" --requirement="${requirements}";
 
-  for option in $("${python}" -c 'import setup; print "\n".join(setup.extras_requirements.keys())'); do
+  for option in $("${bootstrap_python}" -c 'import setup; print "\n".join(setup.extras_requirements.keys())'); do
     ruler "Preparing Python requirements for optional feature: ${option}";
     echo "";
     if ! "${pip_install}" --editable="${wd}[${option}]"; then
