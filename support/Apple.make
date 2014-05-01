@@ -121,8 +121,11 @@ install-python:: build
 	$(_v) $(FIND) "$(DSTROOT)$(CS_VIRTUALENV)" -type d -name .svn -print0 | xargs -0 rm -rf;
 	$(_v) $(FIND) "$(DSTROOT)$(CS_VIRTUALENV)" -type f -name '*.so' -print0 | xargs -0 $(STRIP) -Sx;
 	$(_v) $(FIND) "$(DSTROOT)$(CS_VIRTUALENV)" -type f -size 0 -exec sh -c 'printf "# empty\n" > {}' ";";
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(CS_VIRTUALENV)/etc";
-	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(CS_VIRTUALENV)/etc/caldavd.plist";
+
+install:: install-config
+install-config::
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)"
+	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)/caldavd-apple.plist"
 
 install:: install-commands
 install-commands::
