@@ -167,7 +167,9 @@ class PostgresService(MultiService):
     def __init__(self, dataStoreDirectory, subServiceFactory,
                  schema, resetSchema=False, databaseName='subpostgres',
                  clusterName="cluster",
-                 logFile="postgres.log", socketDir="",
+                 logFile="postgres.log",
+                 logDirectory="",
+                 socketDir="",
                  listenAddresses=[], sharedBuffers=30,
                  maxConnections=20, options=[],
                  testMode=False,
@@ -218,6 +220,7 @@ class PostgresService(MultiService):
         # Make logFile absolute in case the working directory of postgres is
         # elsewhere:
         self.logFile = os.path.abspath(logFile)
+        self.logDirectory = os.path.abspath(logDirectory) if logDirectory else ""
 
         # Always use our own configured socket dir in case the built-in postgres tries to use
         # a directory we don't have permissions for
@@ -420,8 +423,14 @@ class PostgresService(MultiService):
         options.append("-c standard_conforming_strings=on")
         options.append("-c unix_socket_permissions=0770")
         options.extend(self.options)
+        if self.logDirectory:  # tell postgres to rotate logs
+            options.append("-c log_directory={}".format(self.logDirectory))
+            options.append("-c log_truncate_on_rotation=on")
+            options.append("-c log_filename=postgresql_%w.log")
+            options.append("-c log_rotation_age=1440")
+            options.append("-c logging_collector=on")
 
-        log.warn("Requesting postgres start via {cmd}", cmd=pgCtl)
+        log.warn("Requesting postgres start via {cmd} {opts}", cmd=pgCtl, opts=options)
         self.reactor.spawnProcess(
             monitor, pgCtl,
             [

@@ -990,6 +990,7 @@ DEFAULT_CONFIG = {
         "DatabaseName": "caldav",
         "ClusterName": "cluster",
         "LogFile": "postgres.log",
+        "LogRotation": False,
         "SocketDirectory": "",
         "ListenAddresses": [],
         "SharedBuffers": 0, # BuffersToConnectionsRatio * MaxConnections
