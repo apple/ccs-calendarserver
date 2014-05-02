@@ -132,6 +132,38 @@ platforms = ["all"]
 
 
 #
+# Entry points
+#
+
+entry_points = {
+    "console_scripts": [
+        "calendarserver_check_database_schema = calendarserver.tools.checkdatabaseschema:main",
+        "calendarserver_command_gateway = calendarserver.tools.gateway:main",
+        "calendarserver_config = calendarserver.tools.config:main",
+        "calendarserver_dashboard = calendarserver.tools.dashboard:main",
+        "calendarserver_dbinspect = calendarserver.tools.dbinspect:main",
+        "calendarserver_dkimtool = calendarserver.tools.dkimtool:main",
+        "calendarserver_export = calendarserver.tools.export:main",
+        "calendarserver_icalendar_validate = calendarserver.tools.validcalendardata:main",
+        "calendarserver_manage_principals = calendarserver.tools.principals:main",
+        "calendarserver_manage_push = calendarserver.tools.push:main",
+        "calendarserver_manage_timezones = calendarserver.tools.managetimezones:main",
+        "calendarserver_migrate_resources = calendarserver.tools.resources:main",
+        "calendarserver_monitor_amp_notifications = calendarserver.tools.ampnotifications:main",
+        "calendarserver_monitor_notifications = calendarserver.tools.notifications:main",
+        "calendarserver_monitor_work = calendarserver.tools.workitems:main",
+        "calendarserver_purge_attachments = calendarserver.tools.purge:PurgeAttachmentsService.main",
+        "calendarserver_purge_events = calendarserver.tools.purge:PurgeOldEventsService.main",
+        "calendarserver_purge_principals = calendarserver.tools.purge:PurgePrincipalService.main",
+        "calendarserver_shell = calendarserver.tools.shell.terminal:main",
+        "calendarserver_upgrade = calendarserver.tools.upgrade:main",
+        "calendarserver_verify_data = calendarserver.tools.calverify:main",
+    ],
+}
+
+
+
+#
 # Dependencies
 #
 
