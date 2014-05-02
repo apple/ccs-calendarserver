@@ -74,7 +74,7 @@ pip_download \
 for archive in $(find "${wd}/.develop" -type f -name '*.tgz'); do
   ruler "Cleaning up ${archive}";
   tmp="$(mktemp -d -t fooXXXX)";
-  tar -C "${tmp}" --exclude '*.exe' -xzf "${archive}";
-  tar -C "${tmp}" -czf "${archive}" .;
+  gnutar -C "${tmp}" --exclude '*.exe' -xzf "${archive}";
+  gnutar -C "${tmp}" -czf "${archive}" ./;
   rm -rf "${tmp}";
 done;
