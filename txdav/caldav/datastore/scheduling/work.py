@@ -25,14 +25,16 @@ from twisted.internet.defer import inlineCallbacks, returnValue, Deferred
 from twistedcaldav.config import config
 from twistedcaldav.ical import Component
 
+from txdav.caldav.datastore.scheduling.cuaddress import calendarUserFromCalendarUserUID
 from txdav.caldav.datastore.scheduling.itip import iTipGenerator, iTIPRequestStatus
 from txdav.caldav.icalendarstore import ComponentUpdateState
 from txdav.common.datastore.sql_tables import schema, \
     scheduleActionToSQL, scheduleActionFromSQL
 
+from pycalendar.datetime import DateTime
+
 import datetime
 import hashlib
-from pycalendar.datetime import DateTime
 import traceback
 
 __all__ = [
@@ -191,8 +193,8 @@ class ScheduleOrganizerWork(WorkItem, fromTable(schema.SCHEDULE_ORGANIZER_WORK),
         try:
             home = (yield self.transaction.calendarHomeWithResourceID(self.homeResourceID))
             resource = (yield home.objectResourceWithID(self.resourceID))
-            organizerPrincipal = yield home.directoryService().recordWithUID(home.uid().decode("utf-8"))
-            organizer = organizerPrincipal.canonicalCalendarUserAddress()
+            organizerAddress = yield calendarUserFromCalendarUserUID(home.uid(), self.transaction)
+            organizer = organizerAddress.record.canonicalCalendarUserAddress()
             calendar_old = Component.fromString(self.icalendarTextOld) if self.icalendarTextOld else None
             calendar_new = Component.fromString(self.icalendarTextNew) if self.icalendarTextNew else None
 
@@ -313,8 +315,8 @@ class ScheduleReplyWork(WorkItem, fromTable(schema.SCHEDULE_REPLY_WORK), Schedul
         try:
             home = (yield self.transaction.calendarHomeWithResourceID(self.homeResourceID))
             resource = (yield home.objectResourceWithID(self.resourceID))
-            attendeePrincipal = yield home.directoryService().recordWithUID(home.uid().decode("utf-8"))
-            attendee = attendeePrincipal.canonicalCalendarUserAddress()
+            attendeeAddress = yield calendarUserFromCalendarUserUID(home.uid(), self.transaction)
+            attendee = attendeeAddress.record.canonicalCalendarUserAddress()
             calendar = (yield resource.componentForUser())
             organizer = calendar.validOrganizerForScheduling()
 
@@ -384,8 +386,8 @@ class ScheduleReplyCancelWork(WorkItem, fromTable(schema.SCHEDULE_REPLY_CANCEL_W
 
         try:
             home = (yield self.transaction.calendarHomeWithResourceID(self.homeResourceID))
-            attendeePrincipal = yield home.directoryService().recordWithUID(home.uid().decode("utf-8"))
-            attendee = attendeePrincipal.canonicalCalendarUserAddress()
+            attendeeAddress = yield calendarUserFromCalendarUserUID(home.uid(), self.transaction)
+            attendee = attendeeAddress.record.canonicalCalendarUserAddress()
             calendar = Component.fromString(self.icalendarText)
             organizer = calendar.validOrganizerForScheduling()
 

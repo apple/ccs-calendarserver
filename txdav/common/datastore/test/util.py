@@ -122,8 +122,21 @@ class TestStoreDirectoryService(object):
         return succeed(None)
 
 
+    def recordWithCalendarUserAddress(self, cuaddr):
+        if cuaddr.startswith("urn:x-uid:"):
+            return self.recordWithUID(cuaddr[10:])
+        elif cuaddr.startswith("urn:uuid:"):
+            return self.recordWithUID(cuaddr[9:])
+        else:
+            return succeed(None)
+
+
     def addRecord(self, record):
         self.records[record.uid] = record
+
+
+    def removeRecord(self, uid):
+        del self.records[uid]
 
 
 
@@ -151,7 +164,7 @@ class TestStoreDirectoryRecord(object):
 
 
     def serverURI(self):
-        return self._server.uri
+        return self._server.uri if self._server else ""
 
 
 

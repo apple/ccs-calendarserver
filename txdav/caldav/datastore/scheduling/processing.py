@@ -29,10 +29,10 @@ from twistedcaldav.config import config
 from twistedcaldav.ical import Property
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 
-from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
 from txdav.caldav.datastore.scheduling.freebusy import generateFreeBusyInfo
 from txdav.caldav.datastore.scheduling.itip import iTipProcessing, iTIPRequestStatus
 from txdav.caldav.datastore.scheduling.utils import getCalendarObjectForRecord
+from txdav.caldav.datastore.scheduling.utils import normalizeCUAddr
 from txdav.caldav.datastore.scheduling.work import ScheduleRefreshWork, \
     ScheduleAutoReplyWork
 from txdav.caldav.icalendarstore import ComponentUpdateState, \
@@ -161,9 +161,9 @@ class ImplicitProcessor(object):
 
         self.recipient_calendar = None
         self.recipient_calendar_resource = None
-        calendar_resource = (yield getCalendarObjectForRecord(self.txn, self.recipient.principal, self.uid))
+        calendar_resource = (yield getCalendarObjectForRecord(self.txn, self.recipient.record, self.uid))
         if calendar_resource:
-            self.recipient_calendar = (yield calendar_resource.componentForUser(self.recipient.principal.uid))
+            self.recipient_calendar = (yield calendar_resource.componentForUser(self.recipient.record.uid))
             self.recipient_calendar_resource = calendar_resource
 
 
@@ -436,21 +436,21 @@ class ImplicitProcessor(object):
 
             # Handle auto-reply behavior
             organizer = normalizeCUAddr(self.message.getOrganizer())
-            if (yield self.recipient.principal.canAutoSchedule(organizer=organizer)):
+            if (yield self.recipient.record.canAutoSchedule(organizer=organizer)):
                 # auto schedule mode can depend on who the organizer is
-                mode = yield self.recipient.principal.getAutoScheduleMode(organizer=organizer)
+                mode = yield self.recipient.record.getAutoScheduleMode(organizer=organizer)
                 send_reply, store_inbox, partstat, accounting = (yield self.checkAttendeeAutoReply(new_calendar, mode))
                 if accounting is not None:
                     accounting["action"] = "create"
                     emitAccounting(
                         "AutoScheduling",
-                        self.recipient.principal,
+                        self.recipient.record,
                         json.dumps(accounting) + "\r\n",
                         filename=self.uid.encode("base64")[:-1] + ".txt"
                     )
 
                 # Only store inbox item when reply is not sent or always for users
-                store_inbox = store_inbox or self.recipient.principal.getCUType() == "INDIVIDUAL"
+                store_inbox = store_inbox or self.recipient.record.getCUType() == "INDIVIDUAL"
             else:
                 send_reply = False
                 store_inbox = True
@@ -477,21 +477,21 @@ class ImplicitProcessor(object):
 
                 # Handle auto-reply behavior
                 organizer = normalizeCUAddr(self.message.getOrganizer())
-                if (yield self.recipient.principal.canAutoSchedule(organizer=organizer)) and not hasattr(self.txn, "doing_attendee_refresh"):
+                if (yield self.recipient.record.canAutoSchedule(organizer=organizer)) and not hasattr(self.txn, "doing_attendee_refresh"):
                     # auto schedule mode can depend on who the organizer is
-                    mode = yield self.recipient.principal.getAutoScheduleMode(organizer=organizer)
+                    mode = yield self.recipient.record.getAutoScheduleMode(organizer=organizer)
                     send_reply, store_inbox, partstat, accounting = (yield self.checkAttendeeAutoReply(new_calendar, mode))
                     if accounting is not None:
                         accounting["action"] = "modify"
                         emitAccounting(
                             "AutoScheduling",
-                            self.recipient.principal,
+                            self.recipient.record,
                             json.dumps(accounting) + "\r\n",
                             filename=self.uid.encode("base64")[:-1] + ".txt"
                         )
 
                     # Only store inbox item when reply is not sent or always for users
-                    store_inbox = store_inbox or self.recipient.principal.getCUType() == "INDIVIDUAL"
+                    store_inbox = store_inbox or self.recipient.record.getCUType() == "INDIVIDUAL"
                 else:
                     send_reply = False
                     store_inbox = True
@@ -566,13 +566,13 @@ class ImplicitProcessor(object):
             # inbox item on them even if auto-schedule is true so that they get a notification
             # of the cancel.
             organizer = normalizeCUAddr(self.message.getOrganizer())
-            autoprocessed = yield self.recipient.principal.canAutoSchedule(organizer=organizer)
-            store_inbox = not autoprocessed or self.recipient.principal.getCUType() == "INDIVIDUAL"
+            autoprocessed = yield self.recipient.record.canAutoSchedule(organizer=organizer)
+            store_inbox = not autoprocessed or self.recipient.record.getCUType() == "INDIVIDUAL"
 
             # Check to see if this is a cancel of the entire event
             processed_message, delete_original, rids = iTipProcessing.processCancel(self.message, self.recipient_calendar, autoprocessing=autoprocessed)
             if processed_message:
-                if autoprocessed and accountingEnabled("AutoScheduling", self.recipient.principal):
+                if autoprocessed and accountingEnabled("AutoScheduling", self.recipient.record):
                     accounting = {
                         "action": "cancel",
                         "when": DateTime.getNowUTC().getText(),
@@ -580,7 +580,7 @@ class ImplicitProcessor(object):
                     }
                     emitAccounting(
                         "AutoScheduling",
-                        self.recipient.principal,
+                        self.recipient.record,
                         json.dumps(accounting) + "\r\n",
                         filename=self.uid.encode("base64")[:-1] + ".txt"
                     )
@@ -643,7 +643,7 @@ class ImplicitProcessor(object):
         @return: C{tuple} of C{bool}, C{bool}, C{str} indicating whether changes were made, whether the inbox item
             should be added, and the new PARTSTAT.
         """
-        if accountingEnabled("AutoScheduling", self.recipient.principal):
+        if accountingEnabled("AutoScheduling", self.recipient.record):
             accounting = {
                 "when": DateTime.getNowUTC().getText(),
                 "automode": automode,
@@ -670,7 +670,7 @@ class ImplicitProcessor(object):
 
         log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - checking for auto-reply with mode: %s" % (self.recipient.cuaddr, self.uid, automode.name,))
 
-        cuas = self.recipient.principal.calendarUserAddresses
+        cuas = self.recipient.record.calendarUserAddresses
 
         # First expand current one to get instances (only go 1 year into the future)
         default_future_expansion_duration = Duration(days=config.Scheduling.Options.AutoSchedule.FutureFreeBusyDays)
@@ -979,20 +979,20 @@ class ImplicitProcessor(object):
             raise ImplicitProcessorException("5.1;Service unavailable")
 
         # Check to see whether the originator is hosted on this server
-        if not self.originator.principal:
+        if not self.originator.record:
             raise ImplicitProcessorException("5.1;Service unavailable")
 
         # Locate the originator's copy of the event
-        calendar_resource = (yield getCalendarObjectForRecord(self.txn, self.originator.principal, self.uid))
+        calendar_resource = (yield getCalendarObjectForRecord(self.txn, self.originator.record, self.uid))
         if calendar_resource is None:
             raise ImplicitProcessorException("5.1;Service unavailable")
-        originator_calendar = (yield calendar_resource.componentForUser(self.originator.principal.uid))
+        originator_calendar = (yield calendar_resource.componentForUser(self.originator.record.uid))
 
         # Get attendee's view of that
         originator_calendar.attendeesView((self.recipient.cuaddr,))
 
         # Locate the attendee's copy of the event if it exists.
-        recipient_resource = (yield getCalendarObjectForRecord(self.txn, self.recipient.principal, self.uid))
+        recipient_resource = (yield getCalendarObjectForRecord(self.txn, self.recipient.record, self.uid))
 
         # We only need to fix data that already exists
         if recipient_resource is not None:

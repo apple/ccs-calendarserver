@@ -21,12 +21,12 @@ Tests for calendarserver.tools.purge
 import os
 
 from calendarserver.tools.purge import (
-    PurgeOldEventsService, PurgeAttachmentsService, PurgePrincipalService
+    PurgeOldEventsService, PurgeAttachmentsService, PurgePrincipalService, PrincipalPurgeHomeWork
 )
 from pycalendar.datetime import DateTime
-from pycalendar.timezone import Timezone
 from twext.enterprise.dal.syntax import Update, Delete
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet import reactor
+from twisted.internet.defer import inlineCallbacks, returnValue, Deferred
 from twistedcaldav.config import config
 from twistedcaldav.test.util import StoreTestCase
 from twistedcaldav.vcard import Component as VCardComponent
@@ -385,7 +385,8 @@ class PurgeOldEventsTests(StoreTestCase):
                 "oldmattachment1.ics" : (MATTACHMENT_ICS % {"year": now - 5, "uid": "1.1m"}, metadata,),
                 "oldmattachment2.ics" : (MATTACHMENT_ICS % {"year": now - 5, "uid": "1.2m"}, metadata,),
                 "currentmattachment3.ics" : (MATTACHMENT_ICS % {"year": now + 1, "uid": "1.3m"}, metadata,),
-            }
+            },
+            "inbox": {},
         },
         "home2" : {
             "calendar2" : {
@@ -402,15 +403,24 @@ class PurgeOldEventsTests(StoreTestCase):
             },
             "calendar3" : {
                 "repeating_awhile.ics" : (REPEATING_AWHILE_ICS, metadata,),
-            }
+            },
+            "inbox": {},
         }
     }
+
 
     def configure(self):
         super(PurgeOldEventsTests, self).configure()
 
         # Turn off delayed indexing option so we can have some useful tests
         self.patch(config, "FreeBusyIndexDelayedExpand", False)
+
+        # Tweak queue timing to speed things up
+        self.patch(config.Scheduling.Options.WorkQueues, "Enabled", False)
+        self.patch(config.AutomaticPurging, "PollingIntervalSeconds", -1)
+        self.patch(config.AutomaticPurging, "CheckStaggerSeconds", 1)
+        self.patch(config.AutomaticPurging, "PurgeIntervalSeconds", 3)
+        self.patch(config.AutomaticPurging, "HomePurgeDelaySeconds", 1)
 
         # self.patch(config.DirectoryService.params, "xmlFile",
         #     os.path.join(
@@ -675,46 +685,20 @@ class PurgeOldEventsTests(StoreTestCase):
         # Make the newly created objects available to the purgeUID transaction
         (yield txn.commit())
 
-        # Purge home1
-        total = yield PurgePrincipalService.purgeUIDs(self._sqlCalendarStore, self.directory,
-            ("home1",), verbose=False, proxies=False,
-            when=DateTime(now, 4, 1, 12, 0, 0, 0, Timezone(utc=True)))
-
-        # 4 items deleted: 3 events and 1 vcard
-        self.assertEquals(total, 4)
-
-        txn = self._sqlCalendarStore.newTransaction()
-        # adressbook home is deleted since it's now empty
-        abHome = (yield txn.addressbookHomeWithUID("home1"))
-        self.assertEquals(abHome, None)
-
-        calHome = (yield txn.calendarHomeWithUID("home1"))
-        calColl = (yield calHome.calendarWithName("calendar1"))
-        self.assertEquals(len((yield calColl.calendarObjects())), 5)
-
-
-    @inlineCallbacks
-    def test_purgeUIDCompletely(self):
-        txn = self._sqlCalendarStore.newTransaction()
-
-        # Create an addressbook and one CardDAV resource
-        abHome = (yield txn.addressbookHomeWithUID("home1", create=True))
-        abColl = (yield abHome.addressbookWithName("addressbook"))
-        (yield abColl.createAddressBookObjectWithName("card1",
-            VCardComponent.fromString(VCARD_1)))
-        self.assertEquals(len((yield abColl.addressbookObjects())), 1)
-
-        # Verify there are 8 events in calendar1
-        calHome = (yield txn.calendarHomeWithUID("home1"))
-        calColl = (yield calHome.calendarWithName("calendar1"))
-        self.assertEquals(len((yield calColl.calendarObjects())), 8)
-
-        # Make the newly created objects available to the purgeUID transaction
-        (yield txn.commit())
-
         # Purge home1 completely
         total = yield PurgePrincipalService.purgeUIDs(self._sqlCalendarStore, self.directory,
-            ("home1",), verbose=False, proxies=False, completely=True)
+            ("home1",), verbose=False, proxies=False)
+
+        # Wait for queue to process
+        while(True):
+            txn = self.transactionUnderTest()
+            work = yield PrincipalPurgeHomeWork.all(txn)
+            yield self.commit()
+            if len(work) == 0:
+                break
+            d = Deferred()
+            reactor.callLater(1, lambda : d.callback(None))
+            yield d
 
         # 9 items deleted: 8 events and 1 vcard
         self.assertEquals(total, 9)

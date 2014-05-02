@@ -54,7 +54,7 @@ from twistedcaldav.extensions import (
 )
 from twistedcaldav.extensions import DirectoryElement
 from twistedcaldav.resource import CalendarPrincipalCollectionResource, CalendarPrincipalResource
-from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
+from txdav.caldav.datastore.scheduling.utils import normalizeCUAddr
 from txdav.who.delegates import RecordType as DelegateRecordType
 from txdav.who.directory import CalendarDirectoryRecordMixin
 from txdav.xml import element as davxml

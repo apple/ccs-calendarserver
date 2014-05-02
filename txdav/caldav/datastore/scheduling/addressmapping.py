@@ -22,11 +22,10 @@ from twistedcaldav.config import config
 from twistedcaldav.memcacher import Memcacher
 
 from txdav.caldav.datastore.scheduling.caldav.delivery import ScheduleViaCalDAV
+from txdav.caldav.datastore.scheduling.cuaddress import RemoteCalendarUser, EmailCalendarUser, InvalidCalendarUser
 from txdav.caldav.datastore.scheduling.delivery import DeliveryService
 from txdav.caldav.datastore.scheduling.imip.delivery import ScheduleViaIMip
 from txdav.caldav.datastore.scheduling.ischedule.delivery import ScheduleViaISchedule
-from txdav.caldav.datastore.scheduling.cuaddress import RemoteCalendarUser, EmailCalendarUser, InvalidCalendarUser, \
-    calendarUserFromPrincipal
 
 __all__ = [
     "ScheduleAddressMapper",
@@ -51,11 +50,7 @@ class ScheduleAddressMapper(object):
 
 
     @inlineCallbacks
-    def getCalendarUser(self, cuaddr, principal):
-
-        # If we have a principal always treat the user as local
-        if principal:
-            returnValue(calendarUserFromPrincipal(cuaddr, principal))
+    def getCalendarUser(self, cuaddr):
 
         # Get the type
         cuaddr_type = (yield self.getCalendarUserServiceType(cuaddr))

@@ -146,6 +146,27 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
 
 
     @inlineCallbacks
+    def test_purgingHome(self):
+        """
+        Purging a calendar homes changes its status.
+        """
+
+        home = yield self.homeUnderTest(name="home1")
+        self.assertFalse(home.purging())
+        self.assertFalse(home.external())
+
+        yield home.purge()
+        self.assertTrue(home.purging())
+        self.assertFalse(home.external())
+
+        yield self.commit()
+
+        home = yield self.homeUnderTest(name="home1")
+        self.assertTrue(home is not None)
+        yield self.commit()
+
+
+    @inlineCallbacks
     def test_migrateCalendarFromFile(self):
         """
         C{_migrateCalendar()} can migrate a file-backed calendar to a database-

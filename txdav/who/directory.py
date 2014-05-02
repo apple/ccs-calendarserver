@@ -30,6 +30,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twistedcaldav.config import config
 from twistedcaldav.ical import Property
 from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers
+from txdav.caldav.datastore.scheduling.utils import normalizeCUAddr
 from txdav.who.delegates import RecordType as DelegateRecordType
 from txdav.who.idirectory import (
     RecordType as DAVRecordType, AutoScheduleMode
@@ -64,8 +65,6 @@ class CalendarDirectoryServiceMixin(object):
 
     @inlineCallbacks
     def recordWithCalendarUserAddress(self, address):
-        # FIXME: moved this here to avoid circular import problems
-        from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
         address = normalizeCUAddr(address)
         record = None
 
@@ -430,7 +429,7 @@ class CalendarDirectoryRecordMixin(object):
         if config.Scheduling.Options.AutoSchedule.Enabled:
             if (
                 config.Scheduling.Options.AutoSchedule.Always or
-                self.autoScheduleMode not in (AutoScheduleMode.none, None) or  # right???
+                getattr(self, "autoScheduleMode", None) not in (AutoScheduleMode.none, None) or  # right???
                 (
                     yield self.autoAcceptFromOrganizer(organizer)
                 )

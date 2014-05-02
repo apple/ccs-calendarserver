@@ -39,7 +39,7 @@ from twisted.web.template import XMLString, TEMPLATE_NAMESPACE, Element, rendere
 from twistedcaldav.config import config
 from twistedcaldav.ical import Component
 from twistedcaldav.localization import translationTo, _, getLanguage
-from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
+from txdav.caldav.datastore.scheduling.utils import normalizeCUAddr
 from txdav.caldav.datastore.scheduling.imip.smtpsender import SMTPSender
 from txdav.common.datastore.sql_tables import schema
 

@@ -33,10 +33,10 @@ from twext.who.ldap import (
 )
 from twext.who.util import ConstantsContainer
 from twisted.cred.credentials import UsernamePassword
+from twisted.internet.defer import succeed, inlineCallbacks
 from twisted.python.filepath import FilePath
 from twisted.python.reflect import namedClass
 from twistedcaldav.config import fullServerPath
-from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
 from txdav.who.augment import AugmentedDirectoryService
 from txdav.who.delegates import DirectoryService as DelegateDirectoryService
 from txdav.who.idirectory import (
@@ -45,8 +45,6 @@ from txdav.who.idirectory import (
 )
 from txdav.who.wiki import DirectoryService as WikiDirectoryService
 from txdav.who.xml import DirectoryService as XMLDirectoryService
-from uuid import UUID
-from twisted.internet.defer import succeed, inlineCallbacks
 
 
 log = Logger()
@@ -248,38 +246,6 @@ def directoryFromConfig(config, store=None):
 
 
 
-def uidFromCalendarUserAddress(address):
-    """
-        Get a uid from a calendar user address
-        May return None
-    """
-
-    address = normalizeCUAddr(address)
-
-    if address.startswith("urn:x-uid:"):
-        return address[10:]
-
-    elif address.startswith("urn:uuid:"):
-        try:
-            UUID(address[9:])
-        except ValueError:
-            log.info("Invalid GUID: {guid}", guid=address[9:])
-        else:
-            return address[9:]
-
-    elif address.startswith("mailto:"):
-        return address[7:]
-
-    elif address.startswith("/principals/"):
-        parts = address.split("/")
-        if len(parts) == 4:
-            return parts[3]
-
-    return None
-
-
-
-
 class InMemoryDirectoryService(IndexDirectoryService):
     """
     An in-memory IDirectoryService.  You must call updateRecords( ) if you want
@@ -306,7 +272,7 @@ class InMemoryDirectoryService(IndexDirectoryService):
         recordsByUID = dict(((record.uid, record) for record in records))
         if not create:
             # Make sure all the records already exist
-            for uid, record in recordsByUID.items():
+            for uid, _ignore_record in recordsByUID.items():
                 if uid not in self._index[self.fieldName.uid]:
                     raise NoSuchRecordError(uid)
 

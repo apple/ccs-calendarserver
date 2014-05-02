@@ -39,7 +39,6 @@ create table HOME_STATUS (
 
 insert into HOME_STATUS (DESCRIPTION, ID) values ('normal', 0);
 insert into HOME_STATUS (DESCRIPTION, ID) values ('external', 1);
-insert into HOME_STATUS (DESCRIPTION, ID) values ('purging', 2);
 create table CALENDAR (
     "RESOURCE_ID" integer primary key
 );
@@ -556,18 +555,12 @@ create table PRINCIPAL_PURGE_WORK (
     "UID" nvarchar2(255)
 );
 
-create table PRINCIPAL_PURGE_HOME_WORK (
-    "WORK_ID" integer primary key not null,
-    "JOB_ID" integer not null references JOB,
-    "HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade
-);
-
 create table CALENDARSERVER (
     "NAME" nvarchar2(255) primary key,
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '41');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '40');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');
@@ -846,14 +839,6 @@ create index PRINCIPAL_PURGE_CHECK_b0c024c1 on PRINCIPAL_PURGE_CHECK_WORK (
 
 create index PRINCIPAL_PURGE_WORK__7a8141a3 on PRINCIPAL_PURGE_WORK (
     JOB_ID
-);
-
-create index PRINCIPAL_PURGE_HOME__f35eea7a on PRINCIPAL_PURGE_HOME_WORK (
-    JOB_ID
-);
-
-create index PRINCIPAL_PURGE_HOME__967e4480 on PRINCIPAL_PURGE_HOME_WORK (
-    HOME_RESOURCE_ID
 );
 
 -- Skipped Function next_job

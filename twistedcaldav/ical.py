@@ -45,8 +45,9 @@ from twistedcaldav.config import config
 from twistedcaldav.dateops import timeRangesOverlap, normalizeForIndex, differenceDateTime, \
     normalizeForExpand
 from twistedcaldav.instance import InstanceList, InvalidOverriddenInstanceError
-from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.timezones import hasTZ, TimezoneException
+
+from txdav.caldav.datastore.scheduling.utils import normalizeCUAddr
 
 from pycalendar.icalendar import definitions
 from pycalendar.parameter import Parameter

@@ -61,8 +61,10 @@ from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.datastore.query.builder import buildExpression
 from txdav.caldav.datastore.query.filter import Filter
 from txdav.caldav.datastore.query.generator import CalDAVSQLQueryGenerator
+from txdav.caldav.datastore.scheduling.cuaddress import calendarUserFromCalendarUserAddress
 from txdav.caldav.datastore.scheduling.icalsplitter import iCalSplitter
 from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
+from txdav.caldav.datastore.scheduling.utils import uidFromCalendarUserAddress
 from txdav.caldav.datastore.util import AttachmentRetrievalTransport, \
     normalizationLookup
 from txdav.caldav.datastore.util import CalendarObjectBase
@@ -1993,8 +1995,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             if groupRecord is not None:
                 groupUID = groupRecord.uid
             else:
-                #FIXME:  here to avoid circular import
-                from txdav.who.util import uidFromCalendarUserAddress
                 groupUID = uidFromCalendarUserAddress(groupCUA)
             groupID, _ignore_name, membershipHash, _ignore_modDate = yield self._txn.groupByUID(groupUID)
 
@@ -3931,10 +3931,9 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             raise InvalidSplit()
 
         # Cannot be attendee
-        ownerPrincipal = yield self.calendar().ownerHome().directoryRecord()
         organizer = component.getOrganizer()
-        organizerPrincipal = (yield self.directoryService().recordWithCalendarUserAddress(organizer)) if organizer else None
-        if organizer is not None and organizerPrincipal.uid != ownerPrincipal.uid:
+        organizerAddress = (yield calendarUserFromCalendarUserAddress(organizer, self._txn)) if organizer else None
+        if organizer is not None and organizerAddress.record.uid != self.calendar().ownerHome().uid():
             raise InvalidSplit()
 
         # Determine valid split point

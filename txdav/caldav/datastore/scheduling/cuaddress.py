@@ -15,9 +15,20 @@
 ##
 
 from twext.python.log import Logger
+from twext.who.directory import DirectoryRecord as BaseDirectoryRecord
+from twext.who.idirectory import FieldName as BaseFieldName
+from twext.who.idirectory import RecordType as BaseRecordType
 
-from txdav.caldav.datastore.scheduling.delivery import DeliveryService
-from txdav.caldav.datastore.scheduling.utils import extractEmailDomain
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.python.constants import Names, NamedConstant
+
+from txdav.caldav.datastore.scheduling.utils import extractEmailDomain, \
+    uidFromCalendarUserAddress
+from txdav.caldav.icalendardirectoryservice import ICalendarStoreDirectoryRecord
+from txdav.who.directory import CalendarDirectoryRecordMixin
+from txdav.who.idirectory import FieldName
+
+from zope.interface.declarations import implementer
 
 __all__ = [
     "LocalCalendarUser",
@@ -25,7 +36,6 @@ __all__ = [
     "RemoteCalendarUser",
     "EmailCalendarUser",
     "InvalidCalendarUser",
-    "normalizeCUAddr",
 ]
 
 log = Logger()
@@ -34,17 +44,77 @@ class CalendarUser(object):
 
     def __init__(self, cuaddr):
         self.cuaddr = cuaddr
-        self.serviceType = None
+
+
+    def hosted(self):
+        """
+        Is this user hosted on this service (this pod or any other)
+        """
+        return False
+
+
+    def validOriginator(self):
+        """
+        Is this user able to originate scheduling messages.
+        """
+        return True
+
+
+    def validRecipient(self):
+        """
+        Is this user able to receive scheduling messages.
+        """
+        return True
 
 
 
-class LocalCalendarUser(CalendarUser):
+class HostedCalendarUser(CalendarUser):
+    """
+    User hosted on any pod of this service. This is derived from an L{DirectoryRecord}
+    in most cases. However, we need to cope with the situation where a user has been
+    removed from the directory but still has calendar data that needs to be managed
+    (typically purged). In that case we there is no directory record, but we can confirm
+    from the cu-address that corresponding data for their UID exists, and thus can
+    determine the valid UID to use.
+    """
 
-    def __init__(self, cuaddr, principal, inbox=None):
+    def __init__(self, cuaddr, record):
         self.cuaddr = cuaddr
-        self.principal = principal
-        self.inbox = inbox
-        self.serviceType = DeliveryService.serviceType_caldav
+        self.record = record
+
+
+    def hosted(self):
+        """
+        Is this user hosted on this service (this pod or any other)
+        """
+        return True
+
+
+    def validOriginator(self):
+        """
+        Is this user able to originate scheduling messages.
+        A user with a temporary directory record can be schedule, but that will
+        only be for purposes of automatic purge.
+        """
+        return self.record.calendarsEnabled()
+
+
+    def validRecipient(self):
+        """
+        Is this user able to receive scheduling messages.
+        A user with a temporary directory record cannot be scheduled with.
+        """
+        return self.record.calendarsEnabled() and not isinstance(self.record, TemporaryDirectoryRecord)
+
+
+
+class LocalCalendarUser(HostedCalendarUser):
+    """
+    User hosted on the current pod.
+    """
+
+    def __init__(self, cuaddr, record):
+        super(LocalCalendarUser, self).__init__(cuaddr, record)
 
 
     def __str__(self):
@@ -52,12 +122,13 @@ class LocalCalendarUser(CalendarUser):
 
 
 
-class OtherServerCalendarUser(CalendarUser):
+class OtherServerCalendarUser(HostedCalendarUser):
+    """
+    User hosted on another pod.
+    """
 
-    def __init__(self, cuaddr, principal):
-        self.cuaddr = cuaddr
-        self.principal = principal
-        self.serviceType = DeliveryService.serviceType_ischedule
+    def __init__(self, cuaddr, record):
+        super(OtherServerCalendarUser, self).__init__(cuaddr, record)
 
 
     def __str__(self):
@@ -66,11 +137,13 @@ class OtherServerCalendarUser(CalendarUser):
 
 
 class RemoteCalendarUser(CalendarUser):
+    """
+    User external to the entire system (set of pods). Used for iSchedule.
+    """
 
     def __init__(self, cuaddr):
-        self.cuaddr = cuaddr
+        super(RemoteCalendarUser, self).__init__(cuaddr)
         self.extractDomain()
-        self.serviceType = DeliveryService.serviceType_ischedule
 
 
     def __str__(self):
@@ -89,10 +162,12 @@ class RemoteCalendarUser(CalendarUser):
 
 
 class EmailCalendarUser(CalendarUser):
+    """
+    User external to the entire system (set of pods). Used for iMIP.
+    """
 
     def __init__(self, cuaddr):
-        self.cuaddr = cuaddr
-        self.serviceType = DeliveryService.serviceType_imip
+        super(EmailCalendarUser, self).__init__(cuaddr)
 
 
     def __str__(self):
@@ -101,37 +176,127 @@ class EmailCalendarUser(CalendarUser):
 
 
 class InvalidCalendarUser(CalendarUser):
+    """
+    A calendar user that ought to be hosted on the system, but does not have a valid
+    directory entry.
+    """
 
     def __str__(self):
         return "Invalid calendar user: %s" % (self.cuaddr,)
 
 
+    def validOriginator(self):
+        """
+        Is this user able to originate scheduling messages.
+        """
+        return False
 
-def normalizeCUAddr(addr):
+
+    def validRecipient(self):
+        """
+        Is this user able to receive scheduling messages.
+        """
+        return False
+
+
+
+@inlineCallbacks
+def calendarUserFromCalendarUserAddress(cuaddr, txn):
     """
-    Normalize a cuaddr string by lower()ing it if it's a mailto:, or
-    removing trailing slash if it's a URL.
-    @param addr: a cuaddr string to normalize
-    @return: normalized string
+    Map a calendar user address into an L{CalendarUser} taking into account whether
+    they are hosted in the directory or known to be locally hosted - or match
+    address patterns for other services.
+
+    @param cuaddr: the calendar user address to map
+    @type cuaddr: L{str}
+    @param txn: a transaction to use for store operations
+    @type txn: L{ICommonStoreTransaction}
     """
-    lower = addr.lower()
-    if lower.startswith("mailto:"):
-        addr = lower
-    if (addr.startswith("/") or
-        addr.startswith("http:") or
-        addr.startswith("https:")):
-        return addr.rstrip("/")
+
+    record = yield txn.directoryService().recordWithCalendarUserAddress(cuaddr)
+    returnValue((yield _fromRecord(cuaddr, record, txn)))
+
+
+
+@inlineCallbacks
+def calendarUserFromCalendarUserUID(uid, txn):
+    """
+    Map a calendar user address into an L{CalendarUser} taking into account whether
+    they are hosted in the directory or known to be locally hosted - or match
+    address patterns for other services.
+
+    @param uid: the calendar user UID to map
+    @type uid: L{str}
+    @param txn: a transaction to use for store operations
+    @type txn: L{ICommonStoreTransaction}
+    """
+
+    record = yield txn.directoryService().recordWithUID(uid)
+    cua = record.canonicalCalendarUserAddress() if record is not None else "urn:x-uid:{}".format(uid)
+    returnValue((yield _fromRecord(cua, record, txn)))
+
+
+
+class RecordType(Names):
+    """
+    Constants for temporary directory record type.
+
+    @cvar unknown: Location record.
+        Represents a calendar user of unknown type.
+    """
+
+    unknown = NamedConstant()
+    unknown.description = u"unknown"
+
+
+
+@implementer(ICalendarStoreDirectoryRecord)
+class TemporaryDirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
+
+    def __init__(self, service, uid, nodeUID):
+
+        fields = {
+            BaseFieldName.uid: uid.decode("utf-8"),
+            BaseFieldName.recordType: BaseRecordType.user,
+            FieldName.hasCalendars: True,
+            FieldName.serviceNodeUID: nodeUID,
+        }
+
+        super(TemporaryDirectoryRecord, self).__init__(service, fields)
+        self.fields[BaseFieldName.recordType] = RecordType.unknown
+        self.fields[BaseFieldName.guid] = uid.decode("utf-8")
+
+
+
+@inlineCallbacks
+def _fromRecord(cuaddr, record, txn):
+    """
+    Map a calendar user record into an L{CalendarUser} taking into account whether
+    they are hosted in the directory or known to be locally hosted - or match
+    address patterns for other services.
+
+    @param cuaddr: the calendar user address to map
+    @type cuaddr: L{str}
+    @param record: the calendar user record to map or L{None}
+    @type record: L{IDirectoryRecord}
+    @param txn: a transaction to use for store operations
+    @type txn: L{ICommonStoreTransaction}
+    """
+    if record is not None:
+        if not record.calendarsEnabled():
+            returnValue(InvalidCalendarUser(cuaddr))
+        elif record.thisServer():
+            returnValue(LocalCalendarUser(cuaddr, record))
+        else:
+            returnValue(OtherServerCalendarUser(cuaddr, record))
     else:
-        return addr
+        uid = uidFromCalendarUserAddress(cuaddr)
+        if uid is not None:
+            hosted, serviceNodeUID = yield txn.store().uidInStore(txn, uid)
+            if hosted:
+                record = TemporaryDirectoryRecord(txn.directoryService(), uid, serviceNodeUID)
+                returnValue(LocalCalendarUser(cuaddr, record))
 
-
-
-def calendarUserFromPrincipal(recipient, principal, inbox=None):
-    """
-    Get the appropriate calendar user address class for the provided principal.
-    """
-
-    if principal.thisServer():
-        return LocalCalendarUser(recipient, principal, inbox)
-    else:
-        return OtherServerCalendarUser(recipient, principal)
+    from txdav.caldav.datastore.scheduling import addressmapping
+    result = (yield addressmapping.mapper.getCalendarUser(cuaddr))
+    returnValue(result)

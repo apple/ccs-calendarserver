@@ -188,12 +188,12 @@ class ScheduleViaISchedule(DeliveryService):
         if not hasattr(self, "otherServers"):
             self.otherServers = {}
 
-        serverURI = recipient.principal.serverURI()
+        serverURI = recipient.record.serverURI()
         if serverURI not in self.otherServers:
             self.otherServers[serverURI] = IScheduleServerRecord(
                 uri=joinURL(serverURI, config.Servers.InboxName),
-                unNormalizeAddresses=not recipient.principal.server().isImplicit,
-                moreHeaders=[recipient.principal.server().secretHeader(), ],
+                unNormalizeAddresses=not recipient.record.server().isImplicit,
+                moreHeaders=[recipient.record.server().secretHeader(), ],
                 podding=True,
             )
 

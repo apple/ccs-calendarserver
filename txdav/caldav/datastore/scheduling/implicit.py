@@ -25,11 +25,12 @@ from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.ical import Property
 
-from txdav.caldav.datastore.scheduling import addressmapping
 from txdav.caldav.datastore.scheduling.caldav.scheduler import CalDAVScheduler
 from txdav.caldav.datastore.scheduling.cuaddress import InvalidCalendarUser, \
     LocalCalendarUser, OtherServerCalendarUser, \
-    normalizeCUAddr
+    calendarUserFromCalendarUserAddress, \
+    calendarUserFromCalendarUserUID
+from txdav.caldav.datastore.scheduling.utils import normalizeCUAddr
 from txdav.caldav.datastore.scheduling.icaldiff import iCalDiff
 from txdav.caldav.datastore.scheduling.itip import iTipGenerator, iTIPRequestStatus
 from txdav.caldav.datastore.scheduling.utils import getCalendarObjectForRecord
@@ -232,6 +233,7 @@ class ImplicitScheduler(object):
         @type calendar: L{twistedcaldav.ical.Component}
         """
 
+        self.txn = parent._txn
         self.parent = parent
         self.resource = resource
         self.calendar = calendar
@@ -257,7 +259,7 @@ class ImplicitScheduler(object):
         # Check to see whether the organizer principal is enabled for scheduling. If not, do not allow them
         # to create new scheduling resources.
         if self.action == "create":
-            if self.organizerPrincipal and not self.organizerPrincipal.enabledAsOrganizer():
+            if self.organizerAddress.hosted() and not self.organizerAddress.record.enabledAsOrganizer():
                 log.error("ORGANIZER not allowed to be an Organizer: {organizer}", organizer=self.organizer)
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
@@ -365,11 +367,9 @@ class ImplicitScheduler(object):
 
         # Get some useful information from the calendar
         yield self.extractCalendarData()
-        self.organizerPrincipal = yield self.calendar_home.directoryService().recordWithCalendarUserAddress(self.organizer)
-        self.organizerAddress = (yield addressmapping.mapper.getCalendarUser(self.organizer, self.organizerPrincipal))
+        self.organizerAddress = (yield calendarUserFromCalendarUserAddress(self.organizer, self.txn))
 
         # Originator is the organizer in this case
-        self.originatorPrincipal = self.organizerPrincipal
         self.originator = self.organizer
 
         # We want to suppress chatty iMIP messages when other attendees reply
@@ -447,11 +447,9 @@ class ImplicitScheduler(object):
             self.calendar = calendar_old
 
         yield self.extractCalendarData()
-        self.organizerPrincipal = yield self.calendar_home.directoryService().recordWithCalendarUserAddress(self.organizer)
-        self.organizerAddress = (yield addressmapping.mapper.getCalendarUser(self.organizer, self.organizerPrincipal))
+        self.organizerAddress = (yield calendarUserFromCalendarUserAddress(self.organizer, self.txn))
 
         # Originator is the organizer in this case
-        self.originatorPrincipal = self.organizerPrincipal
         self.originator = self.organizer
 
         self.except_attendees = ()
@@ -479,8 +477,8 @@ class ImplicitScheduler(object):
         # Get some useful information from the calendar
         yield self.extractCalendarData()
 
-        self.attendeePrincipal = yield self.calendar_home.directoryService().recordWithUID(self.calendar_home.uid().decode("utf-8"))
-        self.originator = self.attendee = self.attendeePrincipal.canonicalCalendarUserAddress()
+        self.attendeeAddress = (yield calendarUserFromCalendarUserUID(self.calendar_home.uid(), self.txn))
+        self.originator = self.attendee = self.attendeeAddress.record.canonicalCalendarUserAddress()
 
         result = (yield self.scheduleWithOrganizer())
 
@@ -491,10 +489,10 @@ class ImplicitScheduler(object):
     def extractCalendarData(self):
 
         # Get the originator who is the owner of the calendar resource being modified
-        self.originatorPrincipal = yield self.calendar_home.directoryService().recordWithUID(self.calendar_home.uid().decode("utf-8"))
+        originatorAddress = yield calendarUserFromCalendarUserUID(self.calendar_home.uid(), self.txn)
 
         # Pick the canonical CUA:
-        self.originator = self.originatorPrincipal.canonicalCalendarUserAddress()
+        self.originator = originatorAddress.record.canonicalCalendarUserAddress()
 
         # Get the ORGANIZER and verify it is the same for all components
         try:
@@ -567,13 +565,12 @@ class ImplicitScheduler(object):
             returnValue(False)
 
         # Organizer must map to a valid principal
-        self.organizerPrincipal = yield self.calendar_home.directoryService().recordWithCalendarUserAddress(self.organizer)
-        self.organizerAddress = (yield addressmapping.mapper.getCalendarUser(self.organizer, self.organizerPrincipal))
-        if not self.organizerPrincipal:
+        self.organizerAddress = (yield calendarUserFromCalendarUserAddress(self.organizer, self.txn))
+        if not self.organizerAddress.hosted():
             returnValue(False)
 
         # Organizer must be the owner of the calendar resource
-        if self.calendar_home.uid() != self.organizerPrincipal.uid:
+        if self.calendar_home.uid() != self.organizerAddress.record.uid:
             returnValue(False)
 
         returnValue(True)
@@ -588,10 +585,10 @@ class ImplicitScheduler(object):
 
         # Check to see whether any attendee is the owner
         for attendee in self.attendees:
-            attendeePrincipal = yield self.calendar_home.directoryService().recordWithCalendarUserAddress(attendee)
-            if attendeePrincipal and attendeePrincipal.uid == self.calendar_home.uid():
+            attendeeAddress = yield calendarUserFromCalendarUserAddress(attendee, self.txn)
+            if attendeeAddress.hosted() and attendeeAddress.record.uid == self.calendar_home.uid():
                 self.attendee = attendee
-                self.attendeePrincipal = attendeePrincipal
+                self.attendeeAddress = attendeeAddress
                 returnValue(True)
 
         returnValue(False)
@@ -670,7 +667,7 @@ class ImplicitScheduler(object):
                             if attendee.hasParameter("PARTSTAT"):
                                 cuaddr = attendee.value()
 
-                                if cuaddr in self.organizerPrincipal.calendarUserAddresses:
+                                if cuaddr in self.organizerAddress.record.calendarUserAddresses:
                                     # If the attendee is the organizer then do not update
                                     # the PARTSTAT to NEEDS-ACTION.
                                     # The organizer is automatically ACCEPTED to the event.
@@ -971,7 +968,7 @@ class ImplicitScheduler(object):
         """
         for attendee in self.calendar.getAllAttendeeProperties():
             # Don't adjust ORGANIZER's ATTENDEE
-            if attendee.value() in self.organizerPrincipal.calendarUserAddresses:
+            if attendee.value() in self.organizerAddress.record.calendarUserAddresses:
                 continue
             if attendee.parameterValue("SCHEDULE-AGENT", "SERVER").upper() == "SERVER" and attendee.hasParameter("PARTSTAT"):
                 attendee.setParameter("PARTSTAT", "NEEDS-ACTION")
@@ -1026,7 +1023,7 @@ class ImplicitScheduler(object):
         changed = False
         for cuaddr, newattendee in new_attendees.items():
             # Don't adjust ORGANIZER's ATTENDEE
-            if newattendee.value() in self.organizerPrincipal.calendarUserAddresses:
+            if newattendee.value() in self.organizerAddress.record.calendarUserAddresses:
                 continue
             new_partstat = newattendee.parameterValue("PARTSTAT", "NEEDS-ACTION").upper()
             if newattendee.parameterValue("SCHEDULE-AGENT", "SERVER").upper() == "SERVER" and new_partstat != "NEEDS-ACTION":
@@ -1060,8 +1057,7 @@ class ImplicitScheduler(object):
             if attendee.parameterValue("SCHEDULE-AGENT", "SERVER").upper() == "CLIENT":
                 cuaddr = attendee.value()
                 if cuaddr not in coerced:
-                    attendeePrincipal = yield self.calendar_home.directoryService().recordWithCalendarUserAddress(cuaddr)
-                    attendeeAddress = (yield addressmapping.mapper.getCalendarUser(cuaddr, attendeePrincipal))
+                    attendeeAddress = (yield calendarUserFromCalendarUserAddress(cuaddr, self.txn))
                     local_attendee = type(attendeeAddress) in (LocalCalendarUser, OtherServerCalendarUser,)
                     coerced[cuaddr] = local_attendee
                 if coerced[cuaddr]:
@@ -1082,7 +1078,7 @@ class ImplicitScheduler(object):
             self.resource,
             self.oldcalendar,
             self.calendar,
-            self.organizerPrincipal.canonicalCalendarUserAddress(),
+            self.organizerAddress.record.canonicalCalendarUserAddress(),
             len(self.calendar.getAllUniqueAttendees()) - 1,
             self.do_smart_merge,
         )
@@ -1128,13 +1124,12 @@ class ImplicitScheduler(object):
         for attendee, rids in aggregated.iteritems():
 
             # Don't send message back to the ORGANIZER
-            if attendee in self.organizerPrincipal.calendarUserAddresses:
+            if attendee in self.organizerAddress.record.calendarUserAddresses:
                 continue
 
             # Handle split by not scheduling local attendees
             if self.split_details is not None:
-                attendeePrincipal = yield self.calendar_home.directoryService().recordWithCalendarUserAddress(attendee)
-                attendeeAddress = (yield addressmapping.mapper.getCalendarUser(attendee, attendeePrincipal))
+                attendeeAddress = (yield calendarUserFromCalendarUserAddress(attendee, self.txn))
                 if type(attendeeAddress) is LocalCalendarUser:
                     continue
 
@@ -1173,7 +1168,7 @@ class ImplicitScheduler(object):
         for attendee in self.attendees:
 
             # Don't send message back to the ORGANIZER
-            if attendee in self.organizerPrincipal.calendarUserAddresses:
+            if attendee in self.organizerAddress.record.calendarUserAddresses:
                 continue
 
             # Don't send message to specified attendees
@@ -1190,8 +1185,7 @@ class ImplicitScheduler(object):
 
             # Handle split by not scheduling local attendees
             if self.split_details is not None:
-                attendeePrincipal = yield self.calendar_home.directoryService().recordWithCalendarUserAddress(attendee)
-                attendeeAddress = (yield addressmapping.mapper.getCalendarUser(attendee, attendeePrincipal))
+                attendeeAddress = (yield calendarUserFromCalendarUserAddress(attendee, self.txn))
                 if type(attendeeAddress) is LocalCalendarUser:
                     continue
 
@@ -1245,13 +1239,12 @@ class ImplicitScheduler(object):
         for attendee, rids in aggregated.iteritems():
 
             # Don't send message back to the ORGANIZER
-            if attendee in self.organizerPrincipal.calendarUserAddresses:
+            if attendee in self.organizerAddress.record.calendarUserAddresses:
                 continue
 
             # Handle split by not scheduling local attendees
             if self.split_details is not None:
-                attendeePrincipal = yield self.calendar_home.directoryService().recordWithCalendarUserAddress(attendee)
-                attendeeAddress = (yield addressmapping.mapper.getCalendarUser(attendee, attendeePrincipal))
+                attendeeAddress = (yield calendarUserFromCalendarUserAddress(attendee, self.txn))
                 if type(attendeeAddress) is LocalCalendarUser:
                     continue
 
@@ -1298,7 +1291,7 @@ class ImplicitScheduler(object):
         for attendee in self.attendees:
 
             # Don't send message back to the ORGANIZER
-            if attendee in self.organizerPrincipal.calendarUserAddresses:
+            if attendee in self.organizerAddress.record.calendarUserAddresses:
                 continue
 
             # Don't send message to specified attendees
@@ -1315,8 +1308,7 @@ class ImplicitScheduler(object):
 
             # Handle split by not scheduling local attendees
             if self.split_details is not None:
-                attendeePrincipal = yield self.calendar_home.directoryService().recordWithCalendarUserAddress(attendee)
-                attendeeAddress = (yield addressmapping.mapper.getCalendarUser(attendee, attendeePrincipal))
+                attendeeAddress = (yield calendarUserFromCalendarUserAddress(attendee, self.txn))
                 if type(attendeeAddress) is LocalCalendarUser:
                     continue
 
@@ -1412,7 +1404,7 @@ class ImplicitScheduler(object):
 
                 # If Organizer copy exists we cannot allow SCHEDULE-AGENT=CLIENT or NONE
                 if not doScheduling:
-                    log.error("Attendee '{attendee}' is not allowed to change SCHEDULE-AGENT on organizer: UID:{uid}", attendee=self.attendeePrincipal, uid=self.uid)
+                    log.error("Attendee '{attendee}' is not allowed to change SCHEDULE-AGENT on organizer: UID:{uid}", attendee=self.attendeeAddress.record, uid=self.uid)
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
                         (caldav_namespace, "valid-attendee-change"),
@@ -1430,7 +1422,7 @@ class ImplicitScheduler(object):
                         self.return_status = ImplicitScheduler.STATUS_ORPHANED_EVENT
                         returnValue(None)
                     else:
-                        log.error("Attendee '{attendee}' is not allowed to make an unauthorized change to an organized event: UID:{uid}", attendee=self.attendeePrincipal, uid=self.uid)
+                        log.error("Attendee '{attendee}' is not allowed to make an unauthorized change to an organized event: UID:{uid}", attendee=self.attendeeAddress.record, uid=self.uid)
                         raise HTTPError(ErrorResponse(
                             responsecode.FORBIDDEN,
                             (caldav_namespace, "valid-attendee-change"),
@@ -1462,7 +1454,7 @@ class ImplicitScheduler(object):
                         if self.oldcalendar:
                             oldScheduling = self.oldcalendar.getOrganizerScheduleAgent()
                             if not oldScheduling:
-                                log.error("Attendee '{attendee}' is not allowed to set SCHEDULE-AGENT=SERVER on organizer: UID:{uid}", attendee=self.attendeePrincipal, uid=self.uid)
+                                log.error("Attendee '{attendee}' is not allowed to set SCHEDULE-AGENT=SERVER on organizer: UID:{uid}", attendee=self.attendeeAddress.record, uid=self.uid)
                                 raise HTTPError(ErrorResponse(
                                     responsecode.FORBIDDEN,
                                     (caldav_namespace, "valid-attendee-change"),
@@ -1533,8 +1525,8 @@ class ImplicitScheduler(object):
                     oldattendess = self.oldcalendar.getAllUniqueAttendees()
                     found_old = False
                     for attendee in oldattendess:
-                        attendeePrincipal = yield self.calendar_home.directoryService().recordWithCalendarUserAddress(attendee)
-                        if attendeePrincipal and attendeePrincipal.uid == self.calendar_home.uid():
+                        attendeeAddress = (yield calendarUserFromCalendarUserAddress(attendee, self.txn))
+                        if attendeeAddress and attendeeAddress.record.uid == self.calendar_home.uid():
                             found_old = True
                             break
 
@@ -1566,7 +1558,7 @@ class ImplicitScheduler(object):
 
         if not config.Scheduling.iSchedule.Enabled and not local_organizer and is_server:
             # Coerce ORGANIZER to SCHEDULE-AGENT=NONE
-            log.debug("Attendee '{attendee}' is not allowed to use SCHEDULE-AGENT=SERVER on organizer: UID:{uid}", attendee=self.attendeePrincipal, uid=self.uid)
+            log.debug("Attendee '{attendee}' is not allowed to use SCHEDULE-AGENT=SERVER on organizer: UID:{uid}", attendee=self.attendeeAddress.record, uid=self.uid)
             self.calendar.setParameterToValueForPropertyWithValue("SCHEDULE-AGENT", "NONE", "ORGANIZER", None)
             self.calendar.setParameterToValueForPropertyWithValue("SCHEDULE-STATUS", iTIPRequestStatus.NO_USER_SUPPORT_CODE, "ORGANIZER", None)
             is_server = False
@@ -1585,7 +1577,10 @@ class ImplicitScheduler(object):
         """
 
         self.organizer_calendar = None
-        calendar_resource = (yield getCalendarObjectForRecord(self.calendar_home.transaction(), self.organizerPrincipal, self.uid))
+        if self.organizerAddress.hosted():
+            calendar_resource = (yield getCalendarObjectForRecord(self.calendar_home.transaction(), self.organizerAddress.record, self.uid))
+        else:
+            calendar_resource = None
         if calendar_resource is not None:
             self.organizer_calendar = (yield calendar_resource.componentForUser())
         elif type(self.organizerAddress) in (OtherServerCalendarUser,):

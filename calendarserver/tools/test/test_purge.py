@@ -15,19 +15,24 @@
 ##
 
 
-from calendarserver.tools.purge import PurgePrincipalService
-from twistedcaldav.config import config
-from twistedcaldav.ical import Component
-from twistedcaldav.test.util import StoreTestCase
+from calendarserver.tools.purge import PurgePrincipalService, \
+    PrincipalPurgeHomeWork, PrincipalPurgePollingWork, PrincipalPurgeCheckWork, \
+    PrincipalPurgeWork
 
 from pycalendar.datetime import DateTime
-from pycalendar.timezone import Timezone
 
-from twisted.internet.defer import inlineCallbacks
-from txdav.common.datastore.test.util import populateCalendarsFrom
+from twisted.internet import reactor
+from twisted.internet.defer import inlineCallbacks, Deferred
+
+from twistedcaldav.config import config
+from twistedcaldav.test.util import StoreTestCase
+
 from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
+from txdav.common.datastore.test.util import populateCalendarsFrom
 
 from txweb2.http_headers import MimeType
+
+import datetime
 
 
 
@@ -61,9 +66,9 @@ UID:7ED97931-9A19-4596-9D4D-52B36D6AB803
 SUMMARY:Organizer
 DTSTART:%s
 DURATION:PT1H
-ORGANIZER:urn:uuid:E9E78C86-4829-4520-A35D-70DDADAB2092
-ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:E9E78C86-4829-4520-A35D-70DDADAB2092
-ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:291C2C29-B663-4342-8EA1-A055E6A04D65
+ORGANIZER:urn:uuid:10000000-0000-0000-0000-000000000001
+ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:10000000-0000-0000-0000-000000000001
+ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:10000000-0000-0000-0000-000000000002
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n") % (future,)
@@ -76,9 +81,9 @@ UID:1974603C-B2C0-4623-92A0-2436DEAB07EF
 SUMMARY:Attendee
 DTSTART:%s
 DURATION:PT1H
-ORGANIZER:urn:uuid:291C2C29-B663-4342-8EA1-A055E6A04D65
-ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:E9E78C86-4829-4520-A35D-70DDADAB2092
-ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:291C2C29-B663-4342-8EA1-A055E6A04D65
+ORGANIZER:urn:uuid:10000000-0000-0000-0000-000000000002
+ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:10000000-0000-0000-0000-000000000001
+ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:10000000-0000-0000-0000-000000000002
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n") % (future,)
@@ -119,9 +124,9 @@ UID:7ED97931-9A19-4596-9D4D-52B36D6AB803
 SUMMARY:Organizer
 DTSTART:%s
 DURATION:PT1H
-ORGANIZER:urn:uuid:1CB4378B-DD76-462D-B4D4-BD131FE89243
-ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:1CB4378B-DD76-462D-B4D4-BD131FE89243
-ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:291C2C29-B663-4342-8EA1-A055E6A04D65
+ORGANIZER:urn:uuid:F0000000-0000-0000-0000-000000000001
+ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:F0000000-0000-0000-0000-000000000001
+ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:10000000-0000-0000-0000-000000000002
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n") % (future,)
@@ -134,9 +139,9 @@ UID:1974603C-B2C0-4623-92A0-2436DEAB07EF
 SUMMARY:Attendee
 DTSTART:%s
 DURATION:PT1H
-ORGANIZER:urn:uuid:291C2C29-B663-4342-8EA1-A055E6A04D65
-ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:1CB4378B-DD76-462D-B4D4-BD131FE89243
-ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:291C2C29-B663-4342-8EA1-A055E6A04D65
+ORGANIZER:urn:uuid:10000000-0000-0000-0000-000000000002
+ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:F0000000-0000-0000-0000-000000000001
+ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:10000000-0000-0000-0000-000000000002
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n") % (future,)
@@ -150,9 +155,9 @@ SUMMARY:Repeating Organizer
 DTSTART:%s
 DURATION:PT1H
 RRULE:FREQ=DAILY;COUNT=400
-ORGANIZER:urn:uuid:1CB4378B-DD76-462D-B4D4-BD131FE89243
-ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:1CB4378B-DD76-462D-B4D4-BD131FE89243
-ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:291C2C29-B663-4342-8EA1-A055E6A04D65
+ORGANIZER:urn:uuid:F0000000-0000-0000-0000-000000000001
+ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:F0000000-0000-0000-0000-000000000001
+ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:10000000-0000-0000-0000-000000000002
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n") % (past,)
@@ -180,10 +185,10 @@ UID:7ED97931-9A19-4596-9D4D-52B36D6AB803
 SUMMARY:Organizer
 DTSTART:%s
 DURATION:PT1H
-ORGANIZER:urn:uuid:767F9EB0-8A58-4F61-8163-4BE0BB72B873
-ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:767F9EB0-8A58-4F61-8163-4BE0BB72B873
-ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:42EB074A-F859-4E8F-A4D0-7F0ADCB73D87
-ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:291C2C29-B663-4342-8EA1-A055E6A04D65
+ORGANIZER:urn:uuid:F0000000-0000-0000-0000-000000000001
+ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:F0000000-0000-0000-0000-000000000001
+ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:F0000000-0000-0000-0000-000000000002
+ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:10000000-0000-0000-0000-000000000002
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n") % (future,)
@@ -197,10 +202,10 @@ UID:1974603C-B2C0-4623-92A0-2436DEAB07EF
 SUMMARY:Attendee
 DTSTART:%s
 DURATION:PT1H
-ORGANIZER:urn:uuid:42EB074A-F859-4E8F-A4D0-7F0ADCB73D87
-ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:767F9EB0-8A58-4F61-8163-4BE0BB72B873
-ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:291C2C29-B663-4342-8EA1-A055E6A04D65
-ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:42EB074A-F859-4E8F-A4D0-7F0ADCB73D87
+ORGANIZER:urn:uuid:F0000000-0000-0000-0000-000000000002
+ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:F0000000-0000-0000-0000-000000000002
+ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:10000000-0000-0000-0000-000000000001
+ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:F0000000-0000-0000-0000-000000000001
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n") % (future,)
@@ -213,529 +218,14 @@ UID:79F26B10-6ECE-465E-9478-53F2A9FCAFEE
 SUMMARY:2 non-existent attendees
 DTSTART:%s
 DURATION:PT1H
-ORGANIZER:urn:uuid:291C2C29-B663-4342-8EA1-A055E6A04D65
-ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:291C2C29-B663-4342-8EA1-A055E6A04D65
-ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:767F9EB0-8A58-4F61-8163-4BE0BB72B873
-ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:42EB074A-F859-4E8F-A4D0-7F0ADCB73D87
+ORGANIZER:urn:uuid:10000000-0000-0000-0000-000000000002
+ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:10000000-0000-0000-0000-000000000002
+ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:F0000000-0000-0000-0000-000000000001
+ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:F0000000-0000-0000-0000-000000000002
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n") % (future,)
 
-
-
-class CancelEventTestCase(StoreTestCase):
-
-    def test_cancelRepeating(self):
-        # A repeating event where purged CUA is organizer
-        event = Component.fromString(REPEATING_1_ICS_BEFORE)
-        action = PurgePrincipalService._cancelEvent(event, DateTime(2010, 12, 6, 12, 0, 0, Timezone(utc=True)),
-            "urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1")
-        self.assertEquals(action, PurgePrincipalService.CANCELEVENT_MODIFIED)
-        self.assertEquals(str(event), REPEATING_1_ICS_AFTER)
-
-
-    def test_cancelAllDayRepeating(self):
-        # A repeating All Day event where purged CUA is organizer
-        event = Component.fromString(REPEATING_2_ICS_BEFORE)
-        action = PurgePrincipalService._cancelEvent(event, DateTime(2010, 12, 6, 12, 0, 0, Timezone(utc=True)),
-            "urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1")
-        self.assertEquals(action, PurgePrincipalService.CANCELEVENT_MODIFIED)
-        self.assertEquals(str(event), REPEATING_2_ICS_AFTER)
-
-
-    def test_cancelFutureEvent(self):
-        # A future event
-        event = Component.fromString(FUTURE_EVENT_ICS)
-        action = PurgePrincipalService._cancelEvent(event, DateTime(2010, 12, 6, 12, 0, 0, Timezone(utc=True)),
-            "urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1")
-        self.assertEquals(action, PurgePrincipalService.CANCELEVENT_SHOULD_DELETE)
-
-
-    def test_cancelNonMeeting(self):
-        # A repeating non-meeting event
-        event = Component.fromString(REPEATING_NON_MEETING_ICS)
-        action = PurgePrincipalService._cancelEvent(event, DateTime(2010, 12, 6, 12, 0, 0, Timezone(utc=True)),
-            "urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1")
-        self.assertEquals(action, PurgePrincipalService.CANCELEVENT_SHOULD_DELETE)
-
-
-    def test_cancelAsAttendee(self):
-        # A repeating meeting event where purged CUA is an attendee
-        event = Component.fromString(REPEATING_ATTENDEE_MEETING_ICS)
-        action = PurgePrincipalService._cancelEvent(event, DateTime(2010, 12, 6, 12, 0, 0, Timezone(utc=True)),
-            "urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1")
-        self.assertEquals(action, PurgePrincipalService.CANCELEVENT_SHOULD_DELETE)
-
-
-    def test_cancelAsAttendeeOccurrence(self):
-        # A repeating meeting occurrence with no master, where purged CUA is
-        # an attendee
-        event = Component.fromString(INVITED_TO_OCCURRENCE_ICS)
-        action = PurgePrincipalService._cancelEvent(event, DateTime(2010, 12, 6, 12, 0, 0, Timezone(utc=True)),
-            "urn:uuid:9DC04A71-E6DD-11DF-9492-0800200C9A66")
-        self.assertEquals(action, PurgePrincipalService.CANCELEVENT_SHOULD_DELETE)
-
-
-    def test_cancelAsAttendeeMultipleOccurrences(self):
-        # Multiple meeting occurrences with no master, where purged CUA is
-        # an attendee
-        event = Component.fromString(INVITED_TO_MULTIPLE_OCCURRENCES_ICS)
-        action = PurgePrincipalService._cancelEvent(event, DateTime(2010, 12, 6, 12, 0, 0, Timezone(utc=True)),
-            "urn:uuid:9DC04A71-E6DD-11DF-9492-0800200C9A66")
-        self.assertEquals(action, PurgePrincipalService.CANCELEVENT_SHOULD_DELETE)
-
-# This event begins on Nov 30, 2010, has two EXDATES (Dec 3 and 9), and has two
-# overridden instances (Dec 4 and 11).  The Dec 11 one will be removed since
-# the cutoff date for this test is Dec 6.
-
-REPEATING_1_ICS_BEFORE = """BEGIN:VCALENDAR
-VERSION:2.0
-CALSCALE:GREGORIAN
-PRODID:-//Apple Inc.//iCal 4.0.4//EN
-BEGIN:VTIMEZONE
-TZID:US/Pacific
-BEGIN:DAYLIGHT
-DTSTART:20070311T020000
-RRULE:FREQ=YEARLY;BYDAY=2SU;BYMONTH=3
-TZNAME:PDT
-TZOFFSETFROM:-0800
-TZOFFSETTO:-0700
-END:DAYLIGHT
-BEGIN:STANDARD
-DTSTART:20071104T020000
-RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=11
-TZNAME:PST
-TZOFFSETFROM:-0700
-TZOFFSETTO:-0800
-END:STANDARD
-END:VTIMEZONE
-BEGIN:VEVENT
-UID:59E260E3-1644-4BDF-BBC6-6130B0C3A520
-DTSTART;TZID=US/Pacific:20101130T100000
-DTEND;TZID=US/Pacific:20101130T110000
-ATTENDEE;CN=Test User;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED;ROLE=REQ-PARTICI
- PANT;SCHEDULE-STATUS=1.2:urn:uuid:3FF02D2B-07A3-4420-8570-7B7C7D07F08A
-ATTENDEE;CN=Purge Test;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:0F1684
- 77-CF3D-45D3-AE60-9875EA02C4D1
-CREATED:20101203T184815Z
-DTSTAMP:20101203T185019Z
-EXDATE;TZID=US/Pacific:20101203T100000
-EXDATE;TZID=US/Pacific:20101209T100000
-ORGANIZER;CN=Purge Test:urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1
-RRULE:FREQ=DAILY;COUNT=400
-SEQUENCE:4
-SUMMARY:Repeating 1
-TRANSP:OPAQUE
-END:VEVENT
-BEGIN:VEVENT
-UID:59E260E3-1644-4BDF-BBC6-6130B0C3A520
-RECURRENCE-ID;TZID=US/Pacific:20101204T100000
-DTSTART;TZID=US/Pacific:20101204T120000
-DTEND;TZID=US/Pacific:20101204T130000
-ATTENDEE;CN=Test User;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED;ROLE=REQ-PARTICI
- PANT;SCHEDULE-STATUS=2.0:urn:uuid:3FF02D2B-07A3-4420-8570-7B7C7D07F08A
-ATTENDEE;CN=Purge Test;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:0F1684
- 77-CF3D-45D3-AE60-9875EA02C4D1
-CREATED:20101203T184815Z
-DTSTAMP:20101203T185027Z
-ORGANIZER;CN=Purge Test:urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1
-SEQUENCE:6
-SUMMARY:Repeating 1
-TRANSP:OPAQUE
-END:VEVENT
-BEGIN:VEVENT
-UID:59E260E3-1644-4BDF-BBC6-6130B0C3A520
-RECURRENCE-ID;TZID=US/Pacific:20101211T100000
-DTSTART;TZID=US/Pacific:20101211T120000
-DTEND;TZID=US/Pacific:20101211T130000
-ATTENDEE;CN=Test User;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED;ROLE=REQ-PARTICI
- PANT;SCHEDULE-STATUS=2.0:urn:uuid:3FF02D2B-07A3-4420-8570-7B7C7D07F08A
-ATTENDEE;CN=Purge Test;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:0F1684
- 77-CF3D-45D3-AE60-9875EA02C4D1
-CREATED:20101203T184815Z
-DTSTAMP:20101203T185038Z
-ORGANIZER;CN=Purge Test:urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1
-SEQUENCE:6
-SUMMARY:Repeating 1
-TRANSP:OPAQUE
-END:VEVENT
-END:VCALENDAR
-""".replace("\n", "\r\n")
-
-REPEATING_1_ICS_AFTER = """BEGIN:VCALENDAR
-VERSION:2.0
-CALSCALE:GREGORIAN
-PRODID:-//Apple Inc.//iCal 4.0.4//EN
-BEGIN:VTIMEZONE
-TZID:US/Pacific
-BEGIN:DAYLIGHT
-DTSTART:20070311T020000
-RRULE:FREQ=YEARLY;BYDAY=2SU;BYMONTH=3
-TZNAME:PDT
-TZOFFSETFROM:-0800
-TZOFFSETTO:-0700
-END:DAYLIGHT
-BEGIN:STANDARD
-DTSTART:20071104T020000
-RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=11
-TZNAME:PST
-TZOFFSETFROM:-0700
-TZOFFSETTO:-0800
-END:STANDARD
-END:VTIMEZONE
-BEGIN:VEVENT
-UID:59E260E3-1644-4BDF-BBC6-6130B0C3A520
-DTSTART;TZID=US/Pacific:20101130T100000
-DTEND;TZID=US/Pacific:20101130T110000
-ATTENDEE;CN=Test User;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED;ROLE=REQ-PARTICI
- PANT;SCHEDULE-STATUS=1.2:urn:uuid:3FF02D2B-07A3-4420-8570-7B7C7D07F08A
-ATTENDEE;CN=Purge Test;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:0F1684
- 77-CF3D-45D3-AE60-9875EA02C4D1
-CREATED:20101203T184815Z
-DTSTAMP:20101203T185019Z
-EXDATE;TZID=US/Pacific:20101203T100000
-ORGANIZER;CN=Purge Test:urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1
-RRULE:FREQ=DAILY;UNTIL=20101206T120000Z
-SEQUENCE:4
-SUMMARY:Repeating 1
-TRANSP:OPAQUE
-END:VEVENT
-BEGIN:VEVENT
-UID:59E260E3-1644-4BDF-BBC6-6130B0C3A520
-RECURRENCE-ID;TZID=US/Pacific:20101204T100000
-DTSTART;TZID=US/Pacific:20101204T120000
-DTEND;TZID=US/Pacific:20101204T130000
-ATTENDEE;CN=Test User;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED;ROLE=REQ-PARTICI
- PANT;SCHEDULE-STATUS=2.0:urn:uuid:3FF02D2B-07A3-4420-8570-7B7C7D07F08A
-ATTENDEE;CN=Purge Test;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:0F1684
- 77-CF3D-45D3-AE60-9875EA02C4D1
-CREATED:20101203T184815Z
-DTSTAMP:20101203T185027Z
-ORGANIZER;CN=Purge Test:urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1
-SEQUENCE:6
-SUMMARY:Repeating 1
-TRANSP:OPAQUE
-END:VEVENT
-END:VCALENDAR
-""".replace("\n", "\r\n")
-
-# This event is similar to the "Repeating 1" event above except this one is an
-# all-day event.
-
-REPEATING_2_ICS_BEFORE = """BEGIN:VCALENDAR
-VERSION:2.0
-CALSCALE:GREGORIAN
-PRODID:-//Apple Inc.//iCal 4.0.4//EN
-BEGIN:VEVENT
-UID:53BA0EA4-05B1-4E89-BD1E-8397F071FD6A
-DTSTART;VALUE=DATE:20101130
-DTEND;VALUE=DATE:20101201
-ATTENDEE;CN=Test User;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED;ROLE=REQ-PARTICI
- PANT;SCHEDULE-STATUS=1.2:urn:uuid:3FF02D2B-07A3-4420-8570-7B7C7D07F08A
-ATTENDEE;CN=Purge Test;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:0F1684
- 77-CF3D-45D3-AE60-9875EA02C4D1
-CREATED:20101203T203510Z
-DTSTAMP:20101203T203603Z
-EXDATE;VALUE=DATE:20101203
-EXDATE;VALUE=DATE:20101209
-ORGANIZER;CN=Purge Test:urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1
-RRULE:FREQ=DAILY;COUNT=400
-SEQUENCE:5
-SUMMARY:All Day
-TRANSP:TRANSPARENT
-END:VEVENT
-BEGIN:VEVENT
-UID:53BA0EA4-05B1-4E89-BD1E-8397F071FD6A
-RECURRENCE-ID;VALUE=DATE:20101211
-DTSTART;VALUE=DATE:20101211
-DTEND;VALUE=DATE:20101212
-ATTENDEE;CN=Purge Test;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:0F1684
- 77-CF3D-45D3-AE60-9875EA02C4D1
-ATTENDEE;CN=Test User;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED;ROLE=REQ-PARTICI
- PANT;SCHEDULE-STATUS=1.2:urn:uuid:3FF02D2B-07A3-4420-8570-7B7C7D07F08A
-CREATED:20101203T203510Z
-DTSTAMP:20101203T203631Z
-ORGANIZER;CN=Purge Test:urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1
-SEQUENCE:6
-SUMMARY:Modified Title
-TRANSP:TRANSPARENT
-END:VEVENT
-BEGIN:VEVENT
-UID:53BA0EA4-05B1-4E89-BD1E-8397F071FD6A
-RECURRENCE-ID;VALUE=DATE:20101204
-DTSTART;VALUE=DATE:20101204
-DTEND;VALUE=DATE:20101205
-ATTENDEE;CN=Test User;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED;ROLE=REQ-PARTICI
- PANT;SCHEDULE-STATUS=1.2:urn:uuid:3FF02D2B-07A3-4420-8570-7B7C7D07F08A
-ATTENDEE;CN=Purge Test;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:0F1684
- 77-CF3D-45D3-AE60-9875EA02C4D1
-CREATED:20101203T203510Z
-DTSTAMP:20101203T203618Z
-ORGANIZER;CN=Purge Test:urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1
-SEQUENCE:7
-SUMMARY:Modified Title
-TRANSP:TRANSPARENT
-END:VEVENT
-END:VCALENDAR
-""".replace("\n", "\r\n")
-
-REPEATING_2_ICS_AFTER = """BEGIN:VCALENDAR
-VERSION:2.0
-CALSCALE:GREGORIAN
-PRODID:-//Apple Inc.//iCal 4.0.4//EN
-BEGIN:VEVENT
-UID:53BA0EA4-05B1-4E89-BD1E-8397F071FD6A
-DTSTART;VALUE=DATE:20101130
-DTEND;VALUE=DATE:20101201
-ATTENDEE;CN=Test User;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED;ROLE=REQ-PARTICI
- PANT;SCHEDULE-STATUS=1.2:urn:uuid:3FF02D2B-07A3-4420-8570-7B7C7D07F08A
-ATTENDEE;CN=Purge Test;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:0F1684
- 77-CF3D-45D3-AE60-9875EA02C4D1
-CREATED:20101203T203510Z
-DTSTAMP:20101203T203603Z
-EXDATE;VALUE=DATE:20101203
-ORGANIZER;CN=Purge Test:urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1
-RRULE:FREQ=DAILY;UNTIL=20101206
-SEQUENCE:5
-SUMMARY:All Day
-TRANSP:TRANSPARENT
-END:VEVENT
-BEGIN:VEVENT
-UID:53BA0EA4-05B1-4E89-BD1E-8397F071FD6A
-RECURRENCE-ID;VALUE=DATE:20101204
-DTSTART;VALUE=DATE:20101204
-DTEND;VALUE=DATE:20101205
-ATTENDEE;CN=Test User;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED;ROLE=REQ-PARTICI
- PANT;SCHEDULE-STATUS=1.2:urn:uuid:3FF02D2B-07A3-4420-8570-7B7C7D07F08A
-ATTENDEE;CN=Purge Test;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:0F1684
- 77-CF3D-45D3-AE60-9875EA02C4D1
-CREATED:20101203T203510Z
-DTSTAMP:20101203T203618Z
-ORGANIZER;CN=Purge Test:urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1
-SEQUENCE:7
-SUMMARY:Modified Title
-TRANSP:TRANSPARENT
-END:VEVENT
-END:VCALENDAR
-""".replace("\n", "\r\n")
-
-
-# This event is on Dec 8 (in the future compared to Dec 6) and should be flagged
-# as needing to be deleted
-
-FUTURE_EVENT_ICS = """BEGIN:VCALENDAR
-VERSION:2.0
-CALSCALE:GREGORIAN
-PRODID:-//Apple Inc.//iCal 4.0.4//EN
-BEGIN:VTIMEZONE
-TZID:US/Pacific
-BEGIN:DAYLIGHT
-DTSTART:20070311T020000
-RRULE:FREQ=YEARLY;BYDAY=2SU;BYMONTH=3
-TZNAME:PDT
-TZOFFSETFROM:-0800
-TZOFFSETTO:-0700
-END:DAYLIGHT
-BEGIN:STANDARD
-DTSTART:20071104T020000
-RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=11
-TZNAME:PST
-TZOFFSETFROM:-0700
-TZOFFSETTO:-0800
-END:STANDARD
-END:VTIMEZONE
-BEGIN:VEVENT
-UID:97B243D3-D252-4034-AA6D-9AE34E063991
-DTSTART;TZID=US/Pacific:20101208T091500
-DTEND;TZID=US/Pacific:20101208T101500
-CREATED:20101203T172929Z
-DTSTAMP:20101203T172932Z
-SEQUENCE:2
-SUMMARY:Future event single
-TRANSP:OPAQUE
-END:VEVENT
-END:VCALENDAR
-""".replace("\n", "\r\n")
-
-REPEATING_NON_MEETING_ICS = """BEGIN:VCALENDAR
-VERSION:2.0
-CALSCALE:GREGORIAN
-PRODID:-//Apple Inc.//iCal 4.0.4//EN
-BEGIN:VTIMEZONE
-TZID:US/Pacific
-BEGIN:DAYLIGHT
-DTSTART:20070311T020000
-RRULE:FREQ=YEARLY;BYDAY=2SU;BYMONTH=3
-TZNAME:PDT
-TZOFFSETFROM:-0800
-TZOFFSETTO:-0700
-END:DAYLIGHT
-BEGIN:STANDARD
-DTSTART:20071104T020000
-RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=11
-TZNAME:PST
-TZOFFSETFROM:-0700
-TZOFFSETTO:-0800
-END:STANDARD
-END:VTIMEZONE
-BEGIN:VEVENT
-UID:4E4D0C8C-6546-4777-9BF5-AD629C05E7D5
-DTSTART;TZID=US/Pacific:20101130T110000
-DTEND;TZID=US/Pacific:20101130T120000
-CREATED:20101203T204353Z
-DTSTAMP:20101203T204409Z
-RRULE:FREQ=DAILY;COUNT=400
-SEQUENCE:3
-SUMMARY:Repeating non meeting
-TRANSP:OPAQUE
-END:VEVENT
-END:VCALENDAR
-""".replace("\n", "\r\n")
-
-REPEATING_ATTENDEE_MEETING_ICS = """BEGIN:VCALENDAR
-VERSION:2.0
-CALSCALE:GREGORIAN
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VTIMEZONE
-TZID:US/Pacific
-BEGIN:DAYLIGHT
-DTSTART:20070311T020000
-RRULE:FREQ=YEARLY;BYDAY=2SU;BYMONTH=3
-TZNAME:PDT
-TZOFFSETFROM:-0800
-TZOFFSETTO:-0700
-END:DAYLIGHT
-BEGIN:STANDARD
-DTSTART:20071104T020000
-RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=11
-TZNAME:PST
-TZOFFSETFROM:-0700
-TZOFFSETTO:-0800
-END:STANDARD
-END:VTIMEZONE
-BEGIN:VEVENT
-UID:111A679F-EF8E-4CA5-9262-7C805E2C184D
-DTSTART;TZID=US/Pacific:20101130T120000
-DTEND;TZID=US/Pacific:20101130T130000
-ATTENDEE;CN=Test User;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:3FF02D2
- B-07A3-4420-8570-7B7C7D07F08A
-ATTENDEE;CN=Purge Test;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED;ROLE=REQ-PARTIC
- IPANT:urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1
-CREATED:20101203T204908Z
-DTSTAMP:20101203T204927Z
-ORGANIZER;CN=Test User;SCHEDULE-STATUS=1.2:urn:uuid:3FF02D2B-07A3-4420-857
- 0-7B7C7D07F08A
-RRULE:FREQ=DAILY;COUNT=400
-SEQUENCE:4
-SUMMARY:As an attendee
-TRANSP:OPAQUE
-END:VEVENT
-END:VCALENDAR
-""".replace("\n", "\r\n")
-
-INVITED_TO_OCCURRENCE_ICS = """BEGIN:VCALENDAR
-VERSION:2.0
-CALSCALE:GREGORIAN
-METHOD:REQUEST
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VTIMEZONE
-TZID:America/Los_Angeles
-BEGIN:DAYLIGHT
-DTSTART:20070311T020000
-RRULE:FREQ=YEARLY;BYDAY=2SU;BYMONTH=3
-TZNAME:PDT
-TZOFFSETFROM:-0800
-TZOFFSETTO:-0700
-END:DAYLIGHT
-BEGIN:STANDARD
-DTSTART:20071104T020000
-RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=11
-TZNAME:PST
-TZOFFSETFROM:-0700
-TZOFFSETTO:-0800
-END:STANDARD
-END:VTIMEZONE
-BEGIN:VEVENT
-UID:44A391CF-52F5-46B4-B35A-E000E3002084
-RECURRENCE-ID;TZID=America/Los_Angeles:20111103T150000
-DTSTART;TZID=America/Los_Angeles:20111103T150000
-DTEND;TZID=America/Los_Angeles:20111103T170000
-ATTENDEE;CN=Betty Test;CUTYPE=INDIVIDUAL;EMAIL=betty@example.com;PARTSTAT=
- NEEDS-ACTION;ROLE=REQ-PARTICIPANT;RSVP=TRUE:urn:uuid:9DC04A71-E6DD-11DF-94
- 92-0800200C9A66
-ATTENDEE;CN=Amanda Test;CUTYPE=INDIVIDUAL;EMAIL=amanda@example.com;PARTSTA
- T=ACCEPTED:urn:uuid:9DC04A70-E6DD-11DF-9492-0800200C9A66
-CREATED:20111101T205355Z
-DTSTAMP:20111101T205506Z
-ORGANIZER;CN=Amanda Test;EMAIL=amanda@example.com:urn:uuid:9DC04A70-E6DD-1
- 1DF-9492-0800200C9A66
-SEQUENCE:5
-SUMMARY:Repeating
-TRANSP:OPAQUE
-END:VEVENT
-END:VCALENDAR
-""".replace("\n", "\r\n")
-
-
-INVITED_TO_MULTIPLE_OCCURRENCES_ICS = """BEGIN:VCALENDAR
-VERSION:2.0
-CALSCALE:GREGORIAN
-METHOD:REQUEST
-PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-BEGIN:VTIMEZONE
-TZID:America/Los_Angeles
-BEGIN:DAYLIGHT
-DTSTART:20070311T020000
-RRULE:FREQ=YEARLY;BYDAY=2SU;BYMONTH=3
-TZNAME:PDT
-TZOFFSETFROM:-0800
-TZOFFSETTO:-0700
-END:DAYLIGHT
-BEGIN:STANDARD
-DTSTART:20071104T020000
-RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=11
-TZNAME:PST
-TZOFFSETFROM:-0700
-TZOFFSETTO:-0800
-END:STANDARD
-END:VTIMEZONE
-BEGIN:VEVENT
-UID:44A391CF-52F5-46B4-B35A-E000E3002084
-RECURRENCE-ID;TZID=America/Los_Angeles:20111103T150000
-DTSTART;TZID=America/Los_Angeles:20111103T150000
-DTEND;TZID=America/Los_Angeles:20111103T170000
-ATTENDEE;CN=Betty Test;CUTYPE=INDIVIDUAL;EMAIL=betty@example.com;PARTSTAT=
- NEEDS-ACTION;ROLE=REQ-PARTICIPANT;RSVP=TRUE:urn:uuid:9DC04A71-E6DD-11DF-94
- 92-0800200C9A66
-ATTENDEE;CN=Amanda Test;CUTYPE=INDIVIDUAL;EMAIL=amanda@example.com;PARTSTA
- T=ACCEPTED:urn:uuid:9DC04A70-E6DD-11DF-9492-0800200C9A66
-CREATED:20111101T205355Z
-DTSTAMP:20111101T205506Z
-ORGANIZER;CN=Amanda Test;EMAIL=amanda@example.com:urn:uuid:9DC04A70-E6DD-1
- 1DF-9492-0800200C9A66
-SEQUENCE:5
-SUMMARY:Repeating
-TRANSP:OPAQUE
-END:VEVENT
-BEGIN:VEVENT
-ATTENDEE;CN="Amanda Test";CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:9
- DC04A70-E6DD-11DF-9492-0800200C9A66
-ATTENDEE;CN="Betty Test";CUTYPE=INDIVIDUAL;EMAIL="betty@example.com";PAR
- TSTAT=NEEDS-ACTION;ROLE=REQ-PARTICIPANT;RSVP=TRUE:mailto:betty@example.c
- om
-DTEND;TZID=America/Los_Angeles:20111105T170000
-TRANSP:OPAQUE
-ORGANIZER;CN="Amanda Test":urn:uuid:9DC04A70-E6DD-11DF-9492-0800200C9A66
-UID:44A391CF-52F5-46B4-B35A-E000E3002084
-DTSTAMP:20111102T162426Z
-SEQUENCE:5
-RECURRENCE-ID;TZID=America/Los_Angeles:20111105T150000
-SUMMARY:Repeating
-DTSTART;TZID=America/Los_Angeles:20111105T150000
-CREATED:20111101T205355Z
-END:VEVENT
-END:VCALENDAR
-""".replace("\n", "\r\n")
 
 
 ATTACHMENT_ICS = """BEGIN:VCALENDAR
@@ -785,21 +275,22 @@ SUMMARY:Repeating Organizer
 DTSTART:%s
 DURATION:PT1H
 RRULE:FREQ=DAILY;COUNT=400
-ORGANIZER:urn:uuid:6423F94A-6B76-4A3A-815B-D52CFD77935D
-ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:6423F94A-6B76-4A3A-815B-D52CFD77935D
-ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:291C2C29-B663-4342-8EA1-A055E6A04D65
+ORGANIZER:urn:x-uid:user01
+ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:x-uid:user02
 DTSTAMP:20100303T195203Z
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n") % (past,)
 
 
+
 class PurgePrincipalTests(StoreTestCase):
     """
     Tests for purging the data belonging to a given principal
     """
-    uid = "6423F94A-6B76-4A3A-815B-D52CFD77935D"
-    uid2 = "37DB0C90-4DB1-4932-BC69-3DAB66F374F5"
+    uid = "user01"
+    uid2 = "user02"
 
     metadata = {
         "accessMode": "PUBLIC",
@@ -814,11 +305,14 @@ class PurgePrincipalTests(StoreTestCase):
             "calendar1" : {
                 "attachment.ics" : (ATTACHMENT_ICS, metadata,),
                 "organizer.ics" : (REPEATING_PUBLIC_EVENT_ORGANIZER_ICS, metadata,),
-            }
+            },
+            "inbox": {},
         },
         uid2 : {
             "calendar2" : {
-            }
+                "attendee.ics" : (REPEATING_PUBLIC_EVENT_ORGANIZER_ICS, metadata,),
+            },
+            "inbox": {},
         },
     }
 
@@ -857,6 +351,14 @@ class PurgePrincipalTests(StoreTestCase):
         self.assertNotEquals(calendar1, None)
         yield txn.commit()
 
+        # Now remove user01
+        yield self.directory.removeRecords((self.uid,))
+        self.patch(config.Scheduling.Options.WorkQueues, "Enabled", False)
+        self.patch(config.AutomaticPurging, "PollingIntervalSeconds", -1)
+        self.patch(config.AutomaticPurging, "CheckStaggerSeconds", 1)
+        self.patch(config.AutomaticPurging, "PurgeIntervalSeconds", 3)
+        self.patch(config.AutomaticPurging, "HomePurgeDelaySeconds", 1)
+
 
     @inlineCallbacks
     def populate(self):
@@ -871,23 +373,37 @@ class PurgePrincipalTests(StoreTestCase):
         """
 
         # Now you see it
-        txn = self._sqlCalendarStore.newTransaction()
-        home = yield txn.calendarHomeWithUID(self.uid)
+        home = yield self.homeUnderTest(name=self.uid)
         self.assertNotEquals(home, None)
-        yield txn.commit()
+
+        calobj2 = yield self.calendarObjectUnderTest(name="attendee.ics", calendar_name="calendar2", home=self.uid2)
+        comp = yield calobj2.componentForUser()
+        self.assertTrue("STATUS:CANCELLED" not in str(comp))
+        self.assertTrue(";UNTIL=" not in str(comp))
+        yield self.commit()
 
         count = (yield PurgePrincipalService.purgeUIDs(self.storeUnderTest(), self.directory,
-            (self.uid,), verbose=False, proxies=False, completely=True))
+            (self.uid,), verbose=False, proxies=False))
         self.assertEquals(count, 2) # 2 events
 
+        # Wait for queue to process
+        while(True):
+            txn = self.transactionUnderTest()
+            work = yield PrincipalPurgeHomeWork.all(txn)
+            yield self.commit()
+            if len(work) == 0:
+                break
+            d = Deferred()
+            reactor.callLater(1, lambda : d.callback(None))
+            yield d
+
         # Now you don't
-        txn = self._sqlCalendarStore.newTransaction()
-        home = yield txn.calendarHomeWithUID(self.uid)
+        home = yield self.homeUnderTest(name=self.uid)
         self.assertEquals(home, None)
         # Verify calendar1 was unshared to uid2
-        home2 = yield txn.calendarHomeWithUID(self.uid2)
+        home2 = yield self.homeUnderTest(name=self.uid2)
         self.assertEquals((yield home2.childWithName(self.sharedName)), None)
-        yield txn.commit()
+        yield self.commit()
 
         count = yield PurgePrincipalService.purgeUIDs(
             self.storeUnderTest(),
@@ -895,50 +411,89 @@ class PurgePrincipalTests(StoreTestCase):
             (self.uid,),
             verbose=False,
             proxies=False,
-            completely=True
         )
         self.assertEquals(count, 0)
 
         # And you still don't (making sure it's not provisioned)
-        txn = self._sqlCalendarStore.newTransaction()
-        home = yield txn.calendarHomeWithUID(self.uid)
+        home = yield self.homeUnderTest(name=self.uid)
         self.assertEquals(home, None)
-        yield txn.commit()
+        yield self.commit()
+
+        calobj2 = yield self.calendarObjectUnderTest(name="attendee.ics", calendar_name="calendar2", home=self.uid2)
+        comp = yield calobj2.componentForUser()
+        self.assertTrue("STATUS:CANCELLED" in str(comp))
+        self.assertTrue(";UNTIL=" not in str(comp))
+        yield self.commit()
+
+
+
+class PurgePrincipalTestsWithWorkQueue(PurgePrincipalTests):
+    """
+    Same as L{PurgePrincipalTests} but with the work queue enabled.
+    """
+
+    @inlineCallbacks
+    def setUp(self):
+        yield super(PurgePrincipalTestsWithWorkQueue, self).setUp()
+        self.patch(config.Scheduling.Options.WorkQueues, "Enabled", True)
+        self.patch(config.AutomaticPurging, "PollingIntervalSeconds", -1)
+        self.patch(config.AutomaticPurging, "CheckStaggerSeconds", 1)
+        self.patch(config.AutomaticPurging, "PurgeIntervalSeconds", 3)
+        self.patch(config.AutomaticPurging, "HomePurgeDelaySeconds", 1)
 
 
     @inlineCallbacks
-    def test_purgeUIDsNotCompletely(self):
+    def test_purgeUIDService(self):
         """
-        Verify purgeUIDs removes some events, but leaves others and the home behind
+        Test that the full sequence of work items are processed via automatic polling.
         """
-
-        self.patch(config, "EnablePrivateEvents", True)
 
         # Now you see it
-        txn = self._sqlCalendarStore.newTransaction()
-        home = (yield txn.calendarHomeWithUID(self.uid))
+        home = yield self.homeUnderTest(name=self.uid)
         self.assertNotEquals(home, None)
-        yield txn.commit()
 
-        count = (yield PurgePrincipalService.purgeUIDs(self.storeUnderTest(), self.directory,
-            (self.uid,), verbose=False, proxies=False, completely=False))
-        self.assertEquals(count, 1) # 2 events
+        calobj2 = yield self.calendarObjectUnderTest(name="attendee.ics", calendar_name="calendar2", home=self.uid2)
+        comp = yield calobj2.componentForUser()
+        self.assertTrue("STATUS:CANCELLED" not in str(comp))
+        self.assertTrue(";UNTIL=" not in str(comp))
+        yield self.commit()
 
-        # Now you still see it
-        txn = self._sqlCalendarStore.newTransaction()
-        home = (yield txn.calendarHomeWithUID(self.uid))
-        self.assertNotEquals(home, None)
+        txn = self.transactionUnderTest()
+        notBefore = (
+            datetime.datetime.utcnow() +
+            datetime.timedelta(seconds=3)
+        )
+        yield txn.enqueue(PrincipalPurgePollingWork, notBefore=notBefore)
+        yield self.commit()
+
+        while True:
+            txn = self.transactionUnderTest()
+            work1 = yield PrincipalPurgePollingWork.all(txn)
+            work2 = yield PrincipalPurgeCheckWork.all(txn)
+            work3 = yield PrincipalPurgeWork.all(txn)
+            work4 = yield PrincipalPurgeHomeWork.all(txn)
+
+            if len(work4) != 0:
+                home = yield txn.calendarHomeWithUID(self.uid)
+                self.assertTrue(home.purging())
+
+            yield self.commit()
+            #print len(work1), len(work2), len(work3), len(work4)
+            if len(work1) + len(work2) + len(work3) + len(work4) == 0:
+                break
+            d = Deferred()
+            reactor.callLater(1, lambda : d.callback(None))
+            yield d
+
+        # Now you don't
+        home = yield self.homeUnderTest(name=self.uid)
+        self.assertEquals(home, None)
         # Verify calendar1 was unshared to uid2
-        home2 = (yield txn.calendarHomeWithUID(self.uid2))
+        home2 = yield self.homeUnderTest(name=self.uid2)
         self.assertEquals((yield home2.childWithName(self.sharedName)), None)
-        yield txn.commit()
 
-        count = yield PurgePrincipalService.purgeUIDs(self.storeUnderTest(), self.directory,
-            (self.uid,), verbose=False, proxies=False, completely=False)
-        self.assertEquals(count, 1)
-
-        # And you still do
-        txn = self._sqlCalendarStore.newTransaction()
-        home = (yield txn.calendarHomeWithUID(self.uid))
-        self.assertNotEquals(home, None)
-        yield txn.commit()
+        calobj2 = yield self.calendarObjectUnderTest(name="attendee.ics", calendar_name="calendar2", home=self.uid2)
+        comp = yield calobj2.componentForUser()
+        self.assertTrue("STATUS:CANCELLED" in str(comp))
+        self.assertTrue(";UNTIL=" not in str(comp))
+        yield self.commit()

@@ -15,7 +15,7 @@
 ##
 
 """
-Tests for calendarserver.tools.purge
+Tests for txdav.caldav.datastore.utils
 """
 
 from pycalendar.datetime import DateTime
@@ -24,7 +24,7 @@ from twisted.internet.defer import inlineCallbacks
 from twisted.trial import unittest
 
 from txdav.caldav.datastore.scheduling.utils import getCalendarObjectForRecord, \
-    extractEmailDomain
+    extractEmailDomain, uidFromCalendarUserAddress
 from txdav.caldav.datastore.test.util import buildCalendarStore, \
     buildDirectoryRecord
 from txdav.common.datastore.test.util import populateCalendarsFrom, CommonCommonTests
@@ -188,6 +188,25 @@ class RecipientCopy(CommonCommonTests, unittest.TestCase):
         resource = (yield getCalendarObjectForRecord(txn, principal, "685BC3A1-195A-49B3-926D-388DDACA78A6"))
         self.assertTrue(resource is None)
         yield self.commit()
+
+
+    def test_uidFromCalendarUserAddress(self):
+        """
+        Test that L{uidFromCalendarUserAddress} returns the expected results.
+        """
+
+        data = (
+            ("urn:x-uid:foobar", "foobar"),
+            ("urn:uuid:foobar", "foobar"),
+            ("urn:uuid:49DE7436-F01C-4AD8-B685-A94303F40301", "49DE7436-F01C-4AD8-B685-A94303F40301"),
+            ("/principals/__uids__/foobar", "foobar"),
+            ("/principals/users/foobar", None),
+            ("/principals/groups/foobar", None),
+            ("mailto:foo@example.com", None),
+        )
+
+        for cuaddr, uid in data:
+            self.assertEqual(uidFromCalendarUserAddress(cuaddr), uid)
 
 
     def test_extractEmailDomain(self):

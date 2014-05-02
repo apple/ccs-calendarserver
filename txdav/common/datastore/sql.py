@@ -64,7 +64,8 @@ from txdav.common.datastore.podding.conduit import PoddingConduit
 from txdav.common.datastore.sql_tables import _BIND_MODE_OWN, \
     _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED, _BIND_STATUS_INVALID, \
     _BIND_STATUS_INVITED, _BIND_MODE_DIRECT, _BIND_STATUS_DELETED, \
-    _BIND_MODE_INDIRECT, _HOME_STATUS_NORMAL, _HOME_STATUS_EXTERNAL
+    _BIND_MODE_INDIRECT, _HOME_STATUS_NORMAL, _HOME_STATUS_EXTERNAL, \
+    _HOME_STATUS_PURGING
 from txdav.common.datastore.sql_tables import schema, splitSQLString
 from txdav.common.icommondatastore import ConcurrentModification, \
     RecordNotAllowedError, ExternalShareFailed, ShareNotAllowed, \
@@ -206,6 +207,13 @@ class CommonDataStore(Service, object):
         # home classes
         __import__("txdav.caldav.datastore.sql")
         __import__("txdav.carddav.datastore.sql")
+
+
+    def availablePrimaryStoreTypes(self):
+        """
+        The list of store home types supported.
+        """
+        return (ECALENDARTYPE, EADDRESSBOOKTYPE,)
 
 
     def directoryService(self):
@@ -363,6 +371,36 @@ class CommonDataStore(Service, object):
         @rtype: C{bool}
         """
         return self.queryCacher is not None
+
+
+    @inlineCallbacks
+    def uidInStore(self, txn, uid):
+        """
+        Indicate whether the specified user UID is hosted in the current store, or
+        possibly in another pod.
+
+        @param txn: transaction to use
+        @type txn: L{CommonStoreTransaction}
+        @param uid: the user UID to test
+        @type uid: L{str}
+
+        @return: a tuple of L{bool}, L{str} - the first indicates whether the user is
+            hosted, the second the serviceNodeUID of the pod hosting the user or
+            C{None} if on this pod.
+        @rtype: L{tuple}
+        """
+
+        # Check if locally stored first
+        for storeType in self.availablePrimaryStoreTypes():
+            home = yield txn.homeWithUID(storeType, uid)
+            if home is not None:
+                if home.external():
+                    # TODO: locate the pod where the user is hosted
+                    returnValue((True, "unknown",))
+                else:
+                    returnValue((True, None,))
+        else:
+            returnValue((False, None,))
 
 
 
@@ -698,14 +736,14 @@ class CommonStoreTransaction(object):
 
 
     @inlineCallbacks
-    def homeWithResourceID(self, storeType, rid, create=False):
+    def homeWithResourceID(self, storeType, rid):
         """
         Load a calendar or addressbook home by its integer resource ID.
         """
         uid = (yield self._homeClass[storeType]
                .homeUIDWithResourceID(self, rid))
         if uid:
-            result = (yield self.homeWithUID(storeType, uid, create))
+            result = (yield self.homeWithUID(storeType, uid))
         else:
             result = None
         returnValue(result)
@@ -3108,7 +3146,31 @@ class CommonHome(SharingHomeMixIn):
 
         @return: a string.
         """
-        return False
+        return self._status == _HOME_STATUS_EXTERNAL
+
+
+    def purging(self):
+        """
+        Is this an external home.
+
+        @return: a string.
+        """
+        return self._status == _HOME_STATUS_PURGING
+
+
+    @inlineCallbacks
+    def purge(self):
+        """
+        Mark this home as being purged.
+        """
+        # Only if normal
+        if self._status == _HOME_STATUS_NORMAL:
+            yield Update(
+                {self._homeSchema.STATUS: _HOME_STATUS_PURGING},
+                Where=(self._homeSchema.RESOURCE_ID == self._resourceID),
+            ).on(self._txn)
+            self._status = _HOME_STATUS_PURGING
+            yield self._cacher.delete(self._ownerUID)
 
 
     def transaction(self):

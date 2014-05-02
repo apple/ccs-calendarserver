@@ -49,6 +49,13 @@ class TestCalendarStoreDirectoryService(TestStoreDirectoryService):
             self.recordsByCUA[cuaddr] = record
 
 
+    def removeRecord(self, uid):
+        record = self.records[uid]
+        del self.records[uid]
+        for cuaddr in record.calendarUserAddresses:
+            del self.recordsByCUA[cuaddr]
+
+
 
 class TestCalendarStoreDirectoryRecord(TestStoreDirectoryRecord):
 

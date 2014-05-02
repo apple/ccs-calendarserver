@@ -1029,6 +1029,14 @@ DEFAULT_CONFIG = {
         "ReconciliationDelaySeconds" : 5,
     },
 
+    "AutomaticPurging": {
+        "Enabled": False,
+        "PollingIntervalSeconds": 7 * 24 * 60 * 60,   # 7 days
+        "CheckStaggerSeconds": 0, # No staggering
+        "PurgeIntervalSeconds": 7 * 24 * 60 * 60,   # 7 days
+        "HomePurgeDelaySeconds": 60,
+    },
+
     "Manhole": {
         "Enabled": False,
         "StartingPortNumber": 5000,

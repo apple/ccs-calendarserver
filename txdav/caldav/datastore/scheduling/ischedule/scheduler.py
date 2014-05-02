@@ -26,8 +26,8 @@ from twistedcaldav.config import config
 from twistedcaldav.ical import normalizeCUAddress
 
 from txdav.caldav.datastore.scheduling import addressmapping
-from txdav.caldav.datastore.scheduling.cuaddress import RemoteCalendarUser
-from txdav.caldav.datastore.scheduling.cuaddress import calendarUserFromPrincipal
+from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser, \
+    calendarUserFromCalendarUserAddress, RemoteCalendarUser
 from txdav.caldav.datastore.scheduling.ischedule import xml
 from txdav.caldav.datastore.scheduling.ischedule.dkim import DKIMVerifier, \
     DKIMVerificationError, DKIMMissingError
@@ -226,18 +226,10 @@ class IScheduleScheduler(RemoteScheduler):
         """
 
         # For remote requests we do not allow the originator to be a local user or one within our domain.
-        originatorPrincipal = (yield self.txn.directoryService().recordWithCalendarUserAddress(self.originator))
+        originatorAddress = yield calendarUserFromCalendarUserAddress(self.originator, self.txn)
         localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(self.originator))
 
-        if (originatorPrincipal or localUser) and not self._podding:
-            log.error("Cannot use originator that is external to this server: %s" % (self.originator,))
-            raise HTTPError(self.errorResponse(
-                responsecode.FORBIDDEN,
-                self.errorElements["originator-denied"],
-                "Originator cannot be external to server",
-            ))
-
-        if originatorPrincipal or localUser:
+        if originatorAddress.hosted() or localUser:
 
             # iSchedule must never deliver for users hosted on the server or any pod
             if not self._podding:
@@ -249,7 +241,7 @@ class IScheduleScheduler(RemoteScheduler):
                 ))
 
             # Cannot deliver message for someone hosted on the same pod
-            elif originatorPrincipal.thisServer():
+            elif isinstance(originatorAddress, LocalCalendarUser):
                 log.error("Cannot use originator that is on this server: %s" % (self.originator,))
                 raise HTTPError(self.errorResponse(
                     responsecode.FORBIDDEN,
@@ -257,8 +249,8 @@ class IScheduleScheduler(RemoteScheduler):
                     "Originator cannot be local to server",
                 ))
             else:
-                self.originator = calendarUserFromPrincipal(self.originator, originatorPrincipal)
-                self._validAlternateServer(originatorPrincipal)
+                self.originator = originatorAddress
+                self._validAlternateServer(originatorAddress)
         else:
             if self._podding:
                 log.error("Cannot use originator that is external to this server: %s" % (self.originator,))
@@ -333,13 +325,13 @@ class IScheduleScheduler(RemoteScheduler):
                 ))
 
 
-    def _validAlternateServer(self, principal):
+    def _validAlternateServer(self, cuuser):
         """
         Check the validity of the podded host.
         """
 
         # Extract expected host/port. This will be the serverURI.
-        expected_uri = principal.serverURI()
+        expected_uri = cuuser.record.serverURI()
         expected_uri = urlparse.urlparse(expected_uri)
 
         # Get the request IP and map to hostname.
@@ -395,9 +387,9 @@ class IScheduleScheduler(RemoteScheduler):
         # Verify that the ORGANIZER's cu address does not map to a valid user
         organizer = self.calendar.getOrganizer()
         if organizer:
-            organizerPrincipal = yield self.txn.directoryService().recordWithCalendarUserAddress(organizer)
-            if organizerPrincipal:
-                if organizerPrincipal.thisServer():
+            organizerAddress = yield calendarUserFromCalendarUserAddress(organizer, self.txn)
+            if organizerAddress.hosted():
+                if isinstance(organizerAddress, LocalCalendarUser):
                     log.error("Invalid ORGANIZER in calendar data: %s" % (self.calendar,))
                     raise HTTPError(self.errorResponse(
                         responsecode.FORBIDDEN,
@@ -406,8 +398,8 @@ class IScheduleScheduler(RemoteScheduler):
                     ))
                 else:
                     # Check that the origin server is the correct pod
-                    self.organizer = calendarUserFromPrincipal(organizer, organizerPrincipal)
-                    self._validAlternateServer(self.organizer.principal)
+                    self.organizer = organizerAddress
+                    self._validAlternateServer(self.organizer)
             else:
                 localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(organizer))
                 if localUser:
@@ -436,9 +428,9 @@ class IScheduleScheduler(RemoteScheduler):
         """
 
         # Attendee cannot be local.
-        attendeePrincipal = yield self.txn.directoryService().recordWithCalendarUserAddress(self.attendee)
-        if attendeePrincipal:
-            if attendeePrincipal.thisServer():
+        attendeeAddress = yield calendarUserFromCalendarUserAddress(self.attendee, self.txn)
+        if attendeeAddress.hosted():
+            if isinstance(attendeeAddress, LocalCalendarUser):
                 log.error("Invalid ATTENDEE in calendar data: %s" % (self.calendar,))
                 raise HTTPError(self.errorResponse(
                     responsecode.FORBIDDEN,
@@ -446,7 +438,7 @@ class IScheduleScheduler(RemoteScheduler):
                     "Local attendee cannot send to this server",
                 ))
             else:
-                self._validAlternateServer(attendeePrincipal)
+                self._validAlternateServer(attendeeAddress)
         else:
             localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(self.attendee))
             if localUser:

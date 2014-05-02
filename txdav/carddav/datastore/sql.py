@@ -246,7 +246,7 @@ class AddressBookHome(CommonHome):
         Get the owner home for a shared child ID
         """
         # addressbook and home have same resourceID
-        ownerHome = yield self._txn.homeWithResourceID(self._homeType, resourceID, create=True)
+        ownerHome = yield self._txn.homeWithResourceID(self._homeType, resourceID)
         returnValue(ownerHome)
 
 
@@ -1120,7 +1120,7 @@ END:VCARD
         for groupRow in groupRows:
             bindMode, homeID, resourceID, externalID, bindName, bindStatus, bindRevision, bindMessage = groupRow[:AddressBookObject.bindColumnCount] #@UnusedVariable
             ownerAddressBookID = yield AddressBookObject.ownerAddressBookIDFromGroupID(home._txn, resourceID)
-            ownerHome = yield home._txn.homeWithResourceID(home._homeType, ownerAddressBookID, create=True)
+            ownerHome = yield home._txn.homeWithResourceID(home._homeType, ownerAddressBookID)
             names |= set([ownerHome.uid()])
 
         returnValue(tuple(names))

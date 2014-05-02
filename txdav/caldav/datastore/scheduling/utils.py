@@ -17,6 +17,7 @@
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.python.log import Logger
 from txdav.caldav.icalendarstore import ComponentRemoveState
+from uuid import UUID
 
 log = Logger()
 
@@ -48,6 +49,60 @@ def getCalendarObjectForRecord(txn, record, uid):
         returnValue(objectResources[0] if len(objectResources) == 1 else None)
     else:
         returnValue(None)
+
+
+
+def normalizeCUAddr(addr):
+    """
+    Normalize a cuaddr string by lower()ing it if it's a mailto:, or
+    removing trailing slash if it's a URL.
+    @param addr: a cuaddr string to normalize
+    @return: normalized string
+    """
+    lower = addr.lower()
+    if lower.startswith("mailto:"):
+        addr = lower
+    if (addr.startswith("/") or
+        addr.startswith("http:") or
+        addr.startswith("https:")):
+        return addr.rstrip("/")
+    else:
+        return addr
+
+
+
+def uidFromCalendarUserAddress(address):
+    """
+    Try to extract a record UID from a calendar user address of the appropriate format.
+    Allowed formats are urn:x-uid, urn:uuid, or /principals/(__uids__).
+
+    @param address: calendar user address to operate on
+    @type address: L{str}
+
+    @return: the extracted uid or L{None}
+    @rtype: L{str} or L{None}
+    """
+
+    address = normalizeCUAddr(address)
+
+    if address.startswith("urn:x-uid:"):
+        return address[10:]
+
+    elif address.startswith("urn:uuid:"):
+        try:
+            UUID(address[9:])
+        except ValueError:
+            log.info("Invalid GUID: {guid}", guid=address[9:])
+            return address[9:]
+        else:
+            return address[9:]
+
+    elif address.startswith("/principals/__uids__"):
+        parts = address.split("/")
+        if len(parts) == 4:
+            return parts[3]
+
+    return None
 
 
 

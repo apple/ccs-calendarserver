@@ -33,11 +33,11 @@ from twistedcaldav.config import config
 from twistedcaldav.ical import Component
 from txdav.caldav.datastore.scheduling import addressmapping
 from txdav.caldav.datastore.scheduling.caldav.delivery import ScheduleViaCalDAV
+from txdav.caldav.datastore.scheduling.cuaddress import EmailCalendarUser
 from txdav.caldav.datastore.scheduling.cuaddress import InvalidCalendarUser, \
-    calendarUserFromPrincipal, OtherServerCalendarUser
+    OtherServerCalendarUser, calendarUserFromCalendarUserAddress
 from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser
 from txdav.caldav.datastore.scheduling.cuaddress import RemoteCalendarUser
-from txdav.caldav.datastore.scheduling.cuaddress import EmailCalendarUser
 from txdav.caldav.datastore.scheduling.imip.delivery import ScheduleViaIMip
 from txdav.caldav.datastore.scheduling.ischedule.delivery import ScheduleViaISchedule
 from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
@@ -402,10 +402,10 @@ class Scheduler(object):
         #
         if isinstance(self.organizer, LocalCalendarUser):
             accountingType = "iTIP-VFREEBUSY" if self.calendar.mainType() == "VFREEBUSY" else "iTIP"
-            if accountingEnabled(accountingType, self.organizer.principal):
+            if accountingEnabled(accountingType, self.organizer.record):
                 emitAccounting(
                     accountingType,
-                    self.organizer.principal,
+                    self.organizer.record,
                     "Originator: %s\nRecipients:\n%sMethod:%s\n\n%s"
                     % (
                         str(self.originator),
@@ -550,34 +550,35 @@ class RemoteScheduler(Scheduler):
 
         results = []
         for recipient in self.recipients:
-            # Get the principal resource for this recipient
-            principal = yield self.txn.directoryService().recordWithCalendarUserAddress(recipient)
+            # Get the calendar user object for this recipient
+            recipientAddress = yield calendarUserFromCalendarUserAddress(recipient, self.txn)
 
-            # If no principal we may have a remote recipient but we should check whether
+            # If no calendar user we may have a remote recipient but we should check whether
             # the address is one that ought to be on our server and treat that as a missing
             # user. Also if server-to-server is not enabled then remote addresses are not allowed.
-            if principal is None:
+            if not recipientAddress.hosted():
                 localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(recipient))
                 if localUser:
-                    log.error("No principal for calendar user address: %s" % (recipient,))
+                    log.error("No record for calendar user address: %s" % (recipient,))
                 else:
                     log.error("Unknown calendar user address: %s" % (recipient,))
                 results.append(InvalidCalendarUser(recipient))
             else:
-                # Map recipient to their inbox
+                # Map recipient to their inbox and cache on calendar user object
                 inbox = None
-                if principal.calendarsEnabled():
-                    if principal.thisServer():
-                        recipient_home = yield self.txn.calendarHomeWithUID(principal.uid, create=True)
+                if recipientAddress.validRecipient():
+                    if isinstance(recipientAddress, LocalCalendarUser):
+                        recipient_home = yield self.txn.calendarHomeWithUID(recipientAddress.record.uid, create=True)
                         if recipient_home:
                             inbox = (yield recipient_home.calendarWithName("inbox"))
                     else:
                         inbox = "dummy"
+                    recipientAddress.inbox = inbox
 
                 if inbox:
-                    results.append(calendarUserFromPrincipal(recipient, principal, inbox))
+                    results.append(recipientAddress)
                 else:
-                    log.error("No schedule inbox for principal: %s" % (principal,))
+                    log.error("No scheduling for calendar user: %s" % (recipient,))
                     results.append(InvalidCalendarUser(recipient))
 
         self.recipients = results

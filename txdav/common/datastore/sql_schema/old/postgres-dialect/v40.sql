@@ -91,7 +91,6 @@ create table HOME_STATUS (
 
 insert into HOME_STATUS values (0, 'normal' );
 insert into HOME_STATUS values (1, 'external');
-insert into HOME_STATUS values (2, 'purging');
 
 
 --------------
@@ -1056,22 +1055,6 @@ create index PRINCIPAL_PURGE_WORK_JOB_ID on
   PRINCIPAL_PURGE_WORK(JOB_ID);
 
 
---------------------------------
--- Principal Home Remove Work --
---------------------------------
-
-create table PRINCIPAL_PURGE_HOME_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
-  JOB_ID                        integer      references JOB not null,
-  HOME_RESOURCE_ID              integer      not null references CALENDAR_HOME on delete cascade
-);
-
-create index PRINCIPAL_PURGE_HOME_WORK_JOB_ID on
-  PRINCIPAL_PURGE_HOME_WORK(JOB_ID);
-create index PRINCIPAL_PURGE_HOME_HOME_RESOURCE_ID on
-  PRINCIPAL_PURGE_HOME_WORK(HOME_RESOURCE_ID);
-
-
 --------------------
 -- Schema Version --
 --------------------
@@ -1081,7 +1064,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '41');
+insert into CALENDARSERVER values ('VERSION', '40');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');

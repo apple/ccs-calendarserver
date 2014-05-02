@@ -18,22 +18,28 @@
 from __future__ import print_function
 
 import collections
+import datetime
 from getopt import getopt, GetoptError
 import os
 import sys
 
 from calendarserver.tools import tables
 from calendarserver.tools.cmdline import utilityMain, WorkerService
+
 from pycalendar.datetime import DateTime
-from twext.python.log import Logger
-from twisted.internet.defer import inlineCallbacks, returnValue
-from twistedcaldav import caldavxml
-from txdav.caldav.datastore.query.filter import Filter
+
 from twext.enterprise.dal.record import fromTable
-from twext.enterprise.dal.syntax import Delete, Select
+from twext.enterprise.dal.syntax import Delete, Select, Union
 from twext.enterprise.jobqueue import WorkItem
-from txdav.common.datastore.sql_tables import schema
-import datetime
+from twext.python.log import Logger
+
+from twisted.internet.defer import inlineCallbacks, returnValue
+
+from twistedcaldav import caldavxml
+from twistedcaldav.config import config
+
+from txdav.caldav.datastore.query.filter import Filter
+from txdav.common.datastore.sql_tables import schema, _HOME_STATUS_NORMAL
 
 log = Logger()
 
@@ -47,6 +53,11 @@ class PrincipalPurgePollingWork(
     WorkItem,
     fromTable(schema.PRINCIPAL_PURGE_POLLING_WORK)
 ):
+    """
+    A work item that scans the existing set of provisioned homes in the
+    store and creates a work item for each to be checked against the
+    directory to see if they need purging.
+    """
 
     group = "principal_purge_polling"
 
@@ -56,18 +67,25 @@ class PrincipalPurgePollingWork(
         # Delete all other work items
         yield Delete(From=self.table, Where=None).on(self.transaction)
 
-        # Schedule next update, 7 days out
-        notBefore = (
-            datetime.datetime.utcnow() +
-            datetime.timedelta(days=7)
-        )
-        log.info(
-            "Scheduling next principal purge scan update: {when}", when=notBefore
-        )
-        yield self.transaction.enqueue(
-            PrincipalPurgePollingWork,
-            notBefore=notBefore
-        )
+        # If not enabled, punt here
+        if not config.AutomaticPurging.Enabled:
+            returnValue(None)
+
+        # Schedule next update, 7 days out (default)
+        # Special - for testing it is handy to have this work item not regenerate, so
+        # we use an interval of -1 to signify a one-shot operation
+        if config.AutomaticPurging.PollingIntervalSeconds != -1:
+            notBefore = (
+                datetime.datetime.utcnow() +
+                datetime.timedelta(seconds=config.AutomaticPurging.PollingIntervalSeconds)
+            )
+            log.info(
+                "Scheduling next principal purge scan update: {when}", when=notBefore
+            )
+            yield self.transaction.enqueue(
+                PrincipalPurgePollingWork,
+                notBefore=notBefore
+            )
 
         # Do the scan
         allUIDs = set()
@@ -75,17 +93,18 @@ class PrincipalPurgePollingWork(
             for [uid] in (
                 yield Select(
                     [home.OWNER_UID],
-                    From=home
+                    From=home,
+                    Where=(home.STATUS == _HOME_STATUS_NORMAL),
                 ).on(self.transaction)
             ):
                 allUIDs.add(uid)
 
-        # Spread out the per-uid checks 1 second apart
+        # Spread out the per-uid checks 0 second apart
         seconds = 0
         for uid in allUIDs:
             notBefore = (
                 datetime.datetime.utcnow() +
-                datetime.timedelta(seconds=seconds)
+                datetime.timedelta(seconds=config.AutomaticPurging.CheckStaggerSeconds)
             )
             seconds += 1
             yield self.transaction.enqueue(
@@ -96,13 +115,14 @@ class PrincipalPurgePollingWork(
 
 
 
-
 class PrincipalPurgeCheckWork(
     WorkItem,
     fromTable(schema.PRINCIPAL_PURGE_CHECK_WORK)
 ):
     """
-    Work item for checking for the existence of a UID in the directory
+    Work item for checking for the existence of a UID in the directory. This
+    work item is created by L{PrincipalPurgePollingWork} - one for each
+    unique user UID to check.
     """
 
     group = property(lambda self: self.uid)
@@ -116,6 +136,10 @@ class PrincipalPurgeCheckWork(
             Where=self.table.UID == self.uid
         ).on(self.transaction)
 
+        # If not enabled, punt here
+        if not config.AutomaticPurging.Enabled:
+            returnValue(None)
+
         log.debug("Checking for existence of {uid} in directory", uid=self.uid)
         directory = self.transaction.store().directoryService()
         record = yield directory.recordWithUID(self.uid)
@@ -124,7 +148,7 @@ class PrincipalPurgeCheckWork(
             # Schedule purge of this UID a week from now
             notBefore = (
                 datetime.datetime.utcnow() +
-                datetime.timedelta(minutes=1)
+                datetime.timedelta(seconds=config.AutomaticPurging.PurgeIntervalSeconds)
             )
             log.warn(
                 "Principal {uid} is no longer in the directory; scheduling clean-up at {when}",
@@ -159,6 +183,10 @@ class PrincipalPurgeWork(
             Where=self.table.UID == self.uid
         ).on(self.transaction)
 
+        # If not enabled, punt here
+        if not config.AutomaticPurging.Enabled:
+            returnValue(None)
+
         # Check for UID in directory again
         log.debug("One last existence check for {uid}", uid=self.uid)
         directory = self.transaction.store().directoryService()
@@ -166,22 +194,86 @@ class PrincipalPurgeWork(
 
         if record is None:
             # Time to go
-            service = PurgePrincipalService(self.transaction.store)
+            service = PurgePrincipalService(self.transaction.store())
             log.warn(
                 "Cleaning up future events for principal {uid} since they are no longer in directory",
                 uid=self.uid
             )
             yield service.purgeUIDs(
-                self.transaction.store,
+                self.transaction.store(),
                 directory,
                 [self.uid],
-                completely=False,
-                doimplicit=True,
                 proxies=True,
                 when=None
             )
         else:
             log.debug("{uid} has re-appeared in the directory", uid=self.uid)
+
+
+
+class PrincipalPurgeHomeWork(
+    WorkItem,
+    fromTable(schema.PRINCIPAL_PURGE_HOME_WORK)
+):
+    """
+    Work item for removing a UID's home
+    """
+
+    group = property(lambda self: str(self.homeResourceID))
+
+    @inlineCallbacks
+    def doWork(self):
+
+        # Delete any other work items for this UID
+        yield Delete(
+            From=self.table,
+            Where=self.table.HOME_RESOURCE_ID == self.homeResourceID
+        ).on(self.transaction)
+
+        # NB We do not check config.AutomaticPurging.Enabled here because if this work
+        # item was enqueued we always need to complete it
+
+        # Check for pending scheduling operations
+        sow = schema.SCHEDULE_ORGANIZER_WORK
+        srw = schema.SCHEDULE_REPLY_WORK
+        srcw = schema.SCHEDULE_REPLY_CANCEL_WORK
+        rows = yield Select(
+            [sow.HOME_RESOURCE_ID],
+            From=sow,
+            Where=(sow.HOME_RESOURCE_ID == self.homeResourceID),
+            SetExpression=Union(
+                Select(
+                    [srw.HOME_RESOURCE_ID],
+                    From=srw,
+                    Where=(srw.HOME_RESOURCE_ID == self.homeResourceID),
+                    SetExpression=Union(
+                        Select(
+                            [srcw.HOME_RESOURCE_ID],
+                            From=srcw,
+                            Where=(srcw.HOME_RESOURCE_ID == self.homeResourceID),
+                        )
+                    ),
+                )
+            ),
+        ).on(self.transaction)
+
+        if rows and len(rows):
+            # Regenerate this job
+            notBefore = (
+                datetime.datetime.utcnow() +
+                datetime.timedelta(seconds=config.AutomaticPurging.HomePurgeDelaySeconds)
+            )
+            yield self.transaction.enqueue(
+                PrincipalPurgeHomeWork,
+                homeResourceID=self.homeResourceID,
+                notBefore=notBefore
+            )
+        else:
+            # Get the home and remove it - only if properly marked as being purged
+            home = yield self.transaction.calendarHomeWithResourceID(self.homeResourceID)
+            if home.purging():
+                yield home.remove()
+
 
 
 @inlineCallbacks
@@ -743,8 +835,6 @@ class PurgePrincipalService(WorkerService):
     uids = None
     dryrun = False
     verbose = False
-    completely = False
-    doimplicit = True
     proxies = True
     when = None
 
@@ -755,9 +845,9 @@ class PurgePrincipalService(WorkerService):
         print("usage: %s [options]" % (name,))
         print("")
         print("  Remove a principal's events and contacts from the calendar server")
+        print("  Future events are declined or cancelled")
         print("")
         print("options:")
-        print("  -c --completely: By default, only future events are canceled; this option cancels all events")
         print("  -h --help: print this help and exit")
         print("  -f --config <path>: Specify caldavd.plist configuration path")
         print("  -n --dry-run: calculate how many events and contacts to purge, but do not purge data")
@@ -777,14 +867,12 @@ class PurgePrincipalService(WorkerService):
 
         try:
             (optargs, args) = getopt(
-                sys.argv[1:], "cDf:hnv", [
-                    "completely",
+                sys.argv[1:], "Df:hnv", [
                     "dry-run",
                     "config=",
                     "help",
                     "verbose",
                     "debug",
-                    "noimplicit",
                 ],
             )
         except GetoptError, e:
@@ -797,15 +885,10 @@ class PurgePrincipalService(WorkerService):
         dryrun = False
         verbose = False
         debug = False
-        completely = False
-        doimplicit = True
 
         for opt, arg in optargs:
             if opt in ("-h", "--help"):
                 cls.usage()
-
-            elif opt in ("-c", "--completely"):
-                completely = True
 
             elif opt in ("-v", "--verbose"):
                 verbose = True
@@ -819,18 +902,13 @@ class PurgePrincipalService(WorkerService):
             elif opt in ("-f", "--config"):
                 configFileName = arg
 
-            elif opt in ("--noimplicit"):
-                doimplicit = False
-
             else:
                 raise NotImplementedError(opt)
 
         # args is a list of uids
         cls.uids = args
-        cls.completely = completely
         cls.dryrun = dryrun
         cls.verbose = verbose
-        cls.doimplicit = doimplicit
 
         utilityMain(
             configFileName,
@@ -842,15 +920,13 @@ class PurgePrincipalService(WorkerService):
     @classmethod
     @inlineCallbacks
     def purgeUIDs(cls, store, directory, uids, verbose=False, dryrun=False,
-                  completely=False, doimplicit=True, proxies=True, when=None):
+                  proxies=True, when=None):
 
         service = cls(store)
         service.directory = directory
         service.uids = uids
         service.verbose = verbose
         service.dryrun = dryrun
-        service.completely = completely
-        service.doimplicit = doimplicit
         service.proxies = proxies
         service.when = when
         result = yield service.doWork()
@@ -885,32 +961,18 @@ class PurgePrincipalService(WorkerService):
         if self.when is None:
             self.when = DateTime.getNowUTC()
 
-        # Does the record exist?
-        record = yield self.directory.recordWithUID(uid)
-        # MOVE2WHO
-        # if record is None:
-            # The user has already been removed from the directory service.  We
-            # need to fashion a temporary, fake record
-
-            # FIXME: probably want a more elegant way to accomplish this,
-            # since it requires the aggregate directory to examine these first:
-            # record = DirectoryRecord(self.directory, "users", uid, shortNames=(uid,), enabledForCalendaring=True)
-            # self.directory._tmpRecords["shortNames"][uid] = record
-            # self.directory._tmpRecords["uids"][uid] = record
-
-        # Override augments settings for this record
-        record.hasCalendars = True
-        record.hasContacts = True
-
-        cua = record.canonicalCalendarUserAddress()
+        cuas = set((
+            "urn:uuid:{}".format(uid),
+            "urn:x-uid:{}".format(uid)
+        ))
 
         # See if calendar home is provisioned
         txn = self.store.newTransaction()
         storeCalHome = yield txn.calendarHomeWithUID(uid)
         calHomeProvisioned = storeCalHome is not None
 
-        # If in "completely" mode, unshare collections, remove notifications
-        if calHomeProvisioned and self.completely:
+        # Always, unshare collections, remove notifications
+        if calHomeProvisioned:
             yield self._cleanHome(txn, storeCalHome)
 
         yield txn.commit()
@@ -918,7 +980,7 @@ class PurgePrincipalService(WorkerService):
         count = 0
 
         if calHomeProvisioned:
-            count = yield self._cancelEvents(txn, uid, cua)
+            count = yield self._cancelEvents(txn, uid, cuas)
 
         # Remove empty calendar collections (and calendar home if no more
         # calendars)
@@ -930,7 +992,7 @@ class PurgePrincipalService(WorkerService):
         if self.proxies and not self.dryrun:
             if self.verbose:
                 print("Deleting any proxy assignments")
-            yield self._purgeProxyAssignments(self.store, record)
+            yield self._purgeProxyAssignments(self.store, uid)
 
         returnValue(count)
 
@@ -951,13 +1013,13 @@ class PurgePrincipalService(WorkerService):
 
         if not self.dryrun:
             yield storeCalHome.removeUnacceptedShares()
-            notificationHome = yield txn.notificationsWithUID(storeCalHome.uid())
+            notificationHome = yield txn.notificationsWithUID(storeCalHome.uid(), create=False)
             if notificationHome is not None:
                 yield notificationHome.remove()
 
 
     @inlineCallbacks
-    def _cancelEvents(self, txn, uid, cua):
+    def _cancelEvents(self, txn, uid, cuas):
 
         # Anything in the past is left alone
         whenString = self.when.getText()
@@ -983,72 +1045,58 @@ class PurgePrincipalService(WorkerService):
             txn = self.store.newTransaction(authz_uid=uid)
             storeCalHome = yield txn.calendarHomeWithUID(uid)
             calendar = yield storeCalHome.calendarWithName(calendarName)
-            childNames = []
+            allChildNames = []
+            futureChildNames = set()
 
-            if self.completely:
+            # Only purge owned calendars
+            if calendar.owned():
                 # all events
                 for childName in (yield calendar.listCalendarObjects()):
-                    childNames.append(childName)
-            else:
+                    allChildNames.append(childName)
+
                 # events matching filter
                 for childName, _ignore_childUid, _ignore_childType in (yield calendar.search(query_filter)):
-                    childNames.append(childName)
+                    futureChildNames.add(childName)
+
             yield txn.commit()
 
-            for childName in childNames:
+            for childName in allChildNames:
 
                 txn = self.store.newTransaction(authz_uid=uid)
                 storeCalHome = yield txn.calendarHomeWithUID(uid)
                 calendar = yield storeCalHome.calendarWithName(calendarName)
+                doScheduling = childName in futureChildNames
 
                 try:
                     childResource = yield calendar.calendarObjectWithName(childName)
 
-                    # Always delete inbox items
-                    if self.completely or calendar.isInbox():
-                        action = self.CANCELEVENT_SHOULD_DELETE
-                    else:
-                        event = yield childResource.componentForUser()
-                        action = self._cancelEvent(event, self.when, cua)
-
                     uri = "/calendars/__uids__/%s/%s/%s" % (storeCalHome.uid(), calendar.name(), childName)
-                    if action == self.CANCELEVENT_MODIFIED:
-                        if self.verbose:
-                            if self.dryrun:
-                                print("Would modify: %s" % (uri,))
-                            else:
-                                print("Modifying: %s" % (uri,))
-                        if not self.dryrun:
-                            yield childResource.setComponent(event)
-                        count += 1
+                    incrementCount = self.dryrun
+                    if self.verbose:
+                        if self.dryrun:
+                            print("Would delete%s: %s" % (" with scheduling" if doScheduling else "", uri,))
+                        else:
+                            print("Deleting%s: %s" % (" with scheduling" if doScheduling else "", uri,))
+                    if not self.dryrun:
+                        retry = False
+                        try:
+                            yield childResource.remove(implicitly=doScheduling)
+                            incrementCount = True
+                        except Exception, e:
+                            print("Exception deleting %s: %s" % (uri, str(e)))
+                            retry = True
 
-                    elif action == self.CANCELEVENT_SHOULD_DELETE:
-                        incrementCount = self.dryrun
-                        if self.verbose:
-                            if self.dryrun:
-                                print("Would delete: %s" % (uri,))
-                            else:
-                                print("Deleting: %s" % (uri,))
-                        if not self.dryrun:
-                            retry = False
+                        if retry and doScheduling:
+                            # Try again with implicit scheduling off
+                            print("Retrying deletion of %s with scheduling turned off" % (uri,))
                             try:
-                                yield childResource.remove(implicitly=self.doimplicit)
+                                yield childResource.remove(implicitly=False)
                                 incrementCount = True
                             except Exception, e:
-                                print("Exception deleting %s: %s" % (uri, str(e)))
-                                retry = True
+                                print("Still couldn't delete %s even with scheduling turned off: %s" % (uri, str(e)))
 
-                            if retry and self.doimplicit:
-                                # Try again with implicit scheduling off
-                                print("Retrying deletion of %s with implicit scheduling turned off" % (uri, childName))
-                                try:
-                                    yield childResource.remove(implicitly=False)
-                                    incrementCount = True
-                                except Exception, e:
-                                    print("Still couldn't delete %s even with implicit scheduling turned off: %s" % (uri, str(e)))
-
-                        if incrementCount:
-                            count += 1
+                    if incrementCount:
+                        count += 1
 
                     # Commit
                     yield txn.commit()
@@ -1095,7 +1143,21 @@ class PurgePrincipalService(WorkerService):
                         else:
                             print("Deleting calendar home")
                     if not self.dryrun:
-                        yield storeCalHome.remove()
+                        # Queue a job to delete the calendar home after any scheduling operations
+                        # are complete
+                        notBefore = (
+                            datetime.datetime.utcnow() +
+                            datetime.timedelta(seconds=config.AutomaticPurging.HomePurgeDelaySeconds)
+                        )
+                        yield txn.enqueue(
+                            PrincipalPurgeHomeWork,
+                            homeResourceID=storeCalHome.id(),
+                            notBefore=notBefore
+                        )
+
+                        # Also mark the home as purging so it won't be looked at again during
+                        # purge polling
+                        yield storeCalHome.purge()
 
             # Commit
             yield txn.commit()
@@ -1159,112 +1221,12 @@ class PurgePrincipalService(WorkerService):
 
         returnValue(count)
 
-    CANCELEVENT_SKIPPED = 1
-    CANCELEVENT_MODIFIED = 2
-    CANCELEVENT_NOT_MODIFIED = 3
-    CANCELEVENT_SHOULD_DELETE = 4
-
-    @classmethod
-    def _cancelEvent(cls, event, when, cua):
-        """
-        Modify a VEVENT such that all future occurrences are removed
-
-        @param event: the event to modify
-        @type event: L{twistedcaldav.ical.Component}
-
-        @param when: the cutoff date (anything after which is removed)
-        @type when: DateTime
-
-        @param cua: Calendar User Address of principal being purged, to compare
-            to see if it's the organizer of the event or just an attendee
-        @type cua: string
-
-        Assumes that event does not occur entirely in the past.
-
-        @return: one of the 4 constants above to indicate what action to take
-        """
-
-        whenDate = when.duplicate()
-        whenDate.setDateOnly(True)
-
-        # Only process VEVENT
-        if event.mainType() != "VEVENT":
-            return cls.CANCELEVENT_SKIPPED
-
-        main = event.mainComponent()
-
-        # Anything completely in the future is deleted
-        dtstart = main.getStartDateUTC()
-        isDateTime = not dtstart.isDateOnly()
-        if dtstart > when:
-            return cls.CANCELEVENT_SHOULD_DELETE
-
-        organizer = main.getOrganizer()
-
-        # Non-meetings are deleted
-        if organizer is None:
-            return cls.CANCELEVENT_SHOULD_DELETE
-
-        # Meetings which cua is merely an attendee are deleted (thus implicitly
-        # declined)
-        # FIXME: I think we want to decline anything after the cut-off, not delete
-        # the whole event.
-        if organizer != cua:
-            return cls.CANCELEVENT_SHOULD_DELETE
-
-        dirty = False
-
-        # Set the UNTIL on RRULE to cease at the cutoff
-        if main.hasProperty("RRULE"):
-            for rrule in main.properties("RRULE"):
-                rrule = rrule.value()
-                if rrule.getUseCount():
-                    rrule.setUseCount(False)
-
-                rrule.setUseUntil(True)
-                if isDateTime:
-                    rrule.setUntil(when)
-                else:
-                    rrule.setUntil(whenDate)
-                dirty = True
-
-        # Remove any EXDATEs and RDATEs beyond the cutoff
-        for dateType in ("EXDATE", "RDATE"):
-            if main.hasProperty(dateType):
-                for exdate_rdate in main.properties(dateType):
-                    newValues = []
-                    for value in exdate_rdate.value():
-                        if value.getValue() < when:
-                            newValues.append(value)
-                        else:
-                            exdate_rdate.value().remove(value)
-                            dirty = True
-                    if not newValues:
-                        main.removeProperty(exdate_rdate)
-                        dirty = True
-
-        # Remove any overridden components beyond the cutoff
-        for component in tuple(event.subcomponents()):
-            if component.name() == "VEVENT":
-                dtstart = component.getStartDateUTC()
-                remove = False
-                if dtstart > when:
-                    remove = True
-                if remove:
-                    event.removeComponent(component)
-                    dirty = True
-
-        if dirty:
-            return cls.CANCELEVENT_MODIFIED
-        else:
-            return cls.CANCELEVENT_NOT_MODIFIED
-
 
     @inlineCallbacks
-    def _purgeProxyAssignments(self, store, record):
+    def _purgeProxyAssignments(self, store, uid):
 
         txn = store.newTransaction()
         for readWrite in (True, False):
-            yield txn.removeDelegates(record.uid, readWrite)
-            yield txn.removeDelegateGroupss(record.uid, readWrite)
+            yield txn.removeDelegates(uid, readWrite)
+            yield txn.removeDelegateGroups(uid, readWrite)
         yield txn.commit()

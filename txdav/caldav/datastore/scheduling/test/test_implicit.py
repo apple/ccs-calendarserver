@@ -30,6 +30,7 @@ from twistedcaldav.config import config
 from twistedcaldav.ical import Component
 from twistedcaldav.timezones import TimezoneCache
 
+from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser
 from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler, \
     ScheduleReplyWork
 from txdav.caldav.datastore.scheduling.scheduler import ScheduleResponseQueue
@@ -73,6 +74,15 @@ class FakeCalendarHome(object):
     def uid(self):
         return self._uid
 
+
+    def directoryService(self):
+        if not hasattr(self, "_directoryService"):
+            self._directoryService = FakeDirectoryService()
+        return self._directoryService
+
+
+
+class FakeTxn(object):
 
     def directoryService(self):
         if not hasattr(self, "_directoryService"):
@@ -817,6 +827,7 @@ END:VCALENDAR
             scheduler.calendar = Component.fromString(calendar2)
 
             scheduler.calendar_home = FakeCalendarHome("user01")
+            scheduler.txn = FakeTxn()
 
             yield scheduler.extractCalendarData()
             scheduler.findRemovedAttendees()
@@ -864,10 +875,14 @@ END:VCALENDAR
             scheduler.reinvites = None
 
             scheduler.calendar_home = FakeCalendarHome("user1")
+            scheduler.txn = FakeTxn()
 
             # Get some useful information from the calendar
             yield scheduler.extractCalendarData()
-            scheduler.organizerPrincipal = buildDirectoryRecord(scheduler.calendar_home.uid())
+            scheduler.organizerAddress = LocalCalendarUser(
+                "mailto:user1@example.com",
+                buildDirectoryRecord(scheduler.calendar_home.uid()),
+            )
 
             recipients = []
 

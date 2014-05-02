@@ -24,7 +24,7 @@ from twext.python.log import Logger
 from twistedcaldav import accounting
 from twistedcaldav.config import config
 from twistedcaldav.ical import Component, Property
-from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
+from txdav.caldav.datastore.scheduling.utils import normalizeCUAddr
 from txdav.caldav.datastore.scheduling.itip import iTipGenerator
 
 """
