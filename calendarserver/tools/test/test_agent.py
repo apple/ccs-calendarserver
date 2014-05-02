@@ -26,6 +26,11 @@ except ImportError:
     pass
 
 else:
+    class FakeRecord(object):
+
+        def __init__(self, shortName):
+            self.shortNames = [shortName]
+
     class AgentTestCase(TestCase):
 
         def test_AgentRealm(self):
@@ -33,19 +38,19 @@ else:
 
             # Valid avatar
             _ignore_interface, resource, ignored = realm.requestAvatar(
-                "abc", None, IResource
+                FakeRecord("abc"), None, IResource
             )
             self.assertEquals(resource, "root")
 
             # Not allowed avatar
             _ignore_interface, resource, ignored = realm.requestAvatar(
-                "def", None, IResource
+                FakeRecord("def"), None, IResource
             )
             self.assertTrue(isinstance(resource, ForbiddenResource))
 
             # Interface unhandled
             try:
-                realm.requestAvatar("def", None, None)
+                realm.requestAvatar(FakeRecord("def"), None, None)
             except NotImplementedError:
                 pass
             else:

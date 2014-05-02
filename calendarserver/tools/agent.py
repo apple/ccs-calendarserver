@@ -34,7 +34,6 @@ import cStringIO
 from plistlib import readPlistFromString, writePlistToString
 import socket
 
-from calendarserver.tap.util import getRootResource
 from twext.python.launchd import getLaunchDSocketFDs
 from twext.python.log import Logger
 from twext.who.checker import HTTPDigestCredentialChecker
@@ -75,7 +74,7 @@ class AgentRealm(object):
 
     def requestAvatar(self, avatarId, mind, *interfaces):
         if IResource in interfaces:
-            if avatarId in self.allowedAvatarIds:
+            if avatarId.shortNames[0] in self.allowedAvatarIds:
                 return (IResource, self.root, lambda: None)
             else:
                 return (IResource, ForbiddenResource(), lambda: None)
@@ -91,18 +90,15 @@ class AgentGatewayResource(Resource):
     """
     isLeaf = True
 
-    def __init__(self, store, davRootResource, directory, inactivityDetector):
+    def __init__(self, store, directory, inactivityDetector):
         """
         @param store: an already opened store
-        @param davRootResource: the root resource, required for principal
-            operations
         @param directory: a directory service
         @param inactivityDetector: the InactivityDetector to tell when requests
             come in
         """
         Resource.__init__(self)
         self.store = store
-        self.davRootResource = davRootResource
         self.directory = directory
         self.inactivityDetector = inactivityDetector
 
@@ -139,10 +135,7 @@ class AgentGatewayResource(Resource):
         body = request.content.read()
         command = readPlistFromString(body)
         output = cStringIO.StringIO()
-        runner = Runner(
-            self.davRootResource, self.directory, self.store,
-            [command], output=output
-        )
+        runner = Runner(self.store, [command], output=output)
         d = runner.run()
         d.addCallback(onSuccess, output)
         d.addErrback(onError)
@@ -166,14 +159,13 @@ def makeAgentService(store):
     family = socket.AF_INET
     endpoint = AdoptedStreamServerEndpoint(reactor, fd, family)
 
-    from twistedcaldav.config import config
-    davRootResource = getRootResource(config, store)
-    directory = davRootResource.getDirectory()
+    directory = store.directoryService()
 
     def becameInactive():
         log.warn("Agent inactive; shutting down")
         reactor.stop()
 
+    from twistedcaldav.config import config
     inactivityDetector = InactivityDetector(
         reactor, config.AgentInactivityTimeoutSeconds, becameInactive
     )
@@ -181,18 +173,18 @@ def makeAgentService(store):
     root.putChild(
         "gateway",
         AgentGatewayResource(
-            store, davRootResource, directory, inactivityDetector
+            store, directory, inactivityDetector
         )
     )
 
     directory = OpenDirectoryDirectoryService("/Local/Default")
 
     portal = Portal(
-        AgentRealm(root, ["com.apple.calendarserver"]),
+        AgentRealm(root, [u"com.apple.calendarserver"]),
         [HTTPDigestCredentialChecker(directory)]
     )
     credentialFactory = NoQOPDigestCredentialFactory(
-        "md5", "CalendarServer Agent Realm"
+        "md5", "/Local/Default"
     )
     wrapper = HTTPAuthSessionWrapper(portal, [credentialFactory])
 
@@ -278,16 +270,14 @@ class GatewayAMPProtocol(amp.AMP):
     Passes commands to gateway.Runner and returns the results
     """
 
-    def __init__(self, store, davRootResource, directory):
+    def __init__(self, store, directory):
         """
         @param store: an already opened store
-        @param davRootResource: the root resource, required for principal
             operations
         @param directory: a directory service
         """
         amp.AMP.__init__(self)
         self.store = store
-        self.davRootResource = davRootResource
         self.directory = directory
 
 
@@ -304,7 +294,7 @@ class GatewayAMPProtocol(amp.AMP):
         output = cStringIO.StringIO()
         from calendarserver.tools.gateway import Runner
         runner = Runner(
-            self.davRootResource, self.directory, self.store,
+            self.store,
             [command], output=output
         )
 
@@ -332,9 +322,7 @@ class GatewayAMPFactory(Factory):
         @param store: an already opened store
         """
         self.store = store
-        from twistedcaldav.config import config
-        self.davRootResource = getRootResource(config, self.store)
-        self.directory = self.davRootResource.getDirectory()
+        self.directory = self.store.directoryService()
 
 
     def buildProtocol(self, addr):
