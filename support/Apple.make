@@ -118,6 +118,7 @@ install-python:: build
 	@# Clean up
 	@#
 	@echo "Cleaning up virtual environment...";
+	$(_v) perl -i -pe "s|#PATH|export PYTHON=$(CS_VIRTUALENV)/bin/python;|" "$(DSTROOT)$(CS_VIRTUALENV)/bin/caldavd";
 	$(_v) $(FIND) "$(DSTROOT)$(CS_VIRTUALENV)" -type d -name .svn -print0 | xargs -0 rm -rf;
 	$(_v) $(FIND) "$(DSTROOT)$(CS_VIRTUALENV)" -type f -name '*.so' -print0 | xargs -0 $(STRIP) -Sx;
 	$(_v) $(FIND) "$(DSTROOT)$(CS_VIRTUALENV)" -type f -size 0 -exec sh -c 'printf "# empty\n" > {}' ";";
