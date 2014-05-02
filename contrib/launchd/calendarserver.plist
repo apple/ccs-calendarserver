@@ -36,6 +36,12 @@ limitations under the License.
     <string>FailIfUpgradeNeeded=False</string>
   </array>
 
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/Applications/Server.app/Contents/ServerRoot/usr/bin:/Applications/Server.app/Contents/ServerRoot/usr/sbin:/usr/bin:/usr/sbin:/bin:/sbin</string>
+  </dict>
+
   <key>InitGroups</key>
   <true/>
   
