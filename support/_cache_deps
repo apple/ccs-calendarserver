@@ -72,9 +72,8 @@ pip_download \
 #
 
 for archive in $(find "${wd}/.develop" -type f -name '*.tgz'); do
-  ruler "Cleaning up ${archive}";
-  tmp="$(mktemp -d -t fooXXXX)";
-  gnutar -C "${tmp}" --exclude '*.exe' -xzf "${archive}";
-  gnutar -C "${tmp}" -czf "${archive}" ./;
-  rm -rf "${tmp}";
+  if tar -tvfz "${archive}" "*.exe" > /dev/null 2>&1; then
+    ruler "Removing binaries from ${archive}";
+    gzcat "${archive}" | gnutar --delete --wildcards -vf - "*.exe" > "${archive}";
+  fi;
 done;
