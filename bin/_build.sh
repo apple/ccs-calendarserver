@@ -658,10 +658,10 @@ bootstrap_virtualenv () {
   mkdir -p "${py_ve_tools}/lib";
   mkdir -p "${py_ve_tools}/junk";
 
-  for pkg in \
-      pip-1.5.4 \
-      virtualenv-1.11.4 \
-      setuptools-3.4.4 \
+  for pkg in             \
+      pip-1.5.4          \
+      virtualenv-1.11.4  \
+      setuptools-3.4.4   \
   ; do
          name="${pkg%-*}";
       version="${pkg#*-}";
