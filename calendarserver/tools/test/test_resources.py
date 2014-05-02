@@ -15,176 +15,110 @@
 ##
 
 
-try:
-    from calendarserver.tools.resources import migrateResources
-    from twisted.internet.defer import inlineCallbacks, succeed
-    from twistedcaldav.directory.directory import DirectoryService
-    from twistedcaldav.test.util import TestCase
-    strGUID = "dsAttrTypeStandard:GeneratedUID"
-    strName = "dsAttrTypeStandard:RealName"
 
-except ImportError:
+from twisted.internet.defer import inlineCallbacks
+from calendarserver.tools.resources import migrateResources
+from twistedcaldav.test.util import StoreTestCase
+from txdav.who.util import InMemoryDirectoryService
+from twext.who.directory import DirectoryRecord
+from txdav.who.idirectory import RecordType as CalRecordType
+from txdav.who.directory import CalendarDirectoryRecordMixin
+
+
+class TestRecord(DirectoryRecord, CalendarDirectoryRecordMixin):
     pass
 
-else:
-    class StubDirectoryRecord(object):
 
-        def __init__(
-            self, recordType, guid=None, shortNames=None, fullName=None
-        ):
-            self.recordType = recordType
-            self.guid = guid
-            self.shortNames = shortNames
-            self.fullName = fullName
+class MigrateResourcesTest(StoreTestCase):
 
+    @inlineCallbacks
+    def setUp(self):
+        yield super(MigrateResourcesTest, self).setUp()
+        self.store = self.storeUnderTest()
 
-    class StubDirectoryService(object):
-
-        def __init__(self, augmentService):
-            self.records = {}
-            self.augmentService = augmentService
-
-        def recordWithGUID(self, guid):
-            return None
-
-        def createRecords(self, data):
-            for recordType, recordData in data:
-                guid = recordData["guid"]
-                record = StubDirectoryRecord(
-                    recordType, guid=guid,
-                    shortNames=recordData["shortNames"],
-                    fullName=recordData["fullName"]
-                )
-                self.records[guid] = record
-
-        def updateRecord(
-            self, recordType, guid=None, shortNames=None, fullName=None
-        ):
-            pass
-
-
-    class StubAugmentRecord(object):
-
-        def __init__(self, guid=None):
-            self.guid = guid
-            self.autoSchedule = True
+        self.sourceService = InMemoryDirectoryService(None)
+        fieldName = self.sourceService.fieldName
+        records = (
+            TestRecord(
+                self.sourceService,
+                {
+                    fieldName.uid: u"location1",
+                    fieldName.shortNames: (u"loc1",),
+                    fieldName.recordType: CalRecordType.location,
+                }
+            ),
+            TestRecord(
+                self.sourceService,
+                {
+                    fieldName.uid: u"location2",
+                    fieldName.shortNames: (u"loc2",),
+                    fieldName.recordType: CalRecordType.location,
+                }
+            ),
+            TestRecord(
+                self.sourceService,
+                {
+                    fieldName.uid: u"resource1",
+                    fieldName.shortNames: (u"res1",),
+                    fieldName.recordType: CalRecordType.resource,
+                }
+            ),
+        )
+        yield self.sourceService.updateRecords(records, create=True)
 
 
-    class StubAugmentService(object):
 
-        records = {}
+    @inlineCallbacks
+    def test_migrateResources(self):
 
-        @classmethod
-        def getAugmentRecord(cls, guid, recordType):
-            if guid not in cls.records:
-                record = StubAugmentRecord(guid=guid)
-                cls.records[guid] = record
-            return succeed(cls.records[guid])
+        # Record location1 has not been migrated
+        record = yield self.directory.recordWithUID(u"location1")
+        self.assertEquals(record, None)
 
-        @classmethod
-        def addAugmentRecords(cls, records):
-            for record in records:
-                cls.records[record.guid] = record
-            return succeed(True)
+        # Migrate location1, location2, and resource1
+        yield migrateResources(self.sourceService, self.directory)
+        record = yield self.directory.recordWithUID(u"location1")
+        self.assertEquals(record.uid, u"location1")
+        self.assertEquals(record.shortNames[0], u"loc1")
+        record = yield self.directory.recordWithUID(u"location2")
+        self.assertEquals(record.uid, u"location2")
+        self.assertEquals(record.shortNames[0], u"loc2")
+        record = yield self.directory.recordWithUID(u"resource1")
+        self.assertEquals(record.uid, u"resource1")
+        self.assertEquals(record.shortNames[0], u"res1")
 
+        # Add a new location to the sourceService, and modify an existing
+        # location
+        fieldName = self.sourceService.fieldName
+        newRecords = (
+            TestRecord(
+                self.sourceService,
+                {
+                    fieldName.uid: u"location1",
+                    fieldName.shortNames: (u"newloc1",),
+                    fieldName.recordType: CalRecordType.location,
+                }
+            ),
+            TestRecord(
+                self.sourceService,
+                {
+                    fieldName.uid: u"location3",
+                    fieldName.shortNames: (u"loc3",),
+                    fieldName.recordType: CalRecordType.location,
+                }
+            ),
+        )
+        yield self.sourceService.updateRecords(newRecords, create=True)
 
-    class MigrateResourcesTestCase(TestCase):
+        yield migrateResources(self.sourceService, self.directory)
 
-        @inlineCallbacks
-        def test_migrateResources(self):
+        # Ensure an existing record does not get migrated again; verified by
+        # seeing if shortNames changed, which they should not:
+        record = yield self.directory.recordWithUID(u"location1")
+        self.assertEquals(record.uid, u"location1")
+        self.assertEquals(record.shortNames[0], u"loc1")
 
-            data = {
-                "dsRecTypeStandard:Resources":
-                [
-                    ["projector1", {
-                        strGUID: "6C99E240-E915-4012-82FA-99E0F638D7EF",
-                        strName: "Projector 1"
-                    }],
-                    ["projector2", {
-                        strGUID: "7C99E240-E915-4012-82FA-99E0F638D7EF",
-                        strName: "Projector 2"
-                    }],
-                ],
-                "dsRecTypeStandard:Places":
-                [
-                    ["office1", {
-                        strGUID: "8C99E240-E915-4012-82FA-99E0F638D7EF",
-                        strName: "Office 1"
-                    }],
-                ],
-            }
-
-            def queryMethod(sourceService, recordType, verbose=False):
-                return data[recordType]
-
-            directoryService = StubDirectoryService(StubAugmentService())
-            yield migrateResources(
-                None, directoryService, queryMethod=queryMethod
-            )
-            for guid, recordType in (
-                (
-                    "6C99E240-E915-4012-82FA-99E0F638D7EF",
-                    DirectoryService.recordType_resources
-                ),
-                (
-                    "7C99E240-E915-4012-82FA-99E0F638D7EF",
-                    DirectoryService.recordType_resources
-                ),
-                (
-                    "8C99E240-E915-4012-82FA-99E0F638D7EF",
-                    DirectoryService.recordType_locations
-                ),
-            ):
-                self.assertTrue(guid in directoryService.records)
-                record = directoryService.records[guid]
-                self.assertEquals(record.recordType, recordType)
-
-                self.assertTrue(guid in StubAugmentService.records)
-
-            #
-            # Add more to OD and re-migrate
-            #
-            data["dsRecTypeStandard:Resources"].append(
-                ["projector3", {
-                    strGUID: "9C99E240-E915-4012-82FA-99E0F638D7EF",
-                    strName: "Projector 3"
-                }]
-            )
-            data["dsRecTypeStandard:Places"].append(
-                ["office2", {
-                    strGUID: "AC99E240-E915-4012-82FA-99E0F638D7EF",
-                    strName: "Office 2"
-                }]
-            )
-
-            yield migrateResources(
-                None, directoryService, queryMethod=queryMethod
-            )
-
-            for guid, recordType in (
-                (
-                    "6C99E240-E915-4012-82FA-99E0F638D7EF",
-                    DirectoryService.recordType_resources
-                ),
-                (
-                    "7C99E240-E915-4012-82FA-99E0F638D7EF",
-                    DirectoryService.recordType_resources
-                ),
-                (
-                    "9C99E240-E915-4012-82FA-99E0F638D7EF",
-                    DirectoryService.recordType_resources
-                ),
-                (
-                    "8C99E240-E915-4012-82FA-99E0F638D7EF",
-                    DirectoryService.recordType_locations
-                ),
-                (
-                    "AC99E240-E915-4012-82FA-99E0F638D7EF",
-                    DirectoryService.recordType_locations
-                ),
-            ):
-                self.assertTrue(guid in directoryService.records)
-                record = directoryService.records[guid]
-                self.assertEquals(record.recordType, recordType)
-
-                self.assertTrue(guid in StubAugmentService.records)
+        # Ensure new record does get migrated
+        record = yield self.directory.recordWithUID(u"location3")
+        self.assertEquals(record.uid, u"location3")
+        self.assertEquals(record.shortNames[0], u"loc3")

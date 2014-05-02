@@ -53,8 +53,6 @@ from twisted.python.reflect import namedClass
 
 from txdav.caldav.datastore.index_file import db_basename
 
-# from twisted.protocols.amp import AMP, Command, String, Boolean
-
 from calendarserver.tap.util import getRootResource, FakeRequest
 
 from txdav.caldav.datastore.scheduling.imip.mailgateway import migrateTokensToStore
@@ -63,6 +61,7 @@ from twext.who.idirectory import RecordType
 from txdav.who.idirectory import RecordType as CalRecordType
 from txdav.who.delegates import addDelegate
 from twistedcaldav.directory.calendaruserproxy import ProxySqliteDB
+from calendarserver.tools.resources import migrateResources
 
 
 deadPropertyXattrPrefix = namedAny(
@@ -267,43 +266,6 @@ def upgradeCalendarHome(homePath, directory, cuaCache):
 
 
 
-# class UpgradeOneHome(Command):
-#     arguments = [('path', String())]
-#     response = [('succeeded', Boolean())]
-
-
-
-# class To1Driver(AMP):
-#     """
-#     Upgrade driver which runs in the parent process.
-#     """
-
-#     def upgradeHomeInHelper(self, path):
-#         return self.callRemote(UpgradeOneHome, path=path).addCallback(
-#             operator.itemgetter("succeeded")
-#         )
-
-
-
-# class To1Home(AMP):
-#     """
-#     Upgrade worker which runs in dedicated subprocesses.
-#     """
-
-#     def __init__(self, config):
-#         super(To1Home, self).__init__()
-#         self.directory = getDirectory(config)
-#         self.cuaCache = {}
-
-
-#     @UpgradeOneHome.responder
-#     @inlineCallbacks
-#     def upgradeOne(self, path):
-#         result = yield upgradeCalendarHome(path, self.directory, self.cuaCache)
-#         returnValue(dict(succeeded=result))
-
-
-
 @inlineCallbacks
 def upgrade_to_1(config, directory):
     """
@@ -371,49 +333,6 @@ def upgrade_to_1(config, directory):
         os.rename(oldHome, newHome)
 
 
-    @inlineCallbacks
-    def migrateResourceInfo(config, directory, uid, gid):
-        """
-        Retrieve delegate assignments and auto-schedule flag from the directory
-        service, because in "v1" that's where this info lived.
-        """
-
-        print("FIXME, need to port migrateResourceInfo to twext.who")
-        returnValue(None)
-
-        log.warn("Fetching delegate assignments and auto-schedule settings from directory")
-        resourceInfo = directory.getResourceInfo()
-        if len(resourceInfo) == 0:
-            # Nothing to migrate, or else not appleopendirectory
-            log.warn("No resource info found in directory")
-            returnValue(None)
-
-        log.warn("Found info for %d resources and locations in directory; applying settings" % (len(resourceInfo),))
-
-        resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
-        proxydbClass = namedClass(config.ProxyDBService.type)
-        calendarUserProxyDatabase = proxydbClass(**config.ProxyDBService.params)
-
-        for guid, autoSchedule, proxy, readOnlyProxy in resourceInfo:
-            resourceInfoDatabase.setAutoScheduleInDatabase(guid, autoSchedule)
-            if proxy:
-                yield calendarUserProxyDatabase.setGroupMembersInDatabase(
-                    "%s#calendar-proxy-write" % (guid,),
-                    [proxy]
-                )
-            if readOnlyProxy:
-                yield calendarUserProxyDatabase.setGroupMembersInDatabase(
-                    "%s#calendar-proxy-read" % (guid,),
-                    [readOnlyProxy]
-                )
-
-        dbPath = os.path.join(config.DataRoot, ResourceInfoDatabase.dbFilename)
-        if os.path.exists(dbPath):
-            os.chown(dbPath, uid, gid)
-
-        dbPath = os.path.join(config.DataRoot, "proxies.sqlite")
-        if os.path.exists(dbPath):
-            os.chown(dbPath, uid, gid)
 
 
     def createMailTokensDatabase(config, uid, gid):
@@ -574,9 +493,6 @@ def upgrade_to_1(config, directory):
                                         )
                 log.warn("Done processing calendar homes")
 
-    triggerPath = os.path.join(config.ServerRoot, TRIGGER_FILE)
-    if os.path.exists(triggerPath):
-        yield migrateResourceInfo(config, directory, uid, gid)
     createMailTokensDatabase(config, uid, gid)
 
     if errorOccurred:
@@ -752,7 +668,7 @@ def upgradeData(config, directory):
         try:
             # Migrate locations/resources now because upgrade_to_1 depends
             # on them being in resources.xml
-            yield migrateFromOD(config, directory)
+            yield migrateFromOD(directory)
         except Exception, e:
             raise UpgradeError("Unable to migrate locations and resources from OD: %s" % (e,))
 
@@ -937,34 +853,19 @@ def removeIllegalCharacters(data):
 
 
 
-# # Deferred
-def migrateFromOD(config, directory):
-    # FIXME:
-    print("STILL NEED TO IMPLEMENT migrateFromOD")
-    return succeed(None)
-#     #
-#     # Migrates locations and resources from OD
-#     #
-#     try:
-#         from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
-#         from calendarserver.tools.resources import migrateResources
-#     except ImportError:
-#         return succeed(None)
+# Deferred
+def migrateFromOD(directory):
+    #
+    # Migrates locations and resources from OD
+    #
+    log.warn("Migrating locations and resources")
 
-#     log.warn("Migrating locations and resources")
-
-#     userService = directory.serviceForRecordType("users")
-#     resourceService = directory.serviceForRecordType("resources")
-#     if (
-#         not isinstance(userService, OpenDirectoryService) or
-#         not isinstance(resourceService, XMLDirectoryService)
-#     ):
-#         # Configuration requires no migration
-#         return succeed(None)
-
-#     # Create internal copies of resources and locations based on what is
-#     # found in OD
-#     return migrateResources(userService, resourceService)
+    # Create internal copies of resources and locations based on what is
+    # found in OD
+    from twext.who.opendirectory import (
+        DirectoryService as OpenDirectoryService
+    )
+    return migrateResources(OpenDirectoryService(), directory)
 
 
 

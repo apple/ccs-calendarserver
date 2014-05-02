@@ -20,7 +20,7 @@ txdav.who.util tests
 
 import os
 
-from txdav.who.util import directoryFromConfig
+from txdav.who.util import directoryFromConfig, InMemoryDirectoryService
 from twisted.internet.defer import inlineCallbacks
 from twisted.trial.unittest import TestCase
 from twistedcaldav.config import ConfigDict
@@ -32,7 +32,8 @@ from txdav.who.delegates import (
     DirectoryService as DelegateDirectoryService,
     RecordType as DelegateRecordType
 )
-from twext.who.idirectory import RecordType
+from twext.who.directory import DirectoryRecord
+from twext.who.idirectory import RecordType, NoSuchRecordError
 from txdav.who.idirectory import RecordType as CalRecordType
 from txdav.who.wiki import (
     DirectoryService as WikiDirectoryService,
@@ -161,3 +162,95 @@ class UtilTest(TestCase):
         # And make sure it's functional:
         record = yield service.recordWithUID("group07")
         self.assertEquals(record.fullNames, [u'Group 07'])
+
+
+
+class IndexDirectoryServiceTest(TestCase):
+
+    @inlineCallbacks
+    def test_updateRecords(self):
+        service = InMemoryDirectoryService(u"xyzzy")
+
+        # Record does not exist
+        record = yield service.recordWithUID(u"foo")
+        self.assertEquals(None, record)
+
+        records = (
+            DirectoryRecord(
+                service,
+                {
+                    service.fieldName.uid: u"foo",
+                    service.fieldName.shortNames: (u"foo1", u"foo2"),
+                    service.fieldName.recordType: RecordType.user,
+                }
+            ),
+        )
+        try:
+            # Trying to update a record when it does not exist should fail
+            yield service.updateRecords(records, create=False)
+        except NoSuchRecordError:
+            pass
+        except:
+            self.fail("Did not raise NoSuchRecordError when create=False and record does not exist")
+
+        record = yield service.recordWithUID(u"foo")
+        self.assertEquals(None, record)
+
+        # Create the record
+        yield service.updateRecords(records, create=True)
+
+        record = yield service.recordWithUID(u"foo")
+        self.assertEquals(record.uid, u"foo")
+
+        records = yield service.recordsWithRecordType(RecordType.user)
+        self.assertEquals(len(records), 1)
+        self.assertEquals(list(records)[0].uid, u"foo")
+
+        record = yield service.recordWithShortName(RecordType.user, u"foo1")
+        self.assertEquals(record.uid, u"foo")
+        record = yield service.recordWithShortName(RecordType.user, u"foo2")
+        self.assertEquals(record.uid, u"foo")
+
+        records = (
+            DirectoryRecord(
+                service,
+                {
+                    service.fieldName.uid: u"foo",
+                    service.fieldName.shortNames: (u"foo3", u"foo4"),
+                    service.fieldName.recordType: RecordType.group,
+                }
+            ),
+            DirectoryRecord(
+                service,
+                {
+                    service.fieldName.uid: u"bar",
+                    service.fieldName.shortNames: (u"bar1", u"bar2"),
+                    service.fieldName.recordType: RecordType.user,
+                }
+            ),
+        )
+
+        # Update the existing record and create a new one
+        yield service.updateRecords(records, create=True)
+
+        record = yield service.recordWithUID(u"foo")
+        self.assertEquals(record.uid, u"foo")
+        self.assertEquals(set(record.shortNames), set((u'foo3', u'foo4')))
+
+        records = yield service.recordsWithRecordType(RecordType.group)
+        self.assertEquals(len(records), 1)
+        self.assertEquals(list(records)[0].uid, u"foo")
+
+        records = yield service.recordsWithRecordType(RecordType.user)
+        self.assertEquals(len(records), 1)
+        self.assertEquals(list(records)[0].uid, u"bar")
+
+        record = yield service.recordWithShortName(RecordType.group, u"foo3")
+        self.assertEquals(record.uid, u"foo")
+        record = yield service.recordWithShortName(RecordType.group, u"foo4")
+        self.assertEquals(record.uid, u"foo")
+
+        # Remove a record
+        yield service.removeRecords((u"foo",))
+        record = yield service.recordWithUID(u"foo")
+        self.assertEquals(None, record)

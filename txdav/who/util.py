@@ -22,8 +22,10 @@ from twext.python.log import Logger
 from twext.python.types import MappingProxyType
 from twext.who.aggregate import DirectoryService as AggregateDirectoryService
 from twext.who.idirectory import (
-    FieldName as BaseFieldName, RecordType, DirectoryConfigurationError
+    FieldName as BaseFieldName, RecordType, DirectoryConfigurationError,
+    NoSuchRecordError
 )
+from twext.who.index import DirectoryService as IndexDirectoryService
 from twext.who.ldap import (
     DirectoryService as LDAPDirectoryService, LDAPAttribute,
     FieldName as LDAPFieldName,
@@ -44,6 +46,7 @@ from txdav.who.idirectory import (
 from txdav.who.wiki import DirectoryService as WikiDirectoryService
 from txdav.who.xml import DirectoryService as XMLDirectoryService
 from uuid import UUID
+from twisted.internet.defer import succeed, inlineCallbacks
 
 
 log = Logger()
@@ -273,3 +276,49 @@ def uidFromCalendarUserAddress(address):
             return parts[3]
 
     return None
+
+
+
+
+class InMemoryDirectoryService(IndexDirectoryService):
+    """
+    An in-memory IDirectoryService.  You must call updateRecords( ) if you want
+    to populate this service.
+    """
+
+    recordType = ConstantsContainer(
+        (
+            RecordType.user,
+            RecordType.group,
+            CalRecordType.location,
+            CalRecordType.resource,
+            CalRecordType.address
+        )
+    )
+
+
+    def loadRecords(self):
+        pass
+
+
+    @inlineCallbacks
+    def updateRecords(self, records, create=False):
+        recordsByUID = dict(((record.uid, record) for record in records))
+        if not create:
+            # Make sure all the records already exist
+            for uid, record in recordsByUID.items():
+                if uid not in self._index[self.fieldName.uid]:
+                    raise NoSuchRecordError(uid)
+
+        yield self.removeRecords(recordsByUID.keys())
+        self.indexRecords(records)
+
+
+    def removeRecords(self, uids):
+        index = self._index
+        for fieldName in self.indexedFields:
+            for recordSet in index[fieldName].itervalues():
+                for record in list(recordSet):
+                    if record.uid in uids:
+                        recordSet.remove(record)
+        return succeed(None)

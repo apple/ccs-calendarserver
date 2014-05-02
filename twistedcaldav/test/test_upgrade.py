@@ -19,14 +19,12 @@ import os
 import zlib
 import cPickle
 
-from twisted.python.reflect import namedClass
 from twisted.internet.defer import inlineCallbacks, succeed
 
 from txdav.xml.parser import WebDAVDocument
 from txdav.caldav.datastore.index_file import db_basename
 
 from twistedcaldav.config import config
-from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from txdav.caldav.datastore.scheduling.imip.mailgateway import MailGatewayTokensDatabase
 from twistedcaldav.upgrade import (
     xattrname, upgradeData, updateFreeBusySet,
@@ -1397,95 +1395,6 @@ class UpgradeTests(StoreTestCase):
         (yield self.doUpgrade(config))
 
         self.assertTrue(self.verifyHierarchy(root, after))
-
-
-    @inlineCallbacks
-    def test_migrateResourceInfo(self):
-        # Fake getResourceInfo( )
-
-        assignments = {
-            'guid1' : (False, None, None),
-            'guid2' : (True, 'guid1', None),
-            'guid3' : (False, 'guid1', 'guid2'),
-            'guid4' : (True, None, 'guid3'),
-        }
-
-        def _getResourceInfo(ignored):
-            results = []
-            for guid, info in assignments.iteritems():
-                results.append((guid, info[0], info[1], info[2]))
-            return results
-
-        self.setUpInitialStates()
-        # Override the normal getResourceInfo method with our own:
-        # XMLDirectoryService.getResourceInfo = _getResourceInfo
-        # self.patch(XMLDirectoryService, "getResourceInfo", _getResourceInfo)
-
-        before = {
-            "trigger_resource_migration" : {
-                "@contents" : "x",
-            }
-        }
-        after = {
-            ".calendarserver_version" :
-            {
-                "@contents" : "2",
-            },
-            NEWPROXYFILE :
-            {
-                "@contents" : None,
-            },
-            MailGatewayTokensDatabase.dbFilename :
-            {
-                "@contents" : None,
-            },
-            "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
-            {
-                "@contents" : None,
-                "@optional" : True,
-            },
-            ResourceInfoDatabase.dbFilename :
-            {
-                "@contents" : None,
-            },
-            "%s-journal" % (ResourceInfoDatabase.dbFilename,) :
-            {
-                "@contents" : None,
-                "@optional" : True,
-            }
-        }
-        root = self.createHierarchy(before)
-        config.DocumentRoot = root
-        config.DataRoot = root
-        config.ServerRoot = root
-
-        (yield self.doUpgrade(config))
-        self.assertTrue(self.verifyHierarchy(root, after))
-
-        proxydbClass = namedClass(config.ProxyDBService.type)
-        calendarUserProxyDatabase = proxydbClass(**config.ProxyDBService.params)
-        resourceInfoDatabase = ResourceInfoDatabase(root)
-
-        for guid, info in assignments.iteritems():
-            proxyGroup = "%s#calendar-proxy-write" % (guid,)
-            result = (yield calendarUserProxyDatabase.getMembers(proxyGroup))
-            if info[1]:
-                self.assertTrue(info[1] in result)
-            else:
-                self.assertTrue(not result)
-
-            readOnlyProxyGroup = "%s#calendar-proxy-read" % (guid,)
-            result = (yield calendarUserProxyDatabase.getMembers(readOnlyProxyGroup))
-            if info[2]:
-                self.assertTrue(info[2] in result)
-            else:
-                self.assertTrue(not result)
-
-            autoSchedule = resourceInfoDatabase._db_value_for_sql("select AUTOSCHEDULE from RESOURCEINFO where GUID = :1", guid)
-            autoSchedule = autoSchedule == 1
-            self.assertEquals(info[0], autoSchedule)
-
-    test_migrateResourceInfo.todo = "Need to port to twext.who"
 
 
     def test_removeIllegalCharacters(self):
