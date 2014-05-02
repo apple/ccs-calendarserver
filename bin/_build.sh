@@ -603,8 +603,6 @@ py_dependencies () {
 
   if ! "${do_setup}"; then return 0; fi;
 
-  cd "${wd}";
-
   # Set up virtual environment
 
   if "${force_setup}"; then
@@ -613,12 +611,15 @@ py_dependencies () {
   fi;
 
   if [ ! -d "${py_virtualenv}" ]; then
+    bootstrap_virtualenv;
     "${bootstrap_python}" -m virtualenv --system-site-packages "${py_virtualenv}";
   fi;
 
+  cd "${wd}";
+
   # Make sure setup got called enough to write the version file.
 
-  "${bootstrap_python}" "${wd}/setup.py" check > /dev/null;
+  "${python}" "${wd}/setup.py" check > /dev/null;
 
   if [ -d "${dev_home}/pip_downloads" ]; then
     pip_install="pip_install_from_cache";
@@ -639,6 +640,55 @@ py_dependencies () {
   done;
 
   echo "";
+}
+
+
+bootstrap_virtualenv () {
+  py_ve_tools="${dev_home}/ve_tools";
+
+  if [ -d "${py_ve_tools}/lib" ]; then
+    export PYTHONPATH="${py_ve_tools}/lib:${PYTHONPATH:-}";
+  fi;
+
+  if "${bootstrap_python}" -m virtualenv > /dev/null 2>&1; then
+    return 0;
+  fi;
+
+  mkdir -p "${py_ve_tools}";
+  mkdir -p "${py_ve_tools}/lib";
+  mkdir -p "${py_ve_tools}/junk";
+
+  for pkg in \
+      pip-1.5.4 \
+      virtualenv-1.11.4 \
+      setuptools-3.4.4 \
+  ; do
+         name="${pkg%-*}";
+      version="${pkg#*-}";
+       first="$(echo "${name}" | sed 's|^\(.\).*$|\1|')";
+         url="https://pypi.python.org/packages/source/${first}/${name}/${pkg}.tar.gz";
+
+      ruler "Downloading ${pkg}";
+
+      tmp="$(mktemp -d -t ccsXXXXX)";
+
+      curl -L "${url}" | tar -C "${tmp}" -xvzf -;
+
+      cd "${tmp}/$(basename "${pkg}")";
+      PYTHONPATH="${py_ve_tools}/lib"                \
+        "${bootstrap_python}" setup.py install       \
+            --install-base="${py_ve_tools}"          \
+            --install-lib="${py_ve_tools}/lib"       \
+            --install-headers="${py_ve_tools}/junk"  \
+            --install-scripts="${py_ve_tools}/junk"  \
+            --install-data="${py_ve_tools}/junk"     \
+            ;                                        \
+      cd "${wd}";
+
+      rm -rf "${tmp}";
+  done;
+
+  export PYTHONPATH="${py_ve_tools}/lib:${PYTHONPATH:-}";
 }
 
 
