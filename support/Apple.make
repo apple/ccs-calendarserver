@@ -135,7 +135,6 @@ install-logdir-omg-hack-ew::
 install:: install-commands
 install-commands::
 	@echo "Installing links to executables...";
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)/usr/bin";
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)/usr/sbin";
 	$(_v) ln -fs "../..$(NSLOCALDIR)$(NSLIBRARYSUBDIR)/CalendarServer/bin/caldavd" "$(DSTROOT)$(SIPP)/usr/sbin/caldavd";
 	$(_v) cd "$(DSTROOT)$(SIPP)/usr/sbin/" &&                                                        \
