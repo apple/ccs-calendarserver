@@ -28,10 +28,24 @@ fi;
 
 develop;
 
+cd ${wd};
+
+
+#
+# Link to scripts for convenience
+#
+find .develop/virtualenv/bin -type f -name "calendarserver_*" | {
+  while read source; do
+    target="${wd}/bin/$(basename ${source})";
+    ln -s "../${source}" "${target}";
+  done;
+}
+
+
 #
 # Create a subprojects directory with -e checkouts for convenience.
 #
-cd ${wd} && find .develop/virtualenv/src -maxdepth 1 -mindepth 1 -type d | {
+find .develop/virtualenv/src -depth 1 -type d | {
   while read source; do
     deps="${wd}/subprojects";
     mkdir -p "${deps}";
