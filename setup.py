@@ -224,7 +224,7 @@ install_requirements = [
     "twextpy",
 
     # Security frameworks
-    "pyOpenSSL",
+    "pyOpenSSL>=0.13.1",
     "pycrypto",
     "pyasn1",
     "kerberos",
