@@ -750,7 +750,6 @@ DEFAULT_CONFIG = {
             "AllowResourceAsOrganizer"            : False, # Allow resources to be Organizers
             "AllowLocationWithoutOrganizer"       : True, # Allow locations to have events without an Organizer
             "AllowResourceWithoutOrganizer"       : True, # Allow resources to have events without an Organizer
-            "AllowGroupAsAttendee"                : False, # Allow groups to be Attendees
             "TrackUnscheduledLocationData"        : True, # Track who the last modifier of an unscheduled location event is
             "TrackUnscheduledResourceData"        : True, # Track who the last modifier of an unscheduled resource event is
             "LimitFreeBusyAttendees"              : 30, # Maximum number of attendees to request freebusy for
@@ -1023,6 +1022,11 @@ DEFAULT_CONFIG = {
         "UpdateSeconds" : 300,
         "EnableUpdater" : True,
         "UseExternalProxies" : False,
+    },
+
+    "GroupAttendees" : {
+        "Enabled": False,
+        "ReconciliationDelaySeconds" : 5,
     },
 
     "Manhole": {

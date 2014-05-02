@@ -57,8 +57,8 @@ vCardPropToParamMap = {
     #"PHOTO": {"ENCODING": ("B",), "TYPE": ("JPEG",), },
     "ADR": {"TYPE": ("WORK", "PREF", "POSTAL", "PARCEL",),
             "LABEL": None, "GEO": None, },
-    #"LABEL": {"TYPE": ("POSTAL", "PARCEL",)},
-    #"TEL": {"TYPE": None, },  # None means param can contain can be anything
+    "LABEL": {"TYPE": ("POSTAL", "PARCEL",)},
+    #"TEL": {"TYPE": None, },  # None means param value can be anything
     "EMAIL": {"TYPE": None, },
     #"KEY": {"ENCODING": ("B",), "TYPE": ("PGPPUBILICKEY", "USERCERTIFICATE", "USERPKCS12DATA", "USERSMIMECERTIFICATE",)},
     #"URL": {"TYPE": ("WEBLOG", "HOMEPAGE",)},
@@ -227,8 +227,10 @@ def vCardFromRecord(record, forceKind=None, addProps=None, parentURI=None):
             )
         )
 
-    # UNIMPLEMENTED
-    #     3.2.2 LABEL
+    #    3.2.2 LABEL
+    #label = record.fields.get(CalFieldName.streetAddress)
+    if label:
+        vcard.addProperty(Property("LABEL", label.encode("utf-8"), params={"TYPE": ["POSTAL", "PARCEL", ]}))
 
     #===================================================================
     # 3.3 TELECOMMUNICATIONS ADDRESSING TYPES http://tools.ietf.org/html/rfc2426#section-3.3
@@ -241,7 +243,7 @@ def vCardFromRecord(record, forceKind=None, addProps=None, parentURI=None):
     preferredWorkParams = {"TYPE": ("WORK", "PREF", "INTERNET",), }
     workParams = {"TYPE": ("WORK", "INTERNET",), }
     params = preferredWorkParams
-    for emailAddress in record.fields.get(FieldName.emailAddresses, []):
+    for emailAddress in record.fields.get(FieldName.emailAddresses, ()):
         addUniqueProperty(Property("EMAIL", emailAddress.encode("utf-8"), params=params), ignoredParameters={"TYPE": ("PREF",)})
         params = workParams
 

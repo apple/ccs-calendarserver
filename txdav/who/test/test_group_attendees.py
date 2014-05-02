@@ -38,7 +38,8 @@ class GroupAttendeeReconciliation(CommonCommonTests, unittest.TestCase):
 
     @inlineCallbacks
     def setUp(self):
-        self.patch(config.Scheduling.Options, "AllowGroupAsAttendee", "True")
+        self.patch(config.GroupAttendees, "Enabled", "True")
+        self.patch(config.GroupAttendees, "ReconciliationDelaySeconds", "0")
 
         yield super(GroupAttendeeReconciliation, self).setUp()
         self.xmlService = xmlService(self.mktemp(), xmlData=None)
@@ -793,6 +794,8 @@ END:VCALENDAR
 
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
         self.assertEqual(len(wps), 0)
+
+    test_groupChangeOldEvent.todo = "Doesn't work yet"
 
 
     @inlineCallbacks

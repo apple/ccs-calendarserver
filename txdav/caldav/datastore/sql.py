@@ -1935,7 +1935,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         """
         reconcile group attendees
         """
-        if not config.Scheduling.Options.AllowGroupAsAttendee:
+        if not config.GroupAttendees.Enabled:
             returnValue(False)
 
         attendeeProps = component.getAllAttendeeProperties()
@@ -1962,7 +1962,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             changed = component.reconcileGroupAttendees(groupCUAToAttendeeMemberPropMap)
 
         # save for post processing when self._resourceID is non-zero
-        if inserting:
+        if inserting and groupCUAToAttendeeMemberPropMap:
             self._groupCUAToAttendeeMemberPropMap = groupCUAToAttendeeMemberPropMap
 
         returnValue(changed)
@@ -1974,31 +1974,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         update schema.GROUP_ATTENDEE
         """
         if groupCUAToAttendeeMemberPropMap is None:
-            # post processing.
-
-            # see if this event ends in the past
-            tr = schema.TIME_RANGE
-            rows = yield Select(
-                [Count(tr.CALENDAR_OBJECT_RESOURCE_ID)],
-                From=tr,
-                Where=(
-                    tr.CALENDAR_OBJECT_RESOURCE_ID == self._resourceID).And(
-                    tr.END_DATE > datetime.datetime.utcnow()
-                ),
-            ).on(self._txn)
-
-            if rows[0][0] == 0:
-                # delete group attendee rows and exit
-                ga = schema.GROUP_ATTENDEE
-                rows = yield Delete(
-                    From=ga,
-                    Where=ga.RESOURCE_ID == self._resourceID,
-                    Return=[ga.GROUP_ID]
-                ).on(self._txn)
-                returnValue(bool(rows))
-
             if hasattr(self, "_groupCUAToAttendeeMemberPropMap"):
-                    groupCUAToAttendeeMemberPropMap = self._groupCUAToAttendeeMemberPropMap
+                groupCUAToAttendeeMemberPropMap = self._groupCUAToAttendeeMemberPropMap
             else:
                 returnValue(False)
 
@@ -2057,6 +2034,20 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             changed = True
 
         returnValue(changed)
+
+
+    @inlineCallbacks
+    def deleteGROUP_ATTENDEE(self, groupCUAToAttendeeMemberPropMap=None):
+        """
+        delete groupp attendee rows for this resource
+        """
+        ga = schema.GROUP_ATTENDEE
+        rows = yield Delete(
+            From=ga,
+            Where=ga.RESOURCE_ID == self._resourceID,
+            Return=[ga.GROUP_ID]
+        ).on(self._txn)
+        returnValue(bool(rows))
 
 
     def validCalendarDataCheck(self, component, inserting):

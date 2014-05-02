@@ -22,13 +22,14 @@ Group membership caching
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.syntax import Delete, Select
 from twext.enterprise.jobqueue import WorkItem, PeerConnectionPool
+from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
+from twistedcaldav.config import config
 from txdav.caldav.datastore.sql import CalendarStoreFeatures
 from txdav.common.datastore.sql_tables import schema
 import datetime
 import hashlib
 
-from twext.python.log import Logger
 log = Logger()
 
 
@@ -163,6 +164,26 @@ class GroupAttendeeReconciliationWork(
     group = property(
         lambda self: "{0}, {1}".format(self.groupID, self.resourceID)
     )
+    
+    @classmethod
+    @inlineCallbacks
+    def _schedule(cls, txn, eventID, groupID, seconds):
+        notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds)
+        log.debug(
+            "scheduling group reconciliation for "
+            "({resourceID}, {groupID},): {when}",
+            resourceID=eventID,
+            groupID=groupID,
+            when=notBefore
+        )
+        wp = yield txn.enqueue(
+            cls,
+            resourceID=eventID,
+            groupID=groupID,
+            notBefore=notBefore,
+        )
+        returnValue(wp)
+
 
     @inlineCallbacks
     def doWork(self):
@@ -413,27 +434,13 @@ class GroupCacher(object):
 
         wps = []
         for [eventID] in rows:
-
-            notBefore = (
-                datetime.datetime.utcnow() +
-                datetime.timedelta(seconds=10)
-            )
-            log.debug(
-                "scheduling group reconciliation for "
-                "({resourceID}, {groupID},): {when}",
-                resourceID=eventID,
-                groupID=groupID,
-                when=notBefore
-            )
-
-            wp = yield txn.enqueue(
-                GroupAttendeeReconciliationWork,
-                resourceID=eventID,
-                groupID=groupID,
-                notBefore=notBefore
+            wp = yield GroupAttendeeReconciliationWork._schedule(
+                txn, 
+                eventID=eventID, 
+                groupID=groupID, 
+                seconds=float(config.GroupAttendees.ReconciliationDelaySeconds)
             )
             wps.append(wp)
-
         returnValue(tuple(wps))
 
 

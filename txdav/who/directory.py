@@ -97,7 +97,7 @@ class CalendarDirectoryServiceMixin(object):
 
         if record:
             if record.hasCalendars or (
-                config.Scheduling.Options.AllowGroupAsAttendee and
+                config.GroupAttendees.Enabled and
                 record.recordType == BaseRecordType.group
             ):
                 returnValue(record)
