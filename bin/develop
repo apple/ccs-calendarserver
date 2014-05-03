@@ -37,7 +37,17 @@ cd ${wd};
 find .develop/virtualenv/bin -type f -name "calendarserver_*" | {
   while read source; do
     target="${wd}/bin/$(basename ${source})";
-    ln -s "../${source}" "${target}";
+
+    rm -f "${target}";
+    cat << __END__ > "${target}"
+export PATH="${PATH:-}";
+export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}";
+export DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:-}";
+
+exec "\$(dirname \$0)/../${source}" "\$@";
+__END__
+    chmod +x "${target}";
+
   done;
 }
 
