@@ -55,7 +55,7 @@ __END__
 #
 # Create a subprojects directory with -e checkouts for convenience.
 #
-find .develop/virtualenv/src -depth 1 -type d | {
+find .develop/virtualenv/src -maxdepth 1 -type d | {
   while read source; do
     deps="${wd}/subprojects";
     mkdir -p "${deps}";
