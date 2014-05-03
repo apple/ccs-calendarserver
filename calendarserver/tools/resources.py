@@ -37,9 +37,13 @@ from twisted.internet.defer import inlineCallbacks
 from twisted.python.util import switchUID
 from twistedcaldav.config import config, ConfigurationError
 from txdav.who.util import directoryFromConfig
-from twext.who.opendirectory import (
-    DirectoryService as OpenDirectoryService
-)
+
+try:
+    from twext.who.opendirectory import (
+        DirectoryService as OpenDirectoryService
+    )
+except ImportError:
+    pass
 
 log = Logger()
 
