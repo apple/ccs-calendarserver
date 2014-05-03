@@ -15,8 +15,6 @@
 ##
 
 
-import os
-
 from calendarserver.tap.util import getDBPool, storeFromConfig
 from twext.python.log import Logger
 from twext.python.types import MappingProxyType
@@ -80,13 +78,15 @@ def directoryFromConfig(config, store=None):
 
         # TODO: add a "test" directory service that produces test records
         # from code -- no files needed.
+        # The InMemoryDirectoryService now exists, it just needs hooking up
+        # here.
 
         if "xml" in directoryType:
             xmlFile = params.xmlFile
             xmlFile = fullServerPath(config.DataRoot, xmlFile)
-            if not xmlFile or not os.path.exists(xmlFile):
-                log.error("Path not found for XML directory: {p}", p=xmlFile)
             fp = FilePath(xmlFile)
+            if not fp.exists():
+                fp.setContent(DEFAULT_XML_CONTENT)
             directory = XMLDirectoryService(fp)
 
         elif "opendirectory" in directoryType:
@@ -244,6 +244,11 @@ def directoryFromConfig(config, store=None):
 
     return augmented
 
+
+DEFAULT_XML_CONTENT = """<?xml version="1.0" encoding="utf-8"?>
+
+<directory realm="Realm"/>
+"""
 
 
 class InMemoryDirectoryService(IndexDirectoryService):
