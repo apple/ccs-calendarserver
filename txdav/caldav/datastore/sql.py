@@ -2174,7 +2174,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def preservePrivateComments(self, component, inserting):
+    def preservePrivateComments(self, component, inserting, internal_state):
         """
         Check for private comments on the old resource and the new resource and re-insert
         ones that are lost.
@@ -2207,7 +2207,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # to raise an error to prevent that so the client bugs can be tracked down.
 
             # Look for properties with duplicate "X-CALENDARSERVER-ATTENDEE-REF" values in the same component
-            if component.hasDuplicatePrivateComments(doFix=config.RemoveDuplicatePrivateComments):
+            if component.hasDuplicatePrivateComments(doFix=config.RemoveDuplicatePrivateComments) and internal_state == ComponentUpdateState.NORMAL:
                 raise DuplicatePrivateCommentsError("Duplicate X-CALENDARSERVER-ATTENDEE-COMMENT properties present.")
 
 
@@ -2636,7 +2636,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 self.validAccess(component, inserting, internal_state)
 
             # Preserve private comments
-            yield self.preservePrivateComments(component, inserting)
+            yield self.preservePrivateComments(component, inserting, internal_state)
 
             managed_copied, managed_removed = (yield self.resourceCheckAttachments(component, inserting))
 
@@ -2655,7 +2655,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             yield self._lockUID(component, inserting, internal_state)
 
             # Preserve private comments
-            yield self.preservePrivateComments(component, inserting)
+            yield self.preservePrivateComments(component, inserting, internal_state)
 
             # Fix broken VTODOs
             yield self.replaceMissingToDoProperties(component, inserting, internal_state)

@@ -17,7 +17,7 @@
 
 from twisted.internet.defer import inlineCallbacks
 
-from twistedcaldav.ical import Component
+from twistedcaldav.ical import Component, normalize_iCalStr
 
 from txdav.common.datastore.test.util import CommonCommonTests, populateCalendarsFrom
 from twisted.trial.unittest import TestCase
@@ -27,9 +27,11 @@ from txdav.common.icommondatastore import ObjectResourceTooBigError, \
     InvalidObjectResourceError, InvalidComponentForStoreError, InvalidUIDError, \
     UIDExistsError, UIDExistsElsewhereError
 from txdav.caldav.icalendarstore import InvalidComponentTypeError, \
-    TooManyAttendeesError, InvalidCalendarAccessError, ComponentUpdateState
+    TooManyAttendeesError, InvalidCalendarAccessError, ComponentUpdateState, \
+    DuplicatePrivateCommentsError
 from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
 from txdav.caldav.datastore.test.util import buildCalendarStore
+from txdav.caldav.datastore.sql import CalendarObject
 
 class ImplicitRequests (CommonCommonTests, TestCase):
     """
@@ -1095,4 +1097,180 @@ END:VCALENDAR
         calendar = Component.fromString(data4)
         yield calendar_resource._setComponentInternal(calendar, internal_state=ComponentUpdateState.ORGANIZER_ITIP_UPDATE)
         self.assertEqual(calendar_resource.scheduleTag, schedule_tag)
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_validation_duplicatePrivateCommentsOKWIthiTIP(self):
+        """
+        Test that an iTIP update to an organizer event with duplicate private comments
+        does not fail.
+        """
+
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+X-CALENDARSERVER-ATTENDEE-COMMENT;X-CALENDARSERVER-ATTENDEE-REF="urn:uuid:
+ user02";X-CALENDARSERVER-DTSTAMP=20140224T181133Z:Comment
+X-CALENDARSERVER-ATTENDEE-COMMENT;X-CALENDARSERVER-ATTENDEE-REF="urn:uuid:
+ user02";X-CALENDARSERVER-DTSTAMP=20140224T181133Z:Comment
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data3 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
+X-CALENDARSERVER-ATTENDEE-COMMENT;X-CALENDARSERVER-ATTENDEE-REF="urn:uuid:
+ user02";X-CALENDARSERVER-DTSTAMP=20140224T181133Z:Comment
+X-CALENDARSERVER-ATTENDEE-COMMENT;X-CALENDARSERVER-ATTENDEE-REF="urn:uuid:
+ user02";X-CALENDARSERVER-DTSTAMP=20140224T181133Z:Comment
+END:VEVENT
+END:VCALENDAR
+"""
+
+        calendar_collection = (yield self.calendarUnderTest(home="user01"))
+        calendar = Component.fromString(data1)
+        yield calendar_collection.createCalendarObjectWithName("test.ics", calendar)
+        yield self.commit()
+
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
+        calendar = Component.fromString(data2)
+        yield calendar_resource._setComponentInternal(calendar, internal_state=ComponentUpdateState.RAW)
+        yield self.commit()
+
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
+        calendar = Component.fromString(data3)
+        yield calendar_resource._setComponentInternal(calendar, internal_state=ComponentUpdateState.ORGANIZER_ITIP_UPDATE)
+        yield self.commit()
+
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
+        calendar = Component.fromString(data3)
+        yield self.failUnlessFailure(calendar_resource.setComponent(calendar), DuplicatePrivateCommentsError)
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_validation_deleteWithDuplicatePrivateComments(self):
+        """
+        Test that attendee private comments are no longer restored.
+        """
+
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+X-CALENDARSERVER-ATTENDEE-COMMENT;X-CALENDARSERVER-ATTENDEE-REF="urn:uuid:
+ user02";X-CALENDARSERVER-DTSTAMP=20140224T181133Z:Comment
+X-CALENDARSERVER-ATTENDEE-COMMENT;X-CALENDARSERVER-ATTENDEE-REF="urn:uuid:
+ user02";X-CALENDARSERVER-DTSTAMP=20140224T181133Z:Comment
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data3 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTAMP:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+
+        calendar_collection = (yield self.calendarUnderTest(home="user01"))
+        calendar = Component.fromString(data1)
+        yield calendar_collection.createCalendarObjectWithName("test.ics", calendar)
+        yield self.commit()
+
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
+        calendar = Component.fromString(data2)
+        yield calendar_resource._setComponentInternal(calendar, internal_state=ComponentUpdateState.RAW)
+        yield self.commit()
+
+        def raiseHere(otherself, component, inserting, internal_state):
+            if component.hasDuplicatePrivateComments(doFix=False):
+                raise ValueError
+
+        self.patch(CalendarObject, "preservePrivateComments", raiseHere)
+
+        calendar2 = (yield self.calendarUnderTest(name="calendar_1", home="user02"))
+        cobjs = (yield calendar2.calendarObjects())
+        self.assertTrue(len(cobjs) == 1)
+        yield cobjs[0].setComponent(Component.fromString(data3))
+        yield self.commit()
+
+        calendar2 = (yield self.calendarUnderTest(name="calendar_1", home="user02"))
+        cobjs = (yield calendar2.calendarObjects())
+        calendar = yield cobjs[0].component()
+        self.assertTrue('SCHEDULE-STATUS=5.0' in normalize_iCalStr(calendar))
+        yield self.commit()
+
+        calendar2 = (yield self.calendarUnderTest(name="calendar_1", home="user02"))
+        cobjs = (yield calendar2.calendarObjects())
+        self.assertTrue(len(cobjs) == 1)
+        yield cobjs[0].remove()
+        yield self.commit()
+
+        calendar2 = (yield self.calendarUnderTest(name="calendar_1", home="user02"))
+        cobjs = (yield calendar2.calendarObjects())
+        self.assertTrue(len(cobjs) == 0)
         yield self.commit()

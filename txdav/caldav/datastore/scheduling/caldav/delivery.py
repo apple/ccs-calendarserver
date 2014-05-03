@@ -149,6 +149,21 @@ class ScheduleViaCalDAV(DeliveryService):
             ))
             responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=e.msg)
             returnValue(False)
+        except Exception as e:
+            log.failure(
+                "Could not process iTIP message",
+                level=LogLevel.debug
+            )
+            log.error(
+                "Could not process iTIP message",
+            )
+            err = HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "recipient-permissions"),
+                "Could not process iTIP message",
+            ))
+            responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.BAD_REQUEST)
+            returnValue(False)
 
         if store_inbox:
             # Copy calendar to inbox
