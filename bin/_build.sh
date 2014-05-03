@@ -69,6 +69,39 @@ find_header () {
   fi;
 };
 
+# openssl/opensslv.h defines its version number as something like 0x0090819fL.
+# Emit an integer representation of this value and return 0, or fail and
+# return 1
+find_openssl_version () {
+  # A small C program to print the hex version as an int.
+  # 'read' exits non-zero on EOF, which is required for heredoc input.
+  # However, bin/develop sets -e, so disable -e temporarily to prevent exit.
+  set +e
+  read -d '' PROG <<EOF
+  #include <stdio.h>
+  #include <openssl/ssl.h>
+  int main(void)
+  {
+    if(printf("%lu",OPENSSL_VERSION_NUMBER)) {return 0;}
+    return 1;
+  } 
+EOF
+  set -e
+  error=0
+  # Make an output file for cc, or bail
+  OUT=$(mktemp -t vcheck.XXXX) || return 1
+  # Compile the program, squelching stderr
+  echo "$PROG" | cc -x c -o $OUT - 2> /dev/null
+  if [ $? -eq 0 ] ; then
+    # build succeeded; run the program. If it exits non-zero, set error status
+    ${OUT} || error=1 
+  else
+    # build failed
+    error=1
+  fi
+  rm ${OUT} || echo "Couldn't remove tmp file: ${OUT}"
+  return ${error}
+}
 
 # Initialize all the global state required to use this library.
 init_build () {
@@ -328,14 +361,26 @@ jmake () {
 }
 
 # Declare a dependency on a C project built with autotools.
+# Support for custom configure, prebuild, build, and install commands
+# prebuild_cmd, build_cmd, and install_cmd phases may be skipped by
+# passing the corresponding option with the empty string as the value.
+# By default, do: ./configure --prefix ... ; jmake ; make install
 c_dependency () {
   local f_hash="";
+  local config_cmd="configure";
+  local prebuild_cmd="";
+  local build_cmd="jmake";
+  local install_cmd="make install";
 
   OPTIND=1;
-  while getopts "m:s:" option; do
+  while getopts "m:s:c:p:b:i:" option; do
     case "${option}" in
       'm') f_hash="-m ${OPTARG}"; ;;
       's') f_hash="-s ${OPTARG}"; ;;
+      'c') config_cmd="${OPTARG}"; ;;
+      'p') prebuild_cmd="${OPTARG}"; ;;
+      'b') build_cmd="${OPTARG}"; ;;
+      'i') install_cmd="${OPTARG}"; ;;
     esac;
   done;
   shift $((${OPTIND} - 1));
@@ -344,7 +389,7 @@ c_dependency () {
   local path="$1"; shift;
   local  uri="$1"; shift;
 
-  # Extra arguments are processed below, as arguments to './configure'.
+  # Extra arguments are processed below, as arguments to config_cmd.
 
   mkdir -p "${dep_sources}";
 
@@ -369,9 +414,10 @@ c_dependency () {
     if [ ! -d "${dstroot}" ]; then
       echo "Building ${name}...";
       cd "${srcdir}";
-      ./configure --prefix="${dstroot}" "$@";
-      jmake;
-      jmake install;
+      ./${config_cmd} --prefix="${dstroot}" "$@";
+      [ "${prebuild_cmd}" ] && eval ${prebuild_cmd};
+      [ "${build_cmd}" ] && eval ${build_cmd};
+      [ "${install_cmd}" ] && eval ${install_cmd};
       cd "${wd}";
     else
       echo "Using built ${name}.";
@@ -411,6 +457,36 @@ c_dependencies () {
 
   export C_INCLUDE_PATH="${c_glue_include}:${C_INCLUDE_PATH:-}";
 
+  # The OpenSSL version number is special. Our strategy is to get the integer
+  # value of OPENSSL_VERSION_NUBMER for use in inequality comparison.
+  ruler;
+  buildOpenSSL=1;
+  minSSLVersion=9470367;  # OpenSSL 0.9.8y
+  if find_header openssl/ssl.h; then
+    VER=$(find_openssl_version)
+    if [ ! -z ${VER} ]; then
+      if [ ${VER} -ge ${minSSLVersion} ]; then
+        if "${do_setup}"; then
+          using_system "OpenSSL";
+        fi;
+        buildOpenSSL=0
+      fi;
+    fi;
+  fi;
+  if [ ${buildOpenSSL} -eq 1 ]; then
+    local v="0.9.8y";
+    local n="openssl";
+    local p="${n}-${v}";
+
+    # use 'config' instead of 'configure'; 'make' instead of 'jmake'.
+    # also pass 'shared' to config to build shared libs.
+    c_dependency -m "47c7fb37f78c970f1d30aa2f9e9e26d8" \
+      -c "config" \
+      -b "make" \
+      "openssl" "${p}" \
+      "http://www.openssl.org/source/${p}.tar.gz" "shared"
+  fi;
+
   ruler;
   if find_header ffi.h; then
     using_system "libffi";
@@ -438,10 +514,14 @@ c_dependencies () {
     local n="openldap";
     local p="${n}-${v}";
 
+    # OpenLDAP's configure needs --with-tls=openssl to avoid finding any system
+    # gnutls stuff. Also, we need to run 'make depend' before 'make' to pull in
+    # OpenSSL shared libraries.
     c_dependency -m "39831848c731bcaef235a04e0d14412f" \
+      -p "make depend" \
       "OpenLDAP" "${p}" \
       "http://www.openldap.org/software/download/OpenLDAP/${n}-release/${p}.tgz" \
-      --disable-bdb --disable-hdb;
+      --disable-bdb --disable-hdb --with-tls=openssl;
   fi;
 
   ruler;
