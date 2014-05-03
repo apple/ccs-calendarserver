@@ -84,5 +84,8 @@ fi;
 # Do The Right Thing
 ##
 
+do_setup="false";
+develop > /dev/null;
+
 cd "${cdt}" && "${python}" testcaldav.py ${random} ${seed} ${ssl} --print-details-onfail ${printres} -s "${serverinfo}" ${subdir} "$@";
 
