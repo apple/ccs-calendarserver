@@ -256,7 +256,7 @@ class CalendarDirectoryRecordMixin(object):
         try:
             if not (
                 self.hasCalendars or (
-                    config.Scheduling.Options.AllowGroupAsAttendee and
+                    config.GroupAttendees.Enabled and
                     self.recordType == BaseRecordType.group
                 )
             ):
