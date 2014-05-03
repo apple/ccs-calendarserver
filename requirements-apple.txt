@@ -1,7 +1,7 @@
--e svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk@13413#egg=twextpy
--e svn+http://svn.calendarserver.org/repository/calendarserver/PyKerberos/trunk@13413#egg=kerberos
--e svn+http://svn.calendarserver.org/repository/calendarserver/PyCalendar/trunk@13413#egg=pycalendar
--e svn+https://svn.calendarserver.org/repository/calendarserver/CalendarServer/trunk@13413#egg=CalendarServer
+-e svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk@13420#egg=twextpy
+-e svn+http://svn.calendarserver.org/repository/calendarserver/PyKerberos/trunk@13420#egg=kerberos
+-e svn+http://svn.calendarserver.org/repository/calendarserver/PyCalendar/trunk@13420#egg=pycalendar
+-e svn+https://svn.calendarserver.org/repository/calendarserver/CalendarServer/trunk@13420#egg=CalendarServer
 
 PyGreSQL==4.1.1
 Twisted==13.2.0
