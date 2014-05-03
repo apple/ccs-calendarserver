@@ -21,6 +21,7 @@ from getopt import getopt, GetoptError
 import os
 from plistlib import readPlistFromString, writePlistToString
 import sys
+import uuid
 import xml
 
 from calendarserver.tools.cmdline import utilityMain
@@ -278,6 +279,10 @@ class Runner(object):
                         value = value.decode("utf-8")
 
                 fields[field] = value
+
+        if FieldName.uid not in fields:
+            # No uid provided, so generate one
+            fields[FieldName.uid] = unicode(uuid.uuid4()).upper()
 
         if FieldName.shortNames not in fields:
             # No short names were provided, so copy from uid

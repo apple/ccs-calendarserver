@@ -302,6 +302,26 @@ class GatewayTestCase(RunCommandTestCase):
 
 
     @inlineCallbacks
+    def test_createLocationMinimal(self):
+        """
+        Ensure we can create a location with just the bare minimum of values,
+        i.e. RealName
+        """
+
+        yield self.runCommand(command_createLocationMinimal)
+
+        # Tell the resources services to flush its cache and re-read XML
+        self._flush()
+
+        records = yield self.directory.recordsWithRecordType(self.directory.recordType.location)
+        for record in records:
+            if record.displayName == u"Minimal":
+                break
+        else:
+            self.fail("We did not find the Minimal record")
+
+
+    @inlineCallbacks
     def test_setLocationAttributes(self):
 
         yield self.runCommand(command_createLocation)
@@ -568,6 +588,19 @@ command_createLocation = """<?xml version="1.0" encoding="UTF-8"?>
 </dict>
 </plist>
 """ % (unichr(208), u"\ud83d\udca3")
+
+
+command_createLocationMinimal = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>command</key>
+        <string>createLocation</string>
+        <key>RealName</key>
+        <string>Minimal</string>
+</dict>
+</plist>
+"""
 
 
 command_createResource = """<?xml version="1.0" encoding="UTF-8"?>
