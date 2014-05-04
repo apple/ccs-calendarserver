@@ -439,6 +439,8 @@ c_dependencies () {
   ssl_version="$("${bootstrap_python}" -c "print ${ssl_version}")";
 
   if [ "${ssl_version}" -lt "${min_ssl_version}" ]; then
+    using_system "OpenSSL";
+  else
     local v="0.9.8y";
     local n="openssl";
     local p="${n}-${v}";
