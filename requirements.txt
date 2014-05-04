@@ -1,7 +1,0 @@
-# Get our own dependencies
---editable .
-
-# Specify editable dependencies explicitly since we want to get them from svn, not PyPI
---editable svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk#egg=twextpy
---editable svn+http://svn.calendarserver.org/repository/calendarserver/PyKerberos/trunk#egg=kerberos
---editable svn+http://svn.calendarserver.org/repository/calendarserver/PyCalendar/trunk#egg=pycalendar
