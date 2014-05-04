@@ -481,14 +481,10 @@ c_dependencies () {
     local n="openldap";
     local p="${n}-${v}";
 
-    # OpenLDAP's configure needs --with-tls=openssl to avoid finding any system
-    # gnutls stuff. Also, we need to run 'make depend' before 'make' to pull in
-    # OpenSSL shared libraries.
     c_dependency -m "39831848c731bcaef235a04e0d14412f" \
-      -p "make depend" \
       "OpenLDAP" "${p}" \
       "http://www.openldap.org/software/download/OpenLDAP/${n}-release/${p}.tgz" \
-      --disable-bdb --disable-hdb --with-tls=openssl;
+      --disable-bdb --disable-hdb;
   fi;
 
 
