@@ -447,7 +447,7 @@ c_dependencies () {
     # also pass 'shared' to config to build shared libs.
     c_dependency -c "config" -m "47c7fb37f78c970f1d30aa2f9e9e26d8" \
       "openssl" "${p}" \
-      "http://www.openssl.org/source/${p}.tar.gz";
+      "http://www.openssl.org/source/${p}.tar.gz" "no-ssl2";
   fi;
 
 
