@@ -29,6 +29,21 @@ conditional_set () {
 }
 
 
+c_macro () {
+  local sys_header="$1"; shift;
+  local version_macro="$1"; shift;
+
+  local value="$(printf "#include <${sys_header}>\n${version_macro}\n" | cc -x c -E - 2>/dev/null | tail -1)";
+
+  if [ "${value}" = "${version_macro}" ]; then
+    # Macro was not replaced
+    return 1;
+  fi;
+
+  echo "${value}";
+}
+
+
 # Checks for presence of a C header, optionally with a version comparison.
 # With only a header file name, try to include it, returning nonzero if absent.
 # With 3 params, also attempt a version check, returning nonzero if too old.
@@ -55,53 +70,15 @@ find_header () {
   fi;
 
   # Check for presence of a header of specified version
-  local found_version="$(printf "#include <${sys_header}>\n${version_macro}\n" | cc -x c -E - | tail -1)";
+  local found_version="$(c_macro "${sys_header}" "${version_macro}")";
 
-  if [ "${found_version}" = "${version_macro}" ]; then
-    # Macro was not replaced
-    return 1;
-  fi;
-
-  if cmp_version "${min_version}" "${found_version}"; then
+  if [ -n "${found_version}" ] && cmp_version "${min_version}" "${found_version}"; then
     return 0;
   else
     return 1;
   fi;
 };
 
-# openssl/opensslv.h defines its version number as something like 0x0090819fL.
-# Emit an integer representation of this value and return 0, or fail and
-# return 1
-find_openssl_version () {
-  # A small C program to print the hex version as an int.
-  # 'read' exits non-zero on EOF, which is required for heredoc input.
-  # However, bin/develop sets -e, so disable -e temporarily to prevent exit.
-  set +e
-  read -d '' PROG <<EOF
-  #include <stdio.h>
-  #include <openssl/ssl.h>
-  int main(void)
-  {
-    if(printf("%lu",OPENSSL_VERSION_NUMBER)) {return 0;}
-    return 1;
-  } 
-EOF
-  set -e
-  error=0
-  # Make an output file for cc, or bail
-  OUT=$(mktemp -t vcheck.XXXX) || return 1
-  # Compile the program, squelching stderr
-  echo "$PROG" | cc -x c -o $OUT - 2> /dev/null
-  if [ $? -eq 0 ] ; then
-    # build succeeded; run the program. If it exits non-zero, set error status
-    ${OUT} || error=1 
-  else
-    # build failed
-    error=1
-  fi
-  rm ${OUT} || echo "Couldn't remove tmp file: ${OUT}"
-  return ${error}
-}
 
 # Initialize all the global state required to use this library.
 init_build () {
@@ -367,20 +344,14 @@ jmake () {
 # By default, do: ./configure --prefix ... ; jmake ; make install
 c_dependency () {
   local f_hash="";
-  local config_cmd="configure";
-  local prebuild_cmd="";
-  local build_cmd="jmake";
-  local install_cmd="make install";
+  local configure="configure";
 
   OPTIND=1;
-  while getopts "m:s:c:p:b:i:" option; do
+  while getopts "m:s:c:" option; do
     case "${option}" in
       'm') f_hash="-m ${OPTARG}"; ;;
       's') f_hash="-s ${OPTARG}"; ;;
-      'c') config_cmd="${OPTARG}"; ;;
-      'p') prebuild_cmd="${OPTARG}"; ;;
-      'b') build_cmd="${OPTARG}"; ;;
-      'i') install_cmd="${OPTARG}"; ;;
+      'c') configure="${OPTARG}"; ;;
     esac;
   done;
   shift $((${OPTIND} - 1));
@@ -389,7 +360,7 @@ c_dependency () {
   local path="$1"; shift;
   local  uri="$1"; shift;
 
-  # Extra arguments are processed below, as arguments to config_cmd.
+  # Extra arguments are processed below, as arguments to configure.
 
   mkdir -p "${dep_sources}";
 
@@ -414,10 +385,9 @@ c_dependency () {
     if [ ! -d "${dstroot}" ]; then
       echo "Building ${name}...";
       cd "${srcdir}";
-      ./${config_cmd} --prefix="${dstroot}" "$@";
-      [ "${prebuild_cmd}" ] && eval ${prebuild_cmd};
-      [ "${build_cmd}" ] && eval ${build_cmd};
-      [ "${install_cmd}" ] && eval ${install_cmd};
+      "./${configure}" --prefix="${dstroot}" "$@";
+      jmake;
+      jmake install;
       cd "${wd}";
     else
       echo "Using built ${name}.";
@@ -452,40 +422,34 @@ using_system () {
 # Build C dependencies
 #
 c_dependencies () {
-     c_glue_root="${dev_roots}/c_glue";
-  c_glue_include="${c_glue_root}/include";
+  local    c_glue_root="${dev_roots}/c_glue";
+  local c_glue_include="${c_glue_root}/include";
 
   export C_INCLUDE_PATH="${c_glue_include}:${C_INCLUDE_PATH:-}";
+
 
   # The OpenSSL version number is special. Our strategy is to get the integer
   # value of OPENSSL_VERSION_NUBMER for use in inequality comparison.
   ruler;
-  buildOpenSSL=1;
-  minSSLVersion=9470367;  # OpenSSL 0.9.8y
-  if find_header openssl/ssl.h; then
-    VER=$(find_openssl_version)
-    if [ ! -z ${VER} ]; then
-      if [ ${VER} -ge ${minSSLVersion} ]; then
-        if "${do_setup}"; then
-          using_system "OpenSSL";
-        fi;
-        buildOpenSSL=0
-      fi;
-    fi;
-  fi;
-  if [ ${buildOpenSSL} -eq 1 ]; then
+
+  local min_ssl_version="9470367000";  # OpenSSL 0.9.8y
+
+  local ssl_version="$(c_macro openssl/ssl.h OPENSSL_VERSION_NUMBER)";
+  if [ -z "${ssl_version}" ]; then ssl_version="0x0"; fi;
+  ssl_version="$("${bootstrap_python}" -c "print ${ssl_version}")";
+
+  if [ "${ssl_version}" -lt "${min_ssl_version}" ]; then
     local v="0.9.8y";
     local n="openssl";
     local p="${n}-${v}";
 
     # use 'config' instead of 'configure'; 'make' instead of 'jmake'.
     # also pass 'shared' to config to build shared libs.
-    c_dependency -m "47c7fb37f78c970f1d30aa2f9e9e26d8" \
-      -c "config" \
-      -b "make" \
+    c_dependency -c "config" -m "47c7fb37f78c970f1d30aa2f9e9e26d8" \
       "openssl" "${p}" \
-      "http://www.openssl.org/source/${p}.tar.gz" "shared"
+      "http://www.openssl.org/source/${p}.tar.gz";
   fi;
+
 
   ruler;
   if find_header ffi.h; then
@@ -506,6 +470,7 @@ c_dependencies () {
       "ftp://sourceware.org/pub/libffi/${p}.tar.gz"
   fi;
 
+
   ruler;
   if find_header ldap.h 20428 LDAP_VENDOR_VERSION; then
     using_system "OpenLDAP";
@@ -523,6 +488,7 @@ c_dependencies () {
       "http://www.openldap.org/software/download/OpenLDAP/${n}-release/${p}.tgz" \
       --disable-bdb --disable-hdb --with-tls=openssl;
   fi;
+
 
   ruler;
   if find_header sasl.h; then
@@ -544,6 +510,7 @@ c_dependencies () {
       --disable-macos-framework;
   fi;
 
+
   ruler;
   if type -P memcached > /dev/null; then
     using_system "memcached";
@@ -564,6 +531,7 @@ c_dependencies () {
       "memcached" "${p}" \
       "http://www.memcached.org/files/${p}.tar.gz";
   fi;
+
 
   ruler;
   if type -P postgres > /dev/null; then
