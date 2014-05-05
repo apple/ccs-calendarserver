@@ -354,6 +354,7 @@ class PurgePrincipalTests(StoreTestCase):
         # Now remove user01
         yield self.directory.removeRecords((self.uid,))
         self.patch(config.Scheduling.Options.WorkQueues, "Enabled", False)
+        self.patch(config.AutomaticPurging, "Enabled", True)
         self.patch(config.AutomaticPurging, "PollingIntervalSeconds", -1)
         self.patch(config.AutomaticPurging, "CheckStaggerSeconds", 1)
         self.patch(config.AutomaticPurging, "PurgeIntervalSeconds", 3)
@@ -436,6 +437,7 @@ class PurgePrincipalTestsWithWorkQueue(PurgePrincipalTests):
     def setUp(self):
         yield super(PurgePrincipalTestsWithWorkQueue, self).setUp()
         self.patch(config.Scheduling.Options.WorkQueues, "Enabled", True)
+        self.patch(config.AutomaticPurging, "Enabled", True)
         self.patch(config.AutomaticPurging, "PollingIntervalSeconds", -1)
         self.patch(config.AutomaticPurging, "CheckStaggerSeconds", 1)
         self.patch(config.AutomaticPurging, "PurgeIntervalSeconds", 3)
