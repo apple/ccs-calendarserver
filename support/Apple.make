@@ -119,9 +119,20 @@ install-python:: build
 	@#
 	@echo "Cleaning up virtual environment...";
 	$(_v) perl -i -pe "s|#PATH|export PYTHON=$(CS_VIRTUALENV)/bin/python;|" "$(DSTROOT)$(CS_VIRTUALENV)/bin/caldavd";
-	$(_v) $(FIND) "$(DSTROOT)$(CS_VIRTUALENV)" -type d -name .svn -print0 | xargs -0 rm -rf;
-	$(_v) $(FIND) "$(DSTROOT)$(CS_VIRTUALENV)" -type f -name '*.so' -print0 | xargs -0 $(STRIP) -Sx;
-	$(_v) $(FIND) "$(DSTROOT)$(CS_VIRTUALENV)" -type f -size 0 -exec sh -c 'printf "# empty\n" > {}' ";";
+	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type d -name .svn -print0 | xargs -0 rm -rf;
+	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type f -name "*.so" -print0 | xargs -0 $(STRIP) -Sx;
+	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type f -size 0 -name "*.py" -exec sh -c 'printf "# empty\n" > {}' ";";
+	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type l |                     \
+              while read link; do                                         \
+                  target="$(readlink "${link}")";                         \
+                  if [ "$(echo ${target} | cut -f 1 -d /)" == "" ]; then  \
+                      rm -fv "${link}";                                   \
+                      cp -afv "${target}" "${link}" || {                  \
+                          rm -rfv "${link}";                              \
+                          ln -sfv "${target}" "${link}";                  \
+                      }                                                   \
+                  fi;                                                     \
+              done;
 
 install:: install-config
 install-config::
@@ -137,9 +148,16 @@ install-commands::
 	@echo "Installing links to executables...";
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)/usr/sbin";
 	$(_v) ln -fs "../..$(NSLOCALDIR)$(NSLIBRARYSUBDIR)/CalendarServer/bin/caldavd" "$(DSTROOT)$(SIPP)/usr/sbin/caldavd";
-	$(_v) cd "$(DSTROOT)$(SIPP)/usr/sbin/" &&                                                        \
-	      for cmd in "../..$(NSLOCALDIR)$(NSLIBRARYSUBDIR)/CalendarServer/bin/calendarserver_"*; do  \
-	          ln -fs "$${cmd}" "./$$(basename "$${cmd}")";                                           \
+	$(_v) for cmd in                                                                                                         \
+	          caldavd                                                                                                        \
+	          calendarserver_command_gateway                                                                                 \
+	          calendarserver_export                                                                                          \
+	          calendarserver_manage_principals                                                                               \
+	          calendarserver_purge_attachments                                                                               \
+	          calendarserver_purge_events                                                                                    \
+	          calendarserver_purge_principals                                                                                \
+	      ; do                                                                                                               \
+	          ln -fs "../..$(NSLOCALDIR)$(NSLIBRARYSUBDIR)/CalendarServer/bin/$${cmd}" "$(DSTROOT)$(SIPP)/usr/sbin/$${cmd}"; \
 	      done;
 
 install:: install-man
@@ -153,8 +171,6 @@ install-man::
 	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_purge_attachments.8" "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
 	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_purge_events.8"      "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
 	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_purge_principals.8"  "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_shell.8"             "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_manage_timezones.8"  "$(DSTROOT)$(SIPP)$(MANDIR)/man8";
 	$(_v) gzip -9 -f "$(DSTROOT)$(SIPP)$(MANDIR)/man8/"*.[0-9];
 
 install:: install-launchd
