@@ -23,16 +23,16 @@ import os
 import pwd
 import re
 import signal
-
 from hashlib import md5
+from pipes import quote as shell_quote
+
+import pgdb
 
 from twisted.python.procutils import which
 from twisted.internet.protocol import ProcessProtocol
 
 from twext.python.log import Logger
 from twext.python.filepath import CachingFilePath
-
-import pgdb
 
 from twisted.protocols.basic import LineReceiver
 from twisted.internet.defer import Deferred
@@ -87,7 +87,10 @@ class _PostgresMonitor(ProcessProtocol):
 
 
     def processEnded(self, reason):
-        log.warn("postgres process ended with status {status}", status=reason.value.status)
+        log.warn(
+            "postgres process ended with status {status}",
+            status=reason.value.status
+        )
         # If pg_ctl exited with zero, we were successful in starting postgres
         # If pg_ctl exited with nonzero, we need to give up.
         self.lineReceiver.connectionLost(reason)
@@ -164,21 +167,23 @@ class CapturingProcessProtocol(ProcessProtocol):
 
 class PostgresService(MultiService):
 
-    def __init__(self, dataStoreDirectory, subServiceFactory,
-                 schema, resetSchema=False, databaseName='subpostgres',
-                 clusterName="cluster",
-                 logFile="postgres.log",
-                 logDirectory="",
-                 socketDir="",
-                 listenAddresses=[], sharedBuffers=30,
-                 maxConnections=20, options=[],
-                 testMode=False,
-                 uid=None, gid=None,
-                 spawnedDBUser="caldav",
-                 importFileName=None,
-                 pgCtl="pg_ctl",
-                 initDB="initdb",
-                 reactor=None):
+    def __init__(
+        self, dataStoreDirectory, subServiceFactory,
+        schema, resetSchema=False, databaseName="subpostgres",
+        clusterName="cluster",
+        logFile="postgres.log",
+        logDirectory="",
+        socketDir="",
+        listenAddresses=[], sharedBuffers=30,
+        maxConnections=20, options=[],
+        testMode=False,
+        uid=None, gid=None,
+        spawnedDBUser="caldav",
+        importFileName=None,
+        pgCtl="pg_ctl",
+        initDB="initdb",
+        reactor=None,
+    ):
         """
         Initialize a L{PostgresService} pointed at a data store directory.
 
@@ -191,7 +196,8 @@ class PostgresService(MultiService):
 
         @param spawnedDBUser: the postgres role
         @type spawnedDBUser: C{str}
-        @param importFileName: path to SQL file containing previous data to import
+        @param importFileName: path to SQL file containing previous data to
+            import
         @type importFileName: C{str}
         """
 
@@ -220,10 +226,13 @@ class PostgresService(MultiService):
         # Make logFile absolute in case the working directory of postgres is
         # elsewhere:
         self.logFile = os.path.abspath(logFile)
-        self.logDirectory = os.path.abspath(logDirectory) if logDirectory else ""
+        if logDirectory:
+            self.logDirectory = os.path.abspath(logDirectory)
+        else:
+            self.logDirectory = ""
 
-        # Always use our own configured socket dir in case the built-in postgres tries to use
-        # a directory we don't have permissions for
+        # Always use our own configured socket dir in case the built-in
+        # postgres tries to use a directory we don't have permissions for
         if not socketDir:
             # Socket directory was not specified, so come up with one
             # in /tmp and based on a hash of the data store directory
@@ -232,8 +241,14 @@ class PostgresService(MultiService):
         self.socketDir = CachingFilePath(socketDir)
 
         if listenAddresses:
-            self.host, self.port = listenAddresses[0].split(":") if ":" in listenAddresses[0] else (listenAddresses[0], None,)
-            self.listenAddresses = [addr.split(":")[0] for addr in listenAddresses]
+            if ":" in listenAddresses[0]:
+                self.host, self.port = listenAddresses[0].split(":")
+            else:
+                self.host, self.port = (listenAddresses[0], None)
+
+            self.listenAddresses = [
+                addr.split(":")[0] for addr in listenAddresses
+            ]
         else:
             self.host = self.socketDir.path
             self.port = None
@@ -302,16 +317,19 @@ class PostgresService(MultiService):
             databaseName = self.databaseName
 
         if self.spawnedDBUser:
-            dsn = "%s:dbname=%s:%s" % (self.host, databaseName, self.spawnedDBUser)
+            dsn = "{}:dbname={}:{}".format(
+                self.host, databaseName, self.spawnedDBUser
+            )
         elif self.uid is not None:
-            dsn = "%s:dbname=%s:%s" % (self.host, databaseName,
-                pwd.getpwuid(self.uid).pw_name)
+            dsn = "{}:dbname={}:{}".format(
+                self.host, databaseName, pwd.getpwuid(self.uid).pw_name
+            )
         else:
-            dsn = "%s:dbname=%s" % (self.host, databaseName)
+            dsn = "{}:dbname={}".format(self.host, databaseName)
 
         kwargs = {}
         if self.port:
-            kwargs["host"] = "%s:%s" % (self.host, self.port,)
+            kwargs["host"] = "{}:{}".format(self.host, self.port)
 
         return DBAPIConnector(pgdb, postgresPreflight, dsn, **kwargs)
 
@@ -333,21 +351,22 @@ class PostgresService(MultiService):
         if self.resetSchema:
             try:
                 createDatabaseCursor.execute(
-                    "drop database %s" % (self.databaseName)
+                    "drop database {}".format(self.databaseName)
                 )
             except pgdb.DatabaseError:
                 pass
 
         try:
             createDatabaseCursor.execute(
-                "create database %s with encoding 'UTF8'" % (self.databaseName)
+                "create database {} with encoding 'UTF8'"
+                .format(self.databaseName)
             )
         except:
             # database already exists
             executeSQL = False
         else:
-            # database does not yet exist; if dump file exists, execute it, otherwise
-            # execute schema
+            # database does not yet exist; if dump file exists, execute it,
+            # otherwise execute schema
             executeSQL = True
             sqlToExecute = self.schema
             if self.importFileName:
@@ -367,7 +386,9 @@ class PostgresService(MultiService):
 
         if self.shutdownDeferred is None:
             # Only continue startup if we've not begun shutdown
-            self.subServiceFactory(self.produceConnection, self).setServiceParent(self)
+            self.subServiceFactory(
+                self.produceConnection, self
+            ).setServiceParent(self)
 
 
     def pauseMonitor(self):
@@ -400,7 +421,7 @@ class PostgresService(MultiService):
 
         def createConnection():
             createDatabaseConn = self.produceConnection(
-                'schema creation', 'postgres'
+                "schema creation", "postgres"
             )
             createDatabaseCursor = createDatabaseConn.cursor()
             createDatabaseCursor.execute("commit")
@@ -412,25 +433,42 @@ class PostgresService(MultiService):
 
         options = []
         options.append(
-            "-c listen_addresses='%s'" % (",".join(self.listenAddresses))
+            "-c listen_addresses={}"
+            .format(shell_quote(",".join(self.listenAddresses)))
         )
         if self.socketDir:
-            options.append("-k '%s'" % (self.socketDir.path,))
+            options.append(
+                "-k {}"
+                .format(shell_quote(self.socketDir.path))
+            )
         if self.port:
-            options.append("-c port=%s" % (self.port,))
-        options.append("-c shared_buffers=%d" % (self.sharedBuffers,))
-        options.append("-c max_connections=%d" % (self.maxConnections,))
+            options.append(
+                "-c port={}".format(shell_quote(self.port))
+            )
+        options.append(
+            "-c shared_buffers={:d}"
+            .format(shell_quote(self.sharedBuffers))
+        )
+        options.append(
+            "-c max_connections={:d}"
+            .format(shell_quote(self.maxConnections))
+        )
         options.append("-c standard_conforming_strings=on")
         options.append("-c unix_socket_permissions=0770")
         options.extend(self.options)
         if self.logDirectory:  # tell postgres to rotate logs
-            options.append("-c log_directory={}".format(self.logDirectory))
+            options.append(
+                "-c log_directory={}".format(shell_quote(self.logDirectory))
+            )
             options.append("-c log_truncate_on_rotation=on")
             options.append("-c log_filename=postgresql_%w.log")
             options.append("-c log_rotation_age=1440")
             options.append("-c logging_collector=on")
 
-        log.warn("Requesting postgres start via {cmd} {opts}", cmd=pgCtl, opts=options)
+        log.warn(
+            "Requesting postgres start via {cmd} {opts}",
+            cmd=pgCtl, opts=options
+        )
         self.reactor.spawnProcess(
             monitor, pgCtl,
             [
@@ -456,7 +494,7 @@ class PostgresService(MultiService):
             removed/renamed/unmounted.
             """
             reResult = re.search("PID: (\d+)\D", result)
-            if reResult != None:
+            if reResult is not None:
                 self._postgresPid = int(reResult.group(1))
             self.ready(*createConnection())
             self.deactivateDelayedShutdown()
@@ -515,20 +553,26 @@ class PostgresService(MultiService):
                    PGHOST=self.host,
                    PGUSER=self.spawnedDBUser)
         initdb = self.initdb()
+
         if self.socketDir:
             if not self.socketDir.isdir():
                 self.socketDir.createDirectory()
+
             if self.uid and self.gid:
                 os.chown(self.socketDir.path, self.uid, self.gid)
+
         if self.dataStoreDirectory.isdir():
             self.startDatabase()
         else:
             self.dataStoreDirectory.createDirectory()
+
             if not self.workingDir.isdir():
                 self.workingDir.createDirectory()
+
             if self.uid and self.gid:
                 os.chown(self.dataStoreDirectory.path, self.uid, self.gid)
                 os.chown(self.workingDir.path, self.uid, self.gid)
+
             dbInited = Deferred()
             self.reactor.spawnProcess(
                 CapturingProcessProtocol(dbInited, None),
@@ -536,11 +580,16 @@ class PostgresService(MultiService):
                 env=env, path=self.workingDir.path,
                 uid=self.uid, gid=self.gid,
             )
+
             def doCreate(result):
                 if result.find("FATAL:") != -1:
                     log.error(result)
-                    raise RuntimeError("Unable to initialize postgres database: %s" % (result,))
+                    raise RuntimeError(
+                        "Unable to initialize postgres database: {}"
+                        .format(result)
+                    )
                 self.startDatabase()
+
             dbInited.addCallback(doCreate)
 
 
@@ -564,8 +613,9 @@ class PostgresService(MultiService):
                 monitor = _PostgresMonitor()
                 pgCtl = self.pgCtl()
                 # FIXME: why is this 'logfile' and not self.logfile?
-                self.reactor.spawnProcess(monitor, pgCtl,
-                    [pgCtl, '-l', 'logfile', 'stop'],
+                self.reactor.spawnProcess(
+                    monitor, pgCtl,
+                    [pgCtl, "-l", "logfile", "stop"],
                     env=self.env, path=self.workingDir.path,
                     uid=self.uid, gid=self.gid,
                 )
