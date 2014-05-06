@@ -104,7 +104,7 @@ install-python:: build
 	$(_v) for pkg in $$(find "$(Sources)/.develop/pip_downloads" -type f); do \
 	          $(Environment)                                                  \
 	              "$(DSTROOT)$(CS_VIRTUALENV)/bin/pip" install                \
-                      --pre --allow-all-external --no-index --no-deps         \
+	                  --pre --allow-all-external --no-index --no-deps         \
 	                  --log=/tmp/pip.log                                      \
 	                  "$${pkg}";                                              \
 	      done;
@@ -122,17 +122,17 @@ install-python:: build
 	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type d -name .svn -print0 | xargs -0 rm -rf;
 	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type f -name "*.so" -print0 | xargs -0 $(STRIP) -Sx;
 	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type f -size 0 -name "*.py" -exec sh -c 'printf "# empty\n" > {}' ";";
-	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type l |                     \
-              while read link; do                                         \
-                  target="$(readlink "${link}")";                         \
-                  if [ "$(echo ${target} | cut -f 1 -d /)" == "" ]; then  \
-                      rm -fv "${link}";                                   \
-                      cp -afv "${target}" "${link}" || {                  \
-                          rm -rfv "${link}";                              \
-                          ln -sfv "${target}" "${link}";                  \
-                      }                                                   \
-                  fi;                                                     \
-              done;
+	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type l |                       \
+	          while read link; do                                           \
+	              target="$$(readlink "$${link}")";                         \
+	              if [ "$$(echo $${target} | cut -f 1 -d /)" == "" ]; then  \
+	                  rm -fv "$${link}";                                    \
+	                  cp -afv "$${target}" "$${link}" || {                  \
+	                      rm -rfv "$${link}";                               \
+	                      ln -sfv "$${target}" "$${link}";                  \
+	                  }                                                     \
+	              fi;                                                       \
+	          done;
 
 install:: install-config
 install-config::
