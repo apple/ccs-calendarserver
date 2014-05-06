@@ -134,7 +134,13 @@ if "${build}"; then
   echo "Copying ${src}...";
   ignores="$(mktemp -t CalendarServer_ignores)";
   svn st --no-ignore | sed -n -e 's|^I...... ||p' > "${ignores}";
-  rsync -av --exclude=".svn" --exclude-from="${ignores}" "${src}/" "${wc}";
+  rsync -av                      \
+    --exclude=".svn"             \
+    --exclude=".develop"         \
+    --exclude="subprojects"      \
+    --exclude-from="${ignores}"  \
+    "${src}/" "${wc}"            \
+    ;
   rm "${ignores}";
 else
   echo "";
