@@ -244,7 +244,7 @@ class DirectoryTestCase(StoreTestCase):
             ),
             (
                 AutoScheduleMode.acceptIfFree,
-                AutoScheduleMode.acceptIfFreeDeclineIfBusy,
+                AutoScheduleMode.acceptIfFree,
                 AutoScheduleMode.acceptIfFree,
             ),
             (

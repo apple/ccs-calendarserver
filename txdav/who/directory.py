@@ -449,6 +449,7 @@ class CalendarDirectoryRecordMixin(object):
             autoScheduleMode not in
             (
                 AutoScheduleMode.accept,
+                AutoScheduleMode.acceptIfFree,
                 AutoScheduleMode.acceptIfFreeDeclineIfBusy
             )
         ):
