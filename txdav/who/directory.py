@@ -445,8 +445,16 @@ class CalendarDirectoryRecordMixin(object):
     @inlineCallbacks
     def getAutoScheduleMode(self, organizer):
         autoScheduleMode = self.autoScheduleMode
-        if (yield self.autoAcceptFromOrganizer(organizer)):
-            autoScheduleMode = AutoScheduleMode.acceptIfFreeDeclineIfBusy
+        if (
+            autoScheduleMode not in
+            (
+                AutoScheduleMode.accept,
+                AutoScheduleMode.acceptIfFreeDeclineIfBusy
+            )
+        ):
+            if (yield self.autoAcceptFromOrganizer(organizer)):
+                autoScheduleMode = AutoScheduleMode.acceptIfFreeDeclineIfBusy
+
         returnValue(autoScheduleMode)
 
 

@@ -22,7 +22,7 @@ from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.test.util import StoreTestCase
 from twext.who.directory import DirectoryRecord
 from twext.who.idirectory import FieldName, RecordType
-from txdav.who.directory import CalendarDirectoryRecordMixin
+from txdav.who.directory import CalendarDirectoryRecordMixin, AutoScheduleMode
 from uuid import UUID
 from twext.who.expression import (
     MatchType, MatchFlags, MatchExpression
@@ -202,3 +202,81 @@ class DirectoryTestCase(StoreTestCase):
             u"mailto:nocalendar@example.com"
         )
         self.assertEquals(record, None)
+
+
+    @inlineCallbacks
+    def test_getAutoScheduleMode(self):
+
+        apollo = yield self.directory.recordWithUID(u"apollo")
+
+        # both_coasts is the auto accept group, cdaboo is a member, and
+        # sagen is not
+
+        inGroup = yield self.directory.recordWithShortName(
+            self.directory.recordType.user,
+            u"cdaboo"
+        )
+        notInGroup = yield self.directory.recordWithShortName(
+            self.directory.recordType.user,
+            u"sagen"
+        )
+
+        expectations = (
+
+            # the record's mode
+            # effective mode when organizer is in the auto-accept-group
+            # effective mode when organizer is not in the auto-accept-group
+
+            (
+                AutoScheduleMode.none,
+                AutoScheduleMode.acceptIfFreeDeclineIfBusy,
+                AutoScheduleMode.none,
+            ),
+            (
+                AutoScheduleMode.accept,
+                AutoScheduleMode.accept,
+                AutoScheduleMode.accept,
+            ),
+            (
+                AutoScheduleMode.decline,
+                AutoScheduleMode.acceptIfFreeDeclineIfBusy,
+                AutoScheduleMode.decline,
+            ),
+            (
+                AutoScheduleMode.acceptIfFree,
+                AutoScheduleMode.acceptIfFreeDeclineIfBusy,
+                AutoScheduleMode.acceptIfFree,
+            ),
+            (
+                AutoScheduleMode.declineIfBusy,
+                AutoScheduleMode.acceptIfFreeDeclineIfBusy,
+                AutoScheduleMode.declineIfBusy,
+            ),
+            (
+                AutoScheduleMode.acceptIfFreeDeclineIfBusy,
+                AutoScheduleMode.acceptIfFreeDeclineIfBusy,
+                AutoScheduleMode.acceptIfFreeDeclineIfBusy,
+            ),
+        )
+
+        for mode, inGroupMode, notInGroupMode in expectations:
+            apollo.fields[self.directory.fieldName.autoScheduleMode] = mode
+
+            # In auto accept group
+            self.assertEquals(
+                (
+                    yield apollo.getAutoScheduleMode(
+                        inGroup.canonicalCalendarUserAddress()
+                    )
+                ),
+                inGroupMode
+            )
+            # Not in auto accept group
+            self.assertEquals(
+                (
+                    yield apollo.getAutoScheduleMode(
+                        notInGroup.canonicalCalendarUserAddress()
+                    )
+                ),
+                notInGroupMode
+            )
