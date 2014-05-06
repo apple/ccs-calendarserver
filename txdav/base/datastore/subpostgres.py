@@ -447,11 +447,11 @@ class PostgresService(MultiService):
             )
         options.append(
             "-c shared_buffers={:d}"
-            .format(shell_quote(self.sharedBuffers))
+            .format(self.sharedBuffers)  # int: don't quote
         )
         options.append(
             "-c max_connections={:d}"
-            .format(shell_quote(self.maxConnections))
+            .format(self.maxConnections)  # int: don't quote
         )
         options.append("-c standard_conforming_strings=on")
         options.append("-c unix_socket_permissions=0770")
