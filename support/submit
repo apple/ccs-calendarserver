@@ -132,16 +132,14 @@ wc="${tmp}/${project_version}";
 if "${build}"; then
   echo "";
   echo "Copying ${src}...";
-  ignores="$(mktemp -t CalendarServer_ignores)";
-  svn st --no-ignore | sed -n -e 's|^I...... ||p' > "${ignores}";
+  # Only copy fiels that are under revision control
+  svn_files="$(mktemp -t svn_files_XXXX)";
+  svn info -R . | sed -n "s|^Path: ||p" > "${svn_files}";
   rsync -av                      \
-    --exclude=".svn"             \
-    --exclude=".develop"         \
-    --exclude="subprojects"      \
-    --exclude-from="${ignores}"  \
+    --files-from="${svn_files}"  \
     "${src}/" "${wc}"            \
     ;
-  rm "${ignores}";
+  rm "${svn_files}";
 else
   echo "";
   echo "Exporting ${uri}@${revision}..."
