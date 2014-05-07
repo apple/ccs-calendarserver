@@ -117,18 +117,20 @@ install-python:: build
 	@#
 	@# Clean up
 	@#
-	@echo "Cleaning up virtual environment...";
+	@echo "Tweaking caldavd to set PYTHON...";
 	$(_v) perl -i -pe "s|#PATH|export PYTHON=$(CS_VIRTUALENV)/bin/python;|" "$(DSTROOT)$(CS_VIRTUALENV)/bin/caldavd";
-	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type d -name .svn -print0 | xargs -0 rm -rf;
+	@echo "Stripping binaries...";
 	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type f -name "*.so" -print0 | xargs -0 $(STRIP) -Sx;
+	@echo "Putting comments into empty files...";
 	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type f -size 0 -name "*.py" -exec sh -c 'printf "# empty\n" > {}' ";";
 	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type f -size 0 -name "*.h" -exec sh -c 'printf "/* empty */\n" > {}' ";";
+	@echo "Replacing symbolic links...";
 	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type l |                       \
 	          while read link; do                                           \
 	              target="$$(readlink "$${link}")";                         \
 	              if [ "$$(echo $${target} | cut -f 1 -d /)" == "" ]; then  \
 	                  rm -fv "$${link}";                                    \
-	                  cp -afv "$${target}" "$${link}" || {                  \
+	                  cp -aLfv "$${target}" "$${link}" || {                 \
 	                      rm -rfv "$${link}";                               \
 	                      ln -sfv "$${target}" "$${link}";                  \
 	                  }                                                     \
