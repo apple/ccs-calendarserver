@@ -1,7 +1,11 @@
+# For CalendarServer development, don't try to get these projects from PyPI; use svn.
+
 -e .
 -e svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk@13420#egg=twextpy
 -e svn+http://svn.calendarserver.org/repository/calendarserver/PyKerberos/trunk@13420#egg=kerberos
 -e svn+http://svn.calendarserver.org/repository/calendarserver/PyCalendar/trunk@13420#egg=pycalendar
+
+# Specify specific versions of our dependencies so that we're all testing the same config.
 
 PyGreSQL==4.1.1
 Twisted==13.2.0
