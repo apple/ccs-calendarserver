@@ -204,9 +204,9 @@ script_entry_points = {
     ("calendarserver.tools.calverify", "main"),
 }
 
-for name, (m, f) in script_entry_points.iteritems():
+for n, (m, f) in script_entry_points.iteritems():
     entry_points["console_scripts"].append(
-        "calendarserver_{} = {}:{}".format(name, m, f)
+        "calendarserver_{} = {}:{}".format(n, m, f)
     )
 
 
