@@ -41,10 +41,10 @@ from twext.who.idirectory import RecordType
 @inlineCallbacks
 def addEventsDir(testCase, eventsDir, uri):
     """
-    Add events to a L{HomeTestCase} from a directory.
+    Add events to a L{twistedcaldav.test.util.TestCase} from a directory.
 
     @param testCase: The test case to add events to.
-    @type testCase: L{HomeTestCase}
+    @type testCase: L{twistedcaldav.test.util.TestCase}
 
     @param eventsDir: A directory full of events.
     @type eventsDir: L{FilePath}
