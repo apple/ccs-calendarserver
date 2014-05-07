@@ -111,8 +111,6 @@ init_build () {
 
   project="$(setup_print name)";
 
-  export _DEVELOP_PROJECT_="${project}";
-
   # Find some hashing commands
   # sha1() = sha1 hash, if available
   # md5()  = md5 hash, if available
