@@ -40,6 +40,8 @@ find .develop/virtualenv/bin -type f -name "calendarserver_*" | {
 
     rm -f "${target}";
     cat << __END__ > "${target}"
+#!/bin/sh
+
 export PATH="${PATH:-}";
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}";
 export DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:-}";
