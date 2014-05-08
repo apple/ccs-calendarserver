@@ -14,6 +14,7 @@
                 "*.pyc",
                 ".project",
                 ".pydevproject",
+                "*.sublime-workspace",
                 "bin/calendarserver_*"
             ]
 		}
@@ -31,7 +32,8 @@
         {
             "name": "Unit Tests",
             "cmd": [ "./bin/test", "$file" ],
-            "working_dir": "$project_path/.."
+            "working_dir": "$project_path/..",
+            "file_regex": "^[ ]*File \"(...*?)\", line ([0-9]*)"
         }
     ]
 }
