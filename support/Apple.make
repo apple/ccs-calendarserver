@@ -153,6 +153,7 @@ install-commands::
 	$(_v) ln -fs "../..$(NSLOCALDIR)$(NSLIBRARYSUBDIR)/CalendarServer/bin/caldavd" "$(DSTROOT)$(SIPP)/usr/sbin/caldavd";
 	$(_v) for cmd in                                                                                                         \
 	          caldavd                                                                                                        \
+	          calendarserver_config                                                                                          \
 	          calendarserver_command_gateway                                                                                 \
 	          calendarserver_export                                                                                          \
 	          calendarserver_manage_principals                                                                               \

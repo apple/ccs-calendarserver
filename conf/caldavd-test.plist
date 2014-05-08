@@ -1008,6 +1008,15 @@
       <false/>
     </dict>
 
+    <key>GroupAttendees</key>
+    <dict>
+      <key>GroupAttendees</key>
+      <true/>
+
+      <key>ReconciliationDelaySeconds</key>
+      <integer>5</integer>
+    </dict>
+
     <!-- Maximum number of results returned by principal-property-search REPORT -->
     <key>MaxPrincipalSearchReportResults</key>
     <integer>500</integer>
