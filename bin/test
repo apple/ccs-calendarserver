@@ -113,17 +113,23 @@ find "${wd}" -name \*.pyc -print0 | xargs -0 rm;
 # Unit tests
 #
 
-cd "${wd}" &&                                       \
-  "${wd}/bin/trial"                                 \
-  --temp-directory="${dev_home}/trial"              \
-  --rterrors                                        \
-  ${reactor}                                        \
-  ${random}                                         \
-  ${until_fail}                                     \
-  ${no_color}                                       \
-  ${coverage}                                       \
-  ${numjobs}                                        \
-  "$@";
+for module in "$@"; do
+  if [ -f "${module}" ]; then
+    module="--testmodule=${module}";
+  fi;
+
+  cd "${wd}" &&                                       \
+    "${wd}/bin/trial"                                 \
+    --temp-directory="${dev_home}/trial"              \
+    --rterrors                                        \
+    ${reactor}                                        \
+    ${random}                                         \
+    ${until_fail}                                     \
+    ${no_color}                                       \
+    ${coverage}                                       \
+    ${numjobs}                                        \
+    "${module}";
+done;
 
 
 if ! "${lint}"; then
