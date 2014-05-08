@@ -1,0 +1,37 @@
+{
+	"folders":
+	[
+		{
+			"path": "..",
+            "folder_exclude_patterns": [
+                ".develop",
+                ".svn",
+                "CalendarServer.egg-info",
+                "data",
+                "src"
+            ],
+            "file_exclude_patterns": [
+                "*.pyc",
+                ".project",
+                ".pydevproject",
+                "bin/calendarserver_*"
+            ]
+		}
+	],
+    "settings":
+    {
+        "ensure_newline_at_eof_on_save": true,
+        "fallback_encoding": "UTF-8",
+        "rulers": [ 80 ],
+        "tab_size": 4,
+        "translate_tabs_to_spaces": true
+    },
+    "build_systems":
+    [
+        {
+            "name": "Unit Tests",
+            "cmd": [ "./bin/test", "$file" ],
+            "working_dir": "$project_path/.."
+        }
+    ]
+}
