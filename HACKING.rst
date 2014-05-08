@@ -89,10 +89,6 @@ A rough guide to the source tree:
 
  * ``twistedcaldav/`` - Source code for extensions to Twisted
 
- * ``lib-patches/`` - Patch files which modify 3rd-party software
-   required by the Calendar and Contacts Server.  In an ideal world,
-   this would be empty.
-
  * ``twisted/`` - Files required to set up the Calendar and Contacts
    Server as a Twisted service.  Twisted (http://twistedmatrix.com/)
    is a networking framework upon which the Calendar and Contacts

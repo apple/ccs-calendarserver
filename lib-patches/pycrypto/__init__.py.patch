@@ -1,6 +1,0 @@
-Index: lib/Crypto/Random/Fortuna/__init__.py
-===================================================================
---- lib/Crypto/Random/Fortuna/__init__.py
-+++ lib/Crypto/Random/Fortuna/__init__.py
-@@ -0,0 +1 @@
-+#
