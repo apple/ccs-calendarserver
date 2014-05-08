@@ -33,6 +33,7 @@
             "name": "Unit Tests",
             "cmd": [ "./bin/test", "$file" ],
             "working_dir": "$project_path/..",
+            "path": "$PATH:/Applications/Server.app/Contents/ServerRoot/usr/sbin:/Applications/Server.app/Contents/ServerRoot/usr/bin",
             "file_regex": "^[ ]*File \"(...*?)\", line ([0-9]*)"
         }
     ]
