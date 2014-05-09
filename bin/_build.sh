@@ -343,13 +343,18 @@ jmake () {
 c_dependency () {
   local f_hash="";
   local configure="configure";
+  local prebuild_cmd=""; 
+  local build_cmd="jmake"; 
+  local install_cmd="make install";
 
   OPTIND=1;
-  while getopts "m:s:c:" option; do
+  while getopts "m:s:c:p:b:" option; do
     case "${option}" in
       'm') f_hash="-m ${OPTARG}"; ;;
       's') f_hash="-s ${OPTARG}"; ;;
       'c') configure="${OPTARG}"; ;;
+      'p') prebuild_cmd="${OPTARG}"; ;;
+      'b') build_cmd="${OPTARG}"; ;;
     esac;
   done;
   shift $((${OPTIND} - 1));
@@ -384,8 +389,11 @@ c_dependency () {
       echo "Building ${name}...";
       cd "${srcdir}";
       "./${configure}" --prefix="${dstroot}" "$@";
-      jmake;
-      jmake install;
+      if [ ! -z "${prebuild_cmd}" ]; then
+        eval ${prebuild_cmd};
+      fi;
+      eval ${build_cmd};
+      eval ${install_cmd};
       cd "${wd}";
     else
       echo "Using built ${name}.";
@@ -430,13 +438,13 @@ c_dependencies () {
   # value of OPENSSL_VERSION_NUBMER for use in inequality comparison.
   ruler;
 
-  local min_ssl_version="9470367000";  # OpenSSL 0.9.8y
+  local min_ssl_version="9470367";  # OpenSSL 0.9.8y
 
   local ssl_version="$(c_macro openssl/ssl.h OPENSSL_VERSION_NUMBER)";
   if [ -z "${ssl_version}" ]; then ssl_version="0x0"; fi;
   ssl_version="$("${bootstrap_python}" -c "print ${ssl_version}")";
 
-  if [ "${ssl_version}" -lt "${min_ssl_version}" ]; then
+  if [ "${ssl_version}" -ge "${min_ssl_version}" ]; then
     using_system "OpenSSL";
   else
     local v="0.9.8y";
@@ -446,8 +454,9 @@ c_dependencies () {
     # use 'config' instead of 'configure'; 'make' instead of 'jmake'.
     # also pass 'shared' to config to build shared libs.
     c_dependency -c "config" -m "47c7fb37f78c970f1d30aa2f9e9e26d8" \
+      -p "make depend" -b "make" \
       "openssl" "${p}" \
-      "http://www.openssl.org/source/${p}.tar.gz" "no-ssl2";
+      "http://www.openssl.org/source/${p}.tar.gz" "shared";
   fi;
 
 
@@ -482,7 +491,7 @@ c_dependencies () {
     c_dependency -m "39831848c731bcaef235a04e0d14412f" \
       "OpenLDAP" "${p}" \
       "http://www.openldap.org/software/download/OpenLDAP/${n}-release/${p}.tgz" \
-      --disable-bdb --disable-hdb;
+      --disable-bdb --disable-hdb --with-tls=openssl;
   fi;
 
 
