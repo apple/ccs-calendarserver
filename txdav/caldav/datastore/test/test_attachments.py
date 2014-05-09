@@ -14,8 +14,6 @@
 # limitations under the License.
 ##
 
-from txdav.who.util import directoryFromConfig
-
 from pycalendar.datetime import DateTime
 from pycalendar.value import Value
 
@@ -34,7 +32,6 @@ from twistedcaldav.ical import Property, Component
 from txdav.caldav.datastore.sql import CalendarStoreFeatures, DropBoxAttachment, \
     ManagedAttachment
 from txdav.caldav.datastore.test.common import CaptureProtocol
-from txdav.caldav.datastore.test.util import buildCalendarStore
 from txdav.caldav.icalendarstore import IAttachmentStorageTransport, IAttachment, \
     QuotaExceeded, AttachmentSizeTooLarge
 from txdav.common.datastore.sql_tables import schema
@@ -99,7 +96,7 @@ class AttachmentTests(CommonCommonTests, unittest.TestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(AttachmentTests, self).setUp()
-        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory)
+        yield self.buildStoreAndDirectory()
         yield self.populate()
 
 
@@ -1536,18 +1533,13 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
     def setUp(self):
         yield super(AttachmentMigrationTests, self).setUp()
 
-        self.patch(config.DirectoryService.params, "xmlFile",
-            os.path.join(
-                os.path.dirname(__file__), "attachments", "accounts.xml"
-            )
+        attachmentsFilePath = FilePath(
+            os.path.join(os.path.dirname(__file__), "attachments")
         )
-        self.patch(config.ResourceService.params, "xmlFile",
-            os.path.join(
-                os.path.dirname(__file__), "attachments", "resources.xml"
-            )
+        yield self.buildStoreAndDirectory(
+            accounts=attachmentsFilePath.child("accounts.xml"),
+            resources=attachmentsFilePath.child("resources.xml"),
         )
-
-        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory, directoryFromConfig(config))
         yield self.populate()
 
         self.paths = {}
@@ -1575,13 +1567,6 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         ).on(txn)
 
         yield txn.commit()
-
-
-    def storeUnderTest(self):
-        """
-        Create and return a L{CalendarStore} for testing.
-        """
-        return self._sqlCalendarStore
 
 
     @inlineCallbacks

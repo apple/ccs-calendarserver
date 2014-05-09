@@ -29,7 +29,6 @@ from twisted.cred.credentials import UsernamePassword
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twistedcaldav.config import config
 from twistedcaldav.ical import Property
-from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers
 from txdav.caldav.datastore.scheduling.utils import normalizeCUAddr
 from txdav.who.delegates import RecordType as DelegateRecordType
 from txdav.who.idirectory import (
@@ -51,6 +50,14 @@ __all__ = [
 class CalendarDirectoryServiceMixin(object):
 
     guid = "1332A615-4D3A-41FE-B636-FBE25BFB982E"
+
+
+
+    serversDB = None
+
+    def setServersDB(self, serversDB):
+        self.serversDB = serversDB
+
 
     # Must maintain the hack for a bit longer:
     def setPrincipalCollection(self, principalCollection):
@@ -395,8 +402,11 @@ class CalendarDirectoryRecordMixin(object):
         """
         URL of the server hosting this record. Return None if hosted on this server.
         """
-        if config.Servers.Enabled and getattr(self, "serviceNodeUID", None):
-            return Servers.getServerURIById(self.serviceNodeUID)
+        if (
+            self.service.serversDB is not None and
+            getattr(self, "serviceNodeUID", None)
+        ):
+            return self.service.serversDB.getServerURIById(self.serviceNodeUID)
         else:
             return None
 
@@ -405,8 +415,11 @@ class CalendarDirectoryRecordMixin(object):
         """
         Server hosting this record. Return None if hosted on this server.
         """
-        if config.Servers.Enabled and getattr(self, "serviceNodeUID", None):
-            return Servers.getServerById(self.serviceNodeUID)
+        if (
+            self.service.serversDB is not None and
+            getattr(self, "serviceNodeUID", None)
+        ):
+            return self.service.serversDB.getServerById(self.serviceNodeUID)
         else:
             return None
 

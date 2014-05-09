@@ -29,7 +29,6 @@ from twistedcaldav.ical import Component
 from twistedcaldav.test.util import TestCase
 
 from txdav.common.datastore.test.util import populateCalendarsFrom, CommonCommonTests
-from txdav.caldav.datastore.test.util import buildCalendarStore
 
 from txdav.caldav.datastore.util import dropboxIDFromCalendarObject, \
     StorageTransportBase, migrateHome
@@ -323,16 +322,15 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(HomeMigrationTests, self).setUp()
-        self.theStore = yield buildCalendarStore(self, self.notifierFactory, homes=(
-            "conflict1",
-            "conflict2",
-            "empty_home",
-            "non_empty_home",
-        ))
+        yield self.buildStoreAndDirectory(
+            extraUids=(
+                u"conflict1",
+                u"conflict2",
+                u"empty_home",
+                u"non_empty_home",
+            )
+        )
 
-
-    def storeUnderTest(self):
-        return self.theStore
 
 
     @inlineCallbacks

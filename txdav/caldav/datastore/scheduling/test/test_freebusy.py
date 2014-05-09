@@ -27,7 +27,6 @@ from twistedcaldav.ical import Component, Property
 
 from txdav.caldav.datastore.scheduling.freebusy import buildFreeBusyResult, \
     generateFreeBusyInfo
-from txdav.caldav.datastore.test.util import buildCalendarStore
 from txdav.common.datastore.test.util import CommonCommonTests, populateCalendarsFrom
 
 def normalizeiCalendarText(data):
@@ -266,7 +265,7 @@ class GenerateFreeBusyInfo(CommonCommonTests, TestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(GenerateFreeBusyInfo, self).setUp()
-        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory)
+        yield self.buildStoreAndDirectory()
         yield self.populate()
 
         self.now = DateTime.getNowUTC()

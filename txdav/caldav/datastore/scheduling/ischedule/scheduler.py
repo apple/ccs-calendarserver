@@ -31,7 +31,6 @@ from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser, \
 from txdav.caldav.datastore.scheduling.ischedule import xml
 from txdav.caldav.datastore.scheduling.ischedule.dkim import DKIMVerifier, \
     DKIMVerificationError, DKIMMissingError
-from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers
 from txdav.caldav.datastore.scheduling.ischedule.remoteservers import IScheduleServers
 from txdav.caldav.datastore.scheduling.ischedule.utils import getIPsFromHost
 from txdav.caldav.datastore.scheduling.ischedule.xml import ischedule_namespace
@@ -56,6 +55,7 @@ __all__ = [
 
 
 log = Logger()
+
 
 class ErrorResponse(Response):
     """
@@ -339,13 +339,14 @@ class IScheduleScheduler(RemoteScheduler):
 
         # Check against this server.
         matched = False
-        if Servers.getThisServer().checkThisIP(clientip):
+        serversDB = self.txn._store.directoryService().serversDB
+        if serversDB.getThisServer().checkThisIP(clientip):
             matched = True
 
         # Checked allowed IPs - if any were defined we only check against them, we do not
         # go on to check the expected server host ip
-        elif Servers.getThisServer().hasAllowedFromIP():
-            matched = Servers.getThisServer().checkAllowedFromIP(clientip)
+        elif serversDB.getThisServer().hasAllowedFromIP():
+            matched = serversDB.getThisServer().checkAllowedFromIP(clientip)
             if not matched:
                 log.error("Invalid iSchedule connection from client: %s" % (clientip,))
 
@@ -365,7 +366,7 @@ class IScheduleScheduler(RemoteScheduler):
                 log.debug("iSchedule cannot lookup client ip '%s': %s" % (clientip, str(e),))
 
         # Check possible shared secret
-        if matched and not Servers.getThisServer().checkSharedSecret(self.headers):
+        if matched and not serversDB.getThisServer().checkSharedSecret(self.headers):
             log.error("Invalid iSchedule shared secret")
             matched = False
 

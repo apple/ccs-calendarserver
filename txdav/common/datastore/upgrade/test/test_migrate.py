@@ -39,12 +39,12 @@ from txdav.caldav.datastore.test.common import CommonTests
 from txdav.carddav.datastore.test.common import CommonTests as ABCommonTests
 from txdav.common.datastore.file import CommonDataStore
 from txdav.common.datastore.sql_tables import schema
-from txdav.common.datastore.test.util import SQLStoreBuilder, \
-    TestStoreDirectoryService
-from txdav.common.datastore.test.util import theStoreBuilder, \
-    populateCalendarsFrom, StubNotifierFactory, resetCalendarMD5s, \
-    populateAddressBooksFrom, resetAddressBookMD5s, deriveValue, \
-    withSpecialValue
+from txdav.common.datastore.test.util import SQLStoreBuilder
+from txdav.common.datastore.test.util import (
+    populateCalendarsFrom, StubNotifierFactory, resetCalendarMD5s,
+    populateAddressBooksFrom, resetAddressBookMD5s, deriveValue,
+    withSpecialValue, CommonCommonTests
+)
 from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseStep, \
     StoreSpawnerService, swapAMP
 from txdav.xml import element
@@ -129,7 +129,7 @@ class StubSpawner(StoreSpawnerService):
 
 
 
-class HomeMigrationTests(TestCase):
+class HomeMigrationTests(CommonCommonTests, TestCase):
     """
     Tests for L{UpgradeToDatabaseStep}.
     """
@@ -161,25 +161,27 @@ END:VCALENDAR
         """
         Set up two stores to migrate between.
         """
+
+        yield super(HomeMigrationTests, self).setUp()
+        yield self.buildStoreAndDirectory(
+            extraUids=(
+                u"home1",
+                u"home2",
+                u"home3",
+                u"home_defaults",
+                u"home_no_splits",
+                u"home_splits",
+                u"home_splits_shared",
+            )
+        )
+        self.sqlStore = self.store
+
         # Add some files to the file store.
 
         self.filesPath = CachingFilePath(self.mktemp())
         self.filesPath.createDirectory()
         fileStore = self.fileStore = CommonDataStore(
-            self.filesPath, {"push": StubNotifierFactory()}, TestStoreDirectoryService(), True, True
-        )
-        self.sqlStore = yield theStoreBuilder.buildStore(
-            self,
-            StubNotifierFactory(),
-            homes=(
-                "home1",
-                "home2",
-                "home3",
-                "home_defaults",
-                "home_no_splits",
-                "home_splits",
-                "home_splits_shared",
-            )
+            self.filesPath, {"push": StubNotifierFactory()}, self.directory, True, True
         )
         self.upgrader = UpgradeToDatabaseStep(self.fileStore, self.sqlStore)
 

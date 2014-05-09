@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from txdav.caldav.datastore.test.util import buildDirectory
 
 """
 File calendar store tests.
@@ -23,28 +22,26 @@ File calendar store tests.
 # deleted and replaced with either implementation-specific methods on
 # FileStorageTests, or implementation-agnostic methods on CommonTests.
 
-from twisted.trial import unittest
-from twisted.internet.defer import inlineCallbacks
-
+from pycalendar.datetime import DateTime
 from twext.python.filepath import CachingFilePath as FilePath
-
+from twisted.internet.defer import inlineCallbacks
+from twisted.trial import unittest
 from twistedcaldav.ical import Component as VComponent
-
+from txdav.caldav.datastore.file import Calendar, CalendarObject
+from txdav.caldav.datastore.file import CalendarStore, CalendarHome
+from txdav.caldav.datastore.test.common import (
+    CommonTests, test_event_text, event1modified_text
+)
+from txdav.common.datastore.test.util import buildTestDirectory
+from txdav.common.datastore.test.util import StubNotifierFactory
+from txdav.common.datastore.test.util import deriveQuota
 from txdav.common.icommondatastore import HomeChildNameNotAllowedError
+from txdav.common.icommondatastore import NoSuchHomeChildError
 from txdav.common.icommondatastore import ObjectResourceNameNotAllowedError
 from txdav.common.icommondatastore import ObjectResourceUIDAlreadyExistsError
-from txdav.common.icommondatastore import NoSuchHomeChildError
-
-from txdav.caldav.datastore.file import CalendarStore, CalendarHome
-from txdav.caldav.datastore.file import Calendar, CalendarObject
-
-from txdav.common.datastore.test.util import deriveQuota
-from txdav.caldav.datastore.test.common import (
-    CommonTests, test_event_text, event1modified_text)
-
-from pycalendar.datetime import DateTime
 
 storePath = FilePath(__file__).parent().child("calendar_store")
+
 
 def _todo(f, why):
     f.todo = why
@@ -78,12 +75,15 @@ def setUpCalendarStore(test):
                             resource.setContent(resource.getContent() % {"now": nowYear})
 
     testID = test.id()
+    test.counter = 0
+    test.notifierFactory = StubNotifierFactory()
     test.calendarStore = CalendarStore(
         storeRootPath,
         {"push": test.notifierFactory} if test.notifierFactory else {},
-        buildDirectory(),
+        None,  # must create directory later
         quota=deriveQuota(test),
     )
+    test.directory = buildTestDirectory(test.calendarStore, test.mktemp())
     test.txn = test.calendarStore.newTransaction(testID + "(old)")
     assert test.calendarStore is not None, "No calendar store?"
 
@@ -131,6 +131,7 @@ class CalendarStoreTest(unittest.TestCase):
 class CalendarHomeTest(unittest.TestCase):
 
     notifierFactory = None
+
     def setUp(self):
         return setUpHome1(self)
 

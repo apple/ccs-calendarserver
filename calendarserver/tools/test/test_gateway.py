@@ -17,26 +17,30 @@ from __future__ import print_function
 
 import os
 from plistlib import readPlistFromString
+import plistlib
 import xml
 
 from twext.python.filepath import CachingFilePath as FilePath
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
-
-from twistedcaldav.config import config
-from twistedcaldav.test.util import StoreTestCase, CapturingProcessProtocol
-import plistlib
-from twistedcaldav.memcacheclient import ClientFactory
+from twisted.trial.unittest import TestCase
 from twistedcaldav import memcacher
+from twistedcaldav.config import config
+from twistedcaldav.memcacheclient import ClientFactory
+from twistedcaldav.test.util import CapturingProcessProtocol
+from txdav.common.datastore.test.util import (
+    theStoreBuilder, StubNotifierFactory
+)
 from txdav.who.idirectory import AutoScheduleMode
+from txdav.who.util import directoryFromConfig
 
 
-class RunCommandTestCase(StoreTestCase):
 
-    def configure(self):
-        """
-        Override the standard StoreTestCase configuration
-        """
+class RunCommandTestCase(TestCase):
+
+    @inlineCallbacks
+    def setUp(self):
+
         self.serverRoot = self.mktemp()
         os.mkdir(self.serverRoot)
         absoluteServerRoot = os.path.abspath(self.serverRoot)
@@ -62,7 +66,6 @@ class RunCommandTestCase(StoreTestCase):
             os.makedirs(runRoot)
 
         config.reset()
-        self.configInit()
 
         testRoot = os.path.join(os.path.dirname(__file__), "gateway")
         templateName = os.path.join(testRoot, "caldavd.plist")
@@ -134,11 +137,9 @@ class RunCommandTestCase(StoreTestCase):
         copyAugmentFile = FilePath(os.path.join(config.DataRoot, "augments.xml"))
         origAugmentFile.copyTo(copyAugmentFile)
 
-        # # Make sure trial puts the reactor in the right state, by letting it
-        # # run one reactor iteration.  (Ignore me, please.)
-        # d = Deferred()
-        # reactor.callLater(0, d.callback, True)
-        # return d
+        self.notifierFactory = StubNotifierFactory()
+        self.store = yield theStoreBuilder.buildStore(self, self.notifierFactory)
+        self.directory = directoryFromConfig(config, self.store)
 
 
     @inlineCallbacks

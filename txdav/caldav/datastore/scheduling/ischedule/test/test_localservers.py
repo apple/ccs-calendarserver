@@ -20,9 +20,12 @@ from twisted.trial import unittest
 
 from twistedcaldav.stdconfig import config
 
-from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers, SERVER_SECRET_HEADER
+from txdav.caldav.datastore.scheduling.ischedule.localservers import (
+    ServersDB, SERVER_SECRET_HEADER
+)
 
 import StringIO as StringIO
+
 
 class ServerTests(unittest.TestCase):
 
@@ -61,7 +64,7 @@ class ServerTests(unittest.TestCase):
         self.patch(config, "HTTPPort", 8008)
 
         xmlFile = StringIO.StringIO(data)
-        servers = Servers
+        servers = ServersDB()
         servers.load(xmlFile, ignoreIPLookupFailures=True)
 
         return servers
@@ -96,7 +99,7 @@ class ServerTests(unittest.TestCase):
         self.patch(config, "BindSSLPorts", [8843])
 
         xmlFile = StringIO.StringIO(ServerTests.data1)
-        servers = Servers
+        servers = ServersDB()
         servers.load(xmlFile, ignoreIPLookupFailures=True)
 
         self.assertFalse(servers.getServerById("00001").thisServer)

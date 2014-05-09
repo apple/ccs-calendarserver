@@ -29,11 +29,11 @@ from twistedcaldav.scheduling_store.caldav.resource import \
     deliverSchedulePrivilegeSet
 
 from txdav.xml import element as davxml
-from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers
 from txdav.common.datastore.podding.conduit import FailedCrossPodRequestError
 
 import base64
 import json
+
 
 class ConduitResource(ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildrenMixin, DAVResource):
     """
@@ -119,7 +119,7 @@ class ConduitResource(ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildrenMix
         """
 
         # Check shared secret
-        if not Servers.getThisServer().checkSharedSecret(request.headers):
+        if not self.store.directoryService().serversDB.getThisServer().checkSharedSecret(request.headers):
             self.log.error("Invalid shared secret header in cross-pod request")
             raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Not authorized to make this request"))
 

@@ -34,8 +34,6 @@ from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser
 from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler, \
     ScheduleReplyWork
 from txdav.caldav.datastore.scheduling.scheduler import ScheduleResponseQueue
-from txdav.caldav.datastore.test.util import buildCalendarStore, \
-    buildDirectoryRecord
 from txdav.caldav.icalendarstore import AttendeeAllowedError, \
     ComponentUpdateState
 from txdav.common.datastore.test.util import CommonCommonTests, populateCalendarsFrom
@@ -58,43 +56,16 @@ class FakeScheduler(object):
 
 
 
-class FakeDirectoryService(object):
-
-    def recordWithUID(self, uid):
-        return buildDirectoryRecord(uid)
-
-
-
-class FakeCalendarHome(object):
-
-    def __init__(self, uid):
-        self._uid = uid
-
-
-    def uid(self):
-        return self._uid
-
-
-    def directoryService(self):
-        if not hasattr(self, "_directoryService"):
-            self._directoryService = FakeDirectoryService()
-        return self._directoryService
-
-
-
-class FakeTxn(object):
-
-    def directoryService(self):
-        if not hasattr(self, "_directoryService"):
-            self._directoryService = FakeDirectoryService()
-        return self._directoryService
-
-
-
-class Implicit(TestCase):
+class Implicit(CommonCommonTests, TestCase):
     """
     iCalendar support tests
     """
+
+    @inlineCallbacks
+    def setUp(self):
+        yield super(Implicit, self).setUp()
+        yield self.buildStoreAndDirectory()
+
 
     @inlineCallbacks
     def test_removed_attendees(self):
@@ -109,9 +80,9 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
 END:VEVENT
 END:VCALENDAR
 """,
@@ -122,9 +93,9 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
 END:VEVENT
 END:VCALENDAR
 """,
@@ -139,9 +110,9 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
 END:VEVENT
 END:VCALENDAR
 """,
@@ -152,12 +123,12 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
 END:VEVENT
 END:VCALENDAR
 """,
-                (("mailto:user2@example.com", None),),
+                (("mailto:user02@example.com", None),),
             ),
             (
                 "#1.3 Simple component, two removals",
@@ -168,10 +139,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 END:VEVENT
 END:VCALENDAR
 """,
@@ -182,14 +153,14 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
 END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    ("mailto:user2@example.com", None),
-                    ("mailto:user3@example.com", None),
+                    ("mailto:user02@example.com", None),
+                    ("mailto:user03@example.com", None),
                 ),
             ),
             (
@@ -201,10 +172,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 RRULE:FREQ=MONTHLY
 END:VEVENT
 END:VCALENDAR
@@ -216,15 +187,15 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
 RRULE:FREQ=MONTHLY
 END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    ("mailto:user2@example.com", None),
-                    ("mailto:user3@example.com", None),
+                    ("mailto:user02@example.com", None),
+                    ("mailto:user03@example.com", None),
                 ),
             ),
             (
@@ -236,10 +207,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 RRULE:FREQ=MONTHLY
 END:VEVENT
 END:VCALENDAR
@@ -251,19 +222,19 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 RRULE:FREQ=MONTHLY
 EXDATE:20080801T120000Z
 END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    ("mailto:user1@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user2@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user3@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user01@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user02@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user03@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
                 ),
             ),
             (
@@ -275,10 +246,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 RRULE:FREQ=MONTHLY
 END:VEVENT
 END:VCALENDAR
@@ -290,22 +261,22 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 RRULE:FREQ=MONTHLY
 EXDATE:20080801T120000Z,20080901T120000Z
 END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    ("mailto:user1@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user2@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user3@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user1@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user2@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user3@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user01@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user02@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user03@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user01@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user02@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user03@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone(utc=True))),
                 ),
             ),
             (
@@ -317,10 +288,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 RRULE:FREQ=MONTHLY
 END:VEVENT
 END:VCALENDAR
@@ -332,10 +303,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 RRULE:FREQ=MONTHLY
 EXDATE:20080801T120000Z,20080901T120000Z
 EXDATE:20081201T120000Z
@@ -343,15 +314,15 @@ END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    ("mailto:user1@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user2@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user3@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user1@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user2@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user3@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user1@example.com", DateTime(2008, 12, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user2@example.com", DateTime(2008, 12, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user3@example.com", DateTime(2008, 12, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user01@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user02@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user03@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user01@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user02@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user03@example.com", DateTime(2008, 9, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user01@example.com", DateTime(2008, 12, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user02@example.com", DateTime(2008, 12, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user03@example.com", DateTime(2008, 12, 1, 12, 0, 0, tzid=Timezone(utc=True))),
                 ),
             ),
             (
@@ -363,10 +334,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 RRULE:FREQ=MONTHLY
 END:VEVENT
 BEGIN:VEVENT
@@ -374,10 +345,10 @@ UID:12345-67890
 RECURRENCE-ID:20080801T120000Z
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 END:VEVENT
 END:VCALENDAR
 """,
@@ -388,10 +359,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 RRULE:FREQ=MONTHLY
 END:VEVENT
 BEGIN:VEVENT
@@ -399,10 +370,10 @@ UID:12345-67890
 RECURRENCE-ID:20080801T120000Z
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 END:VEVENT
 END:VCALENDAR
 """,
@@ -417,10 +388,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 RRULE:FREQ=MONTHLY
 END:VEVENT
 BEGIN:VEVENT
@@ -428,10 +399,10 @@ UID:12345-67890
 RECURRENCE-ID:20080801T120000Z
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 END:VEVENT
 END:VCALENDAR
 """,
@@ -442,9 +413,9 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
 RRULE:FREQ=MONTHLY
 END:VEVENT
 BEGIN:VEVENT
@@ -452,15 +423,15 @@ UID:12345-67890
 RECURRENCE-ID:20080801T120000Z
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
 END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    ("mailto:user3@example.com", None),
-                    ("mailto:user3@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user03@example.com", None),
+                    ("mailto:user03@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
                 ),
             ),
             (
@@ -472,10 +443,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 RRULE:FREQ=MONTHLY
 END:VEVENT
 BEGIN:VEVENT
@@ -483,10 +454,10 @@ UID:12345-67890
 RECURRENCE-ID:20080801T120000Z
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 END:VEVENT
 END:VCALENDAR
 """,
@@ -497,10 +468,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 RRULE:FREQ=MONTHLY
 END:VEVENT
 BEGIN:VEVENT
@@ -508,14 +479,14 @@ UID:12345-67890
 RECURRENCE-ID:20080801T120000Z
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
 END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    ("mailto:user3@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user03@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
                 ),
             ),
             (
@@ -527,10 +498,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 RRULE:FREQ=MONTHLY
 END:VEVENT
 BEGIN:VEVENT
@@ -538,10 +509,10 @@ UID:12345-67890
 RECURRENCE-ID:20080801T120000Z
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 END:VEVENT
 END:VCALENDAR
 """,
@@ -552,9 +523,9 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
 RRULE:FREQ=MONTHLY
 END:VEVENT
 BEGIN:VEVENT
@@ -562,15 +533,15 @@ UID:12345-67890
 RECURRENCE-ID:20080801T120000Z
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    ("mailto:user3@example.com", None),
+                    ("mailto:user03@example.com", None),
                 ),
             ),
             (
@@ -582,10 +553,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 RRULE:FREQ=MONTHLY
 END:VEVENT
 BEGIN:VEVENT
@@ -593,10 +564,10 @@ UID:12345-67890
 RECURRENCE-ID:20080801T120000Z
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 END:VEVENT
 END:VCALENDAR
 """,
@@ -607,10 +578,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 RRULE:FREQ=MONTHLY
 END:VEVENT
 END:VCALENDAR
@@ -626,10 +597,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 RRULE:FREQ=MONTHLY
 END:VEVENT
 BEGIN:VEVENT
@@ -637,10 +608,10 @@ UID:12345-67890
 RECURRENCE-ID:20080801T120000Z
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 END:VEVENT
 END:VCALENDAR
 """,
@@ -651,19 +622,19 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 RRULE:FREQ=MONTHLY
 EXDATE:20080801T120000Z
 END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    ("mailto:user1@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user2@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user3@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user01@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user02@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user03@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
                 ),
             ),
             (
@@ -675,10 +646,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 RRULE:FREQ=MONTHLY
 END:VEVENT
 BEGIN:VEVENT
@@ -686,10 +657,10 @@ UID:12345-67890
 RECURRENCE-ID:20080801T120000Z
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user4@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user04@example.com
 END:VEVENT
 END:VCALENDAR
 """,
@@ -700,9 +671,9 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
 RRULE:FREQ=MONTHLY
 END:VEVENT
 BEGIN:VEVENT
@@ -710,15 +681,15 @@ UID:12345-67890
 RECURRENCE-ID:20080801T120000Z
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
 END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    ("mailto:user3@example.com", None),
-                    ("mailto:user4@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user03@example.com", None),
+                    ("mailto:user04@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
                 ),
             ),
             (
@@ -730,10 +701,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 RRULE:FREQ=MONTHLY
 END:VEVENT
 BEGIN:VEVENT
@@ -741,10 +712,10 @@ UID:12345-67890
 RECURRENCE-ID:20080801T120000Z
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user4@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user04@example.com
 END:VEVENT
 END:VCALENDAR
 """,
@@ -755,16 +726,16 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 RRULE:FREQ=MONTHLY
 END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    ("mailto:user4@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user04@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
                 ),
             ),
             (
@@ -776,10 +747,10 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 RRULE:FREQ=MONTHLY
 END:VEVENT
 BEGIN:VEVENT
@@ -787,10 +758,10 @@ UID:12345-67890
 RECURRENCE-ID:20080801T120000Z
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user4@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user04@example.com
 END:VEVENT
 END:VCALENDAR
 """,
@@ -801,19 +772,19 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
 RRULE:FREQ=MONTHLY
 EXDATE:20080801T120000Z
 END:VEVENT
 END:VCALENDAR
 """,
                 (
-                    ("mailto:user1@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user2@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
-                    ("mailto:user4@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user01@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user02@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
+                    ("mailto:user04@example.com", DateTime(2008, 8, 1, 12, 0, 0, tzid=Timezone(utc=True))),
                 ),
             ),
         )
@@ -826,12 +797,14 @@ END:VCALENDAR
             scheduler.oldInstances = set(scheduler.oldcalendar.getComponentInstances())
             scheduler.calendar = Component.fromString(calendar2)
 
-            scheduler.calendar_home = FakeCalendarHome("user01")
-            scheduler.txn = FakeTxn()
+            txn = self.transactionUnderTest()
+            scheduler.txn = txn
+            scheduler.calendar_home = yield self.homeUnderTest(txn=txn, name=u"user01", create=True)
 
             yield scheduler.extractCalendarData()
             scheduler.findRemovedAttendees()
             self.assertEqual(scheduler.cancelledAttendees, set(result), msg=description)
+            yield self.commit()
 
 
     @inlineCallbacks
@@ -841,9 +814,9 @@ END:VCALENDAR
         """
 
         data = (
-            ((), None, 3, ("mailto:user2@example.com", "mailto:user3@example.com", "mailto:user4@example.com",),),
-            (("mailto:user2@example.com",), None, 2, ("mailto:user3@example.com", "mailto:user4@example.com",),),
-            ((), ("mailto:user2@example.com", "mailto:user4@example.com",) , 2, ("mailto:user2@example.com", "mailto:user4@example.com",),),
+            ((), None, 3, ("mailto:user02@example.com", "mailto:user03@example.com", "mailto:user04@example.com",),),
+            (("mailto:user02@example.com",), None, 2, ("mailto:user03@example.com", "mailto:user04@example.com",),),
+            ((), ("mailto:user02@example.com", "mailto:user04@example.com",) , 2, ("mailto:user02@example.com", "mailto:user04@example.com",),),
         )
 
         calendar = """BEGIN:VCALENDAR
@@ -853,11 +826,11 @@ BEGIN:VEVENT
 UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
-ORGANIZER;CN="User 01":mailto:user1@example.com
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ATTENDEE:mailto:user3@example.com
-ATTENDEE:mailto:user4@example.com
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:mailto:user03@example.com
+ATTENDEE:mailto:user04@example.com
 END:VEVENT
 END:VCALENDAR
 """
@@ -874,14 +847,16 @@ END:VCALENDAR
             scheduler.changed_rids = None
             scheduler.reinvites = None
 
-            scheduler.calendar_home = FakeCalendarHome("user1")
-            scheduler.txn = FakeTxn()
+            txn = self.transactionUnderTest()
+            scheduler.txn = txn
+            scheduler.calendar_home = yield self.homeUnderTest(txn=txn, name=u"user01", create=True)
 
             # Get some useful information from the calendar
             yield scheduler.extractCalendarData()
+            record = yield self.directory.recordWithUID(scheduler.calendar_home.uid())
             scheduler.organizerAddress = LocalCalendarUser(
-                "mailto:user1@example.com",
-                buildDirectoryRecord(scheduler.calendar_home.uid()),
+                "mailto:user01@example.com",
+                record,
             )
 
             recipients = []
@@ -894,6 +869,7 @@ END:VCALENDAR
             self.assertEqual(count, result_count)
             self.assertEqual(len(recipients), result_count)
             self.assertEqual(set(recipients), set(result_set))
+            yield self.commit()
 
 
 
@@ -905,7 +881,7 @@ class ImplicitRequests(CommonCommonTests, TestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(ImplicitRequests, self).setUp()
-        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory)
+        yield self.buildStoreAndDirectory()
         yield self.populate()
 
 
@@ -937,13 +913,6 @@ class ImplicitRequests(CommonCommonTests, TestCase):
             },
         },
     }
-
-
-    def storeUnderTest(self):
-        """
-        Create and return a L{CalendarStore} for testing.
-        """
-        return self._sqlCalendarStore
 
 
     @inlineCallbacks

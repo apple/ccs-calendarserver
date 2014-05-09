@@ -55,7 +55,6 @@ from txdav.caldav.datastore.scheduling.scheduler import ScheduleResponseQueue
 from txdav.caldav.datastore.test.common import CommonTests as CalendarCommonTests, \
     test_event_text
 from txdav.caldav.datastore.test.test_file import setUpCalendarStore
-from txdav.caldav.datastore.test.util import buildCalendarStore
 from txdav.caldav.datastore.util import _migrateCalendar, migrateHome
 from txdav.caldav.icalendarstore import ComponentUpdateState, InvalidDefaultCalendar, \
     InvalidSplit
@@ -79,7 +78,7 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(CalendarSQLStorageTests, self).setUp()
-        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory)
+        yield self.buildStoreAndDirectory()
         yield self.populate()
 
         self.nowYear = {"now": DateTime.getToday().getYear()}
@@ -89,13 +88,6 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
-
-
-    def storeUnderTest(self):
-        """
-        Create and return a L{CalendarStore} for testing.
-        """
-        return self._sqlCalendarStore
 
 
     @inlineCallbacks
@@ -1990,7 +1982,7 @@ class SchedulingTests(CommonCommonTests, unittest.TestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(SchedulingTests, self).setUp()
-        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory)
+        yield self.buildStoreAndDirectory()
 
         # Make sure homes are provisioned
         txn = self.transactionUnderTest()
@@ -2004,13 +1996,6 @@ class SchedulingTests(CommonCommonTests, unittest.TestCase):
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
-
-
-    def storeUnderTest(self):
-        """
-        Create and return a L{CalendarStore} for testing.
-        """
-        return self._sqlCalendarStore
 
 
     @inlineCallbacks
@@ -2181,7 +2166,7 @@ UID:561F5DBB-3F38-4B3A-986F-DD05CBAF554F
 DTSTART;TZID=America/Los_Angeles:20131211T164500
 DTEND;TZID=America/Los_Angeles:20131211T174500
 ATTENDEE;CN=Conference Room One;CUTYPE=ROOM;PARTSTAT=ACCEPTED;ROLE=REQ-PARTICIPAN
- T;SCHEDULE-STATUS=2.0:urn:x-uid:room1
+ T;SCHEDULE-STATUS=2.0:urn:x-uid:room-addr-1
 ATTENDEE;CN=User 01;CUTYPE=INDIVIDUAL;EMAIL=user01@example.com;PARTSTAT=AC
  CEPTED:urn:x-uid:user01
 CREATED:20131211T221854Z
@@ -2198,7 +2183,7 @@ RECURRENCE-ID;TZID=America/Los_Angeles:20131214T164500
 DTSTART;TZID=America/Los_Angeles:20131214T160000
 DTEND;TZID=America/Los_Angeles:20131214T170000
 ATTENDEE;CN=Conference Room Two;CUTYPE=ROOM;PARTSTAT=ACCEPTED;ROLE=REQ-PARTICIPAN
- T;SCHEDULE-STATUS=2.0:urn:x-uid:room2
+ T;SCHEDULE-STATUS=2.0:urn:x-uid:room-addr-2
 ATTENDEE;CN=User 01;CUTYPE=INDIVIDUAL;EMAIL=user01@example.com;PARTSTAT=AC
  CEPTED:urn:x-uid:user01
 CREATED:20131211T221854Z
@@ -2222,7 +2207,7 @@ END:VCALENDAR
         # Check first component
         locProp = components[0].getProperty("LOCATION")
         self.assertEquals(locProp.value(),
-            "Conference Room One\n1 Infinite Loop, Cupertino, CA 95014")
+            "Room with Address 1\n1 Infinite Loop, Cupertino, CA 95014")
         structProp = components[0].getProperty("X-APPLE-STRUCTURED-LOCATION")
         self.assertEquals(structProp.value(),
             "geo:37.331741,-122.030333")
@@ -2230,7 +2215,7 @@ END:VCALENDAR
         # Check second component
         locProp = components[1].getProperty("LOCATION")
         self.assertEquals(locProp.value(),
-            "Conference Room Two\n2 Infinite Loop, Cupertino, CA 95014")
+            "Room with Address 2\n2 Infinite Loop, Cupertino, CA 95014")
         structProp = components[1].getProperty("X-APPLE-STRUCTURED-LOCATION")
         self.assertEquals(structProp.value(),
             "geo:37.332633,-122.030502")
@@ -2247,7 +2232,7 @@ class CalendarObjectSplitting(CommonCommonTests, unittest.TestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(CalendarObjectSplitting, self).setUp()
-        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory)
+        yield self.buildStoreAndDirectory()
 
         # Make sure homes are provisioned
         txn = self.transactionUnderTest()
@@ -2297,13 +2282,6 @@ class CalendarObjectSplitting(CommonCommonTests, unittest.TestCase):
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
-
-
-    def storeUnderTest(self):
-        """
-        Create and return a L{CalendarStore} for testing.
-        """
-        return self._sqlCalendarStore
 
 
     @inlineCallbacks

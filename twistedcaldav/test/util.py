@@ -35,10 +35,8 @@ from twistedcaldav.directory.calendar import (
 from twistedcaldav.directory.util import transactionFromRequest
 from twistedcaldav.memcacheclient import ClientFactory
 from twistedcaldav.stdconfig import config
-from txdav.caldav.datastore.test.util import buildCalendarStore
 from txdav.common.datastore.file import CommonDataStore
 from txdav.common.datastore.test.util import deriveQuota, CommonCommonTests
-from txdav.who.util import directoryFromConfig
 from txdav.xml import element as element
 from txweb2.dav.test.util import SimpleRequest
 import txweb2.dav.test.util
@@ -110,22 +108,17 @@ class SimpleStoreRequest(SimpleRequest):
 
 class StoreTestCase(CommonCommonTests, txweb2.dav.test.util.TestCase):
     """
-    A base class for tests that use the SQL store.
+    A base class for tests that use the SQL store and need to create and
+    verify filesystem hierarchies.
     """
 
     @inlineCallbacks
     def setUp(self):
         yield super(StoreTestCase, self).setUp()
 
-        self.configure()
+        yield self.buildStoreAndDirectory()
 
-        self._sqlCalendarStore = yield buildCalendarStore(
-            self, self.notifierFactory, None
-        )
-        self.directory = directoryFromConfig(config, self._sqlCalendarStore)
-        self._sqlCalendarStore.setDirectoryService(self.directory)
-
-        self.rootResource = getRootResource(config, self._sqlCalendarStore)
+        self.rootResource = getRootResource(config, self.store)
         self.actualRoot = self.rootResource.resource.resource
         self.site = Site(self.actualRoot)
 
@@ -136,36 +129,11 @@ class StoreTestCase(CommonCommonTests, txweb2.dav.test.util.TestCase):
         return succeed(None)
 
 
-    def storeUnderTest(self):
-        """
-        Return a store for testing.
-        """
-        return self._sqlCalendarStore
-
-
     def configure(self):
         """
         Adjust the global configuration for this test.
         """
-        self.serverRoot = self.mktemp()
-        os.mkdir(self.serverRoot)
-
-        config.reset()
-        self.configInit()
-
-        config.ServerRoot = os.path.abspath(self.serverRoot)
-        config.ConfigRoot = "config"
-        config.LogRoot = "logs"
-        config.RunRoot = "logs"
-
-        if not os.path.exists(config.DataRoot):
-            os.makedirs(config.DataRoot)
-        if not os.path.exists(config.DocumentRoot):
-            os.makedirs(config.DocumentRoot)
-        if not os.path.exists(config.ConfigRoot):
-            os.makedirs(config.ConfigRoot)
-        if not os.path.exists(config.LogRoot):
-            os.makedirs(config.LogRoot)
+        super(StoreTestCase, self).configure()
 
         config.Memcached.Pools.Default.ClientEnabled = False
         config.Memcached.Pools.Default.ServerEnabled = False
@@ -174,18 +142,6 @@ class StoreTestCase(CommonCommonTests, txweb2.dav.test.util.TestCase):
         memcacher.Memcacher.memoryCacheInstance = None
         config.DirectoryAddressBook.Enabled = False
         config.UsePackageTimezones = True
-
-        accounts = FilePath(config.DataRoot).child("accounts.xml")
-        accounts.setContent(xmlFile.getContent())
-
-        resources = FilePath(config.DataRoot).child("resources.xml")
-        resources.setContent(resourcesFile.getContent())
-
-        augments = FilePath(config.DataRoot).child("augments.xml")
-        augments.setContent(augmentsFile.getContent())
-
-        proxies = FilePath(config.DataRoot).child("proxies.xml")
-        proxies.setContent(proxiesFile.getContent())
 
 
     def createHierarchy(self, structure, root=None):

@@ -18,17 +18,17 @@
     group attendee tests
 """
 
+import os
+
+from twext.python.filepath import CachingFilePath as FilePath
 from twext.who.directory import DirectoryService
-from twext.who.test.test_xml import xmlService
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.trial import unittest
 from twistedcaldav.config import config
 from twistedcaldav.ical import Component, normalize_iCalStr, ignoredComponents
-from txdav.caldav.datastore.test.util import buildCalendarStore, populateCalendarsFrom, CommonCommonTests
+from txdav.caldav.datastore.test.util import populateCalendarsFrom, CommonCommonTests
 from txdav.who.directory import CalendarDirectoryRecordMixin
 from txdav.who.groups import GroupCacher
-from txdav.who.util import directoryFromConfig
-import os
 
 
 class GroupAttendeeReconciliation(CommonCommonTests, unittest.TestCase):
@@ -38,43 +38,29 @@ class GroupAttendeeReconciliation(CommonCommonTests, unittest.TestCase):
 
     @inlineCallbacks
     def setUp(self):
-        self.patch(config.GroupAttendees, "Enabled", "True")
-        self.patch(config.GroupAttendees, "ReconciliationDelaySeconds", "0")
-
         yield super(GroupAttendeeReconciliation, self).setUp()
-        self.xmlService = xmlService(self.mktemp(), xmlData=None)
 
-        self.patch(
-            config.DirectoryService.params,
-            "xmlFile",
-            os.path.join(
-                os.path.dirname(__file__), "accounts", "groupAttendeeAccounts.xml"
-            )
+        accountsFilePath = FilePath(
+            os.path.join(os.path.dirname(__file__), "accounts")
         )
-        self.patch(
-            config.ResourceService.params,
-            "xmlFile",
-            os.path.join(
-                os.path.dirname(__file__), "accounts", "resources.xml"
-            )
+        yield self.buildStoreAndDirectory(
+            accounts=accountsFilePath.child("groupAttendeeAccounts.xml"),
+            resources=accountsFilePath.child("resources.xml"),
         )
-        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory, directoryFromConfig(config))
         yield self.populate()
 
         self.paths = {}
 
 
-    def storeUnderTest(self):
-        """
-        Create and return a L{CalendarStore} for testing.
-        """
-        return self._sqlCalendarStore
+    def configure(self):
+        super(GroupAttendeeReconciliation, self).configure()
+        config.GroupAttendees.Enabled = True
+        config.GroupAttendees.ReconciliationDelaySeconds = 0
 
 
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
-        self.notifierFactory.reset()
 
     requirements = {
         "10000000-0000-0000-0000-000000000001" : None,

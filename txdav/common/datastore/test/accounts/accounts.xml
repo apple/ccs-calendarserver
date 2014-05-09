@@ -1,0 +1,1829 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+Copyright (c) 2006-2014 Apple Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+ -->
+
+<!DOCTYPE accounts SYSTEM "accounts.dtd">
+
+<directory realm="Test Realm">
+  <record type="user">
+    <uid>D11F03A0-97EA-48AF-9A6C-FAC7F3975766</uid>
+    <short-name>admin</short-name>
+    <password>nimda</password>
+    <full-name>Administrators</full-name>
+  </record>
+  <record type="user">
+    <uid>6423F94A-6B76-4A3A-815B-D52CFD77935D</uid>
+    <guid>6423F94A-6B76-4A3A-815B-D52CFD77935D</guid>
+    <short-name>wsanchez</short-name>
+    <password>zehcnasw</password>
+    <full-name>Wilfredo Sanchez</full-name>
+    <email>wsanchez@example.com</email>
+  </record>
+  <record type="user">
+    <uid>5A985493-EE2C-4665-94CF-4DFEA3A89500</uid>
+    <guid>5A985493-EE2C-4665-94CF-4DFEA3A89500</guid>
+    <short-name>cdaboo</short-name>
+    <password>oobadc</password>
+    <full-name>Cyrus Daboo</full-name>
+    <email>cdaboo@example.com</email>
+  </record>
+  <record type="user">
+    <uid>8B4288F6-CC82-491D-8EF9-642EF4F3E7D0</uid>
+    <short-name>lecroy</short-name>
+    <password>yorcel</password>
+    <full-name>Chris Lecroy</full-name>
+    <email>lecroy@example.com</email>
+  </record>
+  <record type="user">
+    <uid>5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1</uid>
+    <short-name>dreid</short-name>
+    <password>dierd</password>
+    <full-name>David Reid</full-name>
+    <email>dreid@example.com</email>
+  </record>
+  <record type="user">
+    <uid>8E04787E-336D-41ED-A70B-D233AD0DCE6F</uid>
+    <guid>8E04787E-336D-41ED-A70B-D233AD0DCE6F</guid>
+    <short-name>doublequotes</short-name>
+    <password>setouqelbuod</password>
+    <full-name>Double "quotey" Quotes</full-name>
+    <email>doublequotes@example.com</email>
+  </record>
+  <record type="user">
+    <uid>37DB0C90-4DB1-4932-BC69-3DAB66F374F5</uid>
+    <guid>37DB0C90-4DB1-4932-BC69-3DAB66F374F5</guid>
+    <short-name>purgeuser</short-name>
+    <password>purgeuser</password>
+    <full-name>Purge User</full-name>
+    <email>purgeuser@example.com</email>
+  </record>
+  <record type="user">
+    <uid>uid1</uid>
+    <short-name>uid1</short-name>
+    <password>uid1</password>
+    <full-name>uid One</full-name>
+    <email>uid1@example.com</email>
+  </record>
+  <record type="user">
+    <uid>uid2</uid>
+    <short-name>uid2</short-name>
+    <password>uid2</password>
+    <full-name>uid Two</full-name>
+    <email>uid2@example.com</email>
+  </record>
+
+  <record type="user">
+    <uid>home1</uid>
+    <short-name>home1</short-name>
+    <password>home1</password>
+    <full-name>Home One</full-name>
+    <email>home1@example.com</email>
+  </record>
+  <record type="user">
+    <uid>home2</uid>
+    <short-name>home2</short-name>
+    <password>home2</password>
+    <full-name>Home Two</full-name>
+    <email>home2@example.com</email>
+  </record>
+    <record type="user">
+    <uid>home3</uid>
+    <short-name>home3</short-name>
+    <password>home3</password>
+    <full-name>Home Three</full-name>
+    <email>home3@example.com</email>
+  </record>
+
+  <record type="user">
+    <uid>home_splits</uid>
+    <short-name>home_splits</short-name>
+    <password>home_splits</password>
+    <full-name>Home Splits</full-name>
+    <email>home_splits@example.com</email>
+  </record>
+  <record type="user">
+    <uid>home_no_splits</uid>
+    <short-name>home_no_splits</short-name>
+    <password>home_no_splits</password>
+    <full-name>Home NoSplits</full-name>
+    <email>home_no_splits@example.com</email>
+  </record>
+  <record type="user">
+    <uid>home_defaults</uid>
+    <short-name>home_defaults</short-name>
+    <password>home_defaults</password>
+    <full-name>Home Defaults</full-name>
+    <email>home_defaults@example.com</email>
+  </record>
+  <record type="user">
+    <uid>home_splits_shared</uid>
+    <short-name>home_splits_shared</short-name>
+    <password>home_splits_shared</password>
+    <full-name>Home SplitsShared</full-name>
+    <email>home_splits_shared@example.com</email>
+  </record>
+  <record type="user">
+    <uid>new-home</uid>
+    <short-name>new-home</short-name>
+    <password>new-home</password>
+    <full-name>New Home</full-name>
+    <email>new-home@example.com</email>
+  </record>
+  <record type="user">
+    <uid>home_provision1</uid>
+    <short-name>home_provision1</short-name>
+    <password>home_provision1</password>
+    <full-name>Home Provision1</full-name>
+    <email>home_provision1@example.com</email>
+  </record>
+  <record type="user">
+    <uid>home_provision2</uid>
+    <short-name>home_provision2</short-name>
+    <password>home_provision2</password>
+    <full-name>Home Provision2</full-name>
+    <email>home_provision2@example.com</email>
+  </record>
+  <record type="user">
+    <uid>home_attachments</uid>
+    <short-name>home_attachments</short-name>
+    <password>home_attachments</password>
+    <full-name>Home Attachments</full-name>
+    <email>home_attachments@example.com</email>
+  </record>
+  <record type="user">
+    <uid>xyzzy</uid>
+    <short-name>xyzzy</short-name>
+    <password>xyzzy</password>
+    <full-name>xyzzy</full-name>
+    <email>xyzzy@example.com</email>
+  </record>
+
+  <record type="user">
+    <uid>543D28BA-F74F-4D5F-9243-B3E3A61171E5</uid>
+    <short-name>nocalendar</short-name>
+    <password>radnelacon</password>
+    <full-name>No Calendar</full-name>
+    <email>nocalendar@example.com</email>
+  </record>
+  <record type="user">
+    <uid>7423F94A-6B76-4A3A-815B-D52CFD77935D</uid>
+    <short-name>usera</short-name>
+    <password>a</password>
+    <full-name>a</full-name>
+    <email>a@example.com</email>
+  </record>
+  <record type="user">
+    <uid>8A985493-EE2C-4665-94CF-4DFEA3A89500</uid>
+    <short-name>userb</short-name>
+    <password>b</password>
+    <full-name>b</full-name>
+    <email>b@example.com</email>
+  </record>
+  <record type="user">
+    <uid>9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD2</uid>
+    <short-name>userc</short-name>
+    <password>c</password>
+    <full-name>c</full-name>
+    <email>c@example.com</email>
+  </record>
+  <record type="user">
+    <uid>9E1FFAC4-3CCD-45A1-8272-D161C92D2EEE</uid>
+    <short-name>usercalonly</short-name>
+    <password>a</password>
+    <full-name>a calonly</full-name>
+    <email>a-calonly@example.com</email>
+  </record>
+  <record type="user">
+    <uid>7678EC8A-A069-4E82-9066-7279C6718507</uid>
+    <short-name>useradbkonly</short-name>
+    <password>a</password>
+    <full-name>a adbkonly</full-name>
+    <email>a-adbkonly@example.com</email>
+  </record>
+  <record type="user">
+    <uid>320B73A1-46E2-4180-9563-782DFDBE1F63</uid>
+    <short-name>nonascii</short-name>
+    <short-name>nonascii佐藤</short-name>
+    <password>a</password>
+    <full-name>佐藤佐藤佐藤</full-name>
+    <email>nonascii@example.com</email>
+  </record>
+  <record type="user">
+    <uid>FC465590-E9E9-4746-ACE8-6C756A49FE4D</uid>
+    <short-name>delegator</short-name>
+    <password>a</password>
+    <full-name>Calendar Delegator</full-name>
+    <email>calendardelegator@example.com</email>
+  </record>
+  <record type="user">
+    <uid>EC465590-E9E9-4746-ACE8-6C756A49FE4D</uid>
+    <short-name>occasionaldelegate</short-name>
+    <password>a</password>
+    <full-name>Occasional Delegate</full-name>
+    <email>occasional@example.com</email>
+  </record>
+  <record type="user">
+    <uid>46D9D716-CBEE-490F-907A-66FA6C3767FF</uid>
+    <short-name>delegateviagroup</short-name>
+    <password>a</password>
+    <full-name>Delegate Via Group</full-name>
+    <email>delegateviagroup@example.com</email>
+  </record>
+  <record type="group">
+    <uid>00599DAF-3E75-42DD-9DB7-52617E79943F</uid>
+    <short-name>delegategroup</short-name>
+    <full-name>Delegate Group</full-name>
+    <member-uid>46D9D716-CBEE-490F-907A-66FA6C3767FF</member-uid>
+  </record>
+
+  <record type="user">
+    <uid>__wsanchez1__</uid>
+    <short-name>wsanchez1</short-name>
+    <short-name>wilfredo_sanchez</short-name>
+    <password>zehcnasw</password>
+    <full-name>Wilfredo Sanchez</full-name>
+    <email>wsanchez@bitbucket.calendarserver.org</email>
+    <email>wsanchez@devnull.twistedmatrix.com</email>
+  </record>
+
+  <record type="user">
+    <uid>__glyph1__</uid>
+    <short-name>glyph1</short-name>
+    <password>hpylg</password>
+    <full-name>Glyph Lefkowitz</full-name>
+    <email>glyph@bitbucket.calendarserver.org</email>
+    <email>glyph@devnull.twistedmatrix.com</email>
+  </record>
+
+  <record type="user">
+    <uid>__sagen1__</uid>
+    <short-name>sagen</short-name>
+    <short-name>sagen1</short-name>
+    <password>negas</password>
+    <full-name>Morgen Sagen</full-name>
+    <email>sagen@bitbucket.calendarserver.org</email>
+  </record>
+
+  <record type="user">
+    <uid>__cdaboo1__</uid>
+    <short-name>cdaboo1</short-name>
+    <password>suryc</password>
+    <full-name>Cyrus Daboo</full-name>
+    <email>cdaboo@bitbucket.calendarserver.org</email>
+  </record>
+
+  <record type="user">
+    <uid>__dre1__</uid>
+    <short-name>dre1</short-name>
+    <short-name>dre</short-name>
+    <password>erd</password>
+    <full-name>Andre LaBranche</full-name>
+    <email>dre@bitbucket.calendarserver.org</email>
+  </record>
+
+  <record type="group">
+    <uid>__top_group_1__</uid>
+    <short-name>top-group-1</short-name>
+    <full-name>Top Group 1</full-name>
+    <email>topgroup1@example.com</email>
+    <member-uid>__wsanchez1__</member-uid>
+    <member-uid>__glyph1__</member-uid>
+    <member-uid>__sub_group_1__</member-uid>
+  </record>
+
+  <record type="group">
+    <uid>__sub_group_1__</uid>
+    <short-name>sub-group-1</short-name>
+    <full-name>Sub Group 1</full-name>
+    <email>subgroup1@example.com</email>
+    <member-uid>__sagen1__</member-uid>
+    <member-uid>__cdaboo1__</member-uid>
+  </record>
+
+
+  <record type="group">
+    <uid>9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1</uid>
+    <short-name>managers</short-name>
+    <password>managers</password>
+    <full-name>Managers</full-name>
+      <member-uid>8B4288F6-CC82-491D-8EF9-642EF4F3E7D0</member-uid>
+  </record>
+  <record type="group">
+    <uid>admin</uid>
+    <short-name>admin</short-name>
+    <password>admin</password>
+    <full-name>Administrators</full-name>
+      <member-uid>9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1</member-uid>
+  </record>
+  <record type="group">
+    <uid>grunts</uid>
+    <short-name>grunts</short-name>
+    <password>grunts</password>
+    <full-name>We do all the work</full-name>
+      <member-uid>6423F94A-6B76-4A3A-815B-D52CFD77935D</member-uid>
+      <member-uid>5A985493-EE2C-4665-94CF-4DFEA3A89500</member-uid>
+      <member-uid>5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1</member-uid>
+  </record>
+  <record type="group">
+    <uid>right_coast</uid>
+    <short-name>right_coast</short-name>
+    <password>right_coast</password>
+    <full-name>East Coast</full-name>
+      <member-uid>5A985493-EE2C-4665-94CF-4DFEA3A89500</member-uid>
+  </record>
+  <record type="group">
+    <uid>left_coast</uid>
+    <short-name>left_coast</short-name>
+    <password>left_coast</password>
+    <full-name>West Coast</full-name>
+      <member-uid>6423F94A-6B76-4A3A-815B-D52CFD77935D</member-uid>
+      <member-uid>8B4288F6-CC82-491D-8EF9-642EF4F3E7D0</member-uid>
+      <member-uid>5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1</member-uid>
+  </record>
+  <record type="group">
+    <uid>both_coasts</uid>
+    <short-name>both_coasts</short-name>
+    <password>both_coasts</password>
+    <full-name>Both Coasts</full-name>
+      <member-uid>right_coast</member-uid>
+      <member-uid>left_coast</member-uid>
+  </record>
+  <record type="group">
+    <uid>recursive1_coasts</uid>
+    <short-name>recursive1_coasts</short-name>
+    <password>recursive1_coasts</password>
+    <full-name>Recursive1 Coasts</full-name>
+      <member-uid>recursive2_coasts</member-uid>
+      <member-uid>6423F94A-6B76-4A3A-815B-D52CFD77935D</member-uid>
+  </record>
+  <record type="group">
+    <uid>recursive2_coasts</uid>
+    <short-name>recursive2_coasts</short-name>
+    <password>recursive2_coasts</password>
+    <full-name>Recursive2 Coasts</full-name>
+      <member-uid>recursive1_coasts</member-uid>
+      <member-uid>5A985493-EE2C-4665-94CF-4DFEA3A89500</member-uid>
+  </record>
+  <record type="group">
+    <uid>non_calendar_group</uid>
+    <short-name>non_calendar_group</short-name>
+    <password>non_calendar_group</password>
+    <full-name>Non-calendar group</full-name>
+      <member-uid>5A985493-EE2C-4665-94CF-4DFEA3A89500</member-uid>
+      <member-uid>8B4288F6-CC82-491D-8EF9-642EF4F3E7D0</member-uid>
+  </record>
+
+  <!-- Calverify test records -->
+
+  <record type="user">
+    <uid>D46F3D71-04B7-43C2-A7B6-6F92F92E61D0</uid>
+    <guid>D46F3D71-04B7-43C2-A7B6-6F92F92E61D0</guid>
+    <short-name>example1</short-name>
+    <password>example</password>
+    <full-name>Example User1</full-name>
+    <email>example1@example.com</email>
+  </record>
+
+  <record type="user">
+    <uid>47B16BB4-DB5F-4BF6-85FE-A7DA54230F92</uid>
+    <guid>47B16BB4-DB5F-4BF6-85FE-A7DA54230F92</guid>
+    <short-name>example2</short-name>
+    <password>example</password>
+    <full-name>Example User2</full-name>
+    <email>example2@example.com</email>
+  </record>
+
+  <record type="user">
+    <uid>AC478592-7783-44D1-B2AE-52359B4E8415</uid>
+    <guid>AC478592-7783-44D1-B2AE-52359B4E8415</guid>
+    <short-name>example3</short-name>
+    <password>example</password>
+    <full-name>Example User3</full-name>
+    <email>example3@example.com</email>
+  </record>
+
+  <record type="user">
+    <uid>A89E3A97-1658-4E45-A185-479F3E49D446</uid>
+    <guid>A89E3A97-1658-4E45-A185-479F3E49D446</guid>
+    <short-name>example4</short-name>
+    <password>example</password>
+    <full-name>Example User4</full-name>
+    <email>example4@example.com</email>
+  </record>
+
+
+<record type="user">
+    <uid>user01</uid>
+    <short-name>user01</short-name>
+    <password>user01</password>
+    <full-name>User 01</full-name>
+    <email>user01@example.com</email>
+</record>
+<record type="user">
+    <uid>user02</uid>
+    <short-name>user02</short-name>
+    <password>user02</password>
+    <full-name>User 02</full-name>
+    <email>user02@example.com</email>
+</record>
+<record type="user">
+    <uid>user03</uid>
+    <short-name>user03</short-name>
+    <password>user03</password>
+    <full-name>User 03</full-name>
+    <email>user03@example.com</email>
+</record>
+<record type="user">
+    <uid>user04</uid>
+    <short-name>user04</short-name>
+    <password>user04</password>
+    <full-name>User 04</full-name>
+    <email>user04@example.com</email>
+</record>
+<record type="user">
+    <uid>user05</uid>
+    <short-name>user05</short-name>
+    <password>user05</password>
+    <full-name>User 05</full-name>
+    <email>user05@example.com</email>
+</record>
+<record type="user">
+    <uid>user06</uid>
+    <short-name>user06</short-name>
+    <password>user06</password>
+    <full-name>User 06</full-name>
+    <email>user06@example.com</email>
+</record>
+<record type="user">
+    <uid>user07</uid>
+    <short-name>user07</short-name>
+    <password>user07</password>
+    <full-name>User 07</full-name>
+    <email>user07@example.com</email>
+</record>
+<record type="user">
+    <uid>user08</uid>
+    <short-name>user08</short-name>
+    <password>user08</password>
+    <full-name>User 08</full-name>
+    <email>user08@example.com</email>
+</record>
+<record type="user">
+    <uid>user09</uid>
+    <short-name>user09</short-name>
+    <password>user09</password>
+    <full-name>User 09</full-name>
+    <email>user09@example.com</email>
+</record>
+<record type="user">
+    <uid>user10</uid>
+    <short-name>user10</short-name>
+    <password>user10</password>
+    <full-name>User 10</full-name>
+    <email>user10@example.com</email>
+</record>
+<record type="user">
+    <uid>user11</uid>
+    <short-name>user11</short-name>
+    <password>user11</password>
+    <full-name>User 11</full-name>
+    <email>user11@example.com</email>
+</record>
+<record type="user">
+    <uid>user12</uid>
+    <short-name>user12</short-name>
+    <password>user12</password>
+    <full-name>User 12</full-name>
+    <email>user12@example.com</email>
+</record>
+<record type="user">
+    <uid>user13</uid>
+    <short-name>user13</short-name>
+    <password>user13</password>
+    <full-name>User 13</full-name>
+    <email>user13@example.com</email>
+</record>
+<record type="user">
+    <uid>user14</uid>
+    <short-name>user14</short-name>
+    <password>user14</password>
+    <full-name>User 14</full-name>
+    <email>user14@example.com</email>
+</record>
+<record type="user">
+    <uid>user15</uid>
+    <short-name>user15</short-name>
+    <password>user15</password>
+    <full-name>User 15</full-name>
+    <email>user15@example.com</email>
+</record>
+<record type="user">
+    <uid>user16</uid>
+    <short-name>user16</short-name>
+    <password>user16</password>
+    <full-name>User 16</full-name>
+    <email>user16@example.com</email>
+</record>
+<record type="user">
+    <uid>user17</uid>
+    <short-name>user17</short-name>
+    <password>user17</password>
+    <full-name>User 17</full-name>
+    <email>user17@example.com</email>
+</record>
+<record type="user">
+    <uid>user18</uid>
+    <short-name>user18</short-name>
+    <password>user18</password>
+    <full-name>User 18</full-name>
+    <email>user18@example.com</email>
+</record>
+<record type="user">
+    <uid>user19</uid>
+    <short-name>user19</short-name>
+    <password>user19</password>
+    <full-name>User 19</full-name>
+    <email>user19@example.com</email>
+</record>
+<record type="user">
+    <uid>user20</uid>
+    <short-name>user20</short-name>
+    <password>user20</password>
+    <full-name>User 20</full-name>
+    <email>user20@example.com</email>
+</record>
+<record type="user">
+    <uid>user21</uid>
+    <short-name>user21</short-name>
+    <password>user21</password>
+    <full-name>User 21</full-name>
+    <email>user21@example.com</email>
+</record>
+<record type="user">
+    <uid>user22</uid>
+    <short-name>user22</short-name>
+    <password>user22</password>
+    <full-name>User 22</full-name>
+    <email>user22@example.com</email>
+</record>
+<record type="user">
+    <uid>user23</uid>
+    <short-name>user23</short-name>
+    <password>user23</password>
+    <full-name>User 23</full-name>
+    <email>user23@example.com</email>
+</record>
+<record type="user">
+    <uid>user24</uid>
+    <short-name>user24</short-name>
+    <password>user24</password>
+    <full-name>User 24</full-name>
+    <email>user24@example.com</email>
+</record>
+<record type="user">
+    <uid>user25</uid>
+    <short-name>user25</short-name>
+    <password>user25</password>
+    <full-name>User 25</full-name>
+    <email>user25@example.com</email>
+</record>
+<record type="user">
+    <uid>user26</uid>
+    <short-name>user26</short-name>
+    <password>user26</password>
+    <full-name>User 26</full-name>
+    <email>user26@example.com</email>
+</record>
+<record type="user">
+    <uid>user27</uid>
+    <short-name>user27</short-name>
+    <password>user27</password>
+    <full-name>User 27</full-name>
+    <email>user27@example.com</email>
+</record>
+<record type="user">
+    <uid>user28</uid>
+    <short-name>user28</short-name>
+    <password>user28</password>
+    <full-name>User 28</full-name>
+    <email>user28@example.com</email>
+</record>
+<record type="user">
+    <uid>user29</uid>
+    <short-name>user29</short-name>
+    <password>user29</password>
+    <full-name>User 29</full-name>
+    <email>user29@example.com</email>
+</record>
+<record type="user">
+    <uid>user30</uid>
+    <short-name>user30</short-name>
+    <password>user30</password>
+    <full-name>User 30</full-name>
+    <email>user30@example.com</email>
+</record>
+<record type="user">
+    <uid>user31</uid>
+    <short-name>user31</short-name>
+    <password>user31</password>
+    <full-name>User 31</full-name>
+    <email>user31@example.com</email>
+</record>
+<record type="user">
+    <uid>user32</uid>
+    <short-name>user32</short-name>
+    <password>user32</password>
+    <full-name>User 32</full-name>
+    <email>user32@example.com</email>
+</record>
+<record type="user">
+    <uid>user33</uid>
+    <short-name>user33</short-name>
+    <password>user33</password>
+    <full-name>User 33</full-name>
+    <email>user33@example.com</email>
+</record>
+<record type="user">
+    <uid>user34</uid>
+    <short-name>user34</short-name>
+    <password>user34</password>
+    <full-name>User 34</full-name>
+    <email>user34@example.com</email>
+</record>
+<record type="user">
+    <uid>user35</uid>
+    <short-name>user35</short-name>
+    <password>user35</password>
+    <full-name>User 35</full-name>
+    <email>user35@example.com</email>
+</record>
+<record type="user">
+    <uid>user36</uid>
+    <short-name>user36</short-name>
+    <password>user36</password>
+    <full-name>User 36</full-name>
+    <email>user36@example.com</email>
+</record>
+<record type="user">
+    <uid>user37</uid>
+    <short-name>user37</short-name>
+    <password>user37</password>
+    <full-name>User 37</full-name>
+    <email>user37@example.com</email>
+</record>
+<record type="user">
+    <uid>user38</uid>
+    <short-name>user38</short-name>
+    <password>user38</password>
+    <full-name>User 38</full-name>
+    <email>user38@example.com</email>
+</record>
+<record type="user">
+    <uid>user39</uid>
+    <short-name>user39</short-name>
+    <password>user39</password>
+    <full-name>User 39</full-name>
+    <email>user39@example.com</email>
+</record>
+<record type="user">
+    <uid>user40</uid>
+    <short-name>user40</short-name>
+    <password>user40</password>
+    <full-name>User 40</full-name>
+    <email>user40@example.com</email>
+</record>
+<record type="user">
+    <uid>user41</uid>
+    <short-name>user41</short-name>
+    <password>user41</password>
+    <full-name>User 41</full-name>
+    <email>user41@example.com</email>
+</record>
+<record type="user">
+    <uid>user42</uid>
+    <short-name>user42</short-name>
+    <password>user42</password>
+    <full-name>User 42</full-name>
+    <email>user42@example.com</email>
+</record>
+<record type="user">
+    <uid>user43</uid>
+    <short-name>user43</short-name>
+    <password>user43</password>
+    <full-name>User 43</full-name>
+    <email>user43@example.com</email>
+</record>
+<record type="user">
+    <uid>user44</uid>
+    <short-name>user44</short-name>
+    <password>user44</password>
+    <full-name>User 44</full-name>
+    <email>user44@example.com</email>
+</record>
+<record type="user">
+    <uid>user45</uid>
+    <short-name>user45</short-name>
+    <password>user45</password>
+    <full-name>User 45</full-name>
+    <email>user45@example.com</email>
+</record>
+<record type="user">
+    <uid>user46</uid>
+    <short-name>user46</short-name>
+    <password>user46</password>
+    <full-name>User 46</full-name>
+    <email>user46@example.com</email>
+</record>
+<record type="user">
+    <uid>user47</uid>
+    <short-name>user47</short-name>
+    <password>user47</password>
+    <full-name>User 47</full-name>
+    <email>user47@example.com</email>
+</record>
+<record type="user">
+    <uid>user48</uid>
+    <short-name>user48</short-name>
+    <password>user48</password>
+    <full-name>User 48</full-name>
+    <email>user48@example.com</email>
+</record>
+<record type="user">
+    <uid>user49</uid>
+    <short-name>user49</short-name>
+    <password>user49</password>
+    <full-name>User 49</full-name>
+    <email>user49@example.com</email>
+</record>
+<record type="user">
+    <uid>user50</uid>
+    <short-name>user50</short-name>
+    <password>user50</password>
+    <full-name>User 50</full-name>
+    <email>user50@example.com</email>
+</record>
+<record type="user">
+    <uid>user51</uid>
+    <short-name>user51</short-name>
+    <password>user51</password>
+    <full-name>User 51</full-name>
+    <email>user51@example.com</email>
+</record>
+<record type="user">
+    <uid>user52</uid>
+    <short-name>user52</short-name>
+    <password>user52</password>
+    <full-name>User 52</full-name>
+    <email>user52@example.com</email>
+</record>
+<record type="user">
+    <uid>user53</uid>
+    <short-name>user53</short-name>
+    <password>user53</password>
+    <full-name>User 53</full-name>
+    <email>user53@example.com</email>
+</record>
+<record type="user">
+    <uid>user54</uid>
+    <short-name>user54</short-name>
+    <password>user54</password>
+    <full-name>User 54</full-name>
+    <email>user54@example.com</email>
+</record>
+<record type="user">
+    <uid>user55</uid>
+    <short-name>user55</short-name>
+    <password>user55</password>
+    <full-name>User 55</full-name>
+    <email>user55@example.com</email>
+</record>
+<record type="user">
+    <uid>user56</uid>
+    <short-name>user56</short-name>
+    <password>user56</password>
+    <full-name>User 56</full-name>
+    <email>user56@example.com</email>
+</record>
+<record type="user">
+    <uid>user57</uid>
+    <short-name>user57</short-name>
+    <password>user57</password>
+    <full-name>User 57</full-name>
+    <email>user57@example.com</email>
+</record>
+<record type="user">
+    <uid>user58</uid>
+    <short-name>user58</short-name>
+    <password>user58</password>
+    <full-name>User 58</full-name>
+    <email>user58@example.com</email>
+</record>
+<record type="user">
+    <uid>user59</uid>
+    <short-name>user59</short-name>
+    <password>user59</password>
+    <full-name>User 59</full-name>
+    <email>user59@example.com</email>
+</record>
+<record type="user">
+    <uid>user60</uid>
+    <short-name>user60</short-name>
+    <password>user60</password>
+    <full-name>User 60</full-name>
+    <email>user60@example.com</email>
+</record>
+<record type="user">
+    <uid>user61</uid>
+    <short-name>user61</short-name>
+    <password>user61</password>
+    <full-name>User 61</full-name>
+    <email>user61@example.com</email>
+</record>
+<record type="user">
+    <uid>user62</uid>
+    <short-name>user62</short-name>
+    <password>user62</password>
+    <full-name>User 62</full-name>
+    <email>user62@example.com</email>
+</record>
+<record type="user">
+    <uid>user63</uid>
+    <short-name>user63</short-name>
+    <password>user63</password>
+    <full-name>User 63</full-name>
+    <email>user63@example.com</email>
+</record>
+<record type="user">
+    <uid>user64</uid>
+    <short-name>user64</short-name>
+    <password>user64</password>
+    <full-name>User 64</full-name>
+    <email>user64@example.com</email>
+</record>
+<record type="user">
+    <uid>user65</uid>
+    <short-name>user65</short-name>
+    <password>user65</password>
+    <full-name>User 65</full-name>
+    <email>user65@example.com</email>
+</record>
+<record type="user">
+    <uid>user66</uid>
+    <short-name>user66</short-name>
+    <password>user66</password>
+    <full-name>User 66</full-name>
+    <email>user66@example.com</email>
+</record>
+<record type="user">
+    <uid>user67</uid>
+    <short-name>user67</short-name>
+    <password>user67</password>
+    <full-name>User 67</full-name>
+    <email>user67@example.com</email>
+</record>
+<record type="user">
+    <uid>user68</uid>
+    <short-name>user68</short-name>
+    <password>user68</password>
+    <full-name>User 68</full-name>
+    <email>user68@example.com</email>
+</record>
+<record type="user">
+    <uid>user69</uid>
+    <short-name>user69</short-name>
+    <password>user69</password>
+    <full-name>User 69</full-name>
+    <email>user69@example.com</email>
+</record>
+<record type="user">
+    <uid>user70</uid>
+    <short-name>user70</short-name>
+    <password>user70</password>
+    <full-name>User 70</full-name>
+    <email>user70@example.com</email>
+</record>
+<record type="user">
+    <uid>user71</uid>
+    <short-name>user71</short-name>
+    <password>user71</password>
+    <full-name>User 71</full-name>
+    <email>user71@example.com</email>
+</record>
+<record type="user">
+    <uid>user72</uid>
+    <short-name>user72</short-name>
+    <password>user72</password>
+    <full-name>User 72</full-name>
+    <email>user72@example.com</email>
+</record>
+<record type="user">
+    <uid>user73</uid>
+    <short-name>user73</short-name>
+    <password>user73</password>
+    <full-name>User 73</full-name>
+    <email>user73@example.com</email>
+</record>
+<record type="user">
+    <uid>user74</uid>
+    <short-name>user74</short-name>
+    <password>user74</password>
+    <full-name>User 74</full-name>
+    <email>user74@example.com</email>
+</record>
+<record type="user">
+    <uid>user75</uid>
+    <short-name>user75</short-name>
+    <password>user75</password>
+    <full-name>User 75</full-name>
+    <email>user75@example.com</email>
+</record>
+<record type="user">
+    <uid>user76</uid>
+    <short-name>user76</short-name>
+    <password>user76</password>
+    <full-name>User 76</full-name>
+    <email>user76@example.com</email>
+</record>
+<record type="user">
+    <uid>user77</uid>
+    <short-name>user77</short-name>
+    <password>user77</password>
+    <full-name>User 77</full-name>
+    <email>user77@example.com</email>
+</record>
+<record type="user">
+    <uid>user78</uid>
+    <short-name>user78</short-name>
+    <password>user78</password>
+    <full-name>User 78</full-name>
+    <email>user78@example.com</email>
+</record>
+<record type="user">
+    <uid>user79</uid>
+    <short-name>user79</short-name>
+    <password>user79</password>
+    <full-name>User 79</full-name>
+    <email>user79@example.com</email>
+</record>
+<record type="user">
+    <uid>user80</uid>
+    <short-name>user80</short-name>
+    <password>user80</password>
+    <full-name>User 80</full-name>
+    <email>user80@example.com</email>
+</record>
+<record type="user">
+    <uid>user81</uid>
+    <short-name>user81</short-name>
+    <password>user81</password>
+    <full-name>User 81</full-name>
+    <email>user81@example.com</email>
+</record>
+<record type="user">
+    <uid>user82</uid>
+    <short-name>user82</short-name>
+    <password>user82</password>
+    <full-name>User 82</full-name>
+    <email>user82@example.com</email>
+</record>
+<record type="user">
+    <uid>user83</uid>
+    <short-name>user83</short-name>
+    <password>user83</password>
+    <full-name>User 83</full-name>
+    <email>user83@example.com</email>
+</record>
+<record type="user">
+    <uid>user84</uid>
+    <short-name>user84</short-name>
+    <password>user84</password>
+    <full-name>User 84</full-name>
+    <email>user84@example.com</email>
+</record>
+<record type="user">
+    <uid>user85</uid>
+    <short-name>user85</short-name>
+    <password>user85</password>
+    <full-name>User 85</full-name>
+    <email>user85@example.com</email>
+</record>
+<record type="user">
+    <uid>user86</uid>
+    <short-name>user86</short-name>
+    <password>user86</password>
+    <full-name>User 86</full-name>
+    <email>user86@example.com</email>
+</record>
+<record type="user">
+    <uid>user87</uid>
+    <short-name>user87</short-name>
+    <password>user87</password>
+    <full-name>User 87</full-name>
+    <email>user87@example.com</email>
+</record>
+<record type="user">
+    <uid>user88</uid>
+    <short-name>user88</short-name>
+    <password>user88</password>
+    <full-name>User 88</full-name>
+    <email>user88@example.com</email>
+</record>
+<record type="user">
+    <uid>user89</uid>
+    <short-name>user89</short-name>
+    <password>user89</password>
+    <full-name>User 89</full-name>
+    <email>user89@example.com</email>
+</record>
+<record type="user">
+    <uid>user90</uid>
+    <short-name>user90</short-name>
+    <password>user90</password>
+    <full-name>User 90</full-name>
+    <email>user90@example.com</email>
+</record>
+<record type="user">
+    <uid>user91</uid>
+    <short-name>user91</short-name>
+    <password>user91</password>
+    <full-name>User 91</full-name>
+    <email>user91@example.com</email>
+</record>
+<record type="user">
+    <uid>user92</uid>
+    <short-name>user92</short-name>
+    <password>user92</password>
+    <full-name>User 92</full-name>
+    <email>user92@example.com</email>
+</record>
+<record type="user">
+    <uid>user93</uid>
+    <short-name>user93</short-name>
+    <password>user93</password>
+    <full-name>User 93</full-name>
+    <email>user93@example.com</email>
+</record>
+<record type="user">
+    <uid>user94</uid>
+    <short-name>user94</short-name>
+    <password>user94</password>
+    <full-name>User 94</full-name>
+    <email>user94@example.com</email>
+</record>
+<record type="user">
+    <uid>user95</uid>
+    <short-name>user95</short-name>
+    <password>user95</password>
+    <full-name>User 95</full-name>
+    <email>user95@example.com</email>
+</record>
+<record type="user">
+    <uid>user96</uid>
+    <short-name>user96</short-name>
+    <password>user96</password>
+    <full-name>User 96</full-name>
+    <email>user96@example.com</email>
+</record>
+<record type="user">
+    <uid>user97</uid>
+    <short-name>user97</short-name>
+    <password>user97</password>
+    <full-name>User 97</full-name>
+    <email>user97@example.com</email>
+</record>
+<record type="user">
+    <uid>user98</uid>
+    <short-name>user98</short-name>
+    <password>user98</password>
+    <full-name>User 98</full-name>
+    <email>user98@example.com</email>
+</record>
+<record type="user">
+    <uid>user99</uid>
+    <short-name>user99</short-name>
+    <password>user99</password>
+    <full-name>User 99</full-name>
+    <email>user99@example.com</email>
+</record>
+<record type="user">
+    <uid>user100</uid>
+    <short-name>user100</short-name>
+    <password>user100</password>
+    <full-name>User 100</full-name>
+    <email>user100@example.com</email>
+</record>
+<record type="user">
+    <uid>puser01</uid>
+    <short-name>puser01</short-name>
+    <password>puser01</password>
+    <full-name>Puser 01</full-name>
+    <email>puser01@example.com</email>
+</record>
+<record type="user">
+    <uid>puser02</uid>
+    <short-name>puser02</short-name>
+    <password>puser02</password>
+    <full-name>Puser 02</full-name>
+    <email>puser02@example.com</email>
+</record>
+<record type="user">
+    <uid>puser03</uid>
+    <short-name>puser03</short-name>
+    <password>puser03</password>
+    <full-name>Puser 03</full-name>
+    <email>puser03@example.com</email>
+</record>
+<record type="user">
+    <uid>puser04</uid>
+    <short-name>puser04</short-name>
+    <password>puser04</password>
+    <full-name>Puser 04</full-name>
+    <email>puser04@example.com</email>
+</record>
+<record type="user">
+    <uid>puser05</uid>
+    <short-name>puser05</short-name>
+    <password>puser05</password>
+    <full-name>Puser 05</full-name>
+    <email>puser05@example.com</email>
+</record>
+<record type="user">
+    <uid>puser06</uid>
+    <short-name>puser06</short-name>
+    <password>puser06</password>
+    <full-name>Puser 06</full-name>
+    <email>puser06@example.com</email>
+</record>
+<record type="user">
+    <uid>puser07</uid>
+    <short-name>puser07</short-name>
+    <password>puser07</password>
+    <full-name>Puser 07</full-name>
+    <email>puser07@example.com</email>
+</record>
+<record type="user">
+    <uid>puser08</uid>
+    <short-name>puser08</short-name>
+    <password>puser08</password>
+    <full-name>Puser 08</full-name>
+    <email>puser08@example.com</email>
+</record>
+<record type="user">
+    <uid>puser09</uid>
+    <short-name>puser09</short-name>
+    <password>puser09</password>
+    <full-name>Puser 09</full-name>
+    <email>puser09@example.com</email>
+</record>
+<record type="user">
+    <uid>puser10</uid>
+    <short-name>puser10</short-name>
+    <password>puser10</password>
+    <full-name>Puser 10</full-name>
+    <email>puser10@example.com</email>
+</record>
+<record type="user">
+    <uid>puser11</uid>
+    <short-name>puser11</short-name>
+    <password>puser11</password>
+    <full-name>Puser 11</full-name>
+    <email>puser11@example.com</email>
+</record>
+<record type="user">
+    <uid>puser12</uid>
+    <short-name>puser12</short-name>
+    <password>puser12</password>
+    <full-name>Puser 12</full-name>
+    <email>puser12@example.com</email>
+</record>
+<record type="user">
+    <uid>puser13</uid>
+    <short-name>puser13</short-name>
+    <password>puser13</password>
+    <full-name>Puser 13</full-name>
+    <email>puser13@example.com</email>
+</record>
+<record type="user">
+    <uid>puser14</uid>
+    <short-name>puser14</short-name>
+    <password>puser14</password>
+    <full-name>Puser 14</full-name>
+    <email>puser14@example.com</email>
+</record>
+<record type="user">
+    <uid>puser15</uid>
+    <short-name>puser15</short-name>
+    <password>puser15</password>
+    <full-name>Puser 15</full-name>
+    <email>puser15@example.com</email>
+</record>
+<record type="user">
+    <uid>puser16</uid>
+    <short-name>puser16</short-name>
+    <password>puser16</password>
+    <full-name>Puser 16</full-name>
+    <email>puser16@example.com</email>
+</record>
+<record type="user">
+    <uid>puser17</uid>
+    <short-name>puser17</short-name>
+    <password>puser17</password>
+    <full-name>Puser 17</full-name>
+    <email>puser17@example.com</email>
+</record>
+<record type="user">
+    <uid>puser18</uid>
+    <short-name>puser18</short-name>
+    <password>puser18</password>
+    <full-name>Puser 18</full-name>
+    <email>puser18@example.com</email>
+</record>
+<record type="user">
+    <uid>puser19</uid>
+    <short-name>puser19</short-name>
+    <password>puser19</password>
+    <full-name>Puser 19</full-name>
+    <email>puser19@example.com</email>
+</record>
+<record type="user">
+    <uid>puser20</uid>
+    <short-name>puser20</short-name>
+    <password>puser20</password>
+    <full-name>Puser 20</full-name>
+    <email>puser20@example.com</email>
+</record>
+<record type="user">
+    <uid>puser21</uid>
+    <short-name>puser21</short-name>
+    <password>puser21</password>
+    <full-name>Puser 21</full-name>
+    <email>puser21@example.com</email>
+</record>
+<record type="user">
+    <uid>puser22</uid>
+    <short-name>puser22</short-name>
+    <password>puser22</password>
+    <full-name>Puser 22</full-name>
+    <email>puser22@example.com</email>
+</record>
+<record type="user">
+    <uid>puser23</uid>
+    <short-name>puser23</short-name>
+    <password>puser23</password>
+    <full-name>Puser 23</full-name>
+    <email>puser23@example.com</email>
+</record>
+<record type="user">
+    <uid>puser24</uid>
+    <short-name>puser24</short-name>
+    <password>puser24</password>
+    <full-name>Puser 24</full-name>
+    <email>puser24@example.com</email>
+</record>
+<record type="user">
+    <uid>puser25</uid>
+    <short-name>puser25</short-name>
+    <password>puser25</password>
+    <full-name>Puser 25</full-name>
+    <email>puser25@example.com</email>
+</record>
+<record type="user">
+    <uid>puser26</uid>
+    <short-name>puser26</short-name>
+    <password>puser26</password>
+    <full-name>Puser 26</full-name>
+    <email>puser26@example.com</email>
+</record>
+<record type="user">
+    <uid>puser27</uid>
+    <short-name>puser27</short-name>
+    <password>puser27</password>
+    <full-name>Puser 27</full-name>
+    <email>puser27@example.com</email>
+</record>
+<record type="user">
+    <uid>puser28</uid>
+    <short-name>puser28</short-name>
+    <password>puser28</password>
+    <full-name>Puser 28</full-name>
+    <email>puser28@example.com</email>
+</record>
+<record type="user">
+    <uid>puser29</uid>
+    <short-name>puser29</short-name>
+    <password>puser29</password>
+    <full-name>Puser 29</full-name>
+    <email>puser29@example.com</email>
+</record>
+<record type="user">
+    <uid>puser30</uid>
+    <short-name>puser30</short-name>
+    <password>puser30</password>
+    <full-name>Puser 30</full-name>
+    <email>puser30@example.com</email>
+</record>
+<record type="user">
+    <uid>puser31</uid>
+    <short-name>puser31</short-name>
+    <password>puser31</password>
+    <full-name>Puser 31</full-name>
+    <email>puser31@example.com</email>
+</record>
+<record type="user">
+    <uid>puser32</uid>
+    <short-name>puser32</short-name>
+    <password>puser32</password>
+    <full-name>Puser 32</full-name>
+    <email>puser32@example.com</email>
+</record>
+<record type="user">
+    <uid>puser33</uid>
+    <short-name>puser33</short-name>
+    <password>puser33</password>
+    <full-name>Puser 33</full-name>
+    <email>puser33@example.com</email>
+</record>
+<record type="user">
+    <uid>puser34</uid>
+    <short-name>puser34</short-name>
+    <password>puser34</password>
+    <full-name>Puser 34</full-name>
+    <email>puser34@example.com</email>
+</record>
+<record type="user">
+    <uid>puser35</uid>
+    <short-name>puser35</short-name>
+    <password>puser35</password>
+    <full-name>Puser 35</full-name>
+    <email>puser35@example.com</email>
+</record>
+<record type="user">
+    <uid>puser36</uid>
+    <short-name>puser36</short-name>
+    <password>puser36</password>
+    <full-name>Puser 36</full-name>
+    <email>puser36@example.com</email>
+</record>
+<record type="user">
+    <uid>puser37</uid>
+    <short-name>puser37</short-name>
+    <password>puser37</password>
+    <full-name>Puser 37</full-name>
+    <email>puser37@example.com</email>
+</record>
+<record type="user">
+    <uid>puser38</uid>
+    <short-name>puser38</short-name>
+    <password>puser38</password>
+    <full-name>Puser 38</full-name>
+    <email>puser38@example.com</email>
+</record>
+<record type="user">
+    <uid>puser39</uid>
+    <short-name>puser39</short-name>
+    <password>puser39</password>
+    <full-name>Puser 39</full-name>
+    <email>puser39@example.com</email>
+</record>
+<record type="user">
+    <uid>puser40</uid>
+    <short-name>puser40</short-name>
+    <password>puser40</password>
+    <full-name>Puser 40</full-name>
+    <email>puser40@example.com</email>
+</record>
+<record type="user">
+    <uid>puser41</uid>
+    <short-name>puser41</short-name>
+    <password>puser41</password>
+    <full-name>Puser 41</full-name>
+    <email>puser41@example.com</email>
+</record>
+<record type="user">
+    <uid>puser42</uid>
+    <short-name>puser42</short-name>
+    <password>puser42</password>
+    <full-name>Puser 42</full-name>
+    <email>puser42@example.com</email>
+</record>
+<record type="user">
+    <uid>puser43</uid>
+    <short-name>puser43</short-name>
+    <password>puser43</password>
+    <full-name>Puser 43</full-name>
+    <email>puser43@example.com</email>
+</record>
+<record type="user">
+    <uid>puser44</uid>
+    <short-name>puser44</short-name>
+    <password>puser44</password>
+    <full-name>Puser 44</full-name>
+    <email>puser44@example.com</email>
+</record>
+<record type="user">
+    <uid>puser45</uid>
+    <short-name>puser45</short-name>
+    <password>puser45</password>
+    <full-name>Puser 45</full-name>
+    <email>puser45@example.com</email>
+</record>
+<record type="user">
+    <uid>puser46</uid>
+    <short-name>puser46</short-name>
+    <password>puser46</password>
+    <full-name>Puser 46</full-name>
+    <email>puser46@example.com</email>
+</record>
+<record type="user">
+    <uid>puser47</uid>
+    <short-name>puser47</short-name>
+    <password>puser47</password>
+    <full-name>Puser 47</full-name>
+    <email>puser47@example.com</email>
+</record>
+<record type="user">
+    <uid>puser48</uid>
+    <short-name>puser48</short-name>
+    <password>puser48</password>
+    <full-name>Puser 48</full-name>
+    <email>puser48@example.com</email>
+</record>
+<record type="user">
+    <uid>puser49</uid>
+    <short-name>puser49</short-name>
+    <password>puser49</password>
+    <full-name>Puser 49</full-name>
+    <email>puser49@example.com</email>
+</record>
+<record type="user">
+    <uid>puser50</uid>
+    <short-name>puser50</short-name>
+    <password>puser50</password>
+    <full-name>Puser 50</full-name>
+    <email>puser50@example.com</email>
+</record>
+<record type="user">
+    <uid>puser51</uid>
+    <short-name>puser51</short-name>
+    <password>puser51</password>
+    <full-name>Puser 51</full-name>
+    <email>puser51@example.com</email>
+</record>
+<record type="user">
+    <uid>puser52</uid>
+    <short-name>puser52</short-name>
+    <password>puser52</password>
+    <full-name>Puser 52</full-name>
+    <email>puser52@example.com</email>
+</record>
+<record type="user">
+    <uid>puser53</uid>
+    <short-name>puser53</short-name>
+    <password>puser53</password>
+    <full-name>Puser 53</full-name>
+    <email>puser53@example.com</email>
+</record>
+<record type="user">
+    <uid>puser54</uid>
+    <short-name>puser54</short-name>
+    <password>puser54</password>
+    <full-name>Puser 54</full-name>
+    <email>puser54@example.com</email>
+</record>
+<record type="user">
+    <uid>puser55</uid>
+    <short-name>puser55</short-name>
+    <password>puser55</password>
+    <full-name>Puser 55</full-name>
+    <email>puser55@example.com</email>
+</record>
+<record type="user">
+    <uid>puser56</uid>
+    <short-name>puser56</short-name>
+    <password>puser56</password>
+    <full-name>Puser 56</full-name>
+    <email>puser56@example.com</email>
+</record>
+<record type="user">
+    <uid>puser57</uid>
+    <short-name>puser57</short-name>
+    <password>puser57</password>
+    <full-name>Puser 57</full-name>
+    <email>puser57@example.com</email>
+</record>
+<record type="user">
+    <uid>puser58</uid>
+    <short-name>puser58</short-name>
+    <password>puser58</password>
+    <full-name>Puser 58</full-name>
+    <email>puser58@example.com</email>
+</record>
+<record type="user">
+    <uid>puser59</uid>
+    <short-name>puser59</short-name>
+    <password>puser59</password>
+    <full-name>Puser 59</full-name>
+    <email>puser59@example.com</email>
+</record>
+<record type="user">
+    <uid>puser60</uid>
+    <short-name>puser60</short-name>
+    <password>puser60</password>
+    <full-name>Puser 60</full-name>
+    <email>puser60@example.com</email>
+</record>
+<record type="user">
+    <uid>puser61</uid>
+    <short-name>puser61</short-name>
+    <password>puser61</password>
+    <full-name>Puser 61</full-name>
+    <email>puser61@example.com</email>
+</record>
+<record type="user">
+    <uid>puser62</uid>
+    <short-name>puser62</short-name>
+    <password>puser62</password>
+    <full-name>Puser 62</full-name>
+    <email>puser62@example.com</email>
+</record>
+<record type="user">
+    <uid>puser63</uid>
+    <short-name>puser63</short-name>
+    <password>puser63</password>
+    <full-name>Puser 63</full-name>
+    <email>puser63@example.com</email>
+</record>
+<record type="user">
+    <uid>puser64</uid>
+    <short-name>puser64</short-name>
+    <password>puser64</password>
+    <full-name>Puser 64</full-name>
+    <email>puser64@example.com</email>
+</record>
+<record type="user">
+    <uid>puser65</uid>
+    <short-name>puser65</short-name>
+    <password>puser65</password>
+    <full-name>Puser 65</full-name>
+    <email>puser65@example.com</email>
+</record>
+<record type="user">
+    <uid>puser66</uid>
+    <short-name>puser66</short-name>
+    <password>puser66</password>
+    <full-name>Puser 66</full-name>
+    <email>puser66@example.com</email>
+</record>
+<record type="user">
+    <uid>puser67</uid>
+    <short-name>puser67</short-name>
+    <password>puser67</password>
+    <full-name>Puser 67</full-name>
+    <email>puser67@example.com</email>
+</record>
+<record type="user">
+    <uid>puser68</uid>
+    <short-name>puser68</short-name>
+    <password>puser68</password>
+    <full-name>Puser 68</full-name>
+    <email>puser68@example.com</email>
+</record>
+<record type="user">
+    <uid>puser69</uid>
+    <short-name>puser69</short-name>
+    <password>puser69</password>
+    <full-name>Puser 69</full-name>
+    <email>puser69@example.com</email>
+</record>
+<record type="user">
+    <uid>puser70</uid>
+    <short-name>puser70</short-name>
+    <password>puser70</password>
+    <full-name>Puser 70</full-name>
+    <email>puser70@example.com</email>
+</record>
+<record type="user">
+    <uid>puser71</uid>
+    <short-name>puser71</short-name>
+    <password>puser71</password>
+    <full-name>Puser 71</full-name>
+    <email>puser71@example.com</email>
+</record>
+<record type="user">
+    <uid>puser72</uid>
+    <short-name>puser72</short-name>
+    <password>puser72</password>
+    <full-name>Puser 72</full-name>
+    <email>puser72@example.com</email>
+</record>
+<record type="user">
+    <uid>puser73</uid>
+    <short-name>puser73</short-name>
+    <password>puser73</password>
+    <full-name>Puser 73</full-name>
+    <email>puser73@example.com</email>
+</record>
+<record type="user">
+    <uid>puser74</uid>
+    <short-name>puser74</short-name>
+    <password>puser74</password>
+    <full-name>Puser 74</full-name>
+    <email>puser74@example.com</email>
+</record>
+<record type="user">
+    <uid>puser75</uid>
+    <short-name>puser75</short-name>
+    <password>puser75</password>
+    <full-name>Puser 75</full-name>
+    <email>puser75@example.com</email>
+</record>
+<record type="user">
+    <uid>puser76</uid>
+    <short-name>puser76</short-name>
+    <password>puser76</password>
+    <full-name>Puser 76</full-name>
+    <email>puser76@example.com</email>
+</record>
+<record type="user">
+    <uid>puser77</uid>
+    <short-name>puser77</short-name>
+    <password>puser77</password>
+    <full-name>Puser 77</full-name>
+    <email>puser77@example.com</email>
+</record>
+<record type="user">
+    <uid>puser78</uid>
+    <short-name>puser78</short-name>
+    <password>puser78</password>
+    <full-name>Puser 78</full-name>
+    <email>puser78@example.com</email>
+</record>
+<record type="user">
+    <uid>puser79</uid>
+    <short-name>puser79</short-name>
+    <password>puser79</password>
+    <full-name>Puser 79</full-name>
+    <email>puser79@example.com</email>
+</record>
+<record type="user">
+    <uid>puser80</uid>
+    <short-name>puser80</short-name>
+    <password>puser80</password>
+    <full-name>Puser 80</full-name>
+    <email>puser80@example.com</email>
+</record>
+<record type="user">
+    <uid>puser81</uid>
+    <short-name>puser81</short-name>
+    <password>puser81</password>
+    <full-name>Puser 81</full-name>
+    <email>puser81@example.com</email>
+</record>
+<record type="user">
+    <uid>puser82</uid>
+    <short-name>puser82</short-name>
+    <password>puser82</password>
+    <full-name>Puser 82</full-name>
+    <email>puser82@example.com</email>
+</record>
+<record type="user">
+    <uid>puser83</uid>
+    <short-name>puser83</short-name>
+    <password>puser83</password>
+    <full-name>Puser 83</full-name>
+    <email>puser83@example.com</email>
+</record>
+<record type="user">
+    <uid>puser84</uid>
+    <short-name>puser84</short-name>
+    <password>puser84</password>
+    <full-name>Puser 84</full-name>
+    <email>puser84@example.com</email>
+</record>
+<record type="user">
+    <uid>puser85</uid>
+    <short-name>puser85</short-name>
+    <password>puser85</password>
+    <full-name>Puser 85</full-name>
+    <email>puser85@example.com</email>
+</record>
+<record type="user">
+    <uid>puser86</uid>
+    <short-name>puser86</short-name>
+    <password>puser86</password>
+    <full-name>Puser 86</full-name>
+    <email>puser86@example.com</email>
+</record>
+<record type="user">
+    <uid>puser87</uid>
+    <short-name>puser87</short-name>
+    <password>puser87</password>
+    <full-name>Puser 87</full-name>
+    <email>puser87@example.com</email>
+</record>
+<record type="user">
+    <uid>puser88</uid>
+    <short-name>puser88</short-name>
+    <password>puser88</password>
+    <full-name>Puser 88</full-name>
+    <email>puser88@example.com</email>
+</record>
+<record type="user">
+    <uid>puser89</uid>
+    <short-name>puser89</short-name>
+    <password>puser89</password>
+    <full-name>Puser 89</full-name>
+    <email>puser89@example.com</email>
+</record>
+<record type="user">
+    <uid>puser90</uid>
+    <short-name>puser90</short-name>
+    <password>puser90</password>
+    <full-name>Puser 90</full-name>
+    <email>puser90@example.com</email>
+</record>
+<record type="user">
+    <uid>puser91</uid>
+    <short-name>puser91</short-name>
+    <password>puser91</password>
+    <full-name>Puser 91</full-name>
+    <email>puser91@example.com</email>
+</record>
+<record type="user">
+    <uid>puser92</uid>
+    <short-name>puser92</short-name>
+    <password>puser92</password>
+    <full-name>Puser 92</full-name>
+    <email>puser92@example.com</email>
+</record>
+<record type="user">
+    <uid>puser93</uid>
+    <short-name>puser93</short-name>
+    <password>puser93</password>
+    <full-name>Puser 93</full-name>
+    <email>puser93@example.com</email>
+</record>
+<record type="user">
+    <uid>puser94</uid>
+    <short-name>puser94</short-name>
+    <password>puser94</password>
+    <full-name>Puser 94</full-name>
+    <email>puser94@example.com</email>
+</record>
+<record type="user">
+    <uid>puser95</uid>
+    <short-name>puser95</short-name>
+    <password>puser95</password>
+    <full-name>Puser 95</full-name>
+    <email>puser95@example.com</email>
+</record>
+<record type="user">
+    <uid>puser96</uid>
+    <short-name>puser96</short-name>
+    <password>puser96</password>
+    <full-name>Puser 96</full-name>
+    <email>puser96@example.com</email>
+</record>
+<record type="user">
+    <uid>puser97</uid>
+    <short-name>puser97</short-name>
+    <password>puser97</password>
+    <full-name>Puser 97</full-name>
+    <email>puser97@example.com</email>
+</record>
+<record type="user">
+    <uid>puser98</uid>
+    <short-name>puser98</short-name>
+    <password>puser98</password>
+    <full-name>Puser 98</full-name>
+    <email>puser98@example.com</email>
+</record>
+<record type="user">
+    <uid>puser99</uid>
+    <short-name>puser99</short-name>
+    <password>puser99</password>
+    <full-name>Puser 99</full-name>
+    <email>puser99@example.com</email>
+</record>
+<record type="user">
+    <uid>puser100</uid>
+    <short-name>puser100</short-name>
+    <password>puser100</password>
+    <full-name>Puser 100</full-name>
+    <email>puser100@example.com</email>
+</record>
+</directory>

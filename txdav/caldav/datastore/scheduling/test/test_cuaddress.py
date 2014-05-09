@@ -22,7 +22,6 @@ from twisted.trial import unittest
 
 from txdav.caldav.datastore.scheduling.cuaddress import calendarUserFromCalendarUserAddress, \
     LocalCalendarUser, InvalidCalendarUser
-from txdav.caldav.datastore.test.util import buildCalendarStore
 from txdav.common.datastore.test.util import populateCalendarsFrom, CommonCommonTests
 
 
@@ -50,23 +49,15 @@ class CalendarUser(CommonCommonTests, unittest.TestCase):
     def setUp(self):
 
         yield super(CalendarUser, self).setUp()
-        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory)
-        self.directory = self._sqlCalendarStore.directoryService()
+        yield self.buildStoreAndDirectory()
         yield self.populate()
-        self.directory.removeRecord("user03")
+        yield self.removeRecord(u"user03")
 
 
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
-
-
-    def storeUnderTest(self):
-        """
-        Create and return a L{CalendarStore} for testing.
-        """
-        return self._sqlCalendarStore
 
 
     @inlineCallbacks

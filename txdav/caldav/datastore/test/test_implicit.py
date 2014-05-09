@@ -30,8 +30,8 @@ from txdav.caldav.icalendarstore import InvalidComponentTypeError, \
     TooManyAttendeesError, InvalidCalendarAccessError, ComponentUpdateState, \
     DuplicatePrivateCommentsError
 from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
-from txdav.caldav.datastore.test.util import buildCalendarStore
 from txdav.caldav.datastore.sql import CalendarObject
+
 
 class ImplicitRequests (CommonCommonTests, TestCase):
     """
@@ -41,7 +41,7 @@ class ImplicitRequests (CommonCommonTests, TestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(ImplicitRequests, self).setUp()
-        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory)
+        yield self.buildStoreAndDirectory()
         yield self.populate()
 
 

@@ -1,0 +1,1356 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+Copyright (c) 2009-2014 Apple Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+ -->
+
+<!DOCTYPE augments SYSTEM "../../../conf/auth/augments.dtd">
+
+<augments>
+  <!--
+  <record>
+    <uid>Location-Default</uid>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <auto-schedule-mode>automatic</auto-schedule-mode>
+  </record>
+  <record>
+    <uid>Resource-Default</uid>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <auto-schedule-mode>automatic</auto-schedule-mode>
+  </record>
+  -->
+
+  <record>
+    <uid>D11F03A0-97EA-48AF-9A6C-FAC7F3975766</uid>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+  </record>
+  <record>
+    <uid>6423F94A-6B76-4A3A-815B-D52CFD77935D</uid>
+    <server-id>00001</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+  </record>
+  <record>
+    <uid>5A985493-EE2C-4665-94CF-4DFEA3A89500</uid>
+    <server-id>00002</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+  </record>
+  <record>
+    <uid>8B4288F6-CC82-491D-8EF9-642EF4F3E7D0</uid>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+  </record>
+  <record>
+    <uid>5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1</uid>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+  </record>
+  <record>
+    <uid>543D28BA-F74F-4D5F-9243-B3E3A61171E5</uid>
+    <enable-calendar>false</enable-calendar>
+    <enable-addressbook>false</enable-addressbook>
+  </record>
+  <record>
+    <uid>right_coast</uid>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+  </record>
+  <record>
+    <uid>left_coast</uid>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+  </record>
+  <record>
+    <uid>mercury</uid>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+  </record>
+  <record>
+    <uid>gemini</uid>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+  </record>
+  <record>
+    <uid>apollo</uid>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <auto-accept-group>both_coasts</auto-accept-group>
+  </record>
+  <record>
+    <uid>orion</uid>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+  </record>
+  <record>
+    <uid>transporter</uid>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+  </record>
+  <record>
+    <uid>ftlcpu</uid>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+  </record>
+  <!--
+  <record>
+    <uid>non_calendar_proxy</uid>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+  </record>
+-->
+  <record>
+    <uid>7423F94A-6B76-4A3A-815B-D52CFD77935D</uid>
+    <enable-calendar>true</enable-calendar>
+  </record>
+  <record>
+    <uid>8A985493-EE2C-4665-94CF-4DFEA3A89500</uid>
+    <enable-calendar>true</enable-calendar>
+  </record>
+  <record>
+    <uid>9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD2</uid>
+    <enable-calendar>true</enable-calendar>
+  </record>
+  <record>
+    <uid>9E1FFAC4-3CCD-45A1-8272-D161C92D2EEE</uid>
+    <enable-calendar>true</enable-calendar>
+  </record>
+  <record>
+    <uid>7678EC8A-A069-4E82-9066-7279C6718507</uid>
+    <enable-addressbook>true</enable-addressbook>
+  </record>
+  <record>
+    <uid>FC465590-E9E9-4746-ACE8-6C756A49FE4D</uid>
+    <enable-calendar>true</enable-calendar>
+  </record>
+  <record>
+    <uid>EC465590-E9E9-4746-ACE8-6C756A49FE4D</uid>
+    <enable-calendar>true</enable-calendar>
+    <enable-login>true</enable-login>
+  </record>
+  <record>
+    <uid>00599DAF-3E75-42DD-9DB7-52617E79943F</uid>
+    <enable-calendar>false</enable-calendar>
+    <enable-login>false</enable-login>
+  </record>
+  <record>
+    <uid>75EA36BE-F71B-40F9-81F9-CF59BF40CA8F</uid>
+    <enable-calendar>true</enable-calendar>
+    <auto-schedule-mode>automatic</auto-schedule-mode>
+  </record>
+<record>
+    <uid>user01</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user02</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user03</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user04</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user05</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user06</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user07</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user08</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user09</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user10</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user11</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user12</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user13</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user14</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user15</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user16</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user17</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user18</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user19</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user20</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user21</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user22</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user23</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user24</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user25</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user26</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user27</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user28</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user29</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user30</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user31</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user32</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user33</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user34</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user35</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user36</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user37</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user38</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user39</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user40</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user41</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user42</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user43</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user44</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user45</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user46</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user47</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user48</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user49</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user50</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user51</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user52</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user53</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user54</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user55</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user56</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user57</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user58</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user59</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user60</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user61</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user62</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user63</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user64</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user65</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user66</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user67</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user68</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user69</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user70</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user71</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user72</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user73</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user74</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user75</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user76</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user77</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user78</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user79</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user80</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user81</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user82</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user83</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user84</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user85</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user86</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user87</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user88</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user89</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user90</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user91</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user92</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user93</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user94</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user95</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user96</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user97</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user98</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user99</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>user100</uid>
+    <server-id>A</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser01</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser02</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser03</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser04</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser05</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser06</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser07</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser08</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser09</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser10</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser11</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser12</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser13</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser14</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser15</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser16</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser17</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser18</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser19</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser20</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser21</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser22</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser23</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser24</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser25</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser26</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser27</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser28</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser29</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser30</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser31</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser32</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser33</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser34</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser35</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser36</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser37</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser38</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser39</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser40</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser41</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser42</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser43</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser44</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser45</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser46</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser47</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser48</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser49</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser50</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser51</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser52</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser53</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser54</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser55</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser56</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser57</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser58</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser59</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser60</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser61</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser62</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser63</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser64</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser65</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser66</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser67</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser68</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser69</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser70</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser71</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser72</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser73</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser74</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser75</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser76</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser77</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser78</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser79</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser80</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser81</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser82</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser83</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser84</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser85</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser86</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser87</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser88</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser89</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser90</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser91</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser92</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser93</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser94</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser95</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser96</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser97</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser98</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser99</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+<record>
+    <uid>puser100</uid>
+    <server-id>B</server-id>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+</record>
+</augments>

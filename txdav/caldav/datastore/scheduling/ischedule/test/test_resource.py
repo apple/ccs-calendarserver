@@ -29,44 +29,28 @@ from txdav.common.datastore.test.util import populateCalendarsFrom, \
     CommonCommonTests
 from twext.python.clsprop import classproperty
 import txweb2.dav.test.util
-from txdav.caldav.datastore.test.util import buildCalendarStore, \
-    TestCalendarStoreDirectoryRecord
-from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers, \
-    Server
+from txdav.caldav.datastore.scheduling.ischedule.localservers import (
+    ServersDB, Server
+)
+
 
 class iSchedulePOST (CommonCommonTests, txweb2.dav.test.util.TestCase):
 
     @inlineCallbacks
     def setUp(self):
         yield super(iSchedulePOST, self).setUp()
-        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory)
-        self.directory = self._sqlCalendarStore.directoryService()
+
+        serversDB = ServersDB()
+        a_server = Server("A", "http://localhost:8008", thisServer=True)
+        serversDB.addServer(a_server)
+        b_server = Server("B", "http://localhost:8108", thisServer=False)
+        serversDB.addServer(b_server)
+        yield self.buildStoreAndDirectory(serversDB=serversDB)
 
         self.site.resource.putChild("ischedule", IScheduleInboxResource(self.site.resource, self.storeUnderTest()))
         self.site.resource.putChild("podding", IScheduleInboxResource(self.site.resource, self.storeUnderTest(), podding=True))
 
         yield self.populate()
-
-        # Pod servers
-        a_server = Server(id="A", uri="http://localhost:8008", thisServer=True)
-        Servers.addServer(a_server)
-        b_server = Server(id="B", uri="http://localhost:8108", thisServer=False)
-        Servers.addServer(b_server)
-        Servers._thisServer = a_server
-
-        # Podded users
-        for ctr in range(1, 100):
-            self.directory.addRecord(TestCalendarStoreDirectoryRecord(
-                "puser{:02d}".format(ctr),
-                ("puser{:02d}".format(ctr),),
-                "Puser {:02d}".format(ctr),
-                frozenset((
-                    "urn:uuid:puser{:02d}".format(ctr),
-                    "mailto:puser{:02d}@example.com".format(ctr),
-                )),
-                thisServer=False,
-                server=b_server,
-            ))
 
         # iSchedule server
         IScheduleServers()
@@ -74,13 +58,6 @@ class iSchedulePOST (CommonCommonTests, txweb2.dav.test.util.TestCase):
         server.allow_from = True
         IScheduleServers._domainMap["example.org"] = server
         self.addCleanup(lambda : IScheduleServers._domainMap.pop("example.org")) #@UndefinedVariable
-
-
-    def storeUnderTest(self):
-        """
-        Return a store for testing.
-        """
-        return self._sqlCalendarStore
 
 
     @inlineCallbacks

@@ -28,20 +28,19 @@ from txdav.caldav.datastore.scheduling.imip.inbound import injectMessage
 from txdav.caldav.datastore.scheduling.imip.inbound import shouldDeleteAllMail
 from txdav.caldav.datastore.scheduling.imip.inbound import IMAP4DownloadProtocol
 from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
-from txdav.caldav.datastore.test.util import buildCalendarStore
+from txdav.common.datastore.test.util import CommonCommonTests
 
 import email
 from twisted.trial import unittest
 
 
-class InboundTests(unittest.TestCase):
+class InboundTests(CommonCommonTests, unittest.TestCase):
 
     @inlineCallbacks
     def setUp(self):
         super(InboundTests, self).setUp()
 
-        self.store = yield buildCalendarStore(self, None)
-        self.directory = self.store.directoryService()
+        yield self.buildStoreAndDirectory()
         self.receiver = MailReceiver(self.store, self.directory)
         self.retriever = MailRetriever(self.store, self.directory,
             ConfigDict({
@@ -283,7 +282,7 @@ UID:12345-67890
 DTSTAMP:20130208T120000Z
 DTSTART:20180601T120000Z
 DTEND:20180601T130000Z
-ORGANIZER:urn:uuid:user01
+ORGANIZER:urn:x-uid:user01
 ATTENDEE:mailto:xyzzy@example.com;PARTSTAT=ACCEPTED
 END:VEVENT
 END:VCALENDAR
@@ -292,7 +291,7 @@ END:VCALENDAR
         txn = self.store.newTransaction()
         result = (yield injectMessage(
                 txn,
-                "urn:uuid:user01",
+                "urn:x-uid:user01",
                 "mailto:xyzzy@example.com",
                 calendar
             )
@@ -316,7 +315,7 @@ UID:12345-67890
 DTSTAMP:20130208T120000Z
 DTSTART:20180601T120000Z
 DTEND:20180601T130000Z
-ORGANIZER:urn:uuid:unknown_user
+ORGANIZER:urn:x-uid:unknown_user
 ATTENDEE:mailto:xyzzy@example.com;PARTSTAT=ACCEPTED
 END:VEVENT
 END:VCALENDAR
@@ -325,7 +324,7 @@ END:VCALENDAR
         txn = self.store.newTransaction()
         result = (yield injectMessage(
                 txn,
-                "urn:uuid:unknown_user",
+                "urn:x-uid:unknown_user",
                 "mailto:xyzzy@example.com",
                 calendar
             )
@@ -349,14 +348,14 @@ UID:12345-67890
 DTSTAMP:20130208T120000Z
 DTSTART:20180601T120000Z
 DTEND:20180601T130000Z
-ORGANIZER:urn:uuid:user01
+ORGANIZER:urn:x-uid:user01
 ATTENDEE:mailto:xyzzy@example.com;PARTSTAT=ACCEPTED
 END:VEVENT
 END:VCALENDAR
 """
         txn = self.store.newTransaction()
         wp = (yield txn.enqueue(IMIPReplyWork,
-            organizer="urn:uuid:user01",
+            organizer="urn:x-uid:user01",
             attendee="mailto:xyzzy@example.com",
             icalendarText=calendar
         ))

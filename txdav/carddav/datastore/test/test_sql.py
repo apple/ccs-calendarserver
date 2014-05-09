@@ -41,7 +41,7 @@ from txdav.carddav.datastore.util import _migrateAddressbook, migrateHome
 from txdav.common.icommondatastore import NoSuchObjectResourceError
 from txdav.common.datastore.sql import EADDRESSBOOKTYPE, CommonObjectResource
 from txdav.common.datastore.sql_tables import  _ABO_KIND_PERSON, _ABO_KIND_GROUP, schema
-from txdav.common.datastore.test.util import buildStore, cleanStore
+from txdav.common.datastore.test.util import cleanStore
 from txdav.carddav.datastore.sql import AddressBook
 
 from txdav.xml.rfc2518 import GETContentLanguage, ResourceType
@@ -56,20 +56,10 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(AddressBookSQLStorageTests, self).setUp()
-        self._sqlStore = yield buildStore(
-            self,
-            self.notifierFactory,
-            homes=(
-                "home1",
-                "home2",
-                "home3",
-                "home_bad",
-                "home_empty",
-                "homeNew",
-                "new-home",
-                "uid1",
-                "uid2",
-                "xyzzy",
+        yield self.buildStoreAndDirectory(
+            extraUids=(
+                u"home_empty",
+                u"homeNew",
             )
         )
         yield self.populate()
@@ -95,12 +85,6 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         yield populateTxn.commit()
         self.notifierFactory.reset()
 
-
-    def storeUnderTest(self):
-        """
-        Create and return a L{AddressBookStore} for testing.
-        """
-        return self._sqlStore
 
 
     @inlineCallbacks
@@ -252,7 +236,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         operations, that we do not block other reads of the table.
         """
 
-        addressbookStore = self._sqlStore
+        addressbookStore = self.store
 
         txn1 = addressbookStore.newTransaction()
         txn2 = addressbookStore.newTransaction()
@@ -304,7 +288,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         Test that two concurrent attempts to PUT different address book object resources to the
         same address book home does not cause a deadlock.
         """
-        addressbookStore = self._sqlStore
+        addressbookStore = self.store
 
         # Provision the home and addressbook now
         txn = addressbookStore.newTransaction()
@@ -373,7 +357,7 @@ END:VCARD
         C{INSERT} that violates a unique constraint.
         """
 
-        addressbookStore = self._sqlStore
+        addressbookStore = self.store
 
         txn1 = addressbookStore.newTransaction()
         txn2 = addressbookStore.newTransaction()
@@ -410,7 +394,7 @@ END:VCARD
         """
         Test that kind property UID is stored correctly in database
         """
-        addressbookStore = self._sqlStore
+        addressbookStore = self.store
 
         # Provision the home and addressbook, one user and one group
         txn = addressbookStore.newTransaction()
@@ -456,7 +440,7 @@ END:VCARD
         """
         Test that kind property vCard is stored correctly in database
         """
-        addressbookStore = self._sqlStore
+        addressbookStore = self.store
 
         # Provision the home and addressbook, one user and one group
         txn = addressbookStore.newTransaction()
@@ -547,7 +531,7 @@ END:VCARD
         """
         Test that kind property vCard is stored correctly in database
         """
-        addressbookStore = self._sqlStore
+        addressbookStore = self.store
         cleanStore(self, addressbookStore)
 
         # Provision the home and addressbook, one user and one group
@@ -739,7 +723,7 @@ END:VCARD
         work concurrently without an exception.
         """
 
-        addressbookStore = self._sqlStore
+        addressbookStore = self.store
 
         # Provision the home and addressbook now
         txn = addressbookStore.newTransaction()
@@ -799,7 +783,7 @@ END:VCARD
         self.assertTrue(resource._locked)
 
         # Setup a new transaction to verify the lock and also verify wait behavior
-        newTxn = self._sqlStore.newTransaction()
+        newTxn = self.store.newTransaction()
         newResource = yield self.addressbookObjectUnderTest(txn=newTxn)
         try:
             yield newResource.lock(wait=False)
@@ -818,7 +802,7 @@ END:VCARD
         self.assertTrue(resource._locked)
 
         # Setup a new transaction to verify the lock but pass in an alternative txn directly
-        newTxn = self._sqlStore.newTransaction()
+        newTxn = self.store.newTransaction()
 
         # FIXME: not sure why, but without this statement here, this portion of the test fails in a funny way.
         # Basically the query in the try block seems to execute twice, failing each time, one of which is caught,

@@ -25,8 +25,6 @@ from twisted.trial import unittest
 
 from txdav.caldav.datastore.scheduling.utils import getCalendarObjectForRecord, \
     extractEmailDomain, uidFromCalendarUserAddress
-from txdav.caldav.datastore.test.util import buildCalendarStore, \
-    buildDirectoryRecord
 from txdav.common.datastore.test.util import populateCalendarsFrom, CommonCommonTests
 
 
@@ -107,10 +105,9 @@ class RecipientCopy(CommonCommonTests, unittest.TestCase):
     def setUp(self):
 
         yield super(RecipientCopy, self).setUp()
-        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory)
+        yield self.buildStoreAndDirectory()
         yield self.populate()
 
-        self.directory = self._sqlCalendarStore.directoryService()
 
 
     @inlineCallbacks
@@ -145,7 +142,7 @@ class RecipientCopy(CommonCommonTests, unittest.TestCase):
         yield self.commit()
 
         # Look up resource by UID in home where only one exists
-        principal = buildDirectoryRecord("user01")
+        principal = yield self.directory.recordWithUID(u"user01")
         txn = self.transactionUnderTest()
         resource = (yield getCalendarObjectForRecord(txn, principal, "685BC3A1-195A-49B3-926D-388DDACA78A6"))
         self.assertEqual(resource.name(), "1.ics")
@@ -165,7 +162,7 @@ class RecipientCopy(CommonCommonTests, unittest.TestCase):
         yield self.commit()
 
         # Look up resource by UID in home where two exists
-        principal = buildDirectoryRecord("user02")
+        principal = yield self.directory.recordWithUID("user02")
         txn = self.transactionUnderTest()
         resource = (yield getCalendarObjectForRecord(txn, principal, "685BC3A1-195A-49B3-926D-388DDACA78A6"))
         self.assertTrue(resource.name() in ("2.ics", "3.ics",))
@@ -183,7 +180,7 @@ class RecipientCopy(CommonCommonTests, unittest.TestCase):
         yield self.commit()
 
         # Look up resource where principal exists but home does not
-        principal = buildDirectoryRecord("user102")
+        principal = yield self.directory.recordWithUID("user102")  # ASKCYRUS: but user102 doesn't exist
         txn = self.transactionUnderTest()
         resource = (yield getCalendarObjectForRecord(txn, principal, "685BC3A1-195A-49B3-926D-388DDACA78A6"))
         self.assertTrue(resource is None)

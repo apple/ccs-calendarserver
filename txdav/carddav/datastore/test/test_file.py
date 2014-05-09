@@ -60,6 +60,7 @@ def setUpAddressBookStore(test):
     addressbookPath.parent().makedirs()
     storePath.copyTo(addressbookPath)
 
+    test.counter = 0
     test.notifierFactory = StubNotifierFactory()
     test.addressbookStore = AddressBookStore(storeRootPath, {"push": test.notifierFactory}, None)
     test.txn = test.addressbookStore.newTransaction(test.id() + " (old)")

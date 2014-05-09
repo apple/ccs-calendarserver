@@ -23,7 +23,6 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.trial.unittest import TestCase
 from twistedcaldav.config import config
 from twistedcaldav.vcard import Component as VCard
-from txdav.caldav.datastore.test.util import buildCalendarStore
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_READ
 from txdav.common.datastore.test.util import CommonCommonTests, populateCalendarsFrom
 from txdav.common.datastore.work.revision_cleanup import FindMinValidRevisionWork, RevisionCleanupWork
@@ -40,7 +39,7 @@ class RevisionCleanupTests(CommonCommonTests, TestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(RevisionCleanupTests, self).setUp()
-        self._sqlStore = yield buildCalendarStore(self, self.notifierFactory)
+        yield self.buildStoreAndDirectory()
         yield self.populate()
 
         class FakeWork(WorkItem):
@@ -219,13 +218,6 @@ END:VCARD
                 },
             }
         }
-
-
-    def storeUnderTest(self):
-        """
-        Create and return a L{CalendarStore} for testing.
-        """
-        return self._sqlStore
 
 
     @inlineCallbacks

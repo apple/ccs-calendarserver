@@ -40,7 +40,7 @@ different versions etc.
 """
 
 __all__ = [
-    "Servers",
+    "buildServersDB",
 ]
 
 log = Logger()
@@ -122,7 +122,14 @@ class ServersDB(object):
                 maxClients,
             )
 
-Servers = ServersDB()   # Global server DB
+
+
+def buildServersDB(maxClients=5):
+    serversDB = ServersDB()
+    serversDB.load()
+    serversDB.installReverseProxies(maxClients)
+    return serversDB
+
 
 
 

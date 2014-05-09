@@ -79,6 +79,9 @@ from txweb2.server import Site
 
 from txdav.caldav.datastore.scheduling.imip.inbound import MailRetriever
 from txdav.caldav.datastore.scheduling.imip.inbound import scheduleNextMailPoll
+from txdav.caldav.datastore.scheduling.ischedule.localservers import (
+    buildServersDB
+)
 from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseStep
 from txdav.common.datastore.upgrade.sql.upgrade import (
     UpgradeDatabaseCalendarDataStep, UpgradeDatabaseOtherStep,
@@ -126,7 +129,6 @@ from calendarserver.tap.util import (
 )
 from twisted.application.strports import service as strPortsService
 from txdav.dps.server import DirectoryProxyAMPFactory
-
 try:
     from calendarserver.version import version
 except ImportError:
@@ -870,6 +872,8 @@ class CalDAVServiceMaker (object):
         """
         pool, txnFactory = getDBPool(config)
         directory = DirectoryProxyClientService(config.DirectoryRealmName)
+        if config.Servers.Enabled:
+            directory.setServersDB(buildServersDB(config.Servers.MaxClients))
         store = storeFromConfig(config, txnFactory, directory)
         logObserver = AMPCommonAccessLoggingObserver()
         result = self.requestProcessingService(options, store, logObserver)
@@ -1478,7 +1482,15 @@ class CalDAVServiceMaker (object):
                     # FIXME: right now the store passed *to* the directory is the
                     # calendar/contacts data store, but for a multi-server deployment
                     # it will need its own separate store.
-                    store.setDirectoryService(directoryFromConfig(config, store=store))
+                    if config.Servers.Enabled:
+                        serversDB = buildServersDB(config.Servers.MaxClients)
+                    else:
+                        serversDB = None
+                    store.setDirectoryService(
+                        directoryFromConfig(
+                            config, store=store, serversDB=serversDB
+                        )
+                    )
 
                 pps = PreProcessingService(
                     createMainService, cp, store, logObserver, storageService
@@ -1897,6 +1909,8 @@ class CalDAVServiceMaker (object):
             directory = DirectoryProxyClientService(
                 config.DirectoryRealmName
             )
+            if config.Servers.Enabled:
+                directory.setServersDB(buildServersDB(config.Servers.MaxClients))
         else:
             # If the master is to act as the DPS server:
             directory = None

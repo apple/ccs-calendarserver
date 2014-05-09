@@ -16,20 +16,21 @@
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 
-from txdav.caldav.datastore.scheduling.ischedule.localservers import Server, \
-    Servers
-from txdav.caldav.datastore.test.util import \
-    TestCalendarStoreDirectoryRecord, TestCalendarStoreDirectoryService
+from txdav.caldav.datastore.scheduling.ischedule.localservers import (
+    Server, ServersDB
+)
 from txdav.common.datastore.podding.conduit import PoddingConduit
 from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
-from txdav.common.datastore.test.util import CommonCommonTests, SQLStoreBuilder,\
-    theStoreBuilder
+from txdav.common.datastore.test.util import (
+    CommonCommonTests, SQLStoreBuilder, buildTestDirectory
+)
 
 import txweb2.dav.test.util
 
 from twext.enterprise.ienterprise import AlreadyFinishedError
 
 import json
+
 
 class FakeConduitRequest(object):
     """
@@ -103,37 +104,54 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
     def setUp(self):
         yield super(MultiStoreConduitTest, self).setUp()
 
-        server1 = Server("A", "http://127.0.0.1:8008", "A", True)
-        Servers.addServer(server1)
+        # Store 1
+        serversDB1 = ServersDB()
+        server1a = Server("A", "http://127.0.0.1:8008", "A", True)
+        serversDB1.addServer(server1a)
+        server1b = Server("B", "http://127.0.0.1:8108", "B", False)
+        serversDB1.addServer(server1b)
+        yield self.buildStoreAndDirectory(serversDB=serversDB1)
+        self.store.queryCacher = None     # Cannot use query caching
+        self.store.conduit = self.makeConduit(self.store)
 
-        server2 = Server("B", "http://127.0.0.1:8108", "B", False)
-        Servers.addServer(server2)
+        # Store 2
+        serversDB2 = ServersDB()
+        server2a = Server("A", "http://127.0.0.1:8008", "A", False)
+        serversDB2.addServer(server2a)
+        server2b = Server("B", "http://127.0.0.1:8108", "B", True)
+        serversDB2.addServer(server2b)
 
-        self._sqlCalendarStore1 = yield self.makeStore(theStoreBuilder, True, server1, server2)
-        self._sqlCalendarStore2 = yield self.makeStore(self.theStoreBuilder2, False, server1, server2)
+        self.store2 = yield self.buildStore(self.theStoreBuilder2)
+        directory2 = buildTestDirectory(
+            self.store2, self.mktemp(), serversDB=serversDB2
+        )
 
-        FakeConduitRequest.addServerStore(server1, self._sqlCalendarStore1)
-        FakeConduitRequest.addServerStore(server2, self._sqlCalendarStore2)
+        self.store2.setDirectoryService(directory2)
+        self.store2.queryCacher = None     # Cannot use query caching
+        self.store2.conduit = self.makeConduit(self.store2)
+
+        FakeConduitRequest.addServerStore(server1a, self.store)
+        FakeConduitRequest.addServerStore(server2b, self.store2)
 
 
-    def storeUnderTest(self):
-        """
-        Return a store for testing.
-        """
-        return self._sqlCalendarStore1
+
+    def configure(self):
+        super(MultiStoreConduitTest, self).configure()
+        self.config.Servers.Enabled = True
 
 
     def otherStoreUnderTest(self):
         """
         Return a store for testing.
         """
-        return self._sqlCalendarStore2
+        return self.store2
 
 
     def newOtherTransaction(self):
         assert self.otherTransaction is None
         store2 = self.otherStoreUnderTest()
         txn = store2.newTransaction()
+
         @inlineCallbacks
         def maybeCommitThis():
             try:
@@ -165,49 +183,6 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
         self.otherTransaction = None
 
 
-    @inlineCallbacks
-    def makeStore(self, builder, internal, server1, server2):
-
-        directory = self.makeDirectory(internal, server1, server2)
-        store = yield builder.buildStore(self, self.notifierFactory, directory)
-        store.queryCacher = None     # Cannot use query caching
-        store.conduit = self.makeConduit(store)
-        returnValue(store)
-
-
-    def makeDirectory(self, internal, server1, server2):
-
-        directory = TestCalendarStoreDirectoryService()
-
-        # User accounts
-        for ctr in range(1, 100):
-            directory.addRecord(TestCalendarStoreDirectoryRecord(
-                "user%02d" % (ctr,),
-                ("user%02d" % (ctr,),),
-                "User %02d" % (ctr,),
-                frozenset((
-                    "urn:uuid:user%02d" % (ctr,),
-                    "mailto:user%02d@example.com" % (ctr,),
-                )),
-                thisServer=internal,
-                server=server1
-            ))
-
-        for ctr in range(1, 100):
-            directory.addRecord(TestCalendarStoreDirectoryRecord(
-                "puser{:02d}".format(ctr),
-                ("puser{:02d}".format(ctr),),
-                "Puser {:02d}".format(ctr),
-                frozenset((
-                    "urn:uuid:puser{:02d}".format(ctr),
-                    "mailto:puser{:02d}@example.com".format(ctr),
-                )),
-                thisServer=not internal,
-                server=server2
-            ))
-
-        return directory
-
 
     def makeConduit(self, store):
         conduit = PoddingConduit(store)
@@ -223,6 +198,7 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
         yield calendar.inviteUserToShare(shareeGUID, _BIND_MODE_WRITE, "shared", shareName="shared-calendar")
         yield self.commit()
 
+        # ACK: home2 is None
         home2 = yield self.homeUnderTest(txn=self.newOtherTransaction(), name=shareeGUID)
         yield home2.acceptShare("shared-calendar")
         yield self.otherCommit()

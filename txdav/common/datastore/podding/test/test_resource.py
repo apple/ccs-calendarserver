@@ -23,8 +23,9 @@ from txweb2.test.test_server import SimpleRequest
 
 from twisted.internet.defer import inlineCallbacks, succeed
 
-from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers, Server
-from txdav.caldav.datastore.test.util import buildCalendarStore
+from txdav.caldav.datastore.scheduling.ischedule.localservers import (
+    ServersDB, Server
+)
 from txdav.common.datastore.podding.resource import ConduitResource
 from txdav.common.datastore.test.util import populateCalendarsFrom, CommonCommonTests
 import json
@@ -45,22 +46,15 @@ class ConduitPOST (CommonCommonTests, txweb2.dav.test.util.TestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(ConduitPOST, self).setUp()
-        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory)
-        self.directory = self._sqlCalendarStore.directoryService()
+
+        serversDB = ServersDB()
+        self.thisServer = Server("A", "http://127.0.0.1", "A", True)
+        serversDB.addServer(self.thisServer)
+        yield self.buildStoreAndDirectory(serversDB=serversDB)
 
         self.site.resource.putChild("conduit", ConduitResource(self.site.resource, self.storeUnderTest()))
 
-        self.thisServer = Server("A", "http://127.0.0.1", "A", True)
-        Servers.addServer(self.thisServer)
-
         yield self.populate()
-
-
-    def storeUnderTest(self):
-        """
-        Return a store for testing.
-        """
-        return self._sqlCalendarStore
 
 
     @inlineCallbacks

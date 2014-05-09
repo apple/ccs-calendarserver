@@ -23,10 +23,6 @@ from __future__ import print_function
 
 import os
 
-from zope.interface.declarations import implements
-from txdav.common.idirectoryservice import IStoreDirectoryService, \
-    IStoreDirectoryRecord
-
 # FIXME: Don't import from calendarserver in txdav
 from calendarserver.push.notifier import Notifier
 
@@ -37,7 +33,7 @@ from pycalendar.datetime import DateTime
 from random import Random
 
 from twext.python.log import Logger
-from twext.python.filepath import CachingFilePath
+from twext.python.filepath import CachingFilePath as FilePath
 from twext.enterprise.adbapi2 import ConnectionPool
 from twext.enterprise.ienterprise import AlreadyFinishedError
 from twext.who.directory import DirectoryRecord
@@ -45,12 +41,12 @@ from twext.who.directory import DirectoryRecord
 from twisted.application.service import Service
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, inlineCallbacks
-from twisted.internet.defer import returnValue, succeed
+from twisted.internet.defer import returnValue
 from twisted.internet.task import deferLater
 from twisted.trial.unittest import TestCase
 
 from twistedcaldav import ical
-from twistedcaldav.config import config
+from twistedcaldav.config import config, ConfigDict
 from twistedcaldav.ical import Component as VComponent, Component
 from twistedcaldav.stdconfig import DEFAULT_CONFIG
 from twistedcaldav.vcard import Component as ABComponent
@@ -62,6 +58,7 @@ from txdav.caldav.icalendarstore import ComponentUpdateState
 from txdav.common.datastore.sql import CommonDataStore, current_sql_schema
 from txdav.common.datastore.sql_tables import schema
 from txdav.common.icommondatastore import NoSuchHomeChildError
+from txdav.who.util import buildDirectory
 
 from txweb2.dav.resource import TwistedGETContentMD5
 
@@ -103,99 +100,6 @@ def dumpConnectionStatus():
 
 
 
-class TestStoreDirectoryService(object):
-
-    implements(IStoreDirectoryService)
-
-    def __init__(self):
-        self.records = {}
-
-
-    def recordWithUID(self, uid):
-        return succeed(self.records.get(uid))
-
-
-    def recordWithGUID(self, guid):
-        for record in self.records.itervalues():
-            if record.guid == guid:
-                return succeed(record)
-        return succeed(None)
-
-
-    def recordWithCalendarUserAddress(self, cuaddr):
-        if cuaddr.startswith("urn:x-uid:"):
-            return self.recordWithUID(cuaddr[10:])
-        elif cuaddr.startswith("urn:uuid:"):
-            return self.recordWithUID(cuaddr[9:])
-        else:
-            return succeed(None)
-
-
-    def addRecord(self, record):
-        self.records[record.uid] = record
-
-
-    def removeRecord(self, uid):
-        del self.records[uid]
-
-
-
-class TestStoreDirectoryRecord(object):
-
-    implements(IStoreDirectoryRecord)
-
-    def __init__(self, uid, shortNames, fullName, thisServer=True, server=None, extras={}):
-        self.uid = uid
-        self.guid = uid
-        self.shortNames = shortNames
-        self.fullName = fullName
-        self.displayName = self.fullName if self.fullName else self.shortNames[0]
-        self._thisServer = thisServer
-        self._server = server
-        self.extras = extras
-
-
-    def thisServer(self):
-        return self._thisServer
-
-
-    def server(self):
-        return self._server
-
-
-    def serverURI(self):
-        return self._server.uri if self._server else ""
-
-
-
-def buildDirectory(homes=None):
-
-    directory = TestStoreDirectoryService()
-
-    # User accounts
-    for ctr in range(1, 100):
-        directory.addRecord(TestStoreDirectoryRecord(
-            "user%02d" % (ctr,),
-            ("user%02d" % (ctr,),),
-            "User %02d" % (ctr,),
-        ))
-
-    homes = set(homes) if homes is not None else set()
-    for uid in homes:
-        directory.addRecord(buildDirectoryRecord(uid))
-
-    return directory
-
-
-
-def buildDirectoryRecord(uid):
-    return TestStoreDirectoryRecord(
-        uid,
-        (uid,),
-        uid.capitalize(),
-    )
-
-
 
 class SQLStoreBuilder(object):
     """
@@ -211,7 +115,7 @@ class SQLStoreBuilder(object):
         """
         Create a L{PostgresService} to use for building a store.
         """
-        dbRoot = CachingFilePath(self.sharedDBPath)
+        dbRoot = FilePath(self.sharedDBPath)
         return PostgresService(
             dbRoot, serviceFactory, current_sql_schema, resetSchema=True,
             databaseName="caldav",
@@ -234,7 +138,7 @@ class SQLStoreBuilder(object):
         """
         disableMemcacheForTest(TestCase())
         staticQuota = 3000
-        attachmentRoot = (CachingFilePath(self.sharedDBPath).child("attachments"))
+        attachmentRoot = (FilePath(self.sharedDBPath).child("attachments"))
         stubsvc = self.createService(lambda cf: Service())
 
         cp = ConnectionPool(stubsvc.produceConnection, maxConnections=1)
@@ -244,7 +148,7 @@ class SQLStoreBuilder(object):
         cds = CommonDataStore(
             cp.connection,
             {"push": StubNotifierFactory(), },
-            TestStoreDirectoryService(),
+            None,
             attachmentRoot, "",
             quota=staticQuota
         )
@@ -258,10 +162,9 @@ class SQLStoreBuilder(object):
         @return: a L{Deferred} which fires with an L{IDataStore}.
         """
         disableMemcacheForTest(testCase)
-        dbRoot = CachingFilePath(self.sharedDBPath)
+        dbRoot = FilePath(self.sharedDBPath)
         attachmentRoot = dbRoot.child("attachments")
-        if directoryService is None:
-            directoryService = buildDirectory(homes=homes)
+        # The directory will be given to us later via setDirectoryService
         if self.sharedService is None:
             ready = Deferred()
             def getReady(connectionFactory, storageService):
@@ -694,6 +597,106 @@ def assertProvides(testCase, interface, provider):
 
 
 
+
+def buildTestDirectory(
+    store, dataRoot, accounts=None, resources=None, augments=None, proxies=None,
+    serversDB=None
+):
+    """
+    @param store: the store for the directory to use
+
+    @param dataRoot: the directory to copy xml files to
+
+    @param accounts: path to the accounts.xml file
+    @type accounts: L{FilePath}
+
+    @param resources: path to the resources.xml file
+    @type resources: L{FilePath}
+
+    @param augments: path to the augments.xml file
+    @type augments: L{FilePath}
+
+    @param proxies: path to the proxies.xml file
+    @type proxies: L{FilePath}
+
+    @return: the directory service
+    @rtype: L{IDirectoryService}
+    """
+
+    defaultDirectory = FilePath(__file__).sibling("accounts")
+    if accounts is None:
+        accounts = defaultDirectory.child("accounts.xml")
+    if resources is None:
+        resources = defaultDirectory.child("resources.xml")
+    if augments is None:
+        augments = defaultDirectory.child("augments.xml")
+    if proxies is None:
+        proxies = defaultDirectory.child("proxies.xml")
+
+    if not os.path.exists(dataRoot):
+        os.makedirs(dataRoot)
+
+    accountsCopy = FilePath(dataRoot).child("accounts.xml")
+    accountsCopy.setContent(accounts.getContent())
+
+    resourcesCopy = FilePath(dataRoot).child("resources.xml")
+    resourcesCopy.setContent(resources.getContent())
+
+    augmentsCopy = FilePath(dataRoot).child("augments.xml")
+    augmentsCopy.setContent(augments.getContent())
+
+    proxiesCopy = FilePath(dataRoot).child("proxies.xml")
+    proxiesCopy.setContent(proxies.getContent())
+
+    servicesInfo = (
+        ConfigDict(
+            {
+                "Enabled": True,
+                "type": "xml",
+                "params": {
+                    "xmlFile": "accounts.xml",
+                    "recordTypes": ("users", "groups"),
+                },
+            }
+        ),
+        ConfigDict(
+            {
+                "Enabled": True,
+                "type": "xml",
+                "params": {
+                    "xmlFile": "resources.xml",
+                    "recordTypes": ("locations", "resources", "addresses"),
+                },
+            }
+        ),
+    )
+    augmentServiceInfo = ConfigDict(
+        {
+            "type": "twistedcaldav.directory.augment.AugmentXMLDB",
+            "params": {
+                "xmlFiles": ["augments.xml", ],
+                "statSeconds": 15,
+            },
+        }
+    )
+    wikiServiceInfo = ConfigDict(
+        {
+            "Enabled": True,
+            "CollabHost": "localhost",
+            "CollabPort": 4444,
+        }
+    )
+    directory = buildDirectory(
+        store, dataRoot, servicesInfo, augmentServiceInfo, wikiServiceInfo,
+        serversDB
+    )
+
+    store.setDirectoryService(directory)
+
+    return directory
+
+
+
 class CommonCommonTests(object):
     """
     Common utility functionality for file/store combination tests.
@@ -702,6 +705,85 @@ class CommonCommonTests(object):
     lastTransaction = None
     savedStore = None
     assertProvides = assertProvides
+
+
+    @inlineCallbacks
+    def buildStoreAndDirectory(
+        self, accounts=None, resources=None, augments=None, proxies=None,
+        extraUids=None, serversDB=None
+    ):
+
+        self.serverRoot = self.mktemp()
+        os.mkdir(self.serverRoot)
+
+        self.counter = 0
+        self.notifierFactory = StubNotifierFactory()
+
+        config.reset()
+        self.configure()
+
+        self.store = yield self.buildStore()
+        self._sqlCalendarStore = self.store  # FIXME: remove references to this
+
+        self.directory = buildTestDirectory(
+            self.store, config.DataRoot,
+            accounts=accounts, resources=resources,
+            augments=augments, proxies=proxies,
+            serversDB=serversDB
+        )
+        if extraUids:
+            for uid in extraUids:
+                yield self.addRecordFromFields(
+                    {
+                        self.directory.fieldName.uid:
+                            uid,
+                        self.directory.fieldName.recordType:
+                            self.directory.recordType.user,
+                    }
+                )
+
+
+    def configure(self):
+        """
+        Modify the configuration to suit unit tests, with a mktemp-created
+        ServerRoot
+        """
+
+        config.ServerRoot = os.path.abspath(self.serverRoot)
+        config.ConfigRoot = "config"
+        config.LogRoot = "logs"
+        config.RunRoot = "logs"
+
+        if not os.path.exists(config.DataRoot):
+            os.makedirs(config.DataRoot)
+        if not os.path.exists(config.DocumentRoot):
+            os.makedirs(config.DocumentRoot)
+        if not os.path.exists(config.ConfigRoot):
+            os.makedirs(config.ConfigRoot)
+        if not os.path.exists(config.LogRoot):
+            os.makedirs(config.LogRoot)
+
+        # Work queues for implicit scheduling slow down tests a lot and require them all to add
+        # "waits" for work to complete. Rewriting all the current tests to do that is not practical
+        # right now, so we will turn this off by default. Instead we will have a set of tests dedicated
+        # to work queue-based scheduling which will patch this option to True.
+        config.Scheduling.Options.WorkQueues.Enabled = False
+
+        self.config = config
+
+
+
+    def buildStore(self, storeBuilder=theStoreBuilder):
+        """
+        Builds and returns a store
+        """
+
+        # Build the store before the directory; the directory will be assigned
+        # to the store via setDirectoryService()
+        return storeBuilder.buildStore(self, self.notifierFactory, None)
+
+
+
 
     def transactionUnderTest(self, txn=None):
         """
@@ -758,29 +840,12 @@ class CommonCommonTests(object):
         return result
 
 
-    def setUp(self):
-        self.counter = 0
-        self.notifierFactory = StubNotifierFactory()
-        self.configInit()
-
-
-    def configInit(self):
-        """
-        Hard code some config options
-        """
-
-        # Work queues for implicit scheduling slow down tests a lot and require them all to add
-        # "waits" for work to complete. Rewriting all the current tests to do that is not practical
-        # right now, so we will turn this off by default. Instead we will have a set of tests dedicated
-        # to work queue-based scheduling which will patch this option to True.
-        config.Scheduling.Options.WorkQueues.Enabled = False
-
 
     def storeUnderTest(self):
         """
-        Subclasses must implement this method.
+        Create and return the L{CalendarStore} for testing.
         """
-        raise NotImplementedError("CommonCommonTests subclasses must implement.")
+        return self.store
 
 
     @inlineCallbacks
@@ -852,6 +917,16 @@ class CommonCommonTests(object):
     def userUIDFromShortName(self, shortname):
         record = yield self.directory.recordWithShortName(self.directory.recordType.user, shortname)
         returnValue(record.uid if record is not None else None)
+
+
+    @inlineCallbacks
+    def addRecordFromFields(self, fields):
+        updatedRecord = DirectoryRecord(self.directory, fields)
+        yield self.directory.updateRecords((updatedRecord,), create=True)
+
+    @inlineCallbacks
+    def removeRecord(self, uid):
+        yield self.directory.removeRecords([uid])
 
 
     @inlineCallbacks

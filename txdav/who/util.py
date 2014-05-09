@@ -20,10 +20,8 @@ from twext.python.log import Logger
 from twext.python.types import MappingProxyType
 from twext.who.aggregate import DirectoryService as AggregateDirectoryService
 from twext.who.idirectory import (
-    FieldName as BaseFieldName, RecordType, DirectoryConfigurationError,
-    NoSuchRecordError
+    FieldName as BaseFieldName, RecordType, DirectoryConfigurationError
 )
-from twext.who.index import DirectoryService as IndexDirectoryService
 from twext.who.ldap import (
     DirectoryService as LDAPDirectoryService, LDAPAttribute,
     FieldName as LDAPFieldName,
@@ -31,7 +29,6 @@ from twext.who.ldap import (
 )
 from twext.who.util import ConstantsContainer
 from twisted.cred.credentials import UsernamePassword
-from twisted.internet.defer import succeed, inlineCallbacks
 from twisted.python.filepath import FilePath
 from twisted.python.reflect import namedClass
 from twistedcaldav.config import fullServerPath
@@ -48,16 +45,20 @@ from txdav.who.xml import DirectoryService as XMLDirectoryService
 log = Logger()
 
 
-def directoryFromConfig(config, store=None):
+def directoryFromConfig(config, store=None, serversDB=None):
     """
     Return a directory service based on the config.  If you want to go through
     AMP to talk to one of these as a client, instantiate
     txdav.dps.client.DirectoryService
     """
 
-    # MOVE2WHO FIXME: this needs to talk to its own separate database.  In
-    # fact, don't pass store=None if you already have called storeFromConfig()
-    # within this process.  Pass the existing store in here.
+    # Note: Currently the directory needs a store, and the store needs a
+    # directory.  Originally the directory's store was going to be different
+    # from the calendar and contacts store, but we're not doing that, maybe
+    # ever, since it brings more headaches (managing multiple schema upgrades,
+    # etc.) You can pass store=None in here and the store will be created for
+    # you, but don't pass store=None if you already have called storeFromConfig()
+    # within this same process; pass that store in instead.
 
     # TODO: use proxyForInterface to ensure we're only using the DPS related
     # store API.  Also define an IDirectoryProxyStore Interface
@@ -65,10 +66,38 @@ def directoryFromConfig(config, store=None):
         _ignore_pool, txnFactory = getDBPool(config)
         store = storeFromConfig(config, txnFactory, None)
 
+    return buildDirectory(
+        store,
+        config.DataRoot,
+        [config.DirectoryService, config.ResourceService],
+        config.AugmentService,
+        config.Authentication.Wiki,
+        serversDB=serversDB
+    )
+
+
+def buildDirectory(
+    store, dataRoot, servicesInfo, augmentServiceInfo, wikiServiceInfo,
+    serversDB=None
+):
+    """
+    Return a directory without using a config object; suitable for tests
+    which need to have mulitple directory instances.
+
+    @param store: The store.
+    @param dataRoot: The path to the directory containing xml files for any xml
+        based services.
+    @param servicesInfo:  An interable of ConfigDicts mirroring the
+        DirectoryService and ResourceService sections of stdconfig
+    @param augmentServiceInfo: A ConfigDict mirroring the AugmentService section
+        of stdconfig
+    @param wikiServiceInfo: A ConfigDict mirroring the Wiki section of stdconfig
+    @param serversDB: A ServersDB object to assign to the directory
+    """
+
     aggregatedServices = []
 
-    for serviceKey in ("DirectoryService", "ResourceService"):
-        serviceValue = config.get(serviceKey, None)
+    for serviceValue in servicesInfo:
 
         if not serviceValue.Enabled:
             continue
@@ -76,14 +105,9 @@ def directoryFromConfig(config, store=None):
         directoryType = serviceValue.type.lower()
         params = serviceValue.params
 
-        # TODO: add a "test" directory service that produces test records
-        # from code -- no files needed.
-        # The InMemoryDirectoryService now exists, it just needs hooking up
-        # here.
-
         if "xml" in directoryType:
             xmlFile = params.xmlFile
-            xmlFile = fullServerPath(config.DataRoot, xmlFile)
+            xmlFile = fullServerPath(dataRoot, xmlFile)
             fp = FilePath(xmlFile)
             if not fp.exists():
                 fp.setContent(DEFAULT_XML_CONTENT)
@@ -144,6 +168,10 @@ def directoryFromConfig(config, store=None):
                 })
             )
 
+        elif "inmemory" in directoryType:
+            from txdav.who.test.support import InMemoryDirectoryService
+            directory = InMemoryDirectoryService()
+
         else:
             log.error("Invalid DirectoryType: {dt}", dt=directoryType)
             raise DirectoryConfigurationError
@@ -180,14 +208,14 @@ def directoryFromConfig(config, store=None):
     #
     # Setup the Augment Service
     #
-    if config.AugmentService.type:
-        augmentClass = namedClass(config.AugmentService.type)
+    if augmentServiceInfo.type:
+        augmentClass = namedClass(augmentServiceInfo.type)
         log.info(
             "Configuring augment service of type: {augmentClass}",
             augmentClass=augmentClass
         )
         try:
-            augmentService = augmentClass(**config.AugmentService.params)
+            augmentService = augmentClass(**augmentServiceInfo.params)
         except IOError:
             log.error("Could not start augment service")
             raise
@@ -211,12 +239,12 @@ def directoryFromConfig(config, store=None):
     aggregatedServices.append(delegateDirectory)
 
     # Wiki service
-    if config.Authentication.Wiki.Enabled:
+    if wikiServiceInfo.Enabled:
         aggregatedServices.append(
             WikiDirectoryService(
                 userDirectory.realmName,
-                config.Authentication.Wiki.CollabHost,
-                config.Authentication.Wiki.CollabPort
+                wikiServiceInfo.CollabHost,
+                wikiServiceInfo.CollabPort
             )
         )
 
@@ -242,6 +270,9 @@ def directoryFromConfig(config, store=None):
         log.error("Could not create directory service", error=e)
         raise
 
+    if serversDB is not None:
+        augmented.setServersDB(serversDB)
+
     return augmented
 
 
@@ -249,47 +280,3 @@ DEFAULT_XML_CONTENT = """<?xml version="1.0" encoding="utf-8"?>
 
 <directory realm="Realm"/>
 """
-
-
-class InMemoryDirectoryService(IndexDirectoryService):
-    """
-    An in-memory IDirectoryService.  You must call updateRecords( ) if you want
-    to populate this service.
-    """
-
-    recordType = ConstantsContainer(
-        (
-            RecordType.user,
-            RecordType.group,
-            CalRecordType.location,
-            CalRecordType.resource,
-            CalRecordType.address
-        )
-    )
-
-
-    def loadRecords(self):
-        pass
-
-
-    @inlineCallbacks
-    def updateRecords(self, records, create=False):
-        recordsByUID = dict(((record.uid, record) for record in records))
-        if not create:
-            # Make sure all the records already exist
-            for uid, _ignore_record in recordsByUID.items():
-                if uid not in self._index[self.fieldName.uid]:
-                    raise NoSuchRecordError(uid)
-
-        yield self.removeRecords(recordsByUID.keys())
-        self.indexRecords(records)
-
-
-    def removeRecords(self, uids):
-        index = self._index
-        for fieldName in self.indexedFields:
-            for recordSet in index[fieldName].itervalues():
-                for record in list(recordSet):
-                    if record.uid in uids:
-                        recordSet.remove(record)
-        return succeed(None)

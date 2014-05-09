@@ -1651,18 +1651,6 @@ def _updateSharing(configDict, reloading=False):
 
 
 
-def _updateServers(configDict, reloading=False):
-    from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers
-    if configDict.Servers.Enabled:
-        Servers.load()
-        Servers.installReverseProxies(
-            configDict.Servers.MaxClients,
-        )
-    else:
-        Servers.clear()
-
-
-
 def _updateCompliance(configDict, reloading=False):
 
     if configDict.EnableCalDAV:
@@ -1730,7 +1718,7 @@ POST_UPDATE_HOOKS = (
     _updateICalendar,
     _updateScheduling,
     _updateSharing,
-    _updateServers,
+    # _updateServers,
     _updateCompliance,
     )
 

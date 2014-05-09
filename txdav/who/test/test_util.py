@@ -20,7 +20,8 @@ txdav.who.util tests
 
 import os
 
-from txdav.who.util import directoryFromConfig, InMemoryDirectoryService
+from txdav.who.util import directoryFromConfig
+from txdav.who.test.support import InMemoryDirectoryService
 from twisted.internet.defer import inlineCallbacks
 from twisted.trial.unittest import TestCase
 from twistedcaldav.config import ConfigDict

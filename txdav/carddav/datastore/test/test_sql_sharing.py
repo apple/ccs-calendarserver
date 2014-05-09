@@ -20,7 +20,7 @@ from twisted.trial.unittest import TestCase
 
 from twistedcaldav.vcard import Component as VCard, Component
 from twext.python.clsprop import classproperty
-from txdav.common.datastore.test.util import CommonCommonTests, buildStore
+from txdav.common.datastore.test.util import CommonCommonTests
 from txdav.common.datastore.sql_tables import _BIND_MODE_READ, \
     _BIND_STATUS_INVITED, _BIND_MODE_DIRECT, _BIND_STATUS_ACCEPTED, \
     _BIND_MODE_WRITE
@@ -35,7 +35,7 @@ class BaseSharingTests(CommonCommonTests, TestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(BaseSharingTests, self).setUp()
-        self._sqlStore = yield buildStore(self, self.notifierFactory)
+        yield self.buildStoreAndDirectory()
         yield self.populate()
 
 
@@ -134,13 +134,6 @@ END:VCARD
     all_children = ["group1.vcf", "group2.vcf", "card1.vcf", "card2.vcf", "card3.vcf", ]
     group1_children = ["group1.vcf", "card1.vcf", "card2.vcf", ]
     group2_children = ["group2.vcf", "card1.vcf", "card3.vcf", ]
-
-
-    def storeUnderTest(self):
-        """
-        Create and return a L{CalendarStore} for testing.
-        """
-        return self._sqlStore
 
 
     @inlineCallbacks
@@ -1209,8 +1202,8 @@ class SharingRevisions(BaseSharingTests):
         """
 
         # Create first events in different addressbook homes
-        txn1 = self._sqlStore.newTransaction()
-        txn2 = self._sqlStore.newTransaction()
+        txn1 = self.store.newTransaction()
+        txn2 = self.store.newTransaction()
 
         addressbook_uid1_in_txn1 = yield self.addressbookUnderTest(txn1, "addressbook", "user01")
         addressbook_uid2_in_txn2 = yield self.addressbookUnderTest(txn2, "addressbook", "user02")

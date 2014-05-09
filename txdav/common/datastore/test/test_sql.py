@@ -26,11 +26,10 @@ from twisted.internet.task import Clock
 from twisted.trial.unittest import TestCase
 from twisted.internet.defer import Deferred
 
-from txdav.caldav.datastore.test.util import buildDirectoryRecord
 from txdav.common.datastore.sql import log, CommonStoreTransactionMonitor, \
     CommonHome, CommonHomeChild, ECALENDARTYPE
 from txdav.common.datastore.sql_tables import schema
-from txdav.common.datastore.test.util import CommonCommonTests, buildStore
+from txdav.common.datastore.test.util import CommonCommonTests
 from txdav.common.icommondatastore import AllRetriesFailed
 from txdav.common.datastore.sql import fixUUIDNormalization
 from txdav.xml import element as davxml
@@ -38,8 +37,9 @@ from txdav.xml import element as davxml
 from uuid import UUID
 
 exampleUID = UUID("a" * 32)
-denormalizedUID = str(exampleUID)
+denormalizedUID = unicode(exampleUID)
 normalizedUID = denormalizedUID.upper()
+
 
 class CommonSQLStoreTests(CommonCommonTests, TestCase):
     """
@@ -52,17 +52,9 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         Set up two stores to migrate between.
         """
         yield super(CommonSQLStoreTests, self).setUp()
-        self._sqlStore = yield buildStore(self, self.notifierFactory)
-        self._sqlStore.directoryService().addRecord(buildDirectoryRecord(denormalizedUID))
-        self._sqlStore.directoryService().addRecord(buildDirectoryRecord(normalizedUID))
-        self._sqlStore.directoryService().addRecord(buildDirectoryRecord("uid"))
-
-
-    def storeUnderTest(self):
-        """
-        Return a store for testing.
-        """
-        return self._sqlStore
+        yield self.buildStoreAndDirectory(
+            extraUids=(denormalizedUID, normalizedUID, u"uid")
+        )
 
 
     @inlineCallbacks
@@ -72,9 +64,9 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         """
 
         # Patch config to turn on logging then rebuild the store
-        self.patch(self._sqlStore, "logLabels", True)
-        self.patch(self._sqlStore, "logStats", True)
-        self.patch(self._sqlStore, "logSQL", True)
+        self.patch(self.store, "logLabels", True)
+        self.patch(self.store, "logStats", True)
+        self.patch(self.store, "logSQL", True)
 
         txn = self.transactionUnderTest()
         cs = schema.CALENDARSERVER
@@ -97,7 +89,7 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         self.patch(CommonStoreTransactionMonitor, "callLater", c.callLater)
 
         # Patch config to turn on log waits then rebuild the store
-        self.patch(self._sqlStore, "logTransactionWaits", 1)
+        self.patch(self.store, "logTransactionWaits", 1)
 
         ctr = [0]
         def counter(*args, **kwargs):
@@ -120,7 +112,7 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         self.patch(CommonStoreTransactionMonitor, "callLater", c.callLater)
 
         # Patch config to turn on transaction timeouts then rebuild the store
-        self.patch(self._sqlStore, "timeoutTransactions", 1)
+        self.patch(self.store, "timeoutTransactions", 1)
 
         ctr = [0]
         def counter(*args, **kwargs):
@@ -145,8 +137,8 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         self.patch(CommonStoreTransactionMonitor, "callLater", c.callLater)
 
         # Patch config to turn on log waits then rebuild the store
-        self.patch(self._sqlStore, "logTransactionWaits", 1)
-        self.patch(self._sqlStore, "timeoutTransactions", 2)
+        self.patch(self.store, "logTransactionWaits", 1)
+        self.patch(self.store, "timeoutTransactions", 2)
 
         ctr = [0, 0]
         def counter(logStr, *args, **kwargs):

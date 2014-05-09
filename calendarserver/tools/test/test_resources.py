@@ -19,7 +19,7 @@
 from twisted.internet.defer import inlineCallbacks
 from calendarserver.tools.resources import migrateResources
 from twistedcaldav.test.util import StoreTestCase
-from txdav.who.util import InMemoryDirectoryService
+from txdav.who.test.support import InMemoryDirectoryService
 from twext.who.directory import DirectoryRecord
 from txdav.who.idirectory import RecordType as CalRecordType
 from txdav.who.directory import CalendarDirectoryRecordMixin

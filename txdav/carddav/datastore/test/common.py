@@ -201,17 +201,6 @@ class CommonTests(CommonCommonTests):
         },
     }
 
-    def storeUnderTest(self):
-        """
-        Subclasses must override this to return an L{IAddressBookStore}
-        provider which adheres to the structure detailed by
-        L{CommonTests.requirements}. This attribute is a dict of dict of dicts;
-        the outermost layer representing UIDs mapping to addressbook homes,
-        then addressbook names mapping to addressbook collections, and finally
-        addressbook object names mapping to addressbook object text.
-        """
-        raise NotImplementedError()
-
 
     def homeUnderTest(self, txn=None, name=None):
         """

@@ -21,7 +21,6 @@ from twisted.trial.unittest import TestCase
 from twext.python.clsprop import classproperty
 from txdav.common.datastore.test.util import CommonCommonTests, \
     populateCalendarsFrom
-from txdav.caldav.datastore.test.util import buildCalendarStore
 from txdav.common.datastore.sql_tables import _BIND_MODE_READ, \
     _BIND_STATUS_INVITED, _BIND_MODE_DIRECT, _BIND_STATUS_ACCEPTED
 
@@ -34,7 +33,7 @@ class BaseSharingTests(CommonCommonTests, TestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(BaseSharingTests, self).setUp()
-        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory)
+        yield self.buildStoreAndDirectory()
         yield self.populate()
 
 

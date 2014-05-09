@@ -16,10 +16,9 @@
 
 from twisted.internet.defer import inlineCallbacks
 
-from txdav.caldav.datastore.scheduling.ischedule.localservers import Servers, \
-    Server
-from txdav.caldav.datastore.test.util import buildCalendarStore, \
-    TestCalendarStoreDirectoryRecord
+from txdav.caldav.datastore.scheduling.ischedule.localservers import (
+    ServersDB, Server
+)
 from txdav.common.datastore.podding.resource import ConduitResource
 from txdav.common.datastore.sql_tables import _HOME_STATUS_NORMAL, \
     _HOME_STATUS_EXTERNAL
@@ -34,32 +33,14 @@ class ExternalHome(CommonCommonTests, txweb2.dav.test.util.TestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(ExternalHome, self).setUp()
-        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory)
-        self.directory = self._sqlCalendarStore.directoryService()
 
-        for ctr in range(1, 100):
-            self.directory.addRecord(TestCalendarStoreDirectoryRecord(
-                "puser{:02d}".format(ctr),
-                ("puser{:02d}".format(ctr),),
-                "Puser {:02d}".format(ctr),
-                frozenset((
-                    "urn:uuid:puser{:02d}".format(ctr),
-                    "mailto:puser{:02d}@example.com".format(ctr),
-                )),
-                thisServer=False,
-            ))
+        serversDB = ServersDB()
+        serversDB.addServer(Server("A", "http://127.0.0.1", "A", True))
+        serversDB.addServer(Server("B", "http://127.0.0.2", "B", False))
+
+        yield self.buildStoreAndDirectory(serversDB=serversDB)
 
         self.site.resource.putChild("conduit", ConduitResource(self.site.resource, self.storeUnderTest()))
-
-        self.thisServer = Server("A", "http://127.0.0.1", "A", True)
-        Servers.addServer(self.thisServer)
-
-
-    def storeUnderTest(self):
-        """
-        Return a store for testing.
-        """
-        return self._sqlCalendarStore
 
 
     @inlineCallbacks

@@ -25,7 +25,6 @@ from twext.python.clsprop import classproperty
 from twisted.internet.defer import inlineCallbacks
 from twisted.trial.unittest import TestCase
 from twistedcaldav.config import config
-from txdav.caldav.datastore.test.util import buildCalendarStore
 from txdav.common.datastore.sql_tables import schema
 import datetime
 
@@ -38,7 +37,7 @@ class InboxCleanupTests(CommonCommonTests, TestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(InboxCleanupTests, self).setUp()
-        self._sqlStore = yield buildCalendarStore(self, self.notifierFactory)
+        yield self.buildStoreAndDirectory()
         yield self.populate()
 
 
@@ -119,13 +118,6 @@ END:VCALENDAR
                 },
             }
         }
-
-
-    def storeUnderTest(self):
-        """
-        Create and return a L{CalendarStore} for testing.
-        """
-        return self._sqlStore
 
 
     @inlineCallbacks

@@ -23,9 +23,9 @@ from twisted.trial.unittest import TestCase
 
 from twistedcaldav.ical import Component
 
-from txdav.caldav.datastore.test.util import buildCalendarStore
 from txdav.common.datastore.test.util import CommonCommonTests, populateCalendarsFrom
 from txdav.caldav.datastore.scheduling.caldav.scheduler import CalDAVScheduler
+
 
 def normalizeiCalendarText(data):
     data = data.replace("\r\n ", "")
@@ -42,7 +42,7 @@ class SchedulerFreeBusyRequest(CommonCommonTests, TestCase):
     @inlineCallbacks
     def setUp(self):
         yield super(SchedulerFreeBusyRequest, self).setUp()
-        self._sqlCalendarStore = yield buildCalendarStore(self, self.notifierFactory)
+        yield self.buildStoreAndDirectory()
         yield self.populate()
 
         self.now = DateTime.getNowUTC()
