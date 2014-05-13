@@ -70,6 +70,7 @@ from txdav.xml.rfc2518 import GETContentLanguage, ResourceType
 
 import datetime
 
+
 class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
     """
     Calendar SQL storage tests.
@@ -2219,6 +2220,57 @@ END:VCALENDAR
         structProp = components[1].getProperty("X-APPLE-STRUCTURED-LOCATION")
         self.assertEquals(structProp.value(),
             "geo:37.332633,-122.030502")
+
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_setComponent_externalPrincipal(self):
+        """
+        Verify attendees who are not locally hosted have X-APPLE-HOSTED-STATUS=EXTERNAL
+        attribute added.
+        """
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Apple Inc.//Mac OS X 10.9.1//EN
+BEGIN:VEVENT
+UID:561F5DBB-3F38-4B3A-986F-DD05CBAF554F
+DTSTART;TZID=America/Los_Angeles:20131211T164500
+DTEND;TZID=America/Los_Angeles:20131211T174500
+ATTENDEE;X-APPLE-HOSTED-STATUS=EXTERNAL:urn:x-uid:user01
+ATTENDEE:mailto:someone_external@example.com
+CREATED:20131211T221854Z
+DTSTAMP:20131211T230632Z
+ORGANIZER:urn:x-uid:user01
+SUMMARY:external
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+        self.patch(config.HostedStatus, "Enabled", True)
+
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+        yield calendar.createCalendarObjectWithName("external.ics",
+            Component.fromString(data))
+        cobj = yield self.calendarObjectUnderTest(name="external.ics",
+            calendar_name="calendar", home="user01")
+        comp = yield cobj.component()
+        components = list(comp.subcomponents())
+
+        # Check attendees...
+
+        # The local user will have the X-APPLE-HOSTED-STATUS param removed...
+        local = components[0].getAttendeeProperty(["urn:x-uid:user01"])
+        self.assertFalse(local.hasParameter(config.HostedStatus.Parameter))
+
+        # The external one will have it added...
+        external = components[0].getAttendeeProperty(["mailto:someone_external@example.com"])
+        self.assertEquals(
+            external.parameterValue(config.HostedStatus.Parameter),
+            config.HostedStatus.Values["external"]
+        )
 
         yield self.commit()
 

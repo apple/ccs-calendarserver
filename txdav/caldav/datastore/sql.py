@@ -2428,6 +2428,33 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
+    def decorateHostedStatus(self, component):
+        """
+        Scan the component for attendees; if any are hosted externally (e.g.
+        they don't exist in our directory) add the attribute:
+        X-APPLE-HOSTED-STATUS=EXTERNAL
+        """
+        dir = self.directoryService()
+        for sub in component.subcomponents():
+            for attendee in sub.getAllAttendeeProperties():
+                value = attendee.value()
+
+                record = yield dir.recordWithCalendarUserAddress(value)
+                if record is None:
+                    status = "external"
+                else:
+                    status = "local"
+
+                if config.HostedStatus.Values[status]:
+                    attendee.setParameter(
+                        config.HostedStatus.Parameter,
+                        config.HostedStatus.Values[status]
+                    )
+                else:
+                    attendee.removeParameter(config.HostedStatus.Parameter)
+
+
+    @inlineCallbacks
     def doImplicitScheduling(self, component, inserting, internal_state, split_details=None):
 
         new_component = None
@@ -2672,6 +2699,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
             # Process structured location
             yield self.addStructuredLocation(component)
+
+            # Process hosted status
+            if config.HostedStatus.Enabled:
+                yield self.decorateHostedStatus(component)
 
             # Do scheduling
             implicit_result = (yield self.doImplicitScheduling(component, inserting, internal_state))

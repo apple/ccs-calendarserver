@@ -639,6 +639,19 @@ DEFAULT_CONFIG = {
 
     "RemoveDuplicatePrivateComments": False, # Remove duplicate private comments on PUT
 
+    "HostedStatus": {
+        "Enabled": False, # Decorate ATTENDEEs with the following parameter
+                          # to indicate where the ATTENDEE is hosted, locally
+                          # or externally.  It's configurable and extensible in
+                          # case we want to add more values.  A value of empty
+                          # string means no decoration.
+        "Parameter": "X-APPLE-HOSTED-STATUS",
+        "Values": {
+            "local": "",
+            "external": "EXTERNAL",
+        },
+    },
+
     "RevisionCleanup": {
         "Enabled": True,
         "SyncTokenLifetimeDays" : 14.0,     # Number of days that a client sync report token is valid
