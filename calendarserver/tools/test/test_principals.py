@@ -101,7 +101,7 @@ class ManagePrincipalsTestCase(TestCase):
         Run calendarserver_manage_principals, passing additional as args.
         """
         sourceRoot = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-        cmd = os.path.join(sourceRoot, "bin", "calendarserver_manage_principals")
+        cmd = "calendarserver_manage_principals"  # assumes it's on PATH
 
         args = [cmd, "-f", self.configFileName]
         args.extend(additional)

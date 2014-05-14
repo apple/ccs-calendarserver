@@ -157,7 +157,7 @@ class RunCommandTestCase(TestCase):
         sourceRoot = os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         )
-        cmd = os.path.join(sourceRoot, "bin", script)
+        cmd = script  # assumes it's on PATH
 
         args = [cmd, "-f", self.configFileName]
         if error:
