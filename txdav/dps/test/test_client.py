@@ -63,7 +63,6 @@ elif testMode == "od":
 
 
 
-
 class DPSClientSingleDirectoryTest(unittest.TestCase):
     """
     Tests the client against a single directory service (as opposed to the
@@ -298,8 +297,6 @@ class DPSClientSingleDirectoryTest(unittest.TestCase):
                     )
                 )
                 self.assertEquals(authenticated, answer)
-
-
 
 
 

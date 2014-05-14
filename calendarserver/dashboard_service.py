@@ -85,7 +85,7 @@ class DashboardProtocol (LineReceiver):
         @return: a string containing the JSON result.
         @rtype: L{str}
         """
-        return succeed(self.factory.logger.observer.getStats())
+        return succeed(self.factory.logger.getStats())
 
 
     def data_slots(self):
@@ -95,15 +95,13 @@ class DashboardProtocol (LineReceiver):
         @return: a string containing the JSON result.
         @rtype: L{str}
         """
-        if self.factory.limiter is None:
-            raise ValueError()
-        states = tuple(self.factory.limiter.dispatcher.slavestates)
+        states = tuple(self.factory.limiter.dispatcher.slavestates) if self.factory.limiter is not None else ()
         results = []
         for num, status in states:
             result = {"slot": num}
             result.update(status.items())
             results.append(result)
-        return succeed({"slots": results, "overloaded": self.factory.limiter.overloaded})
+        return succeed({"slots": results, "overloaded": self.factory.limiter.overloaded if self.factory.limiter is not None else False})
 
 
     def data_jobcount(self):
@@ -131,6 +129,21 @@ class DashboardProtocol (LineReceiver):
         yield txn.commit()
 
         returnValue(records)
+
+
+    def data_job_assignments(self):
+        """
+        Return a summary of the job assignments to workers.
+
+        @return: a string containing the JSON result.
+        @rtype: L{str}
+        """
+
+        queuer = self.factory.store.queuer
+        loads = queuer.workerPool.eachWorkerLoad()
+        level = queuer.workerPool.loadLevel()
+
+        return succeed({"workers": loads, "level": level})
 
 
 

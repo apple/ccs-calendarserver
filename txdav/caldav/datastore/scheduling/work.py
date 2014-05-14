@@ -17,7 +17,7 @@
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.syntax import Select, Insert, Delete, Parameter
 from twext.enterprise.locking import NamedLock
-from twext.enterprise.jobqueue import WorkItem
+from twext.enterprise.jobqueue import WorkItem, WORK_PRIORITY_MEDIUM
 from twext.python.log import Logger
 
 from twisted.internet.defer import inlineCallbacks, returnValue, Deferred
@@ -60,6 +60,8 @@ class ScheduleWorkMixin(object):
 
     # Schedule work is grouped based on calendar object UID
     group = property(lambda self: "ScheduleWork:%s" % (self.icalendarUid,))
+    default_priority = WORK_PRIORITY_MEDIUM
+    default_weight = 5
 
 
     @classmethod

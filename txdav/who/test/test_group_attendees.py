@@ -20,8 +20,10 @@
 
 import os
 
+from twext.enterprise.jobqueue import JobItem
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.who.directory import DirectoryService
+from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.trial import unittest
 from twistedcaldav.config import config
@@ -503,7 +505,7 @@ END:VCALENDAR
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
         yield self.commit()
         self.assertEqual(len(wps), 1)
-        yield wps[0].whenExecuted()
+        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000002")
         vcalendar = yield cobj.component()
@@ -516,7 +518,7 @@ END:VCALENDAR
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
         yield self.commit()
         self.assertEqual(len(wps), 1)
-        yield wps[0].whenExecuted()
+        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000002")
         vcalendar = yield cobj.component()
@@ -638,8 +640,7 @@ END:VCALENDAR
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
         yield self.commit()
         self.assertEqual(len(wps), len(userRange))
-        for wp in wps:
-            yield wp.whenExecuted()
+        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
 
         for i in userRange:
             cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-00000000000{0}".format(i))
@@ -653,8 +654,7 @@ END:VCALENDAR
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
         yield self.commit()
         self.assertEqual(len(wps), len(userRange))
-        for wp in wps:
-            yield wp.whenExecuted()
+        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
 
         for i in userRange:
             cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-00000000000{0}".format(i))
@@ -760,7 +760,7 @@ END:VCALENDAR
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
         yield self.commit()
         self.assertEqual(len(wps), 1)
-        yield wps[0].whenExecuted()
+        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000002")
         vcalendar = yield cobj.component()
@@ -779,6 +779,9 @@ END:VCALENDAR
         self.assertEqual(normalize_iCalStr(vcalendar), normalize_iCalStr(data_get_2))
 
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
+        if len(wps): # This is needed because the test currently fails and does actually create job items we have to wait for
+            yield self.commit()
+            yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
         self.assertEqual(len(wps), 0)
 
     test_groupChangeOldEvent.todo = "Doesn't work yet"
@@ -916,7 +919,7 @@ END:VCALENDAR"""
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000002")
         yield self.commit()
         self.assertEqual(len(wps), 1)
-        yield wps[0].whenExecuted()
+        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000001")
         vcalendar = yield cobj.component()
@@ -928,7 +931,7 @@ END:VCALENDAR"""
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000002")
         yield self.commit()
         self.assertEqual(len(wps), 1)
-        yield wps[0].whenExecuted()
+        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000001")
         vcalendar = yield cobj.component()
@@ -947,7 +950,7 @@ END:VCALENDAR"""
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000002")
         self.assertEqual(len(wps), 1)
         yield self.commit()
-        yield wps[0].whenExecuted()
+        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000001")
         vcalendar = yield cobj.component()
@@ -1072,11 +1075,11 @@ END:VCALENDAR
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000002")
         yield self.commit()
         self.assertEqual(len(wps), 1)
-        yield wps[0].whenExecuted()
+        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000003")
         yield self.commit()
         self.assertEqual(len(wps), 1)
-        yield wps[0].whenExecuted()
+        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000001")
         vcalendar = yield cobj.component()

@@ -19,6 +19,7 @@ from cStringIO import StringIO
 
 from pycalendar.datetime import DateTime
 
+from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, succeed
 from twisted.trial import unittest
 from twisted.web.template import Element, renderer, flattenString
@@ -30,6 +31,8 @@ from txdav.caldav.datastore.scheduling.imip.outbound import IMIPInvitationWork
 from txdav.caldav.datastore.scheduling.imip.outbound import MailSender
 from txdav.caldav.datastore.scheduling.imip.outbound import StringFormatTemplateLoader
 from txdav.common.datastore.test.util import buildStore
+
+from twext.enterprise.jobqueue import JobItem
 
 import email
 from email.iterators import typed_subpart_iterator
@@ -308,7 +311,7 @@ class OutboundTests(unittest.TestCase):
         ))
         self.assertEquals(wp, self.wp)
         yield txn.commit()
-        yield wp.whenExecuted()
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
 
         txn = self.store.newTransaction()
         token = (yield txn.imipGetToken(
@@ -335,7 +338,7 @@ class OutboundTests(unittest.TestCase):
             icalendarText=initialInviteText.replace("\n", "\r\n"),
         ))
         yield txn.commit()
-        yield wp.whenExecuted()
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
         # Verify a new work proposal was not created
         self.assertEquals(wp, self.wp)
 

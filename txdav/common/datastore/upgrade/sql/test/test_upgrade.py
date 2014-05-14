@@ -145,7 +145,7 @@ class SchemaUpgradeTests(TestCase):
         """
 
         store = yield theStoreBuilder.buildStore(
-            self, {"push": StubNotifierFactory()}
+            self, {"push": StubNotifierFactory()}, enableJobProcessing=False
         )
 
         @inlineCallbacks
@@ -203,6 +203,16 @@ class SchemaUpgradeTests(TestCase):
         new_schema = yield _loadSchemaFromDatabase()
         currentSchema = schemaFromPath(test_upgrader.schemaLocation.child("current.sql"))
         mismatched = currentSchema.compare(new_schema)
+        # These are special case exceptions
+        for i in (
+            "Table: CALENDAR_HOME, column name DATAVERSION default mismatch",
+            "Table: ADDRESSBOOK_HOME, column name DATAVERSION default mismatch",
+            "Table: PUSH_NOTIFICATION_WORK, column name PUSH_PRIORITY default mismatch",
+        ):
+            try:
+                mismatched.remove(i)
+            except ValueError:
+                pass
         self.assertEqual(len(mismatched), 0, "Schema mismatch:\n" + "\n".join(mismatched))
 
         yield _unloadOldSchema()
@@ -239,7 +249,7 @@ class SchemaUpgradeTests(TestCase):
         """
 
         store = yield theStoreBuilder.buildStore(
-            self, {"push": StubNotifierFactory()}
+            self, {"push": StubNotifierFactory()}, enableJobProcessing=False
         )
 
         @inlineCallbacks
@@ -297,7 +307,7 @@ test_upgrader = UpgradeDatabaseSchemaStep(None)
 for child in test_upgrader.schemaLocation.child("old").child(POSTGRES_DIALECT).globChildren("*.sql"):
     def f(self, lchild=child):
         return self._dbSchemaUpgrades(lchild)
-        setattr(SchemaUpgradeTests, "test_dbSchemaUpgrades_%s" % (child.basename().split(".", 1)[0],), f)
+    setattr(SchemaUpgradeTests, "test_dbSchemaUpgrades_%s" % (child.basename().split(".", 1)[0],), f)
 
 # Bind test methods for each addressbook data version
 versions = set()

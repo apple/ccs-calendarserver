@@ -36,6 +36,7 @@ from twext.python.log import Logger
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.enterprise.adbapi2 import ConnectionPool
 from twext.enterprise.ienterprise import AlreadyFinishedError
+from twext.enterprise.jobqueue import PeerConnectionPool, JobItem
 from twext.who.directory import DirectoryRecord
 
 from twisted.application.service import Service
@@ -100,7 +101,6 @@ def dumpConnectionStatus():
 
 
 
-
 class SQLStoreBuilder(object):
     """
     Test-fixture-builder which can construct a PostgresStore.
@@ -109,6 +109,7 @@ class SQLStoreBuilder(object):
         self.sharedService = None
         self.currentTestID = None
         self.sharedDBPath = "_test_sql_db" + str(os.getpid()) + ("-2" if secondary else "")
+        self.ampPort = config.WorkQueue.ampPort + (1 if secondary else 0)
 
 
     def createService(self, serviceFactory):
@@ -155,7 +156,7 @@ class SQLStoreBuilder(object):
         return cds
 
 
-    def buildStore(self, testCase, notifierFactory, directoryService=None, homes=None):
+    def buildStore(self, testCase, notifierFactory, directoryService=None, homes=None, enableJobProcessing=True):
         """
         Do the necessary work to build a store for a particular test case.
 
@@ -169,7 +170,7 @@ class SQLStoreBuilder(object):
             ready = Deferred()
             def getReady(connectionFactory, storageService):
                 self.makeAndCleanStore(
-                    testCase, notifierFactory, directoryService, attachmentRoot
+                    testCase, notifierFactory, directoryService, attachmentRoot, enableJobProcessing
                 ).chainDeferred(ready)
                 return Service()
             self.sharedService = self.createService(getReady)
@@ -183,7 +184,7 @@ class SQLStoreBuilder(object):
             result = ready
         else:
             result = self.makeAndCleanStore(
-                testCase, notifierFactory, directoryService, attachmentRoot
+                testCase, notifierFactory, directoryService, attachmentRoot, enableJobProcessing
             )
         def cleanUp():
             def stopit():
@@ -194,7 +195,7 @@ class SQLStoreBuilder(object):
 
 
     @inlineCallbacks
-    def makeAndCleanStore(self, testCase, notifierFactory, directoryService, attachmentRoot):
+    def makeAndCleanStore(self, testCase, notifierFactory, directoryService, attachmentRoot, enableJobProcessing=True):
         """
         Create a L{CommonDataStore} specific to the given L{TestCase}.
 
@@ -211,7 +212,7 @@ class SQLStoreBuilder(object):
         attachmentRoot.createDirectory()
 
         currentTestID = testCase.id()
-        cp = ConnectionPool(self.sharedService.produceConnection, maxConnections=5)
+        cp = ConnectionPool(self.sharedService.produceConnection, maxConnections=4)
         quota = deriveQuota(testCase)
         store = CommonDataStore(
             cp.connection,
@@ -223,20 +224,39 @@ class SQLStoreBuilder(object):
         )
         store.label = currentTestID
         cp.startService()
+
+        @inlineCallbacks
         def stopIt():
+            txn = store.newTransaction()
+            jobs = yield JobItem.all(txn)
+            yield txn.commit()
+            if len(jobs):
+                print("Jobs left in job queue {}".format(testCase))
+
+            if enableJobProcessing:
+                yield pool.stopService()
+
             # active transactions should have been shut down.
             wasBusy = len(cp._busy)
             busyText = repr(cp._busy)
-            stop = cp.stopService()
-            def checkWasBusy(ignored):
+            result = yield cp.stopService()
+            if deriveValue(testCase, _SPECIAL_TXN_CLEAN, lambda tc: False):
                 if wasBusy:
                     testCase.fail("Outstanding Transactions: " + busyText)
-                return ignored
-            if deriveValue(testCase, _SPECIAL_TXN_CLEAN, lambda tc: False):
-                stop.addBoth(checkWasBusy)
-            return stop
+                returnValue(result)
+            returnValue(result)
+
         testCase.addCleanup(stopIt)
         yield self.cleanStore(testCase, store)
+
+        # Start the job queue after store is up and cleaned
+        if enableJobProcessing:
+            pool = PeerConnectionPool(
+                reactor, store.newTransaction, None
+            )
+            store.queuer = store.queuer.transferProposalCallbacks(pool)
+            pool.startService()
+
         returnValue(store)
 
 
@@ -597,7 +617,6 @@ def assertProvides(testCase, interface, provider):
 
 
 
-
 def buildTestDirectory(
     store, dataRoot, accounts=None, resources=None, augments=None, proxies=None,
     serversDB=None
@@ -772,7 +791,6 @@ class CommonCommonTests(object):
         self.config = config
 
 
-
     def buildStore(self, storeBuilder=theStoreBuilder):
         """
         Builds and returns a store
@@ -781,8 +799,6 @@ class CommonCommonTests(object):
         # Build the store before the directory; the directory will be assigned
         # to the store via setDirectoryService()
         return storeBuilder.buildStore(self, self.notifierFactory, None)
-
-
 
 
     def transactionUnderTest(self, txn=None):
@@ -838,7 +854,6 @@ class CommonCommonTests(object):
         result = self.lastTransaction.abort()
         self.lastTransaction = None
         return result
-
 
 
     def storeUnderTest(self):
@@ -923,6 +938,7 @@ class CommonCommonTests(object):
     def addRecordFromFields(self, fields):
         updatedRecord = DirectoryRecord(self.directory, fields)
         yield self.directory.updateRecords((updatedRecord,), create=True)
+
 
     @inlineCallbacks
     def removeRecord(self, uid):

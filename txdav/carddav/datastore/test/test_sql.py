@@ -86,7 +86,6 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         self.notifierFactory.reset()
 
 
-
     @inlineCallbacks
     def assertAddressbooksSimilar(self, a, b, bAddressbookFilter=None):
         """
@@ -532,7 +531,7 @@ END:VCARD
         Test that kind property vCard is stored correctly in database
         """
         addressbookStore = self.store
-        cleanStore(self, addressbookStore)
+        yield cleanStore(self, addressbookStore)
 
         # Provision the home and addressbook, one user and one group
         txn = addressbookStore.newTransaction()

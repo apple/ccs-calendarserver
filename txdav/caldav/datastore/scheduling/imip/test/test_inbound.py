@@ -16,7 +16,9 @@
 
 
 from twisted.internet.defer import inlineCallbacks, succeed
+from twisted.internet import reactor
 from twisted.python.modules import getModule
+from twisted.trial import unittest
 
 from twistedcaldav.config import ConfigDict
 from twistedcaldav.ical import Component
@@ -30,9 +32,9 @@ from txdav.caldav.datastore.scheduling.imip.inbound import IMAP4DownloadProtocol
 from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
 from txdav.common.datastore.test.util import CommonCommonTests
 
-import email
-from twisted.trial import unittest
+from twext.enterprise.jobqueue import JobItem
 
+import email
 
 class InboundTests(CommonCommonTests, unittest.TestCase):
 
@@ -183,6 +185,8 @@ END:VCALENDAR
         result = (yield self.receiver.processDSN(calBody, "xyzzy"))
         self.assertEquals(result, MailReceiver.INJECTION_SUBMITTED)
 
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
+
 
     @inlineCallbacks
     def test_processReply(self):
@@ -204,6 +208,8 @@ END:VCALENDAR
 
         result = (yield self.receiver.processReply(msg))
         self.assertEquals(result, MailReceiver.INJECTION_SUBMITTED)
+
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
 
 
     def test_processReplyMissingOrganizer(self):
@@ -354,13 +360,13 @@ END:VEVENT
 END:VCALENDAR
 """
         txn = self.store.newTransaction()
-        wp = (yield txn.enqueue(IMIPReplyWork,
+        yield txn.enqueue(IMIPReplyWork,
             organizer="urn:x-uid:user01",
             attendee="mailto:xyzzy@example.com",
             icalendarText=calendar
-        ))
+        )
         yield txn.commit()
-        yield wp.whenExecuted()
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
 
 
     def test_shouldDeleteAllMail(self):

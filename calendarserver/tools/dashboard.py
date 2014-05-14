@@ -414,10 +414,11 @@ class WorkWindow(BaseWindow):
 
     help = "display server jobs"
     clientItem = "jobs"
+    FORMAT_WIDTH = 78
 
     def makeWindow(self, top=0, left=0):
         nlines = self.readItem("jobcount")
-        self._createWindow("Jobs", nlines + 5, begin_y=top, begin_x=left)
+        self._createWindow("Jobs", nlines + 5, ncols=self.FORMAT_WIDTH, begin_y=top, begin_x=left)
         return self
 
 
@@ -435,19 +436,28 @@ class WorkWindow(BaseWindow):
 
         x = 1
         y = 1
-        s = " {:<40}{:>8} ".format("Work Type", "Count")
+        s = " {:<40}{:>8}{:>10}{:>8}{:>8} ".format("Work Type", "Count", "Assigned", "Failed", "Overdue")
         if self.usesCurses:
             self.window.addstr(y, x, s, curses.A_REVERSE)
         else:
             print(s)
         y += 1
-        for work_type, count in sorted(records.items(), key=lambda x: x[0]):
+        total_count = 0
+        total_assigned = 0
+        total_failed = 0
+        total_overdue = 0
+        for work_type, details in sorted(records.items(), key=lambda x: x[0]):
+            count, assigned, failed, overdue = details
+            total_count += count
+            total_assigned += assigned
+            total_failed += failed
+            total_overdue += overdue
             changed = (
                 work_type in self.lastResult and
-                self.lastResult[work_type] != count
+                self.lastResult[work_type][0] != count
             )
-            s = "{}{:<40}{:>8} ".format(
-                ">" if count else " ", work_type, count
+            s = "{}{:<40}{:>8}{:>10}{:>8}{:>8} ".format(
+                ">" if count else " ", work_type, count, assigned, failed, overdue
             )
             try:
                 if self.usesCurses:
@@ -463,9 +473,95 @@ class WorkWindow(BaseWindow):
                 pass
             y += 1
 
-        s = " {:<40}{:>8} ".format("Total:", sum(records.values()))
+        s = " {:<40}{:>8}{:>10}{:>8}{:>8} ".format("Total:", total_count, total_assigned, total_failed, total_overdue)
         if self.usesCurses:
-            self.window.hline(y, x, "-", BOX_WIDTH - 2)
+            self.window.hline(y, x, "-", self.FORMAT_WIDTH - 2)
+            y += 1
+            self.window.addstr(y, x, s)
+        else:
+            print(s)
+        y += 1
+
+        if self.usesCurses:
+            self.window.refresh()
+
+        self.lastResult = records
+
+
+
+class AssignmentsWindow(BaseWindow):
+    """
+    Displays the status of the server's master process worker slave slots.
+    """
+
+    help = "display server child job assignments"
+    clientItem = "job_assignments"
+    FORMAT_WIDTH = 32
+
+    def makeWindow(self, top=0, left=0):
+        slots = self.readItem(self.clientItem)["workers"]
+        self._createWindow(
+            "Job Assignments", len(slots) + 5, self.FORMAT_WIDTH,
+            begin_y=top, begin_x=left
+        )
+        return self
+
+
+    def update(self):
+        data = self.clientData()
+        records = data["workers"]
+        self.iter += 1
+
+        if self.usesCurses:
+            self.window.erase()
+            self.window.border()
+            self.window.addstr(
+                0, 2,
+                self.title + " {} ({})".format(len(records), self.iter)
+            )
+
+        x = 1
+        y = 1
+        s = " {:>4}{:>12}{:>12} ".format(
+            "Slot", "assigned", "completed"
+        )
+        if self.usesCurses:
+            self.window.addstr(y, x, s, curses.A_REVERSE)
+        else:
+            print(s)
+        y += 1
+        total_completed = 0
+        for ctr, details in enumerate(records):
+            assigned, completed = details
+            total_completed += completed
+            changed = (
+                ctr in self.lastResult and
+                self.lastResult[ctr] != assigned
+            )
+            s = " {:>4}{:>12}{:>12} ".format(
+                ctr,
+                assigned,
+                completed,
+            )
+            try:
+                if self.usesCurses:
+                    self.window.addstr(
+                        y, x, s,
+                        curses.A_REVERSE if changed else curses.A_NORMAL
+                    )
+                else:
+                    print(s)
+            except curses.error:
+                pass
+            y += 1
+
+        s = " {:<6}{:>10}{:>12}".format(
+            "Total:",
+            "{}%".format(data["level"]),
+            total_completed,
+        )
+        if self.usesCurses:
+            self.window.hline(y, x, "-", self.FORMAT_WIDTH - 2)
             y += 1
             self.window.addstr(y, x, s)
         else:
@@ -491,7 +587,7 @@ class SlotsWindow(BaseWindow):
     def makeWindow(self, top=0, left=0):
         slots = self.readItem(self.clientItem)["slots"]
         self._createWindow(
-            "Slots", len(slots) + 5, self.FORMAT_WIDTH,
+            "HTTP Slots", len(slots) + 5, self.FORMAT_WIDTH,
             begin_y=top, begin_x=left
         )
         return self
@@ -721,6 +817,7 @@ class StatsWindow(BaseWindow):
 Dashboard.registerWindow(SystemWindow, "s")
 Dashboard.registerWindow(StatsWindow, "r")
 Dashboard.registerWindow(WorkWindow, "j")
+Dashboard.registerWindow(AssignmentsWindow, "w")
 Dashboard.registerWindow(SlotsWindow, "c")
 Dashboard.registerWindow(HelpWindow, "h")
 

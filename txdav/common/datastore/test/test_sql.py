@@ -268,6 +268,7 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         """
         txn = self.transactionUnderTest()
         cs = schema.CALENDARSERVER
+        yield Select([cs.VALUE], From=cs).on(txn)
         waitAMoment = Deferred()
         @inlineCallbacks
         def later(subtxn):

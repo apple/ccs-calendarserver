@@ -21,8 +21,9 @@ create table JOB (
     "WORK_TYPE" nvarchar2(255),
     "PRIORITY" integer default 0,
     "WEIGHT" integer default 0,
-    "NOT_BEFORE" timestamp default null,
-    "NOT_AFTER" timestamp default null
+    "NOT_BEFORE" timestamp not null,
+    "ASSIGNED" timestamp default null,
+    "FAILED" integer default 0
 );
 
 create table CALENDAR_HOME (
@@ -567,7 +568,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '41');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '42');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');

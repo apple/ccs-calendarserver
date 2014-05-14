@@ -58,8 +58,9 @@ create table JOB (
   WORK_TYPE   varchar(255) not null,
   PRIORITY    integer default 0,
   WEIGHT      integer default 0,
-  NOT_BEFORE  timestamp default null,
-  NOT_AFTER   timestamp default null
+  NOT_BEFORE  timestamp not null,
+  ASSIGNED    timestamp default null,
+  FAILED	  integer default 0
 );
 
 create or replace function next_job() returns integer as $$
@@ -1081,7 +1082,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '41');
+insert into CALENDARSERVER values ('VERSION', '42');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');

@@ -18,12 +18,14 @@ from twistedcaldav.test.util import StoreTestCase
 from calendarserver.push.notifier import PushDistributor
 from calendarserver.push.notifier import getPubSubAPSConfiguration
 from calendarserver.push.notifier import PushNotificationWork
-from twisted.internet.defer import inlineCallbacks, succeed, gatherResults
+from twisted.internet.defer import inlineCallbacks, succeed
 from twistedcaldav.config import ConfigDict
 from txdav.common.datastore.test.util import populateCalendarsFrom
 from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
 from calendarserver.push.util import PushPriority
 from txdav.idav import ChangeCategory
+from twext.enterprise.jobqueue import JobItem
+from twisted.internet import reactor
 
 class StubService(object):
     def __init__(self):
@@ -113,43 +115,38 @@ class PushNotificationWorkTests(StoreTestCase):
         self._sqlCalendarStore.callWithNewTransactions(decorateTransaction)
 
         txn = self._sqlCalendarStore.newTransaction()
-        wp = (yield txn.enqueue(PushNotificationWork,
+        yield txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/foo/",
             pushPriority=PushPriority.high.value
-        ))
+        )
         yield txn.commit()
-        yield wp.whenExecuted()
+        yield JobItem.waitEmpty(self.storeUnderTest().newTransaction, reactor, 60)
         self.assertEquals(pushDistributor.history,
             [("/CalDAV/localhost/foo/", PushPriority.high)])
 
         pushDistributor.reset()
         txn = self._sqlCalendarStore.newTransaction()
-        proposals = []
-        wp = yield txn.enqueue(PushNotificationWork,
+        yield txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/bar/",
             pushPriority=PushPriority.high.value
         )
-        proposals.append(wp.whenExecuted())
-        wp = yield txn.enqueue(PushNotificationWork,
+        yield txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/bar/",
             pushPriority=PushPriority.high.value
         )
-        proposals.append(wp.whenExecuted())
-        wp = yield txn.enqueue(PushNotificationWork,
+        yield txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/bar/",
             pushPriority=PushPriority.high.value
         )
-        proposals.append(wp.whenExecuted())
         # Enqueue a different pushID to ensure those are not grouped with
         # the others:
-        wp = yield txn.enqueue(PushNotificationWork,
+        yield txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/baz/",
             pushPriority=PushPriority.high.value
         )
-        proposals.append(wp.whenExecuted())
 
         yield txn.commit()
-        yield gatherResults(proposals)
+        yield JobItem.waitEmpty(self.storeUnderTest().newTransaction, reactor, 60)
         self.assertEquals(set(pushDistributor.history),
             set([("/CalDAV/localhost/bar/", PushPriority.high),
              ("/CalDAV/localhost/baz/", PushPriority.high)]))
@@ -158,24 +155,20 @@ class PushNotificationWorkTests(StoreTestCase):
         # enqueuing low, medium, and high notifications
         pushDistributor.reset()
         txn = self._sqlCalendarStore.newTransaction()
-        proposals = []
-        wp = yield txn.enqueue(PushNotificationWork,
+        yield txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/bar/",
             pushPriority=PushPriority.low.value
         )
-        proposals.append(wp.whenExecuted())
-        wp = yield txn.enqueue(PushNotificationWork,
+        yield txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/bar/",
             pushPriority=PushPriority.high.value
         )
-        proposals.append(wp.whenExecuted())
-        wp = yield txn.enqueue(PushNotificationWork,
+        yield txn.enqueue(PushNotificationWork,
             pushID="/CalDAV/localhost/bar/",
             pushPriority=PushPriority.medium.value
         )
-        proposals.append(wp.whenExecuted())
         yield txn.commit()
-        yield gatherResults(proposals)
+        yield JobItem.waitEmpty(self.storeUnderTest().newTransaction, reactor, 60)
         self.assertEquals(pushDistributor.history,
             [("/CalDAV/localhost/bar/", PushPriority.high)])
 

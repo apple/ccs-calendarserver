@@ -17,8 +17,9 @@
 
 
 from twext.enterprise.dal.syntax import Select
-from twext.enterprise.jobqueue import WorkItem
+from twext.enterprise.jobqueue import WorkItem, JobItem
 from twext.python.clsprop import classproperty
+from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.trial.unittest import TestCase
 from twistedcaldav.config import config
@@ -265,18 +266,18 @@ END:VCARD
         self.assertNotEqual(len(revisionRows), 0)
 
         # do FindMinValidRevisionWork
-        wp = yield self.transactionUnderTest().enqueue(FindMinValidRevisionWork, notBefore=datetime.datetime.utcnow())
+        yield self.transactionUnderTest().enqueue(FindMinValidRevisionWork, notBefore=datetime.datetime.utcnow())
         yield self.commit()
-        yield wp.whenExecuted()
+        yield JobItem.waitEmpty(self.storeUnderTest().newTransaction, reactor, 60)
 
         # Get the minimum valid revision and check it
         minValidRevision = yield self.transactionUnderTest().calendarserverValue("MIN-VALID-REVISION")
         self.assertEqual(int(minValidRevision), max([row[0] for row in revisionRows]))
 
         # do RevisionCleanupWork
-        wp = yield self.transactionUnderTest().enqueue(RevisionCleanupWork, notBefore=datetime.datetime.utcnow())
+        yield self.transactionUnderTest().enqueue(RevisionCleanupWork, notBefore=datetime.datetime.utcnow())
         yield self.commit()
-        yield wp.whenExecuted()
+        yield JobItem.waitEmpty(self.storeUnderTest().newTransaction, reactor, 60)
 
         # Get group1 object revision
         rev = schema.CALENDAR_OBJECT_REVISIONS
@@ -313,18 +314,18 @@ END:VCARD
         self.assertNotEqual(len(revisionRows), 0)
 
         # do FindMinValidRevisionWork
-        wp = yield self.transactionUnderTest().enqueue(FindMinValidRevisionWork, notBefore=datetime.datetime.utcnow())
+        yield self.transactionUnderTest().enqueue(FindMinValidRevisionWork, notBefore=datetime.datetime.utcnow())
         yield self.commit()
-        yield wp.whenExecuted()
+        yield JobItem.waitEmpty(self.storeUnderTest().newTransaction, reactor, 60)
 
         # Get the minimum valid revision and check it
         minValidRevision = yield self.transactionUnderTest().calendarserverValue("MIN-VALID-REVISION")
         self.assertEqual(int(minValidRevision), max([row[0] for row in revisionRows]))
 
         # do RevisionCleanupWork
-        wp = yield self.transactionUnderTest().enqueue(RevisionCleanupWork, notBefore=datetime.datetime.utcnow())
+        yield self.transactionUnderTest().enqueue(RevisionCleanupWork, notBefore=datetime.datetime.utcnow())
         yield self.commit()
-        yield wp.whenExecuted()
+        yield JobItem.waitEmpty(self.storeUnderTest().newTransaction, reactor, 60)
 
         # Get group1 object revision
         rev = schema.NOTIFICATION_OBJECT_REVISIONS
@@ -365,18 +366,18 @@ END:VCARD
         self.assertNotEqual(len(revisionRows), 0)
 
         # do FindMinValidRevisionWork
-        wp = yield self.transactionUnderTest().enqueue(FindMinValidRevisionWork, notBefore=datetime.datetime.utcnow())
+        yield self.transactionUnderTest().enqueue(FindMinValidRevisionWork, notBefore=datetime.datetime.utcnow())
         yield self.commit()
-        yield wp.whenExecuted()
+        yield JobItem.waitEmpty(self.storeUnderTest().newTransaction, reactor, 60)
 
         # Get the minimum valid revision and check it
         minValidRevision = yield self.transactionUnderTest().calendarserverValue("MIN-VALID-REVISION")
         self.assertEqual(int(minValidRevision), max([row[0] for row in revisionRows]))
 
         # do RevisionCleanupWork
-        wp = yield self.transactionUnderTest().enqueue(RevisionCleanupWork, notBefore=datetime.datetime.utcnow())
+        yield self.transactionUnderTest().enqueue(RevisionCleanupWork, notBefore=datetime.datetime.utcnow())
         yield self.commit()
-        yield wp.whenExecuted()
+        yield JobItem.waitEmpty(self.storeUnderTest().newTransaction, reactor, 60)
 
         # Get group1 object revision
         rev = schema.ADDRESSBOOK_OBJECT_REVISIONS
@@ -438,18 +439,18 @@ END:VCARD
         self.assertEqual(len(group2Rows), 4)  # 2 members x 2 revisions each
 
         # do FindMinValidRevisionWork
-        wp = yield self.transactionUnderTest().enqueue(FindMinValidRevisionWork, notBefore=datetime.datetime.utcnow())
+        yield self.transactionUnderTest().enqueue(FindMinValidRevisionWork, notBefore=datetime.datetime.utcnow())
         yield self.commit()
-        yield wp.whenExecuted()
+        yield JobItem.waitEmpty(self.storeUnderTest().newTransaction, reactor, 60)
 
         # Get the minimum valid revision and check it
         minValidRevision = yield self.transactionUnderTest().calendarserverValue("MIN-VALID-REVISION")
         self.assertEqual(int(minValidRevision), max([row[3] for row in group1Rows + group2Rows]))
 
         # do RevisionCleanupWork
-        wp = yield self.transactionUnderTest().enqueue(RevisionCleanupWork, notBefore=datetime.datetime.utcnow())
+        yield self.transactionUnderTest().enqueue(RevisionCleanupWork, notBefore=datetime.datetime.utcnow())
         yield self.commit()
-        yield wp.whenExecuted()
+        yield JobItem.waitEmpty(self.storeUnderTest().newTransaction, reactor, 60)
 
         group1Rows = yield Select(
             [aboMembers.GROUP_ID,

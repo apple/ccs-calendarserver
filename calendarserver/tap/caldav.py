@@ -1275,6 +1275,14 @@ class CalDAVServiceMaker (object):
 
             directory = store.directoryService()
 
+            # Job queues always required
+            from twisted.internet import reactor
+            pool = PeerConnectionPool(
+                reactor, store.newTransaction, config.WorkQueue.ampPort
+            )
+            store.queuer = store.queuer.transferProposalCallbacks(pool)
+            pool.setServiceParent(result)
+
             # Optionally set up mail retrieval
             if config.Scheduling.iMIP.Enabled:
                 mailRetriever = MailRetriever(
@@ -1283,6 +1291,26 @@ class CalDAVServiceMaker (object):
                 mailRetriever.setServiceParent(result)
             else:
                 mailRetriever = None
+
+            # Start listening on the stats socket, for administrators to inspect
+            # the current stats on the server.
+            stats = None
+            if config.Stats.EnableUnixStatsSocket:
+                stats = DashboardServer(logObserver, None)
+                stats.store = store
+                statsService = GroupOwnedUNIXServer(
+                    gid, config.Stats.UnixStatsSocket, stats, mode=0660
+                )
+                statsService.setName("unix-stats")
+                statsService.setServiceParent(result)
+            if config.Stats.EnableTCPStatsSocket:
+                stats = DashboardServer(logObserver, None)
+                stats.store = store
+                statsService = TCPServer(
+                    config.Stats.TCPStatsPort, stats, interface=""
+                )
+                statsService.setName("tcp-stats")
+                statsService.setServiceParent(result)
 
             # Optionally set up group cacher
             if config.GroupCaching.Enabled:
@@ -1779,14 +1807,14 @@ class CalDAVServiceMaker (object):
         # the current stats on the server.
         stats = None
         if config.Stats.EnableUnixStatsSocket:
-            stats = DashboardServer(logger, cl if config.UseMetaFD else None)
+            stats = DashboardServer(logger.observer, cl if config.UseMetaFD else None)
             statsService = GroupOwnedUNIXServer(
                 gid, config.Stats.UnixStatsSocket, stats, mode=0660
             )
             statsService.setName("unix-stats")
             statsService.setServiceParent(s)
         if config.Stats.EnableTCPStatsSocket:
-            stats = DashboardServer(logger, cl if config.UseMetaFD else None)
+            stats = DashboardServer(logger.observer, cl if config.UseMetaFD else None)
             statsService = TCPServer(
                 config.Stats.TCPStatsPort, stats, interface=""
             )

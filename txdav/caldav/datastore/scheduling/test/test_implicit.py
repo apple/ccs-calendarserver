@@ -17,7 +17,6 @@
 from pycalendar.datetime import DateTime
 from pycalendar.timezone import Timezone
 
-from twext.python.clsprop import classproperty
 from txweb2 import responsecode
 from txweb2.http import HTTPError
 
@@ -31,12 +30,14 @@ from twistedcaldav.ical import Component
 from twistedcaldav.timezones import TimezoneCache
 
 from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser
-from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler, \
-    ScheduleReplyWork
+from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
 from txdav.caldav.datastore.scheduling.scheduler import ScheduleResponseQueue
 from txdav.caldav.icalendarstore import AttendeeAllowedError, \
     ComponentUpdateState
 from txdav.common.datastore.test.util import CommonCommonTests, populateCalendarsFrom
+
+from twext.enterprise.jobqueue import JobItem
+from twext.python.clsprop import classproperty
 
 import hashlib
 import sys
@@ -1370,10 +1371,7 @@ END:VCALENDAR
 
         yield self._setCalendarData(data2, "user02")
 
-        while True:
-            work = (yield ScheduleReplyWork.hasWork(self.transactionUnderTest()))
-            if not work:
-                break
+        yield JobItem.waitEmpty(self.storeUnderTest().newTransaction, reactor, 60)
 
         list1 = (yield self._listCalendarObjects("user01", "inbox"))
         self.assertEqual(len(list1), 1)
@@ -1445,10 +1443,7 @@ END:VCALENDAR
 
         yield self._setCalendarData(data2, "user02")
 
-        while True:
-            work = (yield ScheduleReplyWork.hasWork(self.transactionUnderTest()))
-            if not work:
-                break
+        yield JobItem.waitEmpty(self.storeUnderTest().newTransaction, reactor, 60)
 
         list1 = (yield self._listCalendarObjects("user01", "inbox"))
         self.assertEqual(len(list1), 1)
@@ -1534,10 +1529,7 @@ END:VCALENDAR
 
         yield self._setCalendarData(data2, "user02")
 
-        while True:
-            work = (yield ScheduleReplyWork.hasWork(self.transactionUnderTest()))
-            if not work:
-                break
+        yield JobItem.waitEmpty(self.storeUnderTest().newTransaction, reactor, 60)
 
         list1 = (yield self._listCalendarObjects("user01", "inbox"))
         self.assertEqual(len(list1), 1)

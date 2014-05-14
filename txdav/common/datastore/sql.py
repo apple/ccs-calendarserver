@@ -284,7 +284,7 @@ class CommonDataStore(Service, object):
         """
         txn = CommonStoreTransaction(
             self,
-            self.sqlTxnFactory(),
+            self.sqlTxnFactory(label=label),
             self.enableCalendars,
             self.enableAddressBooks,
             self._notifierFactories if self._enableNotifications else {},

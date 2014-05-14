@@ -759,18 +759,24 @@ create table GROUP_ATTENDEE (
 create table DELEGATES (
   DELEGATOR                     varchar(255) not null,
   DELEGATE                      varchar(255) not null,
-  READ_WRITE                    integer      not null -- 1 = ReadWrite, 0 = ReadOnly
+  READ_WRITE                    integer      not null, -- 1 = ReadWrite, 0 = ReadOnly
+
+  primary key (DELEGATOR, READ_WRITE, DELEGATE)
 );
+create index DELEGATE_TO_DELEGATOR on
+  DELEGATES(DELEGATE, READ_WRITE, DELEGATOR);
 
 create table DELEGATE_GROUPS (
   DELEGATOR                     varchar(255) not null,
   GROUP_ID                      integer      not null,
   READ_WRITE                    integer      not null, -- 1 = ReadWrite, 0 = ReadOnly
-  IS_EXTERNAL                   integer      not null -- 1 = ReadWrite, 0 = ReadOnly
+  IS_EXTERNAL                   integer      not null, -- 1 = ReadWrite, 0 = ReadOnly
+
+  primary key (DELEGATOR, READ_WRITE, GROUP_ID)
 );
 
 create table EXTERNAL_DELEGATE_GROUPS (
-  DELEGATOR                     varchar(255) not null,
+  DELEGATOR                    varchar(255) primary key not null,
   GROUP_UID_READ               varchar(255),
   GROUP_UID_WRITE              varchar(255)
 );

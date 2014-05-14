@@ -15,17 +15,18 @@
 ##
 
 
+from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.work.inbox_cleanup import InboxCleanupWork, CleanupOneInboxWork
 from txdav.common.datastore.test.util import CommonCommonTests, populateCalendarsFrom
 
 
 from twext.enterprise.dal.syntax import Select, Update, Parameter
-from twext.enterprise.jobqueue import WorkItem
+from twext.enterprise.jobqueue import WorkItem, JobItem
 from twext.python.clsprop import classproperty
+from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
 from twisted.trial.unittest import TestCase
 from twistedcaldav.config import config
-from txdav.common.datastore.sql_tables import schema
 import datetime
 
 
@@ -143,9 +144,9 @@ END:VCALENDAR
         self.patch(CleanupOneInboxWork, "_schedule", FakeCleanupOneInboxWork._schedule)
 
         # do cleanup
-        wp = yield self.transactionUnderTest().enqueue(InboxCleanupWork, notBefore=datetime.datetime.utcnow())
+        yield self.transactionUnderTest().enqueue(InboxCleanupWork, notBefore=datetime.datetime.utcnow())
         yield self.commit()
-        yield wp.whenExecuted()
+        yield JobItem.waitEmpty(self.storeUnderTest().newTransaction, reactor, 60)
 
         ch = schema.CALENDAR_HOME
         workRows = yield Select(
@@ -171,9 +172,9 @@ END:VCALENDAR
             yield item.remove()
 
         # do cleanup
-        wp = yield self.transactionUnderTest().enqueue(CleanupOneInboxWork, homeID=inbox.ownerHome()._resourceID, notBefore=datetime.datetime.utcnow())
+        yield self.transactionUnderTest().enqueue(CleanupOneInboxWork, homeID=inbox.ownerHome()._resourceID, notBefore=datetime.datetime.utcnow())
         yield self.commit()
-        yield wp.whenExecuted()
+        yield JobItem.waitEmpty(self.storeUnderTest().newTransaction, reactor, 60)
 
         # check that orphans are deleted
         inbox = yield self.calendarUnderTest(home="user01", name="inbox")
@@ -200,9 +201,9 @@ END:VCALENDAR
             co.CALENDAR_RESOURCE_ID == inbox._resourceID)).on(self.transactionUnderTest(), itemsToPredate=itemsToPredate)
 
         # do cleanup
-        wp = yield self.transactionUnderTest().enqueue(CleanupOneInboxWork, homeID=inbox.ownerHome()._resourceID, notBefore=datetime.datetime.utcnow())
+        yield self.transactionUnderTest().enqueue(CleanupOneInboxWork, homeID=inbox.ownerHome()._resourceID, notBefore=datetime.datetime.utcnow())
         yield self.commit()
-        yield wp.whenExecuted()
+        yield JobItem.waitEmpty(self.storeUnderTest().newTransaction, reactor, 60)
 
         # check that old items are deleted
         inbox = yield self.calendarUnderTest(home="user01", name="inbox")
@@ -225,9 +226,9 @@ END:VCALENDAR
             Where=tr.CALENDAR_OBJECT_RESOURCE_ID == cal3Event._resourceID).on(
             self.transactionUnderTest())
         # do cleanup
-        wp = yield self.transactionUnderTest().enqueue(CleanupOneInboxWork, homeID=calendar.ownerHome()._resourceID, notBefore=datetime.datetime.utcnow())
+        yield self.transactionUnderTest().enqueue(CleanupOneInboxWork, homeID=calendar.ownerHome()._resourceID, notBefore=datetime.datetime.utcnow())
         yield self.commit()
-        yield wp.whenExecuted()
+        yield JobItem.waitEmpty(self.storeUnderTest().newTransaction, reactor, 60)
 
         # check that old items are deleted
         inbox = yield self.calendarUnderTest(home="user01", name="inbox")

@@ -22,9 +22,6 @@ L{txdav.caldav.datastore.test.common}.
 from pycalendar.datetime import DateTime
 from pycalendar.timezone import Timezone
 
-from twext.enterprise.dal.syntax import Select, Parameter, Insert, Delete, \
-    Update
-from twext.enterprise.ienterprise import AlreadyFinishedError
 
 from txweb2 import responsecode
 from txweb2.http_headers import MimeType
@@ -67,6 +64,11 @@ from txdav.common.datastore.test.util import populateCalendarsFrom, \
 from txdav.common.icommondatastore import NoSuchObjectResourceError
 from txdav.idav import ChangeCategory
 from txdav.xml.rfc2518 import GETContentLanguage, ResourceType
+
+from twext.enterprise.dal.syntax import Select, Parameter, Insert, Delete, \
+    Update
+from twext.enterprise.ienterprise import AlreadyFinishedError
+from twext.enterprise.jobqueue import JobItem
 
 import datetime
 
@@ -2988,7 +2990,6 @@ END:VCALENDAR
         component = Component.fromString(data % self.subs)
         cobj = yield calendar.createCalendarObjectWithName("data1.ics", component)
         self.assertTrue(hasattr(cobj, "_workItems"))
-        work = cobj._workItems[0]
         yield self.commit()
 
         w = schema.CALENDAR_OBJECT_SPLITTER_WORK
@@ -3001,7 +3002,7 @@ END:VCALENDAR
         yield self.abort()
 
         # Wait for it to complete
-        yield work.whenExecuted()
+        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
 
         rows = yield Select(
             [w.RESOURCE_ID, ],
@@ -3151,7 +3152,6 @@ END:VCALENDAR
         component = Component.fromString(data % self.subs)
         cobj = yield calendar.createCalendarObjectWithName("data1.ics", component)
         self.assertTrue(hasattr(cobj, "_workItems"))
-        work = cobj._workItems[0]
         yield self.commit()
 
         w = schema.CALENDAR_OBJECT_SPLITTER_WORK
@@ -3175,7 +3175,7 @@ END:VCALENDAR
         yield self.abort()
 
         # Wait for it to complete
-        yield work.whenExecuted()
+        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
 
         rows = yield Select(
             [w.RESOURCE_ID, ],
@@ -3781,11 +3781,10 @@ END:VCALENDAR
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
         yield cobj.setComponent(Component.fromString(data_split_1 % relsubs))
         self.assertTrue(hasattr(cobj, "_workItems"))
-        work = cobj._workItems[0]
         yield self.commit()
 
         # Wait for it to complete
-        yield work.whenExecuted()
+        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
 
         # Get the existing and new object data
         ical_future, ical_past, pastUID, relID, _ignore_new_name = yield self._splitDetails("user01")
@@ -5161,7 +5160,6 @@ END:VCALENDAR
         component = Component.fromString(data % self.subs)
         cobj = yield calendar.createCalendarObjectWithName("data1.ics", component)
         self.assertTrue(hasattr(cobj, "_workItems"))
-        work = cobj._workItems[0]
         yield self.commit()
 
         self.patch(CalDAVScheduler, "doSchedulingViaPUT", _doSchedulingViaPUT)
@@ -5176,7 +5174,7 @@ END:VCALENDAR
         yield self.abort()
 
         # Wait for it to complete
-        yield work.whenExecuted()
+        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
 
         rows = yield Select(
             [w.RESOURCE_ID, ],
@@ -5594,7 +5592,6 @@ END:VCALENDAR
         component = Component.fromString(data % self.subs)
         yield self.failUnlessFailure(cobj.setComponent(component), AlreadyFinishedError)
         self.assertTrue(self.transactionUnderTest().timedout)
-        work = cobj._workItems[0]
 
         # Clear out timed out state
         self.lastTransaction = None
@@ -5610,7 +5607,7 @@ END:VCALENDAR
         yield self.abort()
 
         # Wait for it to complete
-        yield work.whenExecuted()
+        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
 
         rows = yield Select(
             [w.RESOURCE_ID, ],

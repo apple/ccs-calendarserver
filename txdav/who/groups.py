@@ -21,7 +21,7 @@ Group membership caching
 
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.syntax import Delete, Select
-from twext.enterprise.jobqueue import WorkItem, PeerConnectionPool
+from twext.enterprise.jobqueue import WorkItem
 from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twistedcaldav.config import config
@@ -109,11 +109,9 @@ def scheduleNextGroupCachingUpdate(store, seconds):
 
 def schedulePolledGroupCachingUpdate(store):
     """
-    Schedules a group caching update work item in "the past" so
-    PeerConnectionPool's overdue-item logic picks it up quickly.
+    Schedules a group caching update work item to run immediately.
     """
-    seconds = -PeerConnectionPool.queueProcessTimeout
-    return scheduleNextGroupCachingUpdate(store, seconds)
+    return scheduleNextGroupCachingUpdate(store, 0)
 
 
 
@@ -164,7 +162,7 @@ class GroupAttendeeReconciliationWork(
     group = property(
         lambda self: "{0}, {1}".format(self.groupID, self.resourceID)
     )
-    
+
     @classmethod
     @inlineCallbacks
     def _schedule(cls, txn, eventID, groupID, seconds):
@@ -435,9 +433,9 @@ class GroupCacher(object):
         wps = []
         for [eventID] in rows:
             wp = yield GroupAttendeeReconciliationWork._schedule(
-                txn, 
-                eventID=eventID, 
-                groupID=groupID, 
+                txn,
+                eventID=eventID,
+                groupID=groupID,
                 seconds=float(config.GroupAttendees.ReconciliationDelaySeconds)
             )
             wps.append(wp)

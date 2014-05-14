@@ -17,6 +17,7 @@
 from twext.enterprise.dal.syntax import Delete, Insert, Select, Count
 
 from twisted.internet.defer import inlineCallbacks, succeed, returnValue
+from twisted.trial.unittest import TestCase
 
 from twistedcaldav.config import config
 
@@ -40,6 +41,13 @@ class AttachmentMigrationModeTests(CommonStoreTests):
     """
     Tests for L{UpgradeDatabaseSchemaStep}.
     """
+
+    @inlineCallbacks
+    def setUp(self):
+        # We need to skip the immediate base class since we are creating our own
+        # store in each test
+        yield TestCase.setUp(self)
+
 
     @inlineCallbacks
     def _initStore(self, enableManagedAttachments=True):
