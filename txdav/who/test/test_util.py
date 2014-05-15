@@ -62,13 +62,8 @@ class UtilTest(TestCase):
         sourceAccounts = sourceDir.child("accounts.xml")
         accounts.setContent(sourceAccounts.getContent())
 
-        resources = destDir.child("resources.xml")
-        sourceResources = sourceDir.child("resources.xml")
-        resources.setContent(sourceResources.getContent())
-
-        augments = destDir.child("augments.xml")
-        sourceAugments = sourceDir.child("augments.xml")
-        augments.setContent(sourceAugments.getContent())
+        # Note, don't create resources.xml nor augments.xml here,
+        # We'll test later on that they get created automatically.
 
 
     @inlineCallbacks
@@ -113,6 +108,12 @@ class UtilTest(TestCase):
 
         store = StubStore()
         service = directoryFromConfig(config, store=store)
+
+        # Make sure XML files were created
+        dataRoot = FilePath(self.dataRoot)
+        self.assertTrue(dataRoot.child("accounts.xml").exists())
+        self.assertTrue(dataRoot.child("resources.xml").exists())
+        self.assertTrue(dataRoot.child("augments.xml").exists())
 
         # Inspect the directory service structure
         self.assertTrue(isinstance(service, AugmentedDirectoryService))

@@ -209,6 +209,12 @@ def buildDirectory(
     # Setup the Augment Service
     #
     if augmentServiceInfo.type:
+        for augmentFile in augmentServiceInfo.params.xmlFiles:
+            augmentFile = fullServerPath(dataRoot, augmentFile)
+            augmentFilePath = FilePath(augmentFile)
+            if not augmentFilePath.exists():
+                augmentFilePath.setContent(DEFAULT_AUGMENT_CONTENT)
+
         augmentClass = namedClass(augmentServiceInfo.type)
         log.info(
             "Configuring augment service of type: {augmentClass}",
@@ -279,4 +285,9 @@ def buildDirectory(
 DEFAULT_XML_CONTENT = """<?xml version="1.0" encoding="utf-8"?>
 
 <directory realm="Realm"/>
+"""
+
+DEFAULT_AUGMENT_CONTENT = """<?xml version="1.0" encoding="utf-8"?>
+
+<augments/>
 """

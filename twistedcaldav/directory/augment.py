@@ -440,7 +440,11 @@ class AugmentXMLDB(AugmentDB):
 
     def _doRemoveFromFile(self, xmlfile, uids):
 
-        _ignore_etree, augments_node = readXML(xmlfile)
+        try:
+            _ignore_etree, augments_node = readXML(xmlfile)
+        except IOError:
+            # If the file is missing, then removal is a no-op
+            return
 
         # Remove all UIDs present
         changed = False
