@@ -20,7 +20,8 @@ Notification framework for Calendar Server
 
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.syntax import Delete, Select, Parameter
-from twext.enterprise.jobqueue import WorkItem, WORK_PRIORITY_HIGH
+from twext.enterprise.jobqueue import WorkItem, WORK_PRIORITY_HIGH, \
+    WORK_WEIGHT_1
 from twext.python.log import Logger
 
 from twisted.internet.defer import inlineCallbacks
@@ -42,6 +43,7 @@ class PushNotificationWork(WorkItem, fromTable(schema.PUSH_NOTIFICATION_WORK)):
 
     group = property(lambda self: self.pushID)
     default_priority = WORK_PRIORITY_HIGH
+    default_weight = WORK_WEIGHT_1
 
     @inlineCallbacks
     def doWork(self):
