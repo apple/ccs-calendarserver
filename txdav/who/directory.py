@@ -135,7 +135,12 @@ class CalendarDirectoryServiceMixin(object):
                     Operand.OR
                 )
             )
-        expression = CompoundExpression(outer, Operand.AND)
+
+        if len(outer) == 1:
+            expression = outer[0]
+        else:
+            expression = CompoundExpression(outer, Operand.AND)
+
         return self.recordsFromExpression(expression)
 
 
