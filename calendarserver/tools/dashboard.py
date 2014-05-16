@@ -454,19 +454,19 @@ class HelpWindow(BaseWindow):
 
 
 
-class WorkWindow(BaseWindow):
+class JobsWindow(BaseWindow):
     """
     Display the status of the server's job queue.
     """
 
     help = "display server jobs"
     clientItem = "jobs"
-    FORMAT_WIDTH = 78
+    FORMAT_WIDTH = 98
 
     def makeWindow(self, top=0, left=0):
         nlines = defaultIfNone(self.readItem("jobcount"), 0)
         self.rowCount = nlines
-        self._createWindow("Jobs", self.rowCount + 5, ncols=self.FORMAT_WIDTH, begin_y=top, begin_x=left)
+        self._createWindow("Jobs", self.rowCount + 6, ncols=self.FORMAT_WIDTH, begin_y=top, begin_x=left)
         return self
 
 
@@ -487,35 +487,52 @@ class WorkWindow(BaseWindow):
 
         x = 1
         y = 1
-        s = " {:<40}{:>8}{:>10}{:>8}{:>8} ".format("Work Type", "Count", "Assigned", "Failed", "Overdue")
+        s1 = " {:<40}{:>8}{:>10}{:>8}{:>8}{:>10}{:>10} ".format(
+            "Work Type", "Queued", "Assigned", "Late", "Failed", "Completed", "Av-Time",
+        )
+        s2 = " {:<40}{:>8}{:>10}{:>8}{:>8}{:>10}{:>10} ".format(
+            "", "", "", "", "", "", "(ms)",
+        )
         if self.usesCurses:
-            self.window.addstr(y, x, s, curses.A_REVERSE)
+            self.window.addstr(y, x, s1, curses.A_REVERSE)
+            self.window.addstr(y + 1, x, s2, curses.A_REVERSE)
         else:
-            print(s)
-        y += 1
-        total_count = 0
+            print(s1)
+            print(s2)
+        y += 2
+        total_queued = 0
         total_assigned = 0
+        total_late = 0
         total_failed = 0
-        total_overdue = 0
+        total_completed = 0
+        total_time = 0.0
         for work_type, details in sorted(records.items(), key=lambda x: x[0]):
-            count, assigned, failed, overdue = details
-            total_count += count
-            total_assigned += assigned
-            total_failed += failed
-            total_overdue += overdue
+            total_queued += details["queued"]
+            total_assigned += details["assigned"]
+            total_late += details["late"]
+            total_failed += details["failed"]
+            total_completed += details["completed"]
+            total_time += details["time"]
             changed = (
                 work_type in self.lastResult and
-                self.lastResult[work_type][0] != count
+                self.lastResult[work_type]["queued"] != details["queued"]
             )
-            s = "{}{:<40}{:>8}{:>10}{:>8}{:>8} ".format(
-                ">" if count else " ", work_type, count, assigned, failed, overdue
+            s = "{}{:<40}{:>8}{:>10}{:>8}{:>8}{:>10}{:>10.1f} ".format(
+                ">" if details["queued"] else " ",
+                work_type,
+                details["queued"],
+                details["assigned"],
+                details["late"],
+                details["failed"],
+                details["completed"],
+                safeDivision(details["time"], details["completed"], 1000.0)
             )
             try:
                 if self.usesCurses:
                     self.window.addstr(
                         y, x, s,
                         curses.A_REVERSE if changed else (
-                            curses.A_BOLD if count else curses.A_NORMAL
+                            curses.A_BOLD if details["queued"] else curses.A_NORMAL
                         )
                     )
                 else:
@@ -524,7 +541,15 @@ class WorkWindow(BaseWindow):
                 pass
             y += 1
 
-        s = " {:<40}{:>8}{:>10}{:>8}{:>8} ".format("Total:", total_count, total_assigned, total_failed, total_overdue)
+        s = " {:<40}{:>8}{:>10}{:>8}{:>8}{:>10}{:>10.1f} ".format(
+            "Total:",
+            total_queued,
+            total_assigned,
+            total_failed,
+            total_late,
+            total_completed,
+            safeDivision(total_time, total_completed, 1000.0)
+        )
         if self.usesCurses:
             self.window.hline(y, x, "-", self.FORMAT_WIDTH - 2)
             y += 1
@@ -634,7 +659,7 @@ class AssignmentsWindow(BaseWindow):
 
 
 
-class SlotsWindow(BaseWindow):
+class HTTPSlotsWindow(BaseWindow):
     """
     Displays the status of the server's master process worker slave slots.
     """
@@ -820,7 +845,7 @@ class SystemWindow(BaseWindow):
 
 
 
-class StatsWindow(BaseWindow):
+class RequestStatsWindow(BaseWindow):
     """
     Displays the status of the server's master process worker slave slots.
     """
@@ -895,10 +920,10 @@ class StatsWindow(BaseWindow):
 
 
 Dashboard.registerWindow(SystemWindow, "s")
-Dashboard.registerWindow(StatsWindow, "r")
-Dashboard.registerWindow(WorkWindow, "j")
+Dashboard.registerWindow(RequestStatsWindow, "r")
+Dashboard.registerWindow(JobsWindow, "j")
 Dashboard.registerWindow(AssignmentsWindow, "w")
-Dashboard.registerWindow(SlotsWindow, "c")
+Dashboard.registerWindow(HTTPSlotsWindow, "c")
 Dashboard.registerWindow(HelpWindow, "h")
 
 
