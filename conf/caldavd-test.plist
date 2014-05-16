@@ -817,15 +817,15 @@
 			<key>Enabled</key>
 			<true/>
             <key>RequestDelaySeconds</key>
-            <integer>1</integer>
+            <real>0.1</real>
             <key>ReplyDelaySeconds</key>
-            <integer>2</integer>
-            <key>AutoReplyDelaySeconds</key>
             <integer>1</integer>
+            <key>AutoReplyDelaySeconds</key>
+            <real>0.1</real>
             <key>AttendeeRefreshBatchDelaySeconds</key>
-            <integer>2</integer>
+            <real>0.1</real>
             <key>AttendeeRefreshBatchIntervalSeconds</key>
-            <integer>2</integer>
+            <real>0.1</real>
 		</dict>
       </dict>
     </dict>
