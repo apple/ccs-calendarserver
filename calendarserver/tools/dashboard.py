@@ -96,6 +96,11 @@ def safeDivision(value, total, factor=1):
 
 
 
+def defaultIfNone(x, default):
+    return x if x is not None else default
+
+
+
 class Dashboard(object):
     """
     Main dashboard controller. Use Python's L{sched} feature to schedule
@@ -113,6 +118,7 @@ class Dashboard(object):
         self.seconds = 0.1 if usesCurses else 1.0
         self.sched = sched.scheduler(time.time, time.sleep)
         self.client = DashboardClient(("localhost", 8100), True)
+        self.client_error = False
 
 
     @classmethod
@@ -160,11 +166,34 @@ class Dashboard(object):
         self.updateDisplay(True)
 
 
+    def resetWindows(self):
+        """
+        Reset the current set of windows.
+        """
+        if self.windows:
+            for window in self.windows:
+                window.deactivate()
+            old_windows = self.windows
+            self.windows = []
+            top = 0
+            for old in old_windows:
+                self.windows.append(old.__class__(self.usesCurses, self.client).makeWindow(top=top))
+                self.windows[-1].activate()
+                top += self.windows[-1].nlines + 1
+
+
     def updateDisplay(self, initialUpdate=False):
         """
         Periodic update of the current window and check for a key press.
         """
         self.client.update()
+        client_error = len(self.client.currentData) == 0
+        if client_error ^ self.client_error:
+            self.client_error = client_error
+            self.resetWindows()
+        elif filter(lambda x: x.requiresReset(), self.windows):
+            self.resetWindows()
+
         try:
             if not self.paused or initialUpdate:
                 for window in filter(
@@ -172,8 +201,9 @@ class Dashboard(object):
                     self.windows
                 ):
                     window.update()
-        except Exception as e:
-            print(str(e))
+        except Exception as e: #@UnusedVariable
+            #print(str(e))
+            pass
         if not self.usesCurses:
             print("-------------")
 
@@ -208,7 +238,7 @@ class DashboardClient(object):
         self.socket = None
         self.sockname = sockname
         self.useTCP = useTCP
-        self.currentData = None
+        self.currentData = {}
         self.items = []
 
 
@@ -223,21 +253,26 @@ class DashboardClient(object):
                 self.socket.setblocking(0)
             self.socket.sendall(json.dumps(items) + "\r\n")
             data = ""
+            t = time.time()
             while not data.endswith("\n"):
                 try:
                     d = self.socket.recv(1024)
                 except socket.error as se:
                     if se.args[0] != errno.EWOULDBLOCK:
                         raise
+                    if time.time() - t > 5:
+                        raise socket.error
                     continue
                 if d:
                     data += d
                 else:
                     break
             data = json.loads(data)
-        except socket.error as e:
-            data = {"Failed": "Unable to read statistics from server: %s %s" % (self.sockname, e)}
+        except socket.error:
+            data = {}
             self.socket = None
+        except ValueError:
+            data = {}
         return data
 
 
@@ -245,6 +280,7 @@ class DashboardClient(object):
         """
         Update the current data from the server.
         """
+
         self.currentData = self.readSock(self.items)
 
 
@@ -252,7 +288,8 @@ class DashboardClient(object):
         """
         Update the current data from the server.
         """
-        return self.readSock([item])[item]
+        data = self.readSock([item])
+        return data[item] if data else None
 
 
     def addItem(self, item):
@@ -282,6 +319,8 @@ class BaseWindow(object):
     def __init__(self, usesCurses, client):
         self.usesCurses = usesCurses
         self.client = client
+        self.rowCount = 0
+        self.needsReset = False
 
 
     def makeWindow(self, top=0, left=0):
@@ -315,6 +354,14 @@ class BaseWindow(object):
         return True
 
 
+    def requiresReset(self):
+        """
+        Indicates that the window needs a full reset, because e.g., the
+        number of items it didplays has changed.
+        """
+        return self.needsReset
+
+
     def activate(self):
         """
         About to start displaying.
@@ -342,7 +389,7 @@ class BaseWindow(object):
 
 
     def clientData(self):
-        return self.client.currentData[self.clientItem]
+        return self.client.currentData.get(self.clientItem)
 
 
     def readItem(self, item):
@@ -417,13 +464,17 @@ class WorkWindow(BaseWindow):
     FORMAT_WIDTH = 78
 
     def makeWindow(self, top=0, left=0):
-        nlines = self.readItem("jobcount")
-        self._createWindow("Jobs", nlines + 5, ncols=self.FORMAT_WIDTH, begin_y=top, begin_x=left)
+        nlines = defaultIfNone(self.readItem("jobcount"), 0)
+        self.rowCount = nlines
+        self._createWindow("Jobs", self.rowCount + 5, ncols=self.FORMAT_WIDTH, begin_y=top, begin_x=left)
         return self
 
 
     def update(self):
-        records = self.clientData()
+        records = defaultIfNone(self.clientData(), {})
+        if len(records) != self.rowCount:
+            self.needsReset = True
+            return
         self.iter += 1
 
         if self.usesCurses:
@@ -496,20 +547,24 @@ class AssignmentsWindow(BaseWindow):
 
     help = "display server child job assignments"
     clientItem = "job_assignments"
-    FORMAT_WIDTH = 32
+    FORMAT_WIDTH = 40
 
     def makeWindow(self, top=0, left=0):
-        slots = self.readItem(self.clientItem)["workers"]
+        slots = defaultIfNone(self.readItem(self.clientItem), {"workers": ()})["workers"]
+        self.rowCount = len(slots)
         self._createWindow(
-            "Job Assignments", len(slots) + 5, self.FORMAT_WIDTH,
+            "Job Assignments", self.rowCount + 5, self.FORMAT_WIDTH,
             begin_y=top, begin_x=left
         )
         return self
 
 
     def update(self):
-        data = self.clientData()
+        data = defaultIfNone(self.clientData(), {"workers": {}, "level": 0})
         records = data["workers"]
+        if len(records) != self.rowCount:
+            self.needsReset = True
+            return
         self.iter += 1
 
         if self.usesCurses:
@@ -522,25 +577,28 @@ class AssignmentsWindow(BaseWindow):
 
         x = 1
         y = 1
-        s = " {:>4}{:>12}{:>12} ".format(
-            "Slot", "assigned", "completed"
+        s = " {:>4}{:>12}{:>8}{:>12} ".format(
+            "Slot", "assigned", "load", "completed"
         )
         if self.usesCurses:
             self.window.addstr(y, x, s, curses.A_REVERSE)
         else:
             print(s)
         y += 1
+        total_assigned = 0
         total_completed = 0
         for ctr, details in enumerate(records):
-            assigned, completed = details
+            assigned, load, completed = details
+            total_assigned += assigned
             total_completed += completed
             changed = (
                 ctr in self.lastResult and
                 self.lastResult[ctr] != assigned
             )
-            s = " {:>4}{:>12}{:>12} ".format(
+            s = " {:>4}{:>12}{:>8}{:>12} ".format(
                 ctr,
                 assigned,
+                load,
                 completed,
             )
             try:
@@ -555,8 +613,9 @@ class AssignmentsWindow(BaseWindow):
                 pass
             y += 1
 
-        s = " {:<6}{:>10}{:>12}".format(
+        s = " {:<6}{:>10}{:>8}{:>12}".format(
             "Total:",
+            total_assigned,
             "{}%".format(data["level"]),
             total_completed,
         )
@@ -585,17 +644,21 @@ class SlotsWindow(BaseWindow):
     FORMAT_WIDTH = 72
 
     def makeWindow(self, top=0, left=0):
-        slots = self.readItem(self.clientItem)["slots"]
+        slots = defaultIfNone(self.readItem(self.clientItem), {"slots": ()})["slots"]
+        self.rowCount = len(slots)
         self._createWindow(
-            "HTTP Slots", len(slots) + 5, self.FORMAT_WIDTH,
+            "HTTP Slots", self.rowCount + 5, self.FORMAT_WIDTH,
             begin_y=top, begin_x=left
         )
         return self
 
 
     def update(self):
-        data = self.clientData()
+        data = defaultIfNone(self.clientData(), {"slots": {}, "overloaded": False})
         records = data["slots"]
+        if len(records) != self.rowCount:
+            self.needsReset = True
+            return
         self.iter += 1
 
         if self.usesCurses:
@@ -688,13 +751,22 @@ class SystemWindow(BaseWindow):
     clientItem = "stats_system"
 
     def makeWindow(self, top=0, left=0):
-        slots = self.readItem(self.clientItem)
-        self._createWindow("System", len(slots) + 3, begin_y=top, begin_x=left)
+        slots = defaultIfNone(self.readItem(self.clientItem), (1, 2, 3, 4,))
+        self.rowCount = len(slots)
+        self._createWindow("System", self.rowCount + 3, begin_y=top, begin_x=left)
         return self
 
 
     def update(self):
-        records = self.clientData()
+        records = defaultIfNone(self.clientData(), {
+            "cpu use": 0.0,
+            "memory percent": 0.0,
+            "memory used": 0,
+            "start time": time.time(),
+        })
+        if len(records) != self.rowCount:
+            self.needsReset = True
+            return
         self.iter += 1
 
         if self.usesCurses:
@@ -763,7 +835,7 @@ class StatsWindow(BaseWindow):
 
 
     def update(self):
-        records = self.clientData()
+        records = defaultIfNone(self.clientData(), {})
         self.iter += 1
 
         if self.usesCurses:
@@ -787,7 +859,15 @@ class StatsWindow(BaseWindow):
             print(s2)
         y += 2
         for key, seconds in (("current", 60,), ("1m", 60,), ("5m", 5 * 60,), ("1h", 60 * 60,),):
-            stat = records[key]
+            stat = records.get(key, {
+                "requests": 0,
+                "t": 0.0,
+                "t-resp-wr": 0.0,
+                "T-MAX": 0.0,
+                "slots": 0,
+                "cpu": 0.0,
+                "500": 0,
+            })
             s = " {:<8}{:>8}{:>10.1f}{:>10.1f}{:>10.1f}{:>10.1f}{:>8.2f}{:>7.1f}%{:>8} ".format(
                 key,
                 stat["requests"],

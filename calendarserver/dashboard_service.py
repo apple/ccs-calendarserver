@@ -124,9 +124,12 @@ class DashboardProtocol (LineReceiver):
         @rtype: L{str}
         """
 
-        txn = self.factory.store.newTransaction()
-        records = (yield JobItem.histogram(txn))
-        yield txn.commit()
+        if self.factory.store:
+            txn = self.factory.store.newTransaction()
+            records = (yield JobItem.histogram(txn))
+            yield txn.commit()
+        else:
+            records = {}
 
         returnValue(records)
 
@@ -139,9 +142,13 @@ class DashboardProtocol (LineReceiver):
         @rtype: L{str}
         """
 
-        queuer = self.factory.store.queuer
-        loads = queuer.workerPool.eachWorkerLoad()
-        level = queuer.workerPool.loadLevel()
+        if self.factory.store:
+            queuer = self.factory.store.queuer
+            loads = queuer.workerPool.eachWorkerLoad()
+            level = queuer.workerPool.loadLevel()
+        else:
+            loads = []
+            level = 0
 
         return succeed({"workers": loads, "level": level})
 

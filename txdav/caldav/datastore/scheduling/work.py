@@ -49,7 +49,7 @@ log = Logger()
 
 
 
-class ScheduleWorkMixin(object):
+class ScheduleWorkMixin(WorkItem):
     """
     Base class for common schedule work item behavior.
     """
@@ -131,7 +131,7 @@ class ScheduleWorkMixin(object):
 
 
 
-class ScheduleOrganizerWork(WorkItem, fromTable(schema.SCHEDULE_ORGANIZER_WORK), ScheduleWorkMixin):
+class ScheduleOrganizerWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORGANIZER_WORK)):
     """
     The associated work item table is SCHEDULE_ORGANIZER_WORK.
 
@@ -272,7 +272,7 @@ class ScheduleReplyWorkMixin(ScheduleWorkMixin):
 
 
 
-class ScheduleReplyWork(WorkItem, fromTable(schema.SCHEDULE_REPLY_WORK), ScheduleReplyWorkMixin):
+class ScheduleReplyWork(ScheduleReplyWorkMixin, fromTable(schema.SCHEDULE_REPLY_WORK)):
     """
     The associated work item table is SCHEDULE_REPLY_WORK.
 
@@ -353,7 +353,7 @@ class ScheduleReplyWork(WorkItem, fromTable(schema.SCHEDULE_REPLY_WORK), Schedul
 
 
 
-class ScheduleReplyCancelWork(WorkItem, fromTable(schema.SCHEDULE_REPLY_CANCEL_WORK), ScheduleReplyWorkMixin):
+class ScheduleReplyCancelWork(ScheduleReplyWorkMixin, fromTable(schema.SCHEDULE_REPLY_CANCEL_WORK)):
     """
     The associated work item table is SCHEDULE_REPLY_CANCEL_WORK.
 
@@ -416,7 +416,7 @@ class ScheduleReplyCancelWork(WorkItem, fromTable(schema.SCHEDULE_REPLY_CANCEL_W
 
 
 
-class ScheduleRefreshWork(WorkItem, fromTable(schema.SCHEDULE_REFRESH_WORK), ScheduleWorkMixin):
+class ScheduleRefreshWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REFRESH_WORK)):
     """
     The associated work item table is SCHEDULE_REFRESH_WORK.
 
@@ -604,7 +604,7 @@ class ScheduleRefreshWork(WorkItem, fromTable(schema.SCHEDULE_REFRESH_WORK), Sch
 
 
 
-class ScheduleAutoReplyWork(WorkItem, fromTable(schema.SCHEDULE_AUTO_REPLY_WORK), ScheduleWorkMixin):
+class ScheduleAutoReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_AUTO_REPLY_WORK)):
     """
     The associated work item table is SCHEDULE_AUTO_REPLY_WORK.
 
