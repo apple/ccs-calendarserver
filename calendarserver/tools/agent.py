@@ -177,7 +177,11 @@ def makeAgentService(store):
         )
     )
 
-    directory = OpenDirectoryDirectoryService("/Local/Default")
+    # We need this service to be able to return com.apple.calendarserver,
+    # so tell it not to suppress system accounts.
+    directory = OpenDirectoryDirectoryService(
+        "/Local/Default", suppressSystemRecords=False
+    )
 
     portal = Portal(
         AgentRealm(root, [u"com.apple.calendarserver"]),

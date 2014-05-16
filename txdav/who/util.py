@@ -118,7 +118,9 @@ def buildDirectory(
             from twext.who.opendirectory import (
                 DirectoryService as ODDirectoryService
             )
-            directory = ODDirectoryService()
+            # We don't want system accounts returned in lookups, so tell
+            # the service to suppress them.
+            directory = ODDirectoryService(suppressSystemRecords=True)
 
         elif "ldap" in directoryType:
             if params.credentials.dn and params.credentials.password:

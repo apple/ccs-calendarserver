@@ -1,7 +1,7 @@
 # For CalendarServer development, don't try to get these projects from PyPI; use svn.
 
 -e .
--e svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk@13486#egg=twextpy
+-e svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk@13491#egg=twextpy
 -e svn+http://svn.calendarserver.org/repository/calendarserver/PyKerberos/trunk@13420#egg=kerberos
 -e svn+http://svn.calendarserver.org/repository/calendarserver/PyCalendar/trunk@13420#egg=pycalendar
 
