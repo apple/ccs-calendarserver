@@ -182,9 +182,6 @@ script_entry_points = {
     "monitor_notifications":
     ("calendarserver.tools.notifications", "main"),
 
-    "monitor_work":
-    ("calendarserver.tools.workitems", "main"),
-
     "purge_attachments":
     ("calendarserver.tools.purge", "PurgeAttachmentsService.main"),
 
