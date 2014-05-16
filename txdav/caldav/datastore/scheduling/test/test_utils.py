@@ -109,7 +109,6 @@ class RecipientCopy(CommonCommonTests, unittest.TestCase):
         yield self.populate()
 
 
-
     @inlineCallbacks
     def populate(self):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())

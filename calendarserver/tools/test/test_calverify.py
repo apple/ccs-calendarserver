@@ -609,7 +609,6 @@ class CalVerifyDataTests(StoreTestCase):
 
 
 
-
 class CalVerifyMismatchTestsBase(StoreTestCase):
     """
     Tests calverify for iCalendar mismatch problems.

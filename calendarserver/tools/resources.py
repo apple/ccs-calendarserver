@@ -177,9 +177,6 @@ def migrate(sourceService, destService, verbose=False):
 
 
 
-
-
-
 @inlineCallbacks
 def migrateResources(sourceService, destService, verbose=False):
 
@@ -206,7 +203,6 @@ def migrateResources(sourceService, destService, verbose=False):
 
     if destRecords:
         yield destService.updateRecords(destRecords, create=True)
-
 
 
 

@@ -332,7 +332,6 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
         )
 
 
-
     @inlineCallbacks
     def test_migrateEmptyHome(self):
         """

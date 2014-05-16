@@ -191,7 +191,6 @@ class CollectionContents(StoreTestCase):
             c += 1
 
 
-
     @inlineCallbacks
     def test_fail_dot_file_put_in_calendar(self):
         """

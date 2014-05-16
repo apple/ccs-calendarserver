@@ -222,6 +222,7 @@ class Runner(object):
     def command_getLocationList(self, command):
         return self.respondWithRecordsOfTypes(self.dir, command, ["locations"])
 
+
     @inlineCallbacks
     def _saveRecord(self, typeName, recordType, command, oldFields=None):
         """
@@ -336,6 +337,7 @@ class Runner(object):
             command,
             oldFields=record.fields
         )
+
 
     @inlineCallbacks
     def command_setResourceAttributes(self, command):
@@ -474,6 +476,7 @@ class Runner(object):
 
     def command_listReadProxies(self, command):
         return self._listProxies(command, "read")
+
 
     @inlineCallbacks
     def _listProxies(self, command, proxyType):

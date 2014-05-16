@@ -333,8 +333,6 @@ def upgrade_to_1(config, directory):
         os.rename(oldHome, newHome)
 
 
-
-
     def createMailTokensDatabase(config, uid, gid):
         # Cause the tokens db to be created on disk so we can set the
         # permissions on it now

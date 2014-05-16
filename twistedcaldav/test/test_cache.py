@@ -66,6 +66,7 @@ class StubDirectory(object):
     def oldNameToRecordType(self, oldName):
         return oldName
 
+
     def recordWithShortName(self, recordType, recordName):
         return StubDirectoryRecord(recordName)
 

@@ -53,7 +53,7 @@ class InMemoryDirectoryService(IndexDirectoryService):
         recordsByUID = dict(((record.uid, record) for record in records))
         if not create:
             # Make sure all the records already exist
-            for uid, record in recordsByUID.items():
+            for uid, _ignore_record in recordsByUID.items():
                 if uid not in self._index[self.fieldName.uid]:
                     raise NoSuchRecordError(uid)
 

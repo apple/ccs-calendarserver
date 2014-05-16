@@ -76,6 +76,7 @@ def directoryFromConfig(config, store=None, serversDB=None):
     )
 
 
+
 def buildDirectory(
     store, dataRoot, servicesInfo, augmentServiceInfo, wikiServiceInfo,
     serversDB=None

@@ -134,7 +134,6 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
         FakeConduitRequest.addServerStore(server2b, self.store2)
 
 
-
     def configure(self):
         super(MultiStoreConduitTest, self).configure()
         self.config.Servers.Enabled = True
@@ -181,7 +180,6 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
         assert self.otherTransaction is not None
         yield self.otherTransaction.abort()
         self.otherTransaction = None
-
 
 
     def makeConduit(self, store):

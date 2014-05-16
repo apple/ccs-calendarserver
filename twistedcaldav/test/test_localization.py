@@ -186,4 +186,3 @@ class LocalizationTests(TestCase):
         self.assertEquals(_remapLanguageCode("en"), "en")
         self.assertEquals(_remapLanguageCode("zh-Hans"), "zh_CN")
         self.assertEquals(_remapLanguageCode("zh-Hant"), "zh_TW")
-

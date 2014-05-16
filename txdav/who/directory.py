@@ -51,8 +51,6 @@ class CalendarDirectoryServiceMixin(object):
 
     guid = "1332A615-4D3A-41FE-B636-FBE25BFB982E"
 
-
-
     serversDB = None
 
     def setServersDB(self, serversDB):

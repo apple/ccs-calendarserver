@@ -31,6 +31,7 @@ else:
         def __init__(self, shortName):
             self.shortNames = [shortName]
 
+
     class AgentTestCase(TestCase):
 
         def test_AgentRealm(self):

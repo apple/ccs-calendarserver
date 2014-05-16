@@ -724,7 +724,6 @@ class CalVerifyService(WorkerService, object):
         returnValue((caldata, rows[0][1], rows[0][2], rows[0][3],) if rows else (None, None, None, None,))
 
 
-
     @inlineCallbacks
     def removeEvent(self, resid):
         """

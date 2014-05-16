@@ -29,6 +29,7 @@ class TestRecord(DirectoryRecord, CalendarDirectoryRecordMixin):
     pass
 
 
+
 class MigrateResourcesTest(StoreTestCase):
 
     @inlineCallbacks
@@ -65,7 +66,6 @@ class MigrateResourcesTest(StoreTestCase):
             ),
         )
         yield self.sourceService.updateRecords(records, create=True)
-
 
 
     @inlineCallbacks

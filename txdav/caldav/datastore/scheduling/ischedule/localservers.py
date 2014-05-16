@@ -132,7 +132,6 @@ def buildServersDB(maxClients=5):
 
 
 
-
 class Server(object):
     """
     Represents a server.
