@@ -561,6 +561,8 @@ class PostgresService(MultiService):
             if self.uid and self.gid:
                 os.chown(self.socketDir.path, self.uid, self.gid)
 
+            os.chmod(self.socketDir.path, 0770)
+
         if self.dataStoreDirectory.isdir():
             self.startDatabase()
         else:
