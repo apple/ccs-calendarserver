@@ -245,6 +245,10 @@ class IScheduleRequest(object):
                     else:
                         host = netloc
                         port = 443 if ssl else 80
+
+                if accountingEnabledForCategory("iSchedule"):
+                    self.loggedResponse = yield self.logResponse(response)
+                    emitAccounting("iSchedule", "", self.loggedRequest + "\n" + self.loggedResponse, "POST")
             else:
                 raise ValueError("Too many redirects")
 
