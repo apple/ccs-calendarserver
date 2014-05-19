@@ -60,12 +60,6 @@ build-no::
 	@echo "Building $(Project)...";
 	$(_v) cd $(BuildDirectory)/$(Project) && $(Environment) $(PYTHON) setup.py build
 
-# cache_deps: $(Sources)/.develop/pip_downloads
-
-# $(Sources)/.develop/pip_downloads: install_source
-# 	@echo "Caching dependencies...";
-# 	$(_v) $(Environment) $(Sources)/support/_cache_deps;
-
 install:: install-python
 install-python:: build
 	@#
