@@ -62,6 +62,7 @@ ruler "Downloading Python requirements for .[${extra_features}]";
 echo "";
 pip_download                       \
   --allow-unverified cx-Oracle     \
+  --no-deps                        \
   --requirement="${requirements}"  \
   ;
 
