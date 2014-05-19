@@ -1,3 +1,7 @@
+# This file should contain everything in the output of:
+#   ./bin/python -m pip freeze --local
+# with the exception of any modules obtained via requirements-dev.plist
+
 # For CalendarServer development, don't try to get these projects from PyPI; use svn.
 
 -e .

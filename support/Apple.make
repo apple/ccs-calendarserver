@@ -105,7 +105,7 @@ install-python:: build
 	          $(Environment)                                                  \
 	              "$(DSTROOT)$(CS_VIRTUALENV)/bin/pip" install                \
 	                  --pre --allow-all-external --no-index --no-deps         \
-	                  --log=/tmp/pip.log                                      \
+	                  --log=$(OBJROOT)/pip.log                                \
 	                  "$${pkg}";                                              \
 	      done;
 	@#

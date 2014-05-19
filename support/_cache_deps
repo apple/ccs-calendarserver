@@ -38,10 +38,10 @@ extra_features="OpenDirectory,Postgres";
 
 mkdir -p "${wd}/.develop/tools";
 
-for pkg in \
-    pip-1.5.4 \
-    virtualenv-1.11.4 \
-    setuptools-3.4.4 \
+for pkg in             \
+    pip-1.5.4          \
+    virtualenv-1.11.4  \
+    setuptools-3.4.4   \
 ; do
        name="${pkg%-*}";
     version="${pkg#*-}";
@@ -60,9 +60,9 @@ done;
 
 ruler "Downloading Python requirements for .[${extra_features}]";
 echo "";
-pip_download \
-  --allow-unverified cx-Oracle \
-  --requirement="${requirements}" \
+pip_download                       \
+  --allow-unverified cx-Oracle     \
+  --requirement="${requirements}"  \
   ;
 
 
