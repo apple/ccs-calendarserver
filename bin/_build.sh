@@ -82,6 +82,8 @@ find_header () {
 
 # Initialize all the global state required to use this library.
 init_build () {
+  cd "${wd}";
+
   init_py;
 
   # These variables are defaults for things which might be configured by
