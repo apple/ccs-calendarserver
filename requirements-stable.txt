@@ -21,7 +21,6 @@ PyGreSQL==4.1.1
 pyOpenSSL==0.13.1
 python-dateutil==1.5
 python-ldap==2.4.15
-python-ldap==2.4.15
 pytz==2013.7
 setproctitle==1.1.8
 sqlparse==0.1.11
