@@ -132,7 +132,7 @@ wc="${tmp}/${project_version}";
 if "${build}"; then
   echo "";
   echo "Copying ${src}...";
-  # Only copy fiels that are under revision control
+  # Only copy files that are under revision control
   svn_files="$(mktemp -t svn_files_XXXX)";
   svn info -R . | sed -n "s|^Path: ||p" > "${svn_files}";
   rsync -av                      \
@@ -189,7 +189,7 @@ if "${build}"; then
 
   release_flags="";
   for release in "${releases}"; do
-      release_flags="${release_flags} -release ${release}";
+    release_flags="${release_flags} -release ${release}";
   done;
   
   if "${build_no_verify_source}"; then
