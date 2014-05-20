@@ -69,7 +69,7 @@ from twext.enterprise.jobqueue import NonPerformingQueuer
 from twext.enterprise.jobqueue import PeerConnectionPool
 from twext.enterprise.jobqueue import WorkerFactory as QueueWorkerFactory
 from twext.application.service import ReExecService
-from txdav.who.groups import scheduleNextGroupCachingUpdate
+from txdav.who.groups import GroupCacherPollingWork
 
 from txweb2.channel.http import (
     LimitingHTTPFactory, SSLRedirectRequest, HTTPChannel
@@ -89,10 +89,8 @@ from txdav.common.datastore.upgrade.sql.upgrade import (
     UpgradeAcquireLockStep, UpgradeReleaseLockStep,
     UpgradeDatabaseNotificationDataStep
 )
-from txdav.common.datastore.work.inbox_cleanup import scheduleFirstInboxCleanup
-from txdav.common.datastore.work.revision_cleanup import (
-    scheduleFirstFindMinRevision
-)
+from txdav.common.datastore.work.inbox_cleanup import InboxCleanupWork
+from txdav.common.datastore.work.revision_cleanup import FindMinValidRevisionWork
 from txdav.who.util import directoryFromConfig
 from txdav.dps.client import DirectoryService as DirectoryProxyClientService
 from txdav.who.groups import GroupCacher
@@ -593,22 +591,22 @@ class WorkSchedulingService(Service):
                 int(config.LogID) if config.LogID else 5
             )
         if self.doGroupCaching:
-            yield scheduleNextGroupCachingUpdate(
+            yield GroupCacherPollingWork.initialSchedule(
                 self.store,
                 int(config.LogID) if config.LogID else 5
             )
-        yield scheduleFirstFindMinRevision(
+        yield FindMinValidRevisionWork.initialSchedule(
             self.store,
             int(config.LogID) if config.LogID else 5
         )
-        yield scheduleFirstInboxCleanup(
+        yield InboxCleanupWork.initialSchedule(
             self.store,
             int(config.LogID) if config.LogID else 5
         )
 
         # FIXME: uncomment this when purge is working
         # from calendarserver.tools.purge import scheduleNextPrincipalPurgeUpdate
-        # yield scheduleNextPrincipalPurgeUpdate(
+        # yield PrincipalPurgePollingWork.initialSchedule(
         #     self.store,
         #     int(config.LogID) if config.LogID else 5
         # )

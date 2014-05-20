@@ -126,25 +126,20 @@ END:VCALENDAR
         """
         Verify that InboxCleanupWork queues one CleanupOneInboxBoxWork per home
         """
-        class FakeInboxCleanupWork(WorkItem):
-            @classmethod
-            def _schedule(cls, txn, seconds):
-                pass
-
-        self.patch(InboxCleanupWork, "_schedule", FakeInboxCleanupWork._schedule)
+        self.patch(config.InboxCleanup, "CleanupPeriodDays", -1)
 
         class FakeCleanupOneInboxWork(WorkItem):
             scheduledHomeIDs = []
 
             @classmethod
-            def _schedule(cls, txn, homeID, seconds):
+            def reschedule(cls, txn, seconds, homeID):
                 cls.scheduledHomeIDs.append(homeID)
                 pass
 
-        self.patch(CleanupOneInboxWork, "_schedule", FakeCleanupOneInboxWork._schedule)
+        self.patch(CleanupOneInboxWork, "reschedule", FakeCleanupOneInboxWork.reschedule)
 
         # do cleanup
-        yield self.transactionUnderTest().enqueue(InboxCleanupWork, notBefore=datetime.datetime.utcnow())
+        yield InboxCleanupWork.reschedule(self.transactionUnderTest(), 0)
         yield self.commit()
         yield JobItem.waitEmpty(self.storeUnderTest().newTransaction, reactor, 60)
 

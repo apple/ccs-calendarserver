@@ -42,7 +42,7 @@ from txdav.xml import element as davxml
 
 
 from twistedcaldav import memcachepool
-from txdav.who.groups import schedulePolledGroupCachingUpdate
+from txdav.who.groups import GroupCacherPollingWork
 
 
 log = Logger()
@@ -511,7 +511,9 @@ def addProxy(rootResource, directory, store, principal, proxyType, proxyPrincipa
         principal, proxyPrincipal, proxyTypes=proxyTypes))
 
     # Schedule work the PeerConnectionPool will pick up as overdue
-    yield schedulePolledGroupCachingUpdate(store)
+    def groupPollNow(txn):
+        return GroupCacherPollingWork.reschedule(txn, 0, force=True)
+    yield store.inTransaction(groupPollNow)
 
 
 
@@ -545,7 +547,9 @@ def removeProxy(rootResource, directory, store, principal, proxyPrincipal, **kwa
 
     if removed:
         # Schedule work the PeerConnectionPool will pick up as overdue
-        yield schedulePolledGroupCachingUpdate(store)
+        def groupPollNow(txn):
+            return GroupCacherPollingWork.reschedule(txn, 0, force=True)
+        yield store.inTransaction(groupPollNow)
     returnValue(removed)
 
 

@@ -30,10 +30,10 @@ from pycalendar.datetime import DateTime
 
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.syntax import Delete, Select, Union
-from twext.enterprise.jobqueue import WorkItem
+from twext.enterprise.jobqueue import WorkItem, RegeneratingWorkItem
 from twext.python.log import Logger
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 
 from twistedcaldav import caldavxml
 from twistedcaldav.config import config
@@ -50,7 +50,7 @@ DEFAULT_RETAIN_DAYS = 365
 
 
 class PrincipalPurgePollingWork(
-    WorkItem,
+    RegeneratingWorkItem,
     fromTable(schema.PRINCIPAL_PURGE_POLLING_WORK)
 ):
     """
@@ -61,31 +61,30 @@ class PrincipalPurgePollingWork(
 
     group = "principal_purge_polling"
 
+    @classmethod
+    def initialSchedule(cls, store, seconds):
+        def _enqueue(txn):
+            return PrincipalPurgePollingWork.reschedule(txn, seconds)
+
+        if config.AutomaticPurging.Enabled:
+            return store.inTransaction("PrincipalPurgePollingWork.initialSchedule", _enqueue)
+        else:
+            return succeed(None)
+
+
+    def regenerateInterval(self):
+        """
+        Return the interval in seconds between regenerating instances.
+        """
+        return config.AutomaticPurging.PollingIntervalSeconds if config.AutomaticPurging.Enabled else None
+
+
     @inlineCallbacks
     def doWork(self):
-
-        # Delete all other work items
-        yield Delete(From=self.table, Where=None).on(self.transaction)
 
         # If not enabled, punt here
         if not config.AutomaticPurging.Enabled:
             returnValue(None)
-
-        # Schedule next update, 7 days out (default)
-        # Special - for testing it is handy to have this work item not regenerate, so
-        # we use an interval of -1 to signify a one-shot operation
-        if config.AutomaticPurging.PollingIntervalSeconds != -1:
-            notBefore = (
-                datetime.datetime.utcnow() +
-                datetime.timedelta(seconds=config.AutomaticPurging.PollingIntervalSeconds)
-            )
-            log.info(
-                "Scheduling next principal purge scan update: {when}", when=notBefore
-            )
-            yield self.transaction.enqueue(
-                PrincipalPurgePollingWork,
-                notBefore=notBefore
-            )
 
         # Do the scan
         allUIDs = set()
@@ -273,26 +272,6 @@ class PrincipalPurgeHomeWork(
             home = yield self.transaction.calendarHomeWithResourceID(self.homeResourceID)
             if home.purging():
                 yield home.remove()
-
-
-
-@inlineCallbacks
-def scheduleNextPrincipalPurgeUpdate(store, seconds):
-
-    notBefore = (
-        datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds)
-    )
-
-    log.debug(
-        "Scheduling next principal purge update: {when}", when=notBefore
-    )
-
-    def _enqueue(txn):
-        return txn.enqueue(PrincipalPurgePollingWork, notBefore=notBefore)
-
-    wp = yield store.inTransaction("scheduleNextPrincipalPurgeUpdate", _enqueue)
-
-    returnValue(wp)
 
 
 

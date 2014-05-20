@@ -17,7 +17,7 @@
 
 
 from twext.enterprise.dal.syntax import Select
-from twext.enterprise.jobqueue import WorkItem, JobItem
+from twext.enterprise.jobqueue import JobItem
 from twext.python.clsprop import classproperty
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -43,14 +43,9 @@ class RevisionCleanupTests(CommonCommonTests, TestCase):
         yield self.buildStoreAndDirectory()
         yield self.populate()
 
-        class FakeWork(WorkItem):
-            @classmethod
-            def _schedule(cls, txn, seconds):
-                pass
-
-        self.patch(FindMinValidRevisionWork, "_schedule", FakeWork._schedule)
-        self.patch(RevisionCleanupWork, "_schedule", FakeWork._schedule)
+        self.patch(config.RevisionCleanup, "Enabled", True)
         self.patch(config.RevisionCleanup, "SyncTokenLifetimeDays", 0)
+        self.patch(config.RevisionCleanup, "CleanupPeriodDays", -1)
 
 
     @inlineCallbacks
@@ -266,7 +261,7 @@ END:VCARD
         self.assertNotEqual(len(revisionRows), 0)
 
         # do FindMinValidRevisionWork
-        yield self.transactionUnderTest().enqueue(FindMinValidRevisionWork, notBefore=datetime.datetime.utcnow())
+        yield FindMinValidRevisionWork.reschedule(self.transactionUnderTest(), 0)
         yield self.commit()
         yield JobItem.waitEmpty(self.storeUnderTest().newTransaction, reactor, 60)
 

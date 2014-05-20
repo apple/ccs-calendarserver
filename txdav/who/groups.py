@@ -21,9 +21,9 @@ Group membership caching
 
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.syntax import Delete, Select
-from twext.enterprise.jobqueue import WorkItem
+from twext.enterprise.jobqueue import WorkItem, RegeneratingWorkItem
 from twext.python.log import Logger
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twistedcaldav.config import config
 from txdav.caldav.datastore.sql import CalendarStoreFeatures
 from txdav.common.datastore.sql_tables import schema
@@ -34,36 +34,38 @@ log = Logger()
 
 
 class GroupCacherPollingWork(
-    WorkItem,
+    RegeneratingWorkItem,
     fromTable(schema.GROUP_CACHER_POLLING_WORK)
 ):
 
     group = "group_cacher_polling"
 
+    @classmethod
+    def initialSchedule(cls, store, seconds):
+        def _enqueue(txn):
+            return GroupCacherPollingWork.reschedule(txn, seconds)
+
+        if config.InboxCleanup.Enabled:
+            return store.inTransaction("GroupCacherPollingWork.initialSchedule", _enqueue)
+        else:
+            return succeed(None)
+
+
+    def regenerateInterval(self):
+        """
+        Return the interval in seconds between regenerating instances.
+        """
+        groupCacher = getattr(self.transaction, "_groupCacher", None)
+        return groupCacher.updateSeconds if groupCacher else 10
+
+
     @inlineCallbacks
     def doWork(self):
-
-        # Delete all other work items
-        yield Delete(From=self.table, Where=None).on(self.transaction)
 
         groupCacher = getattr(self.transaction, "_groupCacher", None)
         if groupCacher is not None:
 
-            # Schedule next update
-
-            notBefore = (
-                datetime.datetime.utcnow() +
-                datetime.timedelta(seconds=groupCacher.updateSeconds)
-            )
-            log.debug(
-                "Scheduling next group cacher update: {when}", when=notBefore
-            )
-            yield self.transaction.enqueue(
-                GroupCacherPollingWork,
-                notBefore=notBefore
-            )
-
-            # New implmementation
+            # New implementation
             try:
                 yield groupCacher.update(self.transaction)
             except Exception, e:
@@ -71,47 +73,6 @@ class GroupCacherPollingWork(
                     "Failed to update new group membership cache ({error})",
                     error=e
                 )
-
-        else:
-            notBefore = (
-                datetime.datetime.utcnow() +
-                datetime.timedelta(seconds=10)
-            )
-            log.debug(
-                "Rescheduling group cacher update: {when}", when=notBefore
-            )
-            yield self.transaction.enqueue(
-                GroupCacherPollingWork,
-                notBefore=notBefore
-            )
-
-
-
-@inlineCallbacks
-def scheduleNextGroupCachingUpdate(store, seconds):
-
-    notBefore = (
-        datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds)
-    )
-
-    log.debug(
-        "Scheduling next group cacher update: {when}", when=notBefore
-    )
-
-    def _enqueue(txn):
-        return txn.enqueue(GroupCacherPollingWork, notBefore=notBefore)
-
-    wp = yield store.inTransaction("scheduleNextGroupCachingUpdate", _enqueue)
-
-    returnValue(wp)
-
-
-
-def schedulePolledGroupCachingUpdate(store):
-    """
-    Schedules a group caching update work item to run immediately.
-    """
-    return scheduleNextGroupCachingUpdate(store, 0)
 
 
 
@@ -162,25 +123,6 @@ class GroupAttendeeReconciliationWork(
     group = property(
         lambda self: "{0}, {1}".format(self.groupID, self.resourceID)
     )
-
-    @classmethod
-    @inlineCallbacks
-    def _schedule(cls, txn, eventID, groupID, seconds):
-        notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds)
-        log.debug(
-            "scheduling group reconciliation for "
-            "({resourceID}, {groupID},): {when}",
-            resourceID=eventID,
-            groupID=groupID,
-            when=notBefore
-        )
-        wp = yield txn.enqueue(
-            cls,
-            resourceID=eventID,
-            groupID=groupID,
-            notBefore=notBefore,
-        )
-        returnValue(wp)
 
 
     @inlineCallbacks
@@ -432,11 +374,11 @@ class GroupCacher(object):
 
         wps = []
         for [eventID] in rows:
-            wp = yield GroupAttendeeReconciliationWork._schedule(
+            wp = yield GroupAttendeeReconciliationWork.reschedule(
                 txn,
-                eventID=eventID,
+                seconds=float(config.GroupAttendees.ReconciliationDelaySeconds),
+                resourceID=eventID,
                 groupID=groupID,
-                seconds=float(config.GroupAttendees.ReconciliationDelaySeconds)
             )
             wps.append(wp)
         returnValue(tuple(wps))

@@ -19,8 +19,7 @@ Inbound IMIP mail handling for Calendar Server
 """
 
 from twext.enterprise.dal.record import fromTable
-from twext.enterprise.dal.syntax import Delete
-from twext.enterprise.jobqueue import WorkItem
+from twext.enterprise.jobqueue import WorkItem, RegeneratingWorkItem
 from twext.internet.gaiendpoint import GAIEndpoint
 from twext.python.log import Logger, LegacyLogger
 
@@ -81,25 +80,25 @@ class IMIPReplyWork(WorkItem, fromTable(schema.IMIP_REPLY_WORK)):
 
 
 
-class IMIPPollingWork(WorkItem, fromTable(schema.IMIP_POLLING_WORK)):
+class IMIPPollingWork(RegeneratingWorkItem, fromTable(schema.IMIP_POLLING_WORK)):
 
     # FIXME: purge all old tokens here
     group = "imip_polling"
 
+    def regenerateInterval(self):
+        """
+        Return the interval in seconds between regenerating instances.
+        """
+        mailRetriever = self.transaction._mailRetriever
+        return mailRetriever.settings["seconds"]
+
+
     @inlineCallbacks
     def doWork(self):
 
-        # Delete all other work items
-        yield Delete(From=self.table, Where=None).on(self.transaction)
-
         mailRetriever = self.transaction._mailRetriever
         if mailRetriever is not None:
-            try:
-                yield mailRetriever.fetchMail()
-            except Exception, e:
-                log.error("Failed to fetch mail (%s)" % (e,))
-            finally:
-                yield mailRetriever.scheduleNextPoll()
+            yield mailRetriever.fetchMail()
 
 
 
@@ -140,7 +139,7 @@ class MailRetriever(service.Service):
     def scheduleNextPoll(self, seconds=None):
         if seconds is None:
             seconds = self.settings["PollingSeconds"]
-        yield scheduleNextMailPoll(self.store, seconds)
+        yield IMIPPollingWork.reschedule(self.store, seconds)
 
 
 

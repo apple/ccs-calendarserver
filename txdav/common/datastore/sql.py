@@ -583,6 +583,7 @@ class CommonStoreTransaction(object):
             label = "{}#{}${}".format(tr.filename, tr.lineno, tr.function)
 
         self._store = store
+        self._queuer = self._store.queuer
         self._calendarHomes = {}
         self._addressbookHomes = {}
         self._notificationHomes = {}

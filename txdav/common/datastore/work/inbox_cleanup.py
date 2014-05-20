@@ -20,10 +20,10 @@ Remove orphaned and old inbox items, and inbox items references old events
 """
 
 from twext.enterprise.dal.record import fromTable
-from twext.enterprise.dal.syntax import Delete, Select, Count
-from twext.enterprise.jobqueue import WorkItem
+from twext.enterprise.dal.syntax import Select, Count
+from twext.enterprise.jobqueue import WorkItem, RegeneratingWorkItem
 from twext.python.log import Logger
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, succeed
 from twistedcaldav.config import config
 from txdav.common.datastore.sql_tables import schema, _HOME_STATUS_NORMAL
 import datetime
@@ -31,25 +31,30 @@ import datetime
 log = Logger()
 
 
-class InboxCleanupWork(WorkItem,
-    fromTable(schema.INBOX_CLEANUP_WORK)):
+class InboxCleanupWork(RegeneratingWorkItem, fromTable(schema.INBOX_CLEANUP_WORK)):
 
     group = "inbox_cleanup"
 
     @classmethod
-    @inlineCallbacks
-    def _schedule(cls, txn, seconds):
-        notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds)
-        log.debug("Scheduling clean inboxes work: {}".format(notBefore,))
-        wp = yield txn.enqueue(cls, notBefore=notBefore)
-        returnValue(wp)
+    def initialSchedule(cls, store, seconds):
+        def _enqueue(txn):
+            return InboxCleanupWork.reschedule(txn, seconds)
+
+        if config.InboxCleanup.Enabled:
+            return store.inTransaction("InboxCleanupWork.initialSchedule", _enqueue)
+        else:
+            return succeed(None)
+
+
+    def regenerateInterval(self):
+        """
+        Return the interval in seconds between regenerating instances.
+        """
+        return float(config.InboxCleanup.CleanupPeriodDays) * 24 * 60 * 60
 
 
     @inlineCallbacks
     def doWork(self):
-
-        # Delete all other work items
-        yield Delete(From=self.table, Where=None).on(self.transaction)
 
         # exit if not done with last delete:
         coiw = schema.CLEANUP_ONE_INBOX_WORK
@@ -71,13 +76,7 @@ class InboxCleanupWork(WorkItem,
             ).on(self.transaction)
 
             for homeRow in homeRows:
-                yield CleanupOneInboxWork._schedule(self.transaction, homeID=homeRow[0], seconds=0)
-
-        # Schedule next check
-        yield self._schedule(
-            self.transaction,
-            float(config.InboxCleanup.CleanupPeriodDays) * 24 * 60 * 60
-        )
+                yield CleanupOneInboxWork.reschedule(self.transaction, seconds=0, homeID=homeRow[0])
 
 
 
@@ -85,16 +84,6 @@ class CleanupOneInboxWork(WorkItem,
     fromTable(schema.CLEANUP_ONE_INBOX_WORK)):
 
     group = property(lambda self: "cleanup_inbox_in_homeid_{}".format(self.homeID))
-
-    @classmethod
-    @inlineCallbacks
-    def _schedule(cls, txn, homeID, seconds):
-        notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds)
-        log.debug("Scheduling Inbox cleanup work: {notBefore} in home id: {homeID}".format(
-            notBefore=notBefore, homeID=homeID))
-        wp = yield txn.enqueue(cls, notBefore=notBefore, homeID=homeID)
-        returnValue(wp)
-
 
     @inlineCallbacks
     def doWork(self):
@@ -143,15 +132,3 @@ class CleanupOneInboxWork(WorkItem,
             inbox = yield home.childWithName("inbox")
             for item in (yield inbox.objectResourcesWithNames(itemNamesToDelete)):
                 yield item.remove()
-
-
-
-@inlineCallbacks
-def scheduleFirstInboxCleanup(store, seconds):
-    if config.InboxCleanup.Enabled:
-        txn = store.newTransaction(label="scheduleFirstInboxCleanup")
-        wp = yield InboxCleanupWork._schedule(txn, seconds)
-        yield txn.commit()
-        returnValue(wp)
-    else:
-        log.debug("Inbox cleanup work disabled.")

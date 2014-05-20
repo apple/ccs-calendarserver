@@ -20,10 +20,10 @@ Remove old and unused REVISION rows
 """
 
 from twext.enterprise.dal.record import fromTable
-from twext.enterprise.dal.syntax import Delete, Select, Max
-from twext.enterprise.jobqueue import WorkItem
+from twext.enterprise.dal.syntax import Select, Max
+from twext.enterprise.jobqueue import SingletonWorkItem, RegeneratingWorkItem
 from twext.python.log import Logger
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, succeed
 from twistedcaldav.config import config
 from txdav.common.datastore.sql_tables import schema
 import datetime
@@ -31,25 +31,30 @@ import datetime
 log = Logger()
 
 
-class FindMinValidRevisionWork(WorkItem,
-    fromTable(schema.FIND_MIN_VALID_REVISION_WORK)):
+class FindMinValidRevisionWork(RegeneratingWorkItem, fromTable(schema.FIND_MIN_VALID_REVISION_WORK)):
 
     group = "find_min_revision"
 
     @classmethod
-    @inlineCallbacks
-    def _schedule(cls, txn, seconds):
-        notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds)
-        log.debug("Scheduling find minimum valid revision work: %s" % (notBefore,))
-        wp = yield txn.enqueue(cls, notBefore=notBefore)
-        returnValue(wp)
+    def initialSchedule(cls, store, seconds):
+        def _enqueue(txn):
+            return FindMinValidRevisionWork.reschedule(txn, seconds)
+
+        if config.RevisionCleanup.Enabled:
+            return store.inTransaction("FindMinValidRevisionWork.initialSchedule", _enqueue)
+        else:
+            return succeed(None)
+
+
+    def regenerateInterval(self):
+        """
+        Return the interval in seconds between regenerating instances.
+        """
+        return float(config.RevisionCleanup.CleanupPeriodDays) * 24 * 60 * 60
 
 
     @inlineCallbacks
     def doWork(self):
-
-        # Delete all other work items
-        yield Delete(From=self.table, Where=None).on(self.transaction)
 
         # Get the minimum valid revision
         minValidRevision = int((yield self.transaction.calendarserverValue("MIN-VALID-REVISION")))
@@ -82,57 +87,19 @@ class FindMinValidRevisionWork(WorkItem,
             yield self.transaction.updateCalendarserverValue("MIN-VALID-REVISION", maxRevOlderThanDate)
 
             # Schedule revision cleanup
-            yield RevisionCleanupWork._schedule(self.transaction, seconds=0)
-
-        else:
-            # Schedule next check
-            yield FindMinValidRevisionWork._schedule(
-                self.transaction,
-                float(config.RevisionCleanup.CleanupPeriodDays) * 24 * 60 * 60
-            )
+            yield RevisionCleanupWork.reschedule(self.transaction, seconds=0)
 
 
 
-class RevisionCleanupWork(WorkItem,
-    fromTable(schema.REVISION_CLEANUP_WORK)):
+class RevisionCleanupWork(SingletonWorkItem, fromTable(schema.REVISION_CLEANUP_WORK)):
 
     group = "group_revsion_cleanup"
 
-    @classmethod
-    @inlineCallbacks
-    def _schedule(cls, txn, seconds):
-        notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds)
-        log.debug("Scheduling revision cleanup work: %s" % (notBefore,))
-        wp = yield txn.enqueue(cls, notBefore=notBefore)
-        returnValue(wp)
-
-
     @inlineCallbacks
     def doWork(self):
-
-        # Delete all other work items
-        yield Delete(From=self.table, Where=None).on(self.transaction)
 
         # Get the minimum valid revision
         minValidRevision = int((yield self.transaction.calendarserverValue("MIN-VALID-REVISION")))
 
         # delete revisions
         yield self.transaction.deleteRevisionsBefore(minValidRevision)
-
-        # Schedule next update
-        yield FindMinValidRevisionWork._schedule(
-            self.transaction,
-            float(config.RevisionCleanup.CleanupPeriodDays) * 24 * 60 * 60
-        )
-
-
-
-@inlineCallbacks
-def scheduleFirstFindMinRevision(store, seconds):
-    if config.RevisionCleanup.Enabled:
-        txn = store.newTransaction(label="scheduleFirstFindMinRevision")
-        wp = yield FindMinValidRevisionWork._schedule(txn, seconds)
-        yield txn.commit()
-        returnValue(wp)
-    else:
-        log.debug("Revision cleanup work disabled.")

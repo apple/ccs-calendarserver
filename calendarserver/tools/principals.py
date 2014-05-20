@@ -595,10 +595,6 @@ def setProxies(record, readProxyRecords, writeProxyRecords):
         )
         yield proxyGroup.setMembers(proxyRecords)
 
-    # if store is not None:
-    #     # Schedule work the PeerConnectionPool will pick up as overdue
-    #     yield schedulePolledGroupCachingUpdate(store)
-
 
 
 @inlineCallbacks
