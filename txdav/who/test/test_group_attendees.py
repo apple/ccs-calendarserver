@@ -58,6 +58,7 @@ class GroupAttendeeReconciliation(CommonCommonTests, unittest.TestCase):
         super(GroupAttendeeReconciliation, self).configure()
         config.GroupAttendees.Enabled = True
         config.GroupAttendees.ReconciliationDelaySeconds = 0
+        config.GroupAttendees.UpdateOldEventLimitSeconds = 0
 
 
     @inlineCallbacks
@@ -670,6 +671,64 @@ END:VCALENDAR
 
 
     @inlineCallbacks
+    def test_groupPutOldEvent(self):
+        """
+        Test that old event with group attendee is expaned but not linked to group update
+        """
+
+        data_put_1 = """BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART;TZID=US/Eastern:20140101T100000
+DURATION:PT1H
+SUMMARY:event 1
+UID:event1@ninevah.local
+ORGANIZER:MAILTO:user02@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:MAILTO:group01@example.com
+END:VEVENT
+END:VCALENDAR"""
+
+        data_get_1 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+BEGIN:VEVENT
+UID:event1@ninevah.local
+DTSTART;TZID=US/Eastern:20140101T100000
+DURATION:PT1H
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:10000000-0000-0000-0000-000000000002
+ATTENDEE;CN=Group 01;CUTYPE=GROUP;EMAIL=group01@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:x-uid:20000000-0000-0000-0000-000000000001
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;MEMBER="urn:x-uid:20000000-0000-0000-0000-000000000001";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:10000000-0000-0000-0000-000000000001
+CREATED:20060101T150000Z
+ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:x-uid:10000000-0000-0000-0000-000000000002
+SUMMARY:event 1
+END:VEVENT
+END:VCALENDAR
+"""
+        groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
+
+        calendar = yield self.calendarUnderTest(name="calendar", home="10000000-0000-0000-0000-000000000002")
+        vcalendar = Component.fromString(data_put_1)
+        yield calendar.createCalendarObjectWithName("data1.ics", vcalendar)
+        yield self.commit()
+
+        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
+        if len(wps): # This is needed because the test currently fails and does actually create job items we have to wait for
+            yield self.commit()
+            yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
+        self.assertEqual(len(wps), 0)
+
+        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000002")
+        vcalendar = yield cobj.component()
+        self.assertEqual(normalize_iCalStr(vcalendar), normalize_iCalStr(data_get_1))
+
+
+    @inlineCallbacks
     def test_groupChangeOldEvent(self):
         """
         Test that group attendee changes not applied to old events
@@ -784,7 +843,136 @@ END:VCALENDAR
             yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
         self.assertEqual(len(wps), 0)
 
-    test_groupChangeOldEvent.todo = "Doesn't work yet"
+
+    @inlineCallbacks
+    def test_groupChangeOldNoMasterEvent(self):
+        """
+        Test that group attendee changes not applied to old events with no master event
+        """
+        yield None
+
+    test_groupChangeOldNoMasterEvent.todo = "Create test data"
+
+
+    @inlineCallbacks
+    def test_groupChangeOldRecurringEvent(self):
+        """
+        Test that group attendee changes not applied to old recurring events
+        """
+
+        data_put_1 = """BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART;TZID=US/Eastern:20120101T100000
+DURATION:PT1H
+RRULE:FREQ=DAILY;UNTIL=20240101T100000
+SUMMARY:event 1
+UID:event1@ninevah.local
+ORGANIZER:MAILTO:user02@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:MAILTO:group01@example.com
+END:VEVENT
+END:VCALENDAR"""
+
+        data_put_2 = """BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART;TZID=US/Eastern:20120101T100000
+DURATION:PT1H
+RRULE:FREQ=DAILY;UNTIL=20140101T100000
+SUMMARY:event 1
+UID:event1@ninevah.local
+ORGANIZER:MAILTO:user02@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:MAILTO:group01@example.com
+END:VEVENT
+END:VCALENDAR"""
+
+        data_get_1 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+BEGIN:VEVENT
+UID:event1@ninevah.local
+DTSTART;TZID=US/Eastern:20120101T100000
+DURATION:PT1H
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:10000000-0000-0000-0000-000000000002
+ATTENDEE;CN=Group 01;CUTYPE=GROUP;EMAIL=group01@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:x-uid:20000000-0000-0000-0000-000000000001
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;MEMBER="urn:x-uid:20000000-0000-0000-0000-000000000001";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:10000000-0000-0000-0000-000000000001
+CREATED:20060101T150000Z
+ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:x-uid:10000000-0000-0000-0000-000000000002
+RRULE:FREQ=DAILY;UNTIL=20240101T100000
+SUMMARY:event 1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data_get_2 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+BEGIN:VEVENT
+UID:event1@ninevah.local
+DTSTART;TZID=US/Eastern:20120101T100000
+DURATION:PT1H
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:10000000-0000-0000-0000-000000000002
+ATTENDEE;CN=Group 01;CUTYPE=GROUP;EMAIL=group01@example.com;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:x-uid:20000000-0000-0000-0000-000000000001
+CREATED:20060101T150000Z
+ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:x-uid:10000000-0000-0000-0000-000000000002
+RRULE:FREQ=DAILY;UNTIL=20140101T100000
+SEQUENCE:1
+SUMMARY:event 1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        @inlineCallbacks
+        def expandedMembers(self, records=None):
+            yield None
+            returnValue(set())
+
+        groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
+
+        calendar = yield self.calendarUnderTest(name="calendar", home="10000000-0000-0000-0000-000000000002")
+        vcalendar = Component.fromString(data_put_1)
+        yield calendar.createCalendarObjectWithName("data1.ics", vcalendar)
+        yield self.commit()
+
+        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
+        yield self.commit()
+        self.assertEqual(len(wps), 1)
+        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
+
+        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000002")
+        vcalendar = yield cobj.component()
+        self.assertEqual(normalize_iCalStr(vcalendar), normalize_iCalStr(data_get_1))
+
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000001", 1)
+
+        vcalendar = Component.fromString(data_put_2)
+        yield cobj.setComponent(vcalendar)
+        yield self.commit()
+
+        self.patch(CalendarDirectoryRecordMixin, "expandedMembers", expandedMembers)
+
+        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000002")
+        vcalendar = yield cobj.component()
+        self.assertEqual(normalize_iCalStr(vcalendar), normalize_iCalStr(data_get_2))
+
+        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
+        if len(wps): # This is needed because the test currently fails and does actually create job items we have to wait for
+            yield self.commit()
+            yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
+        self.assertEqual(len(wps), 0)
+
 
 
     @inlineCallbacks

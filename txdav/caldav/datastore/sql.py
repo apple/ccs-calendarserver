@@ -1964,8 +1964,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             changed = component.reconcileGroupAttendees(groupCUAToAttendeeMemberPropMap)
 
         # save for post processing when self._resourceID is non-zero
-        if inserting and groupCUAToAttendeeMemberPropMap:
-            self._groupCUAToAttendeeMemberPropMap = groupCUAToAttendeeMemberPropMap
+        self._groupCUAToAttendeeMemberPropMap = groupCUAToAttendeeMemberPropMap
 
         returnValue(changed)
 
@@ -2037,17 +2036,50 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def deleteGROUP_ATTENDEE(self, groupCUAToAttendeeMemberPropMap=None):
-        """
-        delete groupp attendee rows for this resource
-        """
-        ga = schema.GROUP_ATTENDEE
-        rows = yield Delete(
-            From=ga,
-            Where=ga.RESOURCE_ID == self._resourceID,
-            Return=[ga.GROUP_ID]
-        ).on(self._txn)
-        returnValue(bool(rows))
+    def deleteOldGROUP_ATTENDEE(self, component, instances, inserting, txn):
+            
+        # If this event is old, break possible tie to group update
+        if hasattr(self, "_groupCUAToAttendeeMemberPropMap"):
+            
+            if (component.masterComponent() is None or not component.isRecurring()):
+                cutoffDate_datatime  = (
+                    datetime.datetime.utcnow() + 
+                    datetime.timedelta(seconds=config.GroupAttendees.UpdateOldEventLimitSeconds)
+                )
+                tr = schema.TIME_RANGE
+                rows = yield Select(
+                    [Count(tr.CALENDAR_OBJECT_RESOURCE_ID)],
+                    From=tr,
+                    Where=(
+                        tr.CALENDAR_OBJECT_RESOURCE_ID == self._resourceID).And(
+                        tr.END_DATE > cutoffDate_datatime
+                    ),
+                ).on(txn)
+                isOld = rows[0][0] == 0
+               
+            else:
+                if instances:
+                    cutoffDate_DateTime = (
+                        DateTime.getNowUTC() + 
+                        Duration(seconds=config.GroupAttendees.UpdateOldEventLimitSeconds)
+                    )
+                    maxInstanceKey = sorted(instance for instance in instances)[-1]
+                    isOld = cutoffDate_DateTime > instances[maxInstanceKey].end
+                else:
+                    isOld = True
+                
+            if isOld:
+                if inserting:
+                    # don't create GROUP_ATTENDEE rows in updateGROUP_ATTENDEE()
+                    del self._groupCUAToAttendeeMemberPropMap
+                else:
+                    # delete existing group rows
+                    ga = schema.GROUP_ATTENDEE
+                    rows = yield Delete(
+                        From=ga,
+                        Where=ga.RESOURCE_ID == self._resourceID,
+                        #Return=[ga.GROUP_ID]
+                    ).on(txn)
 
 
     def validCalendarDataCheck(self, component, inserting):
@@ -2742,7 +2774,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         yield self.updateDatabase(component, inserting=inserting)
 
         # update GROUP_ATTENDEE table rows
-        yield self.updateGROUP_ATTENDEE()
+        if inserting:
+            yield self.updateGROUP_ATTENDEE()
 
         # Post process managed attachments
         if internal_state in (
@@ -2806,6 +2839,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # freebusy related properties have changed (e.g. an attendee reply and refresh). In those cases
         # the component will have a special attribute present to let us know to suppress the instance indexing.
         instanceIndexingRequired = not getattr(component, "noInstanceIndexing", False) or inserting or reCreate
+        instances = None
 
         if instanceIndexingRequired:
 
@@ -2879,7 +2913,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
             # Now coerce indexing to off if needed
             if not doInstanceIndexing:
-                instances = None
+                #instances = None # used by deleteOldGROUP_ATTENDEE() call at end
                 recurrenceLowerLimit = None
                 recurrenceLimit = DateTime(1900, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
 
@@ -2988,6 +3022,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         if instanceIndexingRequired and doInstanceIndexing:
             yield self._addInstances(component, instances, truncateLowerLimit, isInboxItem, txn)
+            
+        yield self.deleteOldGROUP_ATTENDEE(component, instances, inserting, txn)
 
 
     @inlineCallbacks
