@@ -241,7 +241,9 @@ class Runner(object):
 
         if oldFields is None:
             fields = {
-                FieldName.recordType: recordType
+                self.dir.fieldName.recordType: recordType,
+                self.dir.fieldName.hasCalendars: True,
+                self.dir.fieldName.hasContacts: True,
             }
             create = True
         else:

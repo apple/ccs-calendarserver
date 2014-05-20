@@ -455,6 +455,8 @@ def runAddPrincipal(service, store, addType, uid, shortNames, fullNames):
         directory.fieldName.uid: uid,
         directory.fieldName.shortNames: shortNames,
         directory.fieldName.fullNames: fullNames,
+        directory.fieldName.hasCalendars: True,
+        directory.fieldName.hasContacts: True,
     }
     record = DirectoryRecord(directory, fields)
     yield record.service.updateRecords([record], create=True)
