@@ -7,8 +7,7 @@
                 ".develop",
                 ".svn",
                 "CalendarServer.egg-info",
-                "data",
-                "src"
+                "data"
             ],
             "file_exclude_patterns": [
                 "*.pyc",
@@ -17,7 +16,60 @@
                 "*.sublime-workspace",
                 "bin/calendarserver_*"
             ]
-		}
+		},
+        {
+            "path": "../.develop/virtualenv/src/twextpy",
+            "folder_exclude_patterns": [
+                ".svn"
+            ],
+            "file_exclude_patterns": [
+                "*.pyc",
+                ".project",
+                ".pydevproject"
+            ]
+        },
+        {
+            "path": "../.develop/virtualenv/src/pycalendar",
+            "folder_exclude_patterns": [
+                ".svn"
+            ],
+            "file_exclude_patterns": [
+                "*.pyc",
+                ".project",
+                ".pydevproject"
+            ]
+        },
+        {
+            "path": "../.develop/virtualenv/src/kerberos",
+            "folder_exclude_patterns": [
+                ".svn"
+            ],
+            "file_exclude_patterns": [
+                "*.pyc"
+            ]
+        },
+        {
+            "path": "../.develop/virtualenv/src/caldavtester",
+            "folder_exclude_patterns": [
+                ".svn"
+            ],
+            "file_exclude_patterns": [
+                "*.pyc",
+                ".project",
+                ".pydevproject"
+            ]
+        },
+        {
+            "path": "../.develop/virtualenv/src/caldavclientlibrary",
+            "folder_exclude_patterns": [
+                ".svn"
+            ],
+            "file_exclude_patterns": [
+                "*.pyc",
+                ".project",
+                ".pydevproject"
+            ]
+        }
 	],
     "settings":
     {
