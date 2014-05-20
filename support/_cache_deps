@@ -69,6 +69,19 @@ pip_download                       \
 
 
 #
+# Check out CalDAVTester
+#
+
+url="$(grep egg=CalDAVTester "${wd}/requirements-dev.txt" | sed 's|^.*svn+\([^@#]*\).*$|\1|')";
+rev="$(grep egg=CalDAVTester "${wd}/requirements-dev.txt" | sed 's|^.*svn+[^@#]*@\([0-9]*\).*$|\1|')";
+
+svn export -r "${rev}" "${url}@${rev}" "${wd}/CalDAVTester";
+tar -C "${wd}" -cvzf "${wd}/CalDAVTester.tgz" CalDAVTester; 
+rm -r CalDAVTester;
+
+
+
+#
 # Remove .exe files from arvhives
 #
 
