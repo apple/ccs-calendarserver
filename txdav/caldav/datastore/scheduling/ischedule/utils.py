@@ -58,19 +58,19 @@ def lookupServerViaSRV(domain, service="_ischedules"):
 
     _initResolver()
 
-    lookup = "%s._tcp.%s" % (service, domain,)
-    log.debug("DNS SRV: lookup: %s" % (lookup,))
+    lookup = "{}._tcp.{}".format(service, domain,)
+    log.debug("DNS SRV: lookup: {l}", l=lookup)
     try:
         answers = (yield DebugResolver.lookupService(lookup))[0]
     except (DomainError, AuthoritativeDomainError), e:
-        log.debug("DNS SRV: lookup failed: %s" % (e,))
+        log.debug("DNS SRV: lookup failed: {exc}", exc=e)
         returnValue(None)
 
     if len(answers) == 1 and answers[0].type == dns.SRV \
                          and answers[0].payload \
                          and answers[0].payload.target == dns.Name('.'):
         # decidedly not available
-        log.debug("DNS SRV: disabled: %s" % (lookup,))
+        log.debug("DNS SRV: disabled: {l}", l=lookup)
         returnValue(None)
 
     servers = []
@@ -81,7 +81,7 @@ def lookupServerViaSRV(domain, service="_ischedules"):
 
         servers.append((a.payload.priority, a.payload.weight, str(a.payload.target), a.payload.port))
 
-    log.debug("DNS SRV: lookup results: %s\n%s" % (lookup, servers,))
+    log.debug("DNS SRV: lookup results: {l}\n{s}", l=lookup, s=servers)
 
 
     def _serverCmp(a, b):
@@ -104,10 +104,10 @@ def lookupServerViaSRV(domain, service="_ischedules"):
             host = host.rstrip(".")
             break
     else:
-        log.debug("DNS SRV: unable to determine best record to use: %s" % (lookup,))
+        log.debug("DNS SRV: unable to determine best record to use: {l}", l=lookup)
         returnValue(None)
 
-    log.debug("DNS SRV: lookup chosen service: %s %s %s" % (lookup, host, port,))
+    log.debug("DNS SRV: lookup chosen service: {l} {h} {p}", l=lookup, h=host, p=port)
     returnValue((host, port,))
 
 
@@ -117,12 +117,12 @@ def lookupDataViaTXT(domain, prefix=""):
 
     _initResolver()
 
-    lookup = "%s.%s" % (prefix, domain,) if prefix else domain
-    log.debug("DNS TXT: lookup: %s" % (lookup,))
+    lookup = "{}.{}".format(prefix, domain,) if prefix else domain
+    log.debug("DNS TXT: lookup: {l}", l=lookup)
     try:
         answers = (yield DebugResolver.lookupText(lookup))[0]
     except (DomainError, AuthoritativeDomainError), e:
-        log.debug("DNS TXT: lookup failed: %s" % (e,))
+        log.debug("DNS TXT: lookup failed: {exc}", exc=e)
         answers = ()
 
     results = []
@@ -133,7 +133,7 @@ def lookupDataViaTXT(domain, prefix=""):
 
         results.append("".join(a.payload.data))
 
-    log.debug("DNS TXT: lookup results: %s\n%s" % (lookup, "\n".join(results),))
+    log.debug("DNS TXT: lookup results: {l}\n{r}", l=lookup, r="\n".join(results))
     returnValue(results)
 
 
@@ -142,9 +142,20 @@ class FakeBindAuthority(BindAuthority):
 
     @inlineCallbacks
     def _lookup(self, name, cls, type, timeout=None):
-        log.debug("DNS FakeBindAuthority: lookup: %s %s %s" % (name, cls, type,))
+        log.debug(
+            "DNS FakeBindAuthority: lookup: {name} {cls} {type}",
+            name=name,
+            cls=cls,
+            type=type,
+        )
         result = yield BindAuthority._lookup(self, name, cls, type, timeout)
-        log.debug("DNS FakeBindAuthority: lookup results: %s %s %s\n%s" % (name, cls, type, result[0]))
+        log.debug(
+            "DNS FakeBindAuthority: lookup results: {name} {cls} {type}\n{r}",
+            name=name,
+            cls=cls,
+            type=type,
+            r=result[0],
+        )
         returnValue(result)
 
 

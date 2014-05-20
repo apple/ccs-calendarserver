@@ -109,7 +109,7 @@ class IScheduleServersParser(object):
     Server-to-server configuration file parser.
     """
     def __repr__(self):
-        return "<%s %r>" % (self.__class__.__name__, self.xmlFile)
+        return "<{} {}>".format(self.__class__.__name__, self.xmlFile)
 
 
     def __init__(self, xmlFile):
@@ -188,7 +188,7 @@ class IScheduleServerRecord (object):
             elif child.tag == ELEMENT_CLIENT_HOSTS:
                 self._parseList(child, ELEMENT_HOST, self.client_hosts)
             else:
-                raise RuntimeError("[%s] Unknown attribute: %s" % (self.__class__, child.tag,))
+                raise RuntimeError("[{}] Unknown attribute: {}".format(self.__class__, child.tag,))
 
         self._parseDetails()
 

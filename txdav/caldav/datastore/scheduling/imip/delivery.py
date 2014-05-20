@@ -76,12 +76,15 @@ class ScheduleViaIMip(DeliveryService):
                 "CANCEL",
                 "DECLINE_COUNTER",
             ):
-                log.info("Could not do server-to-imip method: %s" % (method,))
+                log.info(
+                    "Could not do server-to-imip method: {method}",
+                    method=method,
+                )
                 for recipient in self.recipients:
                     err = HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
                         (caldav_namespace, "recipient-failed"),
-                        "iMIP method not allowed: %s" % (method,),
+                        "iMIP method not allowed: {}".format(method,),
                     ))
                     self.responses.add(
                         recipient.cuaddr,
@@ -96,11 +99,16 @@ class ScheduleViaIMip(DeliveryService):
                 try:
                     toAddr = str(recipient.cuaddr)
                     if not toAddr.lower().startswith("mailto:"):
-                        raise ValueError("ATTENDEE address '%s' must be mailto: for iMIP operation." % (toAddr,))
+                        raise ValueError("ATTENDEE address '{}' must be mailto: for iMIP operation.".format(toAddr,))
 
                     fromAddr = str(self.scheduler.originator.cuaddr)
 
-                    log.debug("Submitting iMIP message...  To: '%s', From :'%s'\n%s" % (toAddr, fromAddr, caldata,))
+                    log.debug(
+                        "Submitting iMIP message...  To: '{to}', From :'{fr}'\n{data}",
+                        to=toAddr,
+                        fr=fromAddr,
+                        data=caldata,
+                    )
 
                     def enqueueOp(txn):
                         return txn.enqueue(IMIPInvitationWork, fromAddr=fromAddr,
@@ -108,14 +116,19 @@ class ScheduleViaIMip(DeliveryService):
 
                     yield inTransaction(
                         lambda: self.scheduler.txn.store().newTransaction(
-                            "Submitting iMIP message for UID: %s" % (
+                            "Submitting iMIP message for UID: {}".format(
                             self.scheduler.calendar.resourceUID(),)),
                         enqueueOp
                     )
 
                 except Exception, e:
                     # Generated failed response for this recipient
-                    log.debug("iMIP request %s failed for recipient %s: %s" % (self, recipient, e))
+                    log.debug(
+                        "iMIP request {req} failed for recipient {r}: {exc}",
+                        req=self,
+                        r=recipient,
+                        exc=e,
+                    )
                     failForRecipient(recipient)
 
                 else:
@@ -127,6 +140,6 @@ class ScheduleViaIMip(DeliveryService):
 
         except Exception, e:
             # Generated failed responses for each recipient
-            log.debug("iMIP request %s failed: %s" % (self, e))
+            log.debug("iMIP request {req} failed: {exc}", req=self, exc=e)
             for recipient in self.recipients:
                 failForRecipient(recipient)

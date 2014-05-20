@@ -69,7 +69,11 @@ class DeliveryService(object):
                 if re.match(pattern, cuaddr) is not None:
                     return succeed(True)
             except re.error:
-                log.error("Invalid regular expression for Scheduling configuration '%s/LocalAddresses': %s" % (cls.serviceType(), pattern,))
+                log.error(
+                    "Invalid regular expression for Scheduling configuration '{stype}/LocalAddresses': {pat}",
+                    stype=cls.serviceType(),
+                    pat=pattern,
+                )
 
         return succeed(False)
 

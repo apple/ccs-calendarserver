@@ -40,17 +40,24 @@ class SMTPSender(object):
 
     def sendMessage(self, fromAddr, toAddr, msgId, message):
 
-        log.debug("Sending: %s" % (message,))
+        log.debug("Sending: {msg}", msg=message)
         def _success(result, msgId, fromAddr, toAddr):
-            log.info("Sent IMIP message %s from %s to %s" %
-                (msgId, fromAddr, toAddr))
+            log.info(
+                "Sent IMIP message {id} from {fr} to {to}",
+                id=msgId,
+                fr=fromAddr,
+                to=toAddr,
+            )
             return True
 
         def _failure(failure, msgId, fromAddr, toAddr):
-            log.error("Failed to send IMIP message %s from %s "
-                           "to %s (Reason: %s)" %
-                           (msgId, fromAddr, toAddr,
-                            failure.getErrorMessage()))
+            log.error(
+                "Failed to send IMIP message {id} from {fr} to {to} (Reason: {err})",
+                id=msgId,
+                fr=fromAddr,
+                to=toAddr,
+                err=failure.getErrorMessage(),
+            )
             return False
 
         deferred = defer.Deferred()

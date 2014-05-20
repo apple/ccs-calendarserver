@@ -121,7 +121,7 @@ class ScheduleViaCalDAV(DeliveryService):
     @inlineCallbacks
     def generateResponse(self, recipient, responses):
         # Hash the iCalendar data for use as the last path element of the URI path
-        name = "%s-%s.ics" % (hashlib.md5(self.scheduler.calendar.resourceUID()).hexdigest(), str(uuid.uuid4())[:8],)
+        name = "{hash}-{r}.ics".format(hash=hashlib.md5(self.scheduler.calendar.resourceUID()).hexdigest(), r=str(uuid.uuid4())[:8],)
 
         # Do implicit scheduling message processing.
         try:

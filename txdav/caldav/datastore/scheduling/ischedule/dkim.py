@@ -862,7 +862,7 @@ class PublicKeyLookup_HTTP_WellKnown(PublicKeyLookup):
         """
 
         # First we do an SRV lookup for _domainkey to get the public key server host/port
-        result = (yield lookupServerViaSRV(self.dkim_tags["d"], service="_domainkey"))
+        result = (yield lookupServerViaSRV(self.dkim_tags["d"], service="_domainkey_lookup"))
         if result is None:
             log.debug("DKIM: SRV _domainkey failed on: %s trying domain directly" % (self.dkim_tags["d"],))
             host = self.dkim_tags["d"]

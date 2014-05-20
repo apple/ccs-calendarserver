@@ -111,12 +111,12 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
     def render(self, request):
         output = """<html>
 <head>
-<title>%(rtype)s Inbox Resource</title>
+<title>{rtype} Inbox Resource</title>
 </head>
 <body>
-<h1>%(rtype)s Inbox Resource.</h1>
+<h1>{rtype} Inbox Resource.</h1>
 </body
-</html>""" % {"rtype" : "Podding" if self._podding else "iSchedule", }
+</html>""".format(rtype="Podding" if self._podding else "iSchedule")
 
         response = Response(200, {}, output)
         response.headers.setHeader("content-type", MimeType("text", "html"))
@@ -238,7 +238,7 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
         format = self.determineType(contentType)
 
         if format is None:
-            msg = "MIME type %s not allowed in iSchedule request" % (contentType,)
+            msg = "MIME type {} not allowed in iSchedule request".format(contentType,)
             self.log.error(msg)
             raise HTTPError(scheduler.errorResponse(
                 responsecode.FORBIDDEN,
@@ -272,7 +272,7 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
         """
         format = None
         if content_type is not None:
-            format = "%s/%s" % (content_type.mediaType, content_type.mediaSubtype,)
+            format = "{}/{}".format(content_type.mediaType, content_type.mediaSubtype,)
         return format if format in Component.allowedTypes() else None
 
 
@@ -295,7 +295,10 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
         # Get list of Recipient headers
         rawRecipients = request.headers.getRawHeaders("recipient")
         if rawRecipients is None or (len(rawRecipients) == 0):
-            self.log.error("%s request must have at least one Recipient header" % (self.method,))
+            self.log.error(
+                "{method} request must have at least one Recipient header",
+                method=self.method,
+            )
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (ischedule_namespace, "recipient-missing"),
@@ -318,7 +321,10 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
         # Must be content-type text/calendar
         contentType = request.headers.getHeader("content-type")
         if contentType is not None and (contentType.mediaType, contentType.mediaSubtype) != ("text", "calendar"):
-            self.log.error("MIME type %s not allowed in iSchedule POST request" % (contentType,))
+            self.log.error(
+                "MIME type {ct} not allowed in iSchedule POST request",
+                ct=contentType,
+            )
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (ischedule_namespace, "invalid-calendar-data-type"),
@@ -330,7 +336,10 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
             calendar = (yield Component.fromIStream(request.stream))
         except:
             # FIXME: Bare except
-            self.log.error("Error while handling iSchedule POST: %s" % (Failure(),))
+            self.log.error(
+                "Error while handling iSchedule POST: {f}",
+                f=Failure(),
+            )
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (ischedule_namespace, "invalid-calendar-data"),

@@ -75,7 +75,7 @@ class ServersDB(object):
                 self._thisServer = server
                 break
         else:
-            raise ValueError("No server in %s matches this server." % (self._xmlFile,))
+            raise ValueError("No server in {} matches this server.".format(self._xmlFile,))
 
 
     def clear(self):
@@ -168,7 +168,7 @@ class Server(object):
         try:
             ips = getIPsFromHost(parsed_uri.hostname)
         except socket.gaierror, e:
-            msg = "Unable to lookup ip-addr for server '%s': %s" % (parsed_uri.hostname, str(e))
+            msg = "Unable to lookup ip-addr for server '{}': {}".format(parsed_uri.hostname, str(e))
             log.error(msg)
             if ignoreIPLookupFailures:
                 ips = ()
@@ -182,7 +182,7 @@ class Server(object):
                 try:
                     ips = getIPsFromHost(item)
                 except socket.gaierror, e:
-                    msg = "Unable to lookup ip-addr for allowed-from '%s': %s" % (item, str(e))
+                    msg = "Unable to lookup ip-addr for allowed-from '{}': {}".format(item, str(e))
                     log.error(msg)
                     if not ignoreIPLookupFailures:
                         raise ValueError(msg)
@@ -214,13 +214,22 @@ class Server(object):
         request_secret = headers.getRawHeaders(SERVER_SECRET_HEADER)
 
         if request_secret is not None and self.shared_secret is None:
-            log.error("iSchedule request included unexpected %s header" % (SERVER_SECRET_HEADER,))
+            log.error(
+                "iSchedule request included unexpected {hdr} header",
+                hdr=SERVER_SECRET_HEADER,
+            )
             return False
         elif request_secret is None and self.shared_secret is not None:
-            log.error("iSchedule request did not include required %s header" % (SERVER_SECRET_HEADER,))
+            log.error(
+                "iSchedule request did not include required {hdr} header",
+                hdr=SERVER_SECRET_HEADER,
+            )
             return False
         elif (request_secret[0] if request_secret else None) != self.shared_secret:
-            log.error("iSchedule request %s header did not match" % (SERVER_SECRET_HEADER,))
+            log.error(
+                "iSchedule request {hdr} header did not match",
+                hdr=SERVER_SECRET_HEADER,
+            )
             return False
         else:
             return True
@@ -278,12 +287,12 @@ class ServersParser(object):
         try:
             _ignore_tree, servers_node = readXML(xmlFile, ELEMENT_SERVERS)
         except ValueError, e:
-            raise RuntimeError("XML parse error for '%s' because: %s" % (xmlFile, e,))
+            raise RuntimeError("XML parse error for '{}' because: {}".format(xmlFile, e,))
 
         for child in servers_node:
 
             if child.tag != ELEMENT_SERVER:
-                raise RuntimeError("Unknown server type: '%s' in servers file: '%s'" % (child.tag, xmlFile,))
+                raise RuntimeError("Unknown server type: '{}' in servers file: '{}'".format(child.tag, xmlFile,))
 
             server = Server()
             server.isImplicit = child.get(ATTR_IMPLICIT, ATTR_VALUE_YES) == ATTR_VALUE_YES
@@ -298,10 +307,10 @@ class ServersParser(object):
                 elif node.tag == ELEMENT_SHARED_SECRET:
                     server.shared_secret = node.text
                 else:
-                    raise RuntimeError("Invalid element '%s' in servers file: '%s'" % (node.tag, xmlFile,))
+                    raise RuntimeError("Invalid element '{}' in servers file: '{}'".format(node.tag, xmlFile,))
 
             if server.id is None or server.uri is None:
-                raise RuntimeError("Invalid server '%s' in servers file: '%s'" % (child.tag, xmlFile,))
+                raise RuntimeError("Invalid server '{}' in servers file: '{}'".format(child.tag, xmlFile,))
 
             server.check(ignoreIPLookupFailures=ignoreIPLookupFailures)
             results[server.id] = server

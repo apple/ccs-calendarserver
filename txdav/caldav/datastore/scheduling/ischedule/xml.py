@@ -269,10 +269,10 @@ class CalendarData (WebDAVTextElement):
                 raise ValueError("Missing calendar data")
             return clazz(PCDATAElement(calendar))
         elif isinstance(calendar, iComponent):
-            assert calendar.name() == "VCALENDAR", "Not a calendar: %r" % (calendar,)
+            assert calendar.name() == "VCALENDAR", "Not a calendar: {}".format(calendar)
             return clazz(PCDATAElement(calendar.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference, format=format)))
         else:
-            raise ValueError("Not a calendar: %s" % (calendar,))
+            raise ValueError("Not a calendar: {}".format(calendar))
 
     fromTextData = fromCalendar
 

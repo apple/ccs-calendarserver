@@ -172,7 +172,7 @@ class Scheduler(object):
         # of data for all events with the same UID. So detect this and use a lock
         if calendar.resourceType() != "VFREEBUSY":
             uid = calendar.resourceUID()
-            yield NamedLock.acquire(self.txn, "ImplicitUIDLock:%s" % (hashlib.md5(uid).hexdigest(),))
+            yield NamedLock.acquire(self.txn, "ImplicitUIDLock:{}".format(hashlib.md5(uid).hexdigest(),))
 
         result = (yield self.doSchedulingDirectly("POST", originator, recipients, calendar))
         returnValue(result)
@@ -276,7 +276,12 @@ class Scheduler(object):
             try:
                 self.calendar.validCalendarData()
             except ValueError, e:
-                log.error("%s request calendar component is not valid:%s %s" % (self.method, e, self.calendar,))
+                log.error(
+                    "{method} request calendar component is not valid:{exc} {cal}",
+                    method=self.method,
+                    exc=e,
+                    cal=self.calendar,
+                )
                 raise HTTPError(self.errorResponse(
                     responsecode.FORBIDDEN,
                     self.errorElements["invalid-calendar-data"],
@@ -285,7 +290,11 @@ class Scheduler(object):
 
             # Must have a METHOD
             if not self.calendar.isValidMethod():
-                log.error("%s request must have valid METHOD property in calendar component: %s" % (self.method, self.calendar,))
+                log.error(
+                    "{method} request must have valid METHOD property in calendar component: {cal}",
+                    method=self.method,
+                    cal=self.calendar,
+                )
                 raise HTTPError(self.errorResponse(
                     responsecode.FORBIDDEN,
                     self.errorElements["invalid-scheduling-message"],
@@ -294,7 +303,11 @@ class Scheduler(object):
 
             # Verify iTIP behavior
             if not self.calendar.isValidITIP():
-                log.error("%s request must have a calendar component that satisfies iTIP requirements: %s" % (self.method, self.calendar,))
+                log.error(
+                    "{method} request must have a calendar component that satisfies iTIP requirements: {cal}",
+                    method=self.method,
+                    cal=self.calendar,
+                )
                 raise HTTPError(self.errorResponse(
                     responsecode.FORBIDDEN,
                     self.errorElements["invalid-scheduling-message"],
@@ -303,7 +316,11 @@ class Scheduler(object):
 
             # X-CALENDARSERVER-ACCESS is not allowed in Outbox POSTs
             if self.calendar.hasProperty(Component.ACCESS_PROPERTY):
-                log.error("X-CALENDARSERVER-ACCESS not allowed in a calendar component %s request: %s" % (self.method, self.calendar,))
+                log.error(
+                    "X-CALENDARSERVER-ACCESS not allowed in a calendar component {method} request: {cal}",
+                    method=self.method,
+                    cal=self.calendar,
+                )
                 raise HTTPError(self.errorResponse(
                     responsecode.FORBIDDEN,
                     (calendarserver_namespace, "no-access-restrictions"),
@@ -322,7 +339,10 @@ class Scheduler(object):
 
             # Must have only one
             if len(attendees) != 1:
-                log.error("Wrong number of ATTENDEEs in calendar data: %s" % (str(self.calendar),))
+                log.error(
+                    "Wrong number of ATTENDEEs in calendar data: {cal}",
+                    cal=str(self.calendar),
+                )
                 raise HTTPError(self.errorResponse(
                     responsecode.FORBIDDEN,
                     self.errorElements["invalid-scheduling-message"],
@@ -331,7 +351,7 @@ class Scheduler(object):
             self.attendee = attendees[0]
 
         else:
-            msg = "Unknown iTIP METHOD: %s" % (self.calendar.propertyValue("METHOD"),)
+            msg = "Unknown iTIP METHOD: {}".format(self.calendar.propertyValue("METHOD"),)
             log.error(msg)
             raise HTTPError(self.errorResponse(
                 responsecode.FORBIDDEN,
@@ -346,7 +366,10 @@ class Scheduler(object):
                 # Extract time range from VFREEBUSY object
                 vfreebusies = [v for v in self.calendar.subcomponents() if v.name() == "VFREEBUSY"]
                 if len(vfreebusies) != 1:
-                    log.error("iTIP data is not valid for a VFREEBUSY request: %s" % (self.calendar,))
+                    log.error(
+                        "iTIP data is not valid for a VFREEBUSY request: {cal}",
+                        cal=str(self.calendar),
+                    )
                     raise HTTPError(self.errorResponse(
                         responsecode.FORBIDDEN,
                         self.errorElements["invalid-scheduling-message"],
@@ -355,7 +378,10 @@ class Scheduler(object):
                 dtstart = vfreebusies[0].getStartDateUTC()
                 dtend = vfreebusies[0].getEndDateUTC()
                 if dtstart is None or dtend is None:
-                    log.error("VFREEBUSY start/end not valid: %s" % (self.calendar,))
+                    log.error(
+                        "VFREEBUSY start/end not valid: {cal}",
+                        cal=str(self.calendar),
+                    )
                     raise HTTPError(self.errorResponse(
                         responsecode.FORBIDDEN,
                         self.errorElements["invalid-scheduling-message"],
@@ -364,7 +390,10 @@ class Scheduler(object):
 
                 # Some clients send floating instead of UTC - coerce to UTC
                 if not dtstart.utc() or not dtend.utc():
-                    log.error("VFREEBUSY start or end not UTC: %s" % (self.calendar,))
+                    log.error(
+                        "VFREEBUSY start or end not UTC: {cal}",
+                        cal=self.calendar,
+                    )
                     raise HTTPError(self.errorResponse(
                         responsecode.FORBIDDEN,
                         self.errorElements["invalid-scheduling-message"],
@@ -406,12 +435,11 @@ class Scheduler(object):
                 emitAccounting(
                     accountingType,
                     self.organizer.record,
-                    "Originator: %s\nRecipients:\n%sMethod:%s\n\n%s"
-                    % (
-                        str(self.originator),
-                        str("".join(["    %s\n" % (recipient,) for recipient in self.recipients])),
-                        str(self.method),
-                        str(self.calendar),
+                    "Originator: {o}\nRecipients:\n{r}Method:{method}\n\n{cal}".format(
+                        o=str(self.originator),
+                        r=str("".join(["    {}\n".format(recipient,) for recipient in self.recipients])),
+                        method=str(self.method),
+                        cal=str(self.calendar),
                     )
                 )
 
@@ -426,7 +454,11 @@ class Scheduler(object):
     @inlineCallbacks
     def generateSchedulingResponse(self):
 
-        log.info("METHOD: %s, Component: %s" % (self.calendar.propertyValue("METHOD"), self.calendar.mainType(),))
+        log.info(
+            "METHOD: {method}, Component: {comp}",
+            method=self.calendar.propertyValue("METHOD"),
+            comp=self.calendar.mainType(),
+        )
 
         # For free-busy do immediate determination of iTIP result rather than fan-out
         freebusy = self.checkForFreeBusy()
@@ -559,9 +591,15 @@ class RemoteScheduler(Scheduler):
             if not recipientAddress.hosted():
                 localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(recipient))
                 if localUser:
-                    log.error("No record for calendar user address: %s" % (recipient,))
+                    log.error(
+                        "No record for calendar user address: {r}",
+                        r=recipient,
+                    )
                 else:
-                    log.error("Unknown calendar user address: %s" % (recipient,))
+                    log.error(
+                        "Unknown calendar user address: {r}",
+                        r=recipient,
+                    )
                 results.append(InvalidCalendarUser(recipient))
             else:
                 # Map recipient to their inbox and cache on calendar user object
@@ -578,7 +616,10 @@ class RemoteScheduler(Scheduler):
                 if inbox:
                     results.append(recipientAddress)
                 else:
-                    log.error("No scheduling for calendar user: %s" % (recipient,))
+                    log.error(
+                        "No scheduling for calendar user: {r}",
+                        r=recipient,
+                    )
                     results.append(InvalidCalendarUser(recipient))
 
         self.recipients = results
@@ -704,13 +745,17 @@ class ScheduleResponseQueue (object):
             error = self.errorForFailure(what)
             message = messageForFailure(what)
         else:
-            raise AssertionError("Unknown data type: %r" % (what,))
+            raise AssertionError("Unknown data type: {}".format(what,))
 
         if self.recipient_mapper is not None:
             recipient = self.recipient_mapper(recipient)
 
         if not suppressErrorLog and code > 400: # Error codes only
-            self.log.error("Error during %s for %s: %s" % (self.method, recipient, message))
+            self.log.error("Error during {method} for {r}: {msg}",
+                method=self.method,
+                r=recipient,
+                msg=message,
+            )
 
         details = ScheduleResponseQueue.ScheduleResonseDetails(
             self.recipient_element(davxml.HRef.fromString(recipient)) if self.recipient_uses_href else self.recipient_element.fromString(recipient),

@@ -118,7 +118,7 @@ class LocalCalendarUser(HostedCalendarUser):
 
 
     def __str__(self):
-        return "Local calendar user: %s" % (self.cuaddr,)
+        return "Local calendar user: {}".format(self.cuaddr)
 
 
 
@@ -132,7 +132,7 @@ class OtherServerCalendarUser(HostedCalendarUser):
 
 
     def __str__(self):
-        return "Other server calendar user: %s" % (self.cuaddr,)
+        return "Other server calendar user: {}".format(self.cuaddr)
 
 
 
@@ -147,7 +147,7 @@ class RemoteCalendarUser(CalendarUser):
 
 
     def __str__(self):
-        return "Remote calendar user: %s" % (self.cuaddr,)
+        return "Remote calendar user: {}".format(self.cuaddr)
 
 
     def extractDomain(self):
@@ -171,7 +171,7 @@ class EmailCalendarUser(CalendarUser):
 
 
     def __str__(self):
-        return "Email/iMIP calendar user: %s" % (self.cuaddr,)
+        return "Email/iMIP calendar user: {}".format(self.cuaddr)
 
 
 
@@ -182,7 +182,7 @@ class InvalidCalendarUser(CalendarUser):
     """
 
     def __str__(self):
-        return "Invalid calendar user: %s" % (self.cuaddr,)
+        return "Invalid calendar user: {}".format(self.cuaddr)
 
 
     def validOriginator(self):

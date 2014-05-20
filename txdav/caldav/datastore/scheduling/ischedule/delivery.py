@@ -31,6 +31,7 @@ from txweb2.http_headers import MimeType
 from txweb2.stream import MemoryStream
 
 from twisted.internet.defer import inlineCallbacks, DeferredList, returnValue
+from twisted.internet.error import ConnectionDone
 from twisted.internet.protocol import Factory
 from twisted.python.failure import Failure
 
@@ -116,10 +117,10 @@ class ScheduleViaISchedule(DeliveryService):
                             cls.domainServerMap[domain] = None
                         else:
                             # Create the iSchedule server record for this server
-                            cls.domainServerMap[domain] = IScheduleServerRecord(uri="http://%s:%s/.well-known/ischedule" % result)
+                            cls.domainServerMap[domain] = IScheduleServerRecord(uri="http://{}:{}/.well-known/ischedule".format(*result))
                     else:
                         # Create the iSchedule server record for this server
-                        cls.domainServerMap[domain] = IScheduleServerRecord(uri="https://%s:%s/.well-known/ischedule" % result)
+                        cls.domainServerMap[domain] = IScheduleServerRecord(uri="https://{}:{}/.well-known/ischedule".format(*result))
             else:
                 cls.domainServerMap[domain] = None
 
@@ -260,11 +261,15 @@ class IScheduleRequest(object):
                 xml = (yield davXMLFromStream(response.stream))
                 self._parseResponse(xml)
             else:
-                raise ValueError("Incorrect server response status code: %s" % (response.code,))
+                raise ValueError("Incorrect server response status code: {code}".format(code=response.code))
 
         except Exception, e:
             # Generated failed responses for each recipient
-            log.error("Could not do server-to-server request : %s %s" % (self, e))
+            log.error(
+                "Could not do server-to-server request : {req} {exc}",
+                req=self,
+                exc=e,
+            )
             for recipient in self.recipients:
                 err = HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
@@ -283,17 +288,17 @@ class IScheduleRequest(object):
         iostr = StringIO()
         iostr.write(">>>> Request start\n\n")
         if hasattr(request, "clientproto"):
-            protocol = "HTTP/%d.%d" % (request.clientproto[0], request.clientproto[1],)
+            protocol = "HTTP/{:d}.{:d}".format(request.clientproto[0], request.clientproto[1])
         else:
             protocol = "HTTP/1.1"
-        iostr.write("%s %s %s\n" % (request.method, request.uri, protocol,))
+        iostr.write("{} {} {}\n".format(request.method, request.uri, protocol,))
         for name, valuelist in request.headers.getAllRawHeaders():
             for value in valuelist:
                 # Do not log authorization details
                 if name not in ("Authorization",):
-                    iostr.write("%s: %s\n" % (name, value))
+                    iostr.write("{}: {}\n".format(name, value))
                 else:
-                    iostr.write("%s: xxxxxxxxx\n" % (name,))
+                    iostr.write("{}: xxxxxxxxx\n".format(name,))
         iostr.write("\n")
 
         # We need to play a trick with the request stream as we can only read it once. So we
@@ -316,20 +321,23 @@ class IScheduleRequest(object):
         iostr = StringIO()
         iostr.write(">>>> Response start\n\n")
         code_message = responsecode.RESPONSES.get(response.code, "Unknown Status")
-        iostr.write("HTTP/1.1 %s %s\n" % (response.code, code_message,))
+        iostr.write("HTTP/1.1 {} {}\n".format(response.code, code_message,))
         for name, valuelist in response.headers.getAllRawHeaders():
             for value in valuelist:
                 # Do not log authorization details
                 if name not in ("WWW-Authenticate",):
-                    iostr.write("%s: %s\n" % (name, value))
+                    iostr.write("{}: {}\n".format(name, value))
                 else:
-                    iostr.write("%s: xxxxxxxxx\n" % (name,))
+                    iostr.write("{}: xxxxxxxxx\n".format(name,))
         iostr.write("\n")
 
         # We need to play a trick with the response stream to ensure we don't mess it up. So we
         # read it, store the value in a MemoryStream, and replace the response's stream with that,
         # so the data can be read again.
-        data = (yield allDataFromStream(response.stream))
+        try:
+            data = (yield allDataFromStream(response.stream))
+        except ConnectionDone:
+            data = ""
         iostr.write(data)
         response.stream = MemoryStream(data if data is not None else "")
         response.stream.doStartReading = None
@@ -358,7 +366,7 @@ class IScheduleRequest(object):
         self.sign_headers = []
 
         self.headers = Headers()
-        self.headers.setHeader("Host", utf8String(host + ":%s" % (port,)))
+        self.headers.setHeader("Host", utf8String(host + ":{}".format(port,)))
 
         # The Originator must be the ORGANIZER (for a request) or ATTENDEE (for a reply)
         originator = self.scheduler.organizer.cuaddr if self.scheduler.isiTIPRequest else self.scheduler.attendee
@@ -385,7 +393,7 @@ class IScheduleRequest(object):
         ))
         self.sign_headers.append("Content-Type")
 
-        self.headers.setHeader("User-Agent", "CalendarServer/%s" % (version,))
+        self.headers.setHeader("User-Agent", "CalendarServer/{}".format(version,))
         self.sign_headers.append("User-Agent")
 
         # Add any additional headers
@@ -400,7 +408,7 @@ class IScheduleRequest(object):
         if self.server.authentication and self.server.authentication[0] == "basic":
             self.headers.setHeader(
                 "Authorization",
-                ('Basic', ("%s:%s" % (self.server.authentication[1], self.server.authentication[2],)).encode('base64')[:-1])
+                ('Basic', ("{}:{}".format(self.server.authentication[1], self.server.authentication[2],)).encode('base64')[:-1])
             )
             self.sign_headers.append("Authorization")
 

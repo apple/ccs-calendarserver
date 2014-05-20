@@ -97,7 +97,7 @@ class ErrorResponse(Response):
 
 
     def __repr__(self):
-        return "<%s %s %s>" % (self.__class__.__name__, self.code, self.error.sname())
+        return "<{} {} {}>".format(self.__class__.__name__, self.code, self.error.sname())
 
 
 
@@ -171,9 +171,9 @@ class IScheduleScheduler(RemoteScheduler):
                 # If DKIM is enabled and there was a DKIM header present, then fail
                 msg = "Failed to verify DKIM signature"
                 _debug_msg = str(e)
-                log.debug("%s:%s" % (msg, _debug_msg,))
+                log.debug("{msg}:{exc}", msg=msg, exc=_debug_msg,)
                 if config.Scheduling.iSchedule.DKIM.ProtocolDebug:
-                    msg = "%s:%s" % (msg, _debug_msg,)
+                    msg = "{}:{}".format(msg, _debug_msg,)
                 raise HTTPError(self.errorResponse(
                     responsecode.FORBIDDEN,
                     (ischedule_namespace, "verification-failed"),
@@ -211,7 +211,10 @@ class IScheduleScheduler(RemoteScheduler):
     def checkAuthorization(self):
         # Must have an unauthenticated user
         if self.originator_uid is not None:
-            log.error("Authenticated originators not allowed: %s" % (self.originator_uid,))
+            log.error(
+                "Authenticated originators not allowed: {o}",
+                o=self.originator_uid,
+            )
             raise HTTPError(self.errorResponse(
                 responsecode.FORBIDDEN,
                 self.errorElements["originator-denied"],
@@ -233,7 +236,10 @@ class IScheduleScheduler(RemoteScheduler):
 
             # iSchedule must never deliver for users hosted on the server or any pod
             if not self._podding:
-                log.error("Cannot use originator that is local to this server: %s" % (self.originator,))
+                log.error(
+                    "Cannot use originator that is local to this server: {o}",
+                    o=self.originator,
+                )
                 raise HTTPError(self.errorResponse(
                     responsecode.FORBIDDEN,
                     self.errorElements["originator-denied"],
@@ -242,7 +248,10 @@ class IScheduleScheduler(RemoteScheduler):
 
             # Cannot deliver message for someone hosted on the same pod
             elif isinstance(originatorAddress, LocalCalendarUser):
-                log.error("Cannot use originator that is on this server: %s" % (self.originator,))
+                log.error(
+                    "Cannot use originator that is on this server: {o}",
+                    o=self.originator,
+                )
                 raise HTTPError(self.errorResponse(
                     responsecode.FORBIDDEN,
                     self.errorElements["originator-denied"],
@@ -253,7 +262,10 @@ class IScheduleScheduler(RemoteScheduler):
                 self._validAlternateServer(originatorAddress)
         else:
             if self._podding:
-                log.error("Cannot use originator that is external to this server: %s" % (self.originator,))
+                log.error(
+                    "Cannot use originator that is external to this server: {o}",
+                    o=self.originator,
+                )
                 raise HTTPError(self.errorResponse(
                     responsecode.FORBIDDEN,
                     self.errorElements["originator-denied"],
@@ -277,7 +289,10 @@ class IScheduleScheduler(RemoteScheduler):
         servermgr = IScheduleServers()
         server = servermgr.mapDomain(self.originator.domain)
         if not server or not server.allow_from:
-            log.error("Originator not on recognized server: %s" % (self.originator,))
+            log.error(
+                "Originator not on recognized server: {o}",
+                o=self.originator,
+            )
             raise HTTPError(self.errorResponse(
                 responsecode.FORBIDDEN,
                 self.errorElements["originator-denied"],
@@ -309,15 +324,26 @@ class IScheduleScheduler(RemoteScheduler):
                                     matched = True
                                     break
                             except re.error:
-                                log.debug("Invalid regular expression for ServerToServer white list for server domain %s: %s" % (self.originator.domain, pattern,))
+                                log.debug(
+                                    "Invalid regular expression for ServerToServer white list for server domain {domain}: {pat}",
+                                    dom=self.originator.domain,
+                                    pat=pattern,
+                                )
                         else:
                             continue
                         break
                 except socket.herror, e:
-                    log.debug("iSchedule cannot lookup client ip '%s': %s" % (clientip, str(e),))
+                    log.debug(
+                        "iSchedule cannot lookup client ip '{ip}': {exc}",
+                        ip=clientip,
+                        exc=str(e),
+                    )
 
             if not matched:
-                log.error("Originator not on allowed server: %s" % (self.originator,))
+                log.error(
+                    "Originator not on allowed server: {o}",
+                    o=self.originator,
+                )
                 raise HTTPError(self.errorResponse(
                     responsecode.FORBIDDEN,
                     self.errorElements["originator-denied"],
@@ -348,7 +374,10 @@ class IScheduleScheduler(RemoteScheduler):
         elif serversDB.getThisServer().hasAllowedFromIP():
             matched = serversDB.getThisServer().checkAllowedFromIP(clientip)
             if not matched:
-                log.error("Invalid iSchedule connection from client: %s" % (clientip,))
+                log.error(
+                    "Invalid iSchedule connection from client: {o}",
+                    o=clientip,
+                )
 
         # Next compare as dotted IP
         elif isIPAddress(expected_uri.hostname):
@@ -363,7 +392,11 @@ class IScheduleScheduler(RemoteScheduler):
                         matched = True
                         break
             except socket.herror, e:
-                log.debug("iSchedule cannot lookup client ip '%s': %s" % (clientip, str(e),))
+                log.debug(
+                    "iSchedule cannot lookup client ip '{ip}': {exc}",
+                    ip=clientip,
+                    exc=str(e),
+                )
 
         # Check possible shared secret
         if matched and not serversDB.getThisServer().checkSharedSecret(self.headers):
@@ -371,7 +404,10 @@ class IScheduleScheduler(RemoteScheduler):
             matched = False
 
         if not matched:
-            log.error("Originator not on allowed server: %s" % (self.originator,))
+            log.error(
+                "Originator not on allowed server: {o}",
+                o=self.originator,
+            )
             raise HTTPError(self.errorResponse(
                 responsecode.FORBIDDEN,
                 self.errorElements["originator-denied"],
@@ -391,7 +427,10 @@ class IScheduleScheduler(RemoteScheduler):
             organizerAddress = yield calendarUserFromCalendarUserAddress(organizer, self.txn)
             if organizerAddress.hosted():
                 if isinstance(organizerAddress, LocalCalendarUser):
-                    log.error("Invalid ORGANIZER in calendar data: %s" % (self.calendar,))
+                    log.error(
+                        "Invalid ORGANIZER in calendar data: {cal}",
+                        cal=self.calendar,
+                    )
                     raise HTTPError(self.errorResponse(
                         responsecode.FORBIDDEN,
                         self.errorElements["organizer-denied"],
@@ -404,7 +443,10 @@ class IScheduleScheduler(RemoteScheduler):
             else:
                 localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(organizer))
                 if localUser:
-                    log.error("Unsupported ORGANIZER in calendar data: %s" % (self.calendar,))
+                    log.error(
+                        "Unsupported ORGANIZER in calendar data: {cal}",
+                        cal=self.calendar,
+                    )
                     raise HTTPError(self.errorResponse(
                         responsecode.FORBIDDEN,
                         self.errorElements["organizer-denied"],
@@ -413,7 +455,10 @@ class IScheduleScheduler(RemoteScheduler):
                 else:
                     self.organizer = RemoteCalendarUser(organizer)
         else:
-            log.error("ORGANIZER missing in calendar data: %s" % (self.calendar,))
+            log.error(
+                "ORGANIZER missing in calendar data: {cal}",
+                cal=self.calendar,
+            )
             raise HTTPError(self.errorResponse(
                 responsecode.FORBIDDEN,
                 self.errorElements["organizer-denied"],
@@ -432,7 +477,10 @@ class IScheduleScheduler(RemoteScheduler):
         attendeeAddress = yield calendarUserFromCalendarUserAddress(self.attendee, self.txn)
         if attendeeAddress.hosted():
             if isinstance(attendeeAddress, LocalCalendarUser):
-                log.error("Invalid ATTENDEE in calendar data: %s" % (self.calendar,))
+                log.error(
+                    "Invalid ATTENDEE in calendar data: {cal}",
+                    cal=self.calendar,
+                )
                 raise HTTPError(self.errorResponse(
                     responsecode.FORBIDDEN,
                     self.errorElements["attendee-denied"],
@@ -443,7 +491,10 @@ class IScheduleScheduler(RemoteScheduler):
         else:
             localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(self.attendee))
             if localUser:
-                log.error("Unknown ATTENDEE in calendar data: %s" % (self.calendar,))
+                log.error(
+                    "Unknown ATTENDEE in calendar data: {cal}",
+                    cal=self.calendar,
+                )
                 raise HTTPError(self.errorResponse(
                     responsecode.FORBIDDEN,
                     self.errorElements["attendee-denied"],
@@ -468,7 +519,10 @@ class IScheduleScheduler(RemoteScheduler):
             yield self.checkAttendeeAsOriginator()
 
         else:
-            log.error("Unknown iTIP METHOD for security checks: %s" % (self.calendar.propertyValue("METHOD"),))
+            log.error(
+                "Unknown iTIP METHOD for security checks: {method}",
+                method=self.calendar.propertyValue("METHOD"),
+            )
             raise HTTPError(self.errorResponse(
                 responsecode.FORBIDDEN,
                 self.errorElements["invalid-scheduling-message"],
