@@ -877,7 +877,7 @@ Poll.prototype.hoverDialogOpenFancy = function(td_date, thead, event) {
 	
 	var grid = $('<table id="hover-grid" />').appendTo(dialog_div);
 	for(var i = startHour; i < endHour; i++) {
-		var text = i > 12 ? i - 12 +":00 pm" : i + ":00 am";
+		var text = i > 12 ? i - 12 +":00 pm" : i + (i == 12 ? ":00 pm" : ":00 am");
 		$('<tr><td class="hover-grid-td-time">' + text + '</td><td class="hover-grid-td-slot" /></tr>').appendTo(grid);
 	}
 	gSession.currentPrincipal.eventsForTimeRange(
@@ -900,7 +900,7 @@ Poll.prototype.hoverDialogOpenFancy = function(td_date, thead, event) {
 					styles += ";left:206px;width:125px";
 				}
 				last_dtend = result.dtend();
-				$('<div class="hover-event ui-corner-all" style="' + styles + '" />').appendTo(grid).addClass(result.pollitemid() !== null ? "ui-state-active" : "ui-state-default").text(result.summary());
+				$('<div class="hover-event ui-corner-all" style="' + styles + '" />').appendTo(grid).addClass(result.pollitemid() !== null ? "ui-state-focus" : "ui-state-default").text(result.summary());
 			});
 		}
 	);
