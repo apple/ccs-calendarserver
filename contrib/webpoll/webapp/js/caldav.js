@@ -970,11 +970,16 @@ CalendarEvent.prototype.pickAsWinner = function() {
 			"cal-address"
 		);
 		$.each(voter[1], function(key, value) {
-			if (key == "partstat") {
-				value = gSession.currentPrincipal.matchingAddress(voter[3]) ? "ACCEPTED" : "NEEDS-ACTION";
+			if (key == "cn") {
+				attendee[1][key] = value
 			}
-			attendee[1][key] = value
 		});
+		if (gSession.currentPrincipal.matchingAddress(voter[3])) {
+			attendee[1]["partstat"] = "ACCEPTED";
+		} else {
+			attendee[1]["partstat"] = "NEEDS-ACTION";
+			attendee[1]["rsvp"] = "TRUE";
+		}
 	});
 	calendar.changed(true);
 
