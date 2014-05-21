@@ -2037,13 +2037,13 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
     @inlineCallbacks
     def deleteOldGROUP_ATTENDEE(self, component, instances, inserting, txn):
-            
+
         # If this event is old, break possible tie to group update
         if hasattr(self, "_groupCUAToAttendeeMemberPropMap"):
-            
+
             if (component.masterComponent() is None or not component.isRecurring()):
-                cutoffDate_datatime  = (
-                    datetime.datetime.utcnow() + 
+                cutoffDate_datatime = (
+                    datetime.datetime.utcnow() +
                     datetime.timedelta(seconds=config.GroupAttendees.UpdateOldEventLimitSeconds)
                 )
                 tr = schema.TIME_RANGE
@@ -2056,18 +2056,18 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     ),
                 ).on(txn)
                 isOld = rows[0][0] == 0
-               
+
             else:
                 if instances:
                     cutoffDate_DateTime = (
-                        DateTime.getNowUTC() + 
+                        DateTime.getNowUTC() +
                         Duration(seconds=config.GroupAttendees.UpdateOldEventLimitSeconds)
                     )
                     maxInstanceKey = sorted(instance for instance in instances)[-1]
                     isOld = cutoffDate_DateTime > instances[maxInstanceKey].end
                 else:
                     isOld = True
-                
+
             if isOld:
                 if inserting:
                     # don't create GROUP_ATTENDEE rows in updateGROUP_ATTENDEE()
@@ -3022,7 +3022,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         if instanceIndexingRequired and doInstanceIndexing:
             yield self._addInstances(component, instances, truncateLowerLimit, isInboxItem, txn)
-            
+
         yield self.deleteOldGROUP_ATTENDEE(component, instances, inserting, txn)
 
 
