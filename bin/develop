@@ -46,7 +46,7 @@ export PATH="${PATH:-}";
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}";
 export DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:-}";
 
-exec "\$(dirname \$0)/../${source}" "\$@";
+exec "\$(dirname \$0)/../${source}" --config "${wd}/conf/caldavd-dev.plist" "\$@";
 __END__
     chmod +x "${target}";
 

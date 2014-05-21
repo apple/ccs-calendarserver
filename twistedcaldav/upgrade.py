@@ -61,7 +61,6 @@ from twext.who.idirectory import RecordType
 from txdav.who.idirectory import RecordType as CalRecordType
 from txdav.who.delegates import addDelegate
 from twistedcaldav.directory.calendaruserproxy import ProxySqliteDB
-from calendarserver.tools.resources import migrateResources
 
 
 deadPropertyXattrPrefix = namedAny(
@@ -863,6 +862,7 @@ def migrateFromOD(directory):
     from twext.who.opendirectory import (
         DirectoryService as OpenDirectoryService
     )
+    from calendarserver.tools.resources import migrateResources
     return migrateResources(OpenDirectoryService(), directory)
 
 
