@@ -231,7 +231,10 @@ class SQLStoreBuilder(object):
             jobs = yield JobItem.all(txn)
             yield txn.commit()
             if len(jobs):
-                print("Jobs left in job queue {}".format(testCase))
+                print("Jobs left in job queue {}: {}".format(
+                    testCase,
+                    ",".join([job.workType for job in jobs])
+                ))
 
             if enableJobProcessing:
                 yield pool.stopService()
