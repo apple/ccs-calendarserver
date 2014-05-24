@@ -35,9 +35,11 @@ from txdav.dps.commands import (
     RecordsMatchingTokensCommand, RecordsMatchingFieldsCommand,
     MembersCommand, GroupsCommand, SetMembersCommand,
     VerifyPlaintextPasswordCommand, VerifyHTTPDigestCommand,
+    WikiAccessForUID
     # UpdateRecordsCommand, RemoveRecordsCommand
 )
 from txdav.who.util import directoryFromConfig
+from txdav.who.wiki import WikiAccessLevel
 from zope.interface import implementer
 
 
@@ -339,6 +341,23 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         log.debug("Responding with: {response}", response=response)
         returnValue(response)
 
+
+    @WikiAccessForUID.responder
+    @inlineCallbacks
+    def wikiAccessForUID(self, wikiUID, uid):
+        wikiUID = wikiUID.decode("utf-8")
+        uid = uid.decode("utf-8")
+        log.debug("WikiAccessForUID: {w} {u}", w=wikiUID, u=uid)
+        access = WikiAccessLevel.none
+        wikiRecord = (yield self._directory.recordWithUID(wikiUID))
+        userRecord = (yield self._directory.recordWithUID(uid))
+        if wikiRecord is not None and userRecord is not None:
+            access = (yield wikiRecord.accessForRecord(userRecord))
+        response = {
+            "access": access.name.encode("utf-8"),
+        }
+        log.debug("Responding with: {response}", response=response)
+        returnValue(response)
 
 
 class DirectoryProxyAMPFactory(Factory):

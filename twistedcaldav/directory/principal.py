@@ -297,6 +297,7 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
             self.directory.recordType.location,
             self.directory.recordType.resource,
             self.directory.recordType.address,
+            self.directory.recordType.macOSXServerWiki,
         )
 
         for name, recordType in [

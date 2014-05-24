@@ -171,3 +171,14 @@ class VerifyHTTPDigestCommand(amp.Command):
     response = [
         ('authenticated', amp.Boolean()),
     ]
+
+
+
+class WikiAccessForUID(amp.Command):
+    arguments = [
+        ('wikiUID', amp.String()),
+        ('uid', amp.String()),
+    ]
+    response = [
+        ('access', amp.String()),
+    ]

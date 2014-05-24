@@ -171,10 +171,21 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
             # once the old API is removed.
             # When we do that note: isn't there a getPage() in twisted.web?
 
+            self.log.debug(
+                "Wiki access check: {wiki}, {user}",
+                wiki=self.shortNames[0],
+                user=uid
+            )
             access = yield accessForUserToWiki(
-                uid, self.shortNames[0],
+                uid.encode("utf-8"), self.shortNames[0].encode("utf-8"),
                 host=self.service.wikiHost,
                 port=self.service.wikiPort,
+            )
+            self.log.debug(
+                "Wiki access result: {wiki}, {user}, {access}",
+                wiki=self.shortNames[0],
+                user=uid,
+                access=access,
             )
 
         except MultiFailure as e:
