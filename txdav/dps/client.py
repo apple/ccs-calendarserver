@@ -143,12 +143,9 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
 
     @inlineCallbacks
     def _getConnection(self):
-        # TODO: reconnect if needed
 
-        # FIXME:
         from twistedcaldav.config import config
         path = config.DirectoryProxy.SocketPath
-        # path = "data/Logs/state/directory-proxy.sock"
         if getattr(self, "_connection", None) is None:
             log.debug("Creating connection")
             connection = (
@@ -176,7 +173,13 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
         @type postProcess: callable
         """
         ampProto = (yield self._getConnection())
-        results = (yield ampProto.callRemote(command, **kwds))
+        try:
+            results = (yield ampProto.callRemote(command, **kwds))
+        except Exception, e:
+            log.error("Failed AMP command", error=e)
+            #  FIXME: is there a way to hook into ConnectionLost?
+            self._connection = None
+            raise
         returnValue(postProcess(results))
 
 
