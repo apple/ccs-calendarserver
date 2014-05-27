@@ -96,6 +96,7 @@ class ProvisionedPrincipals(StoreTestCase):
                         self.directory.recordType.location,
                         self.directory.recordType.resource,
                         self.directory.recordType.address,
+                        self.directory.recordType.macOSXServerWiki,
                     )
                 ]
             )
