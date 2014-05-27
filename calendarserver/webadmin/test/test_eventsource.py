@@ -121,7 +121,7 @@ class EventSourceResourceTests(TestCase):
     """
 
     def eventSourceResource(self):
-        return EventSourceResource(DictionaryEventDecoder)
+        return EventSourceResource(DictionaryEventDecoder, None)
 
 
     def render(self, resource):

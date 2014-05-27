@@ -24,6 +24,8 @@ __all__ = [
     "TemplateResource",
 ]
 
+from twistedcaldav.simpleresource import SimpleResource
+
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.modules import getModule
 from twisted.web.template import (
@@ -31,7 +33,6 @@ from twisted.web.template import (
 )
 
 from txweb2.stream import MemoryStream
-from txweb2.resource import Resource
 from txweb2.http import Response
 from txweb2.http_headers import MimeType
 
@@ -43,7 +44,7 @@ class PageElement(Element):
     """
 
     def __init__(self, templateName):
-        Element.__init__(self)
+        super(PageElement, self).__init__()
 
         self.loader = XMLFile(
             getModule(__name__).filePath.sibling(
@@ -76,7 +77,7 @@ class PageElement(Element):
 
 
 
-class TemplateResource(Resource):
+class TemplateResource(SimpleResource):
     """
     Resource that renders a template.
     """
@@ -92,8 +93,8 @@ class TemplateResource(Resource):
     # def queryValues(request, arguments):
     #     return request.args.get(arguments, [])
 
-    def __init__(self, elementClass):
-        Resource.__init__(self)
+    def __init__(self, elementClass, pc, isdir):
+        super(TemplateResource, self).__init__(pc, isdir=isdir)
 
         self.elementClass = elementClass
 

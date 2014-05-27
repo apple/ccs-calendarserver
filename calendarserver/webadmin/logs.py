@@ -43,7 +43,7 @@ class LogsPageElement(PageElement):
     """
 
     def __init__(self):
-        PageElement.__init__(self, u"logs")
+        super(LogsPageElement, self).__init__(u"logs")
 
 
     def pageSlots(self):
@@ -61,10 +61,10 @@ class LogsResource(TemplateResource):
     addSlash = True
 
 
-    def __init__(self):
-        TemplateResource.__init__(self, LogsPageElement)
+    def __init__(self, principalCollections):
+        super(LogsResource, self).__init__(LogsPageElement, principalCollections, isdir=False)
 
-        self.putChild(u"events", LogEventsResource())
+        self.putChild(u"events", LogEventsResource(principalCollections))
 
 
 
@@ -73,8 +73,8 @@ class LogEventsResource(EventSourceResource):
     Log event vending resource.
     """
 
-    def __init__(self):
-        EventSourceResource.__init__(self, EventDecoder)
+    def __init__(self, principalCollections):
+        super(LogEventsResource, self).__init__(EventDecoder, principalCollections)
 
         self.observers = (
             AccessLogObserver(self),
@@ -133,7 +133,7 @@ class AccessLogObserver(CommonAccessLoggingObserverExtensions):
     """
 
     def __init__(self, resource):
-        CommonAccessLoggingObserverExtensions.__init__(self)
+        super(AccessLogObserver, self).__init__()
 
         self._resource = resource
 

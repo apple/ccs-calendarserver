@@ -28,11 +28,12 @@ __all__ = [
 from cStringIO import StringIO
 from zipfile import ZipFile
 
+from twistedcaldav.simpleresource import SimpleResource
+
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web.template import tags as html, renderer
 
 from txweb2.stream import MemoryStream
-from txweb2.resource import Resource
 from txweb2.http import Response
 from txweb2.http_headers import MimeType
 
@@ -46,7 +47,7 @@ class PrincipalsPageElement(PageElement):
     """
 
     def __init__(self, directory):
-        PageElement.__init__(self, u"principals")
+        super(PrincipalsPageElement, self).__init__(u"principals")
 
         self._directory = directory
 
@@ -112,9 +113,9 @@ class PrincipalsResource(TemplateResource):
     addSlash = True
 
 
-    def __init__(self, directory, store):
-        TemplateResource.__init__(
-            self, lambda: PrincipalsPageElement(directory)
+    def __init__(self, directory, store, principalCollections):
+        super(PrincipalsResource, self).__init__(
+            lambda: PrincipalsPageElement(directory), principalCollections, isdir=False
         )
 
         self._directory = directory
@@ -129,7 +130,7 @@ class PrincipalsResource(TemplateResource):
         record = yield self._directory.recordWithUID(name)
 
         if record:
-            returnValue(PrincipalResource(record, self._store))
+            returnValue(PrincipalResource(record, self._store, self._principalCollections))
         else:
             returnValue(None)
 
@@ -141,7 +142,7 @@ class PrincipalPageElement(PageElement):
     """
 
     def __init__(self, record):
-        PageElement.__init__(self, u"principals_edit")
+        super(PrincipalPageElement, self).__init__(u"principals_edit")
 
         self._record = record
 
@@ -168,9 +169,9 @@ class PrincipalResource(TemplateResource):
     addSlash = True
 
 
-    def __init__(self, record, store):
-        TemplateResource.__init__(
-            self, lambda: PrincipalPageElement(record)
+    def __init__(self, record, store, principalCollections):
+        super(PrincipalResource, self).__init__(
+            lambda: PrincipalPageElement(record), principalCollections, isdir=False
         )
 
         self._record = record
@@ -182,11 +183,11 @@ class PrincipalResource(TemplateResource):
             return self
 
         if name == "calendars_combined":
-            return PrincipalCalendarsExportResource(self._record, self._store)
+            return PrincipalCalendarsExportResource(self._record, self._store, self._principalCollections)
 
 
 
-class PrincipalCalendarsExportResource(Resource):
+class PrincipalCalendarsExportResource(SimpleResource):
     """
     Resource that vends a principal's calendars as iCalendar text.
     """
@@ -194,8 +195,8 @@ class PrincipalCalendarsExportResource(Resource):
     addSlash = False
 
 
-    def __init__(self, record, store):
-        Resource.__init__(self)
+    def __init__(self, record, store, principalCollections):
+        super(PrincipalCalendarsExportResource, self).__init__(principalCollections, isdir=False)
 
         self._record = record
         self._store = store

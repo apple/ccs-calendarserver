@@ -35,7 +35,7 @@ class WebAdminLandingPageElement(PageElement):
     """
 
     def __init__(self):
-        PageElement.__init__(self, u"landing")
+        super(WebAdminLandingPageElement, self).__init__(u"landing")
 
 
     def pageSlots(self):
@@ -54,7 +54,7 @@ class WebAdminLandingResource(TemplateResource):
 
 
     def __init__(self, path, root, directory, store, principalCollections=()):
-        TemplateResource.__init__(self, WebAdminLandingPageElement)
+        super(WebAdminLandingResource, self).__init__(WebAdminLandingPageElement, principalCollections, True)
 
         from twistedcaldav.config import config as configuration
 
@@ -65,11 +65,11 @@ class WebAdminLandingResource(TemplateResource):
         # self._root = root
         # self._principalCollections = principalCollections
 
-        from .config import ConfigurationResource
-        self.putChild(u"config", ConfigurationResource(configuration))
+        #from .config import ConfigurationResource
+        #self.putChild(u"config", ConfigurationResource(configuration, principalCollections))
 
-        from .principals import PrincipalsResource
-        self.putChild(u"principals", PrincipalsResource(directory, store))
+        #from .principals import PrincipalsResource
+        #self.putChild(u"principals", PrincipalsResource(directory, store, principalCollections))
 
         # from .logs import LogsResource
         # self.putChild(u"logs", LogsResource())
@@ -95,18 +95,18 @@ class WebAdminLandingResource(TemplateResource):
 
         if name == u"config":
             reload(config)
-            return config.ConfigurationResource(self.configuration)
+            return config.ConfigurationResource(self.configuration, self._principalCollections)
 
         elif name == u"principals":
             reload(principals)
-            return principals.PrincipalsResource(self.directory, self.store)
+            return principals.PrincipalsResource(self.directory, self.store, self._principalCollections)
 
         elif name == u"logs":
             reload(logs)
-            return logs.LogsResource()
+            return logs.LogsResource(self._principalCollections)
 
         elif name == u"work":
             reload(work)
-            return work.WorkMonitorResource(self.store)
+            return work.WorkMonitorResource(self.store, self._principalCollections)
 
         return None

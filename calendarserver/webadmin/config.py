@@ -37,7 +37,7 @@ class ConfigurationPageElement(PageElement):
     """
 
     def __init__(self, configuration):
-        PageElement.__init__(self, u"config")
+        super(ConfigurationPageElement, self).__init__(u"config")
 
         self.configuration = configuration
 
@@ -151,7 +151,7 @@ class ConfigurationResource(TemplateResource):
     addSlash = False
 
 
-    def __init__(self, configuration):
-        TemplateResource.__init__(
-            self, lambda: ConfigurationPageElement(configuration)
+    def __init__(self, configuration, principalCollections):
+        super(ConfigurationResource, self).__init__(
+            lambda: ConfigurationPageElement(configuration), principalCollections, isdir=False
         )

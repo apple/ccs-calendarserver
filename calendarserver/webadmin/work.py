@@ -58,7 +58,7 @@ class WorkMonitorPageElement(PageElement):
     """
 
     def __init__(self):
-        PageElement.__init__(self, u"work")
+        super(WorkMonitorPageElement, self).__init__(u"work")
 
 
     def pageSlots(self):
@@ -76,12 +76,12 @@ class WorkMonitorResource(TemplateResource):
     addSlash = True
 
 
-    def __init__(self, store):
-        TemplateResource.__init__(
-            self, lambda: WorkMonitorPageElement()
+    def __init__(self, store, principalCollections):
+        super(WorkMonitorResource, self).__init__(
+            lambda: WorkMonitorPageElement(), principalCollections, isdir=False
         )
 
-        self.putChild(u"events", WorkEventsResource(store))
+        self.putChild(u"events", WorkEventsResource(store, principalCollections))
 
 
 
@@ -93,8 +93,8 @@ class WorkEventsResource(EventSourceResource):
     log = Logger()
 
 
-    def __init__(self, store, pollInterval=1000):
-        EventSourceResource.__init__(self, EventDecoder, bufferSize=100)
+    def __init__(self, store, principalCollections, pollInterval=1000):
+        super(WorkEventsResource, self).__init__(EventDecoder, principalCollections, bufferSize=100)
 
         self._store = store
         self._pollInterval = pollInterval
@@ -114,8 +114,8 @@ class WorkEventsResource(EventSourceResource):
 
         self._polling = True
 
+        txn = self._store.newTransaction()
         try:
-            txn = self._store.newTransaction()
 
             # Look up all of the jobs
 
@@ -146,8 +146,8 @@ class WorkEventsResource(EventSourceResource):
                     jobDict = dict(
                         job_jobID=job.jobID,
                         job_priority=job.priority,
+                        job_weight=job.weight,
                         job_notBefore=formatTime(job.notBefore),
-                        job_notAfter=formatTime(job.notAfter),
                     )
 
                     work = yield job.workItem()
@@ -214,7 +214,10 @@ class WorkEventsResource(EventSourceResource):
 
         except:
             self._polling = False
+            yield txn.abort()
             raise
+        else:
+            yield txn.commit()
 
         # Schedule the next poll
 

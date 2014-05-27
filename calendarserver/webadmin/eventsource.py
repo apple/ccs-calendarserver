@@ -30,10 +30,11 @@ from collections import deque
 
 from zope.interface import implementer, Interface
 
+from twistedcaldav.simpleresource import SimpleResource
+
 from twisted.internet.defer import Deferred, succeed
 
 from txweb2.stream import IByteStream, fallbackSplit
-from txweb2.resource import Resource
 from txweb2.http_headers import MimeType
 from txweb2.http import Response
 
@@ -122,7 +123,7 @@ class IEventDecoder(Interface):
 
 
 
-class EventSourceResource(Resource):
+class EventSourceResource(SimpleResource):
     """
     Resource that vends HTML5 EventSource events.
 
@@ -132,7 +133,7 @@ class EventSourceResource(Resource):
     addSlash = False
 
 
-    def __init__(self, eventDecoder, bufferSize=400):
+    def __init__(self, eventDecoder, principalCollections, bufferSize=400):
         """
         @param eventDecoder: An object that can be used to extract data from
             an event for encoding into an EventSource data stream.
@@ -142,7 +143,7 @@ class EventSourceResource(Resource):
             buffer.
         @type bufferSize: L{int}
         """
-        Resource.__init__(self)
+        super(EventSourceResource, self).__init__(principalCollections, isdir=False)
 
         self._eventDecoder = eventDecoder
         self._events = deque(maxlen=bufferSize)
@@ -200,7 +201,7 @@ class EventStream(object):
             C{events}.  Vending will resume starting from the following event.
         @type lastID: L{int}
         """
-        object.__init__(self)
+        super(EventStream, self).__init__()
 
         self._eventDecoder = eventDecoder
         self._events = events
