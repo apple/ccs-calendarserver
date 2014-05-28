@@ -345,8 +345,8 @@ class CalendarQuery (StoreTestCase):
     @inlineCallbacks
     def calendar_query(self, query, got_xml):
 
-        authRecord = yield self.directory.recordWithShortName(RecordType.user, u"wsanchez")
-        request = SimpleStoreRequest(self, "REPORT", "/calendars/users/wsanchez/calendar/", authRecord=authRecord)
+        principal = yield self.actualRoot.findPrincipalForAuthID("wsanchez")
+        request = SimpleStoreRequest(self, "REPORT", "/calendars/users/wsanchez/calendar/", authPrincipal=principal)
         request.stream = MemoryStream(query.toxml())
         response = yield self.send(request)
 

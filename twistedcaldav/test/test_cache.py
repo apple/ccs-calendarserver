@@ -24,14 +24,13 @@ from txweb2.dav.util import allDataFromStream
 from txweb2.stream import MemoryStream
 from txweb2.http_headers import Headers
 
-from txdav.xml import element as davxml
-
 from twistedcaldav.cache import MemcacheResponseCache, CacheStoreNotifier
 from twistedcaldav.cache import MemcacheChangeNotifier
 from twistedcaldav.cache import PropfindCacheMixin
 
 from twistedcaldav.test.util import InMemoryMemcacheProtocol
 from twistedcaldav.test.util import TestCase
+from txdav.xml import element
 
 
 def _newCacheToken(self):
@@ -90,13 +89,27 @@ class StubSite(object):
 
 
 
+class StubPrincipal(object):
+    def __init__(self, user):
+        self.user = user
+
+
+    def principalURL(self):
+        return self.user
+
+
+    def principalElement(self):
+        return element.Principal(element.HRef.fromString(self.user))
+
+
+
 class StubRequest(object):
     resources = {}
 
     def __init__(self, method, uri, authnUser, depth='1', body=None):
         self.method = method
         self.uri = uri
-        self.authnUser = davxml.Principal(davxml.HRef.fromString(authnUser))
+        self.authnUser = StubPrincipal(authnUser)
         self.headers = Headers({'depth': depth})
 
         if body is None:

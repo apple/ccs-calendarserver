@@ -84,8 +84,8 @@ class SharingTests(StoreTestCase):
 
     @inlineCallbacks
     def _doPOST(self, body, resultcode=responsecode.OK):
-        authRecord = yield self.directory.recordWithUID(u"user01")
-        request = SimpleStoreRequest(self, "POST", "/calendars/__uids__/user01/calendar/", content=body, authRecord=authRecord)
+        authPrincipal = yield self.actualRoot.findPrincipalForAuthID("user01")
+        request = SimpleStoreRequest(self, "POST", "/calendars/__uids__/user01/calendar/", content=body, authPrincipal=authPrincipal)
         request.headers.setHeader("content-type", MimeType("text", "xml"))
         response = yield self.send(request)
         response = IResponse(response)
@@ -110,8 +110,8 @@ class SharingTests(StoreTestCase):
 
     @inlineCallbacks
     def _doPOSTSharerAccept(self, body, resultcode=responsecode.OK, sharer="user02"):
-        authRecord = yield self.directory.recordWithUID(unicode(sharer))
-        request = SimpleStoreRequest(self, "POST", "/calendars/__uids__/{}/".format(sharer), content=body, authRecord=authRecord)
+        authPrincipal = yield self.actualRoot.findPrincipalForAuthID(sharer)
+        request = SimpleStoreRequest(self, "POST", "/calendars/__uids__/{}/".format(sharer), content=body, authPrincipal=authPrincipal)
         request.headers.setHeader("content-type", MimeType("text", "xml"))
         response = yield self.send(request)
         response = IResponse(response)
@@ -712,8 +712,8 @@ class SharingTests(StoreTestCase):
 
         @inlineCallbacks
         def listChildrenViaPropfind():
-            authRecord = yield self.directory.recordWithUID(u"user01")
-            request = SimpleStoreRequest(self, "PROPFIND", "/calendars/__uids__/user01/", authRecord=authRecord)
+            authPrincipal = yield self.actualRoot.findPrincipalForAuthID("user01")
+            request = SimpleStoreRequest(self, "PROPFIND", "/calendars/__uids__/user01/", authPrincipal=authPrincipal)
             request.headers.setHeader("depth", "1")
             response = yield self.send(request)
             response = IResponse(response)

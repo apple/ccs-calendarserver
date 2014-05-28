@@ -191,8 +191,6 @@ class BasicKerberosCredentialsChecker(object):
                 raise error.UnauthorizedLogin("Bad credentials for: %s (%s: %s)" % (pcreds.authnURI, ex[0], ex[1],))
             else:
                 return succeed((
-                    pcreds.authnPrincipal.principalURL(),
-                    pcreds.authzPrincipal.principalURL(),
                     pcreds.authnPrincipal,
                     pcreds.authzPrincipal,
                 ))
@@ -332,8 +330,6 @@ class NegotiateCredentialsChecker(object):
         creds = pcreds.credentials
         if isinstance(creds, NegotiateCredentials):
             return succeed((
-                pcreds.authnPrincipal.principalURL(),
-                pcreds.authzPrincipal.principalURL(),
                 pcreds.authnPrincipal,
                 pcreds.authzPrincipal,
             ))

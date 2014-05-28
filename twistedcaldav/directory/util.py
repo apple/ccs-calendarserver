@@ -32,7 +32,6 @@ from txweb2.auth.wrapper import UnauthorizedResponse
 from txweb2.dav.resource import DAVResource
 from txweb2.http import StatusResponse
 from twisted.internet.defer import inlineCallbacks, returnValue
-from txdav.xml import element as davxml
 from uuid import UUID, uuid5
 from twisted.python.failure import Failure
 from twisted.web.template import tags
@@ -139,10 +138,10 @@ class NotFoundResource(DAVResource):
         try:
             _ignore_authnUser, authzUser = yield self.authenticate(request)
         except Exception:
-            authzUser = davxml.Principal(davxml.Unauthenticated())
+            authzUser = None
 
         # Turn 404 into 401
-        if authzUser == davxml.Principal(davxml.Unauthenticated()):
+        if authzUser is None:
             response = (yield UnauthorizedResponse.makeResponse(
                 request.credentialFactories,
                 request.remoteAddr

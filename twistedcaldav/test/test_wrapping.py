@@ -175,11 +175,8 @@ class WrappingTests(StoreTestCase):
             "http://localhost:8008/" + path
         )
         if user is not None:
-            record = yield self.directory.recordWithShortName(RecordType.user, user)
-            uid = record.uid
-            req.authnUser = req.authzUser = (
-                davxml.Principal(davxml.HRef('/principals/__uids__/' + uid + '/'))
-            )
+            principal = yield self.actualRoot.findPrincipalForAuthID(user)
+            req.authnUser = req.authzUser = principal
         returnValue(aResource)
 
 
@@ -585,13 +582,13 @@ class TimeoutTests(StoreTestCase):
         yield NamedLock.acquire(txn, "ImplicitUIDLock:%s" % (hashlib.md5("uid1").hexdigest(),))
 
         # PUT fails
-        authRecord = yield self.directory.recordWithShortName(RecordType.user, u"wsanchez")
+        principal = yield self.actualRoot.findPrincipalForAuthID("wsanchez")
         request = SimpleStoreRequest(
             self,
             "PUT",
             "/calendars/users/wsanchez/calendar/1.ics",
             headers=Headers({"content-type": MimeType.fromString("text/calendar")}),
-            authRecord=authRecord
+            authPrincipal=principal
         )
         request.stream = MemoryStream("""BEGIN:VCALENDAR
 CALSCALE:GREGORIAN
@@ -617,13 +614,13 @@ END:VCALENDAR
         """
 
         # PUT works
-        authRecord = yield self.directory.recordWithShortName(RecordType.user, u"wsanchez")
+        principal = yield self.actualRoot.findPrincipalForAuthID("wsanchez")
         request = SimpleStoreRequest(
             self,
             "PUT",
             "/calendars/users/wsanchez/calendar/1.ics",
             headers=Headers({"content-type": MimeType.fromString("text/calendar")}),
-            authRecord=authRecord
+            authPrincipal=principal
         )
         request.stream = MemoryStream("""BEGIN:VCALENDAR
 CALSCALE:GREGORIAN
@@ -647,12 +644,11 @@ END:VCALENDAR
         txn = self.transactionUnderTest()
         yield NamedLock.acquire(txn, "ImplicitUIDLock:%s" % (hashlib.md5("uid1").hexdigest(),))
 
-        authRecord = yield self.directory.recordWithShortName(RecordType.user, u"wsanchez")
         request = SimpleStoreRequest(
             self,
             "DELETE",
             "/calendars/users/wsanchez/calendar/1.ics",
-            authRecord=authRecord
+            authPrincipal=principal
         )
         response = yield self.send(request)
         self.assertEqual(response.code, responsecode.SERVICE_UNAVAILABLE)

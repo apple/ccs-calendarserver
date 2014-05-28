@@ -7,10 +7,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -41,6 +41,8 @@ class TestCase(txweb2.dav.test.util.TestCase):
         txweb2.dav.test.util.TestCase.setUp(self)
         TestResource._cachedPropertyStores = {}
 
+
+
 class GenericDAVResource(TestCase):
     def setUp(self):
         TestCase.setUp(self)
@@ -49,7 +51,7 @@ class GenericDAVResource(TestCase):
             "file1": TestResource("/file1"),
             "file2": AuthAllResource("/file2"),
             "dir1": TestResource("/dir1/", {
-                "subdir1": TestResource("/dir1/subdir1/",{})
+                "subdir1": TestResource("/dir1/subdir1/", {})
             }),
             "dir2": AuthAllResource("/dir2/", {
                 "file1": TestResource("/dir2/file1"),
@@ -62,6 +64,7 @@ class GenericDAVResource(TestCase):
         })
 
         self.site = Site(rootresource)
+
 
     def test_findChildren(self):
         """
@@ -134,7 +137,7 @@ class GenericDAVResource(TestCase):
         resource to verify that we can not find them giving our unauthenticated
         privileges.
         """
-        
+
         expected_children = [
             "/file1",
             "/dir1/",
@@ -193,11 +196,13 @@ class GenericDAVResource(TestCase):
                 resource.findChildren("infinity", request, raiseOnChild),
                 Exception
             )
-        
+
         request = SimpleRequest(self.site, "GET", "/")
         d = request.locateResource("/").addCallback(findChildren)
 
         return d
+
+
 
 class AccessTests(TestCase):
     def setUp(self):
@@ -244,6 +249,7 @@ class AccessTests(TestCase):
             loginInterfaces,
         ))
 
+
     def checkSecurity(self, request):
         """
         Locate the resource named by the given request's URI, then authorize it
@@ -253,9 +259,11 @@ class AccessTests(TestCase):
         d.addCallback(lambda r: r.authorize(request, (davxml.Read(),)))
         return d
 
+
     def assertErrorResponse(self, error, expectedcode, otherExpectations=lambda err: None):
         self.assertEquals(error.response.code, expectedcode)
         otherExpectations(error)
+
 
     def test_checkPrivileges(self):
         """
@@ -296,8 +304,7 @@ class AccessTests(TestCase):
 
         # Has auth; should allow
         request = SimpleRequest(site, "GET", "/")
-        request.authnUser = davxml.Principal(davxml.HRef("/users/d00d"))
-        request.authzUser = davxml.Principal(davxml.HRef("/users/d00d"))
+        request.authzUser = request.authnUser = self.rootresource.principalForUser("gooduser")
         d = request.locateResource("/")
         d.addCallback(_checkPrivileges)
         d.addCallback(expectOK)
@@ -317,6 +324,7 @@ class AccessTests(TestCase):
             "authorization",
             ("basic", "gooduser:goodpass".encode("base64")))
         return self.checkSecurity(request)
+
 
     def test_badUsernameOrPassword(self):
         request = SimpleRequest(self.site, "GET", "/protected")
@@ -341,6 +349,7 @@ class AccessTests(TestCase):
         d = self.assertFailure(self.checkSecurity(request), HTTPError)
         d.addCallback(self.assertErrorResponse, responsecode.FORBIDDEN)
         return d
+
 
 
 ##
@@ -370,6 +379,7 @@ class TestResource (DAVResource):
         self.children = children
         self.uri = uri
 
+
     def deadProperties(self):
         """
         Retrieve deadProperties from a special place in memory
@@ -382,20 +392,18 @@ class TestResource (DAVResource):
             self._dead_properties = dp
         return self._dead_properties
 
+
     def isCollection(self):
         return self.children is not None
+
 
     def listChildren(self):
         return self.children.keys()
 
+
     def supportedPrivileges(self, request):
         return succeed(davPrivilegeSet)
 
-    def currentPrincipal(self, request):
-        if hasattr(request, "authzUser"):
-            return request.authzUser
-        else:
-            return davxml.Principal(davxml.Unauthenticated())
 
     def locateChild(self, request, segments):
         child = segments[0]
@@ -406,8 +414,10 @@ class TestResource (DAVResource):
         else:
             raise HTTPError(404)
 
+
     def setAccessControlList(self, acl):
         self.acl = acl
+
 
     def accessControlList(self, request, **kwargs):
         return succeed(self.acl)
@@ -497,7 +507,8 @@ class AuthAllResource (TestResource):
         )
     )
 
-    
+
+
 class TestDAVPrincipalResource(DAVPrincipalResource, TestResource):
     """
     Get deadProperties from TestResource

@@ -26,8 +26,6 @@ from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest
 
 from txdav.xml import element as davxml
 
-from twext.who.idirectory import RecordType
-
 
 
 class Properties(StoreTestCase):
@@ -38,7 +36,7 @@ class Properties(StoreTestCase):
     @inlineCallbacks
     def setUp(self):
         yield StoreTestCase.setUp(self)
-        self.authRecord = yield self.directory.recordWithShortName(RecordType.user, u"user01")
+        self.authPrincipal = yield self.actualRoot.findPrincipalForAuthID("user01")
 
 
     def test_live_props(self):
@@ -149,12 +147,12 @@ class Properties(StoreTestCase):
                 "PROPFIND",
                 calendar_uri,
                 headers=http_headers.Headers({"Depth": "0"}),
-                authRecord=self.authRecord,
+                authPrincipal=self.authPrincipal,
             )
             request.stream = MemoryStream(query.toxml())
             return self.send(request, propfind_cb)
 
-        request = SimpleStoreRequest(self, "MKCALENDAR", calendar_uri, authRecord=self.authRecord)
+        request = SimpleStoreRequest(self, "MKCALENDAR", calendar_uri, authPrincipal=self.authPrincipal)
         return self.send(request, mkcalendar_cb)
 
 
@@ -221,10 +219,10 @@ class Properties(StoreTestCase):
                 "PROPFIND",
                 calendar_uri,
                 headers=http_headers.Headers({"Depth": "0"}),
-                authRecord=self.authRecord,
+                authPrincipal=self.authPrincipal,
             )
             request.stream = MemoryStream(query.toxml())
             return self.send(request, propfind_cb)
 
-        request = SimpleStoreRequest(self, "MKCALENDAR", calendar_uri, authRecord=self.authRecord)
+        request = SimpleStoreRequest(self, "MKCALENDAR", calendar_uri, authPrincipal=self.authPrincipal)
         return self.send(request, mkcalendar_cb)

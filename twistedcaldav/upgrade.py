@@ -1119,9 +1119,7 @@ class PostDBImportStep(object):
                     request = FakeRequest(root, "PUT", None)
                     request.noAttendeeRefresh = True  # tell scheduling to skip refresh
                     request.checkedSACL = True
-                    request.authnUser = request.authzUser = element.Principal(
-                        element.HRef.fromString("/principals/__uids__/%s/" % (uuid,))
-                    )
+                    request.authnUser = request.authzUser = principal
 
                     # The request may end up with an associated transaction and we must make sure that is
                     # either committed or aborted, so use try/finally to handle that case.

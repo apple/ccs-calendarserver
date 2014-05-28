@@ -17,7 +17,6 @@
 
 from twisted.internet.defer import inlineCallbacks, maybeDeferred, returnValue
 
-from twext.who.idirectory import RecordType
 from txweb2 import http_headers
 from txweb2 import responsecode
 from txdav.xml import element as davxml
@@ -126,15 +125,12 @@ class SACLTests(RootTests):
         """
         self.actualRoot.useSacls = True
 
-        record = yield self.directory.recordWithShortName(
-            RecordType.user,
-            u"dreid"
-        )
+        principal = yield self.actualRoot.findPrincipalForAuthID("dreid")
         request = SimpleStoreRequest(
             self,
             "GET",
             "/principals/",
-            authRecord=record
+            authPrincipal=principal
         )
 
         resrc, segments = (yield maybeDeferred(
@@ -150,11 +146,10 @@ class SACLTests(RootTests):
         self.assertEquals(segments, [])
 
         self.assertEquals(
-            request.authzUser,
+            request.authzUser.principalElement(),
             davxml.Principal(
                 davxml.HRef(
-                    "/principals/__uids__/"
-                    "5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1/"
+                    "/principals/__uids__/5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1/"
                 )
             )
         )
@@ -170,16 +165,13 @@ class SACLTests(RootTests):
         """
         self.actualRoot.useSacls = True
 
-        record = yield self.directory.recordWithShortName(
-            RecordType.user,
-            u"wsanchez"
-        )
+        principal = yield self.actualRoot.findPrincipalForAuthID("wsanchez")
 
         request = SimpleStoreRequest(
             self,
             "GET",
             "/principals/",
-            authRecord=record
+            authPrincipal=principal
         )
 
         try:
@@ -338,10 +330,7 @@ class SACLCacheTests(RootTests):
 </D:prop>
 </D:propfind>
 """
-        record = yield self.directory.recordWithShortName(
-            RecordType.user,
-            u"dreid"
-        )
+        principal = yield self.actualRoot.findPrincipalForAuthID("dreid")
 
         request = SimpleStoreRequest(
             self,
@@ -350,7 +339,7 @@ class SACLCacheTests(RootTests):
             headers=http_headers.Headers({
                     'Depth': '1',
             }),
-            authRecord=record,
+            authPrincipal=principal,
             content=body
         )
         response = yield self.send(request)
@@ -366,7 +355,7 @@ class SACLCacheTests(RootTests):
             headers=http_headers.Headers({
                     'Depth': '1',
             }),
-            authRecord=record,
+            authPrincipal=principal,
             content=body
         )
         response = yield self.send(request)

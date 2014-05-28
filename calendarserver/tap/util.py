@@ -310,8 +310,6 @@ class PrincipalCredentialChecker(object):
             # If we get here with Kerberos, then authentication has already succeeded
             returnValue(
                 (
-                    credentials.authnPrincipal.principalURL(),
-                    credentials.authzPrincipal.principalURL(),
                     credentials.authnPrincipal,
                     credentials.authzPrincipal,
                 )
@@ -320,8 +318,6 @@ class PrincipalCredentialChecker(object):
             if (yield credentials.authnPrincipal.record.verifyCredentials(credentials.credentials)):
                 returnValue(
                     (
-                        credentials.authnPrincipal.principalURL(),
-                        credentials.authzPrincipal.principalURL(),
                         credentials.authnPrincipal,
                         credentials.authzPrincipal,
                     )

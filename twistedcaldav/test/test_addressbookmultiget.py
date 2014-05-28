@@ -31,7 +31,6 @@ from twisted.python.filepath import FilePath
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from txdav.xml import element as davxml
-from twext.who.idirectory import RecordType
 
 
 
@@ -46,7 +45,7 @@ class AddressBookMultiget (StoreTestCase):
     @inlineCallbacks
     def setUp(self):
         yield StoreTestCase.setUp(self)
-        self.authRecord = yield self.directory.recordWithShortName(RecordType.user, u"wsanchez")
+        self.authPrincipal = yield self.actualRoot.findPrincipalForAuthID("wsanchez")
 
 
     def test_multiget_some_vcards(self):
@@ -217,7 +216,7 @@ class AddressBookMultiget (StoreTestCase):
 </D:set>
 </D:mkcol>
 """
-            response = yield self.send(SimpleStoreRequest(self, "MKCOL", addressbook_uri, content=mkcol, authRecord=self.authRecord))
+            response = yield self.send(SimpleStoreRequest(self, "MKCOL", addressbook_uri, content=mkcol, authPrincipal=self.authPrincipal))
 
             response = IResponse(response)
 
@@ -231,7 +230,7 @@ class AddressBookMultiget (StoreTestCase):
                         "PUT",
                         joinURL(addressbook_uri, filename + ".vcf"),
                         headers=Headers({"content-type": MimeType.fromString("text/vcard")}),
-                        authRecord=self.authRecord
+                        authPrincipal=self.authPrincipal
                     )
                     request.stream = MemoryStream(icaldata)
                     yield self.send(request)
@@ -245,12 +244,12 @@ class AddressBookMultiget (StoreTestCase):
                         "PUT",
                         joinURL(addressbook_uri, child.basename()),
                         headers=Headers({"content-type": MimeType.fromString("text/vcard")}),
-                        authRecord=self.authRecord
+                        authPrincipal=self.authPrincipal
                     )
                     request.stream = MemoryStream(child.getContent())
                     yield self.send(request)
 
-        request = SimpleStoreRequest(self, "REPORT", addressbook_uri, authRecord=self.authRecord)
+        request = SimpleStoreRequest(self, "REPORT", addressbook_uri, authPrincipal=self.authPrincipal)
         request.stream = MemoryStream(query.toxml())
         response = yield self.send(request)
 

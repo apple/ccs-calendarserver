@@ -40,6 +40,7 @@ from calendarserver.logAnalysis import getAdjustedMethodName, \
     getAdjustedClientName
 
 from twext.python.log import Logger
+from twext.who.idirectory import RecordType
 from txweb2 import iweb
 from txweb2.log import BaseCommonAccessLoggingObserver
 from txweb2.log import LogWrapperResource
@@ -48,8 +49,6 @@ from twisted.internet import protocol, task
 from twisted.protocols import amp
 
 from twistedcaldav.config import config
-
-from txdav.xml import element as davxml
 
 log = Logger()
 
@@ -83,38 +82,20 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
 
             # Try to determine authentication and authorization identifiers
             uid = "-"
-            if hasattr(request, "authnUser"):
-                if isinstance(request.authnUser.children[0], davxml.HRef):
-                    uidn = str(request.authnUser.children[0])
-                    uidz = None
-                    if hasattr(request, "authzUser") and str(request.authzUser.children[0]) != uidn:
-                        uidz = str(request.authzUser.children[0])
-
-                    # def convertUIDtoShortName(uid):
-                    #     uid = uid.rstrip("/")
-                    #     uid = uid[uid.rfind("/") + 1:]
-                    #     record = request.site.resource.getDirectory().recordWithUID(uid)
-                    #     if record:
-                    #         if record.recordType == DirectoryService.recordType_users:
-                    #             return record.shortNames[0]
-                    #         else:
-                    #             return "(%s)%s" % (record.recordType, record.shortNames[0],)
-                    #     else:
-                    #         return uid
-
-                    # MOVE2WHO
-                    # Better to stick the records directly on the request at
-                    # an earlier point, since we can't do anything deferred
-                    # in here.
-
-                    # uidn = convertUIDtoShortName(uidn)
-                    # if uidz:
-                    #     uidz = convertUIDtoShortName(uidz)
-
-                    if uidn and uidz:
-                        uid = '"%s as %s"' % (uidn, uidz,)
+            if getattr(request, "authnUser", None) is not None:
+                def convertPrincipaltoShortName(principal):
+                    if principal.record.recordType == RecordType.user:
+                        return principal.record.shortNames[0]
                     else:
-                        uid = uidn
+                        return "({rtype}){name}".format(rtype=principal.record.recordType, name=principal.record.shortNames[0],)
+
+                uidn = convertPrincipaltoShortName(request.authnUser)
+                uidz = convertPrincipaltoShortName(request.authzUser)
+
+                if uidn != uidz:
+                    uid = '"{authn} as {authz}"'.format(authn=uidn, authz=uidz,)
+                else:
+                    uid = uidn
 
             #
             # For some methods which basically allow you to tunnel a

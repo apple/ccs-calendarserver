@@ -27,7 +27,6 @@ from twistedcaldav.config import config
 from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.filepath import FilePath
-from twext.who.idirectory import RecordType
 
 
 
@@ -196,16 +195,16 @@ class AddressBookQuery(StoreTestCase):
         if response.code != responsecode.CREATED:
             self.fail("MKCOL failed: %s" % (response.code,))
         '''
-        authRecord = yield self.directory.recordWithShortName(RecordType.user, u"wsanchez")
+        principal = yield self.actualRoot.findPrincipalForAuthID("wsanchez")
         # Add vCards to addressbook
         for child in FilePath(self.vcards_dir).children():
             if os.path.splitext(child.basename())[1] != ".vcf":
                 continue
-            request = SimpleStoreRequest(self, "PUT", joinURL(addressbook_uri, child.basename()), authRecord=authRecord)
+            request = SimpleStoreRequest(self, "PUT", joinURL(addressbook_uri, child.basename()), authPrincipal=principal)
             request.stream = MemoryStream(child.getContent())
             yield self.send(request)
 
-        request = SimpleStoreRequest(self, "REPORT", addressbook_uri, authRecord=authRecord)
+        request = SimpleStoreRequest(self, "REPORT", addressbook_uri, authPrincipal=principal)
         request.stream = MemoryStream(query.toxml())
         response = yield self.send(request)
 

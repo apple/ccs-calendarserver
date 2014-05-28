@@ -154,9 +154,7 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
         # Don't need to authenticate here because the ACL will have already
         # required it.
         #
-        authenticatedPrincipalURL = str(
-            request.authnUser.childOfType(davxml.HRef)
-        )
+        authenticatedPrincipalURL = request.authnUser.principalURL()
 
         def queryValue(arg):
             query = parse_qs(urlparse(request.uri).query, True)

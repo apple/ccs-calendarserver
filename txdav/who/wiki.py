@@ -261,7 +261,7 @@ def getWikiACL(resource, request):
     userRecord = None
 
     try:
-        url = str(request.authnUser.children[0])
+        url = request.authnUser.principalURL()
         principal = (yield request.locateResource(url))
         if isinstance(principal, DirectoryPrincipalResource):
             userRecord = principal.record
@@ -277,7 +277,7 @@ def getWikiACL(resource, request):
         if access == WikiAccessLevel.read:
             request.wikiACL = davxml.ACL(
                 davxml.ACE(
-                    request.authnUser,
+                    request.authnUser.principalElement(),
                     davxml.Grant(
                         davxml.Privilege(davxml.Read()),
                         davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
@@ -306,7 +306,7 @@ def getWikiACL(resource, request):
         elif access == WikiAccessLevel.write:
             request.wikiACL = davxml.ACL(
                 davxml.ACE(
-                    request.authnUser,
+                    request.authnUser.principalElement(),
                     davxml.Grant(
                         davxml.Privilege(davxml.Read()),
                         davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),

@@ -7,10 +7,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -26,7 +26,7 @@
 web2.dav interfaces.
 """
 
-__all__ = [ "IDAVResource", "IDAVPrincipalResource", "IDAVPrincipalCollectionResource", ]
+__all__ = ["IDAVResource", "IDAVPrincipalResource", "IDAVPrincipalCollectionResource", ]
 
 from txweb2.iweb import IResource
 
@@ -44,13 +44,13 @@ class IDAVResource(IResource):
     def findChildren(depth, request, callback, privileges, inherited_aces):
         """
         Returns an iterable of child resources for the given depth.
-        Because resources do not know their request URIs, chidren are returned
+        Because resources do not know their request URIs, children are returned
         as tuples C{(resource, uri)}, where C{resource} is the child resource
         and C{uri} is a URL path relative to this resource.
         @param depth: the search depth (one of C{"0"}, C{"1"}, or C{"infinity"})
         @param request: The current L{IRequest} responsible for this call.
         @param callback: C{callable} that will be called for each child found
-        @param privileges: the list of L{Privilege}s to test for.  This should 
+        @param privileges: the list of L{Privilege}s to test for.  This should
             default to None.
         @param inherited_aces: a list of L{Privilege}s for aces being inherited from
             the parent collection used to bypass inheritance lookup.
@@ -135,7 +135,7 @@ class IDAVResource(IResource):
 
     def principalCollections():
         """
-        @return: an interable of L{IDAVPrincipalCollectionResource}s which
+        @return: an iterable of L{IDAVPrincipalCollectionResource}s which
             contain principals used in ACLs for this resource.
         """
 
@@ -176,8 +176,8 @@ class IDAVResource(IResource):
     def privilegesForPrincipal(principal, request):
         """
         Evaluate the set of privileges that apply to the specified principal.
-        This involves examing all ace's and granting/denying as appropriate for
-        the specified principal's membership of the ace's prinicpal.
+        This involves examining all ace's and granting/denying as appropriate for
+        the specified principal's membership of the ace's principal.
         @param request: the request being processed.
         @return: a list of L{Privilege}s that are allowed on this resource for
             the specified principal.
@@ -186,32 +186,31 @@ class IDAVResource(IResource):
     ##
     # Quota
     ##
-    
+
     def quota(request):
         """
         Get current available & used quota values for this resource's quota root
         collection.
 
-        @return: a C{tuple} containing two C{int}'s the first is 
+        @return: a C{tuple} containing two C{int}'s the first is
             quota-available-bytes, the second is quota-used-bytes, or
             C{None} if quota is not defined on the resource.
         """
-    
+
     def hasQuota(request):
         """
-        Check whether this resource is undre quota control by checking each parent to see if
+        Check whether this resource is under quota control by checking each parent to see if
         it has a quota root.
-        
+
         @return: C{True} if under quota control, C{False} if not.
         """
-        
+
     def hasQuotaRoot(request):
         """
         Determine whether the resource has a quota root.
 
         @return: a C{True} if this resource has quota root, C{False} otherwise.
         """
-    
 
     def quotaRoot(request):
         """
@@ -220,7 +219,7 @@ class IDAVResource(IResource):
         @return: a C{int} containing the maximum allowed bytes if this collection
             is quota-controlled, or C{None} if not quota controlled.
         """
-    
+
     def setQuotaRoot(request, maxsize):
         """
         Set the quota root (max. allowed bytes) value for this collection.
@@ -228,7 +227,7 @@ class IDAVResource(IResource):
         @param maxsize: a C{int} containing the maximum allowed bytes for the contents
             of this collection.
         """
-    
+
     def quotaSize(request):
         """
         Get the size of this resource (if its a collection get total for all children as well).
@@ -236,7 +235,7 @@ class IDAVResource(IResource):
 
         @return: a L{Deferred} with a C{int} result containing the size of the resource.
         """
-        
+
     def currentQuotaUse(request):
         """
         Get the cached quota use value, or if not present (or invalid) determine
@@ -245,7 +244,7 @@ class IDAVResource(IResource):
         @return: an L{Deferred} with a C{int} result containing the current used byte count if
             this collection is quota-controlled, or C{None} if not quota controlled.
         """
-        
+
     def updateQuotaUse(request, adjust):
         """
         Adjust current quota use on this all all parent collections that also
@@ -256,6 +255,8 @@ class IDAVResource(IResource):
         @return: an L{Deferred} with a C{int} result containing the current used byte if this collection
             is quota-controlled, or C{None} if not quota controlled.
         """
+
+
 
 class IDAVPrincipalResource (IDAVResource):
     """
@@ -270,7 +271,6 @@ class IDAVPrincipalResource (IDAVResource):
         @return: a iterable of URIs.
         """
 
-
     def principalURL():
         """
         Provides the URL which must be used to identify this principal in ACL
@@ -278,6 +278,12 @@ class IDAVPrincipalResource (IDAVResource):
         @return: a URL.
         """
 
+    def principalElement():
+        """
+        Provides the XML element which must be used to identify this principal in ACL
+        requests.  (RFC 3744, section 4.2)
+        @return: L{element.Principal}.
+        """
 
     def groupMembers():
         """
@@ -285,7 +291,6 @@ class IDAVPrincipalResource (IDAVResource):
         this (group) principal.  (RFC 3744, section 4.3)
         @return: a deferred returning an iterable of principal URLs.
         """
-
 
     def expandedGroupMembers():
         """
@@ -295,7 +300,6 @@ class IDAVPrincipalResource (IDAVResource):
 
         @return: a L{Deferred} that fires with an iterable of principal URLs.
         """
-
 
     def groupMemberships():
         """
@@ -318,7 +322,6 @@ class IDAVPrincipalCollectionResource(IDAVResource):
         @return: a URL.
         """
 
-
     def principalForUser(user):
         """
         Retrieve the principal for a given username.
@@ -331,4 +334,3 @@ class IDAVPrincipalCollectionResource(IDAVResource):
 
         @rtype: L{IDAVPrincipalResource}
         """
-

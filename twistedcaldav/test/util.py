@@ -37,7 +37,6 @@ from twistedcaldav.memcacheclient import ClientFactory
 from twistedcaldav.stdconfig import config
 from txdav.common.datastore.file import CommonDataStore
 from txdav.common.datastore.test.util import deriveQuota, CommonCommonTests
-from txdav.xml import element as element
 from txweb2.dav.test.util import SimpleRequest
 import txweb2.dav.test.util
 from txweb2.http import HTTPError, StatusResponse
@@ -79,15 +78,15 @@ class SimpleStoreRequest(SimpleRequest):
     """
     A SimpleRequest that automatically grabs the proper transaction for a test.
     """
-    def __init__(self, test, method, uri, headers=None, content=None, authRecord=None):
+    def __init__(self, test, method, uri, headers=None, content=None, authPrincipal=None):
         super(SimpleStoreRequest, self).__init__(test.site, method, uri, headers, content)
         self._test = test
         self._newStoreTransaction = test.transactionUnderTest(txn=transactionFromRequest(self, test.storeUnderTest()))
         self.credentialFactories = {}
 
         # Fake credentials if auth needed
-        if authRecord is not None:
-            self.authzUser = self.authnUser = element.Principal(element.HRef("/principals/__uids__/%s/" % (authRecord.uid,)))
+        if authPrincipal is not None:
+            self.authzUser = self.authnUser = authPrincipal
 
 
     @inlineCallbacks

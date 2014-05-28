@@ -133,7 +133,7 @@ class DAVPropertyMixIn (MetaDataMixin):
     can only be accessed via the dead property store.
     """
     # Note: The DAV:owner and DAV:group live properties are only
-    # meaningful if you are using ACL semantics (ie. Unix-like) which
+    # meaningful if you are using ACL semantics (i.e. Unix-like) which
     # use them.  This (generic) class does not.
 
     def liveProperties(self):
@@ -957,7 +957,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             def translateError(response):
                 return Failure(HTTPError(response))
 
-            if request.authnUser == element.Principal(element.Unauthenticated()):
+            if request.authnUser == None:
                 return UnauthorizedResponse.makeResponse(
                     request.credentialFactories,
                     request.remoteAddr).addCallback(translateError)
@@ -973,9 +973,9 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
     def authenticate(self, request):
         """
         Authenticate the given request against the portal, setting
-        both C{request.authzUser} (a C{str}, the username for the
-        purposes of authorization) and C{request.authnUser} (a C{str},
-        the username for the purposes of authentication) when it has
+        both C{request.authzUser} (a L{DAVPrincipalResource}, the user for the
+        purposes of authorization) and C{request.authnUser} (a L{DAVPrincipalResource},
+        the user for the purposes of authentication) when it has
         been authenticated.
 
         In order to authenticate, the request must have been
@@ -984,7 +984,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         necessary authentication metadata.
 
         If the request was not thusly prepared, both C{authzUser} and
-        C{authnUser} will be L{element.Unauthenticated}.
+        C{authnUser} will be None.
 
         @param request: the request which may contain authentication
             information and a reference to a portal to authenticate
@@ -1000,10 +1000,8 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
         # Bypass normal authentication if its already been done (by SACL check)
         if (
-            hasattr(request, "authnUser") and
-            hasattr(request, "authzUser") and
-            request.authnUser is not None and
-            request.authzUser is not None
+            getattr(request, "authnUser", None) is not None and
+            getattr(request, "authzUser", None) is not None
         ):
             return succeed((request.authnUser, request.authzUser))
 
@@ -1012,8 +1010,8 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             hasattr(request, "credentialFactories") and
             hasattr(request, "loginInterfaces")
         ):
-            request.authnUser = element.Principal(element.Unauthenticated())
-            request.authzUser = element.Principal(element.Unauthenticated())
+            request.authnUser = None
+            request.authzUser = None
             return succeed((request.authnUser, request.authzUser))
 
         authHeader = request.headers.getHeader("authorization")
@@ -1082,8 +1080,8 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                 # This request has already been authenticated via the wiki
                 return succeed((request.authnUser, request.authzUser))
 
-            request.authnUser = element.Principal(element.Unauthenticated())
-            request.authzUser = element.Principal(element.Unauthenticated())
+            request.authnUser = None
+            request.authzUser = None
             return succeed((request.authnUser, request.authzUser))
 
 
@@ -1097,8 +1095,8 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         @return: the current authorized principal, as derived from the
             given request.
         """
-        if hasattr(request, "authzUser"):
-            return request.authzUser
+        if getattr(request, "authzUser", None) is not None:
+            return request.authzUser.principalElement()
         else:
             return unauthenticatedPrincipal
 
@@ -2487,6 +2485,17 @@ class DAVPrincipalResource (DAVResource):
         this resource.
         """
         unimplemented(self)
+
+
+    def principalElement(self):
+        """
+        See L{IDAVPrincipalResource.principalURL}.
+
+        This implementation raises L{NotImplementedError}.  Subclasses
+        must override this method to provide the principal URL for
+        this resource.
+        """
+        return element.Principal(element.HRef.fromString(self.principalURL()))
 
 
     def groupMembers(self):

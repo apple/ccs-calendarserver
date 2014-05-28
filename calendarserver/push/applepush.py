@@ -872,20 +872,6 @@ class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn,
     http_GET = http_POST
 
     @inlineCallbacks
-    def principalFromRequest(self, request):
-        """
-        Given an authenticated request, return the principal based on
-        request.authnUser
-        """
-        principal = None
-        for collection in self.principalCollections():
-            data = request.authnUser.children[0].children[0].data
-            principal = yield collection._principalForURI(data)
-            if principal is not None:
-                returnValue(principal)
-
-
-    @inlineCallbacks
     def processSubscription(self, request):
         """
         Given an authenticated request, use the token and key arguments
@@ -913,8 +899,7 @@ class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn,
             msg = "Invalid request: bad 'token' %s" % (token,)
 
         else:
-            principal = yield self.principalFromRequest(request)
-            uid = principal.record.uid
+            uid = request.authnUser.record.uid
             try:
                 yield self.addSubscription(token, key, uid, userAgent, host)
                 code = responsecode.OK

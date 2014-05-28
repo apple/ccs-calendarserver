@@ -35,7 +35,6 @@ from twistedcaldav.extensions import ReadOnlyResourceMixIn
 from twistedcaldav.resource import CalDAVComplianceMixIn
 from txdav.who.wiki import DirectoryService as WikiDirectoryService
 from txdav.who.wiki import uidForAuthToken
-from txdav.xml import element as davxml
 from txweb2 import responsecode
 from txweb2.auth.wrapper import UnauthorizedResponse
 from txweb2.dav.xattrprops import xattrPropertyStore
@@ -146,7 +145,7 @@ class RootResource(
         # be a SACL group assigned to this service.  Let's see if
         # unauthenticated users are allowed by calling CheckSACL
         # with an empty string.
-        if authzUser == davxml.Principal(davxml.Unauthenticated()):
+        if authzUser is None:
             for saclService in saclServices:
                 if RootResource.CheckSACL("", saclService) == 0:
                     # No group actually exists for this SACL, so allow
@@ -166,21 +165,7 @@ class RootResource(
         request.authzUser = authzUser
 
         # Figure out the "username" from the davxml.Principal object
-        request.checkingSACL = True
-
-        for collection in self.principalCollections():
-            principal = yield collection._principalForURI(
-                authzUser.children[0].children[0].data
-            )
-            if principal is None:
-                response = (yield UnauthorizedResponse.makeResponse(
-                    request.credentialFactories,
-                    request.remoteAddr
-                ))
-                raise HTTPError(response)
-
-        delattr(request, "checkingSACL")
-        username = principal.record.shortNames[0]
+        username = authzUser.record.shortNames[0]
 
         access = False
         for saclService in saclServices:
@@ -278,21 +263,7 @@ class RootResource(
                         log.debug(
                             "Wiki lookup returned uid: {uid}", uid=uid
                         )
-                        principal = None
-                        directory = request.site.resource.getDirectory()
-                        record = yield directory.recordWithUID(uid)
-                        if record is not None:
-                            username = record.shortNames[0]
-                            log.debug(
-                                "Wiki user record for user {user}: {record}",
-                                user=username, record=record
-                            )
-                            for collection in self.principalCollections():
-                                principal = (
-                                    yield collection.principalForRecord(record)
-                                )
-                                if principal is not None:
-                                    break
+                        principal = yield self.principalForUID(request, uid)
 
                         if principal:
                             log.debug(
@@ -300,14 +271,7 @@ class RootResource(
                                 "being assigned to authnUser and authzUser",
                                 record=record
                             )
-                            request.authzUser = request.authnUser = (
-                                davxml.Principal(
-                                    davxml.HRef.fromString(
-                                        "/principals/__uids__/{}/"
-                                        .format(record.uid)
-                                    )
-                                )
-                            )
+                            request.authzUser = request.authnUser = principal
 
         if not hasattr(request, "authzUser") and config.WebCalendarAuthPath:
             topLevel = request.path.strip("/").split("/")[0]
@@ -366,26 +330,21 @@ class RootResource(
             # The authzuser value is set to that of the wiki principal if
             # not already set.
             if not hasattr(request, "authzUser"):
-                wikiName = None
+                wikiUid = None
                 if segments[1] == "wikis":
-                    wikiName = segments[2]
+                    wikiUid = "{}{}".format(WikiDirectoryService.uidPrefix, segments[2])
                 else:
-                    wikiName = segments[2][5:]
-                if wikiName:
+                    wikiUid = segments[2]
+                if wikiUid:
                     log.debug(
                         "Wiki principal {name} being assigned to authzUser",
-                        name=wikiName
+                        name=wikiUid
                     )
-                    request.authzUser = davxml.Principal(
-                        davxml.HRef.fromString(
-                            "/principals/wikis/{}/".format(wikiName)
-                        )
-                    )
+                    request.authzUser = yield self.principalForUID(request, wikiUid)
 
         elif (
             self.useSacls and
-            not hasattr(request, "checkedSACL") and
-            not hasattr(request, "checkingSACL")
+            not hasattr(request, "checkedSACL")
         ):
             yield self.checkSacl(request)
 
@@ -440,6 +399,25 @@ class RootResource(
             request, segments
         )
         returnValue(child)
+
+
+    @inlineCallbacks
+    def principalForUID(self, request, uid):
+        principal = None
+        directory = request.site.resource.getDirectory()
+        record = yield directory.recordWithUID(uid)
+        if record is not None:
+            username = record.shortNames[0]
+            log.debug(
+                "Wiki user record for user {user}: {record}",
+                user=username, record=record
+            )
+            for collection in self.principalCollections():
+                principal = yield collection.principalForRecord(record)
+                if principal is not None:
+                    break
+
+        returnValue(principal)
 
 
     def http_COPY(self, request):

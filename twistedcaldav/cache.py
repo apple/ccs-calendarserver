@@ -142,7 +142,7 @@ class BaseResponseCache(object):
     log = Logger()
 
     def _principalURI(self, principal):
-        return str(principal.children[0])
+        return principal.principalURL() if principal is not None else "unauthenticated"
 
 
     def _uriNotFound(self, f, uri):

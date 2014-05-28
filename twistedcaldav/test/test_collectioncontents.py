@@ -15,7 +15,6 @@
 ##
 
 from twext.python.filepath import CachingFilePath as FilePath
-from twext.who.idirectory import RecordType
 from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.ical import Component
 from twistedcaldav.memcachelock import MemcacheLock
@@ -68,15 +67,15 @@ class CollectionContents(StoreTestCase):
         """
         calendar_uri = "/calendars/users/wsanchez/collection_in_calendar/"
 
-        authRecord = yield self.directory.recordWithShortName(RecordType.user, u"wsanchez")
-        request = SimpleStoreRequest(self, "MKCALENDAR", calendar_uri, authRecord=authRecord)
+        principal = yield self.actualRoot.findPrincipalForAuthID("wsanchez")
+        request = SimpleStoreRequest(self, "MKCALENDAR", calendar_uri, authPrincipal=principal)
         response = yield self.send(request)
         response = IResponse(response)
         if response.code != responsecode.CREATED:
             self.fail("MKCALENDAR failed: %s" % (response.code,))
             nested_uri = joinURL(calendar_uri, "nested")
 
-            request = SimpleStoreRequest(self, "MKCOL", nested_uri, authRecord=authRecord)
+            request = SimpleStoreRequest(self, "MKCOL", nested_uri, authPrincipal=principal)
             response = yield self.send(request)
             response = IResponse(response)
 
@@ -168,8 +167,8 @@ class CollectionContents(StoreTestCase):
         """
         calendar_uri = "/calendars/users/wsanchez/testing_calendar/"
 
-        authRecord = yield self.directory.recordWithShortName(RecordType.user, u"wsanchez")
-        request = SimpleStoreRequest(self, "MKCALENDAR", calendar_uri, authRecord=authRecord)
+        principal = yield self.actualRoot.findPrincipalForAuthID("wsanchez")
+        request = SimpleStoreRequest(self, "MKCALENDAR", calendar_uri, authPrincipal=principal)
         response = yield self.send(request)
         response = IResponse(response)
         if response.code != responsecode.CREATED:
@@ -178,7 +177,7 @@ class CollectionContents(StoreTestCase):
         c = 0
         for stream, response_code in work:
             dst_uri = joinURL(calendar_uri, "dst%d.ics" % (c,))
-            request = SimpleStoreRequest(self, "PUT", dst_uri, authRecord=authRecord)
+            request = SimpleStoreRequest(self, "PUT", dst_uri, authPrincipal=principal)
             request.headers.setHeader("if-none-match", "*")
             request.headers.setHeader("content-type", MimeType("text", "calendar"))
             request.stream = stream
@@ -197,8 +196,8 @@ class CollectionContents(StoreTestCase):
         Make (regular) collection in calendar
         """
         calendar_uri = "/calendars/users/wsanchez/dot_file_in_calendar/"
-        authRecord = yield self.directory.recordWithShortName(RecordType.user, u"wsanchez")
-        request = SimpleStoreRequest(self, "MKCALENDAR", calendar_uri, authRecord=authRecord)
+        principal = yield self.actualRoot.findPrincipalForAuthID("wsanchez")
+        request = SimpleStoreRequest(self, "MKCALENDAR", calendar_uri, authPrincipal=principal)
         response = yield self.send(request)
         response = IResponse(response)
         if response.code != responsecode.CREATED:
@@ -215,7 +214,7 @@ class CollectionContents(StoreTestCase):
 
         event_uri = "/".join([calendar_uri, ".event.ics"])
 
-        request = SimpleStoreRequest(self, "PUT", event_uri, authRecord=authRecord)
+        request = SimpleStoreRequest(self, "PUT", event_uri, authPrincipal=principal)
         request.headers.setHeader("content-type", MimeType("text", "calendar"))
         request.stream = MemoryStream(calendar)
         response = yield self.send(request)

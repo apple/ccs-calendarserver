@@ -14,7 +14,6 @@
 # limitations under the License.
 ##
 
-from twext.who.idirectory import RecordType
 from twisted.internet.defer import inlineCallbacks
 from twistedcaldav import carddavxml
 from twistedcaldav.config import config
@@ -27,9 +26,10 @@ from twistedcaldav.test.util import (
     InMemoryPropertyStore, StoreTestCase, SimpleStoreRequest
 )
 from twistedcaldav.test.util import TestCase
-from txdav.xml.element import HRef, Principal, Unauthenticated
+from txdav.xml.element import HRef
 from txweb2.http import HTTPError
 from txweb2.test.test_server import SimpleRequest
+from txdav.xml import element
 
 
 
@@ -58,6 +58,16 @@ class StubHome(object):
 
     def setPushWorking(self, status):
         self.pushWorking = status
+
+
+
+class StubPrincipal(object):
+    def __init__(self, user):
+        self.user = user
+
+
+    def principalElement(self):
+        return element.Principal(element.HRef.fromString(self.user))
 
 
 
@@ -115,7 +125,7 @@ class OwnershipTests(TestCase):
         """
         site = None
         request = SimpleRequest(site, "GET", "/not/a/real/url/")
-        request.authzUser = request.authnUser = Principal(Unauthenticated())
+        request.authzUser = request.authnUser = None
         rsrc = CalDAVResource()
         rsrc.owner = lambda igreq: HRef("/somebody/")
         self.assertEquals((yield rsrc.isOwner(request)), False)
@@ -129,8 +139,7 @@ class OwnershipTests(TestCase):
         """
         site = None
         request = SimpleRequest(site, "GET", "/not/a/real/url/")
-        theOwner = Principal(HRef("/yes-i-am-the-owner/"))
-        request.authzUser = request.authnUser = theOwner
+        request.authzUser = request.authnUser = StubPrincipal("/yes-i-am-the-owner/")
         rsrc = CalDAVResource()
         rsrc.owner = lambda igreq: HRef("/no-i-am-not-the-owner/")
         self.assertEquals((yield rsrc.isOwner(request)), False)
@@ -144,8 +153,7 @@ class OwnershipTests(TestCase):
         """
         site = None
         request = SimpleRequest(site, "GET", "/not/a/real/url/")
-        theOwner = Principal(HRef("/yes-i-am-the-owner/"))
-        request.authzUser = request.authnUser = theOwner
+        request.authzUser = request.authnUser = StubPrincipal("/yes-i-am-the-owner/")
         rsrc = CalDAVResource()
         rsrc.owner = lambda igreq: HRef("/yes-i-am-the-owner/")
         self.assertEquals((yield rsrc.isOwner(request)), True)
@@ -162,7 +170,7 @@ class OwnershipTests(TestCase):
         self.patch(config, "AdminPrincipals", [theAdmin])
         site = None
         request = SimpleRequest(site, "GET", "/not/a/real/url/")
-        request.authzUser = request.authnUser = Principal(HRef(theAdmin))
+        request.authzUser = request.authnUser = StubPrincipal(theAdmin)
         rsrc = CalDAVResource()
         rsrc.owner = lambda igreq: HRef("/some-other-user/")
         self.assertEquals((yield rsrc.isOwner(request)), True)
@@ -179,7 +187,7 @@ class OwnershipTests(TestCase):
         self.patch(config, "ReadPrincipals", [theAdmin])
         site = None
         request = SimpleRequest(site, "GET", "/not/a/real/url/")
-        request.authzUser = request.authnUser = Principal(HRef(theAdmin))
+        request.authzUser = request.authnUser = StubPrincipal(theAdmin)
         rsrc = CalDAVResource()
         rsrc.owner = lambda igreq: HRef("/some-other-user/")
         self.assertEquals((yield rsrc.isOwner(request)), True)
@@ -192,7 +200,7 @@ class DefaultAddressBook (StoreTestCase):
     @inlineCallbacks
     def setUp(self):
         yield StoreTestCase.setUp(self)
-        self.authRecord = yield self.directory.recordWithShortName(RecordType.user, u"wsanchez")
+        self.authPrincipal = yield self.actualRoot.findPrincipalForAuthID("wsanchez")
 
 
     @inlineCallbacks
@@ -201,7 +209,7 @@ class DefaultAddressBook (StoreTestCase):
         Get adbk
         """
 
-        request = SimpleStoreRequest(self, "GET", "/addressbooks/users/wsanchez/", authRecord=self.authRecord)
+        request = SimpleStoreRequest(self, "GET", "/addressbooks/users/wsanchez/", authPrincipal=self.authPrincipal)
         home = yield request.locateResource("/addressbooks/users/wsanchez")
 
         # default property initially not present
