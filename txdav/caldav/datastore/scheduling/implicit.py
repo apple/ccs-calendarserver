@@ -149,6 +149,7 @@ class ImplicitScheduler(object):
 
             # If the new data has no organizer, then there must also be no attendees
             if self.organizer is None and self.attendees:
+                log.error("organizer-allowed: Organizer removal also requires attendees to be removed for UID: {uid}", uid=self.uid)
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
                     (caldav_namespace, "organizer-allowed"),
@@ -171,6 +172,12 @@ class ImplicitScheduler(object):
             (existing_type != new_type) and
             existing_resource
         ):
+            log.error(
+                "valid-attendee-change: Cannot change scheduling object mode from {old} to {new} for UID: {uid}",
+                old=existing_type,
+                new=new_type,
+                uid=self.uid,
+            )
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (caldav_namespace, "valid-attendee-change"),
@@ -179,6 +186,7 @@ class ImplicitScheduler(object):
 
         # Organizer events must have a master component
         if self.state == "organizer" and self.calendar.masterComponent() is None:
+            log.error("organizer-allowed: Organizer cannot schedule without a master component for UID: {uid}", uid=self.uid)
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (caldav_namespace, "organizer-allowed"),
@@ -260,7 +268,7 @@ class ImplicitScheduler(object):
         # to create new scheduling resources.
         if self.action == "create":
             if self.organizerAddress.hosted() and not self.organizerAddress.record.enabledAsOrganizer():
-                log.error("ORGANIZER not allowed to be an Organizer: {organizer}", organizer=self.organizer)
+                log.error("organizer-allowed: ORGANIZER not allowed to be an Organizer: {organizer}", organizer=self.organizer)
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
                     (caldav_namespace, "organizer-allowed"),
@@ -499,7 +507,7 @@ class ImplicitScheduler(object):
             self.organizer = self.calendar.validOrganizerForScheduling()
         except ValueError:
             # We have different ORGANIZERs in the same iCalendar object - this is an error
-            log.error("Only one ORGANIZER is allowed in an iCalendar object:\n{calendar}", calendar=self.calendar)
+            log.error("single-organizer: Only one ORGANIZER is allowed in an iCalendar object:\n{calendar}", calendar=self.calendar)
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (caldav_namespace, "single-organizer"),
@@ -546,7 +554,7 @@ class ImplicitScheduler(object):
         # Check for matching resource somewhere else in the home
         foundElsewhere = (yield self.calendar_home.hasCalendarResourceUIDSomewhereElse(self.uid, check_resource, mode))
         if foundElsewhere is not None:
-            log.debug("Implicit - found component with same UID in a different collection: {resource}", resource=check_resource)
+            log.debug("unique-scheduling-object-resource: Found component with same UID in a different collection: {resource}", resource=check_resource)
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (caldav_namespace, "unique-scheduling-object-resource"),
@@ -823,7 +831,7 @@ class ImplicitScheduler(object):
                 oldOrganizer = self.oldcalendar.getOrganizer()
                 newOrganizer = self.calendar.getOrganizer()
                 if oldOrganizer != newOrganizer:
-                    log.error("Cannot change ORGANIZER: UID:{uid}", uid=self.uid)
+                    log.error("valid-organizer-change: Cannot change ORGANIZER: UID:{uid}", uid=self.uid)
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
                         (caldav_namespace, "valid-organizer-change"),
@@ -1389,7 +1397,7 @@ class ImplicitScheduler(object):
                 oldOrganizer = self.oldcalendar.getOrganizer()
                 newOrganizer = self.calendar.getOrganizer()
                 if oldOrganizer != newOrganizer:
-                    log.error("Cannot change ORGANIZER: UID:{uid}", uid=self.uid)
+                    log.error("valid-attendee-change: Cannot change ORGANIZER: UID:{uid}", uid=self.uid)
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
                         (caldav_namespace, "valid-attendee-change"),
@@ -1404,12 +1412,23 @@ class ImplicitScheduler(object):
 
                 # If Organizer copy exists we cannot allow SCHEDULE-AGENT=CLIENT or NONE
                 if not doScheduling:
-                    log.error("Attendee '{attendee}' is not allowed to change SCHEDULE-AGENT on organizer: UID:{uid}", attendee=self.attendeeAddress.record, uid=self.uid)
-                    raise HTTPError(ErrorResponse(
-                        responsecode.FORBIDDEN,
-                        (caldav_namespace, "valid-attendee-change"),
-                        "Cannot alter organizer",
-                    ))
+                    # If an existing resource is present and it does not have SCHEDULE-AGENT=SERVER, then
+                    # try and fix the situation by using the organizer's copy of the event and stripping
+                    # the incoming attendee copy of any SCHEDULE-AGENT=CLIENT components. That should allow
+                    # a fixed version of the data to be stored and proper scheduling to occur.
+                    if self.oldcalendar is not None and not self.oldcalendar.getOrganizerScheduleAgent():
+                        self.oldcalendar = self.organizer_calendar.duplicate()
+                        self.oldcalendar.attendeesView((self.attendee,), onlyScheduleAgentServer=True)
+                        self.calendar.cleanOrganizerScheduleAgent()
+                        doScheduling = True
+
+                    if not doScheduling:
+                        log.error("valid-attendee-change: Attendee '{attendee}' is not allowed to change SCHEDULE-AGENT on organizer: UID:{uid}", attendee=self.attendeeAddress.record, uid=self.uid)
+                        raise HTTPError(ErrorResponse(
+                            responsecode.FORBIDDEN,
+                            (caldav_namespace, "valid-attendee-change"),
+                            "Cannot alter organizer",
+                        ))
 
                 # Determine whether the current change is allowed
                 changeAllowed, doITipReply, changedRids, newCalendar = self.isAttendeeChangeInsignificant()
@@ -1422,7 +1441,7 @@ class ImplicitScheduler(object):
                         self.return_status = ImplicitScheduler.STATUS_ORPHANED_EVENT
                         returnValue(None)
                     else:
-                        log.error("Attendee '{attendee}' is not allowed to make an unauthorized change to an organized event: UID:{uid}", attendee=self.attendeeAddress.record, uid=self.uid)
+                        log.error("valid-attendee-change: Attendee '{attendee}' is not allowed to make an unauthorized change to an organized event: UID:{uid}", attendee=self.attendeeAddress.record, uid=self.uid)
                         raise HTTPError(ErrorResponse(
                             responsecode.FORBIDDEN,
                             (caldav_namespace, "valid-attendee-change"),
@@ -1442,7 +1461,7 @@ class ImplicitScheduler(object):
                 log.debug("Attendee '{attendee}' is allowed to update UID: '{uid}' with local organizer '{organizer}'", attendee=self.attendee, uid=self.uid, organizer=self.organizer)
 
             elif isinstance(self.organizerAddress, LocalCalendarUser):
-                # If Organizer copy does not exists we cannot allow SCHEDULE-AGENT=SERVER
+                # If Organizer copy does not exist we cannot allow SCHEDULE-AGENT=SERVER
                 if doScheduling:
                     # Check to see whether all instances are CANCELLED
                     if self.calendar.hasPropertyValueInAllComponents(Property("STATUS", "CANCELLED")):
@@ -1454,7 +1473,7 @@ class ImplicitScheduler(object):
                         if self.oldcalendar:
                             oldScheduling = self.oldcalendar.getOrganizerScheduleAgent()
                             if not oldScheduling:
-                                log.error("Attendee '{attendee}' is not allowed to set SCHEDULE-AGENT=SERVER on organizer: UID:{uid}", attendee=self.attendeeAddress.record, uid=self.uid)
+                                log.error("valid-attendee-change: Attendee '{attendee}' is not allowed to set SCHEDULE-AGENT=SERVER on organizer: UID:{uid}", attendee=self.attendeeAddress.record, uid=self.uid)
                                 raise HTTPError(ErrorResponse(
                                     responsecode.FORBIDDEN,
                                     (caldav_namespace, "valid-attendee-change"),
@@ -1511,7 +1530,7 @@ class ImplicitScheduler(object):
                 oldOrganizer = self.oldcalendar.getOrganizer()
                 newOrganizer = self.calendar.getOrganizer()
                 if oldOrganizer != newOrganizer and self.oldcalendar.getOrganizerScheduleAgent():
-                    log.error("Cannot change ORGANIZER: UID:{uid}", uid=self.uid)
+                    log.error("valid-attendee-change: Cannot change ORGANIZER: UID:{uid}", uid=self.uid)
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
                         (caldav_namespace, "valid-attendee-change"),
@@ -1531,7 +1550,7 @@ class ImplicitScheduler(object):
                             break
 
                     if found_old:
-                        log.error("Cannot remove ATTENDEE: UID:%s" % (self.uid,))
+                        log.error("valid-attendee-change: Cannot remove ATTENDEE: UID:%s" % (self.uid,))
                         raise HTTPError(ErrorResponse(
                             responsecode.FORBIDDEN,
                             (caldav_namespace, "valid-attendee-change"),
@@ -1601,7 +1620,7 @@ class ImplicitScheduler(object):
             oldcalendar = self.organizer_calendar
             oldcalendar.attendeesView((self.attendee,), onlyScheduleAgentServer=True)
             if oldcalendar.mainType() is None:
-                log.debug("Implicit - attendee '{attendee}' cannot use an event they are not an attendee of, UID: '{uid}'", attendee=self.attendee, uid=self.uid)
+                log.debug("valid-attendee-change: Attendee '{attendee}' cannot use an event they are not an attendee of, UID: '{uid}'", attendee=self.attendee, uid=self.uid)
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
                     (caldav_namespace, "valid-attendee-change"),

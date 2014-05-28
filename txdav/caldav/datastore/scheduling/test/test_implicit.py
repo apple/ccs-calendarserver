@@ -1617,3 +1617,317 @@ END:VCALENDAR
         self.assertEqual(len(list2), 2)
         self.assertTrue(list2[0].startswith(hashlib.md5("12345-67890").hexdigest()))
         self.assertTrue(list2[1].startswith(hashlib.md5("12345-67890").hexdigest()))
+
+
+
+class ScheduleAgentFixBase(CommonCommonTests, TestCase):
+    """
+    Test txdav.caldav.datastore.scheduling.implicit.
+    """
+
+    @inlineCallbacks
+    def setUp(self):
+        yield super(ScheduleAgentFixBase, self).setUp()
+        yield self.buildStoreAndDirectory()
+        yield self.populate()
+        self.patch(config.Scheduling.Options, "AttendeeRefreshBatch", 0)
+
+
+    @inlineCallbacks
+    def populate(self):
+        yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
+        self.notifierFactory.reset()
+
+    metadata = {
+        "accessMode": "PUBLIC",
+        "isScheduleObject": True,
+        "scheduleTag": "abc",
+        "scheduleEtags": (),
+        "hasPrivateComment": False,
+    }
+
+    @classproperty(cache=False)
+    def requirements(cls): #@NoSelf
+        return {
+        "user01": {
+            "calendar_1": {
+                "organizer.ics": (cls.organizer_data, cls.metadata),
+            },
+            "inbox": {
+            },
+        },
+        "user02": {
+            "calendar_1": {
+                "attendee2.ics": (cls.attendee2_data, cls.metadata),
+            },
+            "inbox": {
+            },
+        },
+        "user03": {
+            "calendar_1": {
+                "attendee3.ics": (cls.attendee3_data, cls.metadata),
+            },
+            "inbox": {
+            },
+        },
+    }
+
+
+
+class ScheduleAgentFix(ScheduleAgentFixBase):
+    """
+    Test that implicit scheduling where an attendee has S-A=CLIENT and S-A=SERVER is
+    corrected when the attendee updates.
+    """
+
+    organizer_data = """BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART:20140101T100000Z
+DURATION:PT1H
+SUMMARY:event 1
+UID:event1@ninevah.local
+ORGANIZER:urn:x-uid:user01
+ATTENDEE:urn:x-uid:user01
+ATTENDEE:urn:x-uid:user03
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+RECURRENCE-ID:20140102T100000Z
+DTSTART:20140102T100000Z
+DURATION:PT1H
+SUMMARY:event 1
+UID:event1@ninevah.local
+ORGANIZER:urn:x-uid:user01
+ATTENDEE:urn:x-uid:user01
+ATTENDEE:urn:x-uid:user02
+ATTENDEE:urn:x-uid:user03
+END:VEVENT
+END:VCALENDAR
+"""
+
+    attendee2_data = """BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART:20140101T100000Z
+DURATION:PT1H
+SUMMARY:event 1
+UID:event1@ninevah.local
+ORGANIZER;SCHEDULE-AGENT=CLIENT:urn:x-uid:user01
+ATTENDEE:urn:x-uid:user01
+ATTENDEE:urn:x-uid:user03
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+RECURRENCE-ID:20140102T100000Z
+DTSTART:20140102T100000Z
+DURATION:PT1H
+SUMMARY:event 1
+UID:event1@ninevah.local
+ORGANIZER;SCHEDULE-AGENT=SERVER:urn:x-uid:user01
+ATTENDEE:urn:x-uid:user01
+ATTENDEE:urn:x-uid:user02
+ATTENDEE:urn:x-uid:user03
+END:VEVENT
+END:VCALENDAR
+"""
+
+    attendee2_update_data = """BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART:20140101T100000Z
+DURATION:PT1H
+SUMMARY:event 1
+UID:event1@ninevah.local
+ORGANIZER;SCHEDULE-AGENT=CLIENT:urn:x-uid:user01
+ATTENDEE:urn:x-uid:user01
+ATTENDEE:urn:x-uid:user03
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+RECURRENCE-ID:20140102T100000Z
+DTSTART:20140102T100000Z
+DURATION:PT1H
+SUMMARY:event 1
+UID:event1@ninevah.local
+ORGANIZER;SCHEDULE-AGENT=SERVER:urn:x-uid:user01
+ATTENDEE:urn:x-uid:user01
+ATTENDEE;PARTSTAT=ACCEPTED:urn:x-uid:user02
+ATTENDEE:urn:x-uid:user03
+END:VEVENT
+END:VCALENDAR
+"""
+
+    attendee3_data = """BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART:20140101T100000Z
+DURATION:PT1H
+SUMMARY:event 1
+UID:event1@ninevah.local
+ORGANIZER:urn:x-uid:user01
+ATTENDEE:urn:x-uid:user01
+ATTENDEE:urn:x-uid:user03
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+RECURRENCE-ID:20140102T100000Z
+DTSTART:20140102T100000Z
+DURATION:PT1H
+SUMMARY:event 1
+UID:event1@ninevah.local
+ORGANIZER:urn:x-uid:user01
+ATTENDEE:urn:x-uid:user01
+ATTENDEE:urn:x-uid:user02
+ATTENDEE:urn:x-uid:user03
+END:VEVENT
+END:VCALENDAR
+"""
+
+
+    @inlineCallbacks
+    def test_doImplicitScheduling(self):
+        """
+        Test that doImplicitScheduling fixes an inconsistent schedule-agent state when an
+        attendee stores their data.
+        """
+
+        cobj = yield self.calendarObjectUnderTest(home="user02", name="attendee2.ics")
+        yield cobj.setComponent(Component.fromString(self.attendee2_update_data))
+        yield self.commit()
+
+        cobj = yield self.calendarObjectUnderTest(home="user02", name="attendee2.ics")
+        comp = yield cobj.component()
+        self.assertTrue(comp.masterComponent() is None)
+        self.assertTrue(comp.getOrganizerScheduleAgent())
+
+        inbox = yield self.calendarUnderTest(home="user01", name="inbox")
+        cobjs = yield inbox.calendarObjects()
+        self.assertTrue(len(cobjs) == 1)
+
+
+
+class MissingOrganizerFix(ScheduleAgentFixBase):
+    """
+    Test that an attendee with a copy of an event without any organizer or attendee
+    properties is corrected when the organizer updates.
+    """
+
+    organizer_data = """BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART:20140101T100000Z
+DURATION:PT1H
+SUMMARY:event 1
+UID:event1@ninevah.local
+ORGANIZER:urn:x-uid:user01
+ATTENDEE:urn:x-uid:user01
+ATTENDEE:urn:x-uid:user03
+END:VEVENT
+END:VCALENDAR
+"""
+
+    organizer_update_data = """BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART:20140101T100000Z
+DURATION:PT1H
+SUMMARY:event 1
+UID:event1@ninevah.local
+ORGANIZER:urn:x-uid:user01
+ATTENDEE:urn:x-uid:user01
+ATTENDEE:urn:x-uid:user02
+ATTENDEE:urn:x-uid:user03
+END:VEVENT
+END:VCALENDAR
+"""
+
+    attendee2_data = """BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART:20140101T100000Z
+DURATION:PT1H
+SUMMARY:event 1
+UID:event1@ninevah.local
+END:VEVENT
+END:VCALENDAR
+"""
+
+    attendee3_data = """BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART:20140101T100000Z
+DURATION:PT1H
+SUMMARY:event 1
+UID:event1@ninevah.local
+ORGANIZER:urn:x-uid:user01
+ATTENDEE:urn:x-uid:user01
+ATTENDEE:urn:x-uid:user03
+END:VEVENT
+END:VCALENDAR
+"""
+
+
+    @inlineCallbacks
+    def test_doImplicitScheduling(self):
+        """
+        Test that doImplicitScheduling fixes an inconsistent schedule-agent state when an
+        attendee stores their data.
+        """
+
+        cobj = yield self.calendarObjectUnderTest(home="user02", name="attendee2.ics")
+        comp = yield cobj.component()
+        self.assertTrue(comp.getOrganizer() is None)
+        yield self.commit()
+
+        cobj = yield self.calendarObjectUnderTest(home="user01", name="organizer.ics")
+        yield cobj.setComponent(Component.fromString(self.organizer_update_data))
+        yield self.commit()
+
+        cobj = yield self.calendarObjectUnderTest(home="user02", name="attendee2.ics")
+        comp = yield cobj.component()
+        self.assertTrue(comp.getOrganizer() is not None)
+
+        inbox = yield self.calendarUnderTest(home="user02", name="inbox")
+        cobjs = yield inbox.calendarObjects()
+        self.assertTrue(len(cobjs) == 1)
