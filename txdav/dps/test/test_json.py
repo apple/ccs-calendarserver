@@ -140,9 +140,29 @@ class SerializationTests(unittest.TestCase):
             json = compoundExpressionAsJSON(expression)
 
             expected = {
-                'type': 'CompoundExpression',
-                'expressions': subExpressionsText,
-                'operand': 'AND',
+                "type": "CompoundExpression",
+                "expressions": subExpressionsText,
+                "operand": "AND",
+            }
+
+            self.assertEquals(json, expected)
+
+
+    def test_compoundExpressionAsJSON_operands(self):
+        """
+        L{compoundExpressionAsJSON} with different operands.
+        """
+        for operand, operandText in (
+            (Operand.AND, b"AND"),
+            (Operand.OR, b"OR"),
+        ):
+            expression = CompoundExpression((), operand)
+            json = compoundExpressionAsJSON(expression)
+
+            expected = {
+                "type": "CompoundExpression",
+                "expressions": [],
+                "operand": operandText,
             }
 
             self.assertEquals(json, expected)
