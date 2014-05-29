@@ -393,23 +393,23 @@ class GroupCacher(object):
 
         attendeeGroupUIDs = set()
 
-        # get all groups from events
+        # Get groupUIDs for aoo group attendees
+        # FIXME: this query does not have a unit test!
         groupAttendee = schema.GROUP_ATTENDEE
+        gr = schema.GROUPS
         rows = yield Select(
-            [groupAttendee.GROUP_ID, ],
-            From=groupAttendee,
+            [gr.GROUP_UID],
+            From=gr,
+            Distinct=True,
+            Where=gr.GROUP_ID.In(
+                Select(
+                    [groupAttendee.GROUP_ID],
+                    From=groupAttendee,
+                    Distinct=True
+                )
+            )
         ).on(txn)
-        groupIDs = set([row[0] for row in rows])
-
-        # get groupUIDs
-        if groupIDs:
-            gr = schema.GROUPS
-            rows = yield Select(
-                [gr.GROUP_UID, ],
-                From=gr,
-                Where=gr.GROUP_ID.In(groupIDs)
-            ).on(txn)
-            attendeeGroupUIDs = set([row[0] for row in rows])
+        attendeeGroupUIDs = set([row[0] for row in rows])
 
         # FIXME: is this a good place to clear out unreferenced groups?
 
