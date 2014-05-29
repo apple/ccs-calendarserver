@@ -486,6 +486,9 @@ END:VCALENDAR
         self.patch(CalendarDirectoryRecordMixin, "expandedMembers", expandedMembers)
 
         groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
+        groupsToRefresh = yield groupCacher.groupsToRefresh(self.transactionUnderTest())
+        self.assertEqual(len(groupsToRefresh), 0)
+        
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
         self.assertEqual(len(wps), 0)
 
@@ -502,7 +505,10 @@ END:VCALENDAR
         yield self.commit()
 
         self.patch(CalendarDirectoryRecordMixin, "expandedMembers", unpatchedExpandedMembers)
-
+        
+        groupsToRefresh = yield groupCacher.groupsToRefresh(self.transactionUnderTest())
+        self.assertEqual(len(groupsToRefresh), 1)
+        
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
         yield self.commit()
         self.assertEqual(len(wps), 1)
@@ -618,6 +624,9 @@ END:VCALENDAR
         self.patch(CalendarDirectoryRecordMixin, "expandedMembers", expandedMembers)
 
         groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
+        groupsToRefresh = yield groupCacher.groupsToRefresh(self.transactionUnderTest())
+        self.assertEqual(len(groupsToRefresh), 0)
+        
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
         self.assertEqual(len(wps), 0)
 
@@ -638,6 +647,9 @@ END:VCALENDAR
 
         self.patch(CalendarDirectoryRecordMixin, "expandedMembers", unpatchedExpandedMembers)
 
+        groupsToRefresh = yield groupCacher.groupsToRefresh(self.transactionUnderTest())
+        self.assertEqual(len(groupsToRefresh), 1)
+        
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
         yield self.commit()
         self.assertEqual(len(wps), len(userRange))
@@ -717,6 +729,9 @@ END:VCALENDAR
         yield calendar.createCalendarObjectWithName("data1.ics", vcalendar)
         yield self.commit()
 
+        groupsToRefresh = yield groupCacher.groupsToRefresh(self.transactionUnderTest())
+        self.assertEqual(len(groupsToRefresh), 0)
+        
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
         if len(wps): # This is needed because the test currently fails and does actually create job items we have to wait for
             yield self.commit()
@@ -816,6 +831,9 @@ END:VCALENDAR
         yield calendar.createCalendarObjectWithName("data1.ics", vcalendar)
         yield self.commit()
 
+        groupsToRefresh = yield groupCacher.groupsToRefresh(self.transactionUnderTest())
+        self.assertEqual(len(groupsToRefresh), 1)
+        
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
         yield self.commit()
         self.assertEqual(len(wps), 1)
@@ -946,6 +964,9 @@ END:VCALENDAR
         yield calendar.createCalendarObjectWithName("data1.ics", vcalendar)
         yield self.commit()
 
+        groupsToRefresh = yield groupCacher.groupsToRefresh(self.transactionUnderTest())
+        self.assertEqual(len(groupsToRefresh), 1)
+        
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
         yield self.commit()
         self.assertEqual(len(wps), 1)
@@ -1104,6 +1125,9 @@ END:VCALENDAR"""
 
         # cache group
         groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
+        groupsToRefresh = yield groupCacher.groupsToRefresh(self.transactionUnderTest())
+        self.assertEqual(len(groupsToRefresh), 3)
+        
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000002")
         yield self.commit()
         self.assertEqual(len(wps), 1)
@@ -1113,7 +1137,7 @@ END:VCALENDAR"""
         vcalendar = yield cobj.component()
         self._assertICalStrEqual(vcalendar, data_get_1)
 
-        # remove group  run cacher again
+        # remove group members run cacher again
         self.patch(DirectoryService, "recordWithUID", recordWithUID)
 
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000002")
@@ -1132,7 +1156,7 @@ END:VCALENDAR"""
         self.assertTrue("STATUS:CANCELLED" in str(comp))
         yield self.commit()
 
-        # add group back, run cacher
+        # add group members back, run cacher
         self.patch(DirectoryService, "recordWithUID", unpatchedRecordWithUID)
 
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000002")
@@ -1260,6 +1284,9 @@ END:VCALENDAR
 
         # cache groups
         groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
+        groupsToRefresh = yield groupCacher.groupsToRefresh(self.transactionUnderTest())
+        self.assertEqual(len(groupsToRefresh), 2)
+        
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000002")
         yield self.commit()
         self.assertEqual(len(wps), 1)

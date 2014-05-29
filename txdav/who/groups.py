@@ -391,10 +391,7 @@ class GroupCacher(object):
             "There are {count} group delegates", count=len(delegatedUIDs)
         )
 
-        attendeeGroupUIDs = set()
-
         # Get groupUIDs for aoo group attendees
-        # FIXME: this query does not have a unit test!
         groupAttendee = schema.GROUP_ATTENDEE
         gr = schema.GROUPS
         rows = yield Select(
