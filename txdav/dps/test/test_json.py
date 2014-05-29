@@ -20,10 +20,10 @@ Tests for txdav.dps.json.
 
 from twext.who.idirectory import FieldName
 from twext.who.expression import MatchExpression, MatchType, MatchFlags
-# from twext.who.expression import CompoundExpression, Operand
+from twext.who.expression import CompoundExpression, Operand
 
 from ..json import (
-    matchExpressionAsJSON,  # compoundExpressionAsJSON,
+    matchExpressionAsJSON, compoundExpressionAsJSON,
     # expressionAsJSON, expressionAsJSONText,
     # matchExpressionFromJSON, compoundExpressionFromJSON,
     # expressionFromJSON, expressionFromJSONText,
@@ -117,6 +117,32 @@ class SerializationTests(unittest.TestCase):
                 "match": b"equals",
                 "value": uid,
                 "flags": flagsText,
+            }
+
+            self.assertEquals(json, expected)
+
+
+    def test_compoundExpressionAsJSON_expressions(self):
+        """
+        L{compoundExpressionAsJSON} with 0, 1 and 2 sub-expressions.
+        """
+        for uids in (
+            (), (u"UID1",), (u"UID1", u"UID2"),
+        ):
+            subExpressions = [
+                MatchExpression(FieldName.uid, uid) for uid in uids
+            ]
+            subExpressionsText = [
+                matchExpressionAsJSON(e) for e in subExpressions
+            ]
+
+            expression = CompoundExpression(subExpressions, Operand.AND)
+            json = compoundExpressionAsJSON(expression)
+
+            expected = {
+                'type': 'CompoundExpression',
+                'expressions': subExpressionsText,
+                'operand': 'AND',
             }
 
             self.assertEquals(json, expected)
