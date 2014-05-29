@@ -75,25 +75,31 @@ def expressionAsJSONText(expression):
 
 
 
-def matchExpressionFromJSON(json):
+def matchExpressionFromJSON(service, json):
     try:
-        field_json = json["field"]
-        value_json = json["value"]
-        match_json = json["match"]
-        flags_json = json["flags"]
+        jsonField = json["field"]
+        jsonValue = json["value"]
     except KeyError as e:
         raise ValueError(
             "JSON match expression must have {!r} key.".format(e[0])
         )
 
-    raise NotImplementedError()
+    jsonMatch = json.get("match", "equals")
+    jsonFlags = json.get("flags", "{}")
 
-    fieldName = NotImplemented, field_json   # Need service...
-    fieldValue = NotImplemented, value_json  # Need to cast to correct value
-    matchType = MatchType.lookupByName(match_json)
-    flags = NotImplemented, flags_json       # Need to handle composite flags
+    fieldName = service.fieldName.lookupByName(jsonField)
+    fieldValue = unicode(jsonValue)
+    matchType = MatchType.lookupByName(jsonMatch)
 
-    MatchFlags  # Shh, flakes
+    if jsonFlags == "{}":
+        flags = MatchFlags.none
+    elif jsonFlags.startswith("{") and jsonFlags.endswith("}"):
+        # Composite flags: "{A,B,C,...}"
+        flags = MatchFlags.none
+        for flag in jsonFlags[1:-1].split(","):
+            flags |= MatchFlags.lookupByName(flag)
+    else:
+        flags = MatchFlags.lookupByName(jsonFlags)
 
     return MatchExpression(
         fieldName, fieldValue,

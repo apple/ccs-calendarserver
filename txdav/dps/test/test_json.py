@@ -25,10 +25,12 @@ from twext.who.expression import CompoundExpression, Operand
 from ..json import (
     matchExpressionAsJSON, compoundExpressionAsJSON,
     # expressionAsJSON, expressionAsJSONText,
-    # matchExpressionFromJSON, compoundExpressionFromJSON,
+    matchExpressionFromJSON,  # compoundExpressionFromJSON,
     # expressionFromJSON, expressionFromJSONText,
+    from_json_text,  # to_json_text,
 )
 
+from twext.who.test.test_xml import xmlService
 from twisted.trial import unittest
 
 
@@ -37,6 +39,10 @@ class SerializationTests(unittest.TestCase):
     """
     Tests for serialization to JSON.
     """
+
+    def service(self, subClass=None, xmlData=None):
+        return xmlService(self.mktemp())
+
 
     def test_matchExpressionAsJSON_basic(self):
         """
@@ -64,9 +70,9 @@ class SerializationTests(unittest.TestCase):
         uid = u"Some UID"
 
         for matchType, matchText in (
-            (MatchType.equals, b"equals"),
-            (MatchType.endsWith, b"endsWith"),
-            (MatchType.lessThanOrEqualTo, b"lessThanOrEqualTo"),
+            (MatchType.equals, "equals"),
+            (MatchType.endsWith, "endsWith"),
+            (MatchType.lessThanOrEqualTo, "lessThanOrEqualTo"),
         ):
             expression = MatchExpression(
                 FieldName.uid, uid, matchType=matchType
@@ -74,8 +80,8 @@ class SerializationTests(unittest.TestCase):
             json = matchExpressionAsJSON(expression)
 
             expected = {
-                "type": b"MatchExpression",
-                "field": b"uid",
+                "type": "MatchExpression",
+                "field": "uid",
                 "match": matchText,
                 "value": uid,
                 "flags": "{}",
@@ -93,28 +99,28 @@ class SerializationTests(unittest.TestCase):
         for flags, flagsText, in (
             (
                 MatchFlags.none,
-                b"{}"
+                "{}"
             ),
             (
                 MatchFlags.NOT,
-                b"NOT"
+                "NOT"
             ),
             (
                 MatchFlags.caseInsensitive,
-                b"caseInsensitive"
+                "caseInsensitive"
             ),
             (
                 MatchFlags.NOT | MatchFlags.caseInsensitive,
-                b"{NOT,caseInsensitive}"
+                "{NOT,caseInsensitive}"
             ),
         ):
             expression = MatchExpression(FieldName.uid, uid, flags=flags)
             json = matchExpressionAsJSON(expression)
 
             expected = {
-                "type": b"MatchExpression",
-                "field": b"uid",
-                "match": b"equals",
+                "type": "MatchExpression",
+                "field": "uid",
+                "match": "equals",
                 "value": uid,
                 "flags": flagsText,
             }
@@ -153,8 +159,8 @@ class SerializationTests(unittest.TestCase):
         L{compoundExpressionAsJSON} with different operands.
         """
         for operand, operandText in (
-            (Operand.AND, b"AND"),
-            (Operand.OR, b"OR"),
+            (Operand.AND, "AND"),
+            (Operand.OR, "OR"),
         ):
             expression = CompoundExpression((), operand)
             json = compoundExpressionAsJSON(expression)
@@ -166,3 +172,101 @@ class SerializationTests(unittest.TestCase):
             }
 
             self.assertEquals(json, expected)
+
+
+    def test_matchExpressionFromJSON_basic(self):
+        """
+        L{test_matchExpressionFromJSON_basic} with default matching and flags.
+        """
+        service = self.service()
+        uid = u"Some UID"
+        jsonText = (
+            """
+            {{
+                "type": "MatchExpression",
+                "field": "uid",
+                "value": "{uid}"
+            }}
+            """
+        ).format(uid=uid)
+        json = from_json_text(jsonText)
+
+        expected = MatchExpression(FieldName.uid, uid)
+        expression = matchExpressionFromJSON(service, json)
+
+        self.assertEquals(expression, expected)
+
+
+    def test_matchExpressionFromJSON_types(self):
+        """
+        L{matchExpressionFromJSON} with various match types.
+        """
+        service = self.service()
+        uid = u"Some UID"
+
+        for matchType, matchText in (
+            (MatchType.equals, b"equals"),
+            (MatchType.endsWith, b"endsWith"),
+            (MatchType.lessThanOrEqualTo, b"lessThanOrEqualTo"),
+        ):
+            jsonText = (
+                """
+                {{
+                    "type": "MatchExpression",
+                    "field": "uid",
+                    "match": "{matchType}",
+                    "value": "{uid}",
+                    "flags": "{{}}"
+                }}
+                """
+            ).format(uid=uid, matchType=matchText)
+            json = from_json_text(jsonText)
+
+            expected = MatchExpression(FieldName.uid, uid, matchType=matchType)
+            expression = matchExpressionFromJSON(service, json)
+
+            self.assertEquals(expression, expected)
+
+
+    def test_matchExpressionFromJSON_flags(self):
+        """
+        L{matchExpressionFromJSON} with various flags.
+        """
+        service = self.service()
+        uid = u"Some UID"
+
+        for flags, flagsText, in (
+            (
+                MatchFlags.none,
+                "{}"
+            ),
+            (
+                MatchFlags.NOT,
+                "NOT"
+            ),
+            (
+                MatchFlags.caseInsensitive,
+                "caseInsensitive"
+            ),
+            (
+                MatchFlags.NOT | MatchFlags.caseInsensitive,
+                "{NOT,caseInsensitive}"
+            ),
+        ):
+            jsonText = (
+                """
+                {{
+                    "type": "MatchExpression",
+                    "field": "uid",
+                    "match": "equals",
+                    "value": "{uid}",
+                    "flags": "{flagsText}"
+                }}
+                """
+            ).format(uid=uid, flagsText=flagsText)
+            json = from_json_text(jsonText)
+
+            expected = MatchExpression(FieldName.uid, uid, flags=flags)
+            expression = matchExpressionFromJSON(service, json)
+
+            self.assertEquals(expression, expected)
