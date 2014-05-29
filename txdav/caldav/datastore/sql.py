@@ -2451,7 +2451,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                                         "X-TITLE": title,
                                     }
                                     structured = Property("X-APPLE-STRUCTURED-LOCATION",
-                                        "geo:{0}".format(geo.encode("utf-8"),), params=params,
+                                        geo.encode("utf-8"), params=params,
                                         valuetype=Value.VALUETYPE_URI)
                                     sub.replaceProperty(structured)
                                     newLocProperty = Property("LOCATION",

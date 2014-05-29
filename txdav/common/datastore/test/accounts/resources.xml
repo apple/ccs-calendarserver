@@ -107,14 +107,14 @@ limitations under the License.
     <short-name>il1</short-name>
     <full-name>One Infinite Loop</full-name>
     <street-address>1 Infinite Loop, Cupertino, CA 95014</street-address>
-    <geographic-location>37.331741,-122.030333</geographic-location>
+    <geographic-location>geo:37.331741,-122.030333</geographic-location>
   </record>
   <record type="address">
     <uid>2-infinite-loop</uid>
     <short-name>il2</short-name>
     <full-name>Two Infinite Loop</full-name>
     <street-address>2 Infinite Loop, Cupertino, CA 95014</street-address>
-    <geographic-location>37.332633,-122.030502</geographic-location>
+    <geographic-location>geo:37.332633,-122.030502</geographic-location>
   </record>
 
 </directory>
