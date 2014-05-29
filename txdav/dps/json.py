@@ -21,7 +21,9 @@ JSON serialization utilities.
 """
 
 __all__ = [
+    "expressionAsJSON",
     "expressionAsJSONText",
+    "expressionFromJSON",
     "expressionFromJSONText",
 ]
 
@@ -34,9 +36,23 @@ from twext.who.expression import (
 
 
 
-def expressionAsJSONText(expression):
-    json = expressionAsJSON(expression)
-    return to_json_text(json)
+def matchExpressionAsJSON(expression):
+    return dict(
+        type=expression.__class__.__name__,
+        field=expression.fieldName.name,
+        value=expression.fieldValue,
+        match=expression.matchType.name,
+        flags=expression.flags.name,
+    )
+
+
+
+def compoundExpressionAsJSON(expression):
+    return dict(
+        type=expression.__class__.__name__,
+        operand=expression.operand.name,
+        expressions=[expressionAsJSON(e) for e in expression.expressions],
+    )
 
 
 
@@ -53,67 +69,9 @@ def expressionAsJSON(expression):
 
 
 
-def compoundExpressionAsJSON(expression):
-    return dict(
-        type=expression.__class__.__name__,
-        operand=expression.operand.name,
-        expressions=[expressionAsJSON(e) for e in expression.expressions],
-    )
-
-
-
-def matchExpressionAsJSON(expression):
-    return dict(
-        type=expression.__class__.__name__,
-        field=expression.fieldName.name,
-        value=expression.fieldValue,
-        match=expression.matchType.name,
-        flags=expression.flags.name,
-    )
-    raise NotImplementedError()
-
-
-
-def expressionFromJSONText(jsonText):
-    json = from_json_text(jsonText)
-    return expressionFromJSON(json)
-
-
-
-def expressionFromJSON(json):
-    if not isinstance(json, dict):
-        raise TypeError("JSON expression must be a dict.")
-
-    try:
-        json_type = json["type"]
-    except KeyError as e:
-        raise ValueError("JSON expression must have {!r} key.".format(e[0]))
-
-    if json_type == "CompoundExpression":
-        return compoundExpressionFromJSON(json)
-
-    if json_type == "MatchExpression":
-        return matchExpressionFromJSON(json)
-
-    raise NotImplementedError(
-        "Unknown expression type: {}".format(json_type)
-    )
-
-
-
-def compoundExpressionFromJSON(json):
-    try:
-        expressions_json = json["expressions"]
-        operand_json = json["operand"]
-    except KeyError as e:
-        raise ValueError(
-            "JSON compound expression must have {!r} key.".format(e[0])
-        )
-
-    expressions = tuple(expressionFromJSON(e) for e in expressions_json)
-    operand = Operand.lookupByName(operand_json)
-
-    return CompoundExpression(expressions, operand)
+def expressionAsJSONText(expression):
+    json = expressionAsJSON(expression)
+    return to_json_text(json)
 
 
 
@@ -141,6 +99,49 @@ def matchExpressionFromJSON(json):
         fieldName, fieldValue,
         matchType=matchType, flags=flags,
     )
+
+
+
+def compoundExpressionFromJSON(json):
+    try:
+        expressions_json = json["expressions"]
+        operand_json = json["operand"]
+    except KeyError as e:
+        raise ValueError(
+            "JSON compound expression must have {!r} key.".format(e[0])
+        )
+
+    expressions = tuple(expressionFromJSON(e) for e in expressions_json)
+    operand = Operand.lookupByName(operand_json)
+
+    return CompoundExpression(expressions, operand)
+
+
+
+def expressionFromJSON(json):
+    if not isinstance(json, dict):
+        raise TypeError("JSON expression must be a dict.")
+
+    try:
+        json_type = json["type"]
+    except KeyError as e:
+        raise ValueError("JSON expression must have {!r} key.".format(e[0]))
+
+    if json_type == "CompoundExpression":
+        return compoundExpressionFromJSON(json)
+
+    if json_type == "MatchExpression":
+        return matchExpressionFromJSON(json)
+
+    raise NotImplementedError(
+        "Unknown expression type: {}".format(json_type)
+    )
+
+
+
+def expressionFromJSONText(jsonText):
+    json = from_json_text(jsonText)
+    return expressionFromJSON(json)
 
 
 
