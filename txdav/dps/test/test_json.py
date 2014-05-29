@@ -40,10 +40,6 @@ class SerializationTests(unittest.TestCase):
     Tests for serialization to JSON.
     """
 
-    def service(self, subClass=None, xmlData=None):
-        return xmlService(self.mktemp())
-
-
     def test_matchExpressionAsJSON_basic(self):
         """
         L{matchExpressionAsJSON} with default matching and flags.
@@ -172,6 +168,16 @@ class SerializationTests(unittest.TestCase):
             }
 
             self.assertEquals(json, expected)
+
+
+
+class DeserializationTests(unittest.TestCase):
+    """
+    Tests for deserialization from JSON.
+    """
+
+    def service(self, subClass=None, xmlData=None):
+        return xmlService(self.mktemp())
 
 
     def test_matchExpressionFromJSON_basic(self):
