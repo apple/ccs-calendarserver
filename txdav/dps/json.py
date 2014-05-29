@@ -63,7 +63,7 @@ def expressionAsJSON(expression):
     if isinstance(expression, MatchExpression):
         return matchExpressionAsJSON(expression)
 
-    raise NotImplementedError(
+    raise TypeError(
         "Unknown expression type: {!r}".format(expression)
     )
 
