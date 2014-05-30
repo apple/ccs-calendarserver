@@ -38,7 +38,7 @@ class WikiIndividualServiceTestCase(unittest.TestCase):
     @inlineCallbacks
     def test_service(self):
         service = DirectoryService("realm", "localhost", 4444)
-        record = yield service.recordWithUID(u"[wiki]test")
+        record = yield service.recordWithUID(u"wiki-test")
         self.assertEquals(
             record.shortNames[0],
             u"test"
@@ -63,7 +63,7 @@ class WikiAggregateServiceTestCase(StoreTestCase):
 
     @inlineCallbacks
     def test_service(self):
-        record = yield self.directory.recordWithUID(u"[wiki]test")
+        record = yield self.directory.recordWithUID(u"wiki-test")
         self.assertEquals(
             record.shortNames[0],
             u"test"
@@ -97,7 +97,7 @@ class AccessForRecordTestCase(StoreTestCase):
 
     @inlineCallbacks
     def test_accessForRecord(self):
-        record = yield self.directory.recordWithUID(u"[wiki]test")
+        record = yield self.directory.recordWithUID(u"wiki-test")
 
         self.access = "no-access"
         access = yield record.accessForRecord(None)

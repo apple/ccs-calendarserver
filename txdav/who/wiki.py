@@ -70,7 +70,7 @@ class DirectoryService(BaseDirectoryService):
     Mac OS X Server Wiki directory service.
     """
 
-    uidPrefix = u"[wiki]"
+    uidPrefix = u"wiki-"
 
     recordType = RecordType
 
