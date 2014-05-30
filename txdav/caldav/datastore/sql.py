@@ -4036,6 +4036,18 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         of their split copy - it should be identical, part from per-user data, so it will apply
         cleanly. We can include an X- headers to indicate the split R-ID so "smart" clients/servers
         can simply ignore this message.
+
+        @param onlyThis: if L{True} then only this L{CalendarObject} will be split (the organizer copy only),
+            if L{False}, then organizer and attendee copies are split (this is the normal behavior).
+        @type onlyThis: L{bool}
+        @param rid: the date-time where the split should occur. This needs to be a specific instance
+            date-time or L{None} to have one automatically determined. To determine a valid value,
+            given an arbitrary date-time, use the L{iCalSplitter.willSplit) method (which is used
+            in L{CalendarObject.splitAt}).
+        @type rid: L{DateTime}
+        @param olderUID: sets the iCalendar UID to be used in the new resource created during the split.
+            If L{None} a UUID is generated and used.
+        @type olderUID: L{str}
         """
 
         # First job is to grab a UID lock on this entire series of events
