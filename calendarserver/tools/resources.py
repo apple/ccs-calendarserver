@@ -31,7 +31,7 @@ from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
 from txdav.who.directory import CalendarDirectoryRecordMixin
 from twext.who.directory import DirectoryRecord as BaseDirectoryRecord
-from twext.who.opendirectory import RecordType
+from txdav.who.opendirectory import RecordType
 
 
 log = Logger()
