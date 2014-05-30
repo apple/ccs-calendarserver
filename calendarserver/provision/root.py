@@ -329,7 +329,7 @@ class RootResource(
 
             # The authzuser value is set to that of the wiki principal if
             # not already set.
-            if not hasattr(request, "authzUser"):
+            if not hasattr(request, "authzUser") and segments[2]:
                 wikiUid = None
                 if segments[1] == "wikis":
                     wikiUid = "{}{}".format(WikiDirectoryService.uidPrefix, segments[2])
