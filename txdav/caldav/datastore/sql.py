@@ -2061,7 +2061,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 isOld = rows[0][0] == 0
 
             else:
-                if instances:
+                if instances and len(instances.instances):
                     cutoffDate_DateTime = (
                         DateTime.getNowUTC() +
                         Duration(seconds=config.GroupAttendees.UpdateOldEventLimitSeconds)

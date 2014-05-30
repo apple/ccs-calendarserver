@@ -2277,6 +2277,42 @@ END:VCALENDAR
         yield self.commit()
 
 
+    @inlineCallbacks
+    def test_setComponent_noInstances(self):
+        """
+        Verify that an event with no instances (entirely EXDATEd) can be stored when group expansion
+        is on.
+        """
+
+        self.patch(config.GroupAttendees, "Enabled", True)
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Apple Inc.//Mac OS X 10.9.1//EN
+BEGIN:VEVENT
+UID:561F5DBB-3F38-4B3A-986F-DD05CBAF554F
+DTSTART;TZID=America/Los_Angeles:20131211T164500
+DURATION:PT1H
+ATTENDEE:urn:x-uid:user01
+CREATED:20131211T221854Z
+DTSTAMP:20131211T230632Z
+ORGANIZER:urn:x-uid:user01
+RRULE:FREQ=DAILY;COUNT=1
+EXDATE;TZID=America/Los_Angeles:20131211T164500
+SUMMARY:external
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+        yield calendar.createCalendarObjectWithName("exdated.ics", Component.fromString(data))
+        yield self.commit()
+
+        cobj = yield self.calendarObjectUnderTest(name="exdated.ics", calendar_name="calendar", home="user01")
+        self.assertTrue(cobj is not None)
+
+
 
 class CalendarObjectSplitting(CommonCommonTests, unittest.TestCase):
     """
