@@ -1250,11 +1250,16 @@ class ImplicitScheduler(object):
             if attendee in self.organizerAddress.record.calendarUserAddresses:
                 continue
 
+            attendeeAddress = (yield calendarUserFromCalendarUserAddress(attendee, self.txn))
+
             # Handle split by not scheduling local attendees
             if self.split_details is not None:
-                attendeeAddress = (yield calendarUserFromCalendarUserAddress(attendee, self.txn))
                 if type(attendeeAddress) is LocalCalendarUser:
                     continue
+
+            # Do not schedule with groups - ever
+            if attendeeAddress.hosted() and attendeeAddress.getCUType() == "GROUP":
+                continue
 
             # Generate an iTIP CANCEL message for this attendee, cancelling
             # each instance or the whole
@@ -1314,11 +1319,16 @@ class ImplicitScheduler(object):
             if self.reinvites and attendee not in self.reinvites:
                 continue
 
+            attendeeAddress = (yield calendarUserFromCalendarUserAddress(attendee, self.txn))
+
             # Handle split by not scheduling local attendees
             if self.split_details is not None:
-                attendeeAddress = (yield calendarUserFromCalendarUserAddress(attendee, self.txn))
                 if type(attendeeAddress) is LocalCalendarUser:
                     continue
+
+            # Do not schedule with groups - ever
+            if attendeeAddress.hosted() and attendeeAddress.getCUType() == "GROUP":
+                continue
 
             itipmsg = iTipGenerator.generateAttendeeRequest(self.calendar, (attendee,), self.changed_rids)
 

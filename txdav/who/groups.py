@@ -291,7 +291,7 @@ class GroupCacher(object):
 
             membershipHashContent = hashlib.md5()
             members = list(members)
-            members.sort(cmp=lambda x, y: cmp(x.uid, y.uid))
+            members.sort(key=lambda x: x.uid)
             for member in members:
                 membershipHashContent.update(str(member.uid))
             membershipHash = membershipHashContent.hexdigest()
@@ -397,7 +397,6 @@ class GroupCacher(object):
         rows = yield Select(
             [gr.GROUP_UID],
             From=gr,
-            Distinct=True,
             Where=gr.GROUP_ID.In(
                 Select(
                     [groupAttendee.GROUP_ID],
@@ -407,6 +406,9 @@ class GroupCacher(object):
             )
         ).on(txn)
         attendeeGroupUIDs = set([row[0] for row in rows])
+        self.log.info(
+            "There are {count} group attendees", count=len(attendeeGroupUIDs)
+        )
 
         # FIXME: is this a good place to clear out unreferenced groups?
 

@@ -107,6 +107,14 @@ class HostedCalendarUser(CalendarUser):
         return self.record.calendarsEnabled() and not isinstance(self.record, TemporaryDirectoryRecord)
 
 
+    def getCUType(self):
+        """
+        Is this user able to receive scheduling messages.
+        A user with a temporary directory record cannot be scheduled with.
+        """
+        return self.record.getCUType()
+
+
 
 class LocalCalendarUser(HostedCalendarUser):
     """
@@ -181,8 +189,20 @@ class InvalidCalendarUser(CalendarUser):
     directory entry.
     """
 
+    def __init__(self, cuaddr, record=None):
+        self.cuaddr = cuaddr
+        self.record = record
+
+
     def __str__(self):
         return "Invalid calendar user: {}".format(self.cuaddr)
+
+
+    def hosted(self):
+        """
+        Is this user hosted on this service (this pod or any other)
+        """
+        return self.record is not None
 
 
     def validOriginator(self):
@@ -197,6 +217,14 @@ class InvalidCalendarUser(CalendarUser):
         Is this user able to receive scheduling messages.
         """
         return False
+
+
+    def getCUType(self):
+        """
+        Is this user able to receive scheduling messages.
+        A user with a temporary directory record cannot be scheduled with.
+        """
+        return self.record.getCUType() if self.record is not None else None
 
 
 
@@ -284,7 +312,7 @@ def _fromRecord(cuaddr, record, txn):
     """
     if record is not None:
         if not record.calendarsEnabled():
-            returnValue(InvalidCalendarUser(cuaddr))
+            returnValue(InvalidCalendarUser(cuaddr, record))
         elif record.thisServer():
             returnValue(LocalCalendarUser(cuaddr, record))
         else:

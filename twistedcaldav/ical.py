@@ -3409,6 +3409,12 @@ END:VCALENDAR
 
                 if cutype != prop.parameterValue("CUTYPE"):
                     if cutype and cutype != "INDIVIDUAL":
+                        # For groups we need to change the CUTYPE exposed to clients when we have server-managed
+                        # group attendee expansion because some clients seem to spontaneous remove CUTYPE=GROUP
+                        # for no obvious reason when the event is changed. We can't have that happen for the
+                        # server-managed groups so using a different CUTYPE seems to work around that.
+                        if config.GroupAttendees.Enabled and cutype == "GROUP":
+                            cutype = "X-SERVER-GROUP"
                         prop.setParameter("CUTYPE", cutype)
                     else:
                         prop.removeParameter("CUTYPE")

@@ -27,7 +27,8 @@ from twistedcaldav.ical import normalizeCUAddress
 
 from txdav.caldav.datastore.scheduling import addressmapping
 from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser, \
-    calendarUserFromCalendarUserAddress, RemoteCalendarUser
+    calendarUserFromCalendarUserAddress, RemoteCalendarUser, \
+    OtherServerCalendarUser
 from txdav.caldav.datastore.scheduling.ischedule import xml
 from txdav.caldav.datastore.scheduling.ischedule.dkim import DKIMVerifier, \
     DKIMVerificationError, DKIMMissingError
@@ -257,9 +258,19 @@ class IScheduleScheduler(RemoteScheduler):
                     self.errorElements["originator-denied"],
                     "Originator cannot be local to server",
                 ))
-            else:
+            elif isinstance(originatorAddress, OtherServerCalendarUser):
                 self.originator = originatorAddress
                 self._validAlternateServer(originatorAddress)
+            else:
+                log.error(
+                    "Cannot use invalid originator: {o}",
+                    o=self.originator,
+                )
+                raise HTTPError(self.errorResponse(
+                    responsecode.FORBIDDEN,
+                    self.errorElements["originator-denied"],
+                    "Originator cannot schedule",
+                ))
         else:
             if self._podding:
                 log.error(
@@ -436,10 +447,20 @@ class IScheduleScheduler(RemoteScheduler):
                         self.errorElements["organizer-denied"],
                         "Organizer is not local to server",
                     ))
-                else:
+                elif isinstance(organizerAddress, OtherServerCalendarUser):
                     # Check that the origin server is the correct pod
                     self.organizer = organizerAddress
                     self._validAlternateServer(self.organizer)
+                else:
+                    log.error(
+                        "Invalid ORGANIZER in calendar data: {cal}",
+                        cal=self.calendar,
+                    )
+                    raise HTTPError(self.errorResponse(
+                        responsecode.FORBIDDEN,
+                        self.errorElements["organizer-denied"],
+                        "Organizer cannot schedule",
+                    ))
             else:
                 localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(organizer))
                 if localUser:
@@ -486,8 +507,18 @@ class IScheduleScheduler(RemoteScheduler):
                     self.errorElements["attendee-denied"],
                     "Local attendee cannot send to this server",
                 ))
-            else:
+            elif isinstance(attendeeAddress, OtherServerCalendarUser):
                 self._validAlternateServer(attendeeAddress)
+            else:
+                log.error(
+                    "Invalid ATTENDEE in calendar data: {cal}",
+                    cal=self.calendar,
+                )
+                raise HTTPError(self.errorResponse(
+                    responsecode.FORBIDDEN,
+                    self.errorElements["attendee-denied"],
+                    "Attendee not allowed to schedule",
+                ))
         else:
             localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(self.attendee))
             if localUser:

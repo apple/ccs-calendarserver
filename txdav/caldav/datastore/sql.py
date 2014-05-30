@@ -1940,10 +1940,13 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         if not config.GroupAttendees.Enabled:
             returnValue(False)
 
+        # Note, as per ical.py/normalizeCalendarUserAddresses we change the CUTYPE from GROUP
+        # to X-SERVER-GROUP to ensure bad clients don't spontaneously remove group attendees
+        # when an event changes.
         attendeeProps = component.getAllAttendeeProperties()
         groupCUAs = set([
             attendeeProp.value() for attendeeProp in attendeeProps
-            if attendeeProp.parameterValue("CUTYPE") == "GROUP"
+            if attendeeProp.parameterValue("CUTYPE") == "X-SERVER-GROUP"
         ])
 
         groupCUAToAttendeeMemberPropMap = {}

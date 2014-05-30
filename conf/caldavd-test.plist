@@ -1010,7 +1010,7 @@
 
     <key>GroupAttendees</key>
     <dict>
-      <key>GroupAttendees</key>
+      <key>Enabled</key>
       <true/>
 
       <key>ReconciliationDelaySeconds</key>

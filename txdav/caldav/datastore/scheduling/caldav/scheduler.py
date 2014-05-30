@@ -174,7 +174,7 @@ class CalDAVScheduler(Scheduler):
         if organizer:
             organizerAddress = yield calendarUserFromCalendarUserAddress(organizer, self.txn)
             if organizerAddress.hosted():
-                if organizerAddress.record.calendarsEnabled():
+                if organizerAddress.validOriginator():
 
                     # Only do this check for a freebusy request. A check for an invite needs
                     # to be handled later when we know whether a new invite is being added
