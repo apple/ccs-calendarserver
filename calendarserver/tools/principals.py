@@ -21,7 +21,7 @@ from getopt import getopt, GetoptError
 import operator
 import os
 import sys
-from uuid import UUID
+import uuid
 
 from calendarserver.tools.cmdline import utilityMain, WorkerService
 from calendarserver.tools.util import (
@@ -827,21 +827,33 @@ def abort(msg, status=1):
 
 def parseCreationArgs(args):
     """
-    Look at the command line arguments for --add, and simply assume the first
-    is full name, the second is short name, and the third is uid.  We can make
-    this fancier later.
+    Look at the command line arguments for --add; the first arg is required
+    and is the full name.   If only that one arg is provided, generate a UUID
+    and use it for record name and uid.  If two args are provided, use the
+    second arg as the record name and generate a UUID for the uid.  If three
+    args are provided, the second arg is the record name and the third arg
+    is the uid.
     """
 
-    if len(args) != 3:
+    numArgs = len(args)
+    if numArgs == 0:
         print(
-            "When adding a principal, you must provide full-name, record-name, "
-            "and UID"
+            "When adding a principal, you must provide the full-name"
         )
         sys.exit(64)
 
     fullName = args[0].decode("utf-8")
-    shortName = args[1].decode("utf-8")
-    uid = args[2].decode("utf-8")
+
+    if numArgs == 1:
+        shortName = uid = unicode(uuid.uuid4()).upper()
+
+    elif numArgs == 2:
+        shortName = args[1].decode("utf-8")
+        uid = unicode(uuid.uuid4()).upper()
+
+    else:
+        shortName = args[1].decode("utf-8")
+        uid = args[2].decode("utf-8")
 
     return fullName, shortName, uid
 
@@ -849,7 +861,7 @@ def parseCreationArgs(args):
 
 def isUUID(value):
     try:
-        UUID(value)
+        uuid.UUID(value)
         return True
     except:
         return False
