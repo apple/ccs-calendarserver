@@ -115,7 +115,7 @@ def buildDirectory(
             directory = XMLDirectoryService(fp)
 
         elif "opendirectory" in directoryType:
-            from twext.who.opendirectory import (
+            from txdav.who.opendirectory import (
                 DirectoryService as ODDirectoryService
             )
             # We don't want system accounts returned in lookups, so tell
