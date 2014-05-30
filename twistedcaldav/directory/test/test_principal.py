@@ -42,6 +42,7 @@ from txweb2.test.test_server import SimpleRequest
 
 from urllib import quote
 from uuid import UUID
+import random
 
 
 class ProvisionedPrincipals(StoreTestCase):
@@ -830,16 +831,16 @@ class ProvisionedPrincipals(StoreTestCase):
         """
         Default access controls for principals.
         """
+        records = yield self._allRecords()
         for (
             _ignore_provisioningResource, _ignore_recordType, recordResource, _ignore_record
-        ) in (yield self._allRecords()):
-            if True:  # user.enabled:
-                for args in (
-                    yield _authReadOnlyPrivileges(
-                        self, recordResource, recordResource.principalURL()
-                    )
-                ):
-                    yield self._checkPrivileges(*args)
+        ) in records:
+            for args in (
+                yield _authReadOnlyPrivileges(
+                    self, recordResource, recordResource.principalURL(), records=random.sample(records, 10)
+                )
+            ):
+                yield self._checkPrivileges(*args)
 
 
     @inlineCallbacks
@@ -1015,20 +1016,21 @@ class ProvisionedPrincipals(StoreTestCase):
 
 
 @inlineCallbacks
-def _authReadOnlyPrivileges(self, resource, url):
+def _authReadOnlyPrivileges(self, resource, url, records=None):
     items = []
+    if records is None:
+        records = yield self._allRecords()
     for (
         _ignore_provisioningResource, _ignore_recordType, recordResource, _ignore_record
-    ) in (yield self._allRecords()):
-        if True:  # user.enabled:
-            items.append((
-                davxml.HRef().fromString(recordResource.principalURL()),
-                davxml.Read(), True
-            ))
-            items.append((
-                davxml.HRef().fromString(recordResource.principalURL()),
-                davxml.Write(), False
-            ))
+    ) in records:
+        items.append((
+            davxml.HRef().fromString(recordResource.principalURL()),
+            davxml.Read(), True
+        ))
+        items.append((
+            davxml.HRef().fromString(recordResource.principalURL()),
+            davxml.Write(), False
+        ))
     items.append((
         davxml.Unauthenticated(), davxml.Read(), False
     ))
