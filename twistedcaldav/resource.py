@@ -858,7 +858,7 @@ class CalDAVResource (
         Return the DAV:owner property value (MUST be a DAV:href or None).
         """
 
-        if hasattr(self, "_newStoreObject"):
+        if getattr(self, "_newStoreObject", None) is not None:
             if not hasattr(self._newStoreObject, "ownerHome"):
                 home = self._newStoreObject.parentCollection().ownerHome()
             else:

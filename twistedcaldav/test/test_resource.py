@@ -160,6 +160,26 @@ class OwnershipTests(TestCase):
 
 
     @inlineCallbacks
+    def test_isOwnerYes_noStoreObject(self):
+        """
+        L{CalDAVResource.isOwner} returns C{True} for authenticated requests
+        with a principal that matches the resource's owner.
+        """
+        site = None
+        request = SimpleRequest(site, "GET", "/not/a/real/url/")
+        request.authzUser = request.authnUser = StubPrincipal("/yes-i-am-the-owner/")
+        parent = CalDAVResource()
+        parent.owner = lambda igreq: HRef("/yes-i-am-the-owner/")
+        rsrc = CalDAVResource()
+        rsrc._newStoreObject = None
+
+        request._rememberResource(parent, "/not/a/real/")
+        request._rememberResource(rsrc, "/not/a/real/url/")
+
+        self.assertEquals((yield rsrc.isOwner(request)), True)
+
+
+    @inlineCallbacks
     def test_isOwnerAdmin(self):
         """
         L{CalDAVResource.isOwner} returns C{True} for authenticated requests

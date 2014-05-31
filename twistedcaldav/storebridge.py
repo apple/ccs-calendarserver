@@ -1318,6 +1318,10 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         returnValue(result)
 
 
+    def canBeShared(self):
+        return config.Sharing.Enabled and config.Sharing.Calendars.Enabled
+
+
     @inlineCallbacks
     def storeResourceData(self, newchild, component, returnChangedData=False):
 
@@ -2823,6 +2827,10 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         returnValue(response)
 
 
+    def canBeShared(self):
+        return False
+
+
     @inlineCallbacks
     def http_PUT(self, request):
 
@@ -3296,6 +3304,10 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         return carddavxml.AddressData
 
 
+    def canBeShared(self):
+        return config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled
+
+
     @inlineCallbacks
     def storeResourceData(self, newchild, component, returnChangedData=False):
 
@@ -3564,6 +3576,10 @@ class AddressBookObjectResource(_CommonObjectResource):
         )
 
         returnValue(response)
+
+
+    def canBeShared(self):
+        return config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled
 
 
     @inlineCallbacks

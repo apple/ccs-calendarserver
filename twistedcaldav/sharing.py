@@ -557,6 +557,13 @@ class SharedResourceMixin(object):
 
     @inlineCallbacks
     def _xmlHandleInvite(self, request, docroot):
+        # Sharing must be enabled for this collection
+        if not self.canBeShared():
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (customxml.calendarserver_namespace, "valid-request"),
+                "Sharing not supported on this resource",
+            ))
         yield self.authorize(request, (element.Read(), element.Write()))
         result = (yield self._handleInvite(request, docroot))
         returnValue(result)
@@ -702,6 +709,13 @@ class SharedResourceMixin(object):
 
     @inlineCallbacks
     def _xmlHandleInviteReply(self, request, docroot):
+        # Sharing must be enabled for this collection
+        if not self.canShare():
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (customxml.calendarserver_namespace, "valid-request"),
+                "Sharing not supported on this resource",
+            ))
         yield self.authorize(request, (element.Read(), element.Write()))
         result = (yield self._handleInviteReply(request, docroot))
         returnValue(result)
