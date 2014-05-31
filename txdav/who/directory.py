@@ -108,6 +108,40 @@ class CalendarDirectoryServiceMixin(object):
 
         returnValue(None)
 
+    searchContext_location = "location"
+    searchContext_resource = "resource"
+    searchContext_user     = "user"
+    searchContext_group    = "group"
+    searchContext_attendee = "attendee"
+
+
+    def recordTypesForSearchContext(self, context):
+        """
+        Map calendarserver-principal-search REPORT context value to applicable record types
+
+        @param context: The context value to map
+        @type context: C{unicode}
+        @returns: The list of record types the context maps to
+        @rtype: C{list} of C{NamedConstant}
+        """
+        if context == "location":
+            recordTypes = [self.recordType.location]
+        elif context == "resource":
+            recordTypes = [self.recordType.resource]
+        elif context == "user":
+            recordTypes = [self.recordType.user]
+        elif context == "group":
+            recordTypes = [self.recordType.group]
+        elif context == "attendee":
+            recordTypes = [
+                self.recordType.user,
+                self.recordType.group,
+                self.recordType.resource
+            ]
+        else:
+            recordTypes = list(self.recordTypes())
+        return recordTypes
+
 
     def recordsMatchingTokens(self, tokens, context=None, limitResults=50,
                               timeoutSeconds=10):
@@ -115,6 +149,7 @@ class CalendarDirectoryServiceMixin(object):
             ("fullNames", MatchType.contains),
             ("emailAddresses", MatchType.startsWith),
         ]
+
         outer = []
         for token in tokens:
             inner = []
@@ -138,6 +173,36 @@ class CalendarDirectoryServiceMixin(object):
             expression = outer[0]
         else:
             expression = CompoundExpression(outer, Operand.AND)
+
+        if context is not None:
+            recordTypes = self.recordTypesForSearchContext(context)
+            log.debug("Context {c}, recordTypes {r}", c=context, r=recordTypes)
+            typeSpecific = []
+            for recordType in recordTypes:
+                typeSpecific.append(
+                    MatchExpression(
+                        self.fieldName.recordType,
+                        recordType,
+                        MatchType.equals,
+                        MatchFlags.none
+                    )
+                )
+
+            if len(typeSpecific) == 1:
+                typeSpecific = typeSpecific[0]
+
+            else:
+                typeSpecific = CompoundExpression(
+                    typeSpecific,
+                    Operand.OR
+                )
+
+            expression = CompoundExpression(
+                [expression, typeSpecific],
+                Operand.AND
+            )
+
+        log.debug("Expression {e}", e=expression)
 
         return self.recordsFromExpression(expression)
 

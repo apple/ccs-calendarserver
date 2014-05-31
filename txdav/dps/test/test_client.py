@@ -398,6 +398,75 @@ class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
 
 
     @inlineCallbacks
+    def test_recordsMatchingTokensWithContext(self):
+
+        testData = [
+            # (
+            #     tokens,
+            #     context,
+            #     short names expected to be in results,
+            #     short names not expected to be in results
+            # ),
+            (
+                [u"an"],
+                "user",  # just users
+                (u"dre", u"wsanchez"),
+                (u"transporter", u"managers"),
+            ),
+            (
+                [u"an"],
+                "group",  # just groups
+                (u"managers",),
+                (u"dre", u"wsanchez", u"transporter"),
+            ),
+            (
+                [u"an"],
+                "location",  # just locations
+                (u"sanchezoffice",),
+                (u"dre", u"wsanchez", u"transporter", u"managers"),
+            ),
+            (
+                [u"an"],
+                "resource",  # just resources
+                (u"transporter", u"ftlcpu"),
+                (u"dre", u"wsanchez", u"managers", u"sanchezoffice"),
+            ),
+            (
+                [u"an"],
+                "attendee",  # just users, groups, resources
+                (
+                    u"dre", u"wsanchez", u"managers",
+                    u"transporter", u"ftlcpu"
+                ),
+                (u"sanchezoffice",),
+            ),
+            (
+                [u"an"],
+                None,   # any type
+                (
+                    u"dre", u"wsanchez", u"managers", u"sanchezoffice",
+                    u"transporter", u"ftlcpu"
+                ),
+                (),
+            ),
+        ]
+
+        for tokens, context, expected, unexpected in testData:
+            # print("Tokens", tokens, "context", context)
+            records = yield self.directory.recordsMatchingTokens(
+                tokens, context
+            )
+            matchingShortNames = set()
+            for r in records:
+                for shortName in r.shortNames:
+                    matchingShortNames.add(shortName)
+            for name in expected:
+                self.assertTrue(name in matchingShortNames)
+            for name in unexpected:
+                self.assertFalse(name in matchingShortNames)
+
+
+    @inlineCallbacks
     def test_recordsMatchingFields_anyType(self):
         fields = (
             (u"fullNames", "anche", MatchFlags.caseInsensitive, MatchType.contains),
