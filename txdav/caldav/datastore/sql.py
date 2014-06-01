@@ -94,7 +94,7 @@ from txdav.common.icommondatastore import IndexedSearchException, \
     ObjectResourceNameNotAllowedError, TooManyObjectResourcesError, \
     InvalidUIDError, UIDExistsError, UIDExistsElsewhereError, \
     InvalidResourceMove, InvalidComponentForStoreError, \
-    NoSuchObjectResourceError
+    NoSuchObjectResourceError, ConcurrentModification
 from txdav.xml import element
 
 from txdav.idav import ChangeCategory
@@ -4105,10 +4105,19 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     @inlineCallbacks
     def splitForAttendee(self, rid=None, olderUID=None):
         """
-        Split this attendee resource as per L{split}.
+        Split this attendee resource as per L{split}. Note this is also used on any Organizer inbox items.
+        Also, for inbox items, we are not protected by the ImplicitUID lock - it is possible that the inbox
+        resource gets deleted whilst we are iterating the entire set of UIDs, so we need to handle a
+        L{ConcurrentModification} error here by ignoring it.
         """
         splitter = iCalSplitter(config.Scheduling.Options.Splitting.Size, config.Scheduling.Options.Splitting.PastDays)
-        ical = (yield self.component())
+        try:
+            ical = (yield self.component())
+        except ConcurrentModification:
+            # Resource was deleted between the time we looked it up and now - this is OK,
+            # We can simply ignore it as there is nothing left to split
+            returnValue(None)
+
         ical_old, ical_new = splitter.split(ical, rid=rid, olderUID=olderUID)
         ical_new.bumpiTIPInfo(oldcalendar=ical, doSequence=True)
         ical_old.bumpiTIPInfo(oldcalendar=None, doSequence=True)
