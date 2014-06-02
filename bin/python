@@ -25,7 +25,6 @@ wd="$(cd "$(dirname "$0")/.." && pwd)";
 . "${wd}/bin/_build.sh";
 
 do_setup="false";
-
 develop > /dev/null;
 
 exec "${python}" "$@";

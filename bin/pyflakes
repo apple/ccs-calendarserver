@@ -24,7 +24,8 @@ wd="$(cd "$(dirname "$0")/.." && pwd -L)";
 
 . "${wd}/bin/_build.sh";
 
-init_build > /dev/null;
+do_setup="false";
+develop > /dev/null;
 
 if [ $# -eq 0 ]; then
   set - calendarserver contrib twisted twistedcaldav txdav txweb2;

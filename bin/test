@@ -96,8 +96,7 @@ fi;
 # Dependencies
 #
 
-c_dependencies >> "${dev_home}/setup.log";
-py_dependencies >> "${dev_home}/setup.log";
+develop > /dev/null "${dev_home}/setup.log";
 
 
 
