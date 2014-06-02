@@ -136,7 +136,7 @@ class Filter(FilterBase):
                     return not allof
             return allof
         else:
-            return False
+            return True
 
 
     def valid(self):
@@ -242,8 +242,8 @@ class FilterChildBase(FilterBase):
         """
 
         allof = self.propfilter_test == "allof"
-        if self.qualifier and allof != self.qualifier.match(item):
-            return not allof
+        if self.qualifier and allof and not self.qualifier.match(item):
+            return False
 
         if len(self.filters) > 0:
             for filter in self.filters:

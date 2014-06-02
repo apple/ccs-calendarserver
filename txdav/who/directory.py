@@ -326,19 +326,7 @@ class CalendarDirectoryRecordMixin(object):
             )
 
 
-    @property
-    def calendarUserAddresses(self):
-        try:
-            if not (
-                self.hasCalendars or (
-                    config.GroupAttendees.Enabled and
-                    self.recordType == BaseRecordType.group
-                )
-            ):
-                return frozenset()
-        except AttributeError:
-            pass
-
+    def _calendarAddresses(self):
         cuas = set()
 
         # urn:x-uid:
@@ -365,6 +353,22 @@ class CalendarDirectoryRecordMixin(object):
             pass
 
         return frozenset(cuas)
+
+
+    @property
+    def calendarUserAddresses(self):
+        try:
+            if not (
+                self.hasCalendars or (
+                    config.GroupAttendees.Enabled and
+                    self.recordType == BaseRecordType.group
+                )
+            ):
+                return frozenset()
+        except AttributeError:
+            pass
+
+        return self._calendarAddresses()
 
     # Mapping from directory record.recordType to RFC2445 CUTYPE values
     _cuTypes = {
@@ -427,7 +431,7 @@ class CalendarDirectoryRecordMixin(object):
         ))
 
 
-    def canonicalCalendarUserAddress(self):
+    def canonicalCalendarUserAddress(self, checkCal=True):
         """
             Return a CUA for this record, preferring in this order:
             urn:x-uid: form
@@ -437,7 +441,12 @@ class CalendarDirectoryRecordMixin(object):
             first in calendarUserAddresses list (sorted)
         """
 
-        sortedCuas = sorted(self.calendarUserAddresses)
+        if checkCal:
+            cuas = self.calendarUserAddresses
+        else:
+            cuas = self._calendarAddresses()
+
+        sortedCuas = sorted(cuas)
 
         for prefix in (
             "urn:x-uid:",
@@ -450,7 +459,7 @@ class CalendarDirectoryRecordMixin(object):
                     return candidate
 
         # fall back to using the first one
-        return sortedCuas[0]
+        return sortedCuas[0] if sortedCuas else None # groups may not have cua
 
 
     def enabledAsOrganizer(self):

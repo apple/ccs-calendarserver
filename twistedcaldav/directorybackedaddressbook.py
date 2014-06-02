@@ -182,48 +182,63 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
         }
 
         propNames, expression = expressionFromABFilter(
-            addressBookFilter, vcardPropToRecordFieldMap, vCardConstantProperties
+            addressBookFilter, vcardPropToRecordFieldMap, vCardConstantProperties,
         )
 
         if expression:
-            if defaultKind and "KIND" not in propNames:
-                defaultRecordExpression = MatchExpression(
-                    FieldName.recordType,
-                    vCardKindToRecordTypeMap[defaultKind],
-                    MatchType.equals
-                )
-                if expression is True:
-                    expression = defaultRecordExpression
-                else:
-                    expression = CompoundExpression(
-                        (expression, defaultRecordExpression,),
-                        Operand.AND
+
+            # if CompoundExpression of MatchExpression: recordsWithFieldValue() else recordsMatchingType()
+            fields = []
+            if expression is not True:
+
+                def fieldForMatchExpression(match):
+                    return (
+                        match.fieldName.name,
+                        match.fieldValue,
+                        match.flags,
+                        match.matchType,
                     )
-            elif expression is True: # True means all records
-                allowedRecordTypes = set(self.directory.recordTypes()) & set(recordTypeToVCardKindMap.keys())
-                expression = CompoundExpression(
-                    [
-                        MatchExpression(FieldName.recordType, recordType, MatchType.equals)
-                            for recordType in allowedRecordTypes
-                    ], Operand.OR
-                )
+
+                if isinstance(expression, CompoundExpression):
+                    operand = expression.operand
+                    for match in expression.expressions:
+                        if isinstance(match, MatchExpression):
+                            if match.fieldName != FieldName.recordType:
+                                fields.append(fieldForMatchExpression(match))
+                        else:
+                            fields = []
+                            break
+                elif isinstance(expression, MatchExpression):
+                    operand = Operand.OR
+                    if expression.fieldName != FieldName.recordType:
+                        fields.append(fieldForMatchExpression(expression))
 
             maxRecords = int(maxResults * 1.2)
 
             # keep trying query till we get results based on filter.  Especially when doing "all results" query
             while True:
+                queryLimited = False
 
                 log.debug("doAddressBookDirectoryQuery: expression={expression!r}, propNames={propNames}", expression=expression, propNames=propNames)
 
-                records = yield self.directory.recordsFromExpression(expression)
-                log.debug("doAddressBookDirectoryQuery: #records={n}, records={records!r}", n=len(records), records=records)
-                queryLimited = False
+                allRecords = set()
+                if fields:
+                    records = yield self.directory.recordsMatchingFields(fields, operand)
+                    log.debug("doAddressBookDirectoryQuery: recordsMatchingFields({f}, {o}): #records={n}, records={records!r}",
+                              f=fields, o=operand, n=len(records), records=records)
+                    allRecords = set(records)
+                else:
+                    for recordType in set(self.directory.recordTypes()) & set(recordTypeToVCardKindMap.keys()):
+                        records = yield self.directory.recordsWithRecordType(recordType)
+                        log.debug("doAddressBookDirectoryQuery: #records={n}, records={records!r}", n=len(records), records=records)
+                        allRecords |= set(records)
 
-                vCardsResults = [(yield ABDirectoryQueryResult(self).generate(record)) for record in records]
+                vCardsResults = [(yield ABDirectoryQueryResult(self).generate(record)) for record in allRecords]
 
                 filteredResults = set()
                 for vCardResult in vCardsResults:
                     if addressBookFilter.match(vCardResult.vCard()):
+                        log.debug("doAddressBookDirectoryQuery: vCard did match filter:\n{vcard}", vcard=vCardResult.vCard())
                         filteredResults.add(vCardResult)
                     else:
                         log.debug("doAddressBookDirectoryQuery: vCard did not match filter:\n{vcard}", vcard=vCardResult.vCard())
@@ -266,9 +281,9 @@ def propertiesInAddressBookQuery(addressBookQuery):
     propertyNames = []
     if addressBookQuery.qname() == ("DAV:", "prop"):
 
-        for property in addressBookQuery.children:
-            if isinstance(property, carddavxml.AddressData):
-                for addressProperty in property.children:
+        for prop in addressBookQuery.children:
+            if isinstance(prop, carddavxml.AddressData):
+                for addressProperty in prop.children:
                     if isinstance(addressProperty, carddavxml.Property):
                         propertyNames.append(addressProperty.attributes["name"])
 
@@ -360,7 +375,7 @@ def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, con
 
 
             def definedExpression(defined, allOf):
-                if constant or propFilter.filter_name in ("N" , "FN", "UID", "SOURCE", "KIND",):
+                if constant or propFilter.filter_name in ("N" , "FN", "UID", "KIND",):
                     return defined  # all records have this property so no records do not have it
                 else:
                     # FIXME: The startsWith expression below, which works with LDAP and OD. is not currently supported
@@ -386,11 +401,11 @@ def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, con
                 params = vCardPropToParamMap.get(propFilter.filter_name.upper())
                 defined = params and paramFilterElement.filter_name.upper() in params
 
-                #defined test
+                # defined test
                 if defined != paramFilterElement.defined:
                     return False
 
-                #parameter value text match
+                # parameter value text match
                 if defined and paramFilterElement.filters:
                     paramValues = params[paramFilterElement.filter_name.upper()]
                     if paramValues and paramFilterElement.filters[0].text.upper() not in paramValues:
@@ -401,10 +416,10 @@ def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, con
 
             def textMatchElementExpression(propFilterAllOf, textMatchElement):
 
-                # pre process text match strings for ds query
+                # preprocess text match strings for ds query
                 def getMatchStrings(propFilter, matchString):
 
-                    if propFilter.filter_name in ("REV" , "BDAY",):
+                    if propFilter.filter_name in ("REV", "BDAY",):
                         rawString = matchString
                         matchString = ""
                         for c in rawString:
