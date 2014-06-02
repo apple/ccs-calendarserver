@@ -187,6 +187,10 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
 
         if expression:
 
+            queryRecordType = None
+            if "KIND" not in propNames:
+                queryRecordType = vCardKindToRecordTypeMap.get(defaultKind)
+
             # if CompoundExpression of MatchExpression: recordsWithFieldValue() else recordsMatchingType()
             fields = []
             if expression is not True:
@@ -205,13 +209,17 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
                         if isinstance(match, MatchExpression):
                             if match.fieldName != FieldName.recordType:
                                 fields.append(fieldForMatchExpression(match))
+                            # else optimize: collect record type list for query
                         else:
+                            # do all record types query
                             fields = []
                             break
                 elif isinstance(expression, MatchExpression):
                     operand = Operand.OR
                     if expression.fieldName != FieldName.recordType:
                         fields.append(fieldForMatchExpression(expression))
+                    else:
+                        recordType = expression.fieldValue
 
             maxRecords = int(maxResults * 1.2)
 
@@ -223,12 +231,13 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
 
                 allRecords = set()
                 if fields:
-                    records = yield self.directory.recordsMatchingFields(fields, operand)
+                    records = yield self.directory.recordsMatchingFields(fields, operand, queryRecordType)
                     log.debug("doAddressBookDirectoryQuery: recordsMatchingFields({f}, {o}): #records={n}, records={records!r}",
                               f=fields, o=operand, n=len(records), records=records)
                     allRecords = set(records)
                 else:
-                    for recordType in set(self.directory.recordTypes()) & set(recordTypeToVCardKindMap.keys()):
+                    recordTypes = set([queryRecordType]) if queryRecordType else set(self.directory.recordTypes()) & set(recordTypeToVCardKindMap.keys())
+                    for recordType in recordTypes:
                         records = yield self.directory.recordsWithRecordType(recordType)
                         log.debug("doAddressBookDirectoryQuery: #records={n}, records={records!r}", n=len(records), records=records)
                         allRecords |= set(records)
