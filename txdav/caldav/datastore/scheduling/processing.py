@@ -460,8 +460,11 @@ class ImplicitProcessor(object):
             new_organizer = normalizeCUAddr(self.message.getOrganizer())
             new_organizer = normalizeCUAddr(new_organizer) if new_organizer else ""
             if existing_organizer != new_organizer:
-                log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring UID: '%s' - organizer has no copy" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-                raise ImplicitProcessorException("5.3;Organizer change not allowed")
+                # Additional check - if the existing organizer is missing and the originator
+                # is local to the server - then allow the change
+                if not (existing_organizer == "" and self.originator.hosted()):
+                    log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring UID: '%s' - organizer has no copy" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+                    raise ImplicitProcessorException("5.3;Organizer change not allowed")
 
         # Handle splitting of data early so we can preserve per-attendee data
         if self.message.hasProperty("X-CALENDARSERVER-SPLIT-OLDER-UID"):

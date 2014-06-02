@@ -10429,3 +10429,163 @@ END:VCALENDAR
             changed = component.hasDuplicatePrivateComments(doFix=True)
             self.assertEqual(sorted(normalize_iCalStr(component).splitlines()), sorted(normalize_iCalStr(result).splitlines()), msg=title)
             self.assertEqual(changed, result_changed, msg=title)
+
+
+    def test_cleanOrganizerScheduleAgent(self):
+        """
+        Test that L{Component.cleanOrganizerScheduleAgent} correctly removes components.
+        """
+
+        data = (
+            (
+                "All SERVER - master only",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+RRULE:FREQ=DAILY
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+RRULE:FREQ=DAILY
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                False,
+            ),
+            (
+                "All SERVER - master and overrides",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+RRULE:FREQ=DAILY
+SUMMARY:Test
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T120000Z
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+RRULE:FREQ=DAILY
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+RRULE:FREQ=DAILY
+SUMMARY:Test
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T120000Z
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+RRULE:FREQ=DAILY
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                False,
+            ),
+            (
+                "Master CLIENT and override SERVER",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ORGANIZER;SCHEDULE-AGENT=CLIENT:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+RRULE:FREQ=DAILY
+SUMMARY:Test
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T120000Z
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+RRULE:FREQ=DAILY
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T120000Z
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+RRULE:FREQ=DAILY
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                True,
+            ),
+        )
+
+        for title, txt, result, result_changed in data:
+            component = Component.fromString(txt)
+            changed = component.cleanOrganizerScheduleAgent()
+            self.assertEqual(sorted(normalize_iCalStr(component).splitlines()), sorted(normalize_iCalStr(result).splitlines()), msg=title)
+            self.assertEqual(changed, result_changed, msg=title)

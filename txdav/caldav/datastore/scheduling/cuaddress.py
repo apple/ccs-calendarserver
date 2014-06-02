@@ -38,6 +38,13 @@ class CalendarUser(object):
         self.serviceType = None
 
 
+    def hosted(self):
+        """
+        Is this user hosted on this service (this pod or any other)
+        """
+        return False
+
+
 
 class LocalCalendarUser(CalendarUser):
 
@@ -50,6 +57,13 @@ class LocalCalendarUser(CalendarUser):
 
     def __str__(self):
         return "Local calendar user: %s" % (self.cuaddr,)
+
+
+    def hosted(self):
+        """
+        Is this user hosted on this service (this pod or any other)
+        """
+        return True
 
 
 
@@ -65,6 +79,13 @@ class PartitionedCalendarUser(CalendarUser):
         return "Partitioned calendar user: %s" % (self.cuaddr,)
 
 
+    def hosted(self):
+        """
+        Is this user hosted on this service (this pod or any other)
+        """
+        return True
+
+
 
 class OtherServerCalendarUser(CalendarUser):
 
@@ -76,6 +97,13 @@ class OtherServerCalendarUser(CalendarUser):
 
     def __str__(self):
         return "Other server calendar user: %s" % (self.cuaddr,)
+
+
+    def hosted(self):
+        """
+        Is this user hosted on this service (this pod or any other)
+        """
+        return True
 
 
 

@@ -2156,6 +2156,26 @@ class Component (object):
         return is_server
 
 
+    def cleanOrganizerScheduleAgent(self):
+        """
+        Remove components whose ORGANIZER property does not have
+        SCHEDULE-AGENT=SERVER.
+        """
+
+        changed = False
+        for component in tuple(self.subcomponents()):
+            if component.name() in ignoredComponents:
+                continue
+
+            organizerProp = component.getOrganizerProperty()
+            if organizerProp is not None:
+                if organizerProp.parameterValue("SCHEDULE-AGENT", "SERVER") != "SERVER":
+                    self.removeComponent(component)
+                    changed = True
+
+        return changed
+
+
     def getAttendees(self):
         """
         Get the attendee value. Works on either a VCALENDAR or on a component.
