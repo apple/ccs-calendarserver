@@ -1284,8 +1284,8 @@ class ReExecServiceTests(StoreTestCase):
         deferred = Deferred()
         proc = reactor.spawnProcess(
             CapturingProcessProtocol(deferred, None),
-            twistd,
-            [twistd, reactorArg, '-n', '-y', tacFilePath],
+            sys.executable,
+            [sys.executable, twistd, reactorArg, '-n', '-y', tacFilePath],
             env=os.environ
         )
         reactor.callLater(3, proc.signalProcess, "HUP")
