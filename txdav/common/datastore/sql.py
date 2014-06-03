@@ -635,8 +635,7 @@ class CommonStoreTransaction(object):
 
         For example::
 
-            yield (txn.enqueue(MyWorkItem, workDescription="some work to do")
-                   .whenProposed())
+            yield (txn.enqueue(MyWorkItem, workDescription="some work to do"))
 
         @return: a work proposal describing various events in the work's
             life-cycle.

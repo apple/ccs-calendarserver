@@ -174,7 +174,6 @@ class ScheduleOrganizerWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORGANIZ
             smartMerge=smart_merge
         ))
         cls._enqueued()
-        yield proposal.whenProposed()
         log.debug("ScheduleOrganizerWork - enqueued for ID: {id}, UID: {uid}, organizer: {org}", id=proposal.workItem.workID, uid=uid, org=organizer)
 
 
@@ -296,7 +295,6 @@ class ScheduleReplyWork(ScheduleReplyWorkMixin, fromTable(schema.SCHEDULE_REPLY_
             changedRids=",".join(map(lambda x: "" if x is None else str(x), changedRids)) if changedRids else None,
         ))
         cls._enqueued()
-        yield proposal.whenProposed()
         log.debug("ScheduleReplyWork - enqueued for ID: {id}, UID: {uid}, attendee: {att}", id=proposal.workItem.workID, uid=resource.uid(), att=attendee)
 
 
@@ -379,7 +377,6 @@ class ScheduleReplyCancelWork(ScheduleReplyWorkMixin, fromTable(schema.SCHEDULE_
             icalendarText=calendar.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference),
         ))
         cls._enqueued()
-        yield proposal.whenProposed()
         log.debug("ScheduleReplyCancelWork - enqueued for ID: {id}, UID: {uid}, attendee: {att}", id=proposal.workItem.workID, uid=calendar.resourceUID(), att=attendee)
 
 
@@ -486,7 +483,6 @@ class ScheduleRefreshWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REFRESH_W
             notBefore=notBefore,
         ))
         cls._enqueued()
-        yield proposal.whenProposed()
         log.debug("ScheduleRefreshWork - enqueued for ID: {id}, UID: {uid}, attendees: {att}", id=proposal.workItem.workID, uid=organizer_resource.uid(), att=",".join(attendeesToRefresh))
 
 
@@ -626,7 +622,6 @@ class ScheduleAutoReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_AUTO_RE
             notBefore=notBefore,
         ))
         cls._enqueued()
-        yield proposal.whenProposed()
         log.debug("ScheduleAutoReplyWork - enqueued for ID: {id}, UID: {uid}", id=proposal.workItem.workID, uid=resource.uid())
 
 
