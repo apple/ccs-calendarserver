@@ -201,7 +201,7 @@ class Dashboard(object):
                     self.windows
                 ):
                     window.update()
-        except Exception as e: #@UnusedVariable
+        except Exception:
             #print(str(e))
             pass
         if not self.usesCurses:

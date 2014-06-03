@@ -775,7 +775,7 @@ def updateFreeBusySet(value, directory):
 
     if didUpdate:
         property = caldavxml.CalendarFreeBusySet(
-            *[element.HRef(href) for href in fbset]
+            *[element.HRef(fbhref) for fbhref in fbset]
         )
         value = compress(property.toxml())
         returnValue(value)

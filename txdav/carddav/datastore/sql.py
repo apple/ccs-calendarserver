@@ -1165,12 +1165,12 @@ END:VCARD
 
         if ownerHomeToDataRowMap:
             # Get property stores for all these child resources (if any found)
-            addressbookPropertyStoreIDs = [ownerHome._addressbookPropertyStoreID for ownerHome in ownerHomeToDataRowMap]
+            addressbookPropertyStoreIDs = [ownerHomeItem._addressbookPropertyStoreID for ownerHomeItem in ownerHomeToDataRowMap]
             propertyStores = yield PropertyStore.forMultipleResourcesWithResourceIDs(
                 home.uid(), home._txn, addressbookPropertyStoreIDs
             )
 
-            addressbookResourceIDs = [ownerHome.addressbook()._resourceID for ownerHome in ownerHomeToDataRowMap]
+            addressbookResourceIDs = [ownerHomeItem.addressbook()._resourceID for ownerHomeItem in ownerHomeToDataRowMap]
             revisions = yield cls._revisionsForResourceIDs(addressbookResourceIDs).on(home._txn, resourceIDs=addressbookResourceIDs)
             revisions = dict(revisions)
 

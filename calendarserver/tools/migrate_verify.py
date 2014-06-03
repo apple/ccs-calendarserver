@@ -193,7 +193,7 @@ class MigrateVerifyService(WorkerService, object):
                 self.badPaths.append(line)
 
         # Remove any invalid GUIDs that actuall were valid
-        invalidGUIDs = [guid for guid in invalidGUIDs if guid not in self.pathsByGUID]
+        invalidGUIDs = [pguid for pguid in invalidGUIDs if pguid not in self.pathsByGUID]
 
         self.output.write("\nTotal lines read: %d\n" % (total,))
         self.output.write("Total guids: valid: %d  invalid: %d  overall: %d\n" % (

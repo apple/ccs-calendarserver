@@ -106,7 +106,7 @@ def plotListenQBands(data, first, last, xlim, ylim):
     y2 = []
     x3 = []
     y3 = []
-    for datetime, reqs, resp, lq, _ignore_cpu in data:
+    for _ignore_dt, reqs, resp, lq, _ignore_cpu in data:
         if lq == 0:
             x1.append(reqs)
             y1.append(resp)
@@ -134,7 +134,7 @@ def plotCPUBands(data, first, last, xlim, ylim):
 
     x = [[], [], [], []]
     y = [[], [], [], []]
-    for datetime, reqs, resp, _ignore_lq, cpu in data:
+    for _ignore_dt, reqs, resp, _ignore_lq, cpu in data:
         if cpu > 75:
             x[0].append(reqs)
             y[0].append(resp)

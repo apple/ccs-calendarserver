@@ -693,7 +693,7 @@ class iCalDiff(object):
         newexdates = set()
         exdates = component.properties("EXDATE")
         for exdate in exdates:
-            newexdates.update([value.getValue().duplicate().adjustToUTC() for value in exdate.value()])
+            newexdates.update([exvalue.getValue().duplicate().adjustToUTC() for exvalue in exdate.value()])
 
         return timeRange.getStart(), timeRange.getEnd(), newdue, newrrules, newrdates, newexdates
 

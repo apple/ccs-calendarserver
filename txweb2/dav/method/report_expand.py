@@ -69,7 +69,7 @@ def report_DAV__expand_property(self, request, expand_property):
 
     for property in expand_property.children:
         namespace = property.attributes.get("namespace", dav_namespace)
-        name      = property.attributes.get("name", "")
+        name = property.attributes.get("name", "")
 
         # Make sure children have no children
         props_to_find = []
@@ -81,7 +81,7 @@ def report_DAV__expand_property(self, request, expand_property):
                     "expand-property REPORT only supports single level expansion"
                 ))
             child_namespace = child.attributes.get("namespace", dav_namespace)
-            child_name      = child.attributes.get("name", "")
+            child_name = child.attributes.get("name", "")
             props_to_find.append((child_namespace, child_name))
 
         properties[(namespace, name)] = props_to_find
@@ -161,16 +161,17 @@ def report_DAV__expand_property(self, request, expand_property):
             )
 
             status = statusForFailure(f, "getting property: %s" % (qname,))
-            if status not in properties_by_status: properties_by_status[status] = []
+            if status not in properties_by_status:
+                properties_by_status[status] = []
             properties_by_status[status].append(propertyName(qname))
 
     # Build the overall response
     propstats = [
         element.PropertyStatus(
-            element.PropertyContainer(*properties_by_status[status]),
-            element.Status.fromResponseCode(status)
+            element.PropertyContainer(*properties_by_status[pstatus]),
+            element.Status.fromResponseCode(pstatus)
         )
-        for status in properties_by_status if properties_by_status[status]
+        for pstatus in properties_by_status if properties_by_status[pstatus]
     ]
 
     returnValue(MultiStatusResponse((element.PropertyStatusResponse(element.HRef(request.uri), *propstats),)))

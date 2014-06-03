@@ -5235,8 +5235,8 @@ END:VCALENDAR
 
         for title, calendar, tests in data:
             ical = Component.fromString(calendar)
-            rids = set([rid for rid, result in tests])
-            expected_results = set([rid for rid, result in tests if result == True])
+            rids = set([trid for trid, _ignore_tresult in tests])
+            expected_results = set([trid for trid, tresult in tests if tresult == True])
             actual_results = ical.validInstances(rids)
             self.assertEqual(actual_results, expected_results, "Failed comparison: %s %s" % (title, actual_results,))
 

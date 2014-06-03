@@ -44,7 +44,7 @@ import collections
 import sys
 import time
 import traceback
-import uuid
+from uuid import uuid4
 
 from calendarserver.tools import tables
 from calendarserver.tools.cmdline import utilityMain, WorkerService
@@ -1851,7 +1851,7 @@ class SchedulingMismatchService(CalVerifyService):
                 _ignore_homeID, calendarID = yield self.getAllResourceInfoForResourceID(attresid)
                 calendar = yield home.childWithID(calendarID)
                 calendarObj = yield calendar.objectResourceWithID(attresid)
-                calendarObj.scheduleTag = str(uuid.uuid4())
+                calendarObj.scheduleTag = str(uuid4())
                 yield calendarObj._setComponentInternal(attendee_calendar, internal_state=ComponentUpdateState.RAW)
                 self.results.setdefault("Fix change event", set()).add((home.name(), calendar.name(), attendee_calendar.resourceUID(),))
 
@@ -1862,7 +1862,7 @@ class SchedulingMismatchService(CalVerifyService):
                 defaultCalendar = (yield self.defaultCalendarForAttendee(home))
                 if defaultCalendar is None:
                     raise ValueError("Cannot find suitable default calendar")
-                new_name = str(uuid.uuid4()) + ".ics"
+                new_name = str(uuid4()) + ".ics"
                 calendarObj = (yield defaultCalendar._createCalendarObjectWithNameInternal(new_name, attendee_calendar, internal_state=ComponentUpdateState.RAW, options=self.metadata))
                 self.results.setdefault("Fix add event", set()).add((home.name(), defaultCalendar.name(), attendee_calendar.resourceUID(),))
 
@@ -1879,7 +1879,7 @@ class SchedulingMismatchService(CalVerifyService):
             details["title"] = instance.component.propertyValue("SUMMARY")
 
             # Write new itip message to attendee inbox
-            yield inbox.createCalendarObjectWithName(str(uuid.uuid4()) + ".ics", itipmsg, options=self.metadata_inbox)
+            yield inbox.createCalendarObjectWithName(str(uuid4()) + ".ics", itipmsg, options=self.metadata_inbox)
             self.results.setdefault("Fix add inbox", set()).add((home.name(), itipmsg.resourceUID(),))
 
             yield self.txn.commit()
