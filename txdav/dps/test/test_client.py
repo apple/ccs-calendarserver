@@ -234,6 +234,28 @@ class DPSClientSingleDirectoryTest(unittest.TestCase):
 
 
     @inlineCallbacks
+    def test_recordsMatchingFields_not(self):
+        fields = (
+            (
+                u"fullNames", "anche",
+                MatchFlags.NOT | MatchFlags.caseInsensitive,
+                MatchType.contains
+            ),
+        )
+        records = (yield self.directory.recordsMatchingFields(
+            fields, operand=Operand.OR, recordType=None
+        ))
+        matchingShortNames = set()
+        for r in records:
+            for shortName in r.shortNames:
+                matchingShortNames.add(shortName)
+        self.assertTrue("sagen" in matchingShortNames)
+        self.assertTrue("dre" not in matchingShortNames)
+        self.assertTrue("wsanchez" not in matchingShortNames)
+        self.assertTrue("sanchezoffice" not in matchingShortNames)
+
+
+    @inlineCallbacks
     def test_recordsFromMatchExpression(self):
         expression = MatchExpression(
             FieldName.uid,

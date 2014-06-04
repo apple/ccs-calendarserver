@@ -286,8 +286,18 @@ class DirectoryProxyAMPProtocol(amp.AMP):
                 valueType = self._directory.fieldName.valueType(field)
                 if valueType is uuid.UUID:
                     searchTerm = uuid.UUID(searchTerm)
-            matchFlags = MatchFlags.lookupByName(matchFlags.decode("utf-8"))
+
+            matchFlags = matchFlags.decode("utf-8")
+            if matchFlags.startswith("{") and matchFlags.endswith("}"):
+                flags = MatchFlags.none
+                for flag in matchFlags[1:-1].split(","):
+                    flags |= MatchFlags.lookupByName(flag)
+                matchFlags = flags
+            else:
+                matchFlags = MatchFlags.lookupByName(matchFlags)
+
             matchType = MatchType.lookupByName(matchType.decode("utf-8"))
+
             newFields.append((fieldName, searchTerm, matchFlags, matchType))
         operand = Operand.lookupByName(operand)
         if recordType:
