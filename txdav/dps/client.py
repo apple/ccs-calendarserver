@@ -39,7 +39,7 @@ from txdav.dps.commands import (
     RecordsMatchingTokensCommand, RecordsMatchingFieldsCommand,
     MembersCommand, GroupsCommand, SetMembersCommand,
     VerifyPlaintextPasswordCommand, VerifyHTTPDigestCommand,
-    WikiAccessForUID
+    WikiAccessForUID, ContinuationCommand
 )
 from txdav.who.directory import (
     CalendarDirectoryRecordMixin, CalendarDirectoryServiceMixin
@@ -127,12 +127,24 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
 
 
     def _processSingleRecord(self, result):
+        """
+        Takes a dictionary with a "fields" key whose value is a pickled
+        dictionary of a record's fields, and returns a record.
+        """
         serializedFields = pickle.loads(result['fields'])
         return self._dictToRecord(serializedFields)
 
 
     def _processMultipleRecords(self, result):
-        serializedFieldsList = pickle.loads(result['fieldsList'])
+        """
+        Takes a dictionary with a "fieldsList" key whose value is an iterable
+        of pickled dictionaries (of records' fields), and returns a list of
+        records.
+        """
+        serializedFieldsList = []
+        for fields in result["fieldsList"]:
+            fields = pickle.loads(fields)
+            serializedFieldsList.append(fields)
         results = []
         for serializedFields in serializedFieldsList:
             record = self._dictToRecord(serializedFields)
@@ -158,6 +170,26 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
 
 
     @inlineCallbacks
+    def _sendCommand(self, command, **kwds):
+        """
+        Execute a remote AMP command, first making the connection to the peer.
+        Any kwds are passed on to the AMP command.
+
+        @param command: the AMP command to call
+        @type command: L{twisted.protocols.amp.Command}
+        """
+        ampProto = (yield self._getConnection())
+        try:
+            results = (yield ampProto.callRemote(command, **kwds))
+        except Exception, e:
+            log.error("Failed AMP command", error=e)
+            #  FIXME: is there a way to hook into ConnectionLost?
+            self._connection = None
+            raise
+        returnValue(results)
+
+
+    @inlineCallbacks
     def _call(self, command, postProcess, **kwds):
         """
         Execute a remote AMP command, first making the connection to the peer,
@@ -172,14 +204,27 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
             L{Deferred} which fires with the post-processed results
         @type postProcess: callable
         """
-        ampProto = (yield self._getConnection())
-        try:
-            results = (yield ampProto.callRemote(command, **kwds))
-        except Exception, e:
-            log.error("Failed AMP command", error=e)
-            #  FIXME: is there a way to hook into ConnectionLost?
-            self._connection = None
-            raise
+        results = yield self._sendCommand(command, **kwds)
+        if results.get("continuation", None) is None:
+            # We have all the results
+            returnValue(postProcess(results))
+
+        # There are more results to fetch, so loop until the continuation
+        # keyword we get back is None
+
+        multi = [results]
+
+        while results.get("continuation", None) is not None:
+            results = yield self._sendCommand(
+                ContinuationCommand,
+                continuation=results["continuation"]
+            )
+            multi.append(results)
+
+        results = {"fieldsList": []}
+        for result in multi:
+            results["fieldsList"].extend(result["fieldsList"])
+
         returnValue(postProcess(results))
 
 

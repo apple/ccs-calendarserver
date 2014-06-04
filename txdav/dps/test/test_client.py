@@ -30,6 +30,9 @@ from twisted.trial import unittest
 from txdav.dps.client import DirectoryService
 from txdav.dps.server import DirectoryProxyAMPProtocol
 from txdav.who.directory import CalendarDirectoryServiceMixin
+from txdav.who.test.support import (
+    TestRecord, CalendarInMemoryDirectoryService
+)
 from twistedcaldav.test.util import StoreTestCase
 from twistedcaldav.config import config
 
@@ -590,3 +593,109 @@ class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
                     )
                 )
                 self.assertEquals(authenticated, answer)
+
+
+class DPSClientLargeResultsTest(unittest.TestCase):
+    """
+    Tests the client against a single directory service (as opposed to the
+    augmented, aggregated structure you get from directoryFromConfig(), which
+    is tested in the class below)
+    """
+
+    @inlineCallbacks
+    def setUp(self):
+
+        self.numUsers = 1000
+
+        # The "local" directory service
+        self.directory = DirectoryService(None)
+
+        # The "remote" directory service
+        remoteDirectory = CalendarInMemoryDirectoryService(None)
+
+        # Add users
+        records = []
+        fieldName = remoteDirectory.fieldName
+        for i in xrange(self.numUsers):
+            records.append(
+                TestRecord(
+                    remoteDirectory,
+                    {
+                        fieldName.uid: u"foo{ctr:05d}".format(ctr=i),
+                        fieldName.shortNames: (u"foo{ctr:05d}".format(ctr=i),),
+                        fieldName.fullNames: (u"foo{ctr:05d}".format(ctr=i),),
+                        fieldName.recordType: RecordType.user,
+                    }
+                )
+            )
+
+        # Add a big group
+        records.append(
+            TestRecord(
+                remoteDirectory,
+                {
+                    fieldName.uid: u"bigGroup",
+                    fieldName.recordType: RecordType.group,
+                }
+            )
+        )
+
+        yield remoteDirectory.updateRecords(records, create=True)
+
+        group = yield remoteDirectory.recordWithUID(u"bigGroup")
+        members = yield remoteDirectory.recordsWithRecordType(RecordType.user)
+        yield group.setMembers(members)
+
+        # Connect the two services directly via an IOPump
+        client = AMP()
+        server = DirectoryProxyAMPProtocol(remoteDirectory)
+        pump = returnConnected(server, client)
+
+        # Replace the normal _getConnection method with one that bypasses any
+        # actual networking
+        self.patch(self.directory, "_getConnection", lambda: succeed(client))
+
+        # Wrap the normal _call method with one that flushes the IOPump
+        # afterwards
+        origCall = self.directory._call
+
+        def newCall(*args, **kwds):
+            d = origCall(*args, **kwds)
+            pump.flush()
+            return d
+
+        self.patch(self.directory, "_call", newCall)
+
+
+    @inlineCallbacks
+    def test_tooBigResults(self):
+        """
+        The AMP protocol limits values to 65,535 bytes, so the DPS server
+        breaks up the responses to fit.  This test uses 1000 records to verify
+        the various methods work seamlessly in the face of large results.
+        Normally only a couple hundred records would fit in a single response.
+        """
+
+        # recordsMatchingTokens
+        records = yield self.directory.recordsMatchingTokens([u"foo"])
+        self.assertEquals(len(records), self.numUsers)
+
+        # recordsMatchingFields
+        fields = (
+            (u"fullNames", "foo", MatchFlags.caseInsensitive, MatchType.contains),
+        )
+        records = yield self.directory.recordsMatchingFields(
+            fields, operand=Operand.OR, recordType=RecordType.user
+        )
+        self.assertEquals(len(records), self.numUsers)
+
+        # recordsWithRecordType
+        records = yield self.directory.recordsWithRecordType(
+            RecordType.user
+        )
+        self.assertEquals(len(records), self.numUsers)
+
+        # members()
+        group = yield self.directory.recordWithUID(u"bigGroup")
+        members = yield group.members()
+        self.assertEquals(len(members), self.numUsers)

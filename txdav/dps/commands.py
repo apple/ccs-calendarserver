@@ -53,7 +53,8 @@ class RecordsWithRecordTypeCommand(amp.Command):
         ('recordType', amp.String()),
     ]
     response = [
-        ('fieldsList', amp.String()),
+        ('fieldsList', amp.ListOf(amp.String())),
+        ('continuation', amp.String(optional=True)),
     ]
 
 
@@ -63,7 +64,19 @@ class RecordsWithEmailAddressCommand(amp.Command):
         ('emailAddress', amp.String()),
     ]
     response = [
-        ('fieldsList', amp.String()),
+        ('fieldsList', amp.ListOf(amp.String())),
+        ('continuation', amp.String(optional=True)),
+    ]
+
+
+
+class ContinuationCommand(amp.Command):
+    arguments = [
+        ('continuation', amp.String(optional=True)),
+    ]
+    response = [
+        ('fieldsList', amp.ListOf(amp.String())),
+        ('continuation', amp.String(optional=True)),
     ]
 
 
@@ -74,7 +87,8 @@ class RecordsMatchingTokensCommand(amp.Command):
         ('context', amp.String(optional=True)),
     ]
     response = [
-        ('fieldsList', amp.String()),
+        ('fieldsList', amp.ListOf(amp.String())),
+        ('continuation', amp.String(optional=True)),
     ]
 
 
@@ -86,14 +100,15 @@ class RecordsMatchingFieldsCommand(amp.Command):
         ('recordType', amp.String(optional=True)),
     ]
     response = [
-        ('fieldsList', amp.String()),
+        ('fieldsList', amp.ListOf(amp.String())),
+        ('continuation', amp.String(optional=True)),
     ]
 
 
 
 class UpdateRecordsCommand(amp.Command):
     arguments = [
-        ('fieldsList', amp.String()),
+        ('fieldsList', amp.ListOf(amp.String())),
         ('create', amp.Boolean(optional=True)),
     ]
     response = [
@@ -117,7 +132,8 @@ class MembersCommand(amp.Command):
         ('uid', amp.String()),
     ]
     response = [
-        ('fieldsList', amp.String()),
+        ('fieldsList', amp.ListOf(amp.String())),
+        ('continuation', amp.String(optional=True)),
     ]
 
 
@@ -127,7 +143,7 @@ class GroupsCommand(amp.Command):
         ('uid', amp.String()),
     ]
     response = [
-        ('fieldsList', amp.String()),
+        ('fieldsList', amp.ListOf(amp.String())),
     ]
 
 

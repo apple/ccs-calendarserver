@@ -15,6 +15,7 @@
 ##
 
 import cPickle as pickle
+import datetime
 import uuid
 
 from twext.python.log import Logger
@@ -35,7 +36,7 @@ from txdav.dps.commands import (
     RecordsMatchingTokensCommand, RecordsMatchingFieldsCommand,
     MembersCommand, GroupsCommand, SetMembersCommand,
     VerifyPlaintextPasswordCommand, VerifyHTTPDigestCommand,
-    WikiAccessForUID
+    WikiAccessForUID, ContinuationCommand
     # UpdateRecordsCommand, RemoveRecordsCommand
 )
 from txdav.who.util import directoryFromConfig
@@ -61,6 +62,103 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         """
         amp.AMP.__init__(self)
         self._directory = directory
+
+        # How to large we let an AMP response get before breaking it up
+        self._maxSize = 60000
+
+        # The cache of results we have not fully responded with.  A dictionary
+        # whose keys are "continuation tokens" and whose values are tuples of
+        # (timestamp, list-of-records).  When a response does not fit within
+        # AMP size limits, the remaining records are stored in this dictionary
+        # keyed by an opaque token we generate to return to the client so that
+        # it can ask for the remaining results later.
+        self._continuations = {}
+
+
+    def _storeContinuation(self, records):
+        """
+        Store an iterable of records and generate an opaque token we can
+        give back to the client so they can later retrieve these remaining
+        results that did not fit in the previous AMP response.
+
+        @param records: an iterable of records
+        @return: a C{str} token
+        """
+        token = str(uuid.uuid4())
+        # FIXME: I included a timestamp just in case we want to have code that
+        # looks for stale continuations to expire them.
+        self._continuations[token] = (datetime.datetime.now(), records)
+        return token
+
+
+    def _retrieveContinuation(self, token):
+        """
+        Retrieve the previously stored iterable of records associated with
+        the token, and remove the token.
+
+        @param token: a C{str} token previously returned by _storeContinuation
+        @return: an iterable of records, or None if the token does not exist
+        """
+        if token in self._continuations:
+            timestamp, records = self._continuations[token]
+            del self._continuations[token]
+        else:
+            records = None
+        return records
+
+
+    @ContinuationCommand.responder
+    def continuation(self, continuation):
+        """
+        The client calls this command in order to retrieve records that did
+        not fit into an earlier response.
+
+        @param continuation: the token returned via the "continuation" key
+            in the previous response.
+        """
+        log.debug("Continuation: {c}", c=continuation)
+        records = self._retrieveContinuation(continuation)
+        response = self._recordsToResponse(records)
+        log.debug("Responding with: {response}", response=response)
+        return response
+
+
+    def _recordsToResponse(self, records):
+        """
+        Craft an AMP response containing as many records as will fit within
+        the size limit.  Remaining records are stored as a "continuation",
+        identified by a token that is returned to the client to fetch later
+        via the ContinuationCommand.
+
+        @param records: an iterable of records
+        @return: the response dictionary, with a list of pickled records
+            stored in the "fieldsList" key, and if there are leftover
+            records that did not fit, there will be a "continuation" key
+            containing the token the client must send via ContinuationCommand.
+        """
+        fieldsList = []
+        count = 0
+        if records:
+            size = 0
+            while size < self._maxSize:
+                try:
+                    record = records.pop()
+                except (KeyError, IndexError):
+                    # We're done.
+                    # Note: because records is an iterable (list or set)
+                    # we're catching both KeyError and IndexError.
+                    break
+                pickled = pickle.dumps(self.recordToDict(record))
+                size = size + len(pickled)
+                fieldsList.append(pickled)
+                count += 1
+
+        response = {"fieldsList": fieldsList}
+
+        if records:
+            response["continuation"] = self._storeContinuation(records)
+
+        return response
 
 
     def recordToDict(self, record):
@@ -140,12 +238,7 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         records = (yield self._directory.recordsWithRecordType(
             self._directory.recordType.lookupByName(recordType))
         )
-        fieldsList = []
-        for record in records:
-            fieldsList.append(self.recordToDict(record))
-        response = {
-            "fieldsList": pickle.dumps(fieldsList),
-        }
+        response = self._recordsToResponse(records)
         log.debug("Responding with: {response}", response=response)
         returnValue(response)
 
@@ -156,14 +249,11 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         emailAddress = emailAddress.decode("utf-8")
         log.debug("RecordsWithEmailAddress: {e}", e=emailAddress)
         records = (yield self._directory.recordsWithEmailAddress(emailAddress))
-        fieldsList = []
-        for record in records:
-            fieldsList.append(self.recordToDict(record))
-        response = {
-            "fieldsList": pickle.dumps(fieldsList),
-        }
+        response = self._recordsToResponse(records)
         log.debug("Responding with: {response}", response=response)
         returnValue(response)
+
+
 
 
     @RecordsMatchingTokensCommand.responder
@@ -174,14 +264,10 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         records = yield self._directory.recordsMatchingTokens(
             tokens, context=context
         )
-        fieldsList = []
-        for record in records:
-            fieldsList.append(self.recordToDict(record))
-        response = {
-            "fieldsList": pickle.dumps(fieldsList),
-        }
+        response = self._recordsToResponse(records)
         log.debug("Responding with: {response}", response=response)
         returnValue(response)
+
 
 
     @RecordsMatchingFieldsCommand.responder
@@ -209,12 +295,7 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         records = yield self._directory.recordsMatchingFields(
             newFields, operand=operand, recordType=recordType
         )
-        fieldsList = []
-        for record in records:
-            fieldsList.append(self.recordToDict(record))
-        response = {
-            "fieldsList": pickle.dumps(fieldsList),
-        }
+        response = self._recordsToResponse(records)
         log.debug("Responding with: {response}", response=response)
         returnValue(response)
 
@@ -230,13 +311,12 @@ class DirectoryProxyAMPProtocol(amp.AMP):
             log.error("Failed in members", error=e)
             record = None
 
-        fieldsList = []
+        records = []
         if record is not None:
             for member in (yield record.members()):
-                fieldsList.append(self.recordToDict(member))
-        response = {
-            "fieldsList": pickle.dumps(fieldsList),
-        }
+                records.append(member)
+
+        response = self._recordsToResponse(records)
         log.debug("Responding with: {response}", response=response)
         returnValue(response)
 

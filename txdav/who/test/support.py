@@ -18,13 +18,22 @@ from twext.who.idirectory import (
     RecordType,
     NoSuchRecordError
 )
-from twext.who.index import DirectoryService as IndexDirectoryService
+from twext.who.index import (
+    DirectoryService as IndexDirectoryService,
+    DirectoryRecord as IndexedDirectoryRecord
+)
 from twext.who.util import ConstantsContainer
+from twisted.internet.defer import succeed, inlineCallbacks
+from txdav.who.directory import (
+    CalendarDirectoryRecordMixin, CalendarDirectoryServiceMixin
+)
 from txdav.who.idirectory import (
     RecordType as CalRecordType
 )
-from twisted.internet.defer import succeed, inlineCallbacks
 
+
+class TestRecord(IndexedDirectoryRecord, CalendarDirectoryRecordMixin):
+    pass
 
 
 class InMemoryDirectoryService(IndexDirectoryService):
@@ -69,3 +78,11 @@ class InMemoryDirectoryService(IndexDirectoryService):
                     if record.uid in uids:
                         recordSet.remove(record)
         return succeed(None)
+
+
+
+class CalendarInMemoryDirectoryService(
+    InMemoryDirectoryService,
+    CalendarDirectoryServiceMixin
+):
+    pass
