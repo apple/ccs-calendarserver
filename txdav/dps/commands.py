@@ -144,6 +144,7 @@ class GroupsCommand(amp.Command):
     ]
     response = [
         ('fieldsList', amp.ListOf(amp.String())),
+        ('continuation', amp.String(optional=True)),
     ]
 
 

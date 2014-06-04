@@ -362,12 +362,10 @@ class DirectoryProxyAMPProtocol(amp.AMP):
             log.error("Failed in groups", error=e)
             record = None
 
-        fieldsList = []
+        records = []
         for group in (yield record.groups()):
-            fieldsList.append(self.recordToDict(group))
-        response = {
-            "fieldsList": pickle.dumps(fieldsList),
-        }
+            records.append(group)
+        response = self._recordsToResponse(records)
         log.debug("Responding with: {response}", response=response)
         returnValue(response)
 

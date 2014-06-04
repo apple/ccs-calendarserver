@@ -27,14 +27,15 @@ from twisted.protocols.amp import AMP
 from twisted.python.filepath import FilePath
 from twisted.test.testutils import returnConnected
 from twisted.trial import unittest
+from twistedcaldav.config import config
+from twistedcaldav.test.util import StoreTestCase
 from txdav.dps.client import DirectoryService
 from txdav.dps.server import DirectoryProxyAMPProtocol
 from txdav.who.directory import CalendarDirectoryServiceMixin
+from txdav.who.groups import GroupCacher
 from txdav.who.test.support import (
     TestRecord, CalendarInMemoryDirectoryService
 )
-from twistedcaldav.test.util import StoreTestCase
-from twistedcaldav.config import config
 
 
 testMode = "xml"  # "xml" or "od"
@@ -244,6 +245,22 @@ class DPSClientSingleDirectoryTest(unittest.TestCase):
         self.assertEquals(len(records), 1)
 
     test_recordsFromMatchExpression.todo = "Won't work until we can serialize expressions"
+
+
+    @inlineCallbacks
+    def test_members(self):
+        group = yield self.directory.recordWithUID(u"__calendar-dev__")
+        members = yield group.members()
+        self.assertEquals(len(members), 5)
+
+
+    @inlineCallbacks
+    def test_groups(self):
+        # No need to use group cacher as the XML service directly supports
+        # groups()
+        record = yield self.directory.recordWithUID(u"__sagen__")
+        groups = yield record.groups()
+        self.assertEquals(len(groups), 1)
 
 
     @inlineCallbacks
@@ -537,6 +554,35 @@ class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
         self.assertEquals(len(records), 1)
 
     test_recordsFromMatchExpression.todo = "Won't work until we can serialize expressions"
+
+
+    @inlineCallbacks
+    def test_members(self):
+        group = yield self.client.recordWithUID(u"__top_group_1__")
+        members = yield group.members()
+        self.assertEquals(len(members), 3)
+
+        group = yield self.client.recordWithUID(u"emptygroup")
+        members = yield group.members()
+        self.assertEquals(len(members), 0)
+
+
+    @inlineCallbacks
+    def test_groups(self):
+
+        # A group must first be "refreshed" into the DB otherwise we won't
+        # consider it for group memberships
+        txn = self.store.newTransaction()
+        groupCacher = GroupCacher(self.directory)
+        yield groupCacher.refreshGroup(txn, u"__sub_group_1__")
+        yield txn.commit()
+
+        # record = yield self.client.recordWithUID(u"__sagen1__")
+        # FIXME: this call hangs during unit tests, but not in a real server:
+        # groups = yield record.groups()
+        # self.assertEquals(len(groups), 1)
+
+    test_groups.todo = "Figure out why this hangs"
 
 
     @inlineCallbacks

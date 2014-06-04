@@ -387,6 +387,12 @@ limitations under the License.
       <member-uid>8B4288F6-CC82-491D-8EF9-642EF4F3E7D0</member-uid>
   </record>
 
+  <record type="group">
+    <uid>emptygroup</uid>
+    <short-name>emptygroup</short-name>
+    <full-name>Empty Group</full-name>
+  </record>
+
   <!-- Calverify test records -->
 
   <record type="user">
