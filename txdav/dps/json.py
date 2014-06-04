@@ -75,6 +75,27 @@ def expressionAsJSONText(expression):
 
 
 
+def matchTypeFromJSON(json):
+    return MatchType.lookupByName(json)
+
+
+
+def matchFlagsFromJSON(json):
+    if json == "{}":
+        return MatchFlags.none
+
+    if json.startswith("{") and json.endswith("}"):
+        # Composite flags: "{A,B,C,...}"
+        flags = MatchFlags.none
+        for flag in json[1:-1].split(","):
+            flags |= MatchFlags.lookupByName(flag)
+
+        return flags
+
+    return MatchFlags.lookupByName(json)
+
+
+
 def matchExpressionFromJSON(service, json):
     try:
         jsonField = json["field"]
@@ -84,22 +105,10 @@ def matchExpressionFromJSON(service, json):
             "JSON match expression must have {!r} key.".format(e[0])
         )
 
-    jsonMatch = json.get("match", "equals")
-    jsonFlags = json.get("flags", "{}")
-
     fieldName = service.fieldName.lookupByName(jsonField)
     fieldValue = unicode(jsonValue)
-    matchType = MatchType.lookupByName(jsonMatch)
-
-    if jsonFlags == "{}":
-        flags = MatchFlags.none
-    elif jsonFlags.startswith("{") and jsonFlags.endswith("}"):
-        # Composite flags: "{A,B,C,...}"
-        flags = MatchFlags.none
-        for flag in jsonFlags[1:-1].split(","):
-            flags |= MatchFlags.lookupByName(flag)
-    else:
-        flags = MatchFlags.lookupByName(jsonFlags)
+    matchType = matchTypeFromJSON(json.get("match", "equals"))
+    flags = matchFlagsFromJSON(json.get("flags", "{}"))
 
     return MatchExpression(
         fieldName, fieldValue,
