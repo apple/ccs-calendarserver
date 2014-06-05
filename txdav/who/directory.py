@@ -459,7 +459,7 @@ class CalendarDirectoryRecordMixin(object):
                     return candidate
 
         # fall back to using the first one
-        return sortedCuas[0] if sortedCuas else None # groups may not have cua
+        return sortedCuas[0] if sortedCuas else None  # groups may not have cua
 
 
     def enabledAsOrganizer(self):

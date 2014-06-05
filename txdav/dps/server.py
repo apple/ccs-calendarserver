@@ -36,7 +36,7 @@ from txdav.dps.commands import (
     RecordsMatchingTokensCommand, RecordsMatchingFieldsCommand,
     MembersCommand, GroupsCommand, SetMembersCommand,
     VerifyPlaintextPasswordCommand, VerifyHTTPDigestCommand,
-    WikiAccessForUID, ContinuationCommand
+    WikiAccessForUIDCommand, ContinuationCommand
     # UpdateRecordsCommand, RemoveRecordsCommand
 )
 from txdav.who.util import directoryFromConfig
@@ -430,7 +430,7 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         returnValue(response)
 
 
-    @WikiAccessForUID.responder
+    @WikiAccessForUIDCommand.responder
     @inlineCallbacks
     def wikiAccessForUID(self, wikiUID, uid):
         wikiUID = wikiUID.decode("utf-8")

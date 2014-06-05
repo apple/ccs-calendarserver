@@ -191,7 +191,7 @@ class VerifyHTTPDigestCommand(amp.Command):
 
 
 
-class WikiAccessForUID(amp.Command):
+class WikiAccessForUIDCommand(amp.Command):
     arguments = [
         ('wikiUID', amp.String()),
         ('uid', amp.String()),

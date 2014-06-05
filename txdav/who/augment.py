@@ -23,6 +23,8 @@ __all__ = [
     "AugmentedDirectoryService",
 ]
 
+import time
+
 from zope.interface import implementer
 
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -47,6 +49,47 @@ log = Logger()
 
 
 
+def timed(f):
+    """
+    A decorator which keeps track of the wrapped function's call count and
+    total duration
+    """
+
+    def recordTiming(result, key, startTime):
+        """
+        Figures out how much time to add to the total time spent within the
+        method identified by key and stores that in the timings dict.
+
+        @param result: the result of the wrapped method
+        @param timings: the dictionary to store timings in
+        @type timings: C{dict}
+        @param key: the method name
+        @type key: C{str}
+        @param startTime: the start time of the call in seconds
+        @type startTime: C{float}
+        """
+        timings = AugmentedDirectoryService._timings
+        if key not in timings:
+            timings[key] = (0, 0.0)
+        count, timeSpent = timings[key]
+        count += 1
+        duration = (time.time() - startTime)
+        timeSpent += duration
+        timings[key] = (count, timeSpent)
+        return result
+
+
+    def timingWrapper(self, *args, **kwds):
+        """
+        Records the start time of the call and the method's name
+        """
+        d = f(self, *args, **kwds)
+        d.addBoth(recordTiming, f.func_name, time.time())
+        return d
+
+    return timingWrapper
+
+
 @implementer(IDirectoryService, IStoreDirectoryService)
 class AugmentedDirectoryService(
     BaseDirectoryService, CalendarDirectoryServiceMixin
@@ -63,12 +106,18 @@ class AugmentedDirectoryService(
         FieldName,
     ))
 
+    _timings = {}
+
 
     def __init__(self, directory, store, augmentDB):
         BaseDirectoryService.__init__(self, directory.realmName)
         self._directory = directory
         self._store = store
         self._augmentDB = augmentDB
+
+
+    def stats(self):
+        return self._timings
 
 
     @property
@@ -104,6 +153,7 @@ class AugmentedDirectoryService(
         returnValue(augmented)
 
 
+    @timed
     @inlineCallbacks
     def recordWithUID(self, uid):
         # MOVE2WHO, REMOVE THIS:
@@ -116,6 +166,7 @@ class AugmentedDirectoryService(
         returnValue(record)
 
 
+    @timed
     @inlineCallbacks
     def recordWithGUID(self, guid):
         record = yield self._directory.recordWithGUID(guid)
@@ -123,6 +174,7 @@ class AugmentedDirectoryService(
         returnValue(record)
 
 
+    @timed
     @inlineCallbacks
     def recordsWithRecordType(self, recordType):
         records = yield self._directory.recordsWithRecordType(recordType)
@@ -133,6 +185,7 @@ class AugmentedDirectoryService(
         returnValue(augmented)
 
 
+    @timed
     @inlineCallbacks
     def recordWithShortName(self, recordType, shortName):
         # MOVE2WHO, REMOVE THIS:
@@ -147,6 +200,7 @@ class AugmentedDirectoryService(
         returnValue(record)
 
 
+    @timed
     @inlineCallbacks
     def recordsWithEmailAddress(self, emailAddress):
         # MOVE2WHO, REMOVE THIS:
@@ -162,6 +216,28 @@ class AugmentedDirectoryService(
         returnValue(augmented)
 
 
+    @timed
+    def recordWithCalendarUserAddress(self, *args, **kwds):
+        return CalendarDirectoryServiceMixin.recordWithCalendarUserAddress(
+            self, *args, **kwds
+        )
+
+
+    @timed
+    def recordsMatchingTokens(self, *args, **kwds):
+        return CalendarDirectoryServiceMixin.recordsMatchingTokens(
+            self, *args, **kwds
+        )
+
+
+    @timed
+    def recordsMatchingFields(self, *args, **kwds):
+        return CalendarDirectoryServiceMixin.recordsMatchingFields(
+            self, *args, **kwds
+        )
+
+
+    @timed
     @inlineCallbacks
     def updateRecords(self, records, create=False):
         """
@@ -364,6 +440,7 @@ class AugmentedDirectoryRecord(DirectoryRecord, CalendarDirectoryRecordMixin):
         self._baseRecord = baseRecord
 
 
+    @timed
     @inlineCallbacks
     def members(self):
         augmented = []
@@ -375,6 +452,7 @@ class AugmentedDirectoryRecord(DirectoryRecord, CalendarDirectoryRecordMixin):
         returnValue(augmented)
 
 
+    @timed
     @inlineCallbacks
     def groups(self):
         augmented = []
@@ -397,13 +475,16 @@ class AugmentedDirectoryRecord(DirectoryRecord, CalendarDirectoryRecordMixin):
         returnValue(augmented)
 
 
+    @timed
     def verifyPlaintextPassword(self, password):
         return self._baseRecord.verifyPlaintextPassword(password)
 
 
+    @timed
     def verifyHTTPDigest(self, *args):
         return self._baseRecord.verifyHTTPDigest(*args)
 
 
+    @timed
     def accessForRecord(self, record):
         return self._baseRecord.accessForRecord(record)

@@ -738,10 +738,12 @@ class HTTPSlotsWindow(BaseWindow):
 
         s = " {:<12}{:>8}{:>16}".format(
             "Total:",
-            sum([
-                record["unacknowledged"] + record["acknowledged"]
-                for record in records
-            ]),
+            sum(
+                [
+                    record["unacknowledged"] + record["acknowledged"]
+                    for record in records
+                ]
+            ),
             sum([record["total"] for record in records]),
         )
         if self.usesCurses:
@@ -919,11 +921,103 @@ class RequestStatsWindow(BaseWindow):
         self.lastResult = records
 
 
+class DirectoryStatsWindow(BaseWindow):
+    """
+    Displays the status of the server's directory service calls
+    """
+
+    help = "display directory service stats"
+    clientItem = "directory"
+    FORMAT_WIDTH = 89
+
+
+    def makeWindow(self, top=0, left=0):
+        nlines = len(defaultIfNone(self.readItem("directory"), {}))
+        self.rowCount = nlines
+        self._createWindow(
+            "Directory Service", self.rowCount + 6, ncols=self.FORMAT_WIDTH,
+            begin_y=top, begin_x=left
+        )
+        return self
+
+
+    def update(self):
+        records = defaultIfNone(self.clientData(), {})
+        if len(records) != self.rowCount:
+            self.needsReset = True
+            return
+
+        self.iter += 1
+
+        if self.usesCurses:
+            self.window.erase()
+            self.window.border()
+            self.window.addstr(0, 2, self.title + " {} ({})".format(len(records), self.iter,))
+
+        x = 1
+        y = 1
+        s1 = " {:<40}{:>15}{:>15}{:>15} ".format(
+            "Method", "Calls", "Total", "Average"
+        )
+        s2 = " {:<40}{:>15}{:>15}{:>15} ".format(
+            "", "", "(sec)", "(sec)"
+        )
+        if self.usesCurses:
+            self.window.addstr(y, x, s1, curses.A_REVERSE)
+            self.window.addstr(y + 1, x, s2, curses.A_REVERSE)
+        else:
+            print(s1)
+            print(s2)
+        y += 2
+
+        overallCount = 0
+        overallTimeSpent = 0.0
+
+        for methodName, (count, timeSpent) in sorted(records.items(), key=lambda x: x[0]):
+            overallCount += count
+            overallTimeSpent += timeSpent
+
+            s = " {:<40}{:>15d}{:>15.1f}{:>15.5f} ".format(
+                methodName,
+                count,
+                timeSpent,
+                timeSpent / count,
+            )
+            try:
+                if self.usesCurses:
+                    self.window.addstr(y, x, s)
+                else:
+                    print(s)
+            except curses.error:
+                pass
+            y += 1
+
+
+        s = " {:<40}{:>15d}{:>15.1f}{:>15.5f} ".format(
+            "Total:",
+            overallCount,
+            overallTimeSpent,
+            safeDivision(overallTimeSpent, overallCount, 1.0)
+        )
+        if self.usesCurses:
+            self.window.hline(y, x, "-", self.FORMAT_WIDTH - 2)
+            y += 1
+            self.window.addstr(y, x, s)
+        else:
+            print(s)
+        y += 1
+
+        if self.usesCurses:
+            self.window.refresh()
+
+
+
 Dashboard.registerWindow(SystemWindow, "s")
 Dashboard.registerWindow(RequestStatsWindow, "r")
 Dashboard.registerWindow(JobsWindow, "j")
 Dashboard.registerWindow(AssignmentsWindow, "w")
 Dashboard.registerWindow(HTTPSlotsWindow, "c")
+Dashboard.registerWindow(DirectoryStatsWindow, "d")
 Dashboard.registerWindow(HelpWindow, "h")
 
 

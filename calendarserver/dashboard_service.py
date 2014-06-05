@@ -28,6 +28,7 @@ server protocol analysis statistics, job queue load, and other useful informatio
 a server admin or developer would like to keep an eye on.
 """
 
+
 class DashboardProtocol (LineReceiver):
     """
     A protocol that receives a line containing a JSON object representing a request,
@@ -151,6 +152,20 @@ class DashboardProtocol (LineReceiver):
             level = 0
 
         return succeed({"workers": loads, "level": level})
+
+
+    def data_directory(self):
+        """
+        Return a summary of directory service calls.
+
+        @return: the JSON result.
+        @rtype: L{str}
+        """
+        directory = self.factory.store.directoryService()
+        if hasattr(directory, "stats"):
+            return succeed(directory.stats())
+        else:
+            return succeed({})
 
 
 

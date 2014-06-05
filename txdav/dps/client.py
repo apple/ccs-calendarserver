@@ -39,7 +39,7 @@ from txdav.dps.commands import (
     RecordsMatchingTokensCommand, RecordsMatchingFieldsCommand,
     MembersCommand, GroupsCommand, SetMembersCommand,
     VerifyPlaintextPasswordCommand, VerifyHTTPDigestCommand,
-    WikiAccessForUID, ContinuationCommand
+    WikiAccessForUIDCommand, ContinuationCommand
 )
 from txdav.who.directory import (
     CalendarDirectoryRecordMixin, CalendarDirectoryServiceMixin
@@ -401,7 +401,7 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
     def accessForRecord(self, record):
         log.debug("DPS Client accessForRecord")
         return self.service._call(
-            WikiAccessForUID,
+            WikiAccessForUIDCommand,
             self._convertAccess,
             wikiUID=self.uid.encode("utf-8"),
             uid=record.uid.encode("utf-8")
