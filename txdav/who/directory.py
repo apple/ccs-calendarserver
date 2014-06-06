@@ -143,6 +143,7 @@ class CalendarDirectoryServiceMixin(object):
         return recordTypes
 
 
+    @inlineCallbacks
     def recordsMatchingTokens(self, tokens, context=None, limitResults=50,
                               timeoutSeconds=10):
         fields = [
@@ -174,37 +175,45 @@ class CalendarDirectoryServiceMixin(object):
         else:
             expression = CompoundExpression(outer, Operand.AND)
 
+        results = []
+
         if context is not None:
+            # We're limiting record types, so for each recordType, build a
+            # CompoundExpression that ANDs the original expression with a
+            # typeSpecific one.  Collect all the results from these expressions.
             recordTypes = self.recordTypesForSearchContext(context)
-            log.debug("Context {c}, recordTypes {r}", c=context, r=recordTypes)
-            typeSpecific = []
+            log.debug("Tokens: {t}, recordTypes {r}", t=tokens, r=recordTypes)
             for recordType in recordTypes:
-                typeSpecific.append(
-                    MatchExpression(
-                        self.fieldName.recordType,
-                        recordType,
-                        MatchType.equals,
-                        MatchFlags.none
-                    )
+                typeSpecific = MatchExpression(
+                    self.fieldName.recordType,
+                    recordType,
+                    MatchType.equals,
+                    MatchFlags.none
                 )
 
-            if len(typeSpecific) == 1:
-                typeSpecific = typeSpecific[0]
-
-            else:
                 typeSpecific = CompoundExpression(
-                    typeSpecific,
-                    Operand.OR
+                    [expression, typeSpecific],
+                    Operand.AND
                 )
 
-            expression = CompoundExpression(
-                [expression, typeSpecific],
-                Operand.AND
+                subResults = yield self.recordsFromExpression(typeSpecific)
+                log.debug(
+                    "Tokens ({t}) matched {n} of {r}",
+                    t=tokens, n=len(subResults), r=recordType
+                )
+                results.extend(subResults)
+
+        else:
+            # No record type limits
+            results = yield self.recordsFromExpression(expression)
+            log.debug(
+                "Tokens ({t}) matched {n} records",
+                t=tokens, n=len(results)
             )
 
-        log.debug("Expression {e}", e=expression)
+        log.debug("Tokens ({t}) matched records {r}", t=tokens, r=results)
 
-        return self.recordsFromExpression(expression)
+        returnValue(results)
 
 
     def recordsMatchingFieldsWithCUType(self, fields, operand=Operand.OR,

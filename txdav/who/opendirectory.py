@@ -24,12 +24,9 @@ Calendar and contacts directory extentions to L{twext.who.opendirectory}.
 
 __all__ = [
     "DirectoryService",
-    "RecordType"
 ]
 
 from twext.who.opendirectory import DirectoryService
-from twisted.python.constants import Names, NamedConstant
-
 
 
 # Hoorj OMG haxx
@@ -38,18 +35,3 @@ from .idirectory import RecordType as _CSRecordType
 
 _ODRecordType.location.recordType = _CSRecordType.location
 _ODRecordType.resource.recordType = _CSRecordType.resource
-
-
-class RecordType(Names):
-
-    user = NamedConstant()
-    user.description = u"user"
-
-    group = NamedConstant()
-    group.description = u"group"
-
-    location = NamedConstant()
-    location.description = u"location"
-
-    resource = NamedConstant()
-    resource.description = u"resource"

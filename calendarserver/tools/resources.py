@@ -31,7 +31,7 @@ from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
 from txdav.who.directory import CalendarDirectoryRecordMixin
 from twext.who.directory import DirectoryRecord as BaseDirectoryRecord
-from txdav.who.opendirectory import RecordType
+from txdav.who.idirectory import RecordType
 
 
 log = Logger()
@@ -42,7 +42,7 @@ class ResourceMigrationService(WorkerService):
     @inlineCallbacks
     def doWork(self):
         try:
-            from twext.who.opendirectory import (
+            from txdav.who.opendirectory import (
                 DirectoryService as OpenDirectoryService
             )
         except ImportError:
@@ -115,8 +115,8 @@ def migrateResources(sourceService, destService, verbose=False):
     destRecords = []
 
     for recordType in (
-        sourceService.recordType.resource,
-        sourceService.recordType.location,
+        RecordType.resource,
+        RecordType.location,
     ):
         records = yield sourceService.recordsWithRecordType(recordType)
         for sourceRecord in records:
