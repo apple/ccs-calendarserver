@@ -159,7 +159,7 @@ if moduleImported:
             )
             records = yield self.service.recordsFromExpression(expression)
 
-            # We should get back users and groups:
+            # We should get back users and groups since we did not specify a type:
             self.verifyResults(
                 records,
                 ["odtestbetty", "odtestalbert", "anotherodtestalbert", "odtestgroupbetty", "odtestgroupalbert"],
@@ -222,7 +222,7 @@ if moduleImported:
 
         @onlyIfPopulated
         @inlineCallbacks
-        def test_compoundWithSingleRecordType(self):
+        def test_compoundWithMultipleRecordTypes(self):
             expression = CompoundExpression(
                 [
                     CompoundExpression(
@@ -256,17 +256,27 @@ if moduleImported:
                         ],
                         Operand.AND
                     ),
-                    MatchExpression(
-                        self.service.fieldName.recordType, self.service.recordType.user,
+                    CompoundExpression(
+                        [
+                            MatchExpression(
+                                self.service.fieldName.recordType, self.service.recordType.user,
+                            ),
+                            MatchExpression(
+                                self.service.fieldName.recordType, self.service.recordType.group,
+                            ),
+                        ],
+                        Operand.OR
                     ),
                 ],
                 Operand.AND
             )
             records = yield self.service.recordsFromExpression(expression)
 
-            # We should only get users back, not groups:
+            # We should get users and groups back, since we asked for either type:
             self.verifyResults(
                 records,
-                ["odtestbetty", "odtestalbert", "anotherodtestalbert"],
-                ["odtestamanda", "odtestbill", "odtestgroupa", "odtestgroupb", "odtestgroupbetty", "odtestgroupalbert"]
+                ["odtestbetty", "odtestalbert", "anotherodtestalbert", "odtestgroupbetty", "odtestgroupalbert"],
+                ["odtestamanda", "odtestbill", "odtestgroupa", "odtestgroupb"]
             )
+
+        test_compoundWithMultipleRecordTypes.skip = "This ends up doing a brute force query!"
