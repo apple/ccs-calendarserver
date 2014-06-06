@@ -115,6 +115,18 @@ masterUsers = [
             dsattributes.kDS1AttrPrimaryGroupID : ["20"],
         },
     ),
+    (
+        "anotherodtestamanda",
+        {
+            dsattributes.kDS1AttrFirstName : ["Amanda"],
+            dsattributes.kDS1AttrLastName  : ["Test"],
+            dsattributes.kDS1AttrDistinguishedName : ["Amanda Test"],
+            dsattributes.kDSNAttrEMailAddress : ["anotheramanda@example.com"],
+            dsattributes.kDS1AttrGeneratedUID : ["E7666814-6D92-49EC-8562-8C4C3D64A4B0"],
+            dsattributes.kDS1AttrUniqueID : ["33307"],
+            dsattributes.kDS1AttrPrimaryGroupID : ["20"],
+        },
+    ),
 ]
 
 masterGroups = [
@@ -135,6 +147,16 @@ masterGroups = [
             dsattributes.kDSNAttrGroupMembers : ["9DC04A70-E6DD-11DF-9492-0800200C9A66", "9DC04A71-E6DD-11DF-9492-0800200C9A66"],
             dsattributes.kDSNAttrNestedGroups : ["6C6CD282-E6E3-11DF-9492-0800200C9A66"],
             dsattributes.kDS1AttrPrimaryGroupID : ["33400"],
+        },
+    ),
+    (
+        "odtestgroupbetty",
+        {
+            dsattributes.kDS1AttrGeneratedUID : ["2A1F3ED9-D1B3-40F2-8FC4-05E197C1F90C"],
+            dsattributes.kDS1AttrDistinguishedName : ["OD Test Group Betty"],
+            dsattributes.kDSNAttrGroupMembers : [],
+            dsattributes.kDSNAttrNestedGroups : [],
+            dsattributes.kDS1AttrPrimaryGroupID : ["33403"],
         },
     ),
 ]
@@ -188,6 +210,18 @@ localUsers = [
             dsattributes.kDS1AttrPrimaryGroupID : ["20"],
         },
     ),
+    (
+        "anotherodtestalbert",
+        {
+            dsattributes.kDS1AttrFirstName : ["Albert"],
+            dsattributes.kDS1AttrLastName  : ["Test"],
+            dsattributes.kDS1AttrDistinguishedName : ["Albert Test"],
+            dsattributes.kDSNAttrEMailAddress : ["anotheralbert@example.com"],
+            dsattributes.kDS1AttrGeneratedUID : ["8F059F1B-1CD0-42B5-BEA2-6A36C9B5620F"],
+            dsattributes.kDS1AttrUniqueID : ["33354"],
+            dsattributes.kDS1AttrPrimaryGroupID : ["20"],
+        },
+    ),
 ]
 
 localGroups = [
@@ -198,6 +232,15 @@ localGroups = [
             dsattributes.kDS1AttrDistinguishedName : ["OD Test Subgroup A"],
             dsattributes.kDSNAttrGroupMembers : ["9DC04A74-E6DD-11DF-9492-0800200C9A66", "9DC04A75-E6DD-11DF-9492-0800200C9A66"],
             dsattributes.kDS1AttrPrimaryGroupID : ["33402"],
+        },
+    ),
+    (
+        "odtestgroupalbert",
+        {
+            dsattributes.kDS1AttrGeneratedUID : ["3F4D01B8-FDFD-4805-A853-DE9879A2D951"],
+            dsattributes.kDS1AttrDistinguishedName : ["OD Test Group Albert"],
+            dsattributes.kDSNAttrGroupMembers : [],
+            dsattributes.kDS1AttrPrimaryGroupID : ["33404"],
         },
     ),
 ]
