@@ -76,7 +76,7 @@ url="$(grep egg=CalDAVTester "${wd}/requirements-dev.txt" | sed 's|^.*svn+\([^@#
 rev="$(grep egg=CalDAVTester "${wd}/requirements-dev.txt" | sed 's|^.*svn+[^@#]*@\([0-9]*\).*$|\1|')";
 
 svn export -r "${rev}" "${url}@${rev}" "${wd}/CalDAVTester";
-tar -C "${wd}" -cvzf "${wd}/CalDAVTester.tgz" CalDAVTester; 
+tar -C "${wd}" -cvzf "${wd}/CalDAVTester.tgz" CalDAVTester;
 rm -r CalDAVTester;
 
 
@@ -85,7 +85,7 @@ rm -r CalDAVTester;
 # Remove .exe files from arvhives
 #
 
-for archive in $(find "${wd}/.develop" -type f -name '*.tgz'); do
+for archive in $(find "${wd}/.develop" -type f -name '*.tgz' -or -name '*.tar.gz'); do
   if tar -tvzf "${archive}" "*.exe" > /dev/null 2>&1; then
     ruler "Removing binaries from ${archive}";
     tmp="$(mktemp -t ccsXXXXX)";
