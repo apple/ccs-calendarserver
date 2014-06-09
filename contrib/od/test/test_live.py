@@ -38,9 +38,8 @@ except:
 if moduleImported:
 
     from twext.who.expression import (
-        CompoundExpression, Operand, MatchExpression, MatchType, MatchFlags
+        CompoundExpression, Operand, MatchExpression, MatchType
     )
-
 
     LOCAL_SHORTNAMES = "odtestalbert odtestbill odtestcarl odtestdavid odtestsubgroupa".split()
     NETWORK_SHORTNAMES = "odtestamanda odtestbetty odtestcarlene odtestdenise odtestsubgroupb odtestgrouptop".split()
@@ -59,7 +58,6 @@ if moduleImported:
             else:
                 print("OD not populated, skipping {}".format(func.func_name))
         return checkThenRun
-
 
 
     class LiveOpenDirectoryServiceTestCase(unittest.TestCase):
@@ -217,7 +215,6 @@ if moduleImported:
                 ["odtestbetty", "odtestalbert", "anotherodtestalbert"],
                 ["odtestamanda", "odtestbill", "odtestgroupa", "odtestgroupb", "odtestgroupbetty", "odtestgroupalbert"]
             )
-
 
 
         @onlyIfPopulated
