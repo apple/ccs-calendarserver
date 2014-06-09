@@ -663,7 +663,7 @@ class PrimaryTimezoneDatabase(CommonTimezoneDatabase):
 
         try:
             for alias in aliases.splitlines():
-                alias_from, alias_to = alias.split()
+                alias_from, alias_to = alias.split("\t")
                 tzinfo = self.timezones.get(alias_to)
                 if tzinfo:
                     if alias_from != alias_to:

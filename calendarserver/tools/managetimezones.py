@@ -105,7 +105,16 @@ def _doRefresh(tzpath, xmlfile, tzdb, tzvers):
     for file in zonefiles:
         parser.parse(os.path.join(zonedir, file))
 
-    parser.generateZoneinfoFiles(os.path.join(rootdir, "zoneinfo"), startYear, endYear, filterzones=())
+    # Check for windows aliases
+    print("Downloading latest data from unicode.org")
+    path = "http://unicode.org/repos/cldr/tags/latest/common/supplemental/windowsZones.xml"
+    data = urllib.urlretrieve(path)
+    wpath = data[0]
+
+    # Generate the iCalendar data
+    print("Generating iCalendar data")
+    parser.generateZoneinfoFiles(os.path.join(rootdir, "zoneinfo"), startYear, endYear, windowsAliases=wpath, filterzones=())
+
     print("Copy new zoneinfo to destination: %s" % (tzpath,))
     z = FilePath(os.path.join(rootdir, "zoneinfo"))
     tz = FilePath(tzpath)
@@ -251,7 +260,8 @@ Options:
 Description:
     This utility will create, update, or list an XML timezone database
     summary file, or refresh iCalendar timezone from IANA (Olson). It can
-    also be used to update the server's own zoneinfo database from IANA.
+    also be used to update the server's own zoneinfo database from IANA. It
+    also creates aliases for the unicode.org windowsZones.
 
 """)
 
