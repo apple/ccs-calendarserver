@@ -20,12 +20,12 @@ from plistlib import readPlistFromString
 import plistlib
 import xml
 
+from twistedcaldav.stdconfig import config
 from twext.python.filepath import CachingFilePath as FilePath
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 from twisted.trial.unittest import TestCase
 from twistedcaldav import memcacher
-from twistedcaldav.config import config
 from twistedcaldav.memcacheclient import ClientFactory
 from twistedcaldav.test.util import CapturingProcessProtocol
 from txdav.common.datastore.test.util import (

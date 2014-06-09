@@ -694,7 +694,7 @@ class CommonStoreTransaction(object):
         ).on(self)
 
 
-    def _determineMemo(self, storeType, uid, create=False):
+    def _determineMemo(self, storeType, uid, create=False, authzUID=None):
         """
         Determine the memo dictionary to use for homeWithUID.
         """
@@ -720,19 +720,27 @@ class CommonStoreTransaction(object):
 
 
     @memoizedKey("uid", _determineMemo)
-    def homeWithUID(self, storeType, uid, create=False):
+    def homeWithUID(self, storeType, uid, create=False, authzUID=None):
+        """
+        We need to distinguish between various different users "looking" at a home and its
+        child resources because we have per-user properties that depend on which user is "looking".
+        By default the viewer is set to the authz_uid on the transaction, or the owner if no authz,
+        but it can be overridden using L{authzUID}. This is useful when the store needs to get to
+        other user's homes with the viewer being the owner of that home as opposed to authz_uid. That
+        often happens when manipulating shares.
+        """
         if storeType not in (ECALENDARTYPE, EADDRESSBOOKTYPE):
             raise RuntimeError("Unknown home type.")
 
-        return self._homeClass[storeType].homeWithUID(self, uid, create)
+        return self._homeClass[storeType].homeWithUID(self, uid, create, authzUID)
 
 
-    def calendarHomeWithUID(self, uid, create=False):
-        return self.homeWithUID(ECALENDARTYPE, uid, create=create)
+    def calendarHomeWithUID(self, uid, create=False, authzUID=None):
+        return self.homeWithUID(ECALENDARTYPE, uid, create=create, authzUID=authzUID)
 
 
-    def addressbookHomeWithUID(self, uid, create=False):
-        return self.homeWithUID(EADDRESSBOOKTYPE, uid, create=create)
+    def addressbookHomeWithUID(self, uid, create=False, authzUID=None):
+        return self.homeWithUID(EADDRESSBOOKTYPE, uid, create=create, authzUID=authzUID)
 
 
     @inlineCallbacks
@@ -740,10 +748,10 @@ class CommonStoreTransaction(object):
         """
         Load a calendar or addressbook home by its integer resource ID.
         """
-        uid = (yield self._homeClass[storeType]
-               .homeUIDWithResourceID(self, rid))
+        uid = (yield self._homeClass[storeType].homeUIDWithResourceID(self, rid))
         if uid:
-            result = (yield self.homeWithUID(storeType, uid))
+            # Always get the owner's view of the home = i.e., authzUID=uid
+            result = (yield self.homeWithUID(storeType, uid, authzUID=uid))
         else:
             result = None
         returnValue(result)
@@ -2838,7 +2846,7 @@ class CommonHome(SharingHomeMixIn):
 
     @classmethod
     @inlineCallbacks
-    def makeClass(cls, transaction, ownerUID, no_cache=False):
+    def makeClass(cls, transaction, ownerUID, no_cache=False, authzUID=None):
         """
         Build the actual home class taking into account the possibility that we might need to
         switch in the external version of the class.
@@ -2850,14 +2858,20 @@ class CommonHome(SharingHomeMixIn):
         @param no_cache: should cached query be used
         @type no_cache: C{bool}
         """
-        home = cls(transaction, ownerUID)
+        home = cls(transaction, ownerUID, authzUID=authzUID)
         actualHome = yield home.initFromStore(no_cache)
         returnValue(actualHome)
 
 
-    def __init__(self, transaction, ownerUID):
+    def __init__(self, transaction, ownerUID, authzUID=None):
         self._txn = transaction
         self._ownerUID = ownerUID
+        self._authzUID = authzUID
+        if self._authzUID is None:
+            if self._txn._authz_uid is not None:
+                self._authzUID = self._txn._authz_uid
+            else:
+                self._authzUID = self._ownerUID
         self._resourceID = None
         self._status = _HOME_STATUS_NORMAL
         self._dataVersion = None
@@ -3052,11 +3066,11 @@ class CommonHome(SharingHomeMixIn):
 
     @classmethod
     @inlineCallbacks
-    def homeWithUID(cls, txn, uid, create=False):
+    def homeWithUID(cls, txn, uid, create=False, authzUID=None):
         """
         @param uid: I'm going to assume uid is utf-8 encoded bytes
         """
-        homeObject = yield cls.makeClass(txn, uid)
+        homeObject = yield cls.makeClass(txn, uid, authzUID=authzUID)
         if homeObject is not None:
             returnValue(homeObject)
         else:
@@ -3091,7 +3105,7 @@ class CommonHome(SharingHomeMixIn):
                 yield savepoint.rollback(txn)
 
                 # Retry the query - row may exist now, if not re-raise
-                homeObject = yield cls.makeClass(txn, uid)
+                homeObject = yield cls.makeClass(txn, uid, authzUID=authzUID)
                 if homeObject:
                     returnValue(homeObject)
                 else:
@@ -3102,7 +3116,7 @@ class CommonHome(SharingHomeMixIn):
                 # Note that we must not cache the owner_uid->resource_id
                 # mapping in _cacher when creating as we don't want that to appear
                 # until AFTER the commit
-                home = yield cls.makeClass(txn, uid, no_cache=True)
+                home = yield cls.makeClass(txn, uid, no_cache=True, authzUID=authzUID)
                 yield home.createdHome()
                 returnValue(home)
 
@@ -3138,6 +3152,15 @@ class CommonHome(SharingHomeMixIn):
         @return: a string.
         """
         return self._ownerUID
+
+
+    def authzuid(self):
+        """
+        Retrieve the unique identifier of the user accessing the data in this home.
+
+        @return: a string.
+        """
+        return self._authzUID
 
 
     def external(self):
@@ -3540,9 +3563,13 @@ class CommonHome(SharingHomeMixIn):
 
     @inlineCallbacks
     def _loadPropertyStore(self):
+
+        # Use any authz uid in place of the viewer uid so delegates have their own
+        # set of properties
         props = yield PropertyStore.load(
             self.uid(),
             self.uid(),
+            self.authzuid(),
             self._txn,
             self._resourceID,
             notifyCallback=self.notifyChanged
@@ -4652,6 +4679,9 @@ class SharingMixIn(object):
     def ownerView(self):
         """
         Return the owner resource counterpart of this shared resource.
+
+        Note we have to play a trick with the property store to coerce it to match
+        the per-user properties for the owner.
         """
         # Get the child of the owner home that has the same resource id as the owned one
         ownerView = yield self.ownerHome().childWithID(self.id())
@@ -4662,10 +4692,13 @@ class SharingMixIn(object):
     def shareeView(self, shareeUID):
         """
         Return the shared resource counterpart of this owned resource for the specified sharee.
+
+        Note we have to play a trick with the property store to coerce it to match
+        the per-user properties for the sharee.
         """
 
         # Get the child of the sharee home that has the same resource id as the owned one
-        shareeHome = yield self._txn.homeWithUID(self._home._homeType, shareeUID)
+        shareeHome = yield self._txn.homeWithUID(self._home._homeType, shareeUID, authzUID=shareeUID)
         shareeView = (yield shareeHome.allChildWithID(self.id())) if shareeHome is not None else None
         returnValue(shareeView)
 
@@ -5434,7 +5467,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             childResourceIDs = [dataRow[2] for dataRow in dataRows]
 
             propertyStores = yield PropertyStore.forMultipleResourcesWithResourceIDs(
-                home.uid(), home._txn, childResourceIDs
+                home.uid(), None, None, home._txn, childResourceIDs
             )
 
             # Get revisions
@@ -6216,9 +6249,12 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
     @inlineCallbacks
     def _loadPropertyStore(self, props=None):
         if props is None:
+            # Use any authz uid in place of the viewer uid so delegates have their own
+            # set of properties
             props = yield PropertyStore.load(
                 self.ownerHome().uid(),
                 self.viewerHome().uid(),
+                self.viewerHome().authzuid(),
                 self._txn,
                 self._resourceID,
                 notifyCallback=self.notifyPropertyChanged
@@ -6534,6 +6570,8 @@ class CommonObjectResource(FancyEqMixin, object):
             if parent.objectResourcesHaveProperties():
                 propertyStores = (yield PropertyStore.forMultipleResources(
                     parent._home.uid(),
+                    None,
+                    None,
                     parent._txn,
                     cls._objectSchema.RESOURCE_ID,
                     cls._objectSchema.PARENT_RESOURCE_ID,
@@ -6611,6 +6649,8 @@ class CommonObjectResource(FancyEqMixin, object):
             if parent.objectResourcesHaveProperties():
                 propertyStores = (yield PropertyStore.forMultipleResourcesWithResourceIDs(
                     parent._home.uid(),
+                    None,
+                    None,
                     parent._txn,
                     tuple([row[0] for row in dataRows]),
                 ))
@@ -6789,8 +6829,9 @@ class CommonObjectResource(FancyEqMixin, object):
         if props is None:
             if self._parentCollection.objectResourcesHaveProperties():
                 props = yield PropertyStore.load(
-                    self._parentCollection.viewerHome().uid(),
                     self._parentCollection.ownerHome().uid(),
+                    self._parentCollection.viewerHome().uid(),
+                    self._parentCollection.viewerHome().authzuid(),
                     self._txn,
                     self._resourceID,
                     created=created
@@ -7153,6 +7194,7 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
         self._propertyStore = yield PropertyStore.load(
             self._uid,
             self._uid,
+            None,
             self._txn,
             self._resourceID,
             notifyCallback=self.notifyChanged
@@ -7492,6 +7534,8 @@ class NotificationObject(FancyEqMixin, object):
             # Get property stores for all these child resources (if any found)
             propertyStores = (yield PropertyStore.forMultipleResources(
                 parent.uid(),
+                None,
+                None,
                 parent._txn,
                 schema.NOTIFICATION.RESOURCE_ID,
                 schema.NOTIFICATION.NOTIFICATION_HOME_RESOURCE_ID,

@@ -49,10 +49,11 @@ class PropertyStoreTest(PropertyStoreTest):
         self.store = yield buildStore(self, self.notifierFactory)
         self.addCleanup(self.maybeCommitLast)
         self._txn = self.store.newTransaction()
-        self.propertyStore = self.propertyStore1 = yield PropertyStore.load(
-            "user01", None, self._txn, 1
-        )
-        self.propertyStore2 = yield PropertyStore.load("user01", "user02", self._txn, 1)
+        self.propertyStore = \
+        self.propertyStore1 = yield PropertyStore.load("user01", None, None, self._txn, 1)
+        self.propertyStore2 = yield PropertyStore.load("user01", "user02", None, self._txn, 1)
+        self.propertyStore3 = yield PropertyStore.load("user01", None, "user03", self._txn, 1)
+        self.propertyStore4 = yield PropertyStore.load("user01", "user02", "user04", self._txn, 1)
 
 
     @inlineCallbacks
@@ -62,7 +63,11 @@ class PropertyStoreTest(PropertyStoreTest):
             delattr(self, "_txn")
         else:
             result = None
-        self.propertyStore = self.propertyStore1 = self.propertyStore2 = None
+        self.propertyStore = \
+        self.propertyStore1 = \
+        self.propertyStore2 = \
+        self.propertyStore3 = \
+        self.propertyStore4 = None
         returnValue(result)
 
 
@@ -74,16 +79,29 @@ class PropertyStoreTest(PropertyStoreTest):
         self._txn = self.store.newTransaction()
 
         store = self.propertyStore1
-        self.propertyStore = self.propertyStore1 = yield PropertyStore.load(
-            "user01", None, self._txn, 1
-        )
+        self.propertyStore = \
+        self.propertyStore1 = yield PropertyStore.load("user01", None, None, self._txn, 1)
         self.propertyStore1._shadowableKeys = store._shadowableKeys
+        self.propertyStore1._proxyOverrideKeys = store._proxyOverrideKeys
         self.propertyStore1._globalKeys = store._globalKeys
 
         store = self.propertyStore2
-        self.propertyStore2 = yield PropertyStore.load("user01", "user02", self._txn, 1)
+        self.propertyStore2 = yield PropertyStore.load("user01", "user02", None, self._txn, 1)
         self.propertyStore2._shadowableKeys = store._shadowableKeys
+        self.propertyStore2._proxyOverrideKeys = store._proxyOverrideKeys
         self.propertyStore2._globalKeys = store._globalKeys
+
+        store = self.propertyStore3
+        self.propertyStore3 = yield PropertyStore.load("user01", None, "user03", self._txn, 1)
+        self.propertyStore3._shadowableKeys = store._shadowableKeys
+        self.propertyStore3._proxyOverrideKeys = store._proxyOverrideKeys
+        self.propertyStore3._globalKeys = store._globalKeys
+
+        store = self.propertyStore4
+        self.propertyStore4 = yield PropertyStore.load("user01", "user02", "user04", self._txn, 1)
+        self.propertyStore4._shadowableKeys = store._shadowableKeys
+        self.propertyStore4._proxyOverrideKeys = store._proxyOverrideKeys
+        self.propertyStore4._globalKeys = store._globalKeys
 
 
     @inlineCallbacks
@@ -95,16 +113,29 @@ class PropertyStoreTest(PropertyStoreTest):
         self._txn = self.store.newTransaction()
 
         store = self.propertyStore1
-        self.propertyStore = self.propertyStore1 = yield PropertyStore.load(
-            "user01", None, self._txn, 1
-        )
+        self.propertyStore = \
+        self.propertyStore1 = yield PropertyStore.load("user01", None, None, self._txn, 1)
         self.propertyStore1._shadowableKeys = store._shadowableKeys
+        self.propertyStore1._proxyOverrideKeys = store._proxyOverrideKeys
         self.propertyStore1._globalKeys = store._globalKeys
 
         store = self.propertyStore2
-        self.propertyStore2 = yield PropertyStore.load("user01", "user02", self._txn, 1)
+        self.propertyStore2 = yield PropertyStore.load("user01", "user02", None, self._txn, 1)
         self.propertyStore2._shadowableKeys = store._shadowableKeys
+        self.propertyStore2._proxyOverrideKeys = store._proxyOverrideKeys
         self.propertyStore2._globalKeys = store._globalKeys
+
+        store = self.propertyStore3
+        self.propertyStore3 = yield PropertyStore.load("user01", None, "user03", self._txn, 1)
+        self.propertyStore3._shadowableKeys = store._shadowableKeys
+        self.propertyStore3._proxyOverrideKeys = store._proxyOverrideKeys
+        self.propertyStore3._globalKeys = store._globalKeys
+
+        store = self.propertyStore4
+        self.propertyStore4 = yield PropertyStore.load("user01", "user02", "user04", self._txn, 1)
+        self.propertyStore4._shadowableKeys = store._shadowableKeys
+        self.propertyStore4._proxyOverrideKeys = store._proxyOverrideKeys
+        self.propertyStore4._globalKeys = store._globalKeys
 
 
     @inlineCallbacks
@@ -126,7 +157,7 @@ class PropertyStoreTest(PropertyStoreTest):
                 pass
         self.addCleanup(maybeAbortIt)
         concurrentPropertyStore = yield PropertyStore.load(
-            "user01", None, concurrentTxn, 1
+            "user01", None, None, concurrentTxn, 1
         )
         concurrentPropertyStore[pname] = pval1
         race = []
@@ -155,8 +186,8 @@ class PropertyStoreTest(PropertyStoreTest):
     def test_copy(self):
 
         # Existing store
-        store1_user1 = yield PropertyStore.load("user01", None, self._txn, 2)
-        store1_user2 = yield PropertyStore.load("user01", "user02", self._txn, 2)
+        store1_user1 = yield PropertyStore.load("user01", None, None, self._txn, 2)
+        store1_user2 = yield PropertyStore.load("user01", "user02", None, self._txn, 2)
 
         # Populate current store with data
         props_user1 = (
@@ -178,18 +209,18 @@ class PropertyStoreTest(PropertyStoreTest):
         self._txn = self.store.newTransaction()
 
         # Existing store
-        store1_user1 = yield PropertyStore.load("user01", None, self._txn, 2)
+        store1_user1 = yield PropertyStore.load("user01", None, None, self._txn, 2)
 
         # New store
-        store2_user1 = yield PropertyStore.load("user01", None, self._txn, 3)
+        store2_user1 = yield PropertyStore.load("user01", None, None, self._txn, 3)
 
         # Do copy and check results
         yield store2_user1.copyAllProperties(store1_user1)
 
         self.assertEqual(store1_user1.keys(), store2_user1.keys())
 
-        store1_user2 = yield PropertyStore.load("user01", "user02", self._txn, 2)
-        store2_user2 = yield PropertyStore.load("user01", "user02", self._txn, 3)
+        store1_user2 = yield PropertyStore.load("user01", "user02", None, self._txn, 2)
+        store2_user2 = yield PropertyStore.load("user01", "user02", None, self._txn, 3)
         self.assertEqual(store1_user2.keys(), store2_user2.keys())
 
 
@@ -197,7 +228,7 @@ class PropertyStoreTest(PropertyStoreTest):
     def test_insert_delete(self):
 
         # Existing store
-        store1_user1 = yield PropertyStore.load("user01", None, self._txn, 2)
+        store1_user1 = yield PropertyStore.load("user01", None, None, self._txn, 2)
 
         pname = propertyName("dummy1")
         pvalue = propertyValue("value1-user1")
@@ -221,7 +252,7 @@ class PropertyStoreTest(PropertyStoreTest):
 
         # Existing store - add a normal property
         self.assertFalse("SQL.props:10/user01" in PropertyStore._cacher._memcacheProtocol._cache)
-        store1_user1 = yield PropertyStore.load("user01", None, self._txn, 10)
+        store1_user1 = yield PropertyStore.load("user01", None, None, self._txn, 10)
         self.assertTrue("SQL.props:10/user01" in PropertyStore._cacher._memcacheProtocol._cache)
 
         pname1 = propertyName("dummy1")
@@ -237,7 +268,7 @@ class PropertyStoreTest(PropertyStoreTest):
         # Existing store - add a large property
         self._txn = self.store.newTransaction()
         self.assertFalse("SQL.props:10/user01" in PropertyStore._cacher._memcacheProtocol._cache)
-        store1_user1 = yield PropertyStore.load("user01", None, self._txn, 10)
+        store1_user1 = yield PropertyStore.load("user01", None, None, self._txn, 10)
         self.assertTrue("SQL.props:10/user01" in PropertyStore._cacher._memcacheProtocol._cache)
 
         pname2 = propertyName("dummy2")
@@ -253,7 +284,7 @@ class PropertyStoreTest(PropertyStoreTest):
         # Try again - the cacher will fail large values
         self._txn = self.store.newTransaction()
         self.assertFalse("SQL.props:10/user01" in PropertyStore._cacher._memcacheProtocol._cache)
-        store1_user1 = yield PropertyStore.load("user01", None, self._txn, 10)
+        store1_user1 = yield PropertyStore.load("user01", None, None, self._txn, 10)
         self.assertFalse("SQL.props:10/user01" in store1_user1._cacher._memcacheProtocol._cache)
 
         self.assertEqual(store1_user1[pname1], pvalue1)
@@ -280,7 +311,7 @@ class PropertyStoreTest(PropertyStoreTest):
 
         # Existing store - add a normal property
         self.assertFalse("SQL.props:10/user01" in PropertyStore._cacher._memcacheProtocol._cache)
-        store1_user1 = yield PropertyStore.load("user01", None, self._txn, 10)
+        store1_user1 = yield PropertyStore.load("user01", None, None, self._txn, 10)
         self.assertFalse("SQL.props:10/user01" in PropertyStore._cacher._memcacheProtocol._cache)
 
         pname1 = propertyName("dummy1")
@@ -297,7 +328,7 @@ class PropertyStoreTest(PropertyStoreTest):
 
         # Existing store - check a normal property
         self.assertFalse("SQL.props:10/user01" in PropertyStore._cacher._memcacheProtocol._cache)
-        store1_user1 = yield PropertyStore.load("user01", None, self._txn, 10)
+        store1_user1 = yield PropertyStore.load("user01", None, None, self._txn, 10)
         self.assertFalse("SQL.props:10/user01" in PropertyStore._cacher._memcacheProtocol._cache)
         self.assertEqual(store1_user1[pname1], pvalue1)
 

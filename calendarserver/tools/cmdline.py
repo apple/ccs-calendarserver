@@ -18,6 +18,7 @@
 Shared main-point between utilities.
 """
 
+from twistedcaldav.stdconfig import config
 from calendarserver.tap.caldav import CalDAVServiceMaker, CalDAVOptions
 from calendarserver.tap.util import checkDirectories
 from calendarserver.tools.util import loadConfig, autoDisableMemcached

@@ -2882,17 +2882,6 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                     "Can't parse calendar data: %s" % (str(e),)
                 ))
 
-            # storeComponent needs to know who the auth'd user is for access control
-            # TODO: this needs to be done in a better way - ideally when the txn is created for the request,
-            # we should set a txn.authzid attribute.
-            authz = None
-            authz_principal = self._parentResource.currentPrincipal(request).children[0]
-            if isinstance(authz_principal, davxml.HRef):
-                principalURL = str(authz_principal)
-                if principalURL:
-                    authz = (yield request.locateResource(principalURL))
-                    self._parentResource._newStoreObject._txn._authz_uid = authz.record.uid
-
             try:
                 response = (yield self.storeComponent(component, smart_merge=schedule_tag_match))
             except ResourceDeletedError:
@@ -3622,17 +3611,6 @@ class AddressBookObjectResource(_CommonObjectResource):
                     (carddav_namespace, "valid-address-data"),
                     "Could not parse vCard",
                 ))
-
-            # storeComponent needs to know who the auth'd user is for access control
-            # TODO: this needs to be done in a better way - ideally when the txn is created for the request,
-            # we should set a txn.authzid attribute.
-            authz = None
-            authz_principal = self._parentResource.currentPrincipal(request).children[0]
-            if isinstance(authz_principal, davxml.HRef):
-                principalURL = str(authz_principal)
-                if principalURL:
-                    authz = (yield request.locateResource(principalURL))
-                    self._parentResource._newStoreObject._txn._authz_uid = authz.record.uid
 
             try:
                 response = (yield self.storeComponent(component))

@@ -1701,6 +1701,7 @@ class NotificationObject(CommonObjectResource):
             (
                 PropertyName.fromElement(customxml.NotificationType),
             ),
+            (),
         )
 
 

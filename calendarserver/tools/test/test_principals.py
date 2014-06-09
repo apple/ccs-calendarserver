@@ -16,6 +16,7 @@
 
 import os
 
+from twistedcaldav.stdconfig import config
 from calendarserver.tools.principals import (
     parseCreationArgs, matchStrings,
     recordForPrincipalID, getProxies, setProxies
@@ -23,7 +24,6 @@ from calendarserver.tools.principals import (
 from twext.python.filepath import CachingFilePath as FilePath
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
-from twistedcaldav.config import config
 from twistedcaldav.test.util import (
     TestCase, StoreTestCase, CapturingProcessProtocol, ErrorOutput
 )

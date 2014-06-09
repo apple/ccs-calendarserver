@@ -43,6 +43,12 @@ class PropertyStoreTest(base.PropertyStoreTest):
         self.propertyStore1 = self.propertyStore
         self.propertyStore2 = PropertyStore("user01", lambda : tempFile)
         self.propertyStore2._setPerUserUID("user02")
+        self.propertyStore2._setProxyUID("user02")
+        self.propertyStore3 = PropertyStore("user01", lambda : tempFile)
+        self.propertyStore3._setProxyUID("user03")
+        self.propertyStore4 = PropertyStore("user01", lambda : tempFile)
+        self.propertyStore4._setPerUserUID("user02")
+        self.propertyStore4._setProxyUID("user04")
 
 
     def test_init(self):

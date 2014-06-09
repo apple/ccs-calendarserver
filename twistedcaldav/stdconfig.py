@@ -606,9 +606,31 @@ DEFAULT_CONFIG = {
             "IgnorePerUserProperties" : [
                 "X-APPLE-STRUCTURED-LOCATION",
             ],
+            "CollectionProperties": {
+                "Shadowable": [
+                    "{urn:ietf:params:xml:ns:caldav}calendar-description",
+                ],
+                "ProxyOverride": [
+                    "{urn:ietf:params:xml:ns:caldav}calendar-description",
+                    "{com.apple.ical:}calendarcolor",
+                    "{http://apple.com/ns/ical/}calendar-color",
+                    "{http://apple.com/ns/ical/}calendar-order",
+                ],
+                "Global": [
+                ],
+            },
         },
         "AddressBooks" : {
             "Enabled"         : False, # Address Books on/off switch
+            "CollectionProperties": {
+                "Shadowable": [
+                    "{urn:ietf:params:xml:ns:carddav}addressbook-description",
+                ],
+                "ProxyOverride": [
+                ],
+                "Global": [
+                ],
+            },
         },
     },
 

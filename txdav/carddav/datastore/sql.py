@@ -39,7 +39,6 @@ from txweb2.responsecode import FORBIDDEN
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python import hashlib
 
-from twistedcaldav import carddavxml, customxml
 from twistedcaldav.config import config
 from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError, Property, \
@@ -65,6 +64,7 @@ from txdav.common.icommondatastore import InternalDataStoreError, \
     AllRetriesFailed, ObjectResourceNameAlreadyExistsError, \
     SyncTokenValidException, IndexedSearchException
 from txdav.xml import element
+from txdav.xml.parser import WebDAVDocument
 
 from zope.interface.declarations import implements
 
@@ -87,9 +87,9 @@ class AddressBookHome(CommonHome):
     _cacher = Memcacher("SQL.adbkhome", pickle=True, key_normalization=False)
 
 
-    def __init__(self, transaction, ownerUID):
+    def __init__(self, transaction, ownerUID, authzUID=None):
 
-        super(AddressBookHome, self).__init__(transaction, ownerUID)
+        super(AddressBookHome, self).__init__(transaction, ownerUID, authzUID=authzUID)
         self._addressbookPropertyStoreID = None
         self._addressbook = None
 
@@ -467,6 +467,9 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
         "UID": _objectSchema.UID,
     }
 
+    _shadowProperties = tuple([PropertyName.fromString(prop) for prop in config.Sharing.AddressBooks.CollectionProperties.Shadowable])
+    _proxyProperties = tuple([PropertyName.fromString(prop) for prop in config.Sharing.AddressBooks.CollectionProperties.ProxyOverride])
+    _globalProperties = tuple([PropertyName.fromString(prop) for prop in config.Sharing.AddressBooks.CollectionProperties.Global])
 
     @classmethod
     @inlineCallbacks
@@ -797,6 +800,7 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
             props = yield PropertyStore.load(
                 self.ownerHome().uid(),
                 self.viewerHome().uid(),
+                None,
                 self._txn,
                 self.ownerHome()._addressbookPropertyStoreID,  # not ._resourceID as in CommonHomeChild._loadPropertyStore()
                 notifyCallback=self.notifyPropertyChanged
@@ -807,25 +811,22 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
     def initPropertyStore(self, props):
         # Setup peruser special properties
         props.setSpecialProperties(
-            (
-                PropertyName.fromElement(carddavxml.AddressBookDescription),
-            ),
-            (
-                PropertyName.fromElement(customxml.GETCTag),
-            ),
+            self._shadowProperties,
+            self._globalProperties,
+            self._proxyProperties,
         )
 
 
     def getInviteCopyProperties(self):
         """
-        Get a dictionary of property name/values (as strings) for properties that are shadowable and
+        Get a dictionary of property name/values (as XML strings) for properties that are shadowable and
         need to be copied to a sharee's collection when an external (cross-pod) share is created.
         Sub-classes should override to expose the properties they care about.
         """
         props = {}
-        for elem in (element.DisplayName, carddavxml.AddressBookDescription,):
-            if PropertyName.fromElement(elem) in self.properties():
-                props[elem.sname()] = str(self.properties()[PropertyName.fromElement(elem)])
+        for ename in (PropertyName.fromElement(element.DisplayName),) + self._shadowProperties:
+            if ename in self.properties():
+                props[ename.toString()] = self.properties()[ename].toxml()
         return props
 
 
@@ -836,15 +837,15 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
         care about.
         """
         # Initialize these for all shares
-        for elem in (carddavxml.AddressBookDescription,):
-            if PropertyName.fromElement(elem) not in self.properties() and elem.sname() in props:
-                self.properties()[PropertyName.fromElement(elem)] = elem.fromString(props[elem.sname()])
+        for ename in self._shadowProperties:
+            if ename not in self.properties() and ename.toString() in props:
+                self.properties()[ename] = WebDAVDocument.fromString(props[ename]).root_element
 
         # Only initialize these for direct shares
         if self.direct():
-            for elem in (element.DisplayName,):
-                if PropertyName.fromElement(elem) not in self.properties() and elem.sname() in props:
-                    self.properties()[PropertyName.fromElement(elem)] = elem.fromString(props[elem.sname()])
+            for ename in (PropertyName.fromElement(element.DisplayName),):
+                if ename not in self.properties() and ename.toString() in props:
+                    self.properties()[ename] = WebDAVDocument.fromString(props[ename]).root_element
 
 
     def contentType(self):
@@ -1167,7 +1168,7 @@ END:VCARD
             # Get property stores for all these child resources (if any found)
             addressbookPropertyStoreIDs = [ownerHomeItem._addressbookPropertyStoreID for ownerHomeItem in ownerHomeToDataRowMap]
             propertyStores = yield PropertyStore.forMultipleResourcesWithResourceIDs(
-                home.uid(), home._txn, addressbookPropertyStoreIDs
+                home.uid(), None, None, home._txn, addressbookPropertyStoreIDs
             )
 
             addressbookResourceIDs = [ownerHomeItem.addressbook()._resourceID for ownerHomeItem in ownerHomeToDataRowMap]

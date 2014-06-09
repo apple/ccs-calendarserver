@@ -92,7 +92,11 @@ def transactionFromRequest(request, newStore):
     """
     transaction = getattr(request, TRANSACTION_KEY, None)
     if transaction is None:
-        transaction = newStore.newTransaction(repr(request))
+        if hasattr(request, "authzUser") and request.authzUser is not None:
+            authz_uid = request.authzUser.record.uid
+        else:
+            authz_uid = None
+        transaction = newStore.newTransaction(repr(request), authz_uid=authz_uid)
         def abortIfUncommitted(request, response):
             try:
                 # TODO: missing 'yield' here.  For formal correctness as per

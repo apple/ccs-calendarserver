@@ -140,29 +140,45 @@ class PropertyStoreTest(NonePropertyStoreTest):
         yield self._changed(self.propertyStore1)
         self.assertEquals(self.propertyStore1.get(name, None), value1)
         self.assertEquals(self.propertyStore2.get(name, None), None)
+        self.assertEquals(self.propertyStore3.get(name, None), value1)
+        self.assertEquals(self.propertyStore4.get(name, None), None)
         self.failUnless(name in self.propertyStore1)
         self.failIf(name in self.propertyStore2)
+        self.failUnless(name in self.propertyStore3)
+        self.failIf(name in self.propertyStore4)
 
         self.propertyStore2[name] = value2
         yield self._changed(self.propertyStore2)
         self.assertEquals(self.propertyStore1.get(name, None), value1)
         self.assertEquals(self.propertyStore2.get(name, None), value2)
+        self.assertEquals(self.propertyStore3.get(name, None), value1)
+        self.assertEquals(self.propertyStore4.get(name, None), value2)
         self.failUnless(name in self.propertyStore1)
         self.failUnless(name in self.propertyStore2)
+        self.failUnless(name in self.propertyStore3)
+        self.failUnless(name in self.propertyStore4)
 
         del self.propertyStore2[name]
         yield self._changed(self.propertyStore2)
         self.assertEquals(self.propertyStore1.get(name, None), value1)
         self.assertEquals(self.propertyStore2.get(name, None), None)
+        self.assertEquals(self.propertyStore3.get(name, None), value1)
+        self.assertEquals(self.propertyStore4.get(name, None), None)
         self.failUnless(name in self.propertyStore1)
         self.failIf(name in self.propertyStore2)
+        self.failUnless(name in self.propertyStore3)
+        self.failIf(name in self.propertyStore4)
 
         del self.propertyStore1[name]
         yield self._changed(self.propertyStore1)
         self.assertEquals(self.propertyStore1.get(name, None), None)
         self.assertEquals(self.propertyStore2.get(name, None), None)
+        self.assertEquals(self.propertyStore3.get(name, None), None)
+        self.assertEquals(self.propertyStore4.get(name, None), None)
         self.failIf(name in self.propertyStore1)
         self.failIf(name in self.propertyStore2)
+        self.failIf(name in self.propertyStore3)
+        self.failIf(name in self.propertyStore4)
 
 
     @inlineCallbacks
@@ -170,8 +186,10 @@ class PropertyStoreTest(NonePropertyStoreTest):
 
         name = propertyName("shadow")
 
-        self.propertyStore1.setSpecialProperties((name,), ())
-        self.propertyStore2.setSpecialProperties((name,), ())
+        self.propertyStore1.setSpecialProperties((name,), (), ())
+        self.propertyStore2.setSpecialProperties((name,), (), ())
+        self.propertyStore3.setSpecialProperties((name,), (), ())
+        self.propertyStore4.setSpecialProperties((name,), (), ())
 
         value1 = propertyValue("Hello, World1!")
         value2 = propertyValue("Hello, World2!")
@@ -180,29 +198,45 @@ class PropertyStoreTest(NonePropertyStoreTest):
         yield self._changed(self.propertyStore1)
         self.assertEquals(self.propertyStore1.get(name, None), value1)
         self.assertEquals(self.propertyStore2.get(name, None), value1)
+        self.assertEquals(self.propertyStore3.get(name, None), value1)
+        self.assertEquals(self.propertyStore4.get(name, None), value1)
         self.failUnless(name in self.propertyStore1)
         self.failUnless(name in self.propertyStore2)
+        self.failUnless(name in self.propertyStore3)
+        self.failUnless(name in self.propertyStore4)
 
         self.propertyStore2[name] = value2
         yield self._changed(self.propertyStore2)
         self.assertEquals(self.propertyStore1.get(name, None), value1)
         self.assertEquals(self.propertyStore2.get(name, None), value2)
+        self.assertEquals(self.propertyStore3.get(name, None), value1)
+        self.assertEquals(self.propertyStore4.get(name, None), value2)
         self.failUnless(name in self.propertyStore1)
         self.failUnless(name in self.propertyStore2)
+        self.failUnless(name in self.propertyStore3)
+        self.failUnless(name in self.propertyStore4)
 
         del self.propertyStore2[name]
         yield self._changed(self.propertyStore2)
         self.assertEquals(self.propertyStore1.get(name, None), value1)
         self.assertEquals(self.propertyStore2.get(name, None), value1)
+        self.assertEquals(self.propertyStore3.get(name, None), value1)
+        self.assertEquals(self.propertyStore4.get(name, None), value1)
         self.failUnless(name in self.propertyStore1)
         self.failUnless(name in self.propertyStore2)
+        self.failUnless(name in self.propertyStore3)
+        self.failUnless(name in self.propertyStore4)
 
         del self.propertyStore1[name]
         yield self._changed(self.propertyStore1)
         self.assertEquals(self.propertyStore1.get(name, None), None)
         self.assertEquals(self.propertyStore2.get(name, None), None)
+        self.assertEquals(self.propertyStore3.get(name, None), None)
+        self.assertEquals(self.propertyStore4.get(name, None), None)
         self.failIf(name in self.propertyStore1)
         self.failIf(name in self.propertyStore2)
+        self.failIf(name in self.propertyStore3)
+        self.failIf(name in self.propertyStore4)
 
 
     @inlineCallbacks
@@ -213,8 +247,10 @@ class PropertyStoreTest(NonePropertyStoreTest):
 
         name = propertyName("shadow")
 
-        self.propertyStore1.setSpecialProperties((name,), ())
-        self.propertyStore2.setSpecialProperties((name,), ())
+        self.propertyStore1.setSpecialProperties((name,), (), ())
+        self.propertyStore2.setSpecialProperties((name,), (), ())
+        self.propertyStore3.setSpecialProperties((name,), (), ())
+        self.propertyStore4.setSpecialProperties((name,), (), ())
 
         value1 = propertyValue("Hello, World1!")
 
@@ -222,22 +258,34 @@ class PropertyStoreTest(NonePropertyStoreTest):
         yield self._changed(self.propertyStore1)
         self.assertEquals(self.propertyStore1.get(name, None), value1)
         self.assertEquals(self.propertyStore2.get(name, None), value1)
+        self.assertEquals(self.propertyStore3.get(name, None), value1)
+        self.assertEquals(self.propertyStore4.get(name, None), value1)
         self.failUnless(name in self.propertyStore1)
         self.failUnless(name in self.propertyStore2)
+        self.failUnless(name in self.propertyStore3)
+        self.failUnless(name in self.propertyStore4)
 
         del self.propertyStore2[name]
         yield self._changed(self.propertyStore2)
         self.assertEquals(self.propertyStore1.get(name, None), value1)
         self.assertEquals(self.propertyStore2.get(name, None), value1)
+        self.assertEquals(self.propertyStore3.get(name, None), value1)
+        self.assertEquals(self.propertyStore4.get(name, None), value1)
         self.failUnless(name in self.propertyStore1)
         self.failUnless(name in self.propertyStore2)
+        self.failUnless(name in self.propertyStore3)
+        self.failUnless(name in self.propertyStore4)
 
         del self.propertyStore1[name]
         yield self._changed(self.propertyStore1)
         self.assertEquals(self.propertyStore1.get(name, None), None)
         self.assertEquals(self.propertyStore2.get(name, None), None)
+        self.assertEquals(self.propertyStore3.get(name, None), None)
+        self.assertEquals(self.propertyStore4.get(name, None), None)
         self.failIf(name in self.propertyStore1)
         self.failIf(name in self.propertyStore2)
+        self.failIf(name in self.propertyStore3)
+        self.failIf(name in self.propertyStore4)
 
 
     @inlineCallbacks
@@ -245,8 +293,10 @@ class PropertyStoreTest(NonePropertyStoreTest):
 
         name = propertyName("global")
 
-        self.propertyStore1.setSpecialProperties((), (name,))
-        self.propertyStore2.setSpecialProperties((), (name,))
+        self.propertyStore1.setSpecialProperties((), (name,), ())
+        self.propertyStore2.setSpecialProperties((), (name,), ())
+        self.propertyStore3.setSpecialProperties((), (name,), ())
+        self.propertyStore4.setSpecialProperties((), (name,), ())
 
         value1 = propertyValue("Hello, World1!")
         value2 = propertyValue("Hello, World2!")
@@ -255,22 +305,248 @@ class PropertyStoreTest(NonePropertyStoreTest):
         yield self._changed(self.propertyStore1)
         self.assertEquals(self.propertyStore1.get(name, None), value1)
         self.assertEquals(self.propertyStore2.get(name, None), value1)
+        self.assertEquals(self.propertyStore3.get(name, None), value1)
+        self.assertEquals(self.propertyStore4.get(name, None), value1)
         self.failUnless(name in self.propertyStore1)
         self.failUnless(name in self.propertyStore2)
+        self.failUnless(name in self.propertyStore3)
+        self.failUnless(name in self.propertyStore4)
 
         self.propertyStore2[name] = value2
         yield self._changed(self.propertyStore2)
         self.assertEquals(self.propertyStore1.get(name, None), value2)
         self.assertEquals(self.propertyStore2.get(name, None), value2)
+        self.assertEquals(self.propertyStore3.get(name, None), value2)
+        self.assertEquals(self.propertyStore4.get(name, None), value2)
         self.failUnless(name in self.propertyStore1)
         self.failUnless(name in self.propertyStore2)
+        self.failUnless(name in self.propertyStore3)
+        self.failUnless(name in self.propertyStore4)
 
         del self.propertyStore2[name]
         yield self._changed(self.propertyStore2)
         self.assertEquals(self.propertyStore1.get(name, None), None)
         self.assertEquals(self.propertyStore2.get(name, None), None)
+        self.assertEquals(self.propertyStore3.get(name, None), None)
+        self.assertEquals(self.propertyStore4.get(name, None), None)
         self.failIf(name in self.propertyStore1)
         self.failIf(name in self.propertyStore2)
+        self.failIf(name in self.propertyStore3)
+        self.failIf(name in self.propertyStore4)
+
+
+    @inlineCallbacks
+    def test_proxy(self):
+
+        name = propertyName("test")
+        value1 = propertyValue("Hello, World1!")
+        value2 = propertyValue("Hello, World2!")
+
+        self.propertyStore3[name] = value1
+        yield self._changed(self.propertyStore3)
+        self.assertEquals(self.propertyStore1.get(name, None), value1)
+        self.assertEquals(self.propertyStore2.get(name, None), None)
+        self.assertEquals(self.propertyStore3.get(name, None), value1)
+        self.assertEquals(self.propertyStore4.get(name, None), None)
+        self.failUnless(name in self.propertyStore1)
+        self.failIf(name in self.propertyStore2)
+        self.failUnless(name in self.propertyStore3)
+        self.failIf(name in self.propertyStore4)
+
+        self.propertyStore4[name] = value2
+        yield self._changed(self.propertyStore4)
+        self.assertEquals(self.propertyStore1.get(name, None), value1)
+        self.assertEquals(self.propertyStore2.get(name, None), value2)
+        self.assertEquals(self.propertyStore3.get(name, None), value1)
+        self.assertEquals(self.propertyStore4.get(name, None), value2)
+        self.failUnless(name in self.propertyStore1)
+        self.failUnless(name in self.propertyStore2)
+        self.failUnless(name in self.propertyStore3)
+        self.failUnless(name in self.propertyStore4)
+
+        del self.propertyStore4[name]
+        yield self._changed(self.propertyStore4)
+        self.assertEquals(self.propertyStore1.get(name, None), value1)
+        self.assertEquals(self.propertyStore2.get(name, None), None)
+        self.assertEquals(self.propertyStore3.get(name, None), value1)
+        self.assertEquals(self.propertyStore4.get(name, None), None)
+        self.failUnless(name in self.propertyStore1)
+        self.failIf(name in self.propertyStore2)
+        self.failUnless(name in self.propertyStore3)
+        self.failIf(name in self.propertyStore4)
+
+        del self.propertyStore3[name]
+        yield self._changed(self.propertyStore3)
+        self.assertEquals(self.propertyStore1.get(name, None), None)
+        self.assertEquals(self.propertyStore2.get(name, None), None)
+        self.assertEquals(self.propertyStore3.get(name, None), None)
+        self.assertEquals(self.propertyStore4.get(name, None), None)
+        self.failIf(name in self.propertyStore1)
+        self.failIf(name in self.propertyStore2)
+        self.failIf(name in self.propertyStore3)
+        self.failIf(name in self.propertyStore4)
+
+
+    @inlineCallbacks
+    def test_proxyOverride(self):
+
+        name = propertyName("override")
+
+        self.propertyStore1.setSpecialProperties((), (), (name,))
+        self.propertyStore2.setSpecialProperties((), (), (name,))
+        self.propertyStore3.setSpecialProperties((), (), (name,))
+        self.propertyStore4.setSpecialProperties((), (), (name,))
+
+        value1 = propertyValue("Hello, World1!")
+        value2 = propertyValue("Hello, World2!")
+
+        self.propertyStore1[name] = value1
+        yield self._changed(self.propertyStore1)
+        self.assertEquals(self.propertyStore1.get(name, None), value1)
+        self.assertEquals(self.propertyStore2.get(name, None), None)
+        self.assertEquals(self.propertyStore3.get(name, None), value1)
+        self.assertEquals(self.propertyStore4.get(name, None), None)
+        self.failUnless(name in self.propertyStore1)
+        self.failIf(name in self.propertyStore2)
+        self.failUnless(name in self.propertyStore3)
+        self.failIf(name in self.propertyStore4)
+
+        self.propertyStore3[name] = value2
+        yield self._changed(self.propertyStore3)
+        self.assertEquals(self.propertyStore1.get(name, None), value1)
+        self.assertEquals(self.propertyStore2.get(name, None), None)
+        self.assertEquals(self.propertyStore3.get(name, None), value2)
+        self.assertEquals(self.propertyStore4.get(name, None), None)
+        self.failUnless(name in self.propertyStore1)
+        self.failIf(name in self.propertyStore2)
+        self.failUnless(name in self.propertyStore3)
+        self.failIf(name in self.propertyStore4)
+
+        del self.propertyStore3[name]
+        yield self._changed(self.propertyStore3)
+        self.assertEquals(self.propertyStore1.get(name, None), value1)
+        self.assertEquals(self.propertyStore2.get(name, None), None)
+        self.assertEquals(self.propertyStore3.get(name, None), value1)
+        self.assertEquals(self.propertyStore4.get(name, None), None)
+        self.failUnless(name in self.propertyStore1)
+        self.failIf(name in self.propertyStore2)
+        self.failUnless(name in self.propertyStore3)
+        self.failIf(name in self.propertyStore4)
+
+        del self.propertyStore1[name]
+        yield self._changed(self.propertyStore1)
+        self.assertEquals(self.propertyStore1.get(name, None), None)
+        self.assertEquals(self.propertyStore2.get(name, None), None)
+        self.assertEquals(self.propertyStore3.get(name, None), None)
+        self.assertEquals(self.propertyStore4.get(name, None), None)
+        self.failIf(name in self.propertyStore1)
+        self.failIf(name in self.propertyStore2)
+        self.failIf(name in self.propertyStore3)
+        self.failIf(name in self.propertyStore4)
+
+
+    @inlineCallbacks
+    def test_proxyOverrideShadow(self):
+
+        name = propertyName("override")
+
+        self.propertyStore1.setSpecialProperties((name,), (), (name,))
+        self.propertyStore2.setSpecialProperties((name,), (), (name,))
+        self.propertyStore3.setSpecialProperties((name,), (), (name,))
+        self.propertyStore4.setSpecialProperties((name,), (), (name,))
+
+        value1 = propertyValue("Hello, World1!")
+        value2 = propertyValue("Hello, World2!")
+        value3 = propertyValue("Hello, World3!")
+        value4 = propertyValue("Hello, World4!")
+
+        self.propertyStore1[name] = value1
+        yield self._changed(self.propertyStore1)
+        self.assertEquals(self.propertyStore1.get(name, None), value1)
+        self.assertEquals(self.propertyStore2.get(name, None), value1)
+        self.assertEquals(self.propertyStore3.get(name, None), value1)
+        self.assertEquals(self.propertyStore4.get(name, None), value1)
+        self.failUnless(name in self.propertyStore1)
+        self.failUnless(name in self.propertyStore2)
+        self.failUnless(name in self.propertyStore3)
+        self.failUnless(name in self.propertyStore4)
+
+        self.propertyStore3[name] = value3
+        yield self._changed(self.propertyStore3)
+        self.assertEquals(self.propertyStore1.get(name, None), value1)
+        self.assertEquals(self.propertyStore2.get(name, None), value1)
+        self.assertEquals(self.propertyStore3.get(name, None), value3)
+        self.assertEquals(self.propertyStore4.get(name, None), value1)
+        self.failUnless(name in self.propertyStore1)
+        self.failUnless(name in self.propertyStore2)
+        self.failUnless(name in self.propertyStore3)
+        self.failUnless(name in self.propertyStore4)
+
+        self.propertyStore4[name] = value4
+        yield self._changed(self.propertyStore4)
+        self.assertEquals(self.propertyStore1.get(name, None), value1)
+        self.assertEquals(self.propertyStore2.get(name, None), value1)
+        self.assertEquals(self.propertyStore3.get(name, None), value3)
+        self.assertEquals(self.propertyStore4.get(name, None), value4)
+        self.failUnless(name in self.propertyStore1)
+        self.failUnless(name in self.propertyStore2)
+        self.failUnless(name in self.propertyStore3)
+        self.failUnless(name in self.propertyStore4)
+
+        self.propertyStore2[name] = value2
+        yield self._changed(self.propertyStore2)
+        self.assertEquals(self.propertyStore1.get(name, None), value1)
+        self.assertEquals(self.propertyStore2.get(name, None), value2)
+        self.assertEquals(self.propertyStore3.get(name, None), value3)
+        self.assertEquals(self.propertyStore4.get(name, None), value4)
+        self.failUnless(name in self.propertyStore1)
+        self.failUnless(name in self.propertyStore2)
+        self.failUnless(name in self.propertyStore3)
+        self.failUnless(name in self.propertyStore4)
+
+        del self.propertyStore3[name]
+        yield self._changed(self.propertyStore3)
+        self.assertEquals(self.propertyStore1.get(name, None), value1)
+        self.assertEquals(self.propertyStore2.get(name, None), value2)
+        self.assertEquals(self.propertyStore3.get(name, None), value1)
+        self.assertEquals(self.propertyStore4.get(name, None), value4)
+        self.failUnless(name in self.propertyStore1)
+        self.failUnless(name in self.propertyStore2)
+        self.failUnless(name in self.propertyStore3)
+        self.failUnless(name in self.propertyStore4)
+
+        del self.propertyStore4[name]
+        yield self._changed(self.propertyStore4)
+        self.assertEquals(self.propertyStore1.get(name, None), value1)
+        self.assertEquals(self.propertyStore2.get(name, None), value2)
+        self.assertEquals(self.propertyStore3.get(name, None), value1)
+        self.assertEquals(self.propertyStore4.get(name, None), value2)
+        self.failUnless(name in self.propertyStore1)
+        self.failUnless(name in self.propertyStore2)
+        self.failUnless(name in self.propertyStore3)
+        self.failUnless(name in self.propertyStore4)
+
+        del self.propertyStore2[name]
+        yield self._changed(self.propertyStore2)
+        self.assertEquals(self.propertyStore1.get(name, None), value1)
+        self.assertEquals(self.propertyStore2.get(name, None), value1)
+        self.assertEquals(self.propertyStore3.get(name, None), value1)
+        self.assertEquals(self.propertyStore4.get(name, None), value1)
+        self.failUnless(name in self.propertyStore1)
+        self.failUnless(name in self.propertyStore2)
+        self.failUnless(name in self.propertyStore3)
+        self.failUnless(name in self.propertyStore4)
+
+        del self.propertyStore1[name]
+        yield self._changed(self.propertyStore1)
+        self.assertEquals(self.propertyStore1.get(name, None), None)
+        self.assertEquals(self.propertyStore2.get(name, None), None)
+        self.assertEquals(self.propertyStore3.get(name, None), None)
+        self.assertEquals(self.propertyStore4.get(name, None), None)
+        self.failIf(name in self.propertyStore1)
+        self.failIf(name in self.propertyStore2)
+        self.failIf(name in self.propertyStore3)
+        self.failIf(name in self.propertyStore4)
 
 
     def test_iteration(self):
@@ -333,8 +609,8 @@ class PropertyStoreTest(NonePropertyStoreTest):
 
         name = propertyName("shadow")
 
-        self.propertyStore1.setSpecialProperties((name,), ())
-        self.propertyStore2.setSpecialProperties((name,), ())
+        self.propertyStore1.setSpecialProperties((name,), (), ())
+        self.propertyStore2.setSpecialProperties((name,), (), ())
 
         value1 = propertyValue("Hello, World1!")
 

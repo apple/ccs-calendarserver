@@ -319,6 +319,7 @@ class Calendar(CommonHomeChild):
                 PropertyName.fromElement(customxml.GETCTag),
                 PropertyName.fromElement(caldavxml.SupportedCalendarComponentSet),
             ),
+            (),
         )
 
 
@@ -748,6 +749,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 PropertyName.fromElement(customxml.TwistedCalendarHasPrivateCommentsProperty),
                 PropertyName.fromElement(customxml.ScheduleChanges),
             ),
+            (),
         )
 
 

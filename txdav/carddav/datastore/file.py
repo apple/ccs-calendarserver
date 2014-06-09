@@ -139,6 +139,7 @@ class AddressBook(CommonHomeChild):
             (
                 PropertyName.fromElement(customxml.GETCTag),
             ),
+            (),
         )
 
 

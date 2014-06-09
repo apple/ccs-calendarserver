@@ -149,6 +149,7 @@ class CommonHomeExternal(CommonHome):
         props = yield PropertyStore.load(
             self.uid(),
             self.uid(),
+            None,
             self._txn,
             self._resourceID,
             notifyCallback=self.notifyChanged

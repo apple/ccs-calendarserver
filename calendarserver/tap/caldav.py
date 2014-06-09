@@ -38,6 +38,8 @@ from OpenSSL.SSL import Error as SSLError
 
 from zope.interface import implements
 
+from twistedcaldav.stdconfig import config
+
 from twisted.python.log import FileLogObserver, ILogObserver
 from twisted.python.logfile import LogFile
 from twisted.python.usage import Options, UsageError
@@ -96,7 +98,7 @@ from txdav.dps.client import DirectoryService as DirectoryProxyClientService
 from txdav.who.groups import GroupCacher
 
 from twistedcaldav import memcachepool
-from twistedcaldav.config import config, ConfigurationError
+from twistedcaldav.config import ConfigurationError
 from twistedcaldav.localization import processLocalizationFiles
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.upgrade import (

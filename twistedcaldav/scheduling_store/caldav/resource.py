@@ -419,17 +419,6 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         originator = (yield self.loadOriginatorFromRequestDetails(request))
         recipients = self.loadRecipientsFromCalendarData(calendar)
 
-        # storeComponent needs to know who the auth'd user is for access control
-        # TODO: this needs to be done in a better way - ideally when the txn is created for the request,
-        # we should set a txn.authzid attribute.
-        authz = None
-        authz_principal = self.parent.currentPrincipal(request).children[0]
-        if isinstance(authz_principal, davxml.HRef):
-            principalURL = str(authz_principal)
-            if principalURL:
-                authz = (yield request.locateResource(principalURL))
-                self._associatedTransaction._authz_uid = authz.record.uid
-
         # Log extended item
         if not hasattr(request, "extendedLogItems"):
             request.extendedLogItems = {}

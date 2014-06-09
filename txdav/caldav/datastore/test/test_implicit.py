@@ -306,18 +306,18 @@ END:VCALENDAR
 """
 
         self.patch(config, "EnablePrivateEvents", True)
-        calendar_collection = (yield self.calendarUnderTest(home="user01"))
-        calendar = Component.fromString(data1)
         txn = self.transactionUnderTest()
         txn._authz_uid = "user02"
+        calendar_collection = (yield self.calendarUnderTest(home="user01"))
+        calendar = Component.fromString(data1)
         yield self.failUnlessFailure(calendar_collection.createCalendarObjectWithName("test.ics", calendar), InvalidCalendarAccessError)
         yield self.commit()
 
         # This one should be OK
-        calendar_collection = (yield self.calendarUnderTest(home="user01"))
-        calendar = Component.fromString(data1)
         txn = self.transactionUnderTest()
         txn._authz_uid = "user01"
+        calendar_collection = (yield self.calendarUnderTest(home="user01"))
+        calendar = Component.fromString(data1)
         yield calendar_collection.createCalendarObjectWithName("test.ics", calendar)
         yield self.commit()
 
@@ -335,10 +335,10 @@ END:VEVENT
 END:VCALENDAR
 """
 
-        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
-        calendar = Component.fromString(data2)
         txn = self.transactionUnderTest()
         txn._authz_uid = "user01"
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
+        calendar = Component.fromString(data2)
         yield calendar_resource.setComponent(calendar)
         yield self.commit()
 
@@ -516,10 +516,10 @@ END:VEVENT
 END:VCALENDAR
 """
 
-        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
-        calendar = Component.fromString(data2)
         txn = self.transactionUnderTest()
         txn._authz_uid = "user01"
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
+        calendar = Component.fromString(data2)
         yield calendar_resource.setComponent(calendar)
         yield self.commit()
 
@@ -569,10 +569,10 @@ END:VEVENT
 END:VCALENDAR
 """
 
-        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
-        calendar = Component.fromString(data2)
         txn = self.transactionUnderTest()
         txn._authz_uid = "user01"
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
+        calendar = Component.fromString(data2)
         yield calendar_resource.setComponent(calendar)
         yield self.commit()
 
@@ -623,10 +623,10 @@ END:VTODO
 END:VCALENDAR
 """
 
-        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
-        calendar = Component.fromString(data2)
         txn = self.transactionUnderTest()
         txn._authz_uid = "user01"
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
+        calendar = Component.fromString(data2)
         yield calendar_resource.setComponent(calendar)
         yield self.commit()
 
@@ -682,10 +682,10 @@ END:VTODO
 END:VCALENDAR
 """
 
-        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
-        calendar = Component.fromString(data2)
         txn = self.transactionUnderTest()
         txn._authz_uid = "user01"
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
+        calendar = Component.fromString(data2)
         yield calendar_resource.setComponent(calendar)
         yield self.commit()
 
@@ -789,10 +789,10 @@ END:VEVENT
 END:VCALENDAR
 """
 
-        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
-        calendar = Component.fromString(data2)
         txn = self.transactionUnderTest()
         txn._authz_uid = "user01"
+        calendar_resource = (yield self.calendarObjectUnderTest(name="test.ics", home="user01",))
+        calendar = Component.fromString(data2)
         result = (yield calendar_resource.setComponent(calendar))
         yield self.commit()
         self.assertTrue(result)

@@ -383,6 +383,7 @@ class SharedResourceMixin(object):
                     element.Grant(
                         element.Privilege(element.Read()),
                         element.Privilege(element.ReadCurrentUserPrivilegeSet()),
+                        element.Privilege(element.WriteProperties()),
                     ),
                     element.Protected(),
                     TwistedACLInheritable(),

@@ -48,7 +48,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python import hashlib
 from twisted.python.failure import Failure
 
-from twistedcaldav import caldavxml, customxml, ical
+from twistedcaldav import customxml, ical
 from twistedcaldav.config import config
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.dateops import normalizeForIndex, datetimeMktime, \
@@ -96,6 +96,7 @@ from txdav.common.icommondatastore import IndexedSearchException, \
     InvalidResourceMove, InvalidComponentForStoreError, \
     NoSuchObjectResourceError, ConcurrentModification
 from txdav.xml import element
+from txdav.xml.parser import WebDAVDocument
 
 from txdav.idav import ChangeCategory
 
@@ -966,6 +967,10 @@ class Calendar(CommonHomeChild):
 
     _supportedComponents = None
 
+    _shadowProperties = tuple([PropertyName.fromString(prop) for prop in config.Sharing.Calendars.CollectionProperties.Shadowable])
+    _proxyProperties = tuple([PropertyName.fromString(prop) for prop in config.Sharing.Calendars.CollectionProperties.ProxyOverride])
+    _globalProperties = tuple([PropertyName.fromString(prop) for prop in config.Sharing.Calendars.CollectionProperties.Global])
+
     def __init__(self, *args, **kw):
         """
         Initialize a calendar pointing at a record in a database.
@@ -1294,17 +1299,9 @@ class Calendar(CommonHomeChild):
     def initPropertyStore(self, props):
         # Setup peruser special properties
         props.setSpecialProperties(
-            # Shadowable
-            (
-                PropertyName.fromElement(caldavxml.CalendarDescription),
-                PropertyName.fromElement(caldavxml.CalendarTimeZone),
-            ),
-
-            # Global
-            (
-                PropertyName.fromElement(customxml.GETCTag),
-                PropertyName.fromElement(caldavxml.SupportedCalendarComponentSet),
-            ),
+            self._shadowProperties,
+            self._globalProperties,
+            self._proxyProperties,
         )
 
 
@@ -1353,9 +1350,9 @@ class Calendar(CommonHomeChild):
         Sub-classes should override to expose the properties they care about.
         """
         props = {}
-        for elem in (element.DisplayName, caldavxml.CalendarDescription, caldavxml.CalendarTimeZone, customxml.CalendarColor,):
-            if PropertyName.fromElement(elem) in self.properties():
-                props[elem.sname()] = str(self.properties()[PropertyName.fromElement(elem)])
+        for ename in (PropertyName.fromElement(element.DisplayName),) + self._shadowProperties:
+            if ename in self.properties():
+                props[ename.toString()] = self.properties()[ename].toxml()
         return props
 
 
@@ -1366,15 +1363,15 @@ class Calendar(CommonHomeChild):
         care about.
         """
         # Initialize these for all shares
-        for elem in (caldavxml.CalendarDescription, caldavxml.CalendarTimeZone,):
-            if PropertyName.fromElement(elem) not in self.properties() and elem.sname() in props:
-                self.properties()[PropertyName.fromElement(elem)] = elem.fromString(props[elem.sname()])
+        for ename in self._shadowProperties:
+            if ename not in self.properties() and ename.toString() in props:
+                self.properties()[ename] = WebDAVDocument.fromString(props[ename]).root_element
 
         # Only initialize these for direct shares
         if self.direct():
-            for elem in (element.DisplayName, customxml.CalendarColor,):
-                if PropertyName.fromElement(elem) not in self.properties() and elem.sname() in props:
-                    self.properties()[PropertyName.fromElement(elem)] = elem.fromString(props[elem.sname()])
+            for ename in (PropertyName.fromElement(element.DisplayName),):
+                if ename not in self.properties() and ename.toString() in props:
+                    self.properties()[ename] = WebDAVDocument.fromString(props[ename]).root_element
 
 
     # FIXME: this is DAV-ish.  Data store calendar objects don't have
@@ -2169,17 +2166,14 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 cutype == "RESOURCE" and config.Scheduling.Options.TrackUnscheduledResourceData):
 
                 # Find current principal and update modified by details
-                if self._txn._authz_uid is not None:
-                    authz = yield self.directoryService().recordWithUID(self._txn._authz_uid.decode("utf-8"))
-                    prop = Property("X-CALENDARSERVER-MODIFIED-BY", authz.canonicalCalendarUserAddress())
-                    prop.setParameter("CN", authz.displayName)
-                    for candidate in authz.calendarUserAddresses:
-                        if candidate.startswith("mailto:"):
-                            prop.setParameter("EMAIL", candidate[7:])
-                            break
-                    component.replacePropertyInAllComponents(prop)
-                else:
-                    component.removeAllPropertiesWithName("X-CALENDARSERVER-MODIFIED-BY")
+                authz = yield self.directoryService().recordWithUID(self.calendar().viewerHome().authzuid().decode("utf-8"))
+                prop = Property("X-CALENDARSERVER-MODIFIED-BY", authz.canonicalCalendarUserAddress())
+                prop.setParameter("CN", authz.displayName)
+                for candidate in authz.calendarUserAddresses:
+                    if candidate.startswith("mailto:"):
+                        prop.setParameter("EMAIL", candidate[7:])
+                        break
+                component.replacePropertyInAllComponents(prop)
                 self._componentChanged = True
 
 
@@ -2197,7 +2191,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
             # Only DAV:owner is able to set the property to other than PUBLIC
             if internal_state == ComponentUpdateState.NORMAL:
-                if (self._txn._authz_uid is None or self.calendar().viewerHome().uid() != self._txn._authz_uid) and access != Component.ACCESS_PUBLIC:
+                if (self.calendar().viewerHome().uid() != self.calendar().viewerHome().authzuid()) and access != Component.ACCESS_PUBLIC:
                     raise InvalidCalendarAccessError("Private event access level change not allowed")
 
             self.accessMode = access
@@ -3916,13 +3910,16 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     def initPropertyStore(self, props):
-        # Setup peruser special properties
+        # Setup peruser special properties - these are hard-coded for now as clients are not expected
+        # to be using properties on resources - but we do use one special "live" property which we
+        # keep in the propstore.
         props.setSpecialProperties(
             (
             ),
             (
                 PropertyName.fromElement(customxml.ScheduleChanges),
             ),
+            (),
         )
 
 

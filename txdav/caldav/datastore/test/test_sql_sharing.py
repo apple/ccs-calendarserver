@@ -23,6 +23,10 @@ from txdav.common.datastore.test.util import CommonCommonTests, \
     populateCalendarsFrom
 from txdav.common.datastore.sql_tables import _BIND_MODE_READ, \
     _BIND_STATUS_INVITED, _BIND_MODE_DIRECT, _BIND_STATUS_ACCEPTED
+from txdav.base.propertystore.base import PropertyName
+from txdav.xml.base import WebDAVTextElement
+from twistedcaldav import customxml
+from txdav.xml.element import registerElement, registerElementClass
 
 
 class BaseSharingTests(CommonCommonTests, TestCase):
@@ -486,6 +490,93 @@ class CalendarSharing(BaseSharingTests):
         self.assertEquals(home.notifierID(), ("CalDAV", "user02",))
         calendar = yield home.calendarWithName(shared_name)
         self.assertEquals(calendar.notifierID(), ("CalDAV", "user01/calendar",))
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_perUserSharedProxyCollectionProperties(self):
+        """
+        Test that sharees and proxies get their own per-user properties, with some being
+        initialized based ont he owner value.
+        """
+        @registerElement
+        @registerElementClass
+        class DummySharingProperty (WebDAVTextElement):
+            namespace = "http://calendarserver.org/ns/"
+            name = "dummy-sharing"
+
+        shared_name = yield self._createShare()
+
+        # Add owner properties
+        home = yield self.homeUnderTest(name="user01")
+        calendar = yield home.calendarWithName("calendar")
+
+        calendar.properties()[PropertyName.fromElement(DummySharingProperty)] = DummySharingProperty.fromString("user01")
+        calendar.properties()[PropertyName.fromElement(customxml.CalendarColor)] = customxml.CalendarColor.fromString("#000001")
+        yield self.commit()
+
+        # Check/add sharee properties
+        home = yield self.homeUnderTest(name="user02")
+        calendar = yield home.calendarWithName(shared_name)
+        self.assertTrue(PropertyName.fromElement(DummySharingProperty) not in calendar.properties())
+        self.assertTrue(PropertyName.fromElement(customxml.CalendarColor) not in calendar.properties())
+        calendar.properties()[PropertyName.fromElement(DummySharingProperty)] = DummySharingProperty.fromString("user02")
+        calendar.properties()[PropertyName.fromElement(customxml.CalendarColor)] = customxml.CalendarColor.fromString("#000002")
+        yield self.commit()
+
+        # Check/add owner proxy properties
+        txn = self.transactionUnderTest()
+        txn._authz_uid = "user03"
+        home = yield self.homeUnderTest(name="user01")
+        calendar = yield home.calendarWithName("calendar")
+        self.assertTrue(PropertyName.fromElement(DummySharingProperty) in calendar.properties())
+        self.assertEqual(str(calendar.properties()[PropertyName.fromElement(DummySharingProperty)]), "user01")
+        self.assertTrue(PropertyName.fromElement(customxml.CalendarColor) in calendar.properties())
+        self.assertEqual(str(calendar.properties()[PropertyName.fromElement(customxml.CalendarColor)]), "#000001")
+        calendar.properties()[PropertyName.fromElement(DummySharingProperty)] = DummySharingProperty.fromString("user03")
+        calendar.properties()[PropertyName.fromElement(customxml.CalendarColor)] = customxml.CalendarColor.fromString("#000003")
+        yield self.commit()
+
+        # Check/add sharee proxy properties
+        txn = self.transactionUnderTest()
+        txn._authz_uid = "user04"
+        home = yield self.homeUnderTest(name="user02")
+        calendar = yield home.calendarWithName(shared_name)
+        self.assertTrue(PropertyName.fromElement(DummySharingProperty) in calendar.properties())
+        self.assertEqual(str(calendar.properties()[PropertyName.fromElement(DummySharingProperty)]), "user02")
+        self.assertTrue(PropertyName.fromElement(customxml.CalendarColor) in calendar.properties())
+        self.assertEqual(str(calendar.properties()[PropertyName.fromElement(customxml.CalendarColor)]), "#000002")
+        calendar.properties()[PropertyName.fromElement(DummySharingProperty)] = DummySharingProperty.fromString("user04")
+        calendar.properties()[PropertyName.fromElement(customxml.CalendarColor)] = customxml.CalendarColor.fromString("#000004")
+        yield self.commit()
+
+        # Validate all properties
+        home = yield self.homeUnderTest(name="user01")
+        calendar = yield home.calendarWithName("calendar")
+        self.assertEqual(str(calendar.properties()[PropertyName.fromElement(DummySharingProperty)]), "user03")
+        self.assertEqual(str(calendar.properties()[PropertyName.fromElement(customxml.CalendarColor)]), "#000001")
+        yield self.commit()
+
+        home = yield self.homeUnderTest(name="user02")
+        calendar = yield home.calendarWithName(shared_name)
+        self.assertEqual(str(calendar.properties()[PropertyName.fromElement(DummySharingProperty)]), "user04")
+        self.assertEqual(str(calendar.properties()[PropertyName.fromElement(customxml.CalendarColor)]), "#000002")
+        yield self.commit()
+
+        txn = self.transactionUnderTest()
+        txn._authz_uid = "user03"
+        home = yield self.homeUnderTest(name="user01")
+        calendar = yield home.calendarWithName("calendar")
+        self.assertEqual(str(calendar.properties()[PropertyName.fromElement(DummySharingProperty)]), "user03")
+        self.assertEqual(str(calendar.properties()[PropertyName.fromElement(customxml.CalendarColor)]), "#000003")
+        yield self.commit()
+
+        txn = self.transactionUnderTest()
+        txn._authz_uid = "user04"
+        home = yield self.homeUnderTest(name="user02")
+        calendar = yield home.calendarWithName(shared_name)
+        self.assertEqual(str(calendar.properties()[PropertyName.fromElement(DummySharingProperty)]), "user04")
+        self.assertEqual(str(calendar.properties()[PropertyName.fromElement(customxml.CalendarColor)]), "#000004")
         yield self.commit()
 
 

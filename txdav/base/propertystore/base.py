@@ -26,6 +26,7 @@ __all__ = [
 from twext.python.log import Logger
 from txdav.xml import element as davxml
 from txdav.xml.base import encodeXMLName
+from txdav.xml.element import lookupElement
 from txweb2.dav.resource import TwistedGETContentMD5, \
     TwistedQuotaRootProperty
 
@@ -98,6 +99,10 @@ class PropertyName(object):
         return encodeXMLName(self.namespace, self.name)
 
 
+    def toElement(self):
+        return lookupElement((self.namespace, self.name,))
+
+
 
 class AbstractPropertyStore(DictMixin, object):
     """
@@ -108,6 +113,7 @@ class AbstractPropertyStore(DictMixin, object):
     implements(IPropertyStore)
 
     _defaultShadowableKeys = frozenset()
+    _defaultProxyOverrideKeys = frozenset()
     _defaultGlobalKeys = frozenset((
         PropertyName.fromElement(davxml.ACL),
         PropertyName.fromElement(davxml.ResourceID),
@@ -117,7 +123,7 @@ class AbstractPropertyStore(DictMixin, object):
         PropertyName.fromElement(TwistedQuotaRootProperty),
     ))
 
-    def __init__(self, defaultUser, shareeUser=None):
+    def __init__(self, defaultUser, shareeUser=None, proxyUser=None):
         """
         Instantiate the property store for a user. The default is the default user
         (owner) property to read in the case of global or shadowable properties.
@@ -128,12 +134,17 @@ class AbstractPropertyStore(DictMixin, object):
 
         @param shareeUser: the per user uid or None if the same as defaultUser
         @type shareeUser: C{str}
+
+        @param proxyUser: the proxy uid or None if no proxy
+        @type proxyUser: C{str}
         """
 
         assert(defaultUser is not None or shareeUser is not None)
         self._defaultUser = shareeUser if defaultUser is None else defaultUser
         self._perUser = defaultUser if shareeUser is None else shareeUser
+        self._proxyUser = self._perUser if proxyUser is None else proxyUser
         self._shadowableKeys = set(AbstractPropertyStore._defaultShadowableKeys)
+        self._proxyOverrideKeys = set(AbstractPropertyStore._defaultProxyOverrideKeys)
         self._globalKeys = set(AbstractPropertyStore._defaultGlobalKeys)
 
 
@@ -149,8 +160,13 @@ class AbstractPropertyStore(DictMixin, object):
         self._perUser = uid
 
 
-    def setSpecialProperties(self, shadowableKeys, globalKeys):
+    def _setProxyUID(self, uid):
+        self._proxyUser = uid
+
+
+    def setSpecialProperties(self, shadowableKeys, globalKeys, proxyOverrideKeys):
         self._shadowableKeys.update(shadowableKeys)
+        self._proxyOverrideKeys.update(proxyOverrideKeys)
         self._globalKeys.update(globalKeys)
 
 
@@ -191,6 +207,13 @@ class AbstractPropertyStore(DictMixin, object):
     #
 
     def __getitem__(self, key):
+        # Return proxy value if it exists, else fall through to normal logic
+        if self._proxyUser != self._perUser and self.isProxyOverrideProperty(key):
+            try:
+                return self._getitem_uid(key, self._proxyUser)
+            except KeyError:
+                pass
+
         # Handle per-user behavior
         if self.isShadowableProperty(key):
             try:
@@ -208,11 +231,23 @@ class AbstractPropertyStore(DictMixin, object):
         # Handle per-user behavior
         if self.isGlobalProperty(key):
             return self._setitem_uid(key, value, self._defaultUser)
+        # Handle proxy behavior
+        elif self._proxyUser != self._perUser and self.isProxyOverrideProperty(key):
+            return self._setitem_uid(key, value, self._proxyUser)
+        # Remainder is per user
         else:
             return self._setitem_uid(key, value, self._perUser)
 
 
     def __delitem__(self, key):
+        # Delete proxy value if it exists, else fall through to normal logic
+        if self._proxyUser != self._perUser and self.isProxyOverrideProperty(key):
+            try:
+                self._delitem_uid(key, self._proxyUser)
+                return
+            except KeyError:
+                pass
+
         # Handle per-user behavior
         if self.isShadowableProperty(key):
             try:
@@ -245,9 +280,12 @@ class AbstractPropertyStore(DictMixin, object):
             self[key] = other[key]
 
 
-    # Per-user property handling
     def isShadowableProperty(self, key):
         return key in self._shadowableKeys
+
+
+    def isProxyOverrideProperty(self, key):
+        return key in self._proxyOverrideKeys
 
 
     def isGlobalProperty(self, key):

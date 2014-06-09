@@ -117,17 +117,19 @@ class PropertyStore(AbstractPropertyStore):
         yield _cache_user_props(self._defaultUser)
         if self._perUser != self._defaultUser:
             yield _cache_user_props(self._perUser)
+        if self._proxyUser != self._perUser:
+            yield _cache_user_props(self._proxyUser)
 
 
     @classmethod
     @inlineCallbacks
-    def load(cls, defaultuser, shareUser, txn, resourceID, created=False, notifyCallback=None):
+    def load(cls, defaultuser, shareUser, proxyUser, txn, resourceID, created=False, notifyCallback=None):
         """
         @param notifyCallback: a callable used to trigger notifications when the
             property store changes.
         """
         self = cls.__new__(cls)
-        super(PropertyStore, self).__init__(defaultuser, shareUser)
+        super(PropertyStore, self).__init__(defaultuser, shareUser, proxyUser)
         self._txn = txn
         self._resourceID = resourceID
         if not self._txn.store().queryCachingEnabled():
@@ -141,7 +143,7 @@ class PropertyStore(AbstractPropertyStore):
 
     @classmethod
     @inlineCallbacks
-    def forMultipleResources(cls, defaultUser, txn,
+    def forMultipleResources(cls, defaultUser, shareeUser, proxyUser, txn,
                              childColumn, parentColumn, parentID):
         """
         Load all property stores for all objects in a collection.  This is used
@@ -179,13 +181,13 @@ class PropertyStore(AbstractPropertyStore):
             Where=parentColumn == parentID
         )
         rows = yield query.on(txn)
-        stores = cls._createMultipleStores(defaultUser, txn, rows)
+        stores = cls._createMultipleStores(defaultUser, shareeUser, proxyUser, txn, rows)
         returnValue(stores)
 
 
     @classmethod
     @inlineCallbacks
-    def forMultipleResourcesWithResourceIDs(cls, defaultUser, txn, resourceIDs):
+    def forMultipleResourcesWithResourceIDs(cls, defaultUser, shareeUser, proxyUser, txn, resourceIDs):
         """
         Load all property stores for all specified resources.  This is used
         to optimize Depth:1 operations on that collection, by loading all
@@ -214,13 +216,13 @@ class PropertyStore(AbstractPropertyStore):
             Where=prop.RESOURCE_ID.In(Parameter("resourceIDs", len(resourceIDs)))
         )
         rows = yield query.on(txn, resourceIDs=resourceIDs)
-        stores = cls._createMultipleStores(defaultUser, txn, rows)
+        stores = cls._createMultipleStores(defaultUser, shareeUser, proxyUser, txn, rows)
 
         # Make sure we have a store for each resourceID even if no properties exist
         for resourceID in resourceIDs:
             if resourceID not in stores:
                 store = cls.__new__(cls)
-                super(PropertyStore, store).__init__(defaultUser)
+                super(PropertyStore, store).__init__(defaultUser, shareeUser, proxyUser)
                 store._txn = txn
                 store._resourceID = resourceID
                 store._cached = {}
@@ -230,7 +232,7 @@ class PropertyStore(AbstractPropertyStore):
 
 
     @classmethod
-    def _createMultipleStores(cls, defaultUser, txn, rows):
+    def _createMultipleStores(cls, defaultUser, shareeUser, proxyUser, txn, rows):
         """
         Create a set of stores for the set of rows passed in.
         """
@@ -245,7 +247,7 @@ class PropertyStore(AbstractPropertyStore):
             if resource_id:
                 if resource_id not in createdStores:
                     store = cls.__new__(cls)
-                    super(PropertyStore, store).__init__(defaultUser)
+                    super(PropertyStore, store).__init__(defaultUser, shareeUser, proxyUser)
                     store._txn = txn
                     store._resourceID = resource_id
                     store._cached = {}
@@ -253,7 +255,7 @@ class PropertyStore(AbstractPropertyStore):
                 createdStores[resource_id]._cached[(name, view_uid)] = value
             elif object_resource_id:
                 store = cls.__new__(cls)
-                super(PropertyStore, store).__init__(defaultUser)
+                super(PropertyStore, store).__init__(defaultUser, shareeUser, proxyUser)
                 store._txn = txn
                 store._resourceID = object_resource_id
                 store._cached = {}

@@ -364,12 +364,7 @@ class RootResource(
                             .format(agent)
                         ))
 
-        if (
-            config.EnableResponseCache and
-            request.method == "PROPFIND" and
-            not getattr(request, "notInCache", False) and
-            len(segments) > 1
-        ):
+        if not hasattr(request, "authzUser"):
             try:
                 authnUser, authzUser = yield self.authenticate(request)
                 request.authnUser = authnUser
@@ -380,6 +375,13 @@ class RootResource(
                     request.remoteAddr
                 )
                 raise HTTPError(response)
+
+        if (
+            config.EnableResponseCache and
+            request.method == "PROPFIND" and
+            not getattr(request, "notInCache", False) and
+            len(segments) > 1
+        ):
 
             try:
                 if not getattr(request, "checkingCache", False):
