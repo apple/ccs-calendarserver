@@ -528,18 +528,28 @@
     <!-- Directory searching -->
     <key>DirectoryAddressBook</key>
     <dict>
-	<key>Enabled</key>
-	<true/>
-        <key>params</key>
-        <dict>
-            <key>queryUserRecords</key>
-            <false/>
-            <key>queryPeopleRecords</key>
-            <false/>
-        </dict>
+	    <key>Enabled</key>
+	    <true/>
+      <key>params</key>
+      <dict>
+        <key>queryUserRecords</key>
+        <false/>
+        <key>queryPeopleRecords</key>
+        <false/>
+      </dict>
     </dict>
+
     <key>EnableSearchAddressBook</key>
     <false/>
+
+
+    <!-- Automatic purging of data for principals no longer in the directory
+      -->
+    <key>AutomaticPurging</key>
+    <dict>
+      <key>Enabled</key>
+      <true/>
+    </dict>
 
     <key>Includes</key>
     <array>

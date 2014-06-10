@@ -18,8 +18,6 @@
 Shared main-point between utilities.
 """
 
-from twistedcaldav.stdconfig import config
-from calendarserver.tap.caldav import CalDAVServiceMaker, CalDAVOptions
 from calendarserver.tap.util import checkDirectories
 from calendarserver.tools.util import loadConfig, autoDisableMemcached
 
@@ -37,7 +35,10 @@ from twext.enterprise.jobqueue import NonPerformingQueuer
 # TODO: direct unit tests for these functions.
 
 
-def utilityMain(configFileName, serviceClass, reactor=None, serviceMaker=CalDAVServiceMaker, patchConfig=None, onShutdown=None, verbose=False):
+def utilityMain(
+    configFileName, serviceClass, reactor=None, serviceMaker=None,
+    patchConfig=None, onShutdown=None, verbose=False
+):
     """
     Shared main-point for utilities.
 
@@ -68,6 +69,10 @@ def utilityMain(configFileName, serviceClass, reactor=None, serviceMaker=CalDAVS
         L{IReactorTCP} (etc) provider to use.  If C{None}, the default reactor
         will be imported and used.
     """
+
+    from calendarserver.tap.caldav import CalDAVServiceMaker, CalDAVOptions
+    if serviceMaker is None:
+        serviceMaker = CalDAVServiceMaker
 
     # We want to validate that the actual service is always an instance of WorkerService, so wrap the
     # service maker callback inside a function that does that check

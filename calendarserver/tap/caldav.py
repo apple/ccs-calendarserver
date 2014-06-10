@@ -72,6 +72,7 @@ from twext.enterprise.jobqueue import PeerConnectionPool
 from twext.enterprise.jobqueue import WorkerFactory as QueueWorkerFactory
 from twext.application.service import ReExecService
 from txdav.who.groups import GroupCacherPollingWork
+from calendarserver.tools.purge import PrincipalPurgePollingWork
 
 from txweb2.channel.http import (
     LimitingHTTPFactory, SSLRedirectRequest, HTTPChannel
@@ -568,7 +569,7 @@ class WorkSchedulingService(Service):
     """
     log = Logger()
 
-    def __init__(self, store, doImip, doGroupCaching):
+    def __init__(self, store, doImip, doGroupCaching, doPrincipalPurging):
         """
         @param store: the Store to use for enqueuing work
         @param doImip: whether to schedule imip polling
@@ -579,6 +580,7 @@ class WorkSchedulingService(Service):
         self.store = store
         self.doImip = doImip
         self.doGroupCaching = doGroupCaching
+        self.doPrincipalPurging = doPrincipalPurging
 
 
     @inlineCallbacks
@@ -597,6 +599,11 @@ class WorkSchedulingService(Service):
                 self.store,
                 int(config.LogID) if config.LogID else 5
             )
+        if self.doPrincipalPurging:
+            yield PrincipalPurgePollingWork.initialSchedule(
+                self.store,
+                int(config.LogID) if config.LogID else 5
+            )
         yield FindMinValidRevisionWork.initialSchedule(
             self.store,
             int(config.LogID) if config.LogID else 5
@@ -605,13 +612,6 @@ class WorkSchedulingService(Service):
             self.store,
             int(config.LogID) if config.LogID else 5
         )
-
-        # FIXME: uncomment this when purge is working
-        # from calendarserver.tools.purge import scheduleNextPrincipalPurgeUpdate
-        # yield PrincipalPurgePollingWork.initialSchedule(
-        #     self.store,
-        #     int(config.LogID) if config.LogID else 5
-        # )
 
 
 
@@ -1100,7 +1100,8 @@ class CalDAVServiceMaker (object):
         WorkSchedulingService(
             store,
             config.Scheduling.iMIP.Enabled,
-            (config.GroupCaching.Enabled and config.GroupCaching.EnableUpdater)
+            (config.GroupCaching.Enabled and config.GroupCaching.EnableUpdater),
+            config.AutomaticPurging.Enabled
         ).setServiceParent(service)
 
         # For calendarserver.tap.test
