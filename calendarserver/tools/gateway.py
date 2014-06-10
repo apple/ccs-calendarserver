@@ -25,11 +25,18 @@ import uuid
 import xml
 
 from calendarserver.tools.cmdline import utilityMain
-from calendarserver.tools.config import WRITABLE_CONFIG_KEYS, setKeyPath, getKeyPath, flattenDictionary, WritableConfig
+from calendarserver.tools.config import (
+    WRITABLE_CONFIG_KEYS, setKeyPath, getKeyPath, flattenDictionary,
+    WritableConfig
+)
 from calendarserver.tools.principals import (
     getProxies, setProxies
 )
-from calendarserver.tools.purge import WorkerService, PurgeOldEventsService, DEFAULT_BATCH_SIZE, DEFAULT_RETAIN_DAYS
+from calendarserver.tools.purge import (
+    WorkerService, PurgeOldEventsService,
+    DEFAULT_BATCH_SIZE, DEFAULT_RETAIN_DAYS,
+    PrincipalPurgeWork
+)
 from calendarserver.tools.util import (
     recordForPrincipalID, autoDisableMemcached
 )
@@ -412,12 +419,24 @@ class Runner(object):
         self.respondWithRecordsOfTypes(self.dir, command, [typeName])
 
 
+    @inlineCallbacks
     def command_deleteLocation(self, command):
-        return self._delete("locations", command)
+        txn = self.store.newTransaction()
+        uid = command['GeneratedUID']
+        yield txn.enqueue(PrincipalPurgeWork, uid=uid)
+        yield txn.commit()
+
+        yield self._delete("locations", command)
 
 
+    @inlineCallbacks
     def command_deleteResource(self, command):
-        return self._delete("resources", command)
+        txn = self.store.newTransaction()
+        uid = command['GeneratedUID']
+        yield txn.enqueue(PrincipalPurgeWork, uid=uid)
+        yield txn.commit()
+
+        yield self._delete("resources", command)
 
 
     def command_deleteAddress(self, command):
