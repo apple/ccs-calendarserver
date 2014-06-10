@@ -280,9 +280,9 @@ DEFAULT_CONFIG = {
 
     "UseDatabase": True, # True: database; False: files
 
-    "TransactionTimeoutSeconds": 0, # Timeout transactions that take longer than
+    "TransactionTimeoutSeconds": 300, # Timeout transactions that take longer than
                               # the specified number of seconds. Zero means
-                              # no timeouts
+                              # no timeouts. 5 minute default.
 
     "DBType": "", # 2 possible values: empty, meaning 'spawn postgres
                            # yourself', or 'postgres', meaning 'connect to a
