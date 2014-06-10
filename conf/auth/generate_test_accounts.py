@@ -220,7 +220,7 @@ out.write("""<record type="location">
   <short-name>il1</short-name>
   <full-name>IL1</full-name>
   <street-address>1 Infinite Loop, Cupertino, CA 95014</street-address>
-  <geographic-location>37.331741,-122.030333</geographic-location>
+  <geographic-location>geo:37.331741,-122.030333</geographic-location>
 </record>
 <record type="location">
   <uid>fantastic</uid>
@@ -233,7 +233,7 @@ out.write("""<record type="location">
   <short-name>il2</short-name>
   <full-name>IL2</full-name>
   <street-address>2 Infinite Loop, Cupertino, CA 95014</street-address>
-  <geographic-location>37.332633,-122.030502</geographic-location>
+  <geographic-location>geo:37.332633,-122.030502</geographic-location>
 </record>
 <record type="location">
   <uid>delegatedroom</uid>
