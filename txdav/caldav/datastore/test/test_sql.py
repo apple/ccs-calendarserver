@@ -35,7 +35,7 @@ from twisted.trial import unittest
 
 from twistedcaldav import caldavxml, ical
 from twistedcaldav.caldavxml import CalendarDescription
-from twistedcaldav.config import config
+from twistedcaldav.stdconfig import config
 from twistedcaldav.dateops import datetimeMktime
 from twistedcaldav.ical import Component, normalize_iCalStr, diff_iCalStrs
 from twistedcaldav.instance import InvalidOverriddenInstanceError
@@ -61,8 +61,9 @@ from txdav.common.datastore.test.util import populateCalendarsFrom, \
     CommonCommonTests
 from txdav.caldav.datastore.util import _migrateCalendar, migrateHome
 from txdav.caldav.icalendarstore import ComponentUpdateState, InvalidDefaultCalendar, \
-    InvalidSplit
-from txdav.common.icommondatastore import NoSuchObjectResourceError
+    InvalidSplit, UnknownTimezone
+from txdav.common.icommondatastore import NoSuchObjectResourceError, \
+    InvalidComponentForStoreError
 from txdav.idav import ChangeCategory
 from txdav.xml.rfc2518 import GETContentLanguage, ResourceType
 
@@ -1977,6 +1978,45 @@ END:VCALENDAR
         self.assertFalse(inbox.isUsedForFreeBusy())
 
 
+    @inlineCallbacks
+    def test_missingTimezone(self):
+        """
+        Make sure missing timezone causes an exception, whether or timezones by reference is on.
+        """
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;TZID=BOGUS:20130806T000000
+DURATION:PT1H
+DTSTAMP:20051222T210507Z
+SUMMARY:1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        self.patch(config, "EnableTimezonesByReference", False)
+
+        yield self.homeUnderTest(name="user01", create=True)
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+        yield self.failUnlessFailure(
+            calendar.createCalendarObjectWithName("data1.ics", Component.fromString(data)),
+            InvalidComponentForStoreError,
+        )
+        yield self.abort()
+
+        self.patch(config, "EnableTimezonesByReference", True)
+
+        yield self.homeUnderTest(name="user01", create=True)
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+        yield self.failUnlessFailure(
+            calendar.createCalendarObjectWithName("data1.ics", Component.fromString(data)),
+            UnknownTimezone,
+        )
+        yield self.abort()
+
+
 
 class SchedulingTests(CommonCommonTests, unittest.TestCase):
     """
@@ -2167,8 +2207,8 @@ CALSCALE:GREGORIAN
 PRODID:-//Apple Inc.//Mac OS X 10.9.1//EN
 BEGIN:VEVENT
 UID:561F5DBB-3F38-4B3A-986F-DD05CBAF554F
-DTSTART;TZID=America/Los_Angeles:20131211T164500
-DTEND;TZID=America/Los_Angeles:20131211T174500
+DTSTART:20131211T164500Z
+DURATION:PT1H
 ATTENDEE;CN=Conference Room One;CUTYPE=ROOM;PARTSTAT=ACCEPTED;ROLE=REQ-PARTICIPAN
  T;SCHEDULE-STATUS=2.0:urn:x-uid:room-addr-1
 ATTENDEE;CN=User 01;CUTYPE=INDIVIDUAL;EMAIL=user01@example.com;PARTSTAT=AC
@@ -2183,9 +2223,9 @@ TRANSP:OPAQUE
 END:VEVENT
 BEGIN:VEVENT
 UID:561F5DBB-3F38-4B3A-986F-DD05CBAF554F
-RECURRENCE-ID;TZID=America/Los_Angeles:20131214T164500
-DTSTART;TZID=America/Los_Angeles:20131214T160000
-DTEND;TZID=America/Los_Angeles:20131214T170000
+RECURRENCE-ID:20131214T164500Z
+DTSTART:20131214T160000Z
+DURATION:PT1H
 ATTENDEE;CN=Conference Room Two;CUTYPE=ROOM;PARTSTAT=ACCEPTED;ROLE=REQ-PARTICIPAN
  T;SCHEDULE-STATUS=2.0:urn:x-uid:room-addr-2
 ATTENDEE;CN=User 01;CUTYPE=INDIVIDUAL;EMAIL=user01@example.com;PARTSTAT=AC
@@ -2240,8 +2280,8 @@ CALSCALE:GREGORIAN
 PRODID:-//Apple Inc.//Mac OS X 10.9.1//EN
 BEGIN:VEVENT
 UID:561F5DBB-3F38-4B3A-986F-DD05CBAF554F
-DTSTART;TZID=America/Los_Angeles:20131211T164500
-DTEND;TZID=America/Los_Angeles:20131211T174500
+DTSTART:20131211T164500Z
+DURATION:PT1H
 ATTENDEE;X-APPLE-HOSTED-STATUS=EXTERNAL:urn:x-uid:user01
 ATTENDEE:mailto:someone_external@example.com
 CREATED:20131211T221854Z
@@ -2293,14 +2333,14 @@ CALSCALE:GREGORIAN
 PRODID:-//Apple Inc.//Mac OS X 10.9.1//EN
 BEGIN:VEVENT
 UID:561F5DBB-3F38-4B3A-986F-DD05CBAF554F
-DTSTART;TZID=America/Los_Angeles:20131211T164500
+DTSTART:20131211T164500Z
 DURATION:PT1H
 ATTENDEE:urn:x-uid:user01
 CREATED:20131211T221854Z
 DTSTAMP:20131211T230632Z
 ORGANIZER:urn:x-uid:user01
 RRULE:FREQ=DAILY;COUNT=1
-EXDATE;TZID=America/Los_Angeles:20131211T164500
+EXDATE:20131211T164500Z
 SUMMARY:external
 END:VEVENT
 END:VCALENDAR

@@ -56,6 +56,7 @@ from twistedcaldav.dateops import normalizeForIndex, datetimeMktime, \
 from twistedcaldav.ical import Component, InvalidICalendarDataError, Property
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.memcacher import Memcacher
+from twistedcaldav.timezones import TimezoneException
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.datastore.query.builder import buildExpression
@@ -80,7 +81,7 @@ from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObjec
     InvalidDefaultCalendar, \
     InvalidAttachmentOperation, DuplicatePrivateCommentsError, \
     TimeRangeUpperLimit, TimeRangeLowerLimit, InvalidSplit, \
-    AttachmentSizeTooLarge
+    AttachmentSizeTooLarge, UnknownTimezone
 from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
@@ -1891,6 +1892,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # Basic validation
 
+        # Possible timezone stripping
+        if config.EnableTimezonesByReference:
+            component.stripKnownTimezones()
+
         # Do validation on external requests
         if internal_state == ComponentUpdateState.NORMAL:
 
@@ -1916,10 +1921,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
             # Valid attendee list size check
             yield self.validAttendeeListSizeCheck(component, inserting)
-
-        # Possible timezone stripping
-        if config.EnableTimezonesByReference:
-            component.stripKnownTimezones()
 
         # Check location/resource organizer requirement
         self.validLocationResourceOrganizer(component, inserting, internal_state)
@@ -2095,12 +2096,16 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         try:
             component.validCalendarData(validateRecurrences=self._txn._migrating)
-        except InvalidICalendarDataError, e:
+        except InvalidICalendarDataError as e:
             raise InvalidObjectResourceError(str(e))
         try:
             component.validCalendarForCalDAV(methodAllowed=self.calendar().isInbox())
-        except InvalidICalendarDataError, e:
+        except InvalidICalendarDataError as e:
             raise InvalidComponentForStoreError(str(e))
+        except TimezoneException as e:
+            # tzid not available
+            raise UnknownTimezone(str(e))
+
         try:
             if self._txn._migrating:
                 component.validOrganizerForScheduling(doFix=True)
@@ -4043,7 +4048,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             in L{CalendarObject.splitAt}).
         @type rid: L{DateTime}
         @param olderUID: sets the iCalendar UID to be used in the new resource created during the split.
-            If L{None} a UUID is generated and used.
+            If set to L{None}, a UUID is generated and used.
         @type olderUID: L{str}
         """
 
@@ -4065,7 +4070,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         newerUID = calendar.resourceUID()
         if olderUID is None:
             olderUID = str(uuid.uuid4())
-            olderResourceName = olderUID
+            olderResourceName = "{0}.ics".format(olderUID)
         else:
             olderResourceName = "{0}.ics".format(olderUID.encode("base64")[:-1].rstrip("="))
 

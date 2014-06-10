@@ -1063,11 +1063,16 @@ class Component (object):
         """
         result = set()
 
-        for property in self.properties():
-            tzid = property.parameterValue("TZID")
-            if tzid is not None:
-                result.add(tzid)
-                break
+        if self.name() == "VCALENDAR":
+            for component in self.subcomponents():
+                if component.name() != "VTIMEZONE":
+                    result.update(component.timezoneIDs())
+        else:
+            for property in self.properties():
+                tzid = property.parameterValue("TZID")
+                if tzid is not None:
+                    result.add(tzid)
+                    break
 
         return result
 
@@ -2031,6 +2036,12 @@ class Component (object):
                 log.debug(
                     "Timezone {0} is not referenced by any non-timezone component".format(timezone,)
                 )
+
+        # TZIDs without a VTIMEZONE must be available in the server's TZ database
+        missing_timezones = timezone_refs - timezones
+        for tzid in missing_timezones:
+            # Will raise TimezoneException if tzid not present in server's database
+            hasTZ(tzid)
 
         # Control character check - only HTAB, CR, LF allowed for characters in the range 0x00-0x1F
         s = str(self)

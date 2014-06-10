@@ -857,6 +857,13 @@ class InvalidSplit(CommonStoreError):
 
 
 
+class UnknownTimezone(CommonStoreError):
+    """
+    Unknown timezone id used.
+    """
+
+
+
 #
 # FIXME: These may belong elsewhere.
 #

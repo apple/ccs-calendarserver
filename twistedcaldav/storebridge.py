@@ -60,7 +60,7 @@ from txdav.caldav.icalendarstore import (
     InvalidPerUserDataMerge,
     AttendeeAllowedError, ResourceDeletedError, InvalidAttachmentOperation,
     ShareeAllowedError, DuplicatePrivateCommentsError, InvalidSplit
-, AttachmentSizeTooLarge)
+, AttachmentSizeTooLarge, UnknownTimezone)
 from txdav.carddav.iaddressbookstore import (
     KindChangeNotAllowedError, GroupWithUnsharedAddressNotAllowedError
 )
@@ -2734,6 +2734,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         ShareeAllowedError: (_CommonObjectResource._storeExceptionError, (calendarserver_namespace, "sharee-privilege-needed",),),
         DuplicatePrivateCommentsError: (_CommonObjectResource._storeExceptionError, (calendarserver_namespace, "no-duplicate-private-comments",),),
         LockTimeout: (_CommonObjectResource._storeExceptionUnavailable, "Lock timed out.",),
+        UnknownTimezone: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "valid-timezone"),),
     }
 
     StoreMoveExceptionsErrors = {

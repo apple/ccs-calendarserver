@@ -21,16 +21,17 @@ import itertools
 from twisted.trial.unittest import SkipTest
 from twisted.internet.defer import inlineCallbacks, succeed
 
+from twistedcaldav.dateops import normalizeForExpand
 from twistedcaldav.ical import Component, Property, InvalidICalendarDataError, \
     normalizeCUAddress, normalize_iCalStr
+from twistedcaldav.ical import iCalendarProductID
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 import twistedcaldav.test.util
+from twistedcaldav.timezones import TimezoneException
 
 from pycalendar.datetime import DateTime
 from pycalendar.timezone import Timezone
-from twistedcaldav.ical import iCalendarProductID
 from pycalendar.duration import Duration
-from twistedcaldav.dateops import normalizeForExpand
 from pycalendar.value import Value
 
 
@@ -654,7 +655,25 @@ END:VCALENDAR
             self.assertEqual(end, DateTime(2004, 11, 27))
             break
 
-    # test_component_timerange.todo = "recurrence expansion should give us no end date here"
+
+    def test_component_timezone_validate(self):
+        """
+        CalDAV resource validation.
+        """
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;TZID=BOGUS:20130806T000000
+DURATION:PT1H
+DTSTAMP:20051222T210507Z
+SUMMARY:1
+END:VEVENT
+END:VCALENDAR
+"""
+        calendar = Component.fromString(data)
+        self.failUnlessRaises(TimezoneException, calendar.validCalendarForCalDAV, False)
 
 
     def test_parse_date(self):
