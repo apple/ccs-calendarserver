@@ -83,8 +83,9 @@ def timed(f):
         """
         Records the start time of the call and the method's name
         """
+        startTime = time.time()
         d = f(self, *args, **kwds)
-        d.addBoth(recordTiming, f.func_name, time.time())
+        d.addBoth(recordTiming, f.func_name, startTime)
         return d
 
     return timingWrapper
