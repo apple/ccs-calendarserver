@@ -18,8 +18,7 @@
     group attendee tests
 """
 
-import os
-
+from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.jobqueue import JobItem
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.who.directory import DirectoryService
@@ -29,8 +28,10 @@ from twisted.trial import unittest
 from twistedcaldav.config import config
 from twistedcaldav.ical import Component, normalize_iCalStr, ignoredComponents
 from txdav.caldav.datastore.test.util import populateCalendarsFrom, CommonCommonTests
+from txdav.common.datastore.sql_tables import schema
 from txdav.who.directory import CalendarDirectoryRecordMixin
 from txdav.who.groups import GroupCacher
+import os
 
 
 class GroupAttendeeReconciliation(CommonCommonTests, unittest.TestCase):
@@ -508,6 +509,7 @@ END:VCALENDAR
 
         groupsToRefresh = yield groupCacher.groupsToRefresh(self.transactionUnderTest())
         self.assertEqual(len(groupsToRefresh), 1)
+        self.assertEqual(list(groupsToRefresh)[0], "20000000-0000-0000-0000-000000000001")
 
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
         yield self.commit()
@@ -649,6 +651,7 @@ END:VCALENDAR
 
         groupsToRefresh = yield groupCacher.groupsToRefresh(self.transactionUnderTest())
         self.assertEqual(len(groupsToRefresh), 1)
+        self.assertEqual(list(groupsToRefresh)[0], "20000000-0000-0000-0000-000000000001")
 
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
         yield self.commit()
@@ -824,6 +827,7 @@ END:VCALENDAR
             yield None
             returnValue(set())
 
+        unpatchedExpandedMembers = CalendarDirectoryRecordMixin.expandedMembers
         groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
 
         calendar = yield self.calendarUnderTest(name="calendar", home="10000000-0000-0000-0000-000000000002")
@@ -833,6 +837,7 @@ END:VCALENDAR
 
         groupsToRefresh = yield groupCacher.groupsToRefresh(self.transactionUnderTest())
         self.assertEqual(len(groupsToRefresh), 1)
+        self.assertEqual(list(groupsToRefresh)[0], "20000000-0000-0000-0000-000000000001")
 
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
         yield self.commit()
@@ -856,10 +861,29 @@ END:VCALENDAR
         self.assertEqual(normalize_iCalStr(vcalendar), normalize_iCalStr(data_get_2))
 
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
-        if len(wps): # This is needed because the test currently fails and does actually create job items we have to wait for
-            yield self.commit()
-            yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
         self.assertEqual(len(wps), 0)
+        yield self.commit()
+        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
+
+        #finally, simulate an event that has become old
+        self.patch(CalendarDirectoryRecordMixin, "expandedMembers", unpatchedExpandedMembers)
+
+        groupID, _ignore_name, _ignore_membershipHash, _ignore_modDate = yield self.transactionUnderTest().groupByUID("20000000-0000-0000-0000-000000000001")
+        ga = schema.GROUP_ATTENDEE
+        yield Insert({
+                ga.RESOURCE_ID: cobj._resourceID,
+                ga.GROUP_ID: groupID,
+                ga.MEMBERSHIP_HASH: (-1),
+            }
+        ).on(self.transactionUnderTest())
+        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
+        self.assertEqual(len(wps), 1)
+        yield self.commit()
+        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
+
+        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000002")
+        vcalendar = yield cobj.component()
+        self.assertEqual(normalize_iCalStr(vcalendar), normalize_iCalStr(data_get_2))
 
 
     @inlineCallbacks
@@ -957,6 +981,7 @@ END:VCALENDAR
             yield None
             returnValue(set())
 
+        unpatchedExpandedMembers = CalendarDirectoryRecordMixin.expandedMembers
         groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
 
         calendar = yield self.calendarUnderTest(name="calendar", home="10000000-0000-0000-0000-000000000002")
@@ -966,6 +991,7 @@ END:VCALENDAR
 
         groupsToRefresh = yield groupCacher.groupsToRefresh(self.transactionUnderTest())
         self.assertEqual(len(groupsToRefresh), 1)
+        self.assertEqual(list(groupsToRefresh)[0], "20000000-0000-0000-0000-000000000001")
 
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
         yield self.commit()
@@ -993,6 +1019,127 @@ END:VCALENDAR
             yield self.commit()
             yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
         self.assertEqual(len(wps), 0)
+
+        #finally, simulate an event that has become old
+        self.patch(CalendarDirectoryRecordMixin, "expandedMembers", unpatchedExpandedMembers)
+
+        groupID, _ignore_name, _ignore_membershipHash, _ignore_modDate = yield self.transactionUnderTest().groupByUID("20000000-0000-0000-0000-000000000001")
+        ga = schema.GROUP_ATTENDEE
+        yield Insert({
+                ga.RESOURCE_ID: cobj._resourceID,
+                ga.GROUP_ID: groupID,
+                ga.MEMBERSHIP_HASH: (-1),
+            }
+        ).on(self.transactionUnderTest())
+        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
+        self.assertEqual(len(wps), 1)
+        yield self.commit()
+        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
+
+        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000002")
+        vcalendar = yield cobj.component()
+        self.assertEqual(normalize_iCalStr(vcalendar), normalize_iCalStr(data_get_2))
+
+
+    @inlineCallbacks
+    def test_groupChangeSpanningEvent(self):
+        """
+        Test that group attendee changes not applied to old recurring events
+        """
+
+        data_put_1 = """BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART:20120101T100000Z
+DURATION:PT1H
+RRULE:FREQ=DAILY;UNTIL=20240101T100000
+SUMMARY:event 1
+UID:event1@ninevah.local
+ORGANIZER:MAILTO:user02@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:MAILTO:group01@example.com
+END:VEVENT
+END:VCALENDAR"""
+
+        data_get_1 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+BEGIN:VEVENT
+UID:event1@ninevah.local
+DTSTART:20120101T100000Z
+DURATION:PT1H
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:10000000-0000-0000-0000-000000000002
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;RSVP=TRUE:urn:x-uid:20000000-0000-0000-0000-000000000001
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;MEMBER="urn:x-uid:20000000-0000-0000-0000-000000000001";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:10000000-0000-0000-0000-000000000001
+CREATED:20060101T150000Z
+ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:x-uid:10000000-0000-0000-0000-000000000002
+RRULE:FREQ=DAILY;UNTIL=20240101T100000
+SUMMARY:event 1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        data_get_2 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+BEGIN:VEVENT
+UID:event1@ninevah.local
+{start}DURATION:PT1H
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:10000000-0000-0000-0000-000000000002
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;RSVP=TRUE:urn:x-uid:20000000-0000-0000-0000-000000000001
+CREATED:20060101T150000Z
+ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:x-uid:10000000-0000-0000-0000-000000000002
+{relatedTo}RRULE:FREQ=DAILY;UNTIL=20240101T100000
+SEQUENCE:2
+SUMMARY:event 1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        @inlineCallbacks
+        def expandedMembers(self, records=None):
+            yield None
+            returnValue(set())
+
+        groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
+
+        calendar = yield self.calendarUnderTest(name="calendar", home="10000000-0000-0000-0000-000000000002")
+        vcalendar = Component.fromString(data_put_1)
+        yield calendar.createCalendarObjectWithName("data1.ics", vcalendar)
+        yield self.commit()
+
+        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000002")
+        vcalendar = yield cobj.component()
+        self.assertEqual(normalize_iCalStr(vcalendar), normalize_iCalStr(data_get_1))
+
+        yield self._verifyObjectResourceCount("10000000-0000-0000-0000-000000000001", 1)
+
+        self.patch(CalendarDirectoryRecordMixin, "expandedMembers", expandedMembers)
+
+        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
+        yield self.commit()
+        self.assertEqual(len(wps), 1)
+        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
+
+        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000002")
+        vcalendar = yield cobj.component()
+
+        for component in vcalendar.subcomponents():
+            if component.name() in ignoredComponents:
+                continue
+            relatedTo = component.getProperty("RELATED-TO")
+            start = component.getProperty("DTSTART")
+            break
+
+        self.assertEqual(
+            normalize_iCalStr(vcalendar),
+            normalize_iCalStr(data_get_2.format(start=start, relatedTo=relatedTo)))
 
 
     @inlineCallbacks

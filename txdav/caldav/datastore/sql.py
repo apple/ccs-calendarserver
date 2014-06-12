@@ -1961,7 +1961,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # sync group attendee members if inserting or group changed
         changed = False
-        if inserting or (yield self.updateGROUP_ATTENDEE(groupCUAToAttendeeMemberPropMap)):
+        if inserting or (yield self.updateEventGroupLink(groupCUAToAttendeeMemberPropMap)):
             changed = component.reconcileGroupAttendees(groupCUAToAttendeeMemberPropMap)
 
         # save for post processing when self._resourceID is non-zero
@@ -1971,7 +1971,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def updateGROUP_ATTENDEE(self, groupCUAToAttendeeMemberPropMap=None):
+    def updateEventGroupLink(self, groupCUAToAttendeeMemberPropMap=None):
         """
         update schema.GROUP_ATTENDEE
         """
@@ -2037,7 +2037,9 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def deleteOldGROUP_ATTENDEE(self, component, instances, inserting, txn):
+    def removeOldEventGroupLink(self, component, instances, inserting, txn):
+
+        isOldEventWithGroupAttendees = False
 
         # If this event is old, break possible tie to group update
         if hasattr(self, "_groupCUAToAttendeeMemberPropMap"):
@@ -2056,7 +2058,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                         tr.END_DATE > cutoffDate_datatime
                     ),
                 ).on(txn)
-                isOld = rows[0][0] == 0
+                isOldEventWithGroupAttendees = rows[0][0] == 0
 
             else:
                 if instances and len(instances.instances):
@@ -2065,13 +2067,13 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                         Duration(seconds=config.GroupAttendees.UpdateOldEventLimitSeconds)
                     )
                     maxInstanceKey = sorted(instance for instance in instances)[-1]
-                    isOld = cutoffDate_DateTime > instances[maxInstanceKey].end
+                    isOldEventWithGroupAttendees = cutoffDate_DateTime > instances[maxInstanceKey].end
                 else:
-                    isOld = True
+                    isOldEventWithGroupAttendees = True
 
-            if isOld:
+            if isOldEventWithGroupAttendees:
                 if inserting:
-                    # don't create GROUP_ATTENDEE rows in updateGROUP_ATTENDEE()
+                    # don't create GROUP_ATTENDEE rows in updateEventGroupLink()
                     del self._groupCUAToAttendeeMemberPropMap
                 else:
                     # delete existing group rows
@@ -2081,6 +2083,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                         Where=ga.RESOURCE_ID == self._resourceID,
                         #Return=[ga.GROUP_ID]
                     ).on(txn)
+
+        returnValue(isOldEventWithGroupAttendees)
 
 
     def validCalendarDataCheck(self, component, inserting):
@@ -2777,7 +2781,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # update GROUP_ATTENDEE table rows
         if inserting:
-            yield self.updateGROUP_ATTENDEE()
+            yield self.updateEventGroupLink()
 
         # Post process managed attachments
         if internal_state in (
@@ -2915,7 +2919,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
             # Now coerce indexing to off if needed
             if not doInstanceIndexing:
-                #instances = None # used by deleteOldGROUP_ATTENDEE() call at end
+                #instances = None # used by removeOldEventGroupLink() call at end
                 recurrenceLowerLimit = None
                 recurrenceLimit = DateTime(1900, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
 
@@ -3025,7 +3029,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         if instanceIndexingRequired and doInstanceIndexing:
             yield self._addInstances(component, instances, truncateLowerLimit, isInboxItem, txn)
 
-        yield self.deleteOldGROUP_ATTENDEE(component, instances, inserting, txn)
+        yield self.removeOldEventGroupLink(component, instances, inserting, txn)
 
 
     @inlineCallbacks
@@ -4048,7 +4052,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             in L{CalendarObject.splitAt}).
         @type rid: L{DateTime}
         @param olderUID: sets the iCalendar UID to be used in the new resource created during the split.
-            If set to L{None}, a UUID is generated and used.
+            If L{None} a UUID is generated and used.
         @type olderUID: L{str}
         """
 

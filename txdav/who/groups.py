@@ -19,13 +19,16 @@
 Group membership caching
 """
 
+from pycalendar.datetime import DateTime
+from pycalendar.duration import Duration
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.syntax import Delete, Select
 from twext.enterprise.jobqueue import WorkItem, RegeneratingWorkItem
 from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twistedcaldav.config import config
-from txdav.caldav.datastore.sql import CalendarStoreFeatures
+from txdav.caldav.datastore.scheduling.icalsplitter import iCalSplitter
+from txdav.caldav.datastore.sql import CalendarStoreFeatures, ComponentUpdateState
 from txdav.common.datastore.sql_tables import schema
 import datetime
 import hashlib
@@ -135,7 +138,11 @@ class GroupAttendeeReconciliationWork(
         ).on(self.transaction)
 
         # get db object
-        calendarObject = (yield CalendarStoreFeatures(self.transaction._store).calendarObjectWithID(self.transaction, self.resourceID))
+        calendarObject = yield CalendarStoreFeatures(
+            self.transaction._store
+        ).calendarObjectWithID(
+            self.transaction, self.resourceID
+        )
         component = yield calendarObject.componentForUser()
 
         # Change a copy of the original, as we need the original cached on the resource
@@ -144,6 +151,66 @@ class GroupAttendeeReconciliationWork(
 
         # sync group attendees
         if (yield calendarObject.reconcileGroupAttendees(component)):
+
+            # group attendees in event have changed
+            if (component.masterComponent() is None or not component.isRecurring()):
+
+                # skip non-recurring old events, no instances
+                if (yield calendarObject.removeOldEventGroupLink(
+                    component,
+                    instances=None,
+                    inserting=False,
+                    txn=self.transaction
+                )):
+                    returnValue(None)
+            else:
+                # skip recurring old events
+                expand = (DateTime.getToday() +
+                          Duration(days=config.FreeBusyIndexExpandAheadDays))
+
+                if config.FreeBusyIndexLowerLimitDays:
+                    truncateLowerLimit = DateTime.getToday()
+                    truncateLowerLimit.offsetDay(-config.FreeBusyIndexLowerLimitDays)
+                else:
+                    truncateLowerLimit = None
+
+                instances = component.expandTimeRanges(
+                    expand,
+                    lowerLimit=truncateLowerLimit,
+                    ignoreInvalidInstances=True
+                )
+                if (yield calendarObject.removeOldEventGroupLink(
+                    component,
+                    instances=instances,
+                    inserting=False,
+                    txn=self.transaction
+                )):
+                    returnValue(None)
+
+                # split spanning events and only update present-future split result
+                splitter = iCalSplitter(0, 1)
+                break_point = DateTime.getToday() - Duration(seconds=config.GroupAttendees.UpdateOldEventLimitSeconds)
+                rid = splitter.whereSplit(component, break_point=break_point)
+                if rid is not None:
+                    yield calendarObject.split(onlyThis=True, rid=rid)
+
+                    # remove group link to ensure update (update to unknown hash would work too)
+                    ga = schema.GROUP_ATTENDEE
+                    yield Delete(
+                        From=ga,
+                        Where=(ga.RESOURCE_ID == self.resourceID).And(
+                            ga.GROUP_ID == self.groupID
+                        )
+                    ).on(self.transaction)
+
+                    # update group attendee in remaining component
+                    component = yield calendarObject.componentForUser()
+                    component = component.duplicate()
+                    change = yield calendarObject.reconcileGroupAttendees(component)
+                    assert change
+                    yield calendarObject._setComponentInternal(component, False, ComponentUpdateState.SPLIT_OWNER)
+                    returnValue(None)
+
             yield calendarObject.setComponent(component)
 
 
