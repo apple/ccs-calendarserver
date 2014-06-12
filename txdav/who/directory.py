@@ -254,7 +254,19 @@ class CalendarDirectoryServiceMixin(object):
             )
             subExpressions.append(subExpression)
 
-        expression = CompoundExpression(subExpressions, operand)
+        if len(subExpressions) == 1:
+            # FIXME: twext.who.opendirectory takes a CompoundExpression and
+            # inspects it for MatchExpressions on recordType, and pulls those
+            # out of the query structure.  However, if all that remains is
+            # essentially a MatchExpression, but we tell OD to use
+            # ODMatchType.compound for it, we get no results back.  Until we
+            # fix twext.who, this workaround keeds the query compound even
+            # when the record type portion is removed:
+            expression = CompoundExpression(
+                [subExpressions[0], subExpressions[0]], operand
+            )
+        else:
+            expression = CompoundExpression(subExpressions, operand)
 
         # AND in the recordType if passed in
         if recordType is not None:
