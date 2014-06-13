@@ -24,6 +24,7 @@ import twistedcaldav.test.util
 
 import os
 
+
 class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
     """
     Directory service provisioned principals.
@@ -332,49 +333,6 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
 
             yield db.clean()
 
-
-    @inlineCallbacks
-    def test_cachingDBRemovePrincipal(self):
-
-        for processType in ("Single", "Combined",):
-            config.ProcessType = processType
-
-            # Get the DB
-            db_path = os.path.abspath(self.mktemp())
-            db = ProxySqliteDB(db_path)
-
-            # Do one insert and check the result
-            yield db.setGroupMembers("A", ("B", "C", "D",))
-            yield db.setGroupMembers("X", ("B", "C",))
-
-            membersA = yield db.getMembers("A")
-            membersX = yield db.getMembers("X")
-            membershipsB = yield db.getMemberships("B")
-            membershipsC = yield db.getMemberships("C")
-            membershipsD = yield db.getMemberships("D")
-
-            self.assertEqual(membersA, set(("B", "C", "D",)))
-            self.assertEqual(membersX, set(("B", "C",)))
-            self.assertEqual(membershipsB, set(("A", "X",)))
-            self.assertEqual(membershipsC, set(("A", "X",)))
-            self.assertEqual(membershipsD, set(("A",)))
-
-            # Remove and check the result
-            yield db.removePrincipal("B")
-
-            membersA = yield db.getMembers("A")
-            membersX = yield db.getMembers("X")
-            membershipsB = yield db.getMemberships("B")
-            membershipsC = yield db.getMemberships("C")
-            membershipsD = yield db.getMemberships("D")
-
-            self.assertEqual(membersA, set(("C", "D",)))
-            self.assertEqual(membersX, set(("C",)))
-            self.assertEqual(membershipsB, set())
-            self.assertEqual(membershipsC, set(("A", "X",)))
-            self.assertEqual(membershipsD, set(("A",),))
-
-            yield db.clean()
 
 
     @inlineCallbacks

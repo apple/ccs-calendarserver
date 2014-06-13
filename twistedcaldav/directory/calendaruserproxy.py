@@ -28,7 +28,6 @@ __all__ = [
 ]
 
 import itertools
-import time
 import uuid
 
 from twext.python.log import Logger
@@ -531,33 +530,6 @@ class ProxyDB(AbstractADBAPIDatabase):
         def deleteMembership(self, guid):
             return self.delete("memberships:%s" % (str(guid),))
 
-        def setDeletionTimer(self, guid, delay):
-            return self.set("del:%s" % (str(guid),), str(self.getTime() + delay))
-
-        def checkDeletionTimer(self, guid):
-            # True means it's overdue, False means it's not, None means no timer
-            def _value(value):
-                if value:
-                    if int(value) <= self.getTime():
-                        return True
-                    else:
-                        return False
-                else:
-                    return None
-            d = self.get("del:%s" % (str(guid),))
-            d.addCallback(_value)
-            return d
-
-        def clearDeletionTimer(self, guid):
-            return self.delete("del:%s" % (str(guid),))
-
-        def getTime(self):
-            if hasattr(self, 'theTime'):
-                theTime = self.theTime
-            else:
-                theTime = int(time.time())
-            return theTime
-
 
     def __init__(self, dbID, dbapiName, dbapiArgs, **kwargs):
         AbstractADBAPIDatabase.__init__(self, dbID, dbapiName, dbapiArgs, True, **kwargs)
@@ -640,70 +612,6 @@ class ProxyDB(AbstractADBAPIDatabase):
             for member in members:
                 yield self._memcacher.deleteMembership(member)
             yield self._memcacher.deleteMember(principalUID)
-
-
-    @inlineCallbacks
-    def removePrincipal(self, principalUID, delay=None):
-        """
-        Remove a group membership record.
-
-        @param principalUID: the UID of the principal to remove.
-        """
-        # FIXME: This method doesn't appear to be used anywhere.  Still needed?
-
-        if delay:
-            # We are going to remove the principal only after <delay> seconds
-            # has passed since we first chose to remove it, to protect against
-            # transient directory problems.
-            # If <delay> is specified, first see if there was a timer set
-            # previously.  If the timer is more than delay seconds old, we
-            # go ahead and remove the principal.  Otherwise, do nothing.
-
-            overdue = yield self._memcacher.checkDeletionTimer(principalUID)
-
-            if overdue is False:
-                # Do nothing
-                returnValue(None)
-
-            elif overdue is None:
-                # No timer was previously set
-                self.log.debug("Delaying removal of missing proxy principal '%s'"
-                               % (principalUID,))
-                yield self._memcacher.setDeletionTimer(principalUID, delay=delay)
-                returnValue(None)
-
-        self.log.warn("Removing missing proxy principal for '%s'"
-                      % (principalUID,))
-
-        for suffix in ("calendar-proxy-read", "calendar-proxy-write",):
-            groupUID = "%s#%s" % (principalUID, suffix,)
-            yield self._delete_from_db(groupUID)
-
-            # Update cache
-            members = yield self.getMembers(groupUID)
-            if members:
-                for member in members:
-                    yield self._memcacher.deleteMembership(member)
-                yield self._memcacher.deleteMember(groupUID)
-
-        memberships = (yield self.getMemberships(principalUID))
-        for groupUID in memberships:
-            yield self._memcacher.deleteMember(groupUID)
-
-        yield self._delete_from_db_member(principalUID)
-        yield self._memcacher.deleteMembership(principalUID)
-        yield self._memcacher.clearDeletionTimer(principalUID)
-
-
-    def refreshPrincipal(self, principalUID):
-        """
-        Bring back to life a principal that was previously deleted.
-
-        @param principalUID:
-        @type principalUID:
-        """
-
-        return self._memcacher.clearDeletionTimer(principalUID)
 
 
     def getMembers(self, principalUID):
