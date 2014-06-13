@@ -1112,7 +1112,7 @@ DEFAULT_CONFIG = {
 
     # After this many seconds of no admin requests, shutdown the agent.  Zero
     # means no automatic shutdown.
-    "AgentInactivityTimeoutSeconds"  : 4 * 60 * 60,
+    "AgentInactivityTimeoutSeconds"  : 5 * 60,
 
 
     # These three keys are relative to ConfigRoot:
