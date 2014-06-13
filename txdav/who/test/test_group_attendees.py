@@ -885,6 +885,12 @@ END:VCALENDAR
         vcalendar = yield cobj.component()
         self.assertEqual(normalize_iCalStr(vcalendar), normalize_iCalStr(data_get_2))
 
+        '''
+        cal = yield self.calendarUnderTest(name="calendar", home="10000000-0000-0000-0000-000000000001")
+        cobjs = yield cal.objectResources()
+        for cobj in cobjs:
+            print("comp = %s" % ((yield cobj.componentForUser())))
+        '''
 
     @inlineCallbacks
     def test_groupChangeOldNoMasterEvent(self):
@@ -1101,6 +1107,23 @@ SUMMARY:event 1
 END:VEVENT
 END:VCALENDAR
 """
+        data_get_3 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+BEGIN:VEVENT
+{uid}DTSTART:20120101T100000Z
+DURATION:PT1H
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:10000000-0000-0000-0000-000000000002
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;RSVP=TRUE:urn:x-uid:20000000-0000-0000-0000-000000000001
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;MEMBER="urn:x-uid:20000000-0000-0000-0000-000000000001";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:10000000-0000-0000-0000-000000000001
+CREATED:20060101T150000Z
+ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:x-uid:10000000-0000-0000-0000-000000000002
+{relatedTo}{rule}SEQUENCE:1
+SUMMARY:event 1
+END:VEVENT
+END:VCALENDAR
+"""
 
         @inlineCallbacks
         def expandedMembers(self, records=None):
@@ -1127,20 +1150,49 @@ END:VCALENDAR
         self.assertEqual(len(wps), 1)
         yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
 
-        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000002")
-        vcalendar = yield cobj.component()
+        cal = yield self.calendarUnderTest(name="calendar", home="10000000-0000-0000-0000-000000000002")
+        cobjs = yield cal.objectResources()
+        for cobj in cobjs:
+            vcalendar = yield cobj.component()
+            for component in vcalendar.subcomponents():
+                if component.name() in ignoredComponents:
+                    continue
+                relatedTo = component.getProperty("RELATED-TO")
+                start = component.getProperty("DTSTART")
+                rule = component.getProperty("RRULE")
+                uid = component.getProperty("UID")
+                break
 
-        for component in vcalendar.subcomponents():
-            if component.name() in ignoredComponents:
-                continue
-            relatedTo = component.getProperty("RELATED-TO")
-            start = component.getProperty("DTSTART")
-            break
+            if cobj.name() == "data1.ics":
+                self.assertEqual(
+                    normalize_iCalStr(vcalendar),
+                    normalize_iCalStr(
+                        data_get_2.format(
+                            start=start,
+                            relatedTo=relatedTo,
+                        )
+                    )
+                )
+            else:
+                self.assertEqual(
+                    normalize_iCalStr(vcalendar),
+                    normalize_iCalStr(
+                        data_get_3.format(
+                            relatedTo=relatedTo,
+                            rule=rule,
+                            uid=uid
+                        )
+                    )
+                )
 
-        self.assertEqual(
-            normalize_iCalStr(vcalendar),
-            normalize_iCalStr(data_get_2.format(start=start, relatedTo=relatedTo)))
-
+        #TODO: add some meaningful test
+        '''
+        cal = yield self.calendarUnderTest(name="calendar", home="10000000-0000-0000-0000-000000000001")
+        cobjs = yield cal.objectResources()
+        for cobj in cobjs:
+            vcalendar = yield cobj.component()
+            print("vcalendar = %s" % (vcalendar,))
+        '''
 
     @inlineCallbacks
     def test_groupRemovalFromDirectory(self):
