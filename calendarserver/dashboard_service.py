@@ -161,10 +161,9 @@ class DashboardProtocol (LineReceiver):
         @return: the JSON result.
         @rtype: L{str}
         """
-        directory = self.factory.store.directoryService()
-        if hasattr(directory, "stats"):
-            return succeed(directory.stats())
-        else:
+        try:
+            return succeed(self.factory.store.directoryService().stats())
+        except AttributeError:
             return succeed({})
 
 

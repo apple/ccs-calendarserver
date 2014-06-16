@@ -921,6 +921,7 @@ class RequestStatsWindow(BaseWindow):
         self.lastResult = records
 
 
+
 class DirectoryStatsWindow(BaseWindow):
     """
     Displays the status of the server's directory service calls
@@ -960,7 +961,7 @@ class DirectoryStatsWindow(BaseWindow):
             "Method", "Calls", "Total", "Average"
         )
         s2 = " {:<40}{:>15}{:>15}{:>15} ".format(
-            "", "", "(sec)", "(sec)"
+            "", "", "(sec)", "(ms)"
         )
         if self.usesCurses:
             self.window.addstr(y, x, s1, curses.A_REVERSE)
@@ -977,11 +978,11 @@ class DirectoryStatsWindow(BaseWindow):
             overallCount += count
             overallTimeSpent += timeSpent
 
-            s = " {:<40}{:>15d}{:>15.1f}{:>15.5f} ".format(
+            s = " {:<40}{:>15d}{:>15.1f}{:>15.3f} ".format(
                 methodName,
                 count,
                 timeSpent,
-                timeSpent / count,
+                (1000.0 * timeSpent) / count,
             )
             try:
                 if self.usesCurses:
@@ -992,12 +993,11 @@ class DirectoryStatsWindow(BaseWindow):
                 pass
             y += 1
 
-
         s = " {:<40}{:>15d}{:>15.1f}{:>15.5f} ".format(
             "Total:",
             overallCount,
             overallTimeSpent,
-            safeDivision(overallTimeSpent, overallCount, 1.0)
+            safeDivision(overallTimeSpent, overallCount, 1000.0)
         )
         if self.usesCurses:
             self.window.hline(y, x, "-", self.FORMAT_WIDTH - 2)
