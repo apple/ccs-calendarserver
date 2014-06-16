@@ -81,13 +81,14 @@ class GroupCacherPollingWork(
 
 class GroupRefreshWork(WorkItem, fromTable(schema.GROUP_REFRESH_WORK)):
 
-    group = property(lambda self: self.groupUid)
+    group = property(lambda self: (self.table.GROUP_UID == self.groupUid))
 
     @inlineCallbacks
     def doWork(self):
         # Delete all other work items for this group
         yield Delete(
-            From=self.table, Where=(self.table.GROUP_UID == self.groupUid)
+            From=self.table,
+            Where=self.group,
         ).on(self.transaction)
 
         groupCacher = getattr(self.transaction, "_groupCacher", None)
@@ -124,7 +125,7 @@ class GroupAttendeeReconciliationWork(
 ):
 
     group = property(
-        lambda self: "{0}, {1}".format(self.groupID, self.resourceID)
+        lambda self: (self.table.RESOURCE_ID == self.resourceID)
     )
 
 
@@ -134,7 +135,7 @@ class GroupAttendeeReconciliationWork(
         # Delete all other work items for this event
         yield Delete(
             From=self.table,
-            Where=self.table.RESOURCE_ID == self.resourceID,
+            Where=self.group,
         ).on(self.transaction)
 
         # get db object
@@ -195,6 +196,8 @@ class GroupAttendeeReconciliationWork(
                     yield calendarObject.split(onlyThis=True, rid=rid)
 
                     # remove group link to ensure update (update to unknown hash would work too)
+                    # FIXME: its possible that more than one group id gets updated during this single work item, so we
+                    # need to make sure that ALL the group_id's are removed by this query.
                     ga = schema.GROUP_ATTENDEE
                     yield Delete(
                         From=ga,

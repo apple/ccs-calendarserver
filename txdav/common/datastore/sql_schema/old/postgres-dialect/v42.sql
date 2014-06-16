@@ -60,7 +60,6 @@ create table JOB (
   WEIGHT      integer default 0,
   NOT_BEFORE  timestamp not null,
   ASSIGNED    timestamp default null,
-  OVERDUE     timestamp default null,
   FAILED	  integer default 0
 );
 
@@ -1083,7 +1082,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '43');
+insert into CALENDARSERVER values ('VERSION', '42');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');

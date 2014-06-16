@@ -41,7 +41,7 @@ log = Logger()
 
 class PushNotificationWork(WorkItem, fromTable(schema.PUSH_NOTIFICATION_WORK)):
 
-    group = property(lambda self: self.pushID)
+    group = property(lambda self: (self.table.PUSH_ID == self.pushID))
     default_priority = WORK_PRIORITY_HIGH
     default_weight = WORK_WEIGHT_1
 

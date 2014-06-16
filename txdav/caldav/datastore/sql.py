@@ -4142,7 +4142,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
     class CalendarObjectSplitterWork(WorkItem, fromTable(schema.CALENDAR_OBJECT_SPLITTER_WORK)):
 
-        group = property(lambda self: "CalendarObjectSplitterWork:{0}".format(self.resourceID,))
+        group = property(lambda self: (self.table.RESOURCE_ID == self.resourceID))
 
         @inlineCallbacks
         def doWork(self):
@@ -4150,9 +4150,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             log.debug("Splitting calendar object with resource-id: {rid}", rid=self.resourceID)
 
             # Delete all other work items with the same resourceID
-            yield Delete(From=self.table,
-                         Where=self.table.RESOURCE_ID == self.resourceID
-                        ).on(self.transaction)
+            yield Delete(
+                From=self.table,
+                Where=self.group
+            ).on(self.transaction)
 
             # Get the actual owned calendar object with this ID
             cobj = (yield CalendarStoreFeatures(self.transaction._store).calendarObjectWithID(self.transaction, self.resourceID))

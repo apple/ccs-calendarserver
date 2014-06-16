@@ -124,7 +124,7 @@ class PrincipalPurgeCheckWork(
     unique user UID to check.
     """
 
-    group = property(lambda self: self.uid)
+    group = property(lambda self: (self.table.UID == self.uid))
 
     @inlineCallbacks
     def doWork(self):
@@ -132,7 +132,7 @@ class PrincipalPurgeCheckWork(
         # Delete any other work items for this UID
         yield Delete(
             From=self.table,
-            Where=self.table.UID == self.uid
+            Where=self.group,
         ).on(self.transaction)
 
         # If not enabled, punt here
@@ -171,7 +171,7 @@ class PrincipalPurgeWork(
     Work item for purging a UID's data
     """
 
-    group = property(lambda self: self.uid)
+    group = property(lambda self: (self.table.UID == self.uid))
 
     @inlineCallbacks
     def doWork(self):
@@ -179,7 +179,7 @@ class PrincipalPurgeWork(
         # Delete any other work items for this UID
         yield Delete(
             From=self.table,
-            Where=self.table.UID == self.uid
+            Where=self.group,
         ).on(self.transaction)
 
         # If not enabled, punt here
@@ -218,7 +218,7 @@ class PrincipalPurgeHomeWork(
     Work item for removing a UID's home
     """
 
-    group = property(lambda self: str(self.homeResourceID))
+    group = property(lambda self: (self.table.HOME_RESOURCE_ID == self.homeResourceID))
 
     @inlineCallbacks
     def doWork(self):
@@ -226,7 +226,7 @@ class PrincipalPurgeHomeWork(
         # Delete any other work items for this UID
         yield Delete(
             From=self.table,
-            Where=self.table.HOME_RESOURCE_ID == self.homeResourceID
+            Where=self.group,
         ).on(self.transaction)
 
         # NB We do not check config.AutomaticPurging.Enabled here because if this work

@@ -255,7 +255,7 @@ class PostgresService(MultiService):
             self.listenAddresses = []
 
         self.sharedBuffers = sharedBuffers if not testMode else 16
-        self.maxConnections = maxConnections if not testMode else 4
+        self.maxConnections = maxConnections if not testMode else 8
         self.options = options
 
         self.uid = uid

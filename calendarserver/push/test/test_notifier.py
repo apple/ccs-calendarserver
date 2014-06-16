@@ -107,6 +107,8 @@ class PushNotificationWorkTests(StoreTestCase):
     @inlineCallbacks
     def test_work(self):
 
+        self.patch(JobItem, "failureRescheduleInterval", 2)
+
         pushDistributor = StubDistributor()
 
         def decorateTransaction(txn):

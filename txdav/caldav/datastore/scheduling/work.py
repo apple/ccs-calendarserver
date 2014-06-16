@@ -59,7 +59,7 @@ class ScheduleWorkMixin(WorkItem):
     _queued = 0
 
     # Schedule work is grouped based on calendar object UID
-    group = property(lambda self: "ScheduleWork:%s" % (self.icalendarUid,))
+    group = property(lambda self: (self.table.ICALENDAR_UID == self.icalendarUid))
     default_priority = WORK_PRIORITY_MEDIUM
     default_weight = 5
 

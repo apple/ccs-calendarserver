@@ -80,10 +80,9 @@ class InboxCleanupWork(RegeneratingWorkItem, fromTable(schema.INBOX_CLEANUP_WORK
 
 
 
-class CleanupOneInboxWork(WorkItem,
-    fromTable(schema.CLEANUP_ONE_INBOX_WORK)):
+class CleanupOneInboxWork(WorkItem, fromTable(schema.CLEANUP_ONE_INBOX_WORK)):
 
-    group = property(lambda self: "cleanup_inbox_in_homeid_{}".format(self.homeID))
+    group = property(lambda self: (self.table.HOME_ID == self.homeID))
 
     @inlineCallbacks
     def doWork(self):
