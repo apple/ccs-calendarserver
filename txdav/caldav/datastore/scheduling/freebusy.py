@@ -105,6 +105,7 @@ def generateFreeBusyInfo(
     servertoserver=False,
     event_details=None,
     logItems=None,
+    accountingItems=None,
 ):
     """
     Run a free busy report on the specified calendar collection
@@ -125,6 +126,7 @@ def generateFreeBusyInfo(
         remote lookup request.
     @param event_details: a C{list} into which to store extended VEVENT details if not C{None}
     @param logItems: a C{dict} to store logging info to
+    @param accountingItems: a C{dict} to store accounting info to
     """
 
     # First check the privilege on this collection
@@ -180,6 +182,9 @@ def generateFreeBusyInfo(
 
     if resources is None:
 
+        if accountingItems is not None:
+            accountingItems["fb-uncached"] = accountingItems.get("fb-uncached", 0) + 1
+
         caching = False
         if config.EnableFreeBusyCache:
             # Log extended item
@@ -203,16 +208,19 @@ def generateFreeBusyInfo(
 
         # Create fake filter element to match time-range
         filter = caldavxml.Filter(
-                      caldavxml.ComponentFilter(
-                          caldavxml.ComponentFilter(
-                              cache_timerange if caching else timerange,
-                              name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
-                          ),
-                          name="VCALENDAR",
-                       )
-                  )
+            caldavxml.ComponentFilter(
+                caldavxml.ComponentFilter(
+                    cache_timerange if caching else timerange,
+                    name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
+                ),
+                name="VCALENDAR",
+            )
+        )
         filter = calendarqueryfilter.Filter(filter)
         tzinfo = filter.settimezone(tz)
+        if accountingItems is not None:
+            tr = cache_timerange if caching else timerange
+            accountingItems["fb-query-timerange"] = (str(tr.start), str(tr.end),)
 
         try:
             resources = yield calresource._index.indexedSearch(filter, useruid=attendee_uid, fbtype=True)
@@ -220,8 +228,13 @@ def generateFreeBusyInfo(
                 yield FBCacheEntry.makeCacheEntry(calresource, attendee_uid, cache_timerange, resources)
         except IndexedSearchException:
             resources = yield calresource._index.bruteForceSearch()
+            if accountingItems is not None:
+                accountingItems["fb-bruteforce"] = True
 
     else:
+        if accountingItems is not None:
+            accountingItems["fb-cached"] = accountingItems.get("fb-cached", 0) + 1
+
         # Log extended item
         if logItems is not None:
             logItems["fb-cached"] = logItems.get("fb-cached", 0) + 1
@@ -235,6 +248,29 @@ def generateFreeBusyInfo(
         if transp == 'T' and fbtype != '?':
             fbtype = 'F'
         aggregated_resources.setdefault((name, uid, type, test_organizer,), []).append((float, start, end, fbtype,))
+
+    if accountingItems is not None:
+        accountingItems["fb-resources"] = {}
+        for k, v in aggregated_resources.items():
+            name, uid, type, test_organizer = k
+            accountingItems["fb-resources"][uid] = []
+            for float, start, end, fbtype in v:
+                fbstart = parseSQLTimestampToPyCalendar(start)
+                if float == 'Y':
+                    fbstart.setTimezone(tzinfo)
+                else:
+                    fbstart.setTimezone(PyCalendarTimezone(utc=True))
+                fbend = parseSQLTimestampToPyCalendar(end)
+                if float == 'Y':
+                    fbend.setTimezone(tzinfo)
+                else:
+                    fbend.setTimezone(PyCalendarTimezone(utc=True))
+                accountingItems["fb-resources"][uid].append((
+                    float,
+                    str(fbstart),
+                    str(fbend),
+                    fbtype,
+                ))
 
     for key in aggregated_resources.iterkeys():
 
@@ -325,7 +361,13 @@ def generateFreeBusyInfo(
                     elif (test_organizer is None) and same_calendar_user:
                         continue
 
+            if accountingItems is not None:
+                accountingItems.setdefault("fb-filter-match", []).append(uid)
+
             if filter.match(calendar, None):
+                if accountingItems is not None:
+                    accountingItems.setdefault("fb-filter-matched", []).append(uid)
+
                 # Check size of results is within limit
                 matchtotal += 1
                 if matchtotal > config.MaxQueryWithDataResults:

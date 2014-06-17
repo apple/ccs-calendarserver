@@ -68,6 +68,7 @@ from twistedcaldav.ical import Component, ignoredComponents, \
     InvalidICalendarDataError, Property, PERUSER_COMPONENT
 from txdav.caldav.datastore.scheduling.itip import iTipGenerator
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
+from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav.util import normalizationLookup
 
 from txdav.caldav.icalendarstore import ComponentUpdateState
@@ -208,7 +209,7 @@ Component.validRecurrenceIDs = new_validRecurrenceIDs
 if not hasattr(Component, "maxAlarmCounts"):
     Component.hasDuplicateAlarms = new_hasDuplicateAlarms
 
-VERSION = "11"
+VERSION = "12"
 
 def printusage(e=None):
     if e:
@@ -309,6 +310,8 @@ v10: Purges data for invalid users.
 
 v11: Allows manual splitting of recurring events.
 
+v12: Fix double-booking false positives caused by timezones-by-reference.
+
 """ % (VERSION,)
 
 
@@ -405,6 +408,8 @@ class CalVerifyService(WorkerService, object):
         self.total = 0
         self.totalErrors = None
         self.totalExceptions = None
+
+        TimezoneCache.create()
 
 
     def title(self):
