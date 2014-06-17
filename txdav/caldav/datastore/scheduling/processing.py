@@ -649,7 +649,7 @@ class ImplicitProcessor(object):
         if accountingEnabled("AutoScheduling", self.recipient.record):
             accounting = {
                 "when": DateTime.getNowUTC().getText(),
-                "automode": automode,
+                "automode": automode.name,
                 "changed": False,
             }
         else:
@@ -754,7 +754,7 @@ class ImplicitProcessor(object):
                             end=str(makeTimedUTC(instance.end)),
                         )
 
-                        yield generateFreeBusyInfo(testcal, fbinfo, tr, 0, uid, servertoserver=True)
+                        yield generateFreeBusyInfo(testcal, fbinfo, tr, 0, uid, servertoserver=True, accountingItems=accounting if len(instances) == 1 else None)
 
                         # If any fbinfo entries exist we have an overlap
                         if len(fbinfo[0]) or len(fbinfo[1]) or len(fbinfo[2]):

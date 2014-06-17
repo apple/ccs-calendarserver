@@ -64,7 +64,7 @@ def accountingEnabledForRecord(record):
     if "*" in enabledRecordGUIDs:
         return True
 
-    return record.guid in enabledRecordGUIDs
+    return record.uid in enabledRecordGUIDs
 
 
 
@@ -84,9 +84,9 @@ def emitAccounting(category, record, data, tag=None, filename=None):
         principalLogPath = record
     elif accountingEnabled(category, record):
         principalLogPath = os.path.join(
-            record.guid[0:2],
-            record.guid[2:4],
-            record.guid
+            record.uid[0:2],
+            record.uid[2:4],
+            record.uid
         )
     else:
         return None

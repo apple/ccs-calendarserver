@@ -107,6 +107,7 @@ def generateFreeBusyInfo(
     servertoserver=False,
     event_details=None,
     logItems=None,
+    accountingItems=None,
 ):
     """
     Get freebusy information for a calendar. Different behavior for internal vs external calendars.
@@ -128,7 +129,8 @@ def generateFreeBusyInfo(
             same_calendar_user,
             servertoserver,
             event_details,
-            logItems
+            logItems,
+            accountingItems,
         )
     else:
         return _internalGenerateFreeBusyInfo(
@@ -142,7 +144,8 @@ def generateFreeBusyInfo(
             same_calendar_user,
             servertoserver,
             event_details,
-            logItems
+            logItems,
+            accountingItems,
         )
 
 
@@ -160,6 +163,7 @@ def _externalGenerateFreeBusyInfo(
     servertoserver=False,
     event_details=None,
     logItems=None,
+    accountingItems=None,
 ):
     """
     Generate a freebusy response for an external (cross-pod) calendar by making a cross-pod call. This will bypass
@@ -187,6 +191,7 @@ def _internalGenerateFreeBusyInfo(
     servertoserver=False,
     event_details=None,
     logItems=None,
+    accountingItems=None,
 ):
     """
     Run a free busy report on the specified calendar collection
@@ -207,6 +212,7 @@ def _internalGenerateFreeBusyInfo(
         remote lookup request.
     @param event_details: a C{list} into which to store extended VEVENT details if not C{None}
     @param logItems: a C{dict} to store logging info to
+    @param accountingItems: a C{dict} to store accounting info to
     """
 
     # First check the privilege on this collection
@@ -262,6 +268,9 @@ def _internalGenerateFreeBusyInfo(
 
     if resources is None:
 
+        if accountingItems is not None:
+            accountingItems["fb-uncached"] = accountingItems.get("fb-uncached", 0) + 1
+
         caching = False
         if config.EnableFreeBusyCache:
             # Log extended item
@@ -295,6 +304,9 @@ def _internalGenerateFreeBusyInfo(
         )
         filter = Filter(filter)
         tzinfo = filter.settimezone(tz)
+        if accountingItems is not None:
+            tr = cache_timerange if caching else timerange
+            accountingItems["fb-query-timerange"] = (str(tr.start), str(tr.end),)
 
         try:
             resources = yield calresource.search(filter, useruid=attendee_uid, fbtype=True)
@@ -304,6 +316,9 @@ def _internalGenerateFreeBusyInfo(
             raise InternalDataStoreError("Invalid indexedSearch query")
 
     else:
+        if accountingItems is not None:
+            accountingItems["fb-cached"] = accountingItems.get("fb-cached", 0) + 1
+
         # Log extended item
         if logItems is not None:
             logItems["fb-cached"] = logItems.get("fb-cached", 0) + 1
@@ -317,6 +332,29 @@ def _internalGenerateFreeBusyInfo(
         if transp == 'T' and fbtype != '?':
             fbtype = 'F'
         aggregated_resources.setdefault((name, uid, type, test_organizer,), []).append((float, start, end, fbtype,))
+
+    if accountingItems is not None:
+        accountingItems["fb-resources"] = {}
+        for k, v in aggregated_resources.items():
+            name, uid, type, test_organizer = k
+            accountingItems["fb-resources"][uid] = []
+            for float, start, end, fbtype in v:
+                fbstart = parseSQLTimestampToPyCalendar(start)
+                if float == 'Y':
+                    fbstart.setTimezone(tzinfo)
+                else:
+                    fbstart.setTimezone(Timezone(utc=True))
+                fbend = parseSQLTimestampToPyCalendar(end)
+                if float == 'Y':
+                    fbend.setTimezone(tzinfo)
+                else:
+                    fbend.setTimezone(Timezone(utc=True))
+                accountingItems["fb-resources"][uid].append((
+                    float,
+                    str(fbstart),
+                    str(fbend),
+                    fbtype,
+                ))
 
     for key in aggregated_resources.iterkeys():
 
@@ -407,7 +445,13 @@ def _internalGenerateFreeBusyInfo(
                     elif (test_organizer is None) and same_calendar_user:
                         continue
 
+            if accountingItems is not None:
+                accountingItems.setdefault("fb-filter-match", []).append(uid)
+
             if filter.match(calendar, None):
+                if accountingItems is not None:
+                    accountingItems.setdefault("fb-filter-matched", []).append(uid)
+
                 # Check size of results is within limit
                 matchtotal += 1
                 if matchtotal > config.MaxQueryWithDataResults:
