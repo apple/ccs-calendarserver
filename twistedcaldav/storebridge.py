@@ -3570,7 +3570,11 @@ class AddressBookObjectResource(_CommonObjectResource):
 
 
     def canBeShared(self):
-        return config.Sharing.Enabled and config.Sharing.AddressBooks.Enabled
+        return (
+            config.Sharing.Enabled and
+            config.Sharing.AddressBooks.Enabled and
+            config.Sharing.AddressBooks.Groups.Enabled
+        )
 
 
     @inlineCallbacks

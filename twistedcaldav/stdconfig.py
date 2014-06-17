@@ -631,6 +631,9 @@ DEFAULT_CONFIG = {
                 "Global": [
                 ],
             },
+            "Groups" : {
+                "Enabled"         : False, # Address Books on/off switch
+            },
         },
     },
 
