@@ -133,7 +133,7 @@ class DirectoryService(BaseDirectoryService):
         return succeed(None)
 
 
-    def recordsFromExpression(self, expression, records=None):
+    def recordsFromExpression(self, expression, recordTypes=None, records=None):
         return succeed(())
 
 

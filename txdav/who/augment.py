@@ -133,8 +133,10 @@ class AugmentedDirectoryService(
 
 
     @inlineCallbacks
-    def recordsFromExpression(self, expression):
-        records = yield self._directory.recordsFromExpression(expression)
+    def recordsFromExpression(self, expression, recordTypes=None):
+        records = yield self._directory.recordsFromExpression(
+            expression, recordTypes=recordTypes
+        )
         augmented = []
         for record in records:
             record = yield self._augment(record)

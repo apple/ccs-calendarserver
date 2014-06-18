@@ -178,40 +178,17 @@ class CalendarDirectoryServiceMixin(object):
         results = []
 
         if context is not None:
-            # We're limiting record types, so for each recordType, build a
-            # CompoundExpression that ANDs the original expression with a
-            # typeSpecific one.  Collect all the results from these expressions.
             recordTypes = self.recordTypesForSearchContext(context)
-            log.debug("Tokens: {t}, recordTypes {r}", t=tokens, r=recordTypes)
-            for recordType in recordTypes:
-                typeSpecific = MatchExpression(
-                    self.fieldName.recordType,
-                    recordType,
-                    MatchType.equals,
-                    MatchFlags.none
-                )
-
-                typeSpecific = CompoundExpression(
-                    [expression, typeSpecific],
-                    Operand.AND
-                )
-
-                subResults = yield self.recordsFromExpression(typeSpecific)
-                log.debug(
-                    "Tokens ({t}) matched {n} of {r}",
-                    t=tokens, n=len(subResults), r=recordType
-                )
-                results.extend(subResults)
-
         else:
-            # No record type limits
-            results = yield self.recordsFromExpression(expression)
-            log.debug(
-                "Tokens ({t}) matched {n} records",
-                t=tokens, n=len(results)
-            )
+            recordTypes = None
 
-        log.debug("Tokens ({t}) matched records {r}", t=tokens, r=results)
+        results = yield self.recordsFromExpression(
+            expression, recordTypes=recordTypes
+        )
+        log.debug(
+            "Tokens ({t}) matched {n} records",
+            t=tokens, n=len(results)
+        )
 
         returnValue(results)
 
@@ -255,35 +232,16 @@ class CalendarDirectoryServiceMixin(object):
             subExpressions.append(subExpression)
 
         if len(subExpressions) == 1:
-            # FIXME: twext.who.opendirectory takes a CompoundExpression and
-            # inspects it for MatchExpressions on recordType, and pulls those
-            # out of the query structure.  However, if all that remains is
-            # essentially a MatchExpression, but we tell OD to use
-            # ODMatchType.compound for it, we get no results back.  Until we
-            # fix twext.who, this workaround keeds the query compound even
-            # when the record type portion is removed:
-            expression = CompoundExpression(
-                [subExpressions[0], subExpressions[0]], operand
-            )
+            expression = subExpressions[0]
         else:
             expression = CompoundExpression(subExpressions, operand)
 
-        # AND in the recordType if passed in
         if recordType is not None:
-            typeExpression = MatchExpression(
-                self.fieldName.recordType,
-                recordType,
-                MatchType.equals,
-                MatchFlags.none
-            )
-            expression = CompoundExpression(
-                [
-                    expression,
-                    typeExpression
-                ],
-                Operand.AND
-            )
-        return self.recordsFromExpression(expression)
+            recordTypes = [recordType]
+        else:
+            recordTypes = None
+        return self.recordsFromExpression(expression, recordTypes=recordTypes)
+
 
     _oldRecordTypeNames = {
         "address": "addresses",

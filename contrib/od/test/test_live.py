@@ -40,6 +40,15 @@ if moduleImported:
     from twext.who.expression import (
         CompoundExpression, Operand, MatchExpression, MatchType
     )
+    from twext.who.idirectory import QueryNotSupportedError
+    from txdav.who.directory import CalendarDirectoryServiceMixin
+    from txdav.who.opendirectory import DirectoryService as OpenDirectoryService
+    from twext.who.expression import (
+        Operand, MatchType, MatchFlags, MatchExpression
+    )
+
+    class CalOpenDirectoryService(OpenDirectoryService, CalendarDirectoryServiceMixin):
+        pass
 
     LOCAL_SHORTNAMES = "odtestalbert odtestbill odtestcarl odtestdavid odtestsubgroupa".split()
     NETWORK_SHORTNAMES = "odtestamanda odtestbetty odtestcarlene odtestdenise odtestsubgroupb odtestgrouptop".split()
@@ -160,14 +169,115 @@ if moduleImported:
             # We should get back users and groups since we did not specify a type:
             self.verifyResults(
                 records,
-                ["odtestbetty", "odtestalbert", "anotherodtestalbert", "odtestgroupbetty", "odtestgroupalbert"],
+                [
+                    "odtestbetty", "odtestalbert", "anotherodtestalbert",
+                    "odtestgroupbetty", "odtestgroupalbert"
+                ],
                 ["odtestamanda", "odtestbill", "odtestgroupa", "odtestgroupb"]
             )
 
 
         @onlyIfPopulated
         @inlineCallbacks
-        def test_compoundWithSingleRecordType(self):
+        def test_compoundWithExplicitRecordType(self):
+            expression = CompoundExpression(
+                [
+                    CompoundExpression(
+                        [
+                            MatchExpression(
+                                self.service.fieldName.fullNames, u"be",
+                                matchType=MatchType.contains
+                            ),
+                            MatchExpression(
+                                self.service.fieldName.emailAddresses, u"be",
+                                matchType=MatchType.startsWith
+                            ),
+                        ],
+                        Operand.OR
+                    ),
+                    CompoundExpression(
+                        [
+                            MatchExpression(
+                                self.service.fieldName.fullNames, u"test",
+                                matchType=MatchType.contains
+                            ),
+                            MatchExpression(
+                                self.service.fieldName.emailAddresses, u"test",
+                                matchType=MatchType.startsWith
+                            ),
+                        ],
+                        Operand.OR
+                    ),
+                ],
+                Operand.AND
+            )
+            records = yield self.service.recordsFromExpression(
+                expression, recordTypes=[self.service.recordType.user]
+            )
+
+            # We should get back users but not groups:
+            self.verifyResults(
+                records,
+                ["odtestbetty", "odtestalbert", "anotherodtestalbert"],
+                ["odtestamanda", "odtestbill", "odtestgroupa", "odtestgroupb"]
+            )
+
+
+        @onlyIfPopulated
+        @inlineCallbacks
+        def test_compoundWithMultipleExplicitRecordTypes(self):
+            expression = CompoundExpression(
+                [
+                    CompoundExpression(
+                        [
+                            MatchExpression(
+                                self.service.fieldName.fullNames, u"be",
+                                matchType=MatchType.contains
+                            ),
+                            MatchExpression(
+                                self.service.fieldName.emailAddresses, u"be",
+                                matchType=MatchType.startsWith
+                            ),
+                        ],
+                        Operand.OR
+                    ),
+                    CompoundExpression(
+                        [
+                            MatchExpression(
+                                self.service.fieldName.fullNames, u"test",
+                                matchType=MatchType.contains
+                            ),
+                            MatchExpression(
+                                self.service.fieldName.emailAddresses, u"test",
+                                matchType=MatchType.startsWith
+                            ),
+                        ],
+                        Operand.OR
+                    ),
+                ],
+                Operand.AND
+            )
+            records = yield self.service.recordsFromExpression(
+                expression, recordTypes=[
+                    self.service.recordType.user,
+                    self.service.recordType.group
+                ]
+            )
+
+            # We should get back users and groups:
+            self.verifyResults(
+                records,
+                [
+                    "odtestbetty", "odtestalbert", "anotherodtestalbert",
+                    "odtestgroupbetty", "odtestgroupalbert"
+                ],
+                ["odtestamanda", "odtestbill", "odtestgroupa", "odtestgroupb"]
+            )
+
+
+        @onlyIfPopulated
+        @inlineCallbacks
+        def test_compoundWithEmbeddedSingleRecordType(self):
             expression = CompoundExpression(
                 [
                     CompoundExpression(
@@ -207,19 +317,17 @@ if moduleImported:
                 ],
                 Operand.AND
             )
-            records = yield self.service.recordsFromExpression(expression)
-
-            # We should only get users back, not groups:
-            self.verifyResults(
-                records,
-                ["odtestbetty", "odtestalbert", "anotherodtestalbert"],
-                ["odtestamanda", "odtestbill", "odtestgroupa", "odtestgroupb", "odtestgroupbetty", "odtestgroupalbert"]
-            )
+            try:
+                records = yield self.service.recordsFromExpression(expression)
+            except QueryNotSupportedError:
+                pass
+            else:
+                self.fail("This should have raised")
 
 
         @onlyIfPopulated
         @inlineCallbacks
-        def test_compoundWithMultipleRecordTypes(self):
+        def test_compoundWithEmbeddedMultipleRecordTypes(self):
             expression = CompoundExpression(
                 [
                     CompoundExpression(
@@ -267,13 +375,135 @@ if moduleImported:
                 ],
                 Operand.AND
             )
-            records = yield self.service.recordsFromExpression(expression)
 
-            # We should get users and groups back, since we asked for either type:
+            try:
+                records = yield self.service.recordsFromExpression(expression)
+            except QueryNotSupportedError:
+                pass
+            else:
+                self.fail("This should have raised")
+
+
+        @onlyIfPopulated
+        @inlineCallbacks
+        def test_recordsMatchingTokens(self):
+            self.calService = CalOpenDirectoryService()
+            records = yield self.calService.recordsMatchingTokens([u"be", u"test"])
             self.verifyResults(
                 records,
-                ["odtestbetty", "odtestalbert", "anotherodtestalbert", "odtestgroupbetty", "odtestgroupalbert"],
+                [
+                    "odtestbetty", "odtestalbert", "anotherodtestalbert",
+                    "odtestgroupbetty", "odtestgroupalbert"
+                ],
                 ["odtestamanda", "odtestbill", "odtestgroupa", "odtestgroupb"]
             )
 
-        test_compoundWithMultipleRecordTypes.skip = "This ends up doing a brute force query!"
+
+        @onlyIfPopulated
+        @inlineCallbacks
+        def test_recordsMatchingTokensWithContextUser(self):
+            self.calService = CalOpenDirectoryService()
+            records = yield self.calService.recordsMatchingTokens(
+                [u"be", u"test"],
+                context=self.calService.searchContext_user
+            )
+            self.verifyResults(
+                records,
+                [
+                    "odtestbetty", "odtestalbert", "anotherodtestalbert",
+                ],
+                [
+                    "odtestamanda", "odtestbill", "odtestgroupa", "odtestgroupb",
+                    "odtestgroupbetty", "odtestgroupalbert"
+                ]
+            )
+
+
+        @onlyIfPopulated
+        @inlineCallbacks
+        def test_recordsMatchingTokensWithContextGroup(self):
+            self.calService = CalOpenDirectoryService()
+            records = yield self.calService.recordsMatchingTokens(
+                [u"be", u"test"],
+                context=self.calService.searchContext_group
+            )
+            self.verifyResults(
+                records,
+                [
+                    "odtestgroupbetty", "odtestgroupalbert"
+                ],
+                [
+                    "odtestamanda", "odtestbill", "odtestgroupa", "odtestgroupb",
+                    "odtestbetty", "odtestalbert", "anotherodtestalbert"
+                ]
+            )
+
+
+        @onlyIfPopulated
+        @inlineCallbacks
+        def test_recordsMatchingMultipleFieldsNoRecordType(self):
+            self.calService = CalOpenDirectoryService()
+            fields = (
+                (u"fullNames", u"be", MatchFlags.caseInsensitive, MatchType.contains),
+                (u"fullNames", u"test", MatchFlags.caseInsensitive, MatchType.contains),
+            )
+            records = (yield self.calService.recordsMatchingFields(
+                fields, operand=Operand.AND, recordType=None
+            ))
+            self.verifyResults(
+                records,
+                [
+                    "odtestgroupbetty", "odtestgroupalbert",
+                    "odtestbetty", "odtestalbert", "anotherodtestalbert"
+                ],
+                [
+                    "odtestamanda",
+                ]
+            )
+
+
+        @onlyIfPopulated
+        @inlineCallbacks
+        def test_recordsMatchingSingleFieldNoRecordType(self):
+            self.calService = CalOpenDirectoryService()
+            fields = (
+                (u"fullNames", u"test", MatchFlags.caseInsensitive, MatchType.contains),
+            )
+            records = (yield self.calService.recordsMatchingFields(
+                fields, operand=Operand.AND, recordType=None
+            ))
+            print("final records", records)
+            self.verifyResults(
+                records,
+                [
+                    "odtestgroupbetty", "odtestgroupalbert",
+                    "odtestbetty", "odtestalbert", "anotherodtestalbert",
+                    "odtestamanda",
+                ],
+                [
+                    "nobody",
+                ]
+            )
+
+
+        @onlyIfPopulated
+        @inlineCallbacks
+        def test_recordsMatchingFieldsWithRecordType(self):
+            self.calService = CalOpenDirectoryService()
+            fields = (
+                (u"fullNames", u"be", MatchFlags.caseInsensitive, MatchType.contains),
+                (u"fullNames", u"test", MatchFlags.caseInsensitive, MatchType.contains),
+            )
+            records = (yield self.calService.recordsMatchingFields(
+                fields, operand=Operand.AND, recordType=self.calService.recordType.user
+            ))
+            self.verifyResults(
+                records,
+                [
+                    "odtestbetty", "odtestalbert", "anotherodtestalbert"
+                ],
+                [
+                    "odtestamanda", "odtestgroupalbert", "odtestgroupbetty",
+                ]
+            )
+
