@@ -199,7 +199,7 @@ class DirectoryService(BaseDirectoryService):
 
 
     @inlineCallbacks
-    def recordsFromExpression(self, expression, records=None):
+    def recordsFromExpression(self, expression, recordTypes=None, records=None):
         """
         It's only ever appropriate to look up delegate group record by
         shortName or uid.  When wrapped by an aggregate directory, looking up
