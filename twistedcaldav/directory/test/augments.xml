@@ -57,7 +57,7 @@ limitations under the License.
     <enable-calendar>false</enable-calendar>
     <enable-addressbook>false</enable-addressbook>
   </record>
-  <record repeat="2">
+  <record repeat="3">
     <uid>user%02d</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>

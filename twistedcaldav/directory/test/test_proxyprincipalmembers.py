@@ -504,3 +504,49 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
             DirectoryService.recordType_users, "delegator", "calendar-proxy-write",
             ("Occasional Delegate", "Delegate Via Group", "Delegate Group"),
         )
+
+
+    @inlineCallbacks
+    def test_hideDisabledProxies(self):
+        """
+        Make sure users that are missing or not enabled for calendaring are removed
+        from the proxyFor list.
+        """
+
+        # Check proxies empty right now
+        principal01 = self._getPrincipalByShortName(self.directoryService.recordType_users, "user01")
+        self.assertTrue(len((yield principal01.proxyFor(False))) == 0)
+        self.assertTrue(len((yield principal01.proxyFor(True))) == 0)
+
+        principal02 = self._getPrincipalByShortName(self.directoryService.recordType_users, "user02")
+        self.assertTrue(len((yield principal02.proxyFor(False))) == 0)
+        self.assertTrue(len((yield principal02.proxyFor(True))) == 0)
+
+        principal03 = self._getPrincipalByShortName(self.directoryService.recordType_users, "user03")
+        self.assertTrue(len((yield principal03.proxyFor(False))) == 0)
+        self.assertTrue(len((yield principal03.proxyFor(True))) == 0)
+
+        # Make user01 a read-only proxy for user02 and user03
+        yield self._addProxy(principal02, "calendar-proxy-read", principal01)
+        yield self._addProxy(principal03, "calendar-proxy-read", principal01)
+
+        self.assertTrue(len((yield principal01.proxyFor(False))) == 2)
+        self.assertTrue(len((yield principal01.proxyFor(True))) == 0)
+
+        # Now disable user02
+        principal02.record.enabledForCalendaring = False
+
+        self.assertTrue(len((yield principal01.proxyFor(False))) == 1)
+        self.assertTrue(len((yield principal01.proxyFor(True))) == 0)
+
+        # Now enable user02
+        principal02.record.enabledForCalendaring = True
+
+        self.assertTrue(len((yield principal01.proxyFor(False))) == 2)
+        self.assertTrue(len((yield principal01.proxyFor(True))) == 0)
+
+        # Now remove user02
+        self.directoryService._removeFromIndex(principal02.record)
+
+        self.assertTrue(len((yield principal01.proxyFor(False))) == 1)
+        self.assertTrue(len((yield principal01.proxyFor(True))) == 0)

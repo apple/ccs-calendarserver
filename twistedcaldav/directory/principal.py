@@ -923,7 +923,7 @@ class DirectoryPrincipalResource (
 
 
     @inlineCallbacks
-    def proxyFor(self, read_write, resolve_memberships=True):
+    def proxyFor(self, read_write, resolve_memberships=True, ignoreDisabled=True):
 
         proxyFors = set()
 
@@ -960,7 +960,7 @@ class DirectoryPrincipalResource (
 
         uids = set()
         for principal in tuple(proxyFors):
-            if principal.principalUID() in uids:
+            if principal.principalUID() in uids or (ignoreDisabled and not principal.record.enabledForCalendaring):
                 proxyFors.remove(principal)
             else:
                 uids.add(principal.principalUID())

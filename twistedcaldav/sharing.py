@@ -103,12 +103,16 @@ class SharedResourceMixin(object):
                     invitations = yield original.validateInvites(request)
 
                     ownerPrincipal = (yield original.ownerPrincipal(request))
-                    # FIXME:  use urn:uuid in all cases
-                    if self.isCalendarCollection():
-                        owner = ownerPrincipal.principalURL()
+                    if ownerPrincipal is None:
+                        owner = "invalid"
+                        ownerCN = "Invalid"
                     else:
-                        owner = "urn:uuid:" + ownerPrincipal.principalUID()
-                    ownerCN = ownerPrincipal.displayName()
+                        # FIXME:  use urn:uuid in all cases
+                        if self.isCalendarCollection():
+                            owner = ownerPrincipal.principalURL()
+                        else:
+                            owner = "urn:uuid:" + ownerPrincipal.principalUID()
+                        ownerCN = ownerPrincipal.displayName()
 
                     returnValue(customxml.Invite(
                         customxml.Organizer(
@@ -315,7 +319,7 @@ class SharedResourceMixin(object):
             access control mechanism has dictate the home should no longer have
             any access at all.
         """
-        if self._share.direct():
+        if self._share is not None and self._share.direct():
             ownerUID = self._share.ownerUID()
             owner = self.principalForUID(ownerUID)
             if owner.record.recordType == WikiDirectoryService.recordType_wikis:
@@ -482,14 +486,17 @@ class SharedResourceMixin(object):
         """
         # assert request
         invitations = yield self._allInvitations()
+        adjusted_invitations = []
         for invitation in invitations:
             if invitation.status() != _BIND_STATUS_INVALID:
                 if not (yield self.validUserIDForShare("urn:uuid:" + invitation.shareeUID(), request)):
                     # FIXME: temporarily disable this to deal with flaky directory
                     #yield self._updateInvitation(invitation, status=_BIND_STATUS_INVALID)
                     self.log.error("Invalid sharee detected: {uid}", uid=invitation.shareeUID())
+                    invitation = invitation._replace(status=_BIND_STATUS_INVALID)
+            adjusted_invitations.append(invitation)
 
-        returnValue(invitations)
+        returnValue(adjusted_invitations)
 
 
     def inviteUserToShare(self, userid, cn, ace, summary, request):
@@ -648,15 +655,19 @@ class SharedResourceMixin(object):
 
     @inlineCallbacks
     def uninviteSingleUserFromShare(self, userid, aces, request): #@UnusedVariable
-        # Cancel invites - we'll just use whatever userid we are given
 
+        # Cancel invites - we'll just use whatever userid we are given. However, if we
+        # cannot find a matching principal, try to extract the uid from the userid
+        # and use that (to allow invalid principals to be removed).
         sharee = self.principalForCalendarUserAddress(userid)
-        if not sharee:
+        if sharee is not None:
+            uid = sharee.principalUID()
+        elif userid.startswith("urn:uuid:"):
+            uid = userid[9:]
+        else:
             returnValue(False)
 
-        shareeUID = sharee.principalUID()
-
-        invitation = yield self._invitationForShareeUID(shareeUID)
+        invitation = yield self._invitationForShareeUID(uid)
         if invitation:
             result = (yield self.uninviteFromShare(invitation, request))
         else:
@@ -1026,8 +1037,8 @@ class SharedHomeMixin(LinkFollowerMixIn):
         L{SharedHomeMixin} is a I{sharee}'s view of a shared calendar object,
         associate it with a L{Share}.
         """
-        share = yield self._shareForStoreObject(child._newStoreObject, request)
-        if share:
+        if child._newStoreObject is not None and not child._newStoreObject.owned():
+            share = yield self._shareForStoreObject(child._newStoreObject, request)
             child.setShare(share)
             access = yield child._checkAccessControl()
             if access is None:

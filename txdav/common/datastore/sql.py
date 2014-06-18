@@ -2740,6 +2740,27 @@ class SharingInvitation(object):
         )
 
 
+    def _replace(self, status):
+        """
+        Create a copy of this invitation with the status changed to the specified value.
+
+        @param status: the new status value
+        @type status: L{int}
+        """
+        return SharingInvitation(
+            self._uid,
+            self._owner_uid,
+            self._owner_rid,
+            self._sharee_uid,
+            self._sharee_rid,
+            self._resource_id,
+            self._resource_name,
+            self._mode,
+            status,
+            self._summary,
+        )
+
+
     def uid(self):
         """
         This maps to the resource name in the bind table, the "bind name". This is used as the "uid"
