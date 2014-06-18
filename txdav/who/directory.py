@@ -234,7 +234,10 @@ class CalendarDirectoryServiceMixin(object):
             )
             subExpressions.append(subExpression)
 
-        expression = CompoundExpression(subExpressions, operand)
+        if len(subExpressions) == 1:
+            expression = subExpressions[0]
+        else:
+            expression = CompoundExpression(subExpressions, operand)
 
         if recordType is not None:
             recordTypes = [recordType]

@@ -441,7 +441,7 @@ if moduleImported:
 
         @onlyIfPopulated
         @inlineCallbacks
-        def test_recordsMatchingFieldsNoRecordType(self):
+        def test_recordsMatchingMultipleFieldsNoRecordType(self):
             self.calService = CalOpenDirectoryService()
             fields = (
                 (u"fullNames", u"be", MatchFlags.caseInsensitive, MatchType.contains),
@@ -458,6 +458,30 @@ if moduleImported:
                 ],
                 [
                     "odtestamanda",
+                ]
+            )
+
+
+        @onlyIfPopulated
+        @inlineCallbacks
+        def test_recordsMatchingSingleFieldNoRecordType(self):
+            self.calService = CalOpenDirectoryService()
+            fields = (
+                (u"fullNames", u"test", MatchFlags.caseInsensitive, MatchType.contains),
+            )
+            records = (yield self.calService.recordsMatchingFields(
+                fields, operand=Operand.AND, recordType=None
+            ))
+            print("final records", records)
+            self.verifyResults(
+                records,
+                [
+                    "odtestgroupbetty", "odtestgroupalbert",
+                    "odtestbetty", "odtestalbert", "anotherodtestalbert",
+                    "odtestamanda",
+                ],
+                [
+                    "nobody",
                 ]
             )
 
