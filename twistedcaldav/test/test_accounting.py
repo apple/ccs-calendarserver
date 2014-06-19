@@ -35,8 +35,8 @@ class AccountingITIP (twistedcaldav.test.util.TestCase):
 
     class _Record(object):
 
-        def __init__(self, guid):
-            self.guid = guid
+        def __init__(self, uid):
+            self.uid = uid
 
 
     def test_permissions_makedirs(self):
