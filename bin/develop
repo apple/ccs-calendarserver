@@ -74,3 +74,5 @@ find .develop/virtualenv/src -mindepth 1 -maxdepth 1 -type d | {
     ln -s "${wd}/.develop" "${target}/.develop";
   done;
 }
+
+echo "Dependency setup complete."
