@@ -469,7 +469,6 @@ if moduleImported:
             records = (yield self.calService.recordsMatchingFields(
                 fields, operand=Operand.AND, recordType=None
             ))
-            print("final records", records)
             self.verifyResults(
                 records,
                 [
