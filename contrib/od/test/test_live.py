@@ -38,14 +38,11 @@ except:
 if moduleImported:
 
     from twext.who.expression import (
-        CompoundExpression, Operand, MatchExpression, MatchType
+        CompoundExpression, Operand, MatchExpression, MatchType, MatchFlags
     )
     from twext.who.idirectory import QueryNotSupportedError
     from txdav.who.directory import CalendarDirectoryServiceMixin
     from txdav.who.opendirectory import DirectoryService as OpenDirectoryService
-    from twext.who.expression import (
-        Operand, MatchType, MatchFlags, MatchExpression
-    )
 
     class CalOpenDirectoryService(OpenDirectoryService, CalendarDirectoryServiceMixin):
         pass
@@ -318,7 +315,7 @@ if moduleImported:
                 Operand.AND
             )
             try:
-                records = yield self.service.recordsFromExpression(expression)
+                yield self.service.recordsFromExpression(expression)
             except QueryNotSupportedError:
                 pass
             else:
@@ -377,7 +374,7 @@ if moduleImported:
             )
 
             try:
-                records = yield self.service.recordsFromExpression(expression)
+                yield self.service.recordsFromExpression(expression)
             except QueryNotSupportedError:
                 pass
             else:
@@ -506,4 +503,3 @@ if moduleImported:
                     "odtestamanda", "odtestgroupalbert", "odtestgroupbetty",
                 ]
             )
-
