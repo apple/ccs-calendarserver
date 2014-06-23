@@ -116,7 +116,6 @@ insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('read', 1);
 insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('write', 2);
 insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('direct', 3);
 insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('indirect', 4);
-insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('group', 5);
 create table CALENDAR_BIND_STATUS (
     "ID" integer primary key,
     "DESCRIPTION" nvarchar2(16) unique
@@ -431,15 +430,6 @@ create table GROUP_ATTENDEE (
     primary key ("GROUP_ID", "RESOURCE_ID")
 );
 
-create table GROUP_SHAREE (
-    "GROUP_ID" integer not null references GROUPS on delete cascade,
-    "CALENDAR_HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade,
-    "CALENDAR_RESOURCE_ID" integer not null references CALENDAR on delete cascade,
-    "GROUP_BIND_MODE" integer not null,
-    "MEMBERSHIP_HASH" nvarchar2(255), 
-    primary key ("GROUP_ID", "CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_ID")
-);
-
 create table DELEGATES (
     "DELEGATOR" nvarchar2(255),
     "DELEGATE" nvarchar2(255),
@@ -579,7 +569,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '43');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '44');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');
@@ -751,10 +741,6 @@ create index GROUP_MEMBERSHIP_MEMB_0ca508e8 on GROUP_MEMBERSHIP (
 
 create index GROUP_ATTENDEE_RESOUR_855124dc on GROUP_ATTENDEE (
     RESOURCE_ID
-);
-
-create index GROUP_SHAREE_RESOURCE_cc288b3b on CALENDAR_BIND (
-    CALENDAR_RESOURCE_ID
 );
 
 create index DELEGATE_TO_DELEGATOR_5e149b11 on DELEGATES (

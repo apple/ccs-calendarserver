@@ -621,7 +621,7 @@ DEFAULT_CONFIG = {
             },
         },
         "AddressBooks" : {
-            "Enabled"         : False, # Address Books on/off switch
+            "Enabled"         : False, # Address Book sharing on/off switch
             "CollectionProperties": {
                 "Shadowable": [
                     "{urn:ietf:params:xml:ns:carddav}addressbook-description",
@@ -632,7 +632,7 @@ DEFAULT_CONFIG = {
                 ],
             },
             "Groups" : {
-                "Enabled"         : False, # Address Books on/off switch
+                "Enabled"         : False, # Address Book Group sharing on/off switch
             },
         },
     },
