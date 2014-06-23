@@ -249,7 +249,7 @@
     <name>Test Address One</name>
     <extras>
       <streetAddress>20300 Stevens Creek Blvd, Cupertino, CA 95014</streetAddress>
-      <geo>37.322281,-122.028345</geo>
+      <geo>geo:37.322281,-122.028345</geo>
     </extras>
   </address>
   <address>
@@ -258,7 +258,7 @@
     <name>IL2</name>
     <extras>
       <streetAddress>2 Infinite Loop, Cupertino, CA 95014</streetAddress>
-      <geo>37.332633,-122.030502</geo>
+      <geo>geo:37.332633,-122.030502</geo>
     </extras>
   </address>
   <address>
@@ -267,7 +267,7 @@
     <name>IL1</name>
     <extras>
       <streetAddress>1 Infinite Loop, Cupertino, CA 95014</streetAddress>
-      <geo>37.331741,-122.030333</geo>
+      <geo>geo:37.331741,-122.030333</geo>
     </extras>
   </address>
 </accounts>

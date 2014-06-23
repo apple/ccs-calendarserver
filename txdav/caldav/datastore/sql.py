@@ -1992,7 +1992,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                                             "X-TITLE" : title,
                                         }
                                         structured = Property("X-APPLE-STRUCTURED-LOCATION",
-                                            "geo:%s" % (geo,), params=params,
+                                            geo.encode("utf-8"), params=params,
                                             valuetype=PyCalendarValue.VALUETYPE_URI)
                                         sub.replaceProperty(structured)
                                         sub.replaceProperty(Property("LOCATION",
