@@ -545,8 +545,8 @@ class JobsWindow(BaseWindow):
             "Total:",
             total_queued,
             total_assigned,
-            total_failed,
             total_late,
+            total_failed,
             total_completed,
             safeDivision(total_time, total_completed, 1000.0)
         )
