@@ -14,26 +14,26 @@
 # limitations under the License.
 ##
 
+import cPickle
 import hashlib
 import os
 import zlib
-import cPickle
 
 from twisted.internet.defer import inlineCallbacks, succeed
-
-from txdav.xml.parser import WebDAVDocument
-from txdav.caldav.datastore.index_file import db_basename
-
+from twisted.python.filepath import FilePath
 from twistedcaldav.config import config
-from txdav.caldav.datastore.scheduling.imip.mailgateway import MailGatewayTokensDatabase
+from twistedcaldav.directory.calendaruserproxy import ProxySqliteDB
+from twistedcaldav.test.util import StoreTestCase
 from twistedcaldav.upgrade import (
     xattrname, upgradeData, updateFreeBusySet,
     removeIllegalCharacters, normalizeCUAddrs,
-    loadDelegatesFromXML, migrateDelegatesToStore
+    loadDelegatesFromXML, migrateDelegatesToStore,
+    upgradeResourcesXML
 )
-from twistedcaldav.test.util import StoreTestCase
+from txdav.caldav.datastore.index_file import db_basename
+from txdav.caldav.datastore.scheduling.imip.mailgateway import MailGatewayTokensDatabase
 from txdav.who.delegates import delegatesOf
-from twistedcaldav.directory.calendaruserproxy import ProxySqliteDB
+from txdav.xml.parser import WebDAVDocument
 
 
 
@@ -1502,6 +1502,33 @@ class UpgradeTests(StoreTestCase):
 
         yield txn.commit()
 
+
+    def test_resourcesXML(self):
+        """
+        Verify conversion of old resources.xml format to twext.who.xml format
+        """
+        fileName = self.mktemp()
+        fp = FilePath(fileName)
+        fp.setContent(oldResourcesFormat)
+        upgradeResourcesXML(fp)
+        self.assertEquals(fp.getContent(), newResourcesFormat)
+
+
+oldResourcesFormat = """<accounts realm="/Search">
+  <location>
+    <uid>location1</uid>
+    <guid>C4F46062-9094-4D34-8591-61A42D993FAA</guid>
+    <name>location name</name>
+  </location>
+  <resource>
+    <uid>resource1</uid>
+    <guid>60B771CC-D727-4453-ACE0-0FE13CD7445A</guid>
+    <name>resource name</name>
+  </resource>
+</accounts>
+"""
+
+newResourcesFormat = """<directory realm="/Search"><record type="location"><short-name>location1</short-name><uid>C4F46062-9094-4D34-8591-61A42D993FAA</uid><full-name>location name</full-name></record><record type="resource"><short-name>resource1</short-name><uid>60B771CC-D727-4453-ACE0-0FE13CD7445A</uid><full-name>resource name</full-name></record></directory>"""
 
 
 normalizeEvent = """BEGIN:VCALENDAR

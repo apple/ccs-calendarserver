@@ -30,6 +30,10 @@ import time
 from zlib import compress
 from cPickle import loads as unpickle, UnpicklingError
 
+from xml.etree.ElementTree import (
+    parse as parseXML, ParseError as XMLParseError,
+    tostring as etreeToString, Element as XMLElement
+)
 
 from twext.python.log import Logger
 from txdav.xml import element
@@ -48,6 +52,7 @@ from txdav.caldav.datastore.util import normalizationLookup
 from twisted.internet.defer import (
     inlineCallbacks, succeed, returnValue
 )
+from twisted.python.filepath import FilePath
 from twisted.python.reflect import namedAny
 from twisted.python.reflect import namedClass
 
@@ -646,6 +651,52 @@ def upgrade_to_2(config, directory):
         raise UpgradeError("Data upgrade failed, see error.log for details")
 
 
+def upgradeResourcesXML(resourcesFilePath):
+    """
+    Convert the old XML format to the twext.who.xml format
+
+    @param resourcesFilePath: the file to convert
+    @type resourcesFilePath: L{FilePath}
+    """
+    try:
+        with resourcesFilePath.open() as fh:
+            try:
+                etree = parseXML(fh)
+            except XMLParseError:
+                log.error("Cannot parse {path}", path=resourcesFilePath.path)
+                return
+    except (OSError, IOError):
+        # Can't read the file
+        log.error("Cannot read {path}", path=resourcesFilePath.path)
+        return
+
+    accountsNode = etree.getroot()
+    if accountsNode.tag != "accounts":
+        return
+
+    tagMap = {
+        "uid": "short-name",
+        "guid": "uid",
+        "name": "full-name",
+    }
+    log.info("Converting resources.xml")
+    directoryNode = XMLElement("directory")
+    directoryNode.set("realm", accountsNode.get("realm"))
+    for sourceNode in accountsNode:
+        recordType = sourceNode.tag
+        destNode = XMLElement("record")
+        destNode.set("type", recordType)
+        for sourceFieldNode in sourceNode:
+            tag = tagMap.get(sourceFieldNode.tag, None)
+            if tag:
+                destFieldNode = XMLElement(tag)
+                destFieldNode.text = sourceFieldNode.text
+                destNode.append(destFieldNode)
+
+        directoryNode.append(destNode)
+
+    resourcesFilePath.setContent(etreeToString(directoryNode, "utf-8"))
+
 
 # The on-disk version number (which defaults to zero if .calendarserver_version
 # doesn't exist), is compared with each of the numbers in the upgradeMethods
@@ -659,6 +710,14 @@ upgradeMethods = [
 
 @inlineCallbacks
 def upgradeData(config, directory):
+
+    if config.ResourceService.Enabled:
+        resourcesFileName = config.ResourceService.params.xmlFile
+        if resourcesFileName[0] not in ("/", "."):
+            resourcesFileName = os.path.join(config.DataRoot, resourcesFileName)
+        resourcesFilePath = FilePath(resourcesFileName)
+        if resourcesFilePath.exists():
+            upgradeResourcesXML(resourcesFilePath)
 
     triggerPath = os.path.join(config.ServerRoot, TRIGGER_FILE)
     if os.path.exists(triggerPath):
