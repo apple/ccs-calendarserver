@@ -4703,25 +4703,29 @@ class SharingMixIn(object):
         returnValue(shareeView)
 
 
+
     @inlineCallbacks
     def shareWith(self, shareeHome, mode, status=None, summary=None, shareName=None):
         """
         Share this (owned) L{CommonHomeChild} with another home.
 
         @param shareeHome: The home of the sharee.
-        @type shareeHome: L{CommonHome}
+        @type: L{CommonHome}
 
         @param mode: The sharing mode; L{_BIND_MODE_READ} or
             L{_BIND_MODE_WRITE} or L{_BIND_MODE_DIRECT}
-        @type mode: L{str}
+        @type: L{str}
 
         @param status: The sharing status; L{_BIND_STATUS_INVITED} or
             L{_BIND_STATUS_ACCEPTED}
-        @type mode: L{str}
+        @type: L{str}
 
         @param summary: The proposed message to go along with the share, which
             will be used as the default display name.
-        @type summary: L{str}
+        @type: L{str}
+
+        @param shareName: The proposed name of the new share.
+        @type: L{str}
 
         @return: the name of the shared calendar in the new calendar home.
         @rtype: L{str}
