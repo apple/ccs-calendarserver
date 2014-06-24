@@ -358,7 +358,7 @@ AddressBookHome._register(EADDRESSBOOKTYPE)
 
 class AddressBookSharingMixIn(SharingMixIn):
     """
-        Sharing code shared between AddressBook and AddressBookObject
+    Sharing code shared between AddressBook and AddressBookObject
     """
 
     def sharedResourceType(self):
