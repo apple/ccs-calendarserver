@@ -39,6 +39,7 @@ from twisted.web.template import tags
 
 log = Logger()
 
+
 def uuidFromName(namespace, name):
     """
     Generate a version 5 (SHA-1) UUID from a namespace UUID and a name.
@@ -69,6 +70,7 @@ def normalizeUUID(value):
 
 TRANSACTION_KEY = '_newStoreTransaction'
 
+
 def transactionFromRequest(request, newStore):
     """
     Return the associated transaction from the given HTTP request, creating a
@@ -97,6 +99,7 @@ def transactionFromRequest(request, newStore):
         else:
             authz_uid = None
         transaction = newStore.newTransaction(repr(request), authz_uid=authz_uid)
+
         def abortIfUncommitted(request, response):
             try:
                 # TODO: missing 'yield' here.  For formal correctness as per
@@ -186,7 +189,11 @@ def formatPrincipals(principals):
                 record = principal.parent.record
             except:
                 return None
-        return (record.recordType, record.shortNames[0])
+        try:
+            shortName = record.shortNames[0]
+        except AttributeError:
+            shortName = u""
+        return (record.recordType, shortName)
 
 
     def describe(principal):
