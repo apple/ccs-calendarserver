@@ -1528,7 +1528,7 @@ oldResourcesFormat = """<accounts realm="/Search">
 </accounts>
 """
 
-newResourcesFormat = """<directory realm="/Search"><record type="location"><short-name>location1</short-name><uid>C4F46062-9094-4D34-8591-61A42D993FAA</uid><full-name>location name</full-name></record><record type="resource"><short-name>resource1</short-name><uid>60B771CC-D727-4453-ACE0-0FE13CD7445A</uid><full-name>resource name</full-name></record></directory>"""
+newResourcesFormat = """<directory realm="/Search"><record type="location"><short-name>location1</short-name><guid>C4F46062-9094-4D34-8591-61A42D993FAA</guid><uid>C4F46062-9094-4D34-8591-61A42D993FAA</uid><full-name>location name</full-name></record><record type="resource"><short-name>resource1</short-name><guid>60B771CC-D727-4453-ACE0-0FE13CD7445A</guid><uid>60B771CC-D727-4453-ACE0-0FE13CD7445A</uid><full-name>resource name</full-name></record></directory>"""
 
 
 normalizeEvent = """BEGIN:VCALENDAR

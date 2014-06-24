@@ -675,9 +675,9 @@ def upgradeResourcesXML(resourcesFilePath):
         return
 
     tagMap = {
-        "uid": "short-name",
-        "guid": "uid",
-        "name": "full-name",
+        "uid": ("short-name",),
+        "guid": ("guid", "uid"),
+        "name": ("full-name",),
     }
     log.info("Converting resources.xml")
     directoryNode = XMLElement("directory")
@@ -687,11 +687,12 @@ def upgradeResourcesXML(resourcesFilePath):
         destNode = XMLElement("record")
         destNode.set("type", recordType)
         for sourceFieldNode in sourceNode:
-            tag = tagMap.get(sourceFieldNode.tag, None)
-            if tag:
-                destFieldNode = XMLElement(tag)
-                destFieldNode.text = sourceFieldNode.text
-                destNode.append(destFieldNode)
+            tags = tagMap.get(sourceFieldNode.tag, None)
+            if tags:
+                for tag in tags:
+                    destFieldNode = XMLElement(tag)
+                    destFieldNode.text = sourceFieldNode.text
+                    destNode.append(destFieldNode)
 
         directoryNode.append(destNode)
 
