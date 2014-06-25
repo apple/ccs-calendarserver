@@ -1896,6 +1896,23 @@ class Calendar(CommonHomeChild):
         returnValue(changed)
 
 
+    @inlineCallbacks
+    def effectiveShareMode(self):
+        if self._bindMode == _BIND_MODE_GROUP:
+            gs = schema.GROUP_SHAREE
+            rows = yield Select(
+                [gs.GROUP_BIND_MODE],
+                From=gs,
+                Where=gs.HOME_ID == self.ownerHome()._resourceID.And(
+                    gs.CALENDAR_ID == self._resourceID
+                )
+            ).on(self._txn)
+            groupShareMode = rows[0][0] if rows else None
+            returnValue(groupShareMode)
+        else:
+            returnValue(self._bindMode)
+
+
 icalfbtype_to_indexfbtype = {
     "UNKNOWN"         : 0,
     "FREE"            : 1,

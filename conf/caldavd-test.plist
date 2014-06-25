@@ -910,6 +910,11 @@
       <dict>
     	<key>Enabled</key>
     	<true/>
+    	<key>Groups</key>
+    	<dict>
+	    	<key>Enabled</key>
+	    	<true/>
+    	</dict>
       </dict>
       <key>AddressBooks</key>
       <dict>

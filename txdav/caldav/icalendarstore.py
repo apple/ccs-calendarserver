@@ -405,6 +405,18 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
         """
         # TODO: implement this for the file store.
 
+    def effectiveShareMode(): #@NoSelf
+        """
+        The effective sharing mode of this calendar after group sharing is
+        considered
+
+        @see: L{ICalendar.viewerCalendarHome}
+        @return: a L{Deferred} which fires with C{BIND_*} constant or L{None}
+        if the mode is unknown
+
+        @rtype: L{Deferred}
+        """
+
     # FIXME: This should be calendarHome(), assuming we want to allow
     # back-references.
     def viewerCalendarHome(): #@NoSelf

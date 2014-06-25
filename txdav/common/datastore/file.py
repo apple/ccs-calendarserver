@@ -1084,6 +1084,13 @@ class CommonHomeChild(FileMetaDataMixin, FancyEqMixin, HomeChildBase):
         return _BIND_MODE_OWN
 
 
+    def effectiveShareMode(self):
+        """
+        Stub implementation of L{ICalendar.effectiveShareMode}; always returns L{_BIND_MODE_OWN}.
+        """
+        return _BIND_MODE_OWN
+
+
     def owned(self):
         return self._owned
 

@@ -293,7 +293,8 @@ class SharedResourceMixin(object):
         else:
             # Invited shares use access mode from the invite
             # Get the access for self
-            returnValue(invitationAccessFromBindModeMap.get(self._newStoreObject.shareMode()))
+            bindMode = yield self._newStoreObject.effectiveShareMode()
+            returnValue(invitationAccessFromBindModeMap.get(bindMode))
 
 
     @inlineCallbacks

@@ -5096,6 +5096,13 @@ class SharingMixIn(object):
         return self._bindMode
 
 
+    def effectiveShareMode(self):
+        """
+        @see: L{ICalendar.shareMode}
+        """
+        return self._bindMode
+
+
     def shareName(self):
         """
         This is a path like name for the resource within the home being shared. For object resource
