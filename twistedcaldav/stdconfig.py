@@ -323,7 +323,17 @@ DEFAULT_CONFIG = {
     # Work queue configuration information
     #
     "WorkQueue": {
-        "ampPort": 7654,            # Port used for hosts in a cluster to take to each other
+        "ampPort": 7654,            # Port used for hosts in a cluster to talk to each other
+
+        "queuePollInterval": 0.1,   # Interval in seconds for job queue polling
+        "queueOverdueTimeout": 300, # Number of seconds before an assigned job is considered overdue
+
+        "overloadLevel": 95,        # Queue capacity (percentage) which causes job processing to halt
+        "highPriorityLevel": 80,    # Queue capacity (percentage) at which only high priority items are run
+        "mediumPriorityLevel": 50,  # Queue capacity (percentage) at which only high/medium priority items are run
+
+        "failureRescheduleInterval": 60,    # When a job fails, reschedule it this number of seconds in the future
+        "lockRescheduleInterval": 60,       # When a job can't run because of a lock, reschedule it this number of seconds in the future
     },
 
     #

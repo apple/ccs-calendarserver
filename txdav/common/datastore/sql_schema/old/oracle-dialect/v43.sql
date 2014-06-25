@@ -478,15 +478,10 @@ create table CLEANUP_ONE_INBOX_WORK (
     "HOME_ID" integer not null unique references CALENDAR_HOME on delete cascade
 );
 
-create table SCHEDULE_WORK (
+create table SCHEDULE_REFRESH_WORK (
     "WORK_ID" integer primary key not null,
     "JOB_ID" integer not null references JOB,
     "ICALENDAR_UID" nvarchar2(255),
-    "WORK_TYPE" nvarchar2(255)
-);
-
-create table SCHEDULE_REFRESH_WORK (
-    "WORK_ID" integer primary key references SCHEDULE_WORK on delete cascade,
     "HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade,
     "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade,
     "ATTENDEE_COUNT" integer
@@ -499,14 +494,18 @@ create table SCHEDULE_REFRESH_ATTENDEES (
 );
 
 create table SCHEDULE_AUTO_REPLY_WORK (
-    "WORK_ID" integer primary key references SCHEDULE_WORK on delete cascade,
+    "WORK_ID" integer primary key not null,
+    "JOB_ID" integer not null references JOB,
+    "ICALENDAR_UID" nvarchar2(255),
     "HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade,
     "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade,
     "PARTSTAT" nvarchar2(255)
 );
 
 create table SCHEDULE_ORGANIZER_WORK (
-    "WORK_ID" integer primary key references SCHEDULE_WORK on delete cascade,
+    "WORK_ID" integer primary key not null,
+    "JOB_ID" integer not null references JOB,
+    "ICALENDAR_UID" nvarchar2(255),
     "SCHEDULE_ACTION" integer not null,
     "HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade,
     "RESOURCE_ID" integer,
@@ -525,25 +524,19 @@ insert into SCHEDULE_ACTION (DESCRIPTION, ID) values ('create', 0);
 insert into SCHEDULE_ACTION (DESCRIPTION, ID) values ('modify', 1);
 insert into SCHEDULE_ACTION (DESCRIPTION, ID) values ('modify-cancelled', 2);
 insert into SCHEDULE_ACTION (DESCRIPTION, ID) values ('remove', 3);
-create table SCHEDULE_ORGANIZER_SEND_WORK (
-    "WORK_ID" integer primary key references SCHEDULE_WORK on delete cascade,
-    "SCHEDULE_ACTION" integer not null,
-    "HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade,
-    "RESOURCE_ID" integer,
-    "ATTENDEE" nvarchar2(255),
-    "ITIP_MSG" nclob,
-    "NO_REFRESH" integer
-);
-
 create table SCHEDULE_REPLY_WORK (
-    "WORK_ID" integer primary key references SCHEDULE_WORK on delete cascade,
+    "WORK_ID" integer primary key not null,
+    "JOB_ID" integer not null references JOB,
+    "ICALENDAR_UID" nvarchar2(255),
     "HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade,
     "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade,
     "CHANGED_RIDS" nclob
 );
 
 create table SCHEDULE_REPLY_CANCEL_WORK (
-    "WORK_ID" integer primary key references SCHEDULE_WORK on delete cascade,
+    "WORK_ID" integer primary key not null,
+    "JOB_ID" integer not null references JOB,
+    "ICALENDAR_UID" nvarchar2(255),
     "HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade,
     "ICALENDAR_TEXT" nclob
 );
@@ -576,7 +569,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '44');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '43');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');
@@ -784,20 +777,16 @@ create index CLEANUP_ONE_INBOX_WOR_375dac36 on CLEANUP_ONE_INBOX_WORK (
     JOB_ID
 );
 
-create index SCHEDULE_WORK_JOB_ID_65e810ee on SCHEDULE_WORK (
-    JOB_ID
-);
-
-create index SCHEDULE_WORK_ICALEND_089f33dc on SCHEDULE_WORK (
-    ICALENDAR_UID
-);
-
 create index SCHEDULE_REFRESH_WORK_26084c7b on SCHEDULE_REFRESH_WORK (
     HOME_RESOURCE_ID
 );
 
 create index SCHEDULE_REFRESH_WORK_989efe54 on SCHEDULE_REFRESH_WORK (
     RESOURCE_ID
+);
+
+create index SCHEDULE_REFRESH_WORK_3ffa2718 on SCHEDULE_REFRESH_WORK (
+    JOB_ID
 );
 
 create index SCHEDULE_REFRESH_ATTE_83053b91 on SCHEDULE_REFRESH_ATTENDEES (
@@ -813,6 +802,10 @@ create index SCHEDULE_AUTO_REPLY_W_0755e754 on SCHEDULE_AUTO_REPLY_WORK (
     RESOURCE_ID
 );
 
+create index SCHEDULE_AUTO_REPLY_W_4d7bb5a8 on SCHEDULE_AUTO_REPLY_WORK (
+    JOB_ID
+);
+
 create index SCHEDULE_ORGANIZER_WO_18ce4edd on SCHEDULE_ORGANIZER_WORK (
     HOME_RESOURCE_ID
 );
@@ -821,12 +814,8 @@ create index SCHEDULE_ORGANIZER_WO_14702035 on SCHEDULE_ORGANIZER_WORK (
     RESOURCE_ID
 );
 
-create index SCHEDULE_ORGANIZER_SE_9ec9f827 on SCHEDULE_ORGANIZER_SEND_WORK (
-    HOME_RESOURCE_ID
-);
-
-create index SCHEDULE_ORGANIZER_SE_699fefc4 on SCHEDULE_ORGANIZER_SEND_WORK (
-    RESOURCE_ID
+create index SCHEDULE_ORGANIZER_WO_1e9f246d on SCHEDULE_ORGANIZER_WORK (
+    JOB_ID
 );
 
 create index SCHEDULE_REPLY_WORK_H_745af8cf on SCHEDULE_REPLY_WORK (
@@ -837,8 +826,16 @@ create index SCHEDULE_REPLY_WORK_R_11bd3fbb on SCHEDULE_REPLY_WORK (
     RESOURCE_ID
 );
 
+create index SCHEDULE_REPLY_WORK_J_5913b4a4 on SCHEDULE_REPLY_WORK (
+    JOB_ID
+);
+
 create index SCHEDULE_REPLY_CANCEL_dab513ef on SCHEDULE_REPLY_CANCEL_WORK (
     HOME_RESOURCE_ID
+);
+
+create index SCHEDULE_REPLY_CANCEL_94a0c766 on SCHEDULE_REPLY_CANCEL_WORK (
+    JOB_ID
 );
 
 create index PRINCIPAL_PURGE_POLLI_6383e68a on PRINCIPAL_PURGE_POLLING_WORK (
@@ -861,6 +858,18 @@ create index PRINCIPAL_PURGE_HOME__967e4480 on PRINCIPAL_PURGE_HOME_WORK (
     HOME_RESOURCE_ID
 );
 
+-- Skipped Function next_job
 
 -- Extras
 
+create or replace function next_job return integer is
+declare
+  cursor c1 is select JOB_ID from JOB for update skip locked;
+  result integer;
+begin
+  open c1;
+  fetch c1 into result;
+  select JOB_ID from JOB where ID = result for update;
+  return result;
+end;
+/

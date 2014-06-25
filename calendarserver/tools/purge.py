@@ -234,6 +234,7 @@ class PrincipalPurgeHomeWork(
 
         # Check for pending scheduling operations
         sow = schema.SCHEDULE_ORGANIZER_WORK
+        sosw = schema.SCHEDULE_ORGANIZER_SEND_WORK
         srw = schema.SCHEDULE_REPLY_WORK
         srcw = schema.SCHEDULE_REPLY_CANCEL_WORK
         rows = yield Select(
@@ -242,14 +243,21 @@ class PrincipalPurgeHomeWork(
             Where=(sow.HOME_RESOURCE_ID == self.homeResourceID),
             SetExpression=Union(
                 Select(
-                    [srw.HOME_RESOURCE_ID],
-                    From=srw,
-                    Where=(srw.HOME_RESOURCE_ID == self.homeResourceID),
+                    [sosw.HOME_RESOURCE_ID],
+                    From=sosw,
+                    Where=(sosw.HOME_RESOURCE_ID == self.homeResourceID),
                     SetExpression=Union(
                         Select(
-                            [srcw.HOME_RESOURCE_ID],
-                            From=srcw,
-                            Where=(srcw.HOME_RESOURCE_ID == self.homeResourceID),
+                            [srw.HOME_RESOURCE_ID],
+                            From=srw,
+                            Where=(srw.HOME_RESOURCE_ID == self.homeResourceID),
+                            SetExpression=Union(
+                                Select(
+                                    [srcw.HOME_RESOURCE_ID],
+                                    From=srcw,
+                                    Where=(srcw.HOME_RESOURCE_ID == self.homeResourceID),
+                                )
+                            ),
                         )
                     ),
                 )

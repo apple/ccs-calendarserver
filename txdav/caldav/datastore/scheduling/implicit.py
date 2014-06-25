@@ -30,12 +30,13 @@ from txdav.caldav.datastore.scheduling.cuaddress import InvalidCalendarUser, \
     LocalCalendarUser, OtherServerCalendarUser, \
     calendarUserFromCalendarUserAddress, \
     calendarUserFromCalendarUserUID
-from txdav.caldav.datastore.scheduling.utils import normalizeCUAddr
+from txdav.caldav.datastore.scheduling.utils import normalizeCUAddr,\
+    uidFromCalendarUserAddress
 from txdav.caldav.datastore.scheduling.icaldiff import iCalDiff
 from txdav.caldav.datastore.scheduling.itip import iTipGenerator, iTIPRequestStatus
 from txdav.caldav.datastore.scheduling.utils import getCalendarObjectForRecord
 from txdav.caldav.datastore.scheduling.work import ScheduleReplyWork, \
-    ScheduleReplyCancelWork, ScheduleOrganizerWork
+    ScheduleReplyCancelWork, ScheduleOrganizerWork, ScheduleOrganizerSendWork
 
 import collections
 
@@ -468,6 +469,38 @@ class ImplicitScheduler(object):
 
 
     @inlineCallbacks
+    def queuedOrganizerSending(self, txn, action, home, resource, uid, organizer, attendee, itipmsg, no_refresh):
+        """
+        Process an organizer scheduling work queue item. The basic goal here is to setup the ImplicitScheduler as if
+        this operation were the equivalent of the PUT that enqueued the work, and then do the actual work.
+        """
+
+        self.txn = txn
+        self.action = action
+        self.state = "organizer"
+        self.calendar_home = home
+        self.resource = resource
+        self.queuedResponses = []
+        self.suppress_refresh = no_refresh
+        self.uid = uid
+        self.calendar = None
+        self.oldcalendar = None
+
+        self.organizer = organizer
+        self.attendees = None
+        self.organizerAddress = None
+
+        # Originator is the organizer in this case
+        self.originator = self.organizer
+
+        self.except_attendees = ()
+        self.only_refresh_attendees = None
+        self.split_details = None
+
+        yield self.processSend(attendee, itipmsg, jobqueue=False)
+
+
+    @inlineCallbacks
     def sendAttendeeReply(self, txn, resource):
 
         self.txn = txn
@@ -591,7 +624,23 @@ class ImplicitScheduler(object):
         if not self.organizer:
             returnValue(False)
 
-        # Check to see whether any attendee is the owner
+        # Performance optimization: calling L{calendarUserFromCalendarUserAddress} results
+        # in a directory lookup which may be expensive and we may end up doing it for every
+        # attendee. However, all we need is the uid from the cu-address, so do one loop first
+        # just using L{uidFromCalendarUserAddress} which is super fast, and if that does not
+        # match, then do the slower loop
+
+        # Fast loop: Check to see whether any attendee is the owner
+        for attendee in self.attendees:
+            uid = uidFromCalendarUserAddress(attendee)
+            if uid is not None and uid == self.calendar_home.uid():
+                attendeeAddress = yield calendarUserFromCalendarUserAddress(attendee, self.txn)
+                if attendeeAddress.hosted() and attendeeAddress.record.uid == self.calendar_home.uid():
+                    self.attendee = attendee
+                    self.attendeeAddress = attendeeAddress
+                    returnValue(True)
+
+        # Slow Loop: Check to see whether any attendee is the owner
         for attendee in self.attendees:
             attendeeAddress = yield calendarUserFromCalendarUserAddress(attendee, self.txn)
             if attendeeAddress.hosted() and attendeeAddress.record.uid == self.calendar_home.uid():
@@ -1226,7 +1275,7 @@ class ImplicitScheduler(object):
 
         # Process regular requests next
         if self.action in ("create", "modify",):
-            total += (yield self.processRequests())
+            total += (yield self.processRequests(total))
 
         if self.logItems is not None:
             self.logItems["itip.requests"] = total
@@ -1280,13 +1329,7 @@ class ImplicitScheduler(object):
                     itipmsg.addProperty(Property("X-CALENDARSERVER-SPLIT-RID", rid))
                     itipmsg.addProperty(Property("X-CALENDARSERVER-SPLIT-OLDER-UID" if newer_piece else "X-CALENDARSERVER-SPLIT-NEWER-UID", uid))
 
-                # This is a local CALDAV scheduling operation.
-                scheduler = self.makeScheduler()
-
-                # Do the PUT processing
-                log.info("Implicit CANCEL - organizer: '{organizer}' to attendee: '{attendee}', UID: '{uid}', RIDs: '{rids}'", organizer=self.organizer, attendee=attendee, uid=self.uid, rids=rids)
-                response = (yield scheduler.doSchedulingViaPUT(self.originator, (attendee,), itipmsg, internal_request=True, suppress_refresh=self.suppress_refresh))
-                self.handleSchedulingResponse(response, True)
+                yield self.processSend(attendee, itipmsg, count=count)
 
                 count += 1
 
@@ -1294,7 +1337,7 @@ class ImplicitScheduler(object):
 
 
     @inlineCallbacks
-    def processRequests(self):
+    def processRequests(self, cancel_count=0):
 
         # TODO: a better policy here is to aggregate by attendees with the same set of instances
         # being requested, but for now we will do one scheduling message per attendee.
@@ -1341,17 +1384,55 @@ class ImplicitScheduler(object):
                     itipmsg.addProperty(Property("X-CALENDARSERVER-SPLIT-RID", rid))
                     itipmsg.addProperty(Property("X-CALENDARSERVER-SPLIT-OLDER-UID" if newer_piece else "X-CALENDARSERVER-SPLIT-NEWER-UID", uid))
 
-                # This is a local CALDAV scheduling operation.
-                scheduler = self.makeScheduler()
-
-                # Do the PUT processing
-                log.info("Implicit REQUEST - organizer: '{organizer}' to attendee: '{attendee}', UID: '{uid}'", organizer=self.organizer, attendee=attendee, uid=self.uid)
-                response = (yield scheduler.doSchedulingViaPUT(self.originator, (attendee,), itipmsg, internal_request=True, suppress_refresh=self.suppress_refresh))
-                self.handleSchedulingResponse(response, True)
+                yield self.processSend(attendee, itipmsg, count=count + cancel_count)
 
                 count += 1
 
         returnValue(count)
+
+
+    @inlineCallbacks
+    def processSend(self, attendee, itipmsg, jobqueue=True, count=0):
+        """
+        Send an iTIP message to an attendee. This might send it directly, or it might create job to
+        send it later.
+
+        @param attendee: the calendar user address of the attendee to send the message to
+        @type attendee: L{str}
+        @param itipmsg: the iTIP message to send
+        @type itipmsg: L{Component}
+        @param jobqueue: if allowed, queue up a job to do the actual work
+        @type jobqueue: L{bool}
+        """
+
+        # Attendee refreshes are already executed in a job (in batches) so don't create more
+        if jobqueue and config.Scheduling.Options.WorkQueues.Enabled and not hasattr(self.txn, "doing_attendee_refresh"):
+            # Create job for the work
+            yield ScheduleOrganizerSendWork.schedule(
+                self.txn,
+                self.action,
+                self.calendar_home,
+                self.resource,
+                self.organizerAddress.record.canonicalCalendarUserAddress(),
+                attendee,
+                itipmsg,
+                self.suppress_refresh,
+                count,
+            )
+        else:
+            # Execute the work right now
+            scheduler = self.makeScheduler()
+
+            # Do the PUT processing
+            log.info(
+                "Implicit {method} - organizer: '{organizer}' to attendee: '{attendee}', UID: '{uid}'",
+                method=itipmsg.propertyValue("METHOD"),
+                organizer=self.organizer,
+                attendee=attendee,
+                uid=self.uid,
+            )
+            response = (yield scheduler.doSchedulingViaPUT(self.originator, (attendee,), itipmsg, internal_request=True, suppress_refresh=self.suppress_refresh))
+            self.handleSchedulingResponse(response, True)
 
 
     def handleSchedulingResponse(self, response, is_organizer):

@@ -67,7 +67,7 @@ from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 from twext.enterprise.adbapi2 import ConnectionPool
 from twext.enterprise.ienterprise import ORACLE_DIALECT
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
-from twext.enterprise.jobqueue import NonPerformingQueuer
+from twext.enterprise.jobqueue import NonPerformingQueuer, JobItem
 from twext.enterprise.jobqueue import PeerConnectionPool
 from twext.enterprise.jobqueue import WorkerFactory as QueueWorkerFactory
 from twext.application.service import ReExecService
@@ -1281,6 +1281,23 @@ class CalDAVServiceMaker (object):
             pool = PeerConnectionPool(
                 reactor, store.newTransaction, config.WorkQueue.ampPort
             )
+
+            # Initialize queue parameters from config settings
+            for attr in (
+                "queuePollInterval",
+                "queueOverdueTimeout",
+                "overloadLevel",
+                "highPriorityLevel",
+                "mediumPriorityLevel",
+            ):
+                setattr(pool, attr, getattr(config.WorkQueue, attr))
+
+            for attr in (
+                "failureRescheduleInterval",
+                "lockRescheduleInterval",
+            ):
+                setattr(JobItem, attr, getattr(config.WorkQueue, attr))
+
             store.queuer = store.queuer.transferProposalCallbacks(pool)
             pool.setServiceParent(result)
 

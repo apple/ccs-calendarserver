@@ -61,8 +61,17 @@ create table JOB (
   NOT_BEFORE  timestamp not null,
   ASSIGNED    timestamp default null,
   OVERDUE     timestamp default null,
-  FAILED      integer default 0
+  FAILED	  integer default 0
 );
+
+create or replace function next_job() returns integer as $$
+declare
+  result integer;
+begin
+  select JOB_ID into result from JOB where pg_try_advisory_xact_lock(JOB_ID) limit 1 for update;
+  return result;
+end
+$$ LANGUAGE plpgsql;
 
 -------------------
 -- Calendar Home --
@@ -352,7 +361,7 @@ create table PERUSER (
   TIME_RANGE_INSTANCE_ID      integer      not null references TIME_RANGE on delete cascade,
   USER_ID                     varchar(255) not null,
   TRANSPARENT                 boolean      not null,
-  ADJUSTED_START_DATE         timestamp    default null,
+  ADJUSTED_START_DATE         timestamp	   default null,
   ADJUSTED_END_DATE           timestamp    default null
 );
 
@@ -887,28 +896,14 @@ create table CLEANUP_ONE_INBOX_WORK (
 create index CLEANUP_ONE_INBOX_WORK_JOB_ID on
   CLEANUP_ONE_INBOX_WORK(JOB_ID);
 
--------------------
--- Schedule Work --
--------------------
-
-create table SCHEDULE_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
-  JOB_ID                        integer      references JOB not null,
-  ICALENDAR_UID                 varchar(255) not null,
-  WORK_TYPE                     varchar(255) not null
-);
-
-create index SCHEDULE_WORK_JOB_ID on
-  SCHEDULE_WORK(JOB_ID);
-create index SCHEDULE_WORK_ICALENDAR_UID on
-  SCHEDULE_WORK(ICALENDAR_UID);
-
 ---------------------------
 -- Schedule Refresh Work --
 ---------------------------
 
 create table SCHEDULE_REFRESH_WORK (
-  WORK_ID                       integer      primary key references SCHEDULE_WORK on delete cascade, -- implicit index
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
+  JOB_ID                        integer      references JOB not null,
+  ICALENDAR_UID                 varchar(255) not null,
   HOME_RESOURCE_ID              integer      not null references CALENDAR_HOME on delete cascade,
   RESOURCE_ID                   integer      not null references CALENDAR_OBJECT on delete cascade,
   ATTENDEE_COUNT                integer
@@ -918,6 +913,8 @@ create index SCHEDULE_REFRESH_WORK_HOME_RESOURCE_ID on
   SCHEDULE_REFRESH_WORK(HOME_RESOURCE_ID);
 create index SCHEDULE_REFRESH_WORK_RESOURCE_ID on
   SCHEDULE_REFRESH_WORK(RESOURCE_ID);
+create index SCHEDULE_REFRESH_WORK_JOB_ID on
+  SCHEDULE_REFRESH_WORK(JOB_ID);
 
 create table SCHEDULE_REFRESH_ATTENDEES (
   RESOURCE_ID                   integer      not null references CALENDAR_OBJECT on delete cascade,
@@ -934,7 +931,9 @@ create index SCHEDULE_REFRESH_ATTENDEES_RESOURCE_ID_ATTENDEE on
 ------------------------------
 
 create table SCHEDULE_AUTO_REPLY_WORK (
-  WORK_ID                       integer      primary key references SCHEDULE_WORK on delete cascade, -- implicit index
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
+  JOB_ID                        integer      references JOB not null,
+  ICALENDAR_UID                 varchar(255) not null,
   HOME_RESOURCE_ID              integer      not null references CALENDAR_HOME on delete cascade,
   RESOURCE_ID                   integer      not null references CALENDAR_OBJECT on delete cascade,
   PARTSTAT                      varchar(255) not null
@@ -944,13 +943,17 @@ create index SCHEDULE_AUTO_REPLY_WORK_HOME_RESOURCE_ID on
   SCHEDULE_AUTO_REPLY_WORK(HOME_RESOURCE_ID);
 create index SCHEDULE_AUTO_REPLY_WORK_RESOURCE_ID on
   SCHEDULE_AUTO_REPLY_WORK(RESOURCE_ID);
+create index SCHEDULE_AUTO_REPLY_WORK_JOB_ID on
+  SCHEDULE_AUTO_REPLY_WORK(JOB_ID);
 
 -----------------------------
 -- Schedule Organizer Work --
 -----------------------------
 
 create table SCHEDULE_ORGANIZER_WORK (
-  WORK_ID                       integer      primary key references SCHEDULE_WORK on delete cascade, -- implicit index
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
+  JOB_ID                        integer      references JOB not null,
+  ICALENDAR_UID                 varchar(255) not null,
   SCHEDULE_ACTION               integer      not null, -- Enum SCHEDULE_ACTION
   HOME_RESOURCE_ID              integer      not null references CALENDAR_HOME on delete cascade,
   RESOURCE_ID                   integer,     -- this references a possibly non-existent CALENDR_OBJECT
@@ -964,6 +967,8 @@ create index SCHEDULE_ORGANIZER_WORK_HOME_RESOURCE_ID on
   SCHEDULE_ORGANIZER_WORK(HOME_RESOURCE_ID);
 create index SCHEDULE_ORGANIZER_WORK_RESOURCE_ID on
   SCHEDULE_ORGANIZER_WORK(RESOURCE_ID);
+create index SCHEDULE_ORGANIZER_WORK_JOB_ID on
+  SCHEDULE_ORGANIZER_WORK(JOB_ID);
 
 -- Enumeration of schedule actions
 
@@ -977,31 +982,14 @@ insert into SCHEDULE_ACTION values (1, 'modify');
 insert into SCHEDULE_ACTION values (2, 'modify-cancelled');
 insert into SCHEDULE_ACTION values (3, 'remove');
 
-----------------------------------
--- Schedule Organizer Send Work --
-----------------------------------
-
-create table SCHEDULE_ORGANIZER_SEND_WORK (
-  WORK_ID                       integer      primary key references SCHEDULE_WORK on delete cascade, -- implicit index
-  SCHEDULE_ACTION               integer      not null, -- Enum SCHEDULE_ACTION
-  HOME_RESOURCE_ID              integer      not null references CALENDAR_HOME on delete cascade,
-  RESOURCE_ID                   integer,     -- this references a possibly non-existent CALENDAR_OBJECT
-  ATTENDEE                      varchar(255) not null,
-  ITIP_MSG                      text,
-  NO_REFRESH                    boolean
-);
-
-create index SCHEDULE_ORGANIZER_SEND_WORK_HOME_RESOURCE_ID on
-  SCHEDULE_ORGANIZER_SEND_WORK(HOME_RESOURCE_ID);
-create index SCHEDULE_ORGANIZER_SEND_WORK_RESOURCE_ID on
-  SCHEDULE_ORGANIZER_SEND_WORK(RESOURCE_ID);
-
 -------------------------
 -- Schedule Reply Work --
 -------------------------
 
 create table SCHEDULE_REPLY_WORK (
-  WORK_ID                       integer      primary key references SCHEDULE_WORK on delete cascade, -- implicit index
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
+  JOB_ID                        integer      references JOB not null,
+  ICALENDAR_UID                 varchar(255) not null,
   HOME_RESOURCE_ID              integer      not null references CALENDAR_HOME on delete cascade,
   RESOURCE_ID                   integer      not null references CALENDAR_OBJECT on delete cascade,
   CHANGED_RIDS                  text
@@ -1011,19 +999,25 @@ create index SCHEDULE_REPLY_WORK_HOME_RESOURCE_ID on
   SCHEDULE_REPLY_WORK(HOME_RESOURCE_ID);
 create index SCHEDULE_REPLY_WORK_RESOURCE_ID on
   SCHEDULE_REPLY_WORK(RESOURCE_ID);
+create index SCHEDULE_REPLY_WORK_JOB_ID on
+  SCHEDULE_REPLY_WORK(JOB_ID);
 
 --------------------------------
 -- Schedule Reply Cancel Work --
 --------------------------------
 
 create table SCHEDULE_REPLY_CANCEL_WORK (
-  WORK_ID                       integer      primary key references SCHEDULE_WORK on delete cascade, -- implicit index
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
+  JOB_ID                        integer      references JOB not null,
+  ICALENDAR_UID                 varchar(255) not null,
   HOME_RESOURCE_ID              integer      not null references CALENDAR_HOME on delete cascade,
   ICALENDAR_TEXT                text         not null
 );
 
 create index SCHEDULE_REPLY_CANCEL_WORK_HOME_RESOURCE_ID on
   SCHEDULE_REPLY_CANCEL_WORK(HOME_RESOURCE_ID);
+create index SCHEDULE_REPLY_CANCEL_WORK_JOB_ID on
+  SCHEDULE_REPLY_CANCEL_WORK(JOB_ID);
 
 ----------------------------------
 -- Principal Purge Polling Work --
@@ -1089,7 +1083,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '44');
+insert into CALENDARSERVER values ('VERSION', '43');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');
