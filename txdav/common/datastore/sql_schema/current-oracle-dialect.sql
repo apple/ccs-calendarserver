@@ -401,13 +401,6 @@ create table GROUP_REFRESH_WORK (
     "GROUP_UID" nvarchar2(255)
 );
 
-create table GROUP_ATTENDEE_RECONCILE_WORK (
-    "WORK_ID" integer primary key not null,
-    "JOB_ID" integer not null references JOB,
-    "RESOURCE_ID" integer,
-    "GROUP_ID" integer
-);
-
 create table GROUPS (
     "GROUP_ID" integer primary key,
     "NAME" nvarchar2(255),
@@ -424,6 +417,13 @@ create table GROUP_MEMBERSHIP (
     primary key ("GROUP_ID", "MEMBER_UID")
 );
 
+create table GROUP_ATTENDEE_RECONCILE_WORK (
+    "WORK_ID" integer primary key not null,
+    "JOB_ID" integer not null references JOB,
+    "RESOURCE_ID" integer,
+    "GROUP_ID" integer
+);
+
 create table GROUP_ATTENDEE (
     "GROUP_ID" integer not null references GROUPS on delete cascade,
     "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade,
@@ -431,13 +431,20 @@ create table GROUP_ATTENDEE (
     primary key ("GROUP_ID", "RESOURCE_ID")
 );
 
+create table GROUP_SHAREE_RECONCILE_WORK (
+    "WORK_ID" integer primary key not null,
+    "JOB_ID" integer not null references JOB,
+    "CALENDAR_ID" integer not null references CALENDAR on delete cascade,
+    "GROUP_ID" integer not null references GROUPS on delete cascade
+);
+
 create table GROUP_SHAREE (
     "GROUP_ID" integer not null references GROUPS on delete cascade,
-    "CALENDAR_HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade,
-    "CALENDAR_RESOURCE_ID" integer not null references CALENDAR on delete cascade,
+    "CALENDAR_HOME_ID" integer not null references CALENDAR_HOME on delete cascade,
+    "CALENDAR_ID" integer not null references CALENDAR on delete cascade,
     "GROUP_BIND_MODE" integer not null,
     "MEMBERSHIP_HASH" nvarchar2(255), 
-    primary key ("GROUP_ID", "CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_ID")
+    primary key ("GROUP_ID", "CALENDAR_HOME_ID", "CALENDAR_ID")
 );
 
 create table DELEGATES (
@@ -579,7 +586,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '43');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '44');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');
@@ -737,10 +744,6 @@ create index GROUP_REFRESH_WORK_JO_717ede20 on GROUP_REFRESH_WORK (
     JOB_ID
 );
 
-create index GROUP_ATTENDEE_RECONC_da73d3c2 on GROUP_ATTENDEE_RECONCILE_WORK (
-    JOB_ID
-);
-
 create index GROUPS_GROUP_UID_b35cce23 on GROUPS (
     GROUP_UID
 );
@@ -749,12 +752,20 @@ create index GROUP_MEMBERSHIP_MEMB_0ca508e8 on GROUP_MEMBERSHIP (
     MEMBER_UID
 );
 
-create index GROUP_ATTENDEE_RESOUR_855124dc on GROUP_ATTENDEE (
+create index GROUP_ATTENDEE_RECONC_da73d3c2 on GROUP_ATTENDEE_RECONCILE_WORK (
+    JOB_ID
+);
+
+create index GROUP_ATTENDEE_ID_d497ffdb on GROUP_ATTENDEE (
     RESOURCE_ID
 );
 
-create index GROUP_SHAREE_RESOURCE_cc288b3b on CALENDAR_BIND (
-    CALENDAR_RESOURCE_ID
+create index GROUP_SHAREE_RECONCIL_9aad0858 on GROUP_SHAREE_RECONCILE_WORK (
+    JOB_ID
+);
+
+create index GROUP_SHAREE_CALENDAR_28a88850 on GROUP_SHAREE (
+    CALENDAR_ID
 );
 
 create index DELEGATE_TO_DELEGATOR_5e149b11 on DELEGATES (

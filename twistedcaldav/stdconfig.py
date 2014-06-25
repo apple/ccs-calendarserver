@@ -598,7 +598,7 @@ DEFAULT_CONFIG = {
     "MaxBytesBatchUpload"     : 10485760, # Maximum size of a batch POST (10 MB)
 
     "Sharing": {
-        "Enabled"             : False, # Overall on/off switch
+        "Enabled"             : True, # Overall on/off switch
         "AllowExternalUsers"  : False, # External (non-principal) sharees allowed
 
         "Calendars" : {
@@ -619,6 +619,10 @@ DEFAULT_CONFIG = {
                 "Global": [
                 ],
             },
+            "Groups" : {
+                "Enabled"     : False, # Calendar Group sharing on/off switch
+                "ReconciliationDelaySeconds" : 5,
+            },
         },
         "AddressBooks" : {
             "Enabled"         : False, # Address Book sharing on/off switch
@@ -632,7 +636,7 @@ DEFAULT_CONFIG = {
                 ],
             },
             "Groups" : {
-                "Enabled"         : False, # Address Book Group sharing on/off switch
+                "Enabled"      : False, # Address Book Group sharing on/off switch
             },
         },
     },

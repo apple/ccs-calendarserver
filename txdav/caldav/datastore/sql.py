@@ -40,6 +40,7 @@ from twext.enterprise.util import parseSQLTimestamp
 from twext.python.clsprop import classproperty
 from twext.python.filepath import CachingFilePath
 from twext.python.log import Logger
+from twext.who.idirectory import RecordType
 from twistedcaldav.ical import Component as VComponent
 from txweb2.http_headers import MimeType, generateContentType
 from txweb2.stream import readStream
@@ -87,7 +88,8 @@ from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
 from txdav.common.datastore.sql_tables import _ATTACHMENTS_MODE_NONE, \
     _ATTACHMENTS_MODE_WRITE, schema, _BIND_MODE_OWN, \
-    _ATTACHMENTS_MODE_READ, _TRANSP_OPAQUE, _TRANSP_TRANSPARENT
+    _ATTACHMENTS_MODE_READ, _TRANSP_OPAQUE, _TRANSP_TRANSPARENT, \
+    _BIND_MODE_GROUP
 from txdav.common.icommondatastore import IndexedSearchException, \
     InternalDataStoreError, HomeChildNameAlreadyExistsError, \
     HomeChildNameNotAllowedError, ObjectResourceTooBigError, \
@@ -95,7 +97,7 @@ from txdav.common.icommondatastore import IndexedSearchException, \
     ObjectResourceNameNotAllowedError, TooManyObjectResourcesError, \
     InvalidUIDError, UIDExistsError, UIDExistsElsewhereError, \
     InvalidResourceMove, InvalidComponentForStoreError, \
-    NoSuchObjectResourceError, ConcurrentModification
+    NoSuchObjectResourceError, ConcurrentModification, AllRetriesFailed
 from txdav.xml import element
 from txdav.xml.parser import WebDAVDocument
 
@@ -1751,6 +1753,147 @@ class Calendar(CommonHomeChild):
             newParentID=newparent._resourceID,
             resourceID=child._resourceID
         )
+
+
+    #===============================================================================
+    # Group sharing
+    #===============================================================================
+    @inlineCallbacks
+    def shareWithUID(self, shareeUID, mode, status=None, summary=None, shareName=None):
+        """
+        Share this (owned) L{CommonHomeChild} with another principal.
+
+        @param shareeUID: The UID of the sharee.
+        @type: L{str}
+
+        @param mode: The sharing mode; L{_BIND_MODE_READ} or
+            L{_BIND_MODE_WRITE} or L{_BIND_MODE_DIRECT}
+        @type mode: L{str}
+
+        @param status: The sharing status; L{_BIND_STATUS_INVITED} or
+            L{_BIND_STATUS_ACCEPTED}
+        @type: L{str}
+
+        @param summary: The proposed message to go along with the share, which
+            will be used as the default display name.
+        @type: L{str}
+
+        @return: the name of the shared calendar in the new calendar home.
+        @rtype: L{str}
+        """
+        record = (
+            yield self._txn.directoryService().recordWithUID(shareeUID.decode("utf-8"))
+        ) if True or (
+              config.Sharing.Enabled and
+              config.Sharing.Calendars.Enabled and
+              config.Sharing.Calendars.Groups.Enabled
+        ) else None
+
+        if record is None or record.recordType != RecordType.group:
+            shareeHome = yield self._txn.calendarHomeWithUID(shareeUID, create=True)
+            returnValue(
+                (yield self.shareWith(shareeHome, mode, status, summary, shareName))
+            )
+
+        # shareWith every member of group not already shared to
+        members = yield record.expandedMembers()
+        for member in members:
+            shareeHome = yield self._txn.calendarHomeWithUID(member.uid(), create=True)
+            if (yield shareeHome.childWithID(self._resourceID)) is None:
+                yield self.shareWith(shareeHome, _BIND_MODE_GROUP, status)
+
+        yield self.updateGroupLink(shareeUID, mode)
+        returnValue(None)
+
+
+    @inlineCallbacks
+    def reconcileGroupSharee(self, groupUID):
+        """
+        reconcile bind table with group members
+        """
+        changed = False
+        if (yield self.updateShareeGroupLink, groupUID):
+            record = (
+                yield self._txn.directoryService().recordWithUID(groupUID.decode("utf-8"))
+            ) if True or (
+                  config.Sharing.Enabled and
+                  config.Sharing.Calendars.Enabled and
+                  config.Sharing.Calendars.Groups.Enabled
+            ) else None
+            members = yield record.expandedMembers() if record is not None else []
+            memberUIDs = set([member.uid() for member in members])
+            boundUIDs = set()
+
+            bind = schema.CALENDAR_BIND
+            rows = yield Select(
+                [bind.HOME_RESOURCE_ID],
+                From=bind,
+                Where=bind.CALENDAR_RESOURCE_ID == self._resourceID.And(
+                    bind.BIND_MODE == _BIND_MODE_GROUP
+                ),
+            ).on(self._txn)
+            groupShareeHomeIDs = [row[0] for row in rows]
+            for groupShareeHomeID in groupShareeHomeIDs:
+                shareeHome = yield self._txn.calendarHomeWithResourceID(groupShareeHomeID, create=True)
+                if shareeHome.uid() in memberUIDs:
+                    boundUIDs.add(shareeHome.uid())
+                else:
+                    shareeView = yield shareeHome.childWithID(self._resourceID)
+                    yield self.removeShare(shareeView)
+                    changed = True
+
+            for member in [member for member in members if member.uid() not in boundUIDs]:
+                shareeHome = yield self._txn.calendarHomeWithUID(member.uid(), create=True)
+                if (yield shareeHome.childWithID(self._resourceID)) is None:
+                    yield self.shareWith(shareeHome, _BIND_MODE_GROUP)
+                    changed = True
+
+        returnValue(changed)
+
+
+    @inlineCallbacks
+    def updateShareeGroupLink(self, groupUID, mode=None):
+        """
+        update schema.GROUP_SHAREE
+        """
+        changed = False
+        groupID, _ignore_name, membershipHash, _ignore_modDate = yield self._txn.groupByUID(groupUID)
+
+        gs = schema.GROUP_SHAREE
+        rows = yield Select(
+            [gs.MEMBERSHIP_HASH, gs.MODE],
+            From=gs,
+            Where=gs.HOME_ID == self.ownerHome()._resourceID.And(
+                gs.CALENDAR_ID == self._resourceID).And(
+                gs.GROUP_ID == groupID)
+        ).on(self._txn)
+        if rows:
+            [[gsMembershipHash, gsMode]] = rows
+            updateMap = {}
+            if gsMembershipHash != membershipHash:
+                updateMap[gs.MEMBERSHIP_HASH] = membershipHash
+            if mode is not None and gsMode != mode:
+                updateMap[gs.GROUP_BIND_MODE] = mode
+            if updateMap:
+                yield Update(
+                    updateMap,
+                    Where=gs.HOME_ID == self.ownerHome()._resourceID.And(
+                        gs.CALENDAR_ID == self._resourceID).And(
+                        gs.GROUP_ID == groupID
+                    )
+                ).on(self._txn)
+                changed = True
+        else:
+            yield Insert({
+                gs.MEMBERSHIP_HASH: membershipHash,
+                gs.GROUP_BIND_MODE: mode,
+                gs.HOME_ID: self.ownerHome()._resourceID,
+                gs.CALENDAR_ID: self._resourceID,
+                gs.GROUP_ID: groupID,
+            }).on(self._txn)
+            changed = True
+
+        returnValue(changed)
 
 
 icalfbtype_to_indexfbtype = {

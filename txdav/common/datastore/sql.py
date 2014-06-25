@@ -4703,6 +4703,34 @@ class SharingMixIn(object):
         returnValue(shareeView)
 
 
+    @inlineCallbacks
+    def shareWithUID(self, shareeUID, mode, status=None, summary=None, shareName=None):
+        """
+        Share this (owned) L{CommonHomeChild} with another principal.
+
+        @param shareeUID: The UID of the sharee.
+        @type: L{str}
+
+        @param mode: The sharing mode; L{_BIND_MODE_READ} or
+            L{_BIND_MODE_WRITE} or L{_BIND_MODE_DIRECT}
+        @type mode: L{str}
+
+        @param status: The sharing status; L{_BIND_STATUS_INVITED} or
+            L{_BIND_STATUS_ACCEPTED}
+        @type: L{str}
+
+        @param summary: The proposed message to go along with the share, which
+            will be used as the default display name.
+        @type: L{str}
+
+        @return: the name of the shared calendar in the new calendar home.
+        @rtype: L{str}
+        """
+        shareeHome = yield self._txn.calendarHomeWithUID(shareeUID, create=True)
+        returnValue(
+            (yield self.shareWith(shareeHome, mode, status, summary, shareName))
+        )
+
 
     @inlineCallbacks
     def shareWith(self, shareeHome, mode, status=None, summary=None, shareName=None):

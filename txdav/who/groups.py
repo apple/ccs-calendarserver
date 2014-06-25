@@ -29,7 +29,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twistedcaldav.config import config
 from txdav.caldav.datastore.scheduling.icalsplitter import iCalSplitter
 from txdav.caldav.datastore.sql import CalendarStoreFeatures, ComponentUpdateState
-from txdav.common.datastore.sql_tables import schema
+from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 import datetime
 import hashlib
 
@@ -218,6 +218,41 @@ class GroupAttendeeReconciliationWork(
 
 
 
+class GroupShareeReconciliationWork(
+    WorkItem, fromTable(schema.GROUP_SHAREE_RECONCILE_WORK)
+):
+
+    group = property(
+        lambda self: (self.table.CALENDAR_ID == self.calendarID)
+    )
+
+
+    @inlineCallbacks
+    def doWork(self):
+
+        # Delete all other work items for this event
+        yield Delete(
+            From=self.table,
+            Where=self.group,
+        ).on(self.transaction)
+
+        bind = schema.CALENDAR_BIND
+        rows = yield Select(
+            [bind.HOME_RESOURCE_ID],
+            From=bind,
+            Where=bind.CALENDAR_RESOURCE_ID == self.calendarID.And(
+                bind.BIND_MODE == _BIND_MODE_OWN
+            ),
+        ).on(self.transaction)
+        if rows:
+            homeID = rows[0][0]
+            home = yield self.transaction.calendarHomeWithResourceID(homeID)
+            calendar = yield home.childWithID(self.calendarID)
+
+            yield calendar.reconcileGroupSharee(self.groupUID)
+
+
+
 def diffAssignments(old, new):
     """
     Compare two proxy assignment lists and return their differences in the form
@@ -310,11 +345,11 @@ class GroupCacher(object):
             ) in changed:
                 readDelegateGroupID = writeDelegateGroupID = None
                 if readDelegateUID:
-                    readDelegateGroupID, _ignore_name, hash, _ignore_modified = (
+                    readDelegateGroupID, _ignore_name, _ignore_hash, _ignore_modified = (
                         yield txn.groupByUID(readDelegateUID)
                     )
                 if writeDelegateUID:
-                    writeDelegateGroupID, _ignore_name, hash, _ignore_modified = (
+                    writeDelegateGroupID, _ignore_name, _ignore_hash, _ignore_modified = (
                         yield txn.groupByUID(writeDelegateUID)
                     )
                 yield txn.assignExternalDelegates(
@@ -384,7 +419,8 @@ class GroupCacher(object):
                     newMemberUIDs.add(member.uid)
                 yield self.synchronizeMembers(txn, groupID, newMemberUIDs)
 
-                wps = yield self.scheduleEventReconciliations(txn, groupID)
+                wps = yield self.scheduleGroupAttendeeReconciliations(txn, groupID)
+                wps = wps + (yield self.scheduleGroupShareeReconciliations(txn, groupID))
 
         returnValue(wps)
 
@@ -429,7 +465,7 @@ class GroupCacher(object):
 
 
     @inlineCallbacks
-    def scheduleEventReconciliations(self, txn, groupID):
+    def scheduleGroupAttendeeReconciliations(self, txn, groupID):
         """
         Find all events who have this groupID as an attendee and create
         work items for them.
@@ -455,22 +491,48 @@ class GroupCacher(object):
 
 
     @inlineCallbacks
+    def scheduleGroupShareeReconciliations(self, txn, groupID):
+        """
+        Find all calendars who have shared to this groupID and create
+        work items for them.
+        returns: WorkProposal
+        """
+        gs = schema.GROUP_SHAREE
+        rows = yield Select(
+            [gs.CALENDAR_ID, ],
+            From=gs,
+            Where=gs.GROUP_ID == groupID,
+        ).on(txn)
+
+        wps = []
+        for [calendarID] in rows:
+            wp = yield GroupShareeReconciliationWork.reschedule(
+                txn,
+                seconds=float(config.Sharing.Calendar.Groups.ReconciliationDelaySeconds),
+                calendarID=calendarID,
+                groupID=groupID,
+            )
+            wps.append(wp)
+        returnValue(tuple(wps))
+
+
+    @inlineCallbacks
     def groupsToRefresh(self, txn):
         delegatedUIDs = set((yield txn.allGroupDelegates()))
         self.log.info(
             "There are {count} group delegates", count=len(delegatedUIDs)
         )
 
-        # Get groupUIDs for aoo group attendees
-        groupAttendee = schema.GROUP_ATTENDEE
+        # Get groupUIDs for all group attendees
+        ga = schema.GROUP_ATTENDEE
         gr = schema.GROUPS
         rows = yield Select(
             [gr.GROUP_UID],
             From=gr,
             Where=gr.GROUP_ID.In(
                 Select(
-                    [groupAttendee.GROUP_ID],
-                    From=groupAttendee,
+                    [ga.GROUP_ID],
+                    From=ga,
                     Distinct=True
                 )
             )
@@ -480,6 +542,25 @@ class GroupCacher(object):
             "There are {count} group attendees", count=len(attendeeGroupUIDs)
         )
 
+        # Get groupUIDs for all group shares
+        gs = schema.GROUP_SHAREE
+        gr = schema.GROUPS
+        rows = yield Select(
+            [gr.GROUP_UID],
+            From=gr,
+            Where=gr.GROUP_ID.In(
+                Select(
+                    [gs.GROUP_ID],
+                    From=gs,
+                    Distinct=True
+                )
+            )
+        ).on(txn)
+        shareeGroupUIDs = set([row[0] for row in rows])
+        self.log.info(
+            "There are {count} group sharees", count=len(shareeGroupUIDs)
+        )
+
         # FIXME: is this a good place to clear out unreferenced groups?
 
-        returnValue(delegatedUIDs.union(attendeeGroupUIDs))
+        returnValue((delegatedUIDs | attendeeGroupUIDs | shareeGroupUIDs))
