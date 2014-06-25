@@ -18,11 +18,12 @@
 Group membership caching implementation tests
 """
 
-from txdav.who.groups import GroupCacher, diffAssignments
 from twext.who.idirectory import RecordType
 from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.test.util import StoreTestCase
 from txdav.common.icommondatastore import NotFoundError
+from txdav.who.groups import GroupCacher, diffAssignments
+from txdav.who.test.support import TestRecord, CalendarInMemoryDirectoryService
 
 
 
@@ -44,8 +45,8 @@ class GroupCacherTest(StoreTestCase):
         txn = store.newTransaction()
 
         record = yield self.directory.recordWithUID(u"__top_group_1__")
-        _ignore_groupID, _ignore_name, _ignore_membershipHash, _ignore_modified = (yield txn.groupByUID(record.uid))
-        _ignore_groupID, _ignore_name, _ignore_membershipHash, _ignore_modified = (yield txn.groupByUID(record.uid))
+        yield txn.groupByUID(record.uid)
+        yield txn.groupByUID(record.uid)
 
         yield txn.commit()
 
@@ -63,14 +64,19 @@ class GroupCacherTest(StoreTestCase):
         record = yield self.directory.recordWithUID(u"__top_group_1__")
         yield self.groupCacher.refreshGroup(txn, record.uid)
 
-        groupID, _ignore_name, membershipHash, _ignore_modified = (yield txn.groupByUID(record.uid))
+        (
+            groupID, _ignore_name, membershipHash, _ignore_modified,
+            extant
+        ) = (yield txn.groupByUID(record.uid))
 
+        self.assertEquals(extant, True)
         self.assertEquals(membershipHash, "553eb54e3bbb26582198ee04541dbee4")
 
-        groupUID, name, membershipHash = (yield txn.groupByID(groupID))
+        groupUID, name, membershipHash, extant = (yield txn.groupByID(groupID))
         self.assertEquals(groupUID, record.uid)
         self.assertEquals(name, u"Top Group 1")
         self.assertEquals(membershipHash, "553eb54e3bbb26582198ee04541dbee4")
+        self.assertEquals(extant, True)
 
         members = (yield txn.membersOfGroup(groupID))
         self.assertEquals(
@@ -107,7 +113,10 @@ class GroupCacherTest(StoreTestCase):
         # Refresh the group so it's assigned a group_id
         uid = u"__top_group_1__"
         yield self.groupCacher.refreshGroup(txn, uid)
-        groupID, name, _ignore_membershipHash, _ignore_modified = (yield txn.groupByUID(uid))
+        (
+            groupID, name, _ignore_membershipHash, _ignore_modified,
+            _ignore_extant
+        ) = yield txn.groupByUID(uid)
 
         # Remove two members, and add one member
         newSet = set()
@@ -156,9 +165,12 @@ class GroupCacherTest(StoreTestCase):
         uid = u"__top_group_1__"
         hash = "553eb54e3bbb26582198ee04541dbee4"
         yield self.groupCacher.refreshGroup(txn, uid)
-        groupID, _ignore_name, _ignore_membershipHash, _ignore_modified = yield txn.groupByUID(uid)
-        results = (yield txn.groupByID(groupID))
-        self.assertEquals((uid, u"Top Group 1", hash), results)
+        (
+            groupID, _ignore_name, _ignore_membershipHash, _ignore_modified,
+            extant
+        ) = yield txn.groupByUID(uid)
+        results = yield txn.groupByID(groupID)
+        self.assertEquals((uid, u"Top Group 1", hash, True), results)
 
         yield txn.commit()
 
@@ -414,3 +426,125 @@ class GroupCacherTest(StoreTestCase):
                 {"D": ("7", "8"), "C": ("4", "5"), "A": ("1", "2")},
             )
         )
+
+
+class DynamicGroupTest(StoreTestCase):
+
+
+    @inlineCallbacks
+    def setUp(self):
+        yield super(DynamicGroupTest, self).setUp()
+
+        self.directory = CalendarInMemoryDirectoryService(None)
+        self.store.setDirectoryService(self.directory)
+        self.groupCacher = GroupCacher(self.directory)
+
+        self.numUsers = 100
+
+        # Add users
+        records = []
+        fieldName = self.directory.fieldName
+        for i in xrange(self.numUsers):
+            records.append(
+                TestRecord(
+                    self.directory,
+                    {
+                        fieldName.uid: u"foo{ctr:05d}".format(ctr=i),
+                        fieldName.shortNames: (u"foo{ctr:05d}".format(ctr=i),),
+                        fieldName.fullNames: (u"foo{ctr:05d}".format(ctr=i),),
+                        fieldName.recordType: RecordType.user,
+                    }
+                )
+            )
+
+        # Add a group
+        records.append(
+            TestRecord(
+                self.directory,
+                {
+                    fieldName.uid: u"testgroup",
+                    fieldName.recordType: RecordType.group,
+                }
+            )
+        )
+
+        yield self.directory.updateRecords(records, create=True)
+
+        group = yield self.directory.recordWithUID(u"testgroup")
+        members = yield self.directory.recordsWithRecordType(RecordType.user)
+        yield group.setMembers(members)
+
+
+    @inlineCallbacks
+    def test_extant(self):
+        """
+        Verify that once a group is removed from the directory, the next call
+        to refreshGroup() will set the "extent" to False.  Add the group back
+        to the directory and "extent" becomes True.
+        """
+        store = self.storeUnderTest()
+
+        txn = store.newTransaction()
+        yield self.groupCacher.refreshGroup(txn, u"testgroup")
+        (
+            groupID, _ignore_name, membershipHash, _ignore_modified,
+            extant
+        ) = (yield txn.groupByUID(u"testgroup"))
+        yield txn.commit()
+
+        self.assertTrue(extant)
+
+        # Remove the group
+        yield self.directory.removeRecords([u"testgroup"])
+
+        txn = store.newTransaction()
+        yield self.groupCacher.refreshGroup(txn, u"testgroup")
+        (
+            groupID, _ignore_name, membershipHash, _ignore_modified,
+            extant
+        ) = (yield txn.groupByUID(u"testgroup"))
+        yield txn.commit()
+
+        # Extant = False
+        self.assertFalse(extant)
+
+        # The list of members stored in the DB for this group is now empty
+        txn = store.newTransaction()
+        members = yield txn.membersOfGroup(groupID)
+        yield txn.commit()
+        self.assertEquals(members, set())
+
+        # Add the group back into the directory
+        fieldName = self.directory.fieldName
+        yield self.directory.updateRecords(
+            (
+                TestRecord(
+                    self.directory,
+                    {
+                        fieldName.uid: u"testgroup",
+                        fieldName.recordType: RecordType.group,
+                    }
+                ),
+            ),
+            create=True
+        )
+        group = yield self.directory.recordWithUID(u"testgroup")
+        members = yield self.directory.recordsWithRecordType(RecordType.user)
+        yield group.setMembers(members)
+
+        txn = store.newTransaction()
+        yield self.groupCacher.refreshGroup(txn, u"testgroup")
+        (
+            groupID, _ignore_name, membershipHash, _ignore_modified,
+            extant
+        ) = (yield txn.groupByUID(u"testgroup"))
+        yield txn.commit()
+
+        # Extant = True
+        self.assertTrue(extant)
+
+        # The list of members stored in the DB for this group has 100 users
+        txn = store.newTransaction()
+        members = yield txn.membersOfGroup(groupID)
+        yield txn.commit()
+        self.assertEquals(len(members), 100)

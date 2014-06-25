@@ -207,7 +207,10 @@ class DelegationTest(StoreTestCase):
                 yield self.directory.recordWithShortName(RecordType.user, name)
             )
             newSet.add(record.uid)
-        groupID, name, _ignore_membershipHash, _ignore_modified = (yield txn.groupByUID(group1.uid))
+        (
+            groupID, name, _ignore_membershipHash, _ignore_modified,
+            _ignore_extant
+        ) = (yield txn.groupByUID(group1.uid))
         _ignore_numAdded, _ignore_numRemoved = (
             yield self.groupCacher.synchronizeMembers(txn, groupID, newSet)
         )

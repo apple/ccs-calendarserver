@@ -787,7 +787,9 @@ def printGroupCacherInfo(service, store):
     txn = store.newTransaction()
     groupUIDs = yield txn.allGroupDelegates()
     for groupUID in groupUIDs:
-        groupID, name, _ignore_membershipHash, modified = yield txn.groupByUID(
+        (
+            groupID, name, _ignore_membershipHash, modified, extant
+        ) = yield txn.groupByUID(
             groupUID
         )
         print("Group: \"{name}\" ({uid})".format(name=name, uid=groupUID))

@@ -157,12 +157,14 @@ class GroupAttendeeReconciliationWork(
             if (component.masterComponent() is None or not component.isRecurring()):
 
                 # skip non-recurring old events, no instances
-                if (yield calendarObject.removeOldEventGroupLink(
-                    component,
-                    instances=None,
-                    inserting=False,
-                    txn=self.transaction
-                )):
+                if (
+                    yield calendarObject.removeOldEventGroupLink(
+                        component,
+                        instances=None,
+                        inserting=False,
+                        txn=self.transaction
+                    )
+                ):
                     returnValue(None)
             else:
                 # skip recurring old events
@@ -180,12 +182,14 @@ class GroupAttendeeReconciliationWork(
                     lowerLimit=truncateLowerLimit,
                     ignoreInvalidInstances=True
                 )
-                if (yield calendarObject.removeOldEventGroupLink(
-                    component,
-                    instances=instances,
-                    inserting=False,
-                    txn=self.transaction
-                )):
+                if (
+                    yield calendarObject.removeOldEventGroupLink(
+                        component,
+                        instances=instances,
+                        inserting=False,
+                        txn=self.transaction
+                    )
+                ):
                     returnValue(None)
 
                 # split spanning events and only update present-future split result
@@ -310,11 +314,17 @@ class GroupCacher(object):
             ) in changed:
                 readDelegateGroupID = writeDelegateGroupID = None
                 if readDelegateUID:
-                    readDelegateGroupID, _ignore_name, hash, _ignore_modified = (
+                    (
+                        readDelegateGroupID, _ignore_name, hash,
+                        _ignore_modified, _ignore_extant
+                    ) = (
                         yield txn.groupByUID(readDelegateUID)
                     )
                 if writeDelegateUID:
-                    writeDelegateGroupID, _ignore_name, hash, _ignore_modified = (
+                    (
+                        writeDelegateGroupID, _ignore_name, hash,
+                        _ignore_modified, _ignore_extant
+                    ) = (
                         yield txn.groupByUID(writeDelegateUID)
                     )
                 yield txn.assignExternalDelegates(
@@ -344,20 +354,24 @@ class GroupCacher(object):
         else:
             self.log.debug("Got group record: {u}", u=record.uid)
 
-        groupID, cachedName, cachedMembershipHash, _ignore_modified = (
-            yield txn.groupByUID(
-                groupUID,
-                create=(record is not None)
-            )
+        (
+            groupID, cachedName, cachedMembershipHash, _ignore_modified,
+            extant
+        ) = yield txn.groupByUID(
+            groupUID,
+            create=(record is not None)
         )
+
         wps = tuple()
         if groupID:
             if record is not None:
                 members = yield record.expandedMembers()
-                name = record.fullNames[0]
+                name = record.displayName
+                extant = True
             else:
                 members = frozenset()
                 name = cachedName
+                extant = False
 
             membershipHashContent = hashlib.md5()
             members = list(members)
@@ -376,7 +390,9 @@ class GroupCacher(object):
 
             if membershipChanged or record is not None:
                 # also updates group mod date
-                yield txn.updateGroup(groupUID, name, membershipHash)
+                yield txn.updateGroup(
+                    groupUID, name, membershipHash, extant=extant
+                )
 
             if membershipChanged:
                 newMemberUIDs = set()
@@ -461,7 +477,7 @@ class GroupCacher(object):
             "There are {count} group delegates", count=len(delegatedUIDs)
         )
 
-        # Get groupUIDs for aoo group attendees
+        # Get groupUIDs for all group attendees
         groupAttendee = schema.GROUP_ATTENDEE
         gr = schema.GROUPS
         rows = yield Select(

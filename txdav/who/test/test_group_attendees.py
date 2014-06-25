@@ -868,7 +868,10 @@ END:VCALENDAR
         #finally, simulate an event that has become old
         self.patch(CalendarDirectoryRecordMixin, "expandedMembers", unpatchedExpandedMembers)
 
-        groupID, _ignore_name, _ignore_membershipHash, _ignore_modDate = yield self.transactionUnderTest().groupByUID("20000000-0000-0000-0000-000000000001")
+        (
+            groupID, _ignore_name, _ignore_membershipHash, _ignore_modDate,
+            _ignore_extant
+        ) = yield self.transactionUnderTest().groupByUID("20000000-0000-0000-0000-000000000001")
         ga = schema.GROUP_ATTENDEE
         yield Insert({
                 ga.RESOURCE_ID: cobj._resourceID,
@@ -1029,7 +1032,10 @@ END:VCALENDAR
         #finally, simulate an event that has become old
         self.patch(CalendarDirectoryRecordMixin, "expandedMembers", unpatchedExpandedMembers)
 
-        groupID, _ignore_name, _ignore_membershipHash, _ignore_modDate = yield self.transactionUnderTest().groupByUID("20000000-0000-0000-0000-000000000001")
+        (
+            groupID, _ignore_name, _ignore_membershipHash, _ignore_modDate,
+            _ignore_extant
+        ) = yield self.transactionUnderTest().groupByUID("20000000-0000-0000-0000-000000000001")
         ga = schema.GROUP_ATTENDEE
         yield Insert({
                 ga.RESOURCE_ID: cobj._resourceID,

@@ -1033,8 +1033,8 @@ class CommonStoreTransaction(object):
             {
                 gr.MEMBERSHIP_HASH: Parameter("membershipHash"),
                 gr.NAME: Parameter("name"),
-                gr.MODIFIED:
-                Parameter("timestamp")
+                gr.MODIFIED: Parameter("timestamp"),
+                gr.EXTANT: Parameter("extant"),
             },
             Where=(gr.GROUP_UID == Parameter("groupUID"))
         )
@@ -1044,7 +1044,7 @@ class CommonStoreTransaction(object):
     def _groupByUID(cls):
         gr = schema.GROUPS
         return Select(
-            [gr.GROUP_ID, gr.NAME, gr.MEMBERSHIP_HASH, gr.MODIFIED],
+            [gr.GROUP_ID, gr.NAME, gr.MEMBERSHIP_HASH, gr.MODIFIED, gr.EXTANT],
             From=gr,
             Where=(gr.GROUP_UID == Parameter("groupUID"))
         )
@@ -1054,7 +1054,7 @@ class CommonStoreTransaction(object):
     def _groupByID(cls):
         gr = schema.GROUPS
         return Select(
-            [gr.GROUP_UID, gr.NAME, gr.MEMBERSHIP_HASH],
+            [gr.GROUP_UID, gr.NAME, gr.MEMBERSHIP_HASH, gr.EXTANT],
             From=gr,
             Where=(gr.GROUP_ID == Parameter("groupID"))
         )
@@ -1083,11 +1083,12 @@ class CommonStoreTransaction(object):
         )
 
 
-    def updateGroup(self, groupUID, name, membershipHash):
+    def updateGroup(self, groupUID, name, membershipHash, extant=True):
         """
         @type groupUID: C{unicode}
         @type name: C{unicode}
         @type membershipHash: C{str}
+        @type extant: C{boolean}
         """
         timestamp = datetime.datetime.utcnow()
         return self._updateGroupQuery.on(
@@ -1095,7 +1096,8 @@ class CommonStoreTransaction(object):
             name=name.encode("utf-8"),
             groupUID=groupUID.encode("utf-8"),
             timestamp=timestamp,
-            membershipHash=membershipHash
+            membershipHash=membershipHash,
+            extant=(1 if extant else 0)
         )
 
 
@@ -1107,7 +1109,8 @@ class CommonStoreTransaction(object):
         @type groupUID: C{unicode}
 
         @return: Deferred firing with tuple of group ID C{str}, group name
-            C{unicode}, membership hash C{str}, and modified timestamp
+            C{unicode}, membership hash C{str}, modified timestamp, and
+            extant C{boolean}
         """
         results = (
             yield self._groupByUID.on(
@@ -1120,6 +1123,7 @@ class CommonStoreTransaction(object):
                 results[0][1].decode("utf-8"),  # name
                 results[0][2],  # membership hash
                 results[0][3],  # modified timestamp
+                bool(results[0][4]),  # extant
             ))
         elif create:
             savepoint = SavepointAction("groupByUID")
@@ -1139,6 +1143,7 @@ class CommonStoreTransaction(object):
                         results[0][1].decode("utf-8"),  # name
                         results[0][2],  # membership hash
                         results[0][3],  # modified timestamp
+                        bool(results[0][4]),  # extant
                     ))
                 else:
                     raise
@@ -1155,11 +1160,12 @@ class CommonStoreTransaction(object):
                         results[0][1].decode("utf-8"),  # name
                         results[0][2],  # membership hash
                         results[0][3],  # modified timestamp
+                        bool(results[0][4]),  # extant
                     ))
                 else:
                     raise
         else:
-            returnValue((None, None, None, None))
+            returnValue((None, None, None, None, None))
 
 
     @inlineCallbacks
@@ -1169,7 +1175,7 @@ class CommonStoreTransaction(object):
 
         @type groupID: C{str}
         @return: Deferred firing with a tuple of group UID C{unicode},
-            group name C{unicode}, and membership hash C{str}
+            group name C{unicode}, membership hash C{str}, and extant C{boolean}
         """
         try:
             results = (yield self._groupByID.on(self, groupID=groupID))[0]
@@ -1177,7 +1183,8 @@ class CommonStoreTransaction(object):
                 results = (
                     results[0].decode("utf-8"),
                     results[1].decode("utf-8"),
-                    results[2]
+                    results[2],
+                    bool(results[3])
                 )
             returnValue(results)
         except IndexError:

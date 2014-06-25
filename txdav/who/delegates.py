@@ -236,7 +236,10 @@ def addDelegate(txn, delegator, delegate, readWrite):
     """
     if delegate.recordType == BaseRecordType.group:
         # find the groupID
-        groupID, _ignore_name, _ignore_membershipHash, _ignore_modified = yield txn.groupByUID(
+        (
+            groupID, _ignore_name, _ignore_membershipHash, _ignore_modified,
+            _ignore_extant
+        ) = yield txn.groupByUID(
             delegate.uid
         )
         yield txn.addDelegateGroup(delegator.uid, groupID, readWrite)
@@ -260,7 +263,10 @@ def removeDelegate(txn, delegator, delegate, readWrite):
     """
     if delegate.recordType == BaseRecordType.group:
         # find the groupID
-        groupID, _ignore_name, _ignore_membershipHash, _ignore_modified = yield txn.groupByUID(
+        (
+            groupID, _ignore_name, _ignore_membershipHash, _ignore_modified,
+            _ignore_extant
+        ) = yield txn.groupByUID(
             delegate.uid
         )
         yield txn.removeDelegateGroup(delegator.uid, groupID, readWrite)

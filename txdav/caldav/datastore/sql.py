@@ -1996,7 +1996,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 groupUID = groupRecord.uid
             else:
                 groupUID = uidFromCalendarUserAddress(groupCUA)
-            groupID, _ignore_name, membershipHash, _ignore_modDate = yield self._txn.groupByUID(groupUID)
+            (
+                groupID, _ignore_name, membershipHash, _ignore_modDate,
+                _ignore_extant
+            ) = yield self._txn.groupByUID(groupUID)
 
             if groupID in groupIDToMembershipHashMap:
                 if groupIDToMembershipHashMap[groupID] != membershipHash:

@@ -172,8 +172,8 @@ def buildDirectory(
             )
 
         elif "inmemory" in directoryType:
-            from txdav.who.test.support import InMemoryDirectoryService
-            directory = InMemoryDirectoryService()
+            from txdav.who.test.support import CalendarInMemoryDirectoryService
+            directory = CalendarInMemoryDirectoryService()
 
         else:
             log.error("Invalid DirectoryType: {dt}", dt=directoryType)
