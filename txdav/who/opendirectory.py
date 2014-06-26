@@ -28,6 +28,7 @@ __all__ = [
 
 from twext.who.opendirectory import DirectoryService
 
+DirectoryService    # Something has to use the import
 
 # Hoorj OMG haxx
 from twext.who.opendirectory._constants import ODRecordType as _ODRecordType

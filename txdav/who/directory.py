@@ -175,8 +175,6 @@ class CalendarDirectoryServiceMixin(object):
         else:
             expression = CompoundExpression(outer, Operand.AND)
 
-        results = []
-
         if context is not None:
             recordTypes = self.recordTypesForSearchContext(context)
         else:

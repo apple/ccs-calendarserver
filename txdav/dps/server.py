@@ -100,7 +100,7 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         @return: an iterable of records, or None if the token does not exist
         """
         if token in self._continuations:
-            timestamp, records = self._continuations[token]
+            _ignore_timestamp, records = self._continuations[token]
             del self._continuations[token]
         else:
             records = None
