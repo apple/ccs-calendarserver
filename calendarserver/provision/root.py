@@ -19,6 +19,12 @@ __all__ = [
     "RootResource",
 ]
 
+try:
+    from calendarserver.platform.darwin.sacl import checkSACL
+except ImportError:
+    # OS X Server SACLs not supported on this system, make SACL check a no-op
+    checkSACL = lambda *ignored: True
+
 from twext.python.log import Logger
 from twisted.cred.error import LoginFailed, UnauthorizedLogin
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
@@ -75,10 +81,7 @@ class RootResource(
         super(RootResource, self).__init__(path, *args, **kwargs)
 
         if config.EnableSACLs:
-            if RootResource.CheckSACL:
-                self.useSacls = True
-            else:
-                log.warn("SACLs are enabled, but SACLs are not supported.")
+            self.useSacls = True
 
         self.contentFilters = []
 
@@ -122,7 +125,7 @@ class RootResource(
 
 
     @inlineCallbacks
-    def checkSacl(self, request):
+    def checkSACL(self, request):
         """
         Check SACLs against the current request
         """
@@ -147,7 +150,7 @@ class RootResource(
         # with an empty string.
         if authzUser is None:
             for saclService in saclServices:
-                if RootResource.CheckSACL("", saclService) == 0:
+                if checkSACL("", saclService):
                     # No group actually exists for this SACL, so allow
                     # unauthenticated access
                     returnValue(True)
@@ -169,7 +172,7 @@ class RootResource(
 
         access = False
         for saclService in saclServices:
-            if RootResource.CheckSACL(username, saclService) == 0:
+            if checkSACL(username, saclService):
                 # Access is allowed
                 access = True
                 break
@@ -346,7 +349,7 @@ class RootResource(
             self.useSacls and
             not hasattr(request, "checkedSACL")
         ):
-            yield self.checkSacl(request)
+            yield self.checkSACL(request)
 
         if config.RejectClients:
             #
@@ -432,11 +435,3 @@ class RootResource(
 
     def http_DELETE(self, request):
         return responsecode.FORBIDDEN
-
-# So CheckSACL will be parameterized
-# We do this after RootResource is defined
-try:
-    from calendarserver.platform.darwin._sacl import CheckSACL
-    RootResource.CheckSACL = CheckSACL
-except ImportError:
-    RootResource.CheckSACL = None

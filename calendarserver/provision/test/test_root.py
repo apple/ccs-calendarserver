@@ -26,22 +26,27 @@ from txweb2.iweb import IResponse
 from twistedcaldav.test.util import StoreTestCase, SimpleStoreRequest
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 
-from calendarserver.provision.root import RootResource
+import calendarserver.provision.root  # for patching checkSACL
 
 
-class FakeCheckSACL(object):
-    def __init__(self, sacls=None):
-        self.sacls = sacls or {}
+TEST_SACLS = {
+    "calendar": [
+        "dreid"
+    ],
+    "addressbook": [
+        "dreid"
+    ],
+}
 
 
-    def __call__(self, username, service):
-        if service not in self.sacls:
-            return 1
+def stubCheckSACL(username, service):
+    if service not in TEST_SACLS:
+        return True
 
-        if username in self.sacls[service]:
-            return 0
+    if username in TEST_SACLS[service]:
+        return True
 
-        return 1
+    return False
 
 
 
@@ -51,7 +56,7 @@ class RootTests(StoreTestCase):
     def setUp(self):
         yield super(RootTests, self).setUp()
 
-        RootResource.CheckSACL = FakeCheckSACL(sacls={"calendar": ["dreid"]})
+        self.patch(calendarserver.provision.root, "checkSACL", stubCheckSACL)
 
 
 
@@ -337,7 +342,7 @@ class SACLCacheTests(RootTests):
             "PROPFIND",
             "/principals/users/dreid/",
             headers=http_headers.Headers({
-                    'Depth': '1',
+                'Depth': '1',
             }),
             authPrincipal=principal,
             content=body
@@ -353,7 +358,7 @@ class SACLCacheTests(RootTests):
             "PROPFIND",
             "/principals/users/dreid/",
             headers=http_headers.Headers({
-                    'Depth': '1',
+                'Depth': '1',
             }),
             authPrincipal=principal,
             content=body
