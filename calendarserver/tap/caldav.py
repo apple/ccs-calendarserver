@@ -881,6 +881,8 @@ class CalDAVServiceMaker (object):
         if pool is not None:
             pool.setServiceParent(result)
 
+        self._initJobQueue(None)
+
         if config.ControlSocket:
             id = config.ControlSocket
             self.log.info("Control via AF_UNIX: {id}", id=id)
@@ -1281,23 +1283,7 @@ class CalDAVServiceMaker (object):
             pool = PeerConnectionPool(
                 reactor, store.newTransaction, config.WorkQueue.ampPort
             )
-
-            # Initialize queue parameters from config settings
-            for attr in (
-                "queuePollInterval",
-                "queueOverdueTimeout",
-                "overloadLevel",
-                "highPriorityLevel",
-                "mediumPriorityLevel",
-            ):
-                setattr(pool, attr, getattr(config.WorkQueue, attr))
-
-            for attr in (
-                "failureRescheduleInterval",
-                "lockRescheduleInterval",
-            ):
-                setattr(JobItem, attr, getattr(config.WorkQueue, attr))
-
+            self._initJobQueue(pool)
             store.queuer = store.queuer.transferProposalCallbacks(pool)
             pool.setServiceParent(result)
 
@@ -1886,6 +1872,7 @@ class CalDAVServiceMaker (object):
             pool = PeerConnectionPool(
                 reactor, store.newTransaction, config.WorkQueue.ampPort
             )
+            self._initJobQueue(pool)
             store.queuer = store.queuer.transferProposalCallbacks(pool)
             controlSocket.addFactory(
                 _QUEUE_ROUTE, pool.workerListenerFactory()
@@ -2006,6 +1993,33 @@ class CalDAVServiceMaker (object):
                             socket=checkSocket
                         )
                         remove(checkSocket)
+
+
+    def _initJobQueue(self, pool):
+        """
+        Common job queue initialization
+
+        @param pool: the connection pool to init or L{None}
+        @type pool: L{PeerConnectionPool} or C{None}
+        """
+
+        # Initialize queue polling parameters from config settings
+        if pool is not None:
+            for attr in (
+                "queuePollInterval",
+                "queueOverdueTimeout",
+                "overloadLevel",
+                "highPriorityLevel",
+                "mediumPriorityLevel",
+            ):
+                setattr(pool, attr, getattr(config.WorkQueue, attr))
+
+        # Initialize job parameters from config settings
+        for attr in (
+            "failureRescheduleInterval",
+            "lockRescheduleInterval",
+        ):
+            setattr(JobItem, attr, getattr(config.WorkQueue, attr))
 
 
 

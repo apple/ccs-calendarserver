@@ -1923,7 +1923,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             yield self.validAttendeeListSizeCheck(component, inserting)
 
         # Check location/resource organizer requirement
-        self.validLocationResourceOrganizer(component, inserting, internal_state)
+        yield self.validLocationResourceOrganizer(component, inserting, internal_state)
 
         # Check access
         if config.EnablePrivateEvents:
