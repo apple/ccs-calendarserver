@@ -309,7 +309,8 @@ class iTipProcessing(object):
 
         # If we have any EXDATEs lets add them to the existing calendar object.
         if exdates and calendar_master:
-            calendar_master.addProperty(Property("EXDATE", exdates))
+            for exdate in exdates:
+                calendar_master.addExdate(exdate)
 
         # See if there are still components in the calendar - we might have deleted the last overridden instance
         # in which case the calendar object is empty (except for VTIMEZONEs) or has only hidden components.

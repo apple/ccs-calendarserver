@@ -1708,6 +1708,21 @@ class Component (object):
         return rid in new_rids
 
 
+    def addExdate(self, exdate):
+        """
+        Add an EXDATE to a master recurring component and ensure the value type, TZID
+        etc match the DTSTART of the master. This method assumes that L{self} is the
+        master component - no checking of that will be done.
+
+        @param exdate: the exdate to add
+        @type exdate: L{DateTime}
+        """
+        dtstart = self.getProperty("DTSTART")
+        if dtstart is not None and not dtstart.value().isDateOnly() and dtstart.value().local():
+            exdate.adjustTimezone(dtstart.value().getTimezone())
+        self.addProperty(Property("EXDATE", [exdate, ]))
+
+
     def resourceUID(self):
         """
         @return: the UID of the subcomponents in this component.
