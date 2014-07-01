@@ -772,7 +772,7 @@ class EventsInTimerange(Cmd):
             event = yield calendar.calendarObjectWithName(name)
             ical_data = yield event.component()
             ical_data = PerUserDataFilter(uid).filter(ical_data)
-            ical_data.stripKnownTimezones()
+            ical_data.stripStandardTimezones()
 
             table = tables.Table()
             table.addRow(("Calendar:", calendar.name(),))
@@ -782,7 +782,7 @@ class EventsInTimerange(Cmd):
             table.addRow(("Modified", event.modified()))
             print("\n")
             table.printTable()
-            print(ical_data.getTextWithTimezones(includeTimezones=False))
+            print(ical_data.getTextWithoutTimezones())
 
 
 

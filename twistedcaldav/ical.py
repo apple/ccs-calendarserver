@@ -45,7 +45,7 @@ from twistedcaldav.config import config
 from twistedcaldav.dateops import timeRangesOverlap, normalizeForIndex, differenceDateTime, \
     normalizeForExpand
 from twistedcaldav.instance import InstanceList, InvalidOverriddenInstanceError
-from twistedcaldav.timezones import hasTZ, TimezoneException
+from twistedcaldav.timezones import hasTZ
 
 from txdav.caldav.datastore.scheduling.utils import normalizeCUAddr
 
@@ -602,10 +602,28 @@ class Component (object):
 
 
     def getText(self, format=None):
-        return self.getTextWithTimezones(False, format)
+        """
+        Return text representation and include non-standard timezones.
+        """
+        return self._getTextWithTimezones(includeTimezones=Calendar.NONSTD_TIMEZONES, format=format)
 
 
     def getTextWithTimezones(self, includeTimezones, format=None):
+        """
+        Return text representation and include timezones if the option is on.
+        """
+        includeTimezones = Calendar.ALL_TIMEZONES if includeTimezones else Calendar.NONSTD_TIMEZONES
+        return self._getTextWithTimezones(includeTimezones=includeTimezones, format=format)
+
+
+    def getTextWithoutTimezones(self, format=None):
+        """
+        Return text representation without including timezones.
+        """
+        return self._getTextWithTimezones(includeTimezones=Calendar.NO_TIMEZONES, format=format)
+
+
+    def _getTextWithTimezones(self, includeTimezones, format=None):
         """
         Return text representation and include timezones if the option is on.
         """
@@ -1781,26 +1799,11 @@ class Component (object):
         return self._resource_type
 
 
-    def stripKnownTimezones(self):
+    def stripStandardTimezones(self):
         """
         Remove timezones that this server knows about
         """
-
-        changed = False
-        for subcomponent in tuple(self.subcomponents()):
-            if subcomponent.name() == "VTIMEZONE":
-                tzid = subcomponent.propertyValue("TZID")
-                try:
-                    hasTZ(tzid)
-                except TimezoneException:
-                    # tzid not available - do not strip
-                    pass
-                else:
-                    # tzid known - strip component out
-                    self.removeComponent(subcomponent)
-                    changed = True
-
-        return changed
+        return self._pycalendar.stripStandardTimezones()
 
 
     def validCalendarData(self, doFix=True, doRaise=True, validateRecurrences=False):

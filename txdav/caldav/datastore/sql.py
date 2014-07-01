@@ -1894,7 +1894,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # Possible timezone stripping
         if config.EnableTimezonesByReference:
-            component.stripKnownTimezones()
+            component.stripStandardTimezones()
 
         # Do validation on external requests
         if internal_state == ComponentUpdateState.NORMAL:
