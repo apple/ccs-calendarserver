@@ -7,7 +7,7 @@
 -e .
 -e svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk@13696#egg=twextpy
 -e svn+http://svn.calendarserver.org/repository/calendarserver/PyKerberos/trunk@13420#egg=kerberos
--e svn+http://svn.calendarserver.org/repository/calendarserver/PyCalendar/trunk@13707#egg=pycalendar
+-e svn+http://svn.calendarserver.org/repository/calendarserver/PyCalendar/trunk@13711#egg=pycalendar
 
 # Specify specific versions of our dependencies so that we're all testing the same config.
 
