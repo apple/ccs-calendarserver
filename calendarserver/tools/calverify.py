@@ -255,7 +255,6 @@ Options for all modes:
 
 Options for --ical:
 
---badcua   : only look for bad calendar user addresses.
 --uuid     : only scan specified calendar homes. Can be a partial GUID
              to scan all GUIDs with that as a prefix.
 --uid      : scan only calendar data with the specific iCalendar UID.
@@ -2719,7 +2718,7 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
             return NukeService(store, options, output, reactor, config)
         elif options["missing"]:
             return OrphansService(store, options, output, reactor, config)
-        elif options["ical"] or options["badcua"]:
+        elif options["ical"]:
             return BadDataService(store, options, output, reactor, config)
         elif options["mismatch"]:
             return SchedulingMismatchService(store, options, output, reactor, config)
