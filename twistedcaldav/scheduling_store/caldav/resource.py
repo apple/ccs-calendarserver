@@ -471,17 +471,13 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
 
     @inlineCallbacks
     def loadOriginatorFromRequestDetails(self, request):
-        # Get the originator who is the authenticated user
-        originatorPrincipal = None
+        # The originator is the owner of the Outbox. We will have checked prior to this
+        # that the authenticated user has privileges to schedule as the owner.
         originator = ""
-        authz_principal = self.currentPrincipal(request).children[0]
-        if isinstance(authz_principal, davxml.HRef):
-            originatorPrincipalURL = str(authz_principal)
-            if originatorPrincipalURL:
-                originatorPrincipal = (yield request.locateResource(originatorPrincipalURL))
-                if originatorPrincipal:
-                    # Pick the canonical CUA:
-                    originator = originatorPrincipal.canonicalCalendarUserAddress()
+        originatorPrincipal = (yield self.ownerPrincipal(request))
+        if originatorPrincipal:
+            # Pick the canonical CUA:
+            originator = originatorPrincipal.canonicalCalendarUserAddress()
 
         if not originator:
             self.log.error("%s request must have Originator" % (self.method,))
