@@ -3482,6 +3482,11 @@ class CommonHome(SharingHomeMixIn):
         We do the same SQL query for both depth "1" and "infinity", but filter the results for
         "1" to only account for a collection change.
 
+        Now that we are truncating the revision table, we need to handle the full sync (revision == 0)
+        case a little differently as the revision table will not contain data for resources that exist,
+        but were last modified before the revision cut-off. Instead for revision == 0 we need to list
+        all existing child resources.  
+  
         We need to handle shared collection a little differently from owned ones. When a shared collection
         is bound into a home we record a revision for it using the sharee home id and sharee collection name.
         That revision is the "starting point" for changes: so if sync occurs with a revision earlier than
@@ -3501,61 +3506,96 @@ class CommonHome(SharingHomeMixIn):
         @type depth: C{str}
         """
 
-        changed = set()
-        deleted = set()
-        invalid = set()
         if revision:
             minValidRevision = yield self._txn.calendarserverValue("MIN-VALID-REVISION")
             if revision < int(minValidRevision):
                 raise SyncTokenValidException
+        else:
+            results = yield self.resourceNamesSinceRevisionZero(depth)
+            returnValue(results)
 
-            results = [
-                (
-                    path if path else (collection if collection else ""),
-                    name if name else "",
-                    wasdeleted
-                )
-                for path, collection, name, wasdeleted in
-                (yield self.doChangesQuery(revision))
-            ]
+        # Use revision table to find changes since the last revision - this will not include
+        # changes to child resources of shared collections - those we will get later
+        results = [
+            (
+                path if path else (collection if collection else ""),
+                name if name else "",
+                wasdeleted
+            )
+            for path, collection, name, wasdeleted in
+            (yield self.doChangesQuery(revision))
+        ]
 
-            deleted_collections = set()
-            for path, name, wasdeleted in results:
-                if wasdeleted:
-                    if name:
-                        # Resource deleted - for depth "1" report collection as changed,
-                        # otherwise report resource as deleted
-                        if depth == "1":
-                            changed.add("%s/" % (path,))
-                        else:
-                            deleted.add("%s/%s" % (path, name,))
+        changed = set()
+        deleted = set()
+        invalid = set()
+        deleted_collections = set()
+        for path, name, wasdeleted in results:
+            if wasdeleted:
+                if name:
+                    # Resource deleted - for depth "1" report collection as changed,
+                    # otherwise report resource as deleted
+                    if depth == "1":
+                        changed.add("%s/" % (path,))
                     else:
-                        # Collection was deleted
-                        deleted.add("%s/" % (path,))
-                        deleted_collections.add(path)
+                        deleted.add("%s/%s" % (path, name,))
+                else:
+                    # Collection was deleted
+                    deleted.add("%s/" % (path,))
+                    deleted_collections.add(path)
 
-                if path not in deleted_collections:
-                    # Always report collection as changed
-                    changed.add("%s/" % (path,))
-                    if name:
-                        # Resource changed - for depth "infinity" report resource as changed
-                        if depth != "1":
-                            changed.add("%s/%s" % (path, name,))
+            if path not in deleted_collections:
+                # Always report collection as changed
+                changed.add("%s/" % (path,))
 
-        # Now deal with shared collections (and owned if revision == 0)
+                # Resource changed - for depth "infinity" report resource as changed
+                if name and depth != "1":
+                    changed.add("%s/%s" % (path, name,))
+
+        # Now deal with existing shared collections
+        # TODO: think about whether this can be done in one query rather than looping over each share
         for share in (yield self.children()):
-            if share.owned():
-                if not revision:
-                    path = share.name()
-                    # Always report collection as changed
-                    changed.add("%s/" % (path,))
-
-                    # Resource changed - for depth "infinity" report resource as changed
-                    if depth != "1":
-                        for name in (yield share.listObjectResources()):
-                            changed.add("%s/%s" % (path, name,))
-            else:
+            if not share.owned():
                 sharedChanged, sharedDeleted, sharedInvalid = yield share.sharedChildResourceNamesSinceRevision(revision, depth)
+                changed |= sharedChanged
+                changed -= sharedInvalid
+                deleted |= sharedDeleted
+                deleted -= sharedInvalid
+                invalid |= sharedInvalid
+
+        changed = sorted(changed)
+        deleted = sorted(deleted)
+        invalid = sorted(invalid)
+        returnValue((changed, deleted, invalid,))
+
+
+
+
+    @inlineCallbacks
+    def resourceNamesSinceRevisionZero(self, depth):
+        """
+        Revision == 0 specialization of L{resourceNamesSinceRevision} .
+
+        @param depth: depth for determine what changed
+        @type depth: C{str}
+        """
+
+        # Scan each child
+        changed = set()
+        deleted = set()
+        invalid = set()
+        for child in (yield self.children()):
+            if child.owned():
+                path = child.name()
+                # Always report collection as changed
+                changed.add("%s/" % (path,))
+
+                # Resource changed - for depth "infinity" report resource as changed
+                if depth != "1":
+                    for name in (yield child.listObjectResources()):
+                        changed.add("%s/%s" % (path, name,))
+            else:
+                sharedChanged, sharedDeleted, sharedInvalid = yield child.sharedChildResourceNamesSinceRevisionZero(depth)
                 changed |= sharedChanged
                 changed -= sharedInvalid
                 deleted |= sharedDeleted
@@ -6203,52 +6243,78 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             else:
                 invalid.add(self.name() + "/")
         else:
+            # If revision is prior to when the share was created, then treat as a full sync of the share
             if revision != 0 and revision < self._bindRevision:
                 if depth != "1":
+                    # This should never happen unless the client the share existed, was removed and then
+                    # re-added and the client has a token from before the remove. In that case the token is no
+                    # longer valid - a full sync has to be done.
                     raise SyncTokenValidException
                 else:
-                    revision = 0
+                    results = yield self.sharedChildResourceNamesSinceRevisionZero(depth)
+                    returnValue(results)
 
-            if revision:
-                rev = self._revisionsSchema
-                results = [
-                    (
-                        self.name(),
-                        name if name else "",
-                        wasdeleted
-                    )
-                    for name, wasdeleted in
-                    (yield Select(
-                        [rev.RESOURCE_NAME, rev.DELETED],
-                        From=rev,
-                        Where=(rev.REVISION > revision).And(
-                        rev.RESOURCE_ID == self._resourceID)
-                    ).on(self._txn))
-                    if name
-                ]
+            rev = self._revisionsSchema
+            results = [
+                (
+                    self.name(),
+                    name if name else "",
+                    wasdeleted
+                )
+                for name, wasdeleted in
+                (yield Select(
+                    [rev.RESOURCE_NAME, rev.DELETED],
+                    From=rev,
+                    Where=(rev.REVISION > revision).And(
+                    rev.RESOURCE_ID == self._resourceID)
+                ).on(self._txn))
+                if name
+            ]
 
-                for path, name, wasdeleted in results:
-                    if wasdeleted:
-                        if depth == "1":
-                            changed.add("%s/" % (path,))
-                        else:
-                            deleted.add("%s/%s" % (path, name,))
+            for path, name, wasdeleted in results:
+                if wasdeleted:
+                    if depth == "1":
+                        changed.add("%s/" % (path,))
+                    else:
+                        deleted.add("%s/%s" % (path, name,))
 
-                    # Always report collection as changed
-                    changed.add("%s/" % (path,))
-
-                    # Resource changed - for depth "infinity" report resource as changed
-                    if depth != "1":
-                        changed.add("%s/%s" % (path, name,))
-            else:
-                path = self.name()
                 # Always report collection as changed
                 changed.add("%s/" % (path,))
 
                 # Resource changed - for depth "infinity" report resource as changed
-                if depth != "1":
-                    for name in (yield self.listObjectResources()):
-                        changed.add("%s/%s" % (path, name,))
+                if name and depth != "1":
+                    changed.add("%s/%s" % (path, name,))
+
+        returnValue((changed, deleted, invalid,))
+
+
+    @inlineCallbacks
+    def sharedChildResourceNamesSinceRevisionZero(self, depth):
+        """
+        Revision == 0 specialization of L{sharedChildResourceNamesSinceRevision}. We report on all
+        existing resources -= this collection and children (if depth == infinite).
+
+        @param depth: depth for determine what changed
+        @type depth: C{str}
+        """
+        changed = set()
+        deleted = set()
+        invalid = set()
+        path = self.name()
+        if self.external():
+            if depth == "1":
+                changed.add("{}/".format(path))
+            else:
+                invalid.add("{}/".format(path))
+        else:
+            path = self.name()
+            # Always report collection as changed
+            changed.add(path + "/")
+
+            # Resource changed - for depth "infinity" report resource as changed
+            if depth != "1":
+                for name in (yield self.listObjectResources()):
+                    changed.add("%s/%s" % (path, name,))
 
         returnValue((changed, deleted, invalid,))
 

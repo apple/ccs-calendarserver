@@ -1366,13 +1366,13 @@ class Calendar(CommonHomeChild):
         # Initialize these for all shares
         for ename in self._shadowProperties:
             if ename not in self.properties() and ename.toString() in props:
-                self.properties()[ename] = WebDAVDocument.fromString(props[ename]).root_element
+                self.properties()[ename] = WebDAVDocument.fromString(props[ename.toString()]).root_element
 
         # Only initialize these for direct shares
         if self.direct():
             for ename in (PropertyName.fromElement(element.DisplayName),):
                 if ename not in self.properties() and ename.toString() in props:
-                    self.properties()[ename] = WebDAVDocument.fromString(props[ename]).root_element
+                    self.properties()[ename] = WebDAVDocument.fromString(props[ename.toString()]).root_element
 
 
     # FIXME: this is DAV-ish.  Data store calendar objects don't have
