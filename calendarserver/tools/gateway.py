@@ -380,7 +380,7 @@ class Runner(object):
             self.respondWithError("Principal not found: %s" % (uid,))
             return
         recordDict = recordToDict(record)
-        # recordDict['AutoSchedule'] = principal.getAutoSchedule()
+        # recordDict['AutoSchedule'] = yield principal.getAutoSchedule()
         try:
             recordDict['AutoAcceptGroup'] = record.autoAcceptGroup
         except AttributeError:
@@ -398,7 +398,7 @@ class Runner(object):
     # Resources
 
     def command_getResourceList(self, command):
-        self.respondWithRecordsOfTypes(self.dir, command, ["resources"])
+        return self.respondWithRecordsOfTypes(self.dir, command, ["resources"])
 
 
     # deferred
@@ -416,7 +416,7 @@ class Runner(object):
     def _delete(self, typeName, command):
         uid = command['GeneratedUID']
         yield self.dir.removeRecords([uid])
-        self.respondWithRecordsOfTypes(self.dir, command, [typeName])
+        yield self.respondWithRecordsOfTypes(self.dir, command, [typeName])
 
 
     @inlineCallbacks

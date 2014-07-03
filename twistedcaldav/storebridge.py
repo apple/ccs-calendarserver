@@ -3804,7 +3804,7 @@ class _NotificationChildHelper(object):
         @return: a sequence of the names of all known children of this resource.
         """
         children = set(self.putChildren.keys())
-        children.update(self._newStoreNotifications.listNotificationObjects())
+        children.update((yield self._newStoreNotifications.listNotificationObjects()))
         returnValue(children)
 
 

@@ -224,7 +224,7 @@ class AddressBookHome(CommonHome):
         Unbinds any collections that have been shared to this home but not yet
         accepted.  Associated invite entries are also removed.
         """
-        super(AddressBookHome, self).removeUnacceptedShares()
+        yield super(AddressBookHome, self).removeUnacceptedShares()
 
         # Remove group binds too
         bind = AddressBookObject._bindSchema
@@ -805,7 +805,7 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
                 self.ownerHome()._addressbookPropertyStoreID,  # not ._resourceID as in CommonHomeChild._loadPropertyStore()
                 notifyCallback=self.notifyPropertyChanged
             )
-        super(AddressBook, self)._loadPropertyStore(props)
+        yield super(AddressBook, self)._loadPropertyStore(props)
 
 
     def initPropertyStore(self, props):
@@ -868,7 +868,7 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
     @inlineCallbacks
     def removedObjectResource(self, child):
         """
-            just like CommonHomeChild.removedObjectResource() but does not call self._deleteRevision()
+        Just like CommonHomeChild.removedObjectResource() but does not call self._deleteRevision()
         """
         self._objects.pop(child.name(), None)
         self._objects.pop(child.uid(), None)

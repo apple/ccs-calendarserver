@@ -1477,7 +1477,7 @@ class BaseAppleClient(BaseClient):
         )
 
         # Finally, re-retrieve the event to update the etag
-        self._updateEvent(response, href)
+        yield self._updateEvent(response, href)
 
 
     @inlineCallbacks

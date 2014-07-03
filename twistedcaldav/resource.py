@@ -1884,7 +1884,7 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
                 ))
 
             # elif name == "auto-schedule" and self.calendarsEnabled():
-            #     autoSchedule = self.getAutoSchedule()
+            #     autoSchedule = yield self.getAutoSchedule()
             #     returnValue(customxml.AutoSchedule("true" if autoSchedule else "false"))
 
             elif name == "auto-schedule-mode" and self.calendarsEnabled():

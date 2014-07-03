@@ -163,6 +163,7 @@ class CommandsBase(object):
                 returnValue(())
 
 
+    @inlineCallbacks
     def directoryRecordWithID(self, id):
         """
         Obtains a directory record corresponding to the given C{id}.
@@ -173,7 +174,7 @@ class CommandsBase(object):
         """
         directory = self.protocol.service.directory
 
-        record = directory.recordWithUID(id)
+        record = yield directory.recordWithUID(id)
 
         if not record:
             # Try type:name form
@@ -182,9 +183,9 @@ class CommandsBase(object):
             except ValueError:
                 pass
             else:
-                record = directory.recordWithShortName(recordType, shortName)
+                record = yield directory.recordWithShortName(recordType, shortName)
 
-        return record
+        returnValue(record)
 
 
     def commands(self, showHidden=False):
@@ -628,7 +629,7 @@ class Commands(CommandsBase):
 
         directory = self.protocol.service.directory
 
-        record = self.directoryRecordWithID(id)
+        record = yield self.directoryRecordWithID(id)
 
         if record:
             self.terminal.write((yield recordInfo(directory, record)))
@@ -657,7 +658,7 @@ class Commands(CommandsBase):
 
         records = []
         for id in tokens:
-            record = self.directoryRecordWithID(id)
+            record = yield self.directoryRecordWithID(id)
             records.append(record)
 
             if not record:
@@ -701,6 +702,7 @@ class Commands(CommandsBase):
     # Sharing
     #
 
+    @inlineCallbacks
     def cmd_share(self, tokens):
         """
         Share a resource with a principal.
@@ -715,12 +717,12 @@ class Commands(CommandsBase):
         mode = tokens.pop(0)
         principalID = tokens.pop(0)
 
-        record = self.directoryRecordWithID(principalID)
+        record = yield self.directoryRecordWithID(principalID)
 
         if not record:
             self.terminal.write("Principal not found: %s\n" % (principalID,))
 
-        targets = self.getTargets(tokens)
+        targets = yield self.getTargets(tokens)
 
         if mode == "r":
             mode = None

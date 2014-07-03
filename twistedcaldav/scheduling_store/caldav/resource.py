@@ -541,7 +541,8 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
                 )
             )
         else:
-            returnValue(super(ScheduleOutboxResource, self).defaultAccessControlList())
+            result = yield super(ScheduleOutboxResource, self).defaultAccessControlList()
+            returnValue(result)
 
 
     def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_query):

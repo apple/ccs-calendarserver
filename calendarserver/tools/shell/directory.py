@@ -155,7 +155,7 @@ def recordProxyAccessInfo(directory, record):
             # I don't know how to get DirectoryRecord objects for the proxyUID here, so, let's cheat for now.
             proxyUID, proxyType = proxyUID.split("#")
             if (proxyUID, proxyType) not in proxyInfoSeen:
-                proxyRecord = directory.recordWithUID(proxyUID)
+                proxyRecord = yield directory.recordWithUID(proxyUID)
                 rows.append((proxyUID, proxyRecord.recordType, proxyRecord.shortNames[0], proxyRecord.fullName, proxyType))
                 proxyInfoSeen.add((proxyUID, proxyType))
 

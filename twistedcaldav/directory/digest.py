@@ -167,8 +167,7 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
             header.
         """
 
-        challenge = yield (super(QopDigestCredentialFactory, self)
-                           .getChallenge(peer))
+        challenge = yield (super(QopDigestCredentialFactory, self).getChallenge(peer))
         c = challenge['nonce']
 
         # Make sure it is not a duplicate

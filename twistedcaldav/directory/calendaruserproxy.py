@@ -858,7 +858,7 @@ class ProxyDB(AbstractADBAPIDatabase):
             yield self.open()
 
         for group in [row[0] for row in (yield self.query("select GROUPNAME from GROUPS"))]:
-            self.removeGroup(group)
+            yield self.removeGroup(group)
 
         yield super(ProxyDB, self).clean()
 
