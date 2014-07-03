@@ -97,7 +97,9 @@ class ProvisionedPrincipals(StoreTestCase):
                         self.directory.recordType.location,
                         self.directory.recordType.resource,
                         self.directory.recordType.address,
-                        self.directory.recordType.macOSXServerWiki,
+                        # FIXME: add a test where wikis are enabled, then this
+                        # resource should appear:
+                        # self.directory.recordType.macOSXServerWiki,
                     )
                 ]
             )
