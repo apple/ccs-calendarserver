@@ -168,6 +168,24 @@ def buildDirectory(
                         ),
                     ),
 
+                    CalRecordType.location: RecordTypeSchema(
+                        relativeDN=u"ou=places",
+
+                        attributes=(),
+                    ),
+
+                    CalRecordType.resource: RecordTypeSchema(
+                        relativeDN=u"ou=resources",
+
+                        attributes=(),
+                    ),
+
+                    CalRecordType.address: RecordTypeSchema(
+                        relativeDN=u"ou=buildings",
+
+                        attributes=(),
+                    ),
+
                 })
             )
 
