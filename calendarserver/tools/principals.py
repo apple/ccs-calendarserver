@@ -409,12 +409,15 @@ def runSearch(service, store, searchTerm):
                 )
             )
             print("   UID: {u}".format(u=record.uid,))
-            print(
-                "   Record name{plural}: {names}".format(
-                    plural=("s" if len(record.shortNames) > 1 else ""),
-                    names=(", ".join(record.shortNames))
+            try:
+                print(
+                    "   Record name{plural}: {names}".format(
+                        plural=("s" if len(record.shortNames) > 1 else ""),
+                        names=(", ".join(record.shortNames))
+                    )
                 )
-            )
+            except AttributeError:
+                pass
             try:
                 if record.emailAddresses:
                     print(

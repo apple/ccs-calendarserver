@@ -560,11 +560,15 @@ def prettyPrincipal(principal):
 
 
 def prettyRecord(record):
+    try:
+        shortNames = record.shortNames
+    except AttributeError:
+        shortNames = []
     return "\"{d}\" {uid} ({rt}) {sn}".format(
         d=record.displayName,
         rt=record.recordType.name,
         uid=record.uid,
-        sn=(", ".join(record.shortNames))
+        sn=(", ".join(shortNames))
     )
 
 
