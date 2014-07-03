@@ -105,7 +105,7 @@ def UserNameFromUID(txn, uid):
 @inlineCallbacks
 def UIDFromInput(txn, value):
     try:
-        return str(UUID(value)).upper()
+        returnValue(str(UUID(value)).upper())
     except (ValueError, TypeError):
         pass
 
