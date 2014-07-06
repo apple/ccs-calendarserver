@@ -42,6 +42,7 @@ from txdav.dps.commands import (
     VerifyPlaintextPasswordCommand, VerifyHTTPDigestCommand,
     WikiAccessForUIDCommand, ContinuationCommand
 )
+from txdav.who.delegates import RecordType as DelegatesRecordType
 from txdav.who.directory import (
     CalendarDirectoryRecordMixin, CalendarDirectoryServiceMixin
 )
@@ -381,7 +382,13 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
 
 
     def members(self):
-        if self.recordType == RecordType.group:
+        if self.recordType in (
+            RecordType.group,
+            DelegatesRecordType.readDelegateGroup,
+            DelegatesRecordType.writeDelegateGroup,
+            DelegatesRecordType.readDelegatorGroup,
+            DelegatesRecordType.writeDelegatorGroup,
+        ):
             return self.service._call(
                 MembersCommand,
                 self.service._processMultipleRecords,
