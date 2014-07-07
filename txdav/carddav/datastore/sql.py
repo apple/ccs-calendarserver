@@ -1856,6 +1856,8 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
 
     _componentClass = VCard
 
+    _currentDataVersion = 0
+
     # used by CommonHomeChild._childrenAndMetadataForHomeID() only
     # _homeChildSchema = schema.ADDRESSBOOK_OBJECT
     # _homeChildMetaDataSchema = schema.ADDRESSBOOK_OBJECT
@@ -2232,7 +2234,8 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
             obj.MD5,
             Len(obj.TEXT),
             obj.CREATED,
-            obj.MODIFIED
+            obj.MODIFIED,
+            obj.DATAVERSION,
         ]
 
 
@@ -2248,6 +2251,7 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
             "_size",
             "_created",
             "_modified",
+            "_dataversion",
          )
 
 
@@ -2451,17 +2455,21 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
         """
         abo = schema.ADDRESSBOOK_OBJECT
         return Insert(
-            {abo.RESOURCE_ID: schema.RESOURCE_ID_SEQ,
-             abo.ADDRESSBOOK_HOME_RESOURCE_ID: Parameter("addressbookResourceID"),
-             abo.RESOURCE_NAME: Parameter("name"),
-             abo.VCARD_TEXT: Parameter("text"),
-             abo.VCARD_UID: Parameter("uid"),
-             abo.KIND: Parameter("kind"),
-             abo.MD5: Parameter("md5"),
-             },
-            Return=(abo.RESOURCE_ID,
-                    abo.CREATED,
-                    abo.MODIFIED))
+            {
+                abo.RESOURCE_ID: schema.RESOURCE_ID_SEQ,
+                abo.ADDRESSBOOK_HOME_RESOURCE_ID: Parameter("addressbookResourceID"),
+                abo.RESOURCE_NAME: Parameter("name"),
+                abo.VCARD_TEXT: Parameter("text"),
+                abo.VCARD_UID: Parameter("uid"),
+                abo.KIND: Parameter("kind"),
+                abo.MD5: Parameter("md5"),
+                abo.DATAVERSION: Parameter("dataVersion"),
+            },
+            Return=(
+                abo.RESOURCE_ID,
+                abo.CREATED,
+                abo.MODIFIED
+        ))
 
 
     @classproperty
@@ -2578,6 +2586,7 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
                     uid=self._uid,
                     md5=self._md5,
                     kind=self._kind,
+                    dataVersion=self._currentDataVersion,
                 )
             )[0]
 
@@ -2611,9 +2620,12 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
 
         else:
             self._modified = (yield Update(
-                {abo.VCARD_TEXT: self._objectText,
-                 abo.MD5: self._md5,
-                 abo.MODIFIED: utcNowSQL},
+                {
+                    abo.VCARD_TEXT: self._objectText,
+                    abo.MD5: self._md5,
+                    abo.DATAVERSION: self._dataversion,
+                    abo.MODIFIED: utcNowSQL,
+                },
                 Where=abo.RESOURCE_ID == self._resourceID,
                 Return=abo.MODIFIED).on(self._txn))[0][0]
 

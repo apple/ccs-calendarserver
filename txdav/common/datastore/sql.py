@@ -6516,6 +6516,11 @@ class CommonObjectResource(FancyEqMixin, object):
     _objectSchema = None
     _componentClass = None
 
+    # Sub-classes must override and set their version number. This is used for
+    # on-demand data upgrades - i.e., any time old data is read it will be
+    # converted to the latest format and written back.
+    _currentDataVersion = 0
+
     BATCH_LOAD_SIZE = 50
 
 
@@ -6603,6 +6608,7 @@ class CommonObjectResource(FancyEqMixin, object):
         self._size = None
         self._created = None
         self._modified = None
+        self._dataversion = None
         self._textData = None
         self._cachedComponent = None
 
@@ -6848,7 +6854,8 @@ class CommonObjectResource(FancyEqMixin, object):
             obj.MD5,
             Len(obj.TEXT),
             obj.CREATED,
-            obj.MODIFIED
+            obj.MODIFIED,
+            obj.DATAVERSION,
         ]
 
 
@@ -6862,6 +6869,7 @@ class CommonObjectResource(FancyEqMixin, object):
             "_size",
             "_created",
             "_modified",
+            "_dataversion",
         )
 
 

@@ -2114,6 +2114,98 @@ END:VCALENDAR
         self.assertTrue("BEGIN:VTIMEZONE" in txt)
 
 
+    @inlineCallbacks
+    def test_dataVersion(self):
+        """
+        Make sure L{CalendarObject}'s data version is set when object is created.
+        """
+        olddata = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-dataversion
+DTSTART:20130806T000000Z
+DURATION:PT1H
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+SUMMARY:1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        yield self.homeUnderTest(name="user01", create=True)
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+        yield calendar.createCalendarObjectWithName("data1.ics", Component.fromString(olddata))
+        yield self.commit()
+
+        obj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
+        self.assertEqual(obj._dataversion, obj._currentDataVersion)
+        yield self.commit()
+
+
+    @inlineCallbacks
+    def test_dataUpgrade(self):
+        """
+        Make sure L{CalendarObject.upgradeData} works correctly.
+        """
+        olddata = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20130806T000000Z
+DURATION:PT1H
+DTSTAMP:20051222T210507Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+SUMMARY:1
+END:VEVENT
+END:VCALENDAR
+"""
+
+        yield self.homeUnderTest(name="user01", create=True)
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+        yield calendar.createCalendarObjectWithName("data1.ics", Component.fromString(olddata))
+        yield self.commit()
+
+        # Make it look old
+        obj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
+        co = schema.CALENDAR_OBJECT
+        yield Update(
+            {
+                co.ICALENDAR_TEXT: olddata,
+                co.DATAVERSION: 0,
+            },
+            Where=co.RESOURCE_ID == obj._resourceID,
+        ).on(self.transactionUnderTest())
+        yield self.commit()
+
+        # Still looks old
+        obj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
+        txt = yield obj._text()
+        self.assertTrue("mailto:user01@example.com" in txt)
+        self.assertEqual(obj._dataversion, 0)
+        yield self.commit()
+
+        # Now it is new
+        obj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
+        cal = yield obj.componentForUser("user01")
+        txt = cal.getTextWithTimezones(False)
+        self.assertTrue("mailto:user01@example.com" not in txt)
+        self.assertTrue("urn:x-uid:user01" in txt)
+        self.assertEqual(obj._dataversion, obj._currentDataVersion)
+        yield self.commit()
+
+        # Still new
+        obj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
+        txt = yield obj._text()
+        self.assertTrue("mailto:user01@example.com" not in txt)
+        self.assertTrue("urn:x-uid:user01" in txt)
+        self.assertEqual(obj._dataversion, obj._currentDataVersion)
+        yield self.commit()
+
+
 
 class SchedulingTests(CommonCommonTests, unittest.TestCase):
     """

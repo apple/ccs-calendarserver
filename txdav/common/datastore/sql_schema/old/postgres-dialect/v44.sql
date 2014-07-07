@@ -254,7 +254,6 @@ create table CALENDAR_OBJECT (
   MD5                  char(32)     not null,
   CREATED              timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED             timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  DATAVERSION          integer      default 0 not null,
 
   unique (CALENDAR_RESOURCE_ID, RESOURCE_NAME) -- implicit index
 
@@ -475,7 +474,6 @@ create table ADDRESSBOOK_OBJECT (
   MD5                           char(32)        not null,
   CREATED                       timestamp       default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                      timestamp       default timezone('UTC', CURRENT_TIMESTAMP),
-  DATAVERSION                   integer         default 0 not null,
 
   unique (ADDRESSBOOK_HOME_RESOURCE_ID, RESOURCE_NAME), -- implicit index
   unique (ADDRESSBOOK_HOME_RESOURCE_ID, VCARD_UID)      -- implicit index
@@ -1091,7 +1089,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '45');
+insert into CALENDARSERVER values ('VERSION', '44');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');

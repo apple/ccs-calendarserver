@@ -31,6 +31,7 @@ from twext.enterprise.dal.parseschema import schemaFromPath, significant
 from sqlparse import parse
 from re import compile
 import hashlib
+import itertools
 
 def _schemaFiles(version=None):
     """
@@ -70,8 +71,7 @@ def _schemaExtras(out, extras):
     """
 
     if extras.exists():
-        out.write("\n-- Extras\n\n")
-        out.write(extras.getContent())
+        out.write("\n".join(itertools.dropwhile(lambda x: not x.startswith("-- Extra schema to add"), extras.getContent().splitlines())) + "\n")
 
 
 

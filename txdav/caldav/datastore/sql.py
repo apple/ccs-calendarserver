@@ -1789,6 +1789,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     _objectSchema = schema.CALENDAR_OBJECT
     _componentClass = VComponent
 
+    _currentDataVersion = 1
+
     def __init__(self, calendar, name, uid, resourceID=None, options=None):
 
         super(CalendarObject, self).__init__(calendar, name, uid, resourceID)
@@ -1850,7 +1852,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             obj.SCHEDULE_ETAGS,
             obj.PRIVATE_COMMENTS,
             obj.CREATED,
-            obj.MODIFIED
+            obj.MODIFIED,
+            obj.DATAVERSION,
         ]
 
 
@@ -1871,6 +1874,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             "_private_comments",
             "_created",
             "_modified",
+            "_dataversion",
          )
 
 
@@ -2980,7 +2984,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 co.SCHEDULE_TAG                    : self._schedule_tag,
                 co.SCHEDULE_ETAGS                  : self._schedule_etags,
                 co.PRIVATE_COMMENTS                : self._private_comments,
-                co.MD5                             : self._md5
+                co.MD5                             : self._md5,
+                co.DATAVERSION                     : self._currentDataVersion,
             }
 
             # Only needed if indexing being changed
@@ -2999,8 +3004,9 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 values[co.MODIFIED] = utcNowSQL
                 self._modified = (
                     yield Update(
-                        values, Return=co.MODIFIED,
-                        Where=co.RESOURCE_ID == self._resourceID
+                        values,
+                        Where=co.RESOURCE_ID == self._resourceID,
+                        Return=co.MODIFIED,
                     ).on(txn)
                 )[0][0]
 
@@ -3154,14 +3160,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # Fix any bogus data we can
             fixed, unfixed = component.validCalendarData(doFix=True, doRaise=False)
 
-            # Normalize CUAs:
-            # FIXME: update the DB copy as well so we don't keep going through
-            # this normalization?
-            yield component.normalizeCalendarUserAddresses(
-                normalizationLookup,
-                self.directoryService().recordWithCalendarUserAddress
-            )
-
             if unfixed:
                 self.log.error(
                     "Calendar data id={0} had unfixable problems:\n  {1}".format(
@@ -3175,6 +3173,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                         self._resourceID, "\n  ".join(fixed),
                     )
                 )
+
+            # Check for on-demand data upgrade
+            if self._dataversion < self._currentDataVersion:
+                yield self.upgradeData(component)
 
             self._cachedComponent = component
             self._cachedCommponentPerUser = {}
@@ -3202,6 +3204,25 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             filtered = PerUserDataFilter(user_uuid).filter(caldata.duplicate())
             self._cachedCommponentPerUser[user_uuid] = filtered
         returnValue(self._cachedCommponentPerUser[user_uuid])
+
+
+    @inlineCallbacks
+    def upgradeData(self, component):
+        """
+        Implement in sub-classes. If the data version of this item does not match
+        the current data version, call this method and implement a data upgrade,
+        writing back the new data and updating the data version.
+        """
+
+        if self._dataversion < 1:
+            # Normalize CUAs:
+            yield component.normalizeCalendarUserAddresses(
+                normalizationLookup,
+                self.directoryService().recordWithCalendarUserAddress
+            )
+
+        self._dataversion = self._currentDataVersion
+        yield self.updateDatabase(component)
 
 
     def moveValidation(self, destination, name):

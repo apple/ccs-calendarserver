@@ -34,6 +34,7 @@ from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
 from txdav.caldav.datastore.scheduling.scheduler import ScheduleResponseQueue
 from txdav.caldav.icalendarstore import AttendeeAllowedError, \
     ComponentUpdateState
+from txdav.caldav.datastore.sql import CalendarObject
 from txdav.common.datastore.test.util import CommonCommonTests, populateCalendarsFrom
 
 from twext.enterprise.jobqueue import JobItem
@@ -1275,7 +1276,10 @@ END:VCALENDAR
         yield self._createCalendarObject(data1, "user01", "test.ics")
 
         cobj = yield self.calendarObjectUnderTest(home="user01", name="test.ics")
+        actualVersion = CalendarObject._currentDataVersion
+        self.patch(CalendarObject, "_currentDataVersion", 0)
         yield cobj._setComponentInternal(Component.fromString(data1), internal_state=ComponentUpdateState.RAW)
+        CalendarObject._currentDataVersion = actualVersion
         yield self.commit()
 
         cobj = yield self.calendarObjectUnderTest(home="user01", name="test.ics")
@@ -1285,7 +1289,10 @@ END:VCALENDAR
         self.assertFalse(comp.getOrganizerScheduleAgent())
 
         cobj = yield self.calendarObjectUnderTest(home="user01", name="test.ics")
+        actualVersion = CalendarObject._currentDataVersion
+        self.patch(CalendarObject, "_currentDataVersion", 0)
         yield cobj.setComponent(Component.fromString(data2))
+        CalendarObject._currentDataVersion = actualVersion
         yield self.commit()
 
         cobj = yield self.calendarObjectUnderTest(home="user01", name="test.ics")
