@@ -801,11 +801,11 @@ create table GROUP_ATTENDEE (
   primary key (GROUP_ID, RESOURCE_ID)
 );
 
-create index GROUP_ATTENDEE_ID on  -- FIXME: Rename to GROUP_ATTENDEE_RESOURCE_ID
+create index GROUP_ATTENDEE_RESOURCE_ID on
   GROUP_ATTENDEE(RESOURCE_ID);
 
   
-  create table GROUP_SHAREE_RECONCILE_WORK (
+create table GROUP_SHAREE_RECONCILE_WORK (
   WORK_ID                       integer primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   JOB_ID                        integer not null references JOB,
   CALENDAR_ID                   integer	not null references CALENDAR on delete cascade,
@@ -1118,7 +1118,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '45');
+insert into CALENDARSERVER values ('VERSION', '46');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');

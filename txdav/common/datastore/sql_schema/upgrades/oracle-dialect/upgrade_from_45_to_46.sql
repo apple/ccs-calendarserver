@@ -47,4 +47,4 @@ create index GROUP_SHAREE_CALENDAR_ID on GROUP_SHAREE(
 );
 
 -- update the version
-update CALENDARSERVER set VALUE = '44' where NAME = 'VERSION';
+update CALENDARSERVER set VALUE = '46' where NAME = 'VERSION';
