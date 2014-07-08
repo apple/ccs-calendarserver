@@ -841,8 +841,7 @@ END:VCALENDAR
 
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
         yield self.commit()
-        self.assertEqual(len(wps), 1)
-        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
+        self.assertEqual(len(wps), 0)
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000002")
         vcalendar = yield cobj.component()
@@ -868,7 +867,10 @@ END:VCALENDAR
         #finally, simulate an event that has become old
         self.patch(CalendarDirectoryRecordMixin, "expandedMembers", unpatchedExpandedMembers)
 
-        groupID, _ignore_name, _ignore_membershipHash, _ignore_modDate = yield self.transactionUnderTest().groupByUID("20000000-0000-0000-0000-000000000001")
+        (
+            groupID, _ignore_name, _ignore_membershipHash, _ignore_modDate,
+            _ignore_extant
+        ) = yield self.transactionUnderTest().groupByUID("20000000-0000-0000-0000-000000000001")
         ga = schema.GROUP_ATTENDEE
         yield Insert({
                 ga.RESOURCE_ID: cobj._resourceID,
@@ -1001,8 +1003,7 @@ END:VCALENDAR
 
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000001")
         yield self.commit()
-        self.assertEqual(len(wps), 1)
-        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
+        self.assertEqual(len(wps), 0)
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000002")
         vcalendar = yield cobj.component()
@@ -1029,7 +1030,10 @@ END:VCALENDAR
         #finally, simulate an event that has become old
         self.patch(CalendarDirectoryRecordMixin, "expandedMembers", unpatchedExpandedMembers)
 
-        groupID, _ignore_name, _ignore_membershipHash, _ignore_modDate = yield self.transactionUnderTest().groupByUID("20000000-0000-0000-0000-000000000001")
+        (
+            groupID, _ignore_name, _ignore_membershipHash, _ignore_modDate,
+            _ignore_extant
+        ) = yield self.transactionUnderTest().groupByUID("20000000-0000-0000-0000-000000000001")
         ga = schema.GROUP_ATTENDEE
         yield Insert({
                 ga.RESOURCE_ID: cobj._resourceID,
@@ -1478,8 +1482,7 @@ END:VCALENDAR"""
 
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000002")
         yield self.commit()
-        self.assertEqual(len(wps), 1)
-        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
+        self.assertEqual(len(wps), 0)
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000001")
         vcalendar = yield cobj.component()
@@ -1637,12 +1640,10 @@ END:VCALENDAR
 
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000002")
         yield self.commit()
-        self.assertEqual(len(wps), 1)
-        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
+        self.assertEqual(len(wps), 0)
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "20000000-0000-0000-0000-000000000003")
         yield self.commit()
-        self.assertEqual(len(wps), 1)
-        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
+        self.assertEqual(len(wps), 0)
 
         cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="10000000-0000-0000-0000-000000000001")
         vcalendar = yield cobj.component()

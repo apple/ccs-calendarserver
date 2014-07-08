@@ -1,5 +1,5 @@
 ----
--- Copyright (c) 2010-2014 Apple Inc. All rights reserved.
+-- Copyright (c) 2012-2014 Apple Inc. All rights reserved.
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -14,4 +14,19 @@
 -- limitations under the License.
 ----
 
--- Extra schema to add to current-oracle-dialect.sql
+---------------------------------------------------
+-- Upgrade database schema from VERSION 44 to 45 --
+---------------------------------------------------
+
+-------------------
+-- Data Versions --
+-------------------
+
+alter table CALENDAR_OBJECT
+  add ("DATAVERSION" integer default 0 not null);
+
+alter table ADDRESSBOOK_OBJECT
+  add ("DATAVERSION" integer default 0 not null);
+
+-- update the version
+update CALENDARSERVER set VALUE = '45' where NAME = 'VERSION';

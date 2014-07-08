@@ -194,6 +194,7 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
                 "in wiki {log_source}: {error}",
                 record=record, error=e
             )
+            returnValue(WikiAccessLevel.none)
 
         except WebError as e:
             status = int(e.status)
@@ -216,6 +217,7 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
                 "Unable to look up wiki access: {error}",
                 record=record, error=e
             )
+            returnValue(WikiAccessLevel.none)
 
         try:
             returnValue({

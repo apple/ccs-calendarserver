@@ -100,7 +100,7 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         @return: an iterable of records, or None if the token does not exist
         """
         if token in self._continuations:
-            timestamp, records = self._continuations[token]
+            _ignore_timestamp, records = self._continuations[token]
             del self._continuations[token]
         else:
             records = None
@@ -119,7 +119,7 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         log.debug("Continuation: {c}", c=continuation)
         records = self._retrieveContinuation(continuation)
         response = self._recordsToResponse(records)
-        log.debug("Responding with: {response}", response=response)
+        # log.debug("Responding with: {response}", response=response)
         return response
 
 
@@ -194,7 +194,7 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         response = {
             "fields": pickle.dumps(fields),
         }
-        log.debug("Responding with: {response}", response=response)
+        # log.debug("Responding with: {response}", response=response)
         returnValue(response)
 
 
@@ -212,7 +212,7 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         response = {
             "fields": pickle.dumps(fields),
         }
-        log.debug("Responding with: {response}", response=response)
+        # log.debug("Responding with: {response}", response=response)
         returnValue(response)
 
 
@@ -226,7 +226,7 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         response = {
             "fields": pickle.dumps(fields),
         }
-        log.debug("Responding with: {response}", response=response)
+        # log.debug("Responding with: {response}", response=response)
         returnValue(response)
 
 
@@ -239,7 +239,7 @@ class DirectoryProxyAMPProtocol(amp.AMP):
             self._directory.recordType.lookupByName(recordType))
         )
         response = self._recordsToResponse(records)
-        log.debug("Responding with: {response}", response=response)
+        # log.debug("Responding with: {response}", response=response)
         returnValue(response)
 
 
@@ -250,7 +250,7 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         log.debug("RecordsWithEmailAddress: {e}", e=emailAddress)
         records = (yield self._directory.recordsWithEmailAddress(emailAddress))
         response = self._recordsToResponse(records)
-        log.debug("Responding with: {response}", response=response)
+        # log.debug("Responding with: {response}", response=response)
         returnValue(response)
 
 
@@ -265,7 +265,7 @@ class DirectoryProxyAMPProtocol(amp.AMP):
             tokens, context=context
         )
         response = self._recordsToResponse(records)
-        log.debug("Responding with: {response}", response=response)
+        # log.debug("Responding with: {response}", response=response)
         returnValue(response)
 
 
@@ -306,7 +306,7 @@ class DirectoryProxyAMPProtocol(amp.AMP):
             newFields, operand=operand, recordType=recordType
         )
         response = self._recordsToResponse(records)
-        log.debug("Responding with: {response}", response=response)
+        # log.debug("Responding with: {response}", response=response)
         returnValue(response)
 
 
@@ -327,7 +327,7 @@ class DirectoryProxyAMPProtocol(amp.AMP):
                 records.append(member)
 
         response = self._recordsToResponse(records)
-        log.debug("Responding with: {response}", response=response)
+        # log.debug("Responding with: {response}", response=response)
         returnValue(response)
 
 
@@ -357,7 +357,7 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         response = {
             "success": success,
         }
-        log.debug("Responding with: {response}", response=response)
+        # log.debug("Responding with: {response}", response=response)
         returnValue(response)
 
 
@@ -376,7 +376,7 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         for group in (yield record.groups()):
             records.append(group)
         response = self._recordsToResponse(records)
-        log.debug("Responding with: {response}", response=response)
+        # log.debug("Responding with: {response}", response=response)
         returnValue(response)
 
 
@@ -392,7 +392,7 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         response = {
             "authenticated": authenticated,
         }
-        log.debug("Responding with: {response}", response=response)
+        # log.debug("Responding with: {response}", response=response)
         returnValue(response)
 
 
@@ -426,7 +426,7 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         response = {
             "authenticated": authenticated,
         }
-        log.debug("Responding with: {response}", response=response)
+        # log.debug("Responding with: {response}", response=response)
         returnValue(response)
 
 
@@ -444,7 +444,7 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         response = {
             "access": access.name.encode("utf-8"),
         }
-        log.debug("Responding with: {response}", response=response)
+        # log.debug("Responding with: {response}", response=response)
         returnValue(response)
 
 

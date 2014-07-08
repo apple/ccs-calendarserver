@@ -174,10 +174,17 @@ class iTipProcessing(object):
                         hidden = component.hasProperty(Component.HIDDEN_INSTANCE_PROPERTY)
                         new_component = new_calendar.deriveInstance(rid, allowCancelled=allowCancelled and not hidden)
                         if new_component is not None:
-                            new_calendar.addComponent(new_component)
-                            iTipProcessing.transferItems(calendar, new_component, needs_action_rids, reschedule, valarms, private_comments, transps, completeds, organizer_schedule_status, attendee, attendee_dtstamp, other_props, recipient)
-                            if hidden:
-                                new_component.addProperty(Property(Component.HIDDEN_INSTANCE_PROPERTY, "T"))
+                            # If the new component is not CANCELLED then add the one derived from the new master and
+                            # sync over attendee properties from the existing attendee data. However, if the new
+                            # component is cancelled, we need to preserve the original state of the attendee's
+                            # version as it may differ from the one derived from the new master.
+                            if allowCancelled:
+                                new_calendar.addComponent(component.duplicate())
+                            else:
+                                new_calendar.addComponent(new_component)
+                                iTipProcessing.transferItems(calendar, new_component, needs_action_rids, reschedule, valarms, private_comments, transps, completeds, organizer_schedule_status, attendee, attendee_dtstamp, other_props, recipient)
+                                if hidden:
+                                    new_component.addProperty(Property(Component.HIDDEN_INSTANCE_PROPERTY, "T"))
 
             iTipProcessing.addTranspForNeedsAction(new_calendar.subcomponents(), recipient)
 
@@ -298,11 +305,12 @@ class iTipProcessing(object):
                         overridden.replaceProperty(Property("STATUS", "CANCELLED"))
                         calendar.addComponent(overridden)
                         newseq = component.propertyValue("SEQUENCE")
-                        overridden.replacePropertyInAllComponents(Property("SEQUENCE", newseq))
+                        overridden.replaceProperty(Property("SEQUENCE", newseq))
 
         # If we have any EXDATEs lets add them to the existing calendar object.
         if exdates and calendar_master:
-            calendar_master.addProperty(Property("EXDATE", exdates))
+            for exdate in exdates:
+                calendar_master.addExdate(exdate)
 
         # See if there are still components in the calendar - we might have deleted the last overridden instance
         # in which case the calendar object is empty (except for VTIMEZONEs) or has only hidden components.

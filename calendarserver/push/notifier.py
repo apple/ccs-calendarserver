@@ -20,7 +20,7 @@ Notification framework for Calendar Server
 
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.syntax import Delete, Select, Parameter
-from twext.enterprise.jobqueue import WorkItem, WORK_PRIORITY_HIGH, \
+from twext.enterprise.jobqueue import JobItem, WorkItem, WORK_PRIORITY_HIGH, \
     WORK_WEIGHT_1
 from twext.python.log import Logger
 
@@ -50,7 +50,7 @@ class PushNotificationWork(WorkItem, fromTable(schema.PUSH_NOTIFICATION_WORK)):
 
         # Find all work items with the same push ID and find the highest
         # priority.  Delete matching work items.
-        results = (yield Select([self.table.WORK_ID, self.table.PUSH_PRIORITY],
+        results = (yield Select([self.table.WORK_ID, self.table.JOB_ID, self.table.PUSH_PRIORITY],
             From=self.table, Where=self.table.PUSH_ID == self.pushID).on(
             self.transaction))
 
@@ -59,17 +59,20 @@ class PushNotificationWork(WorkItem, fromTable(schema.PUSH_NOTIFICATION_WORK)):
         # If there are other enqueued work items for this push ID, find the
         # highest priority one and use that value
         if results:
-            workIDs = []
-            for workID, priority in results:
-                if priority > maxPriority:
-                    maxPriority = priority
-                workIDs.append(workID)
+            workIDs, jobIDs, priorities = zip(*results)
+            maxPriority = max(priorities)
 
-            # Delete the work items we selected
+            # Delete the work items and jobs we selected - deleting the job will ensure that there are no
+            # orphaned" jobs left in the job queue which would otherwise get to run at some later point,
+            # though not do anything because there is no related work item.
             yield Delete(
                 From=self.table,
                 Where=self.table.WORK_ID.In(Parameter("workIDs", len(workIDs)))
             ).on(self.transaction, workIDs=workIDs)
+            yield Delete(
+                From=JobItem.table, #@UndefinedVariable
+                Where=JobItem.jobID.In(Parameter("jobIDs", len(jobIDs))) #@UndefinedVariable
+            ).on(self.transaction, jobIDs=jobIDs)
 
         pushDistributor = self.transaction._pushDistributor
         if pushDistributor is not None:

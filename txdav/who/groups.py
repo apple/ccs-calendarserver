@@ -157,12 +157,14 @@ class GroupAttendeeReconciliationWork(
             if (component.masterComponent() is None or not component.isRecurring()):
 
                 # skip non-recurring old events, no instances
-                if (yield calendarObject.removeOldEventGroupLink(
-                    component,
-                    instances=None,
-                    inserting=False,
-                    txn=self.transaction
-                )):
+                if (
+                    yield calendarObject.removeOldEventGroupLink(
+                        component,
+                        instances=None,
+                        inserting=False,
+                        txn=self.transaction
+                    )
+                ):
                     returnValue(None)
             else:
                 # skip recurring old events
@@ -180,12 +182,14 @@ class GroupAttendeeReconciliationWork(
                     lowerLimit=truncateLowerLimit,
                     ignoreInvalidInstances=True
                 )
-                if (yield calendarObject.removeOldEventGroupLink(
-                    component,
-                    instances=instances,
-                    inserting=False,
-                    txn=self.transaction
-                )):
+                if (
+                    yield calendarObject.removeOldEventGroupLink(
+                        component,
+                        instances=instances,
+                        inserting=False,
+                        txn=self.transaction
+                    )
+                ):
                     returnValue(None)
 
                 # split spanning events and only update present-future split result
@@ -345,11 +349,17 @@ class GroupCacher(object):
             ) in changed:
                 readDelegateGroupID = writeDelegateGroupID = None
                 if readDelegateUID:
-                    readDelegateGroupID, _ignore_name, _ignore_hash, _ignore_modified = (
+                    (
+                        readDelegateGroupID, _ignore_name, _ignore_hash,
+                        _ignore_modified, _ignore_extant
+                    ) = (
                         yield txn.groupByUID(readDelegateUID)
                     )
                 if writeDelegateUID:
-                    writeDelegateGroupID, _ignore_name, _ignore_hash, _ignore_modified = (
+                    (
+                        writeDelegateGroupID, _ignore_name, _ignore_hash,
+                        _ignore_modified, _ignore_extant
+                    ) = (
                         yield txn.groupByUID(writeDelegateUID)
                     )
                 yield txn.assignExternalDelegates(
@@ -371,90 +381,25 @@ class GroupCacher(object):
             and updates the GROUP_MEMBERSHIP table
             WorkProposal is returned for tests
         """
-        self.log.debug("Faulting in group: {g}", g=groupUID)
-        record = (yield self.directory.recordWithUID(groupUID))
-        if record is None:
-            # the group has disappeared from the directory
-            self.log.info("Group is missing: {g}", g=groupUID)
+        groupID, membershipChanged = yield txn.refreshGroup(groupUID)
+
+        if membershipChanged:
+            wps = yield self.scheduleGroupAttendeeReconciliations(txn, groupID)
         else:
-            self.log.debug("Got group record: {u}", u=record.uid)
-
-        groupID, cachedName, cachedMembershipHash, _ignore_modified = (
-            yield txn.groupByUID(
-                groupUID,
-                create=(record is not None)
-            )
-        )
-        wps = tuple()
-        if groupID:
-            if record is not None:
-                members = yield record.expandedMembers()
-                name = record.fullNames[0]
-            else:
-                members = frozenset()
-                name = cachedName
-
-            membershipHashContent = hashlib.md5()
-            members = list(members)
-            members.sort(key=lambda x: x.uid)
-            for member in members:
-                membershipHashContent.update(str(member.uid))
-            membershipHash = membershipHashContent.hexdigest()
-
-            if cachedMembershipHash != membershipHash:
-                membershipChanged = True
-                self.log.debug(
-                    "Group '{group}' changed", group=name
-                )
-            else:
-                membershipChanged = False
-
-            if membershipChanged or record is not None:
-                # also updates group mod date
-                yield txn.updateGroup(groupUID, name, membershipHash)
-
-            if membershipChanged:
-                newMemberUIDs = set()
-                for member in members:
-                    newMemberUIDs.add(member.uid)
-                yield self.synchronizeMembers(txn, groupID, newMemberUIDs)
-
-                wps = yield self.scheduleGroupAttendeeReconciliations(txn, groupID)
-                wps = wps + (yield self.scheduleGroupShareeReconciliations(txn, groupID))
+            wps = ()
 
         returnValue(wps)
 
 
-    @inlineCallbacks
     def synchronizeMembers(self, txn, groupID, newMemberUIDs):
-        numRemoved = numAdded = 0
-        cachedMemberUIDs = (yield txn.membersOfGroup(groupID))
-
-        for memberUID in cachedMemberUIDs:
-            if memberUID not in newMemberUIDs:
-                numRemoved += 1
-                yield txn.removeMemberFromGroup(memberUID, groupID)
-
-        for memberUID in newMemberUIDs:
-            if memberUID not in cachedMemberUIDs:
-                numAdded += 1
-                yield txn.addMemberToGroup(memberUID, groupID)
-
-        returnValue((numAdded, numRemoved))
+        return txn.synchronizeMembers(groupID, newMemberUIDs)
 
 
-    @inlineCallbacks
     def cachedMembers(self, txn, groupID):
         """
         The members of the given group as recorded in the db
         """
-        members = set()
-        memberUIDs = (yield txn.membersOfGroup(groupID))
-        for uid in memberUIDs:
-            record = (yield self.directory.recordWithUID(uid))
-            if record is not None:
-                members.add(record)
-        returnValue(members)
+        return txn.groupMembers(groupID)
 
 
     def cachedGroupsFor(self, txn, uid):

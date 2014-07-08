@@ -504,8 +504,7 @@ class AugmentXMLDB(AugmentDB):
         Remove all records.
         """
 
-        self.removeAugmentRecords(self.db.keys())
-        return succeed(None)
+        return self.removeAugmentRecords(self.db.keys())
 
 
     def _shouldReparse(self, xmlFiles):

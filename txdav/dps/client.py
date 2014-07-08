@@ -15,6 +15,7 @@
 ##
 
 import cPickle as pickle
+import time
 import uuid
 
 from twext.python.log import Logger
@@ -25,7 +26,7 @@ from twext.who.idirectory import RecordType, IDirectoryService
 import twext.who.idirectory
 from twext.who.util import ConstantsContainer
 from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.internet.protocol import ClientCreator
 from twisted.protocols import amp
 from twisted.python.constants import Names, NamedConstant
@@ -41,6 +42,7 @@ from txdav.dps.commands import (
     VerifyPlaintextPasswordCommand, VerifyHTTPDigestCommand,
     WikiAccessForUIDCommand, ContinuationCommand
 )
+from txdav.who.delegates import RecordType as DelegatesRecordType
 from txdav.who.directory import (
     CalendarDirectoryRecordMixin, CalendarDirectoryServiceMixin
 )
@@ -59,13 +61,9 @@ log = Logger()
 
 
 ## MOVE2WHO TODOs:
-## SACLs
 ## LDAP
-## Tests from old twistedcaldav/directory
-## Cmd line tools
 ## Store based directory service (records in the store, i.e.
 ##    locations/resources)
-## Separate store for DPS (augments and delegates separate from calendar data)
 ## Store autoAcceptGroups in the group db?
 
 @implementer(IDirectoryService, IStoreDirectoryService)
@@ -189,6 +187,20 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
         returnValue(results)
 
 
+    def _logResultTiming(self, command, startTime, results):
+        duration = time.time() - startTime
+        numResults = 0
+        if "fields" in results:
+            numResults = 1
+        if "fieldsList" in results:
+            numResults = len(results["fieldsList"])
+        log.debug(
+            "DPS call {command} duration={duration:.2f}s, results={numResults}",
+            command=command, duration=duration, numResults=numResults
+        )
+
+
+
     @inlineCallbacks
     def _call(self, command, postProcess, **kwds):
         """
@@ -204,9 +216,11 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
             L{Deferred} which fires with the post-processed results
         @type postProcess: callable
         """
+        startTime = time.time()
         results = yield self._sendCommand(command, **kwds)
         if results.get("continuation", None) is None:
             # We have all the results
+            self._logResultTiming(command, startTime, results)
             returnValue(postProcess(results))
 
         # There are more results to fetch, so loop until the continuation
@@ -225,6 +239,7 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
         for result in multi:
             results["fieldsList"].extend(result["fieldsList"])
 
+        self._logResultTiming(command, startTime, results)
         returnValue(postProcess(results))
 
 
@@ -367,11 +382,20 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
 
 
     def members(self):
-        return self.service._call(
-            MembersCommand,
-            self.service._processMultipleRecords,
-            uid=self.uid.encode("utf-8")
-        )
+        if self.recordType in (
+            RecordType.group,
+            DelegatesRecordType.readDelegateGroup,
+            DelegatesRecordType.writeDelegateGroup,
+            DelegatesRecordType.readDelegatorGroup,
+            DelegatesRecordType.writeDelegatorGroup,
+        ):
+            return self.service._call(
+                MembersCommand,
+                self.service._processMultipleRecords,
+                uid=self.uid.encode("utf-8")
+            )
+        else:
+            return succeed([])
 
 
     def groups(self):

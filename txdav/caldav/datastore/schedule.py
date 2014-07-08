@@ -43,8 +43,7 @@ class ImplicitTransaction(
     @inlineCallbacks
     def calendarHomeWithUID(self, uid, create=False):
         # FIXME: 'create' flag
-        newHome = yield super(ImplicitTransaction, self
-            ).calendarHomeWithUID(uid, create)
+        newHome = yield super(ImplicitTransaction, self).calendarHomeWithUID(uid, create)
 #        return ImplicitCalendarHome(newHome, self)
         if newHome is None:
             returnValue(None)

@@ -96,26 +96,27 @@ class DBInspectOptions(Options):
 
 
 
+@inlineCallbacks
 def UserNameFromUID(txn, uid):
-    record = txn.directoryService().recordWithGUID(uid)
-    return record.shortNames[0] if record else "(%s)" % (uid,)
+    record = yield txn.directoryService().recordWithGUID(uid)
+    returnValue(record.shortNames[0] if record else "(%s)" % (uid,))
 
 
-
+@inlineCallbacks
 def UIDFromInput(txn, value):
     try:
-        return str(UUID(value)).upper()
+        returnValue(str(UUID(value)).upper())
     except (ValueError, TypeError):
         pass
 
-    record = txn.directoryService().recordWithShortName(RecordType.user, value)
+    record = yield txn.directoryService().recordWithShortName(RecordType.user, value)
     if record is None:
-        record = txn.directoryService().recordWithShortName(CalRecordType.location, value)
+        record = yield txn.directoryService().recordWithShortName(CalRecordType.location, value)
     if record is None:
-        record = txn.directoryService().recordWithShortName(CalRecordType.resource, value)
+        record = yield txn.directoryService().recordWithShortName(CalRecordType.resource, value)
     if record is None:
-        record = txn.directoryService().recordWithShortName(RecordType.group, value)
-    return record.guid if record else None
+        record = yield txn.directoryService().recordWithShortName(RecordType.group, value)
+    returnValue(record.guid if record else None)
 
 
 
@@ -184,7 +185,7 @@ class CalendarHomes(Cmd):
         table = tables.Table()
         table.addHeader(("Owner UID", "Short Name"))
         for uid in sorted(uids):
-            shortname = UserNameFromUID(txn, uid)
+            shortname = yield UserNameFromUID(txn, uid)
             if shortname.startswith("("):
                 missing += 1
             table.addRow((
@@ -230,7 +231,7 @@ class CalendarHomesSummary(Cmd):
         table.addHeader(("Owner UID", "Short Name", "Calendars", "Resources"))
         totals = [0, 0, 0]
         for uid in sorted(results.keys()):
-            shortname = UserNameFromUID(txn, uid)
+            shortname = yield UserNameFromUID(txn, uid)
             table.addRow((
                 uid,
                 shortname,
@@ -287,7 +288,7 @@ class Calendars(Cmd):
         table = tables.Table()
         table.addHeader(("Owner UID", "Short Name", "Calendar", "Resources"))
         for uid, calname, count in sorted(uids, key=lambda x: (x[0], x[1])):
-            shortname = UserNameFromUID(txn, uid)
+            shortname = yield UserNameFromUID(txn, uid)
             table.addRow((
                 uid,
                 shortname,
@@ -329,7 +330,7 @@ class CalendarsByOwner(Cmd):
     def doIt(self, txn):
 
         uid = raw_input("Owner UID/Name: ")
-        uid = UIDFromInput(txn, uid)
+        uid = yield UIDFromInput(txn, uid)
         uids = yield self.getCalendars(txn, uid)
 
         # Print table of results
@@ -337,7 +338,7 @@ class CalendarsByOwner(Cmd):
         table.addHeader(("Owner UID", "Short Name", "Calendars", "ID", "Resources"))
         totals = [0, 0, ]
         for uid, calname, resid, count in sorted(uids, key=lambda x: x[1]):
-            shortname = UserNameFromUID(txn, uid)
+            shortname = yield UserNameFromUID(txn, uid)
             table.addRow((
                 uid if totals[0] == 0 else "",
                 shortname if totals[0] == 0 else "",
@@ -390,7 +391,7 @@ class Events(Cmd):
         table = tables.Table()
         table.addHeader(("Owner UID", "Short Name", "Calendar", "ID", "Type", "UID"))
         for uid, calname, id, caltype, caluid in sorted(uids, key=lambda x: (x[0], x[1])):
-            shortname = UserNameFromUID(txn, uid)
+            shortname = yield UserNameFromUID(txn, uid)
             table.addRow((
                 uid,
                 shortname,
@@ -484,9 +485,10 @@ class EventDetails(Cmd):
     """
     Base class for common event details commands.
     """
+    @inlineCallbacks
     def printEventDetails(self, txn, details):
         owner, calendar, resource_id, resource, created, modified, data = details
-        shortname = UserNameFromUID(txn, owner)
+        shortname = yield UserNameFromUID(txn, owner)
         table = tables.Table()
         table.addRow(("Owner UID:", owner,))
         table.addRow(("User Name:", shortname,))
@@ -540,7 +542,7 @@ class Event(EventDetails):
             returnValue(None)
         result = yield self.getData(txn, rid)
         if result:
-            self.printEventDetails(txn, result[0])
+            yield self.printEventDetails(txn, result[0])
         else:
             print("Could not find resource")
 
@@ -562,7 +564,7 @@ class EventsByUID(EventDetails):
         rows = yield self.getData(txn, uid)
         if rows:
             for result in rows:
-                self.printEventDetails(txn, result)
+                yield self.printEventDetails(txn, result)
         else:
             print("Could not find icalendar data")
 
@@ -584,7 +586,7 @@ class EventsByName(EventDetails):
         rows = yield self.getData(txn, name)
         if rows:
             for result in rows:
-                self.printEventDetails(txn, result)
+                yield self.printEventDetails(txn, result)
         else:
             print("Could not find icalendar data")
 
@@ -603,11 +605,11 @@ class EventsByOwner(EventDetails):
     def doIt(self, txn):
 
         uid = raw_input("Owner UID/Name: ")
-        uid = UIDFromInput(txn, uid)
+        uid = yield UIDFromInput(txn, uid)
         rows = yield self.getData(txn, uid)
         if rows:
             for result in rows:
-                self.printEventDetails(txn, result)
+                yield self.printEventDetails(txn, result)
         else:
             print("Could not find icalendar data")
 
@@ -626,12 +628,12 @@ class EventsByOwnerCalendar(EventDetails):
     def doIt(self, txn):
 
         uid = raw_input("Owner UID/Name: ")
-        uid = UIDFromInput(txn, uid)
+        uid = yield UIDFromInput(txn, uid)
         name = raw_input("Calendar resource name: ")
         rows = yield self.getData(txn, uid, name)
         if rows:
             for result in rows:
-                self.printEventDetails(txn, result)
+                yield self.printEventDetails(txn, result)
         else:
             print("Could not find icalendar data")
 
@@ -661,7 +663,7 @@ class EventsByPath(EventDetails):
         rows = yield self.getData(txn, homeName, calendarName, resourceName)
         if rows:
             for result in rows:
-                self.printEventDetails(txn, result)
+                yield self.printEventDetails(txn, result)
         else:
             print("Could not find icalendar data")
 
@@ -693,7 +695,7 @@ class EventsByContent(EventDetails):
         rows = yield self.getData(txn, uid)
         if rows:
             for result in rows:
-                self.printEventDetails(txn, result)
+                yield self.printEventDetails(txn, result)
         else:
             print("Could not find icalendar data")
 
@@ -772,7 +774,7 @@ class EventsInTimerange(Cmd):
             event = yield calendar.calendarObjectWithName(name)
             ical_data = yield event.component()
             ical_data = PerUserDataFilter(uid).filter(ical_data)
-            ical_data.stripKnownTimezones()
+            ical_data.stripStandardTimezones()
 
             table = tables.Table()
             table.addRow(("Calendar:", calendar.name(),))
@@ -782,7 +784,7 @@ class EventsInTimerange(Cmd):
             table.addRow(("Modified", event.modified()))
             print("\n")
             table.printTable()
-            print(ical_data.getTextWithTimezones(includeTimezones=False))
+            print(ical_data.getTextWithoutTimezones())
 
 
 

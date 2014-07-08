@@ -127,12 +127,6 @@
     <key>MaxAttendeesPerInstance</key>
     <integer>100</integer>
 
-    <!-- Maximum number of instances allowed for a single RRULE -->
-    <!-- 0 for no limit -->
-    <key>MaxInstancesForRRULE</key>
-    <integer>400</integer>
-
-
     <!--
         Directory service
 

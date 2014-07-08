@@ -99,12 +99,6 @@
     <key>MaxAttendeesPerInstance</key>
     <integer>100</integer>
 
-    <!-- Maximum number of instances allowed for a single RRULE -->
-    <!-- 0 for no limit -->
-    <key>MaxInstancesForRRULE</key>
-    <integer>400</integer>
-
-
     <!--
         Directory service
 
@@ -119,7 +113,7 @@
     <dict>
       <key>type</key>
       <string>twistedcaldav.directory.xmlfile.XMLDirectoryService</string>
-      
+
       <key>params</key>
       <dict>
         <key>xmlFile</key>
@@ -131,14 +125,14 @@
         </array>
       </dict>
     </dict>
-    
+
     <key>ResourceService</key>
     <dict>
       <key>Enabled</key>
       <true/>
       <key>type</key>
       <string>twistedcaldav.directory.xmlfile.XMLDirectoryService</string>
-      
+
       <key>params</key>
       <dict>
         <key>xmlFile</key>
@@ -150,14 +144,14 @@
         </array>
       </dict>
     </dict>
-    
+
     <!-- Open Directory Service (Mac OS X) -->
     <!--
     <key>DirectoryService</key>
     <dict>
       <key>type</key>
       <string>twistedcaldav.directory.appleopendirectory.OpenDirectoryService</string>
-      
+
       <key>params</key>
       <dict>
         <key>node</key>
@@ -181,7 +175,7 @@
     <dict>
       <key>type</key>
       <string>twistedcaldav.directory.augment.AugmentXMLDB</string>
-      
+
       <key>params</key>
       <dict>
         <key>xmlFiles</key>
@@ -190,14 +184,14 @@
         </array>
       </dict>
     </dict>
-    
+
     <!-- Sqlite Augment Service -->
     <!--
     <key>AugmentService</key>
     <dict>
       <key>type</key>
       <string>twistedcaldav.directory.augment.AugmentSqliteDB</string>
-      
+
       <key>params</key>
       <dict>
         <key>dbpath</key>
@@ -212,7 +206,7 @@
     <dict>
       <key>type</key>
       <string>twistedcaldav.directory.augment.AugmentPostgreSQLDB</string>
-      
+
       <key>params</key>
       <dict>
         <key>host</key>
@@ -228,7 +222,7 @@
     <dict>
       <key>type</key>
       <string>twistedcaldav.directory.calendaruserproxy.ProxySqliteDB</string>
-      
+
       <key>params</key>
       <dict>
         <key>dbpath</key>
@@ -242,7 +236,7 @@
     <dict>
       <key>type</key>
       <string>twistedcaldav.directory.calendaruserproxy.ProxyPostgreSQLDB</string>
-      
+
       <key>params</key>
       <dict>
         <key>host</key>
@@ -672,7 +666,7 @@
     <!-- Support for Content-Encoding compression -->
     <key>ResponseCompression</key>
     <false/>
-    
+
     <!-- The retry-after value (in seconds) to return with a 503 error. -->
     <key>HTTPRetryAfter</key>
     <integer>180</integer>

@@ -816,6 +816,8 @@
 		<dict>
 			<key>Enabled</key>
 			<true/>
+			
+			<!-- Make these short for testing -->
             <key>RequestDelaySeconds</key>
             <real>0.1</real>
             <key>ReplyDelaySeconds</key>
@@ -830,6 +832,14 @@
       </dict>
     </dict>
 
+    <key>WorkQueue</key>
+    <dict>
+	  <!-- Make these short for testing -->
+      <key>failureRescheduleInterval</key>
+      <integer>1</integer>
+      <key>lockRescheduleInterval</key>
+      <integer>1</integer>
+    </dict>
 
     <!--
         Free-busy URL protocol

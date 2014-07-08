@@ -409,12 +409,15 @@ def runSearch(service, store, searchTerm):
                 )
             )
             print("   UID: {u}".format(u=record.uid,))
-            print(
-                "   Record name{plural}: {names}".format(
-                    plural=("s" if len(record.shortNames) > 1 else ""),
-                    names=(", ".join(record.shortNames))
+            try:
+                print(
+                    "   Record name{plural}: {names}".format(
+                        plural=("s" if len(record.shortNames) > 1 else ""),
+                        names=(", ".join(record.shortNames))
+                    )
                 )
-            )
+            except AttributeError:
+                pass
             try:
                 if record.emailAddresses:
                     print(
@@ -787,7 +790,9 @@ def printGroupCacherInfo(service, store):
     txn = store.newTransaction()
     groupUIDs = yield txn.allGroupDelegates()
     for groupUID in groupUIDs:
-        groupID, name, _ignore_membershipHash, modified = yield txn.groupByUID(
+        (
+            groupID, name, _ignore_membershipHash, modified, extant
+        ) = yield txn.groupByUID(
             groupUID
         )
         print("Group: \"{name}\" ({uid})".format(name=name, uid=groupUID))
@@ -803,7 +808,7 @@ def printGroupCacherInfo(service, store):
                 )
 
         print("Group members:")
-        memberUIDs = yield txn.membersOfGroup(groupID)
+        memberUIDs = yield txn.groupMemberUIDs(groupID)
         for memberUID in memberUIDs:
             record = yield directory.recordWithUID(memberUID)
             print(prettyRecord(record))

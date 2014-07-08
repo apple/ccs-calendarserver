@@ -463,7 +463,7 @@ class ImplicitProcessor(object):
             if send_reply:
                 # Track outstanding auto-reply processing
                 log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - auto-reply queued" % (self.recipient.cuaddr, self.uid,))
-                ScheduleAutoReplyWork.autoReply(self.txn, new_resource, partstat)
+                yield ScheduleAutoReplyWork.autoReply(self.txn, new_resource, partstat)
 
             # Build the schedule-changes XML element
             changes = customxml.ScheduleChanges(
@@ -511,7 +511,7 @@ class ImplicitProcessor(object):
                 if send_reply:
                     # Track outstanding auto-reply processing
                     log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - auto-reply queued" % (self.recipient.cuaddr, self.uid,))
-                    ScheduleAutoReplyWork.autoReply(self.txn, new_resource, partstat)
+                    yield ScheduleAutoReplyWork.autoReply(self.txn, new_resource, partstat)
 
                 # Build the schedule-changes XML element
                 update_details = []

@@ -320,9 +320,10 @@ class AugmentedDirectoryService(
         return (baseFields, augmentFields)
 
 
+    @inlineCallbacks
     def removeRecords(self, uids):
-        self._augmentDB.removeAugmentRecords(uids)
-        return self._directory.removeRecords(uids)
+        yield self._augmentDB.removeAugmentRecords(uids)
+        yield self._directory.removeRecords(uids)
 
 
     def _assignToField(self, fields, name, value):

@@ -342,7 +342,7 @@ def anonymizeData(directoryMap, data):
             except KeyError:
                 pass
 
-    return pyobj.getText(includeTimezones=True)
+    return pyobj.getText(includeTimezones=Calendar.ALL_TIMEZONES)
 
 
 

@@ -168,12 +168,30 @@ def buildDirectory(
                         ),
                     ),
 
+                    CalRecordType.location: RecordTypeSchema(
+                        relativeDN=u"ou=places",
+
+                        attributes=(),
+                    ),
+
+                    CalRecordType.resource: RecordTypeSchema(
+                        relativeDN=u"ou=resources",
+
+                        attributes=(),
+                    ),
+
+                    CalRecordType.address: RecordTypeSchema(
+                        relativeDN=u"ou=buildings",
+
+                        attributes=(),
+                    ),
+
                 })
             )
 
         elif "inmemory" in directoryType:
-            from txdav.who.test.support import InMemoryDirectoryService
-            directory = InMemoryDirectoryService()
+            from txdav.who.test.support import CalendarInMemoryDirectoryService
+            directory = CalendarInMemoryDirectoryService()
 
         else:
             log.error("Invalid DirectoryType: {dt}", dt=directoryType)

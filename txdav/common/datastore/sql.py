@@ -81,6 +81,7 @@ from txdav.common.idirectoryservice import IStoreDirectoryService, \
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
 from txdav.idav import ChangeCategory
+from twext.who.idirectory import RecordType
 from txdav.xml import element
 
 from uuid import uuid4, UUID
@@ -1033,8 +1034,8 @@ class CommonStoreTransaction(object):
             {
                 gr.MEMBERSHIP_HASH: Parameter("membershipHash"),
                 gr.NAME: Parameter("name"),
-                gr.MODIFIED:
-                Parameter("timestamp")
+                gr.MODIFIED: Parameter("timestamp"),
+                gr.EXTANT: Parameter("extant"),
             },
             Where=(gr.GROUP_UID == Parameter("groupUID"))
         )
@@ -1044,7 +1045,7 @@ class CommonStoreTransaction(object):
     def _groupByUID(cls):
         gr = schema.GROUPS
         return Select(
-            [gr.GROUP_ID, gr.NAME, gr.MEMBERSHIP_HASH, gr.MODIFIED],
+            [gr.GROUP_ID, gr.NAME, gr.MEMBERSHIP_HASH, gr.MODIFIED, gr.EXTANT],
             From=gr,
             Where=(gr.GROUP_UID == Parameter("groupUID"))
         )
@@ -1054,7 +1055,7 @@ class CommonStoreTransaction(object):
     def _groupByID(cls):
         gr = schema.GROUPS
         return Select(
-            [gr.GROUP_UID, gr.NAME, gr.MEMBERSHIP_HASH],
+            [gr.GROUP_UID, gr.NAME, gr.MEMBERSHIP_HASH, gr.EXTANT],
             From=gr,
             Where=(gr.GROUP_ID == Parameter("groupID"))
         )
@@ -1069,25 +1070,33 @@ class CommonStoreTransaction(object):
         )
 
 
+    @inlineCallbacks
     def addGroup(self, groupUID, name, membershipHash):
         """
         @type groupUID: C{unicode}
         @type name: C{unicode}
         @type membershipHash: C{str}
         """
-        return self._addGroupQuery.on(
+        groupID = yield self._addGroupQuery.on(
             self,
             name=name.encode("utf-8"),
             groupUID=groupUID.encode("utf-8"),
             membershipHash=membershipHash
         )
 
+        record = yield self.directoryService().recordWithUID(groupUID)
+        yield self._refreshGroup(
+            groupUID, record, groupID, name.encode("utf-8"), membershipHash
+        )
+        returnValue(groupID)
 
-    def updateGroup(self, groupUID, name, membershipHash):
+
+    def updateGroup(self, groupUID, name, membershipHash, extant=True):
         """
         @type groupUID: C{unicode}
         @type name: C{unicode}
         @type membershipHash: C{str}
+        @type extant: C{boolean}
         """
         timestamp = datetime.datetime.utcnow()
         return self._updateGroupQuery.on(
@@ -1095,7 +1104,8 @@ class CommonStoreTransaction(object):
             name=name.encode("utf-8"),
             groupUID=groupUID.encode("utf-8"),
             timestamp=timestamp,
-            membershipHash=membershipHash
+            membershipHash=membershipHash,
+            extant=(1 if extant else 0)
         )
 
 
@@ -1107,7 +1117,8 @@ class CommonStoreTransaction(object):
         @type groupUID: C{unicode}
 
         @return: Deferred firing with tuple of group ID C{str}, group name
-            C{unicode}, membership hash C{str}, and modified timestamp
+            C{unicode}, membership hash C{str}, modified timestamp, and
+            extant C{boolean}
         """
         results = (
             yield self._groupByUID.on(
@@ -1120,6 +1131,7 @@ class CommonStoreTransaction(object):
                 results[0][1].decode("utf-8"),  # name
                 results[0][2],  # membership hash
                 results[0][3],  # modified timestamp
+                bool(results[0][4]),  # extant
             ))
         elif create:
             savepoint = SavepointAction("groupByUID")
@@ -1139,6 +1151,7 @@ class CommonStoreTransaction(object):
                         results[0][1].decode("utf-8"),  # name
                         results[0][2],  # membership hash
                         results[0][3],  # modified timestamp
+                        bool(results[0][4]),  # extant
                     ))
                 else:
                     raise
@@ -1155,11 +1168,12 @@ class CommonStoreTransaction(object):
                         results[0][1].decode("utf-8"),  # name
                         results[0][2],  # membership hash
                         results[0][3],  # modified timestamp
+                        bool(results[0][4]),  # extant
                     ))
                 else:
                     raise
         else:
-            returnValue((None, None, None, None))
+            returnValue((None, None, None, None, None))
 
 
     @inlineCallbacks
@@ -1169,7 +1183,7 @@ class CommonStoreTransaction(object):
 
         @type groupID: C{str}
         @return: Deferred firing with a tuple of group UID C{unicode},
-            group name C{unicode}, and membership hash C{str}
+            group name C{unicode}, membership hash C{str}, and extant C{boolean}
         """
         try:
             results = (yield self._groupByID.on(self, groupID=groupID))[0]
@@ -1177,7 +1191,8 @@ class CommonStoreTransaction(object):
                 results = (
                     results[0].decode("utf-8"),
                     results[1].decode("utf-8"),
-                    results[2]
+                    results[2],
+                    bool(results[3])
                 )
             returnValue(results)
         except IndexError:
@@ -1263,7 +1278,7 @@ class CommonStoreTransaction(object):
 
 
     @inlineCallbacks
-    def membersOfGroup(self, groupID):
+    def groupMemberUIDs(self, groupID):
         """
         Returns the cached set of UIDs for members of the given groupID.
         Sub-groups are not returned in the results but their members are,
@@ -1279,6 +1294,131 @@ class CommonStoreTransaction(object):
         results = (yield self._selectGroupMembersQuery.on(self, groupID=groupID))
         for row in results:
             members.add(row[0].decode("utf-8"))
+        returnValue(members)
+
+
+    @inlineCallbacks
+    def refreshGroup(self, groupUID):
+        """
+        Refreshes the group membership cache.
+
+        @param groupUID: the group UID
+        @type groupUID: C{unicode}
+
+        @return: Deferred firing with tuple of group ID C{str}, and
+            membershipChanged C{boolean}
+
+        """
+        log.debug("Faulting in group: {g}", g=groupUID)
+        record = (yield self.directoryService().recordWithUID(groupUID))
+        if record is None:
+            # the group has disappeared from the directory
+            log.info("Group is missing: {g}", g=groupUID)
+        else:
+            log.debug("Got group record: {u}", u=record.uid)
+
+        (
+            groupID, cachedName, cachedMembershipHash, _ignore_modified,
+            _ignore_extant
+        ) = yield self.groupByUID(
+            groupUID,
+            create=(record is not None)
+        )
+
+        membershipChanged = False
+        if groupID:
+            membershipChanged = yield self._refreshGroup(
+                groupUID, record, groupID, cachedName, cachedMembershipHash
+            )
+
+        returnValue((groupID, membershipChanged))
+
+
+    @inlineCallbacks
+    def _refreshGroup(self, groupUID, record, groupID, cachedName, cachedMembershipHash):
+        """
+        @param groupUID: the directory record
+        @type groupUID: C{unicode}
+        @param record: the directory record
+        @type record: C{iDirectoryRecord}
+        @param groupID: group resource id
+        @type groupID: C{str}
+        @param cachedName: group name in the database
+        @type cachedName: C{unicode}
+        @param cachedMembershipHash: membership hash in the database
+        @type cachedMembershipHash: C{str}
+
+        @return: Deferred firing with membershipChanged C{boolean}
+
+        """
+        if record is not None:
+            members = yield record.expandedMembers()
+            name = record.displayName
+            extant = True
+        else:
+            members = frozenset()
+            name = cachedName
+            extant = False
+
+        membershipHashContent = hashlib.md5()
+        members = list(members)
+        members.sort(key=lambda x: x.uid)
+        for member in members:
+            membershipHashContent.update(str(member.uid))
+        membershipHash = membershipHashContent.hexdigest()
+
+        if cachedMembershipHash != membershipHash:
+            membershipChanged = True
+            log.debug(
+                "Group '{group}' changed", group=name
+            )
+        else:
+            membershipChanged = False
+
+        if membershipChanged or record is not None:
+            # also updates group mod date
+            yield self.updateGroup(
+                groupUID, name, membershipHash, extant=extant
+            )
+
+        if membershipChanged:
+            newMemberUIDs = set()
+            for member in members:
+                newMemberUIDs.add(member.uid)
+            yield self.synchronizeMembers(groupID, newMemberUIDs)
+
+        returnValue(membershipChanged)
+
+
+    @inlineCallbacks
+    def synchronizeMembers(self, groupID, newMemberUIDs):
+        numRemoved = numAdded = 0
+        cachedMemberUIDs = (yield self.groupMemberUIDs(groupID))
+
+        for memberUID in cachedMemberUIDs:
+            if memberUID not in newMemberUIDs:
+                numRemoved += 1
+                yield self.removeMemberFromGroup(memberUID, groupID)
+
+        for memberUID in newMemberUIDs:
+            if memberUID not in cachedMemberUIDs:
+                numAdded += 1
+                yield self.addMemberToGroup(memberUID, groupID)
+
+        returnValue((numAdded, numRemoved))
+
+
+    @inlineCallbacks
+    def groupMembers(self, groupID):
+        """
+        The members of the given group as recorded in the db
+        """
+        members = set()
+        memberUIDs = (yield self.groupMemberUIDs(groupID))
+        for uid in memberUIDs:
+            record = (yield self.directoryService().recordWithUID(uid))
+            if record is not None:
+                members.add(record)
         returnValue(members)
 
 
@@ -3475,6 +3615,11 @@ class CommonHome(SharingHomeMixIn):
         We do the same SQL query for both depth "1" and "infinity", but filter the results for
         "1" to only account for a collection change.
 
+        Now that we are truncating the revision table, we need to handle the full sync (revision == 0)
+        case a little differently as the revision table will not contain data for resources that exist,
+        but were last modified before the revision cut-off. Instead for revision == 0 we need to list
+        all existing child resources.  
+  
         We need to handle shared collection a little differently from owned ones. When a shared collection
         is bound into a home we record a revision for it using the sharee home id and sharee collection name.
         That revision is the "starting point" for changes: so if sync occurs with a revision earlier than
@@ -3494,61 +3639,96 @@ class CommonHome(SharingHomeMixIn):
         @type depth: C{str}
         """
 
-        changed = set()
-        deleted = set()
-        invalid = set()
         if revision:
             minValidRevision = yield self._txn.calendarserverValue("MIN-VALID-REVISION")
             if revision < int(minValidRevision):
                 raise SyncTokenValidException
+        else:
+            results = yield self.resourceNamesSinceRevisionZero(depth)
+            returnValue(results)
 
-            results = [
-                (
-                    path if path else (collection if collection else ""),
-                    name if name else "",
-                    wasdeleted
-                )
-                for path, collection, name, wasdeleted in
-                (yield self.doChangesQuery(revision))
-            ]
+        # Use revision table to find changes since the last revision - this will not include
+        # changes to child resources of shared collections - those we will get later
+        results = [
+            (
+                path if path else (collection if collection else ""),
+                name if name else "",
+                wasdeleted
+            )
+            for path, collection, name, wasdeleted in
+            (yield self.doChangesQuery(revision))
+        ]
 
-            deleted_collections = set()
-            for path, name, wasdeleted in results:
-                if wasdeleted:
-                    if name:
-                        # Resource deleted - for depth "1" report collection as changed,
-                        # otherwise report resource as deleted
-                        if depth == "1":
-                            changed.add("%s/" % (path,))
-                        else:
-                            deleted.add("%s/%s" % (path, name,))
+        changed = set()
+        deleted = set()
+        invalid = set()
+        deleted_collections = set()
+        for path, name, wasdeleted in results:
+            if wasdeleted:
+                if name:
+                    # Resource deleted - for depth "1" report collection as changed,
+                    # otherwise report resource as deleted
+                    if depth == "1":
+                        changed.add("%s/" % (path,))
                     else:
-                        # Collection was deleted
-                        deleted.add("%s/" % (path,))
-                        deleted_collections.add(path)
+                        deleted.add("%s/%s" % (path, name,))
+                else:
+                    # Collection was deleted
+                    deleted.add("%s/" % (path,))
+                    deleted_collections.add(path)
 
-                if path not in deleted_collections:
-                    # Always report collection as changed
-                    changed.add("%s/" % (path,))
-                    if name:
-                        # Resource changed - for depth "infinity" report resource as changed
-                        if depth != "1":
-                            changed.add("%s/%s" % (path, name,))
+            if path not in deleted_collections:
+                # Always report collection as changed
+                changed.add("%s/" % (path,))
 
-        # Now deal with shared collections (and owned if revision == 0)
+                # Resource changed - for depth "infinity" report resource as changed
+                if name and depth != "1":
+                    changed.add("%s/%s" % (path, name,))
+
+        # Now deal with existing shared collections
+        # TODO: think about whether this can be done in one query rather than looping over each share
         for share in (yield self.children()):
-            if share.owned():
-                if not revision:
-                    path = share.name()
-                    # Always report collection as changed
-                    changed.add("%s/" % (path,))
-
-                    # Resource changed - for depth "infinity" report resource as changed
-                    if depth != "1":
-                        for name in (yield share.listObjectResources()):
-                            changed.add("%s/%s" % (path, name,))
-            else:
+            if not share.owned():
                 sharedChanged, sharedDeleted, sharedInvalid = yield share.sharedChildResourceNamesSinceRevision(revision, depth)
+                changed |= sharedChanged
+                changed -= sharedInvalid
+                deleted |= sharedDeleted
+                deleted -= sharedInvalid
+                invalid |= sharedInvalid
+
+        changed = sorted(changed)
+        deleted = sorted(deleted)
+        invalid = sorted(invalid)
+        returnValue((changed, deleted, invalid,))
+
+
+
+
+    @inlineCallbacks
+    def resourceNamesSinceRevisionZero(self, depth):
+        """
+        Revision == 0 specialization of L{resourceNamesSinceRevision} .
+
+        @param depth: depth for determine what changed
+        @type depth: C{str}
+        """
+
+        # Scan each child
+        changed = set()
+        deleted = set()
+        invalid = set()
+        for child in (yield self.children()):
+            if child.owned():
+                path = child.name()
+                # Always report collection as changed
+                changed.add("%s/" % (path,))
+
+                # Resource changed - for depth "infinity" report resource as changed
+                if depth != "1":
+                    for name in (yield child.listObjectResources()):
+                        changed.add("%s/%s" % (path, name,))
+            else:
+                sharedChanged, sharedDeleted, sharedInvalid = yield child.sharedChildResourceNamesSinceRevisionZero(depth)
                 changed |= sharedChanged
                 changed -= sharedInvalid
                 deleted |= sharedDeleted
@@ -6235,52 +6415,78 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             else:
                 invalid.add(self.name() + "/")
         else:
+            # If revision is prior to when the share was created, then treat as a full sync of the share
             if revision != 0 and revision < self._bindRevision:
                 if depth != "1":
+                    # This should never happen unless the client the share existed, was removed and then
+                    # re-added and the client has a token from before the remove. In that case the token is no
+                    # longer valid - a full sync has to be done.
                     raise SyncTokenValidException
                 else:
-                    revision = 0
+                    results = yield self.sharedChildResourceNamesSinceRevisionZero(depth)
+                    returnValue(results)
 
-            if revision:
-                rev = self._revisionsSchema
-                results = [
-                    (
-                        self.name(),
-                        name if name else "",
-                        wasdeleted
-                    )
-                    for name, wasdeleted in
-                    (yield Select(
-                        [rev.RESOURCE_NAME, rev.DELETED],
-                        From=rev,
-                        Where=(rev.REVISION > revision).And(
-                        rev.RESOURCE_ID == self._resourceID)
-                    ).on(self._txn))
-                    if name
-                ]
+            rev = self._revisionsSchema
+            results = [
+                (
+                    self.name(),
+                    name if name else "",
+                    wasdeleted
+                )
+                for name, wasdeleted in
+                (yield Select(
+                    [rev.RESOURCE_NAME, rev.DELETED],
+                    From=rev,
+                    Where=(rev.REVISION > revision).And(
+                    rev.RESOURCE_ID == self._resourceID)
+                ).on(self._txn))
+                if name
+            ]
 
-                for path, name, wasdeleted in results:
-                    if wasdeleted:
-                        if depth == "1":
-                            changed.add("%s/" % (path,))
-                        else:
-                            deleted.add("%s/%s" % (path, name,))
+            for path, name, wasdeleted in results:
+                if wasdeleted:
+                    if depth == "1":
+                        changed.add("%s/" % (path,))
+                    else:
+                        deleted.add("%s/%s" % (path, name,))
 
-                    # Always report collection as changed
-                    changed.add("%s/" % (path,))
-
-                    # Resource changed - for depth "infinity" report resource as changed
-                    if depth != "1":
-                        changed.add("%s/%s" % (path, name,))
-            else:
-                path = self.name()
                 # Always report collection as changed
                 changed.add("%s/" % (path,))
 
                 # Resource changed - for depth "infinity" report resource as changed
-                if depth != "1":
-                    for name in (yield self.listObjectResources()):
-                        changed.add("%s/%s" % (path, name,))
+                if name and depth != "1":
+                    changed.add("%s/%s" % (path, name,))
+
+        returnValue((changed, deleted, invalid,))
+
+
+    @inlineCallbacks
+    def sharedChildResourceNamesSinceRevisionZero(self, depth):
+        """
+        Revision == 0 specialization of L{sharedChildResourceNamesSinceRevision}. We report on all
+        existing resources -= this collection and children (if depth == infinite).
+
+        @param depth: depth for determine what changed
+        @type depth: C{str}
+        """
+        changed = set()
+        deleted = set()
+        invalid = set()
+        path = self.name()
+        if self.external():
+            if depth == "1":
+                changed.add("{}/".format(path))
+            else:
+                invalid.add("{}/".format(path))
+        else:
+            path = self.name()
+            # Always report collection as changed
+            changed.add(path + "/")
+
+            # Resource changed - for depth "infinity" report resource as changed
+            if depth != "1":
+                for name in (yield self.listObjectResources()):
+                    changed.add("%s/%s" % (path, name,))
 
         returnValue((changed, deleted, invalid,))
 
@@ -6482,6 +6688,11 @@ class CommonObjectResource(FancyEqMixin, object):
     _objectSchema = None
     _componentClass = None
 
+    # Sub-classes must override and set their version number. This is used for
+    # on-demand data upgrades - i.e., any time old data is read it will be
+    # converted to the latest format and written back.
+    _currentDataVersion = 0
+
     BATCH_LOAD_SIZE = 50
 
 
@@ -6569,6 +6780,7 @@ class CommonObjectResource(FancyEqMixin, object):
         self._size = None
         self._created = None
         self._modified = None
+        self._dataversion = None
         self._textData = None
         self._cachedComponent = None
 
@@ -6814,7 +7026,8 @@ class CommonObjectResource(FancyEqMixin, object):
             obj.MD5,
             Len(obj.TEXT),
             obj.CREATED,
-            obj.MODIFIED
+            obj.MODIFIED,
+            obj.DATAVERSION,
         ]
 
 
@@ -6828,6 +7041,7 @@ class CommonObjectResource(FancyEqMixin, object):
             "_size",
             "_created",
             "_modified",
+            "_dataversion",
         )
 
 

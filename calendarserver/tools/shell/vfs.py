@@ -290,10 +290,11 @@ class UIDsFolder(Folder):
         # FIXME: Merge in directory UIDs also?
         # FIXME: Add directory info (eg. name) to list entry
 
+        @inlineCallbacks
         def addResult(ignoredTxn, home):
             uid = home.uid()
 
-            record = self.service.directory.recordWithUID(uid)
+            record = yield self.service.directory.recordWithUID(uid)
             if record:
                 info = {
                     "Record Type": record.recordType,
@@ -331,12 +332,13 @@ class RecordFolder(Folder):
         )
 
 
+    @inlineCallbacks
     def list(self):
         names = set()
 
-        for record in self.service.directory.recordsWithRecordType(
+        for record in (yield self.service.directory.recordsWithRecordType(
             self.recordType
-        ):
+        )):
             for shortName in record.shortNames:
                 if shortName in names:
                     continue
@@ -395,6 +397,7 @@ class PrincipalHomeFolder(Folder):
         Folder.__init__(self, service, path)
 
         if record is None:
+            # FIXME: recordWithUID returns a Deferred but we cannot return or yield it in an __init__ method
             record = self.service.directory.recordWithUID(uid)
 
         if record is not None:

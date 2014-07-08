@@ -152,8 +152,7 @@ create table CALENDAR_OBJECT (
     "PRIVATE_COMMENTS" integer default 0 not null,
     "MD5" nchar(32),
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
-    "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
-    "DATAVERSION" integer default 0 not null, 
+    "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC', 
     unique ("CALENDAR_RESOURCE_ID", "RESOURCE_NAME")
 );
 
@@ -269,8 +268,7 @@ create table ADDRESSBOOK_OBJECT (
     "KIND" integer not null,
     "MD5" nchar(32),
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
-    "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
-    "DATAVERSION" integer default 0 not null, 
+    "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC', 
     unique ("ADDRESSBOOK_HOME_RESOURCE_ID", "RESOURCE_NAME"), 
     unique ("ADDRESSBOOK_HOME_RESOURCE_ID", "VCARD_UID")
 );
@@ -578,7 +576,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '45');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '44');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');
@@ -863,4 +861,6 @@ create index PRINCIPAL_PURGE_HOME__967e4480 on PRINCIPAL_PURGE_HOME_WORK (
     HOME_RESOURCE_ID
 );
 
--- Extra schema to add to current-oracle-dialect.sql
+
+-- Extras
+

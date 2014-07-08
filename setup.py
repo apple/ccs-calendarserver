@@ -256,15 +256,6 @@ extras_requirements = {
 
 extensions = []
 
-# if sys.platform == "darwin":
-#     extensions.append(
-#         Extension(
-#             "calendarserver.platform.darwin._sacl",
-#             extra_link_args=["-framework", "Security"],
-#             sources=["calendarserver/platform/darwin/_sacl.c"]
-#         )
-#     )
-
 
 
 #

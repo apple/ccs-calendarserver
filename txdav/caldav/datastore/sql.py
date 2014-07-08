@@ -1365,13 +1365,13 @@ class Calendar(CommonHomeChild):
         # Initialize these for all shares
         for ename in self._shadowProperties:
             if ename not in self.properties() and ename.toString() in props:
-                self.properties()[ename] = WebDAVDocument.fromString(props[ename]).root_element
+                self.properties()[ename] = WebDAVDocument.fromString(props[ename.toString()]).root_element
 
         # Only initialize these for direct shares
         if self.direct():
             for ename in (PropertyName.fromElement(element.DisplayName),):
                 if ename not in self.properties() and ename.toString() in props:
-                    self.properties()[ename] = WebDAVDocument.fromString(props[ename]).root_element
+                    self.properties()[ename] = WebDAVDocument.fromString(props[ename.toString()]).root_element
 
 
     # FIXME: this is DAV-ish.  Data store calendar objects don't have
@@ -1781,7 +1781,7 @@ class Calendar(CommonHomeChild):
         record = yield self._txn.directoryService().recordWithUID(shareeUID.decode("utf-8"))
         if (
             record is None or
-            record.recordType != RecordType.group or not (False and
+            record.type() != RecordType.group or not (False and
                 config.Sharing.Enabled and
                 config.Sharing.Calendars.Enabled and
                 config.Sharing.Calendars.Groups.Enabled
@@ -1793,8 +1793,8 @@ class Calendar(CommonHomeChild):
             )
 
         # shareWith every member of group not already shared to
-        groupID, _ignore_name, _ignore_membershipHash, _ignore_modDate = yield self._txn.groupByUID(record.uid)
-        memberUIDs = yield self._txn.membersOfGroup(groupID)
+        groupID = (yield self._txn.groupByUID(record.uid))[0]
+        memberUIDs = yield self._txn.groupMemberUIDs(groupID)
         for memberUID in memberUIDs:
             shareeHome = yield self._txn.calendarHomeWithUID(memberUID, create=True)
             if (yield shareeHome.childWithID(self._resourceID)) is None:
@@ -1814,8 +1814,8 @@ class Calendar(CommonHomeChild):
             record = (
                 yield self._txn.directoryService().recordWithUID(groupUID.decode("utf-8"))
             )
-            groupID, _ignore_name, _ignore_membershipHash, _ignore_modDate = yield self._txn.groupByUID(record.uid)
-            memberUIDs = yield self._txn.membersOfGroup(groupID)
+            groupID = (yield self._txn.groupByUID(record.uid))[0]
+            memberUIDs = yield self._txn.groupMemberUIDs(groupID)
             boundUIDs = set()
 
             bind = schema.CALENDAR_BIND
@@ -1851,7 +1851,10 @@ class Calendar(CommonHomeChild):
         update schema.GROUP_SHAREE
         """
         changed = False
-        groupID, _ignore_name, membershipHash, _ignore_modDate = yield self._txn.groupByUID(groupUID)
+        (
+            groupID, _ignore_name, membershipHash, _ignore_modDate,
+            _ignore_extant
+        ) = yield self._txn.groupByUID(groupUID)
 
         gs = schema.GROUP_SHAREE
         rows = yield Select(
@@ -1923,33 +1926,26 @@ class Calendar(CommonHomeChild):
         """
 
         # see if after share is removed, user is still shared by a group sharee
-        effectiveShareMode = None
-        oldShareMode = shareeView.shareMode()
-        if oldShareMode in (_BIND_MODE_DIRECT, _BIND_MODE_READ, _BIND_MODE_WRITE, _BIND_MODE_GROUP,):
+        if shareeView.shareMode() in (_BIND_MODE_DIRECT, _BIND_MODE_READ, _BIND_MODE_WRITE, _BIND_MODE_GROUP):
 
             gs = schema.GROUP_SHAREE
             rows = yield Select(
-                [gs.GROUP_ID, gs.GROUP_BIND_MODE],
+                [gs.GROUP_ID],
                 From=gs,
                 Where=(gs.CALENDAR_HOME_ID == self.ownerHome()._resourceID).And(
                     gs.CALENDAR_ID == self._resourceID)
             ).on(self._txn)
-            shareeHomeUID = shareeView.viewerHome().uid()
-            for groupID, groupShareMode in rows:
-                memberUIDs = yield self._txn.membersOfGroup(groupID)
-                if shareeHomeUID in memberUIDs:
-                    if effectiveShareMode is None:
-                        effectiveShareMode = groupShareMode
-                    elif groupShareMode > effectiveShareMode:
-                        effectiveShareMode = groupShareMode
+            groupIDs = [row[0] for row in rows]
 
-        if effectiveShareMode is None:
-            # no group sharee for this user so let super do work
-            returnValue((yield super(Calendar, self).removeShare(shareeView)))
-        elif oldShareMode != _BIND_MODE_GROUP:
-            # change to group share
-            yield self.updateShare(shareeView, mode=_BIND_MODE_GROUP)
-            returnValue(None)
+            shareeHomeUID = shareeView.viewerHome().uid()
+            for groupID in groupIDs:
+                memberUIDs = yield self._txn.groupMemberUIDs(groupID) # must be cached
+                if shareeHomeUID in memberUIDs:
+                    yield self.updateShare(shareeView, mode=_BIND_MODE_GROUP)
+                    returnValue(None)
+
+        # no group sharee for this user so let super do work
+        returnValue((yield super(Calendar, self).removeShare(shareeView)))
 
         #TODO: effectiveShareMode may change between _BIND_MODE_READ & _BIND_MODE_READ.
         #        Is that OK?
@@ -1975,8 +1971,8 @@ class Calendar(CommonHomeChild):
             returnValue(None)
 
         # get group membership
-        groupID, _ignore_name, _ignore_membershipHash, _ignore_modDate = yield self._txn.groupByUID(record.uid)
-        memberUIDs = yield self._txn.membersOfGroup(groupID)
+        groupID = (yield self._txn.groupByUID(record.uid))[0]
+        memberUIDs = yield self._txn.groupMemberUIDs(groupID)
 
         # update groupsharee so that removeShare works
         gs = schema.GROUP_SHAREE
@@ -2116,6 +2112,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     _objectSchema = schema.CALENDAR_OBJECT
     _componentClass = VComponent
 
+    _currentDataVersion = 1
+
     def __init__(self, calendar, name, uid, resourceID=None, options=None):
 
         super(CalendarObject, self).__init__(calendar, name, uid, resourceID)
@@ -2177,7 +2175,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             obj.SCHEDULE_ETAGS,
             obj.PRIVATE_COMMENTS,
             obj.CREATED,
-            obj.MODIFIED
+            obj.MODIFIED,
+            obj.DATAVERSION,
         ]
 
 
@@ -2198,6 +2197,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             "_private_comments",
             "_created",
             "_modified",
+            "_dataversion",
          )
 
 
@@ -2221,7 +2221,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # Possible timezone stripping
         if config.EnableTimezonesByReference:
-            component.stripKnownTimezones()
+            component.stripStandardTimezones()
 
         # Do validation on external requests
         if internal_state == ComponentUpdateState.NORMAL:
@@ -2250,7 +2250,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             yield self.validAttendeeListSizeCheck(component, inserting)
 
         # Check location/resource organizer requirement
-        self.validLocationResourceOrganizer(component, inserting, internal_state)
+        yield self.validLocationResourceOrganizer(component, inserting, internal_state)
 
         # Check access
         if config.EnablePrivateEvents:
@@ -2277,19 +2277,16 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         groupCUAToAttendeeMemberPropMap = {}
         for groupCUA in groupCUAs:
 
+            groupCUAToAttendeeMemberPropMap[groupCUA] = ()
             groupRecord = yield self.directoryService().recordWithCalendarUserAddress(groupCUA)
             if groupRecord:
-                # get members from cached membership
-                groupID, _ignore_name, _ignore_membershipHash, _ignore_modDate = yield self._txn.groupByUID(groupRecord.uid)
-                members = [(yield self.directoryService().recordWithUID(memberUID))
-                    for memberUID in
-                    (yield self._txn.membersOfGroup(groupID))
-                ]
-                groupCUAToAttendeeMemberPropMap[groupRecord.canonicalCalendarUserAddress()] = tuple(
-                    [member.attendeeProperty(params={"MEMBER": groupCUA}) for member in sorted(members, key=lambda x: x.uid)]
-                )
-            else:
-                groupCUAToAttendeeMemberPropMap[groupCUA] = ()
+                # get members
+                groupID = (yield self._txn.groupByUID(groupRecord.uid))[0]
+                if groupID is not None:
+                    members = yield self._txn.groupMembers(groupID)
+                    groupCUAToAttendeeMemberPropMap[groupRecord.canonicalCalendarUserAddress()] = tuple(
+                        [member.attendeeProperty(params={"MEMBER": groupCUA}) for member in sorted(members, key=lambda x: x.uid)]
+                    )
 
         # sync group attendee members if inserting or group changed
         changed = False
@@ -2328,7 +2325,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 groupUID = groupRecord.uid
             else:
                 groupUID = uidFromCalendarUserAddress(groupCUA)
-            groupID, _ignore_name, membershipHash, _ignore_modDate = yield self._txn.groupByUID(groupUID)
+            (
+                groupID, _ignore_name, membershipHash, _ignore_modDate,
+                _ignore_extant
+            ) = yield self._txn.groupByUID(groupUID)
 
             if groupID in groupIDToMembershipHashMap:
                 if groupIDToMembershipHashMap[groupID] != membershipHash:
@@ -3309,7 +3309,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 co.SCHEDULE_TAG                    : self._schedule_tag,
                 co.SCHEDULE_ETAGS                  : self._schedule_etags,
                 co.PRIVATE_COMMENTS                : self._private_comments,
-                co.MD5                             : self._md5
+                co.MD5                             : self._md5,
+                co.DATAVERSION                     : self._currentDataVersion,
             }
 
             # Only needed if indexing being changed
@@ -3328,8 +3329,9 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 values[co.MODIFIED] = utcNowSQL
                 self._modified = (
                     yield Update(
-                        values, Return=co.MODIFIED,
-                        Where=co.RESOURCE_ID == self._resourceID
+                        values,
+                        Where=co.RESOURCE_ID == self._resourceID,
+                        Return=co.MODIFIED,
                     ).on(txn)
                 )[0][0]
 
@@ -3483,14 +3485,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # Fix any bogus data we can
             fixed, unfixed = component.validCalendarData(doFix=True, doRaise=False)
 
-            # Normalize CUAs:
-            # FIXME: update the DB copy as well so we don't keep going through
-            # this normalization?
-            yield component.normalizeCalendarUserAddresses(
-                normalizationLookup,
-                self.directoryService().recordWithCalendarUserAddress
-            )
-
             if unfixed:
                 self.log.error(
                     "Calendar data id={0} had unfixable problems:\n  {1}".format(
@@ -3504,6 +3498,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                         self._resourceID, "\n  ".join(fixed),
                     )
                 )
+
+            # Check for on-demand data upgrade
+            if self._dataversion < self._currentDataVersion:
+                yield self.upgradeData(component)
 
             self._cachedComponent = component
             self._cachedCommponentPerUser = {}
@@ -3531,6 +3529,25 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             filtered = PerUserDataFilter(user_uuid).filter(caldata.duplicate())
             self._cachedCommponentPerUser[user_uuid] = filtered
         returnValue(self._cachedCommponentPerUser[user_uuid])
+
+
+    @inlineCallbacks
+    def upgradeData(self, component):
+        """
+        Implement in sub-classes. If the data version of this item does not match
+        the current data version, call this method and implement a data upgrade,
+        writing back the new data and updating the data version.
+        """
+
+        if self._dataversion < 1:
+            # Normalize CUAs:
+            yield component.normalizeCalendarUserAddresses(
+                normalizationLookup,
+                self.directoryService().recordWithCalendarUserAddress
+            )
+
+        self._dataversion = self._currentDataVersion
+        yield self.updateDatabase(component)
 
 
     def moveValidation(self, destination, name):

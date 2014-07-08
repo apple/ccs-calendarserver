@@ -886,7 +886,7 @@ class CalDAVResource (
     @inlineCallbacks
     def ownerPrincipal(self, request):
         """
-        Return the DAV:owner property value (MUST be a DAV:href or None).
+        Return the principal resource for the owner of this resource.
         """
         if hasattr(self, "_newStoreObject"):
             if not hasattr(self._newStoreObject, "ownerHome"):
@@ -906,7 +906,7 @@ class CalDAVResource (
     @inlineCallbacks
     def resourceOwnerPrincipal(self, request):
         """
-        This is the owner of the resource based on the URI used to access it. For a shared
+        This is the principal resource of the owner of the resource based on the URI used to access it. For a shared
         collection it will be the sharee, otherwise it will be the regular the ownerPrincipal.
         """
         parent = (yield self.locateParent(
@@ -1884,7 +1884,7 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
                 ))
 
             # elif name == "auto-schedule" and self.calendarsEnabled():
-            #     autoSchedule = self.getAutoSchedule()
+            #     autoSchedule = yield self.getAutoSchedule()
             #     returnValue(customxml.AutoSchedule("true" if autoSchedule else "false"))
 
             elif name == "auto-schedule-mode" and self.calendarsEnabled():

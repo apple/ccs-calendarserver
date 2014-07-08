@@ -290,15 +290,17 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
         #
         # Create children
         #
-
-        self.supportedChildTypes = (
+        self.supportedChildTypes = [
             self.directory.recordType.user,
             self.directory.recordType.group,
             self.directory.recordType.location,
             self.directory.recordType.resource,
             self.directory.recordType.address,
-            self.directory.recordType.macOSXServerWiki,
-        )
+        ]
+        if config.Authentication.Wiki.Enabled:
+            self.supportedChildTypes.append(
+                self.directory.recordType.macOSXServerWiki
+            )
 
         for name, recordType in [
             (self.directory.recordTypeToOldName(r), r)
