@@ -228,7 +228,7 @@ class NotifierFactory(StoreTestCase):
     def test_shareWithNotifier(self):
 
         calendar = yield self.calendarUnderTest(home="user01")
-        yield calendar.inviteUserToShare("user02", _BIND_MODE_WRITE, "")
+        yield calendar.inviteUIDToShare("user02", _BIND_MODE_WRITE, "")
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
@@ -241,7 +241,7 @@ class NotifierFactory(StoreTestCase):
         yield self.commit()
 
         calendar = yield self.calendarUnderTest(home="user01")
-        yield calendar.uninviteUserFromShare("user02")
+        yield calendar.uninviteUIDFromShare("user02")
         self.assertEquals(
             set(self.notifierFactory.history),
             set([
@@ -258,7 +258,7 @@ class NotifierFactory(StoreTestCase):
     def test_sharedCalendarNotifier(self):
 
         calendar = yield self.calendarUnderTest(home="user01")
-        shareeView = yield calendar.inviteUserToShare("user02", _BIND_MODE_WRITE, "")
+        shareeView = yield calendar.inviteUIDToShare("user02", _BIND_MODE_WRITE, "")
         yield shareeView.acceptShare("")
         shareName = shareeView.name()
         yield self.commit()

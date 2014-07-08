@@ -100,7 +100,7 @@ END:VCALENDAR
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 0)
 
-        shareeView = yield calendar.inviteUserToShare("user02", _BIND_MODE_READ, "summary")
+        shareeView = yield calendar.inviteUIDToShare("user02", _BIND_MODE_READ, "summary")
         inviteUID = shareeView.shareUID()
         yield self.commit()
 
@@ -140,7 +140,7 @@ class CalendarSharing(BaseSharingTests):
         self.assertEqual(len(invites), 0)
         self.assertFalse(calendar.isShared())
 
-        shareeView = yield calendar.inviteUserToShare("user02", _BIND_MODE_READ, "summary")
+        shareeView = yield calendar.inviteUIDToShare("user02", _BIND_MODE_READ, "summary")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 1)
         self.assertEqual(invites[0].uid, shareeView.shareUID())
@@ -168,7 +168,7 @@ class CalendarSharing(BaseSharingTests):
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 1)
 
-        yield calendar.uninviteUserFromShare("user02")
+        yield calendar.uninviteUIDFromShare("user02")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 0)
 
@@ -198,7 +198,7 @@ class CalendarSharing(BaseSharingTests):
         self.assertEqual(len(invites), 0)
         self.assertFalse(calendar.isShared())
 
-        shareeView = yield calendar.inviteUserToShare("user02", _BIND_MODE_READ, "summary")
+        shareeView = yield calendar.inviteUIDToShare("user02", _BIND_MODE_READ, "summary")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 1)
         inviteUID = shareeView.shareUID()
@@ -258,7 +258,7 @@ class CalendarSharing(BaseSharingTests):
         self.assertEqual(len(invites), 0)
         self.assertFalse(calendar.isShared())
 
-        shareeView = yield calendar.inviteUserToShare("user02", _BIND_MODE_READ, "summary")
+        shareeView = yield calendar.inviteUIDToShare("user02", _BIND_MODE_READ, "summary")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 1)
         inviteUID = shareeView.shareUID()
@@ -319,7 +319,7 @@ class CalendarSharing(BaseSharingTests):
         self.assertEqual(len(invites), 0)
         self.assertFalse(calendar.isShared())
 
-        shareeView = yield calendar.inviteUserToShare("user02", _BIND_MODE_READ, "summary")
+        shareeView = yield calendar.inviteUIDToShare("user02", _BIND_MODE_READ, "summary")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 1)
         inviteUID = shareeView.shareUID()
@@ -379,7 +379,7 @@ class CalendarSharing(BaseSharingTests):
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 0)
 
-        shareeView = yield calendar.inviteUserToShare("user02", _BIND_MODE_READ, "summary")
+        shareeView = yield calendar.inviteUIDToShare("user02", _BIND_MODE_READ, "summary")
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 1)
         inviteUID = shareeView.shareUID()
@@ -609,7 +609,7 @@ class SharingRevisions(BaseSharingTests):
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 0)
 
-        shareeView = yield calendar.inviteUserToShare("user02", _BIND_MODE_READ, "summary")
+        shareeView = yield calendar.inviteUIDToShare("user02", _BIND_MODE_READ, "summary")
         newCalName = shareeView.shareUID()
         yield self.commit()
 

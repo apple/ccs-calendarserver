@@ -1993,7 +1993,7 @@ class Calendar(CommonHomeChild):
     # Higher level API
     #
     @inlineCallbacks
-    def inviteUserToShare(self, shareeUID, mode, summary, shareName=None):
+    def inviteUIDToShare(self, shareeUID, mode, summary, shareName=None):
         """
         Invite a user to share this collection - either create the share if it does not exist, or
         update the existing share with new values. Make sure a notification is sent as well.
@@ -2006,21 +2006,29 @@ class Calendar(CommonHomeChild):
         @type summary: C{str}
         """
 
-        # Look for existing invite and update its fields or create new one
-        shareeView = yield self.shareeView(shareeUID)
-        if shareeView is not None:
-            status = _BIND_STATUS_INVITED if shareeView.shareStatus() in (_BIND_STATUS_DECLINED, _BIND_STATUS_INVALID) else None
-            yield self.updateShare(shareeView, mode=mode, status=status, summary=summary)
-        else:
-            shareeView = yield self.createShare(shareeUID=shareeUID, mode=mode, summary=summary, shareName=shareName)
+        record = yield self._txn.directoryService().recordWithUID(shareeUID.decode("utf-8"))
+        if (
+            record is None or
+            record.type() != RecordType.group or not (False and
+                config.Sharing.Enabled and
+                config.Sharing.Calendars.Enabled and
+                config.Sharing.Calendars.Groups.Enabled
+            )
+        ):
+            returnValue(
+                (yield super(Calendar, self).inviteUIDToShare(shareeUID, mode, summary, shareName))
+            )
 
-        # Check for external
-        if shareeView.viewerHome().external():
-            yield self._sendExternalInvite(shareeView)
-        else:
-            # Send invite notification
-            yield self._sendInviteNotification(shareeView)
-        returnValue(shareeView)
+        # invite every member of group
+        groupID = (yield self._txn.groupByUID(record.uid))[0]
+        memberUIDs = yield self._txn.groupMemberUIDs(groupID)
+        for memberUID in memberUIDs:
+            shareeView = yield self.shareeView(shareeUID)
+            if shareeView is None:
+                yield super(Calendar, self).inviteUIDToShare(memberUID, _BIND_MODE_GROUP, summary, shareName)
+            # FIX ME:
+
+        returnValue(None)
 
 
     @inlineCallbacks
@@ -2050,7 +2058,7 @@ class Calendar(CommonHomeChild):
 
 
     @inlineCallbacks
-    def uninviteUserFromShare(self, shareeUID):
+    def uninviteUIDFromShare(self, shareeUID):
         """
         Remove a user from a share. Make sure a notification is sent as well.
 

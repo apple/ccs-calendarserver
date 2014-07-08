@@ -2901,7 +2901,7 @@ class SharingHomeMixIn(object):
                 self.uid(), shareName=shareUID
             )
         else:
-            shareeView = yield ownerView.inviteUserToShare(
+            shareeView = yield ownerView.inviteUIDToShare(
                 self.uid(), bindMode, summary, shareName=shareUID
             )
 
@@ -2925,7 +2925,7 @@ class SharingHomeMixIn(object):
             raise ExternalShareFailed("Invalid share ID: {}".format(shareUID))
 
         # Now carry out the share operation
-        yield ownerView.uninviteUserFromShare(self.uid())
+        yield ownerView.uninviteUIDFromShare(self.uid())
 
         # See if there are any references to the external share. If not,
         # remove it
@@ -4563,7 +4563,7 @@ class SharingMixIn(object):
     # Higher level API
     #
     @inlineCallbacks
-    def inviteUserToShare(self, shareeUID, mode, summary, shareName=None):
+    def inviteUIDToShare(self, shareeUID, mode, summary, shareName=None):
         """
         Invite a user to share this collection - either create the share if it does not exist, or
         update the existing share with new values. Make sure a notification is sent as well.
@@ -4620,7 +4620,7 @@ class SharingMixIn(object):
 
 
     @inlineCallbacks
-    def uninviteUserFromShare(self, shareeUID):
+    def uninviteUIDFromShare(self, shareeUID):
         """
         Remove a user from a share. Make sure a notification is sent as well.
 
@@ -4703,7 +4703,7 @@ class SharingMixIn(object):
 
         # Remove all sharees (direct and invited)
         for invitation in (yield self.sharingInvites()):
-            yield self.uninviteUserFromShare(invitation.shareeUID)
+            yield self.uninviteUIDFromShare(invitation.shareeUID)
 
 
     def newShare(self, displayname=None):

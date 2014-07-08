@@ -193,7 +193,7 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
 
         home = yield self.homeUnderTest(name=ownerGUID, create=True)
         calendar = yield home.calendarWithName(name)
-        yield calendar.inviteUserToShare(shareeGUID, _BIND_MODE_WRITE, "shared", shareName="shared-calendar")
+        yield calendar.inviteUIDToShare(shareeGUID, _BIND_MODE_WRITE, "shared", shareName="shared-calendar")
         yield self.commit()
 
         # ACK: home2 is None
@@ -209,5 +209,5 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
 
         home = yield self.homeUnderTest(name=ownerGUID)
         calendar = yield home.calendarWithName(name)
-        yield calendar.uninviteUserFromShare(shareeGUID)
+        yield calendar.uninviteUIDFromShare(shareeGUID)
         yield self.commit()
