@@ -568,10 +568,12 @@ c_dependencies () {
 #
 py_dependencies () {
   python="${py_bindir}/python";
+  py_ve_tools="${dev_home}/ve_tools";
 
   export PATH="${py_virtualenv}/bin:${PATH}";
   export PYTHON="${python}";
-  export PYTHONPATH="${wd}:${PYTHONPATH:-}";
+  export PYTHONPATH="${py_ve_tools}/lib:${wd}:${PYTHONPATH:-}";
+
 
   # Work around a change in Xcode tools that breaks Python modules in OS X
   # 10.9.2 and prior due to a hard error if the -mno-fused-madd is used, as
@@ -601,7 +603,7 @@ py_dependencies () {
 
   # Make sure setup got called enough to write the version file.
 
-  "${python}" "${wd}/setup.py" check > /dev/null;
+  PYTHONPATH="${PYTHONPATH}" "${python}" "${wd}/setup.py" check > /dev/null;
 
   if [ -d "${dev_home}/pip_downloads" ]; then
     pip_install="pip_install_from_cache";
@@ -626,24 +628,14 @@ py_dependencies () {
 
 
 bootstrap_virtualenv () {
-  py_ve_tools="${dev_home}/ve_tools";
-
-  if [ -d "${py_ve_tools}/lib" ]; then
-    export PYTHONPATH="${py_ve_tools}/lib:${PYTHONPATH:-}";
-  fi;
-
-  if "${bootstrap_python}" -m virtualenv > /dev/null 2>&1; then
-    return 0;
-  fi;
-
   mkdir -p "${py_ve_tools}";
   mkdir -p "${py_ve_tools}/lib";
   mkdir -p "${py_ve_tools}/junk";
 
   for pkg in             \
-      pip-1.5.4          \
-      virtualenv-1.11.4  \
-      setuptools-3.4.4   \
+      setuptools-5.4.1   \
+      pip-1.5.6          \
+      virtualenv-1.11.6  \
   ; do
          name="${pkg%-*}";
       version="${pkg#*-}";
@@ -669,8 +661,6 @@ bootstrap_virtualenv () {
 
       rm -rf "${tmp}";
   done;
-
-  export PYTHONPATH="${py_ve_tools}/lib:${PYTHONPATH:-}";
 }
 
 
