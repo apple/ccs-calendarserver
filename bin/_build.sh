@@ -111,7 +111,7 @@ init_build () {
     dep_packages="${TWEXT_PKG_CACHE}";
   fi;
 
-  project="$(setup_print name)";
+  project="$(setup_print name)" || project="<unknown>";
 
   # Find some hashing commands
   # sha1() = sha1 hash, if available
