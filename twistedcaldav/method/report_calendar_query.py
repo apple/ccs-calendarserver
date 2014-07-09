@@ -216,7 +216,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                     child_uri_name = child_uri[child_uri.rfind("/") + 1:]
 
                     if generate_calendar_data or not index_query_ok:
-                        calendar = (yield child.iCalendarForUser(request))
+                        calendar = (yield child.iCalendarForUser())
                         assert calendar is not None, "Calendar %s is missing from calendar collection %r" % (child_uri_name, self)
                     else:
                         calendar = None
@@ -240,7 +240,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
             # Check private events access status
             isowner = (yield calresource.isOwner(request))
 
-            calendar = (yield calresource.iCalendarForUser(request))
+            calendar = (yield calresource.iCalendarForUser())
             yield queryCalendarObjectResource(calresource, uri, None, calendar, timezone)
 
         returnValue(True)

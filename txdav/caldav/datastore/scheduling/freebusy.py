@@ -356,6 +356,9 @@ def _internalGenerateFreeBusyInfo(
                     fbtype,
                 ))
 
+    # Cache directory record lookup outside this loop as it is expensive and will likely
+    # always end up being called with the same organizer address.
+    recordUIDCache = {}
     for key in aggregated_resources.iterkeys():
 
         name, uid, type, test_organizer = key
@@ -375,8 +378,14 @@ def _internalGenerateFreeBusyInfo(
                 if excludeuid:
                     # See if we have a UID match
                     if (excludeuid == uid):
-                        test_record = (yield calresource.directoryService().recordWithCalendarUserAddress(test_organizer)) if test_organizer else None
-                        test_uid = test_record.uid if test_record else ""
+                        if test_organizer:
+                            test_uid = recordUIDCache.get(test_organizer)
+                            if test_uid is None:
+                                test_record = (yield calresource.directoryService().recordWithCalendarUserAddress(test_organizer))
+                                test_uid = test_record.uid if test_record else ""
+                                recordUIDCache[test_organizer] = test_uid
+                        else:
+                            test_uid = ""
 
                         # Check that ORGANIZER's match (security requirement)
                         if (organizer is None) or (organizer_uid == test_uid):
@@ -435,8 +444,14 @@ def _internalGenerateFreeBusyInfo(
                 # See if we have a UID match
                 if (excludeuid == uid):
                     test_organizer = calendar.getOrganizer()
-                    test_record = (yield calresource.principalForCalendarUserAddress(test_organizer)) if test_organizer else None
-                    test_uid = test_record.principalUID() if test_record else ""
+                    if test_organizer:
+                        test_uid = recordUIDCache.get(test_organizer)
+                        if test_uid is None:
+                            test_record = (yield calresource.directoryService().recordWithCalendarUserAddress(test_organizer))
+                            test_uid = test_record.uid if test_record else ""
+                            recordUIDCache[test_organizer] = test_uid
+                    else:
+                        test_uid = ""
 
                     # Check that ORGANIZER's match (security requirement)
                     if (organizer is None) or (organizer_uid == test_uid):

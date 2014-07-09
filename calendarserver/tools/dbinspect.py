@@ -37,7 +37,6 @@ from twisted.python.usage import Options
 
 from twistedcaldav import caldavxml
 from twistedcaldav.config import config
-from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 
@@ -98,7 +97,7 @@ class DBInspectOptions(Options):
 
 @inlineCallbacks
 def UserNameFromUID(txn, uid):
-    record = yield txn.directoryService().recordWithGUID(uid)
+    record = yield txn.directoryService().recordWithUID(uid)
     returnValue(record.shortNames[0] if record else "(%s)" % (uid,))
 
 
@@ -116,7 +115,7 @@ def UIDFromInput(txn, value):
         record = yield txn.directoryService().recordWithShortName(CalRecordType.resource, value)
     if record is None:
         record = yield txn.directoryService().recordWithShortName(RecordType.group, value)
-    returnValue(record.guid if record else None)
+    returnValue(record.uid if record else None)
 
 
 
@@ -772,8 +771,7 @@ class EventsInTimerange(Cmd):
             returnValue(None)
         for name, _ignore_uid, _ignore_type in matches:
             event = yield calendar.calendarObjectWithName(name)
-            ical_data = yield event.component()
-            ical_data = PerUserDataFilter(uid).filter(ical_data)
+            ical_data = yield event.componentForUser()
             ical_data.stripStandardTimezones()
 
             table = tables.Table()

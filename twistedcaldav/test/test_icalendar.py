@@ -10886,3 +10886,181 @@ END:VCALENDAR
             changed = component.cleanOrganizerScheduleAgent()
             self.assertEqual(sorted(normalize_iCalStr(component).splitlines()), sorted(normalize_iCalStr(result).splitlines()), msg=title)
             self.assertEqual(changed, result_changed, msg=title)
+
+
+    def test_adjustedTransp(self):
+        """
+        Test that L{Component.adjustedTransp} returns the correct TRANSP value.
+        """
+
+        data = (
+            (
+                "Event timed, no TRANSP",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+RRULE:FREQ=DAILY
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                "OPAQUE",
+            ),
+            (
+                "Event timed, TRANSP:OPAQUE",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+RRULE:FREQ=DAILY
+SUMMARY:Test
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR
+""",
+                "OPAQUE",
+            ),
+            (
+                "Event timed, TRANSP:TRANSPARENT",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+RRULE:FREQ=DAILY
+SUMMARY:Test
+TRANSP:TRANSPARENT
+END:VEVENT
+END:VCALENDAR
+""",
+                "TRANSPARENT",
+            ),
+            (
+                "Event all-day, no TRANSP",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;VALUE=DATE:20080601
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+RRULE:FREQ=DAILY
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                "TRANSPARENT",
+            ),
+            (
+                "Event all-day, TRANSP:OPAQUE",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;VALUE=DATE:20080601
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+RRULE:FREQ=DAILY
+SUMMARY:Test
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR
+""",
+                "OPAQUE",
+            ),
+            (
+                "Event all-day, TRANSP:TRANSPARENT",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;VALUE=DATE:20080601
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+RRULE:FREQ=DAILY
+SUMMARY:Test
+TRANSP:TRANSPARENT
+END:VEVENT
+END:VCALENDAR
+""",
+                "TRANSPARENT",
+            ),
+            (
+                "Todo timed, no TRANSP",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTODO
+UID:12345-67890
+DUE:20080601T120000Z
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+RRULE:FREQ=DAILY
+SUMMARY:Test
+END:VTODO
+END:VCALENDAR
+""",
+                "OPAQUE",
+            ),
+            (
+                "Todo all-day, no TRANSP",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTODO
+UID:12345-67890
+DUE;VALUE=DATE:20080601
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+RRULE:FREQ=DAILY
+SUMMARY:Test
+END:VTODO
+END:VCALENDAR
+""",
+                "OPAQUE",
+            ),
+        )
+
+        for title, txt, result in data:
+            component = Component.fromString(txt).mainComponent()
+            transp = component.adjustedTransp()
+            self.assertEqual(transp, result, msg=title)

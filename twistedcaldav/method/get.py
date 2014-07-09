@@ -87,7 +87,7 @@ def http_GET(self, request):
                 if accepted_type is None:
                     raise HTTPError(StatusResponse(responsecode.NOT_ACCEPTABLE, "Cannot generate requested data type"))
 
-                caldata = (yield self.iCalendarForUser(request))
+                caldata = (yield self.iCalendarForUser())
 
                 # Filter any attendee hidden instances
                 caldata = HiddenInstanceFilter().filter(caldata)

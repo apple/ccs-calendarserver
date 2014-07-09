@@ -11,5 +11,6 @@ DESCRIPTION:Every four years on the first Tuesday after the first Monday in
   November
 SEQUENCE:2
 SUMMARY:Election Day
+TRANSP:TRANSPARENT
 END:VEVENT
 END:VCALENDAR
