@@ -121,34 +121,34 @@ init_build () {
 
   hash="";
 
-  if type -ft openssl > /dev/null; then
+  if find_cmd openssl > /dev/null; then
     if [ -z "${hash}" ]; then hash="md5"; fi;
-    md5 () { "$(type -p openssl)" dgst -md5 "$@"; }
-  elif type -ft md5 > /dev/null; then
+    md5 () { "$(find_cmd openssl)" dgst -md5 "$@"; }
+  elif find_cmd md5 > /dev/null; then
     if [ -z "${hash}" ]; then hash="md5"; fi;
-    md5 () { "$(type -p md5)" "$@"; }
-  elif type -ft md5sum > /dev/null; then
+    md5 () { "$(find_cmd md5)" "$@"; }
+  elif find_cmd md5sum > /dev/null; then
     if [ -z "${hash}" ]; then hash="md5"; fi;
-    md5 () { "$(type -p md5sum)" "$@"; }
+    md5 () { "$(find_cmd md5sum)" "$@"; }
   fi;
 
-  if type -ft sha1sum > /dev/null; then
+  if find_cmd sha1sum > /dev/null; then
     if [ -z "${hash}" ]; then hash="sha1sum"; fi;
-    sha1 () { "$(type -p sha1sum)" "$@"; }
+    sha1 () { "$(find_cmd sha1sum)" "$@"; }
   fi;
-  if type -ft shasum > /dev/null; then
+  if find_cmd shasum > /dev/null; then
     if [ -z "${hash}" ]; then hash="sha1"; fi;
-    sha1 () { "$(type -p shasum)" "$@"; }
+    sha1 () { "$(find_cmd shasum)" "$@"; }
   fi;
 
   if [ "${hash}" = "sha1" ]; then
     hash () { sha1 "$@"; }
   elif [ "${hash}" = "md5" ]; then
     hash () { md5 "$@"; }
-  elif type -t cksum > /dev/null; then
+  elif find_cmd cksum > /dev/null; then
     hash="hash";
     hash () { cksum "$@" | cut -f 1 -d " "; }
-  elif type -t sum > /dev/null; then
+  elif find_cmd sum > /dev/null; then
     hash="hash";
     hash () { sum "$@" | cut -f 1 -d " "; }
   else
