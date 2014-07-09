@@ -160,7 +160,7 @@ init_build () {
 setup_print () {
   what="$1"; shift;
 
-  PYTHONPATH="${wd}:${PYTHONPATH:-}" "${bootstrap_python}" - << EOF
+  PYTHONPATH="${wd}:${PYTHONPATH:-}" "${bootstrap_python}" - 2>/dev/null << EOF
 from __future__ import print_function
 import setup
 print(setup.${what})
