@@ -82,11 +82,10 @@ from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
 from txdav.common.datastore.sql_tables import _ATTACHMENTS_MODE_NONE, \
-    _ATTACHMENTS_MODE_WRITE, schema, _BIND_MODE_OWN, \
-    _ATTACHMENTS_MODE_READ, _TRANSP_OPAQUE, _TRANSP_TRANSPARENT, \
-    _BIND_MODE_GROUP, _BIND_MODE_READ, _BIND_MODE_WRITE, _BIND_MODE_DIRECT, \
-    _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED, _BIND_STATUS_INVALID, \
-    _BIND_STATUS_INVITED, _BIND_STATUS_DELETED
+    _ATTACHMENTS_MODE_READ, _ATTACHMENTS_MODE_WRITE, _BIND_MODE_DIRECT, \
+    _BIND_MODE_GROUP, _BIND_MODE_GROUP_READ, _BIND_MODE_GROUP_WRITE, \
+    _BIND_MODE_OWN, _BIND_MODE_READ, _BIND_MODE_WRITE, _TRANSP_OPAQUE, \
+    _TRANSP_TRANSPARENT, schema
 from txdav.common.icommondatastore import IndexedSearchException, \
     InternalDataStoreError, HomeChildNameAlreadyExistsError, \
     HomeChildNameNotAllowedError, ObjectResourceTooBigError, \
@@ -1755,54 +1754,6 @@ class Calendar(CommonHomeChild):
     #===============================================================================
     # Group sharing
     #===============================================================================
-    @inlineCallbacks
-    def shareWithUID(self, shareeUID, mode, status=None, summary=None, shareName=None):
-        """
-        Share this (owned) L{CommonHomeChild} with another principal.
-
-        @param shareeUID: The UID of the sharee.
-        @type: L{str}
-
-        @param mode: The sharing mode; L{_BIND_MODE_READ} or
-            L{_BIND_MODE_WRITE} or L{_BIND_MODE_DIRECT}
-        @type mode: L{str}
-
-        @param status: The sharing status; L{_BIND_STATUS_INVITED} or
-            L{_BIND_STATUS_ACCEPTED}
-        @type: L{str}
-
-        @param summary: The proposed message to go along with the share, which
-            will be used as the default display name.
-        @type: L{str}
-
-        @return: the name of the shared calendar in the new calendar home.
-        @rtype: L{str}
-        """
-        record = yield self._txn.directoryService().recordWithUID(shareeUID.decode("utf-8"))
-        if (
-            record is None or
-            record.type() != RecordType.group or not (False and
-                config.Sharing.Enabled and
-                config.Sharing.Calendars.Enabled and
-                config.Sharing.Calendars.Groups.Enabled
-            )
-        ):
-            shareeHome = yield self._txn.calendarHomeWithUID(shareeUID, create=True)
-            returnValue(
-                (yield self.shareWith(shareeHome, mode, status, summary, shareName))
-            )
-
-        # shareWith every member of group not already shared to
-        groupID = (yield self._txn.groupByUID(record.uid))[0]
-        memberUIDs = yield self._txn.groupMemberUIDs(groupID)
-        for memberUID in memberUIDs:
-            shareeHome = yield self._txn.calendarHomeWithUID(memberUID, create=True)
-            if (yield shareeHome.childWithID(self._resourceID)) is None:
-                yield self.shareWith(shareeHome, _BIND_MODE_GROUP, status)
-
-        yield self.updateShareeGroupLink(shareeUID, mode)
-        returnValue(None)
-
 
     @inlineCallbacks
     def reconcileGroupSharee(self, groupUID):
@@ -1823,8 +1774,10 @@ class Calendar(CommonHomeChild):
                 [bind.HOME_RESOURCE_ID],
                 From=bind,
                 Where=bind.CALENDAR_RESOURCE_ID == self._resourceID.And(
-                    bind.BIND_MODE == _BIND_MODE_GROUP
-                ),
+                    (bind.BIND_MODE == _BIND_MODE_GROUP).Or(
+                     bind.BIND_MODE == _BIND_MODE_GROUP_READ).Or(
+                     bind.BIND_MODE == _BIND_MODE_GROUP_WRITE)
+                )
             ).on(self._txn)
             groupShareeHomeIDs = [row[0] for row in rows]
             for groupShareeHomeID in groupShareeHomeIDs:
@@ -1832,17 +1785,62 @@ class Calendar(CommonHomeChild):
                 if shareeHome.uid() in memberUIDs:
                     boundUIDs.add(shareeHome.uid())
                 else:
-                    shareeView = yield shareeHome.childWithID(self._resourceID)
-                    yield self.removeShare(shareeView)
+                    yield self.uninviteUIDFromShare(shareeHome.uid())
                     changed = True
 
             for memberUID in memberUIDs - boundUIDs:
-                shareeHome = yield self._txn.calendarHomeWithUID(memberUID, create=True)
-                if (yield shareeHome.childWithID(self._resourceID)) is None:
-                    yield self.shareWith(shareeHome, _BIND_MODE_GROUP)
+                shareeView = yield self.shareeView(memberUID)
+                newMode = _BIND_MODE_GROUP if shareeView is None else shareeView.groupModeAfterAddingOneGroupSharee()
+                if newMode is not None:
+                    yield super(Calendar, self).inviteUIDToShare(memberUID, newMode)
                     changed = True
 
         returnValue(changed)
+
+
+    def groupModeAfterAddingOneGroupSharee(self):
+        """
+        return group mode after adding one group sharee or None
+        """
+        return {
+            _BIND_MODE_GROUP: _BIND_MODE_GROUP,
+            _BIND_MODE_READ: _BIND_MODE_GROUP_READ,
+            _BIND_MODE_GROUP_READ: _BIND_MODE_GROUP_READ,
+            _BIND_MODE_WRITE: _BIND_MODE_GROUP_WRITE,
+            _BIND_MODE_GROUP_WRITE: _BIND_MODE_GROUP_WRITE,
+        }.get(self.shareMode())
+
+
+    @inlineCallbacks
+    def groupModeAfterRemovingOneGroupSharee(self):
+        """
+        return group mode after removing one group sharee or None
+        """
+        # if more than one group
+        gs = schema.GROUP_SHAREE
+        rows = yield Select(
+            [Count(gs.GROUP_ID)],
+            From=gs,
+            Where=(gs.CALENDAR_HOME_ID == self.ownerHome()._resourceID).And(
+                gs.CALENDAR_ID == self._resourceID)
+        ).on(self._txn)
+        if rows[0][0] > 1:
+            # no mode change for group shares
+            returnValue(
+                {
+                    _BIND_MODE_GROUP: _BIND_MODE_GROUP,
+                    _BIND_MODE_GROUP_READ: _BIND_MODE_GROUP_READ,
+                    _BIND_MODE_GROUP_WRITE: _BIND_MODE_GROUP_WRITE,
+                }.get(self.shareMode())
+            )
+
+        # else return mode without any groups
+        returnValue(
+            {
+                _BIND_MODE_GROUP_READ: _BIND_MODE_READ,
+                _BIND_MODE_GROUP_WRITE: _BIND_MODE_WRITE,
+            }.get(self.shareMode())
+        )
 
 
     @inlineCallbacks
@@ -1893,100 +1891,31 @@ class Calendar(CommonHomeChild):
         returnValue(changed)
 
 
-    @inlineCallbacks
     def effectiveShareMode(self):
-        if self._bindMode == _BIND_MODE_GROUP:
+        return self._effectiveShareMode(
+            self._bindMode, self.ownerHome()._resourceID,
+            self._resourceID, self._txn
+        )
+
+
+    @classmethod
+    @inlineCallbacks
+    def _effectiveShareMode(cls, bindMode, homeID, childID, txn):
+        if bindMode == _BIND_MODE_GROUP_WRITE:
+            returnValue(_BIND_MODE_WRITE)
+        elif bindMode in (_BIND_MODE_GROUP, _BIND_MODE_GROUP_READ):
             gs = schema.GROUP_SHAREE
             rows = yield Select(
                 [Max(gs.GROUP_BIND_MODE)], # _BIND_MODE_WRITE > _BIND_MODE_READ
                 From=gs,
-                Where=(gs.CALENDAR_HOME_ID == self.ownerHome()._resourceID).And(
-                    gs.CALENDAR_ID == self._resourceID
+                Where=(gs.CALENDAR_HOME_ID == homeID).And(
+                    gs.CALENDAR_ID == childID
                 )
-            ).on(self._txn)
+            ).on(txn)
             groupShareMode = rows[0][0]
             returnValue(groupShareMode)
         else:
-            returnValue(self._bindMode)
-
-
-    @inlineCallbacks
-    def removeShare(self, shareeView):
-        """
-        Remove the shared version of this (owned) L{CommonHomeChild} from the
-        referenced L{CommonHome}.
-
-        If user share and user is in shared group, change to group share.
-
-        @see: L{CommonHomeChild.shareWith}
-
-        @param shareeView: The shared resource being removed.
-
-        @return: a L{Deferred} which will fire with the previous shareUID
-        """
-
-        # see if after share is removed, user is still shared by a group sharee
-        if shareeView.shareMode() in (_BIND_MODE_DIRECT, _BIND_MODE_READ, _BIND_MODE_WRITE, _BIND_MODE_GROUP):
-
-            gs = schema.GROUP_SHAREE
-            rows = yield Select(
-                [gs.GROUP_ID],
-                From=gs,
-                Where=(gs.CALENDAR_HOME_ID == self.ownerHome()._resourceID).And(
-                    gs.CALENDAR_ID == self._resourceID)
-            ).on(self._txn)
-            groupIDs = [row[0] for row in rows]
-
-            shareeHomeUID = shareeView.viewerHome().uid()
-            for groupID in groupIDs:
-                memberUIDs = yield self._txn.groupMemberUIDs(groupID) # must be cached
-                if shareeHomeUID in memberUIDs:
-                    yield self.updateShare(shareeView, mode=_BIND_MODE_GROUP)
-                    returnValue(None)
-
-        # no group sharee for this user so let super do work
-        returnValue((yield super(Calendar, self).removeShare(shareeView)))
-
-        #TODO: effectiveShareMode may change between _BIND_MODE_READ & _BIND_MODE_READ.
-        #        Is that OK?
-
-
-    @inlineCallbacks
-    def removeShareWithUID(self, shareeUID):
-        """
-        Unshare this (owned) L{CommonHomeChild} with another principal.
-
-        @param shareeUID: The UID of the sharee.
-        @type: L{str}
-        """
-        record = yield self._txn.directoryService().recordWithUID(shareeUID.decode("utf-8"))
-        if (
-            record is None or
-            record.recordType != RecordType.group or not (False and
-                config.Sharing.Enabled and
-                config.Sharing.Calendars.Enabled and
-                config.Sharing.Calendars.Groups.Enabled
-            )
-        ):
-            returnValue(None)
-
-        # get group membership
-        groupID = (yield self._txn.groupByUID(record.uid))[0]
-        memberUIDs = yield self._txn.groupMemberUIDs(groupID)
-
-        # update groupsharee so that removeShare works
-        gs = schema.GROUP_SHAREE
-        yield Delete(
-            From=gs,
-            Where=(gs.CALENDAR_HOME_ID == self.ownerHome()._resourceID).And(
-                gs.CALENDAR_ID == self._resourceID).And(
-                gs.GROUP_ID == groupID)
-        ).on(self._txn)
-
-        for memberUID in memberUIDs:
-            shareeHome = yield self._txn.calendarHomeWithUID(memberUID, create=True)
-            shareeView = yield shareeHome.childWithID(self._resourceID)
-            yield self.removeShare(shareeView)
+            returnValue(bindMode)
 
 
     #
@@ -2009,7 +1938,7 @@ class Calendar(CommonHomeChild):
         record = yield self._txn.directoryService().recordWithUID(shareeUID.decode("utf-8"))
         if (
             record is None or
-            record.type() != RecordType.group or not (False and
+            record.recordType != RecordType.group or not (False and
                 config.Sharing.Enabled and
                 config.Sharing.Calendars.Enabled and
                 config.Sharing.Calendars.Groups.Enabled
@@ -2024,9 +1953,9 @@ class Calendar(CommonHomeChild):
         memberUIDs = yield self._txn.groupMemberUIDs(groupID)
         for memberUID in memberUIDs:
             shareeView = yield self.shareeView(shareeUID)
-            if shareeView is None:
-                yield super(Calendar, self).inviteUIDToShare(memberUID, _BIND_MODE_GROUP, summary, shareName)
-            # FIX ME:
+            newMode = _BIND_MODE_GROUP if shareeView is None else shareeView.groupModeAfterAddingOneGroupSharee()
+            if newMode is not None:
+                yield super(Calendar, self).inviteUIDToShare(memberUID, newMode)
 
         returnValue(None)
 
@@ -2069,19 +1998,12 @@ class Calendar(CommonHomeChild):
 
         shareeView = yield self.shareeView(shareeUID)
         if shareeView is not None:
-            if shareeView.viewerHome().external():
-                yield self._sendExternalUninvite(shareeView)
+            newMode = yield shareeView.groupModeAfterRemovingOneGroupSharee()
+            if newMode is None:
+                yield super(Calendar, self).uninviteUIDFromShare(shareeUID)
             else:
-                # If current user state is accepted then we send an invite with the new state, otherwise
-                # we cancel any existing invites for the user
-                if not shareeView.direct():
-                    if shareeView.shareStatus() != _BIND_STATUS_ACCEPTED:
-                        yield self._removeInviteNotification(shareeView)
-                    else:
-                        yield self._sendInviteNotification(shareeView, notificationState=_BIND_STATUS_DELETED)
+                yield super(Calendar, self).inviteUIDToShare(shareeUID, newMode)
 
-            # Remove the bind
-            yield self.removeShare(shareeView)
 
 
 icalfbtype_to_indexfbtype = {

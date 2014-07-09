@@ -19,6 +19,9 @@
 ---------------------------------------------------
 
 insert into CALENDAR_BIND_MODE values (5, 'group');
+insert into CALENDAR_BIND_MODE values (6, 'group,read');
+insert into CALENDAR_BIND_MODE values (7, 'group,write');
+
 
 create table GROUP_SHAREE_RECONCILE_WORK (
   WORK_ID                       integer primary key default nextval('WORKITEM_SEQ') not null, -- implicit index

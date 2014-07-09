@@ -61,12 +61,12 @@ from txdav.caldav.icalendarstore import ICalendarTransaction, ICalendarStore
 from txdav.carddav.iaddressbookstore import IAddressBookTransaction
 from txdav.common.datastore.common import HomeChildBase
 from txdav.common.datastore.podding.conduit import PoddingConduit
-from txdav.common.datastore.sql_tables import _BIND_MODE_OWN, \
-    _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED, _BIND_STATUS_INVALID, \
-    _BIND_STATUS_INVITED, _BIND_MODE_DIRECT, _BIND_STATUS_DELETED, \
-    _BIND_MODE_INDIRECT, _HOME_STATUS_NORMAL, _HOME_STATUS_EXTERNAL, \
-    _HOME_STATUS_PURGING
-from txdav.common.datastore.sql_tables import schema, splitSQLString
+from txdav.common.datastore.sql_tables import _BIND_MODE_DIRECT, \
+    _BIND_MODE_GROUP, _BIND_MODE_GROUP_READ, _BIND_MODE_GROUP_WRITE, \
+    _BIND_MODE_INDIRECT, _BIND_MODE_OWN, _BIND_STATUS_ACCEPTED, \
+    _BIND_STATUS_DECLINED, _BIND_STATUS_DELETED, _BIND_STATUS_INVALID, \
+    _BIND_STATUS_INVITED, _HOME_STATUS_EXTERNAL, _HOME_STATUS_NORMAL, \
+    _HOME_STATUS_PURGING, schema, splitSQLString
 from txdav.common.icommondatastore import ConcurrentModification, \
     RecordNotAllowedError, ExternalShareFailed, ShareNotAllowed, \
     IndexedSearchException, NotFoundError
@@ -81,7 +81,6 @@ from txdav.common.idirectoryservice import IStoreDirectoryService, \
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
 from txdav.idav import ChangeCategory
-from twext.who.idirectory import RecordType
 from txdav.xml import element
 
 from uuid import uuid4, UUID
@@ -4563,7 +4562,7 @@ class SharingMixIn(object):
     # Higher level API
     #
     @inlineCallbacks
-    def inviteUIDToShare(self, shareeUID, mode, summary, shareName=None):
+    def inviteUIDToShare(self, shareeUID, mode, summary=None, shareName=None):
         """
         Invite a user to share this collection - either create the share if it does not exist, or
         update the existing share with new values. Make sure a notification is sent as well.
@@ -5028,16 +5027,18 @@ class SharingMixIn(object):
 
         #remove None parameters, and substitute None for empty string
         bind = self._bindSchema
-        columnMap = dict([(k, v if v != "" else None) for k, v in {
-            bind.BIND_MODE:mode,
-            bind.BIND_STATUS:status,
-            bind.MESSAGE:summary
-        }.iteritems() if v is not None])
+        columnMap = {}
+        if mode != None and mode != self._bindMode:
+            columnMap[bind.BIND_MODE] = mode
+        if status != None:# and status != self._bindStatus:  # FIXME:
+            columnMap[bind.BIND_STATUS] = status
+        if summary != None and summary and summary != self._bindMessage:
+            columnMap[bind.MESSAGE] = summary
 
         if columnMap:
 
             # Count accepted
-            if status is not None:
+            if bind.BIND_STATUS in columnMap:
                 previouslyAcceptedCount = yield shareeView._previousAcceptCount()
 
             yield self._updateBindColumnsQuery(columnMap).on(
@@ -5142,12 +5143,20 @@ class SharingMixIn(object):
             returnValue([])
 
         # get all accepted binds
-        acceptedRows = yield self._sharedInvitationBindForResourceID.on(
+        invitedRows = yield self._sharedInvitationBindForResourceID.on(
             self._txn, resourceID=self._resourceID, homeID=self._home._resourceID
         )
 
         result = []
-        for homeUID, homeRID, _ignore_resourceID, resourceName, bindMode, bindStatus, bindMessage in acceptedRows:
+        for homeUID, homeRID, _ignore_resourceID, resourceName, bindMode, bindStatus, bindMessage in invitedRows:
+
+            # performance optimzation: don't instantiate viewer or viewer home
+            if bindMode in (_BIND_MODE_GROUP, _BIND_MODE_GROUP_READ, _BIND_MODE_GROUP_WRITE):
+                bindMode = yield self._effectiveShareMode(
+                    bindMode, homeRID,
+                    self._resourceID, self._txn
+                )
+
             invite = SharingInvitation(
                 resourceName,
                 self.ownerHome().name(),
@@ -5281,6 +5290,11 @@ class SharingMixIn(object):
         @see: L{ICalendar.shareMode}
         """
         return self._bindMode
+
+
+    @classmethod
+    def _effectiveShareMode(cls, bindMode, homeID, childID, txn):
+        return bindMode
 
 
     def shareName(self):

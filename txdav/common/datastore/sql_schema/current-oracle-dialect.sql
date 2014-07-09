@@ -117,6 +117,8 @@ insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('write', 2);
 insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('direct', 3);
 insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('indirect', 4);
 insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('group', 5);
+insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('group,read', 6);
+insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('group,write', 7);
 create table CALENDAR_BIND_STATUS (
     "ID" integer primary key,
     "DESCRIPTION" nvarchar2(16) unique
@@ -595,7 +597,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '45');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '46');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');
@@ -765,7 +767,7 @@ create index GROUP_ATTENDEE_RECONC_da73d3c2 on GROUP_ATTENDEE_RECONCILE_WORK (
     JOB_ID
 );
 
-create index GROUP_ATTENDEE_ID_d497ffdb on GROUP_ATTENDEE (
+create index GROUP_ATTENDEE_RESOUR_855124dc on GROUP_ATTENDEE (
     RESOURCE_ID
 );
 
