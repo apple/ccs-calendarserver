@@ -784,34 +784,6 @@
       <!-- General options for scheduling -->
       <key>Options</key>
       <dict>
-        <key>AllowGroupAsOrganizer</key>
-        <false/>
-        <key>AllowLocationAsOrganizer</key>
-        <false/>
-        <key>AllowResourceAsOrganizer</key>
-        <false/>
-        <key>AttendeeRefreshBatch</key>
-        <integer>0</integer>
-        <key>AttendeeRefreshCountLimit</key>
-        <integer>50</integer>
-
-		<key>AutoSchedule</key>
-		<dict>
-			<key>Enabled</key>
-			<true/>
-			<key>Always</key>
-			<false/>
-			<!-- Default mode for auto-schedule processing, one of:
-	              "none"            - no auto-scheduling
-	              "accept-always"   - always accept, ignore busy time
-	              "decline-always"  - always decline, ignore free time
-	              "accept-if-free"  - accept if free, do nothing if busy
-	              "decline-if-busy" - decline if busy, do nothing if free
-	              "automatic"       - accept if free, decline if busy -->
-	        <key>DefaultMode</key>
-	        <string>automatic</string>
-		</dict>
-
 		<key>WorkQueues</key>
 		<dict>
 			<key>Enabled</key>
