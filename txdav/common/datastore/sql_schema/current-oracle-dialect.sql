@@ -117,8 +117,8 @@ insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('write', 2);
 insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('direct', 3);
 insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('indirect', 4);
 insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('group', 5);
-insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('group,read', 6);
-insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('group,write', 7);
+insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('group_read', 6);
+insert into CALENDAR_BIND_MODE (DESCRIPTION, ID) values ('group_write', 7);
 create table CALENDAR_BIND_STATUS (
     "ID" integer primary key,
     "DESCRIPTION" nvarchar2(16) unique
@@ -424,8 +424,8 @@ create table GROUP_MEMBERSHIP (
 create table GROUP_ATTENDEE_RECONCILE_WORK (
     "WORK_ID" integer primary key not null,
     "JOB_ID" integer not null references JOB,
-    "RESOURCE_ID" integer,
-    "GROUP_ID" integer
+    "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade,
+    "GROUP_ID" integer not null references GROUPS on delete cascade
 );
 
 create table GROUP_ATTENDEE (
@@ -767,12 +767,32 @@ create index GROUP_ATTENDEE_RECONC_da73d3c2 on GROUP_ATTENDEE_RECONCILE_WORK (
     JOB_ID
 );
 
+create index GROUP_ATTENDEE_RECONC_b894ee7a on GROUP_ATTENDEE_RECONCILE_WORK (
+    RESOURCE_ID
+);
+
+create index GROUP_ATTENDEE_RECONC_5eabc549 on GROUP_ATTENDEE_RECONCILE_WORK (
+    GROUP_ID
+);
+
 create index GROUP_ATTENDEE_RESOUR_855124dc on GROUP_ATTENDEE (
     RESOURCE_ID
 );
 
 create index GROUP_SHAREE_RECONCIL_9aad0858 on GROUP_SHAREE_RECONCILE_WORK (
     JOB_ID
+);
+
+create index GROUP_SHAREE_RECONCIL_4dc60f78 on GROUP_SHAREE_RECONCILE_WORK (
+    CALENDAR_ID
+);
+
+create index GROUP_SHAREE_RECONCIL_1d14c921 on GROUP_SHAREE_RECONCILE_WORK (
+    GROUP_ID
+);
+
+create index GROUP_SHAREE_CALENDAR_a9feee17 on GROUP_SHAREE (
+    CALENDAR_HOME_ID
 );
 
 create index GROUP_SHAREE_CALENDAR_28a88850 on GROUP_SHAREE (

@@ -18,9 +18,31 @@
 -- Upgrade database schema from VERSION 45 to 46 --
 ---------------------------------------------------
 
+
+-- delete data and add contraint to GROUP_ATTENDEE_RECONCILE_WORK
+
+drop table GROUP_ATTENDEE_RECONCILE_WORK;
+
+create table GROUP_ATTENDEE_RECONCILE_WORK (
+  WORK_ID                       integer primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
+  JOB_ID                        integer not null references JOB,
+  RESOURCE_ID                   integer not null references CALENDAR_OBJECT on delete cascade,
+  GROUP_ID                      integer not null references GROUPS on delete cascade
+);
+
+create index GROUP_ATTENDEE_RECONCILE_WORK_JOB_ID on
+  GROUP_ATTENDEE_RECONCILE_WORK(JOB_ID);
+create index GROUP_ATTENDEE_RECONCILE_WORK_RESOURCE_ID on
+  GROUP_ATTENDEE_RECONCILE_WORK(RESOURCE_ID);
+create index GROUP_ATTENDEE_RECONCILE_WORK_GROUP_ID on
+  GROUP_ATTENDEE_RECONCILE_WORK(GROUP_ID);
+
+  
+-- schema for group sharees
+
 insert into CALENDAR_BIND_MODE values (5, 'group');
-insert into CALENDAR_BIND_MODE values (6, 'group,read');
-insert into CALENDAR_BIND_MODE values (7, 'group,write');
+insert into CALENDAR_BIND_MODE values (6, 'group_read');
+insert into CALENDAR_BIND_MODE values (7, 'group_write');
 
 
 create table GROUP_SHAREE_RECONCILE_WORK (
@@ -32,6 +54,10 @@ create table GROUP_SHAREE_RECONCILE_WORK (
 
 create index GROUP_SHAREE_RECONCILE_WORK_JOB_ID on
   GROUP_SHAREE_RECONCILE_WORK(JOB_ID);
+create index GROUP_SHAREE_RECONCILE_WORK_CALENDAR_ID on
+  GROUP_SHAREE_RECONCILE_WORK(CALENDAR_ID);
+create index GROUP_SHAREE_RECONCILE_WORK_GROUP_ID on
+  GROUP_SHAREE_RECONCILE_WORK(GROUP_ID);
 
 
 create table GROUP_SHAREE (
@@ -44,8 +70,11 @@ create table GROUP_SHAREE (
   primary key (GROUP_ID, CALENDAR_HOME_ID, CALENDAR_ID) -- implicit index
 );
 
+create index GROUP_SHAREE_CALENDAR_HOME_ID on
+  GROUP_SHAREE(CALENDAR_HOME_ID);
 create index GROUP_SHAREE_CALENDAR_ID on
   GROUP_SHAREE(CALENDAR_ID);
 
+  
 -- update the version
 update CALENDARSERVER set VALUE = '46' where NAME = 'VERSION';
