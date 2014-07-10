@@ -488,7 +488,7 @@ class LoadSimulator(object):
             _ignore_scheme, hostname, _ignore_path, _ignore_query, _ignore_fragment = urlsplit(self.serverStats["server"])
             data = self.readStatsSock((hostname.split(":")[0], self.serverStats["Port"],), True)
             if "Failed" not in data:
-                data = data["stats"]["5m"]
+                data = data["stats"]["5m"] if "stats" in data else data["5 Minutes"]
                 result = (
                     safeDivision(float(data["requests"]), 5 * 60),
                     safeDivision(data["t"], data["requests"]),
