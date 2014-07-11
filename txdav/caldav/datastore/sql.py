@@ -1989,17 +1989,34 @@ class Calendar(CommonHomeChild):
         @param shareeUID: UID of the sharee
         @type shareeUID: C{str}
         """
-        # Cancel invites - we'll just use whatever userid we are given
+
+        if not (
+            config.Sharing.Enabled and
+            config.Sharing.Calendars.Enabled and
+            config.Sharing.Calendars.Groups.Enabled
+        ):
+            returnValue(
+                (yield super(Calendar, self).uninviteUIDFromShare(shareeUID))
+            )
 
         record = yield self._txn.directoryService().recordWithUID(shareeUID.decode("utf-8"))
         if (
             record is None or
-            record.recordType != RecordType.group or not (
-                config.Sharing.Enabled and
-                config.Sharing.Calendars.Enabled and
-                config.Sharing.Calendars.Groups.Enabled
-            )
+            record.recordType != RecordType.group
         ):
+            # delete all group sharees and individual sharees
+            shareeView = yield self.shareeView(shareeUID)
+            if shareeView is None:
+                returnValue(None)
+
+            # delete all group links for view's home
+            gs = schema.GROUP_SHAREE
+            yield Delete(
+                From=gs,
+                Where=(gs.CALENDAR_HOME_ID == shareeView.viewerHome()._resourceID).And(
+                    gs.CALENDAR_ID == self._resourceID)
+            )
+
             returnValue(
                 (yield super(Calendar, self).uninviteUIDFromShare(shareeUID))
             )
@@ -2020,14 +2037,12 @@ class Calendar(CommonHomeChild):
                         gs.GROUP_ID == groupID
                     )
                 )
-
                 if newMode is None:
                     # only group was shared, do delete share
                     yield super(Calendar, self).uninviteUIDFromShare(memberUID)
                 else:
                     # multiple groups or group and individual was shared, update to new mode
                     yield super(Calendar, self).inviteUIDToShare(memberUID, newMode)
-
 
 
 icalfbtype_to_indexfbtype = {

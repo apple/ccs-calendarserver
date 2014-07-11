@@ -4731,7 +4731,6 @@ class SharingMixIn(object):
         """
         Called on the owner's resource.
         """
-
         # When deleting the message is the sharee's display name
         displayname = shareeView.shareMessage()
         if notificationState == _BIND_STATUS_DELETED:
