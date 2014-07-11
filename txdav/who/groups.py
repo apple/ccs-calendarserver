@@ -453,7 +453,7 @@ class GroupCacher(object):
         for [calendarID] in rows:
             wp = yield GroupShareeReconciliationWork.reschedule(
                 txn,
-                seconds=float(config.Sharing.Calendar.Groups.ReconciliationDelaySeconds),
+                seconds=float(config.Sharing.Calendars.Groups.ReconciliationDelaySeconds),
                 calendarID=calendarID,
                 groupID=groupID,
             )

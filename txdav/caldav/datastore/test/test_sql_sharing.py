@@ -15,19 +15,24 @@
 ##
 
 
+from twext.python.clsprop import classproperty
+from twext.python.filepath import CachingFilePath as FilePath
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.trial.unittest import TestCase
-
-from twext.python.clsprop import classproperty
-from txdav.common.datastore.test.util import CommonCommonTests, \
-    populateCalendarsFrom
-from txdav.common.datastore.sql_tables import _BIND_MODE_READ, \
-    _BIND_STATUS_INVITED, _BIND_MODE_DIRECT, _BIND_STATUS_ACCEPTED
-from txdav.base.propertystore.base import PropertyName
-from txdav.xml.base import WebDAVTextElement
 from twistedcaldav import customxml
+from twistedcaldav.stdconfig import config
+from txdav.base.propertystore.base import PropertyName
+from txdav.common.datastore.sql_tables import _BIND_MODE_DIRECT
+from txdav.common.datastore.sql_tables import _BIND_MODE_GROUP
+from txdav.common.datastore.sql_tables import _BIND_MODE_READ
+from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
+from txdav.common.datastore.sql_tables import _BIND_STATUS_ACCEPTED
+from txdav.common.datastore.sql_tables import _BIND_STATUS_INVITED
+from txdav.common.datastore.test.util import CommonCommonTests
+from txdav.common.datastore.test.util import populateCalendarsFrom
+from txdav.xml.base import WebDAVTextElement
 from txdav.xml.element import registerElement, registerElementClass
-
+import os
 
 class BaseSharingTests(CommonCommonTests, TestCase):
     """
@@ -578,6 +583,518 @@ class CalendarSharing(BaseSharingTests):
         self.assertEqual(str(calendar.properties()[PropertyName.fromElement(DummySharingProperty)]), "user04")
         self.assertEqual(str(calendar.properties()[PropertyName.fromElement(customxml.CalendarColor)]), "#000004")
         yield self.commit()
+
+
+
+class GroupSharing(BaseSharingTests):
+    """
+    Test store-based group book sharing.
+    """
+
+    @inlineCallbacks
+    def setUp(self):
+        yield super(BaseSharingTests, self).setUp()
+
+        accountsFilePath = FilePath(
+            os.path.join(os.path.dirname(__file__), "accounts")
+        )
+        yield self.buildStoreAndDirectory(
+            accounts=accountsFilePath.child("groupShareeAccounts.xml"),
+            #resources=accountsFilePath.child("resources.xml"),
+        )
+        yield self.populate()
+
+        self.paths = {}
+
+
+    def configure(self):
+        super(GroupSharing, self).configure()
+        config.Sharing.Enabled = True
+        config.Sharing.Calendars.Enabled = True
+        config.Sharing.Calendars.Groups.Enabled = True
+        config.Sharing.Calendars.Groups.ReconciliationDelaySeconds = 0
+
+
+    @inlineCallbacks
+    def _check_notifications(self, home, items):
+        notifyHome = yield self.transactionUnderTest().notificationsWithUID(home)
+        notifications = yield notifyHome.listNotificationObjects()
+        self.assertEqual(set(notifications), set(items))
+
+
+    @inlineCallbacks
+    def test_no_shares(self):
+        """
+        Test that initially there are no shares.
+        """
+
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        invites = yield calendar.sharingInvites()
+        self.assertEqual(len(invites), 0)
+
+
+    @inlineCallbacks
+    def test_invite_sharee(self):
+        """
+        Test invite/uninvite creates/removes shares and notifications.
+        """
+
+        # Invite
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        invites = yield calendar.sharingInvites()
+        self.assertEqual(len(invites), 0)
+        self.assertFalse(calendar.isShared())
+
+        shareeViews = yield calendar.inviteUIDToShare("group02", _BIND_MODE_READ, "summary")
+        self.assertEqual(len(shareeViews), 3)
+        invites = yield calendar.sharingInvites()
+        self.assertEqual(len(invites), 3)
+        shareeViews = sorted(shareeViews, key=lambda shareeView: shareeView.viewerHome().uid())
+        invites = sorted(invites, key=lambda invitee: invitee.shareeUID)
+        for i in range(3):
+            self.assertEqual(invites[i].uid, shareeViews[i].shareUID())
+            self.assertEqual(invites[i].ownerUID, "user01")
+            self.assertEqual(invites[i].shareeUID, shareeViews[i].viewerHome().uid())
+            self.assertEqual(invites[i].mode, _BIND_MODE_GROUP)
+            self.assertEqual((yield shareeViews[i].effectiveShareMode()), _BIND_MODE_READ)
+            self.assertEqual(invites[i].status, _BIND_STATUS_INVITED)
+            self.assertEqual(invites[i].summary, "summary")
+        #inviteUID = shareeView.shareUID()
+
+        self.assertTrue(calendar.isShared())
+
+        yield self.commit()
+
+        '''
+        sharedParent = yield self.calendarUnderTest(home="user02", name="user01")
+        self.assertTrue(sharedParent is None)
+        #yield self._check_notifications("user02", [inviteUID, ])
+
+        group = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="group1.vcf")
+        self.assertTrue(group.isShared())
+
+        yield self.commit()
+        '''
+
+        # Uninvite
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        invites = yield calendar.sharingInvites()
+        self.assertEqual(len(invites), 3)
+        self.assertTrue(calendar.isShared())
+
+        yield calendar.uninviteUIDFromShare("group02")
+        invites = yield calendar.sharingInvites()
+        self.assertEqual(len(invites), 0)
+        self.assertTrue(calendar.isShared())
+
+        yield self._check_notifications("user06", [])
+        yield self._check_notifications("user07", [])
+        yield self._check_notifications("user08", [])
+
+        yield self.commit()
+
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        self.assertTrue(calendar.isShared())
+        yield calendar.setShared(False)
+        self.assertFalse(calendar.isShared())
+
+
+    @inlineCallbacks
+    def test_accept_share(self):
+        """
+        Test that invite+accept creates shares and notifications.
+        """
+
+        # Invite
+        group = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="group1.vcf")
+        invites = yield group.sharingInvites()
+        self.assertEqual(len(invites), 0)
+        self.assertFalse(group.isShared())
+
+        shareeView = yield group.inviteUIDToShare("user02", _BIND_MODE_READ, "summary")
+        invites = yield group.sharingInvites()
+        self.assertEqual(len(invites), 1)
+        inviteUID = shareeView.shareUID()
+
+        sharedParent = yield self.calendarUnderTest(home="user02", name="user01")
+        self.assertTrue(sharedParent is None)
+
+        yield self._check_notifications("user02", [inviteUID, ])
+
+        self.assertTrue(group.isShared())
+
+        yield self.commit()
+
+        # Accept
+        shareeHome = yield self.calendarHomeUnderTest(name="user02")
+        yield shareeHome.acceptShare(inviteUID)
+
+        yield self._check_calendar("user02", "user01", self.group1_children)
+        yield self._check_notifications("user01", [inviteUID + "-reply", ])
+
+        group = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="group1.vcf")
+        self.assertTrue(group.isShared())
+
+        yield self.commit()
+
+        # Re-accept
+        shareeHome = yield self.calendarHomeUnderTest(name="user02")
+        yield shareeHome.acceptShare(inviteUID)
+
+        yield self._check_calendar("user02", "user01", self.group1_children)
+        yield self._check_notifications("user01", [inviteUID + "-reply", ])
+
+        group = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="group1.vcf")
+        self.assertTrue(group.isShared())
+
+
+    @inlineCallbacks
+    def test_decline_share(self):
+        """
+        Test that invite+decline does not create shares but does create notifications.
+        """
+
+        # Invite
+        group = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="group1.vcf")
+        invites = yield group.sharingInvites()
+        self.assertEqual(len(invites), 0)
+        self.assertFalse(group.isShared())
+
+        shareeView = yield group.inviteUIDToShare("user02", _BIND_MODE_READ, "summary")
+        invites = yield group.sharingInvites()
+        self.assertEqual(len(invites), 1)
+        inviteUID = shareeView.shareUID()
+
+        sharedParent = yield self.calendarUnderTest(home="user02", name="user01")
+        self.assertTrue(sharedParent is None)
+
+        yield self._check_notifications("user02", [inviteUID, ])
+
+        self.assertTrue(group.isShared())
+
+        yield self.commit()
+
+        # Decline
+        shareeHome = yield self.calendarHomeUnderTest(name="user02")
+        yield shareeHome.declineShare(inviteUID)
+
+        sharedParent = yield self.calendarUnderTest(home="user02", name="user01")
+        self.assertTrue(sharedParent is None)
+
+        yield self._check_notifications("user01", [inviteUID + "-reply", ])
+
+        group = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="group1.vcf")
+        self.assertTrue(group.isShared())
+
+        yield self.commit()
+
+        # Re-decline
+        shareeHome = yield self.calendarHomeUnderTest(name="user02")
+        yield shareeHome.declineShare(inviteUID)
+
+        sharedParent = yield self.calendarUnderTest(home="user02", name="user01")
+        self.assertTrue(sharedParent is None)
+
+        yield self._check_notifications("user01", [inviteUID + "-reply", ])
+
+        group = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="group1.vcf")
+        self.assertTrue(group.isShared())
+
+
+    @inlineCallbacks
+    def test_accept_decline_share(self):
+        """
+        Test that invite+accept/decline creates/removes shares and notifications.
+        Decline via the home.
+        """
+
+        # Invite
+        group = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="group1.vcf")
+        invites = yield group.sharingInvites()
+        self.assertEqual(len(invites), 0)
+        self.assertFalse(group.isShared())
+
+        shareeView = yield group.inviteUIDToShare("user02", _BIND_MODE_READ, "summary")
+        invites = yield group.sharingInvites()
+        self.assertEqual(len(invites), 1)
+        inviteUID = shareeView.shareUID()
+
+        sharedParent = yield self.calendarUnderTest(home="user02", name="user01")
+        self.assertTrue(sharedParent is None)
+
+        yield self._check_notifications("user02", [inviteUID, ])
+
+        self.assertTrue(group.isShared())
+
+        yield self.commit()
+
+        # Accept
+        shareeHome = yield self.calendarHomeUnderTest(name="user02")
+        yield shareeHome.acceptShare(inviteUID)
+
+        yield self._check_calendar("user02", "user01", self.group1_children)
+        yield self._check_notifications("user01", [inviteUID + "-reply", ])
+
+        group = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="group1.vcf")
+        self.assertTrue(group.isShared())
+
+        yield self.commit()
+
+        # Decline
+        shareeHome = yield self.calendarHomeUnderTest(name="user02")
+        yield shareeHome.declineShare(inviteUID)
+
+        sharedParent = yield self.calendarUnderTest(home="user02", name="user01")
+        self.assertTrue(sharedParent is None)
+
+        yield self._check_notifications("user01", [inviteUID + "-reply", ])
+
+        group = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="group1.vcf")
+        self.assertTrue(group.isShared())
+
+
+    @inlineCallbacks
+    def test_accept_remove_share(self):
+        """
+        Test that invite+accept/decline creates/removes shares and notifications.
+        Decline via the shared collection (removal).
+        """
+
+        # Invite
+        group = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="group1.vcf")
+        invites = yield group.sharingInvites()
+        self.assertEqual(len(invites), 0)
+
+        shareeView = yield group.inviteUIDToShare("user02", _BIND_MODE_READ, "summary")
+        invites = yield group.sharingInvites()
+        self.assertEqual(len(invites), 1)
+        inviteUID = shareeView.shareUID()
+
+        sharedParent = yield self.calendarUnderTest(home="user02", name="user01")
+        self.assertTrue(sharedParent is None)
+
+        yield self._check_notifications("user02", [inviteUID, ])
+
+        yield self.commit()
+
+        # Accept
+        shareeHome = yield self.calendarHomeUnderTest(name="user02")
+        yield shareeHome.acceptShare(inviteUID)
+
+        yield self._check_calendar("user02", "user01", self.group1_children)
+        yield self._check_notifications("user01", [inviteUID + "-reply", ])
+
+        yield self.commit()
+
+        # Delete
+        group = yield self.calendarObjectUnderTest(home="user02", calendar_name="user01", name="group1.vcf")
+        yield group.deleteShare()
+
+        sharedParent = yield self.calendarUnderTest(home="user02", name="user01")
+        self.assertTrue(sharedParent is None)
+
+        yield self._check_notifications("user01", [inviteUID + "-reply", ])
+
+
+    @inlineCallbacks
+    def test_accept_two_groups(self):
+        """
+        Test that accept of two groups works.
+        """
+
+        # Two shares
+        inviteUID1 = yield self._createGroupShare(groupname="group1.vcf")
+        inviteUID2 = yield self._createGroupShare(groupname="group2.vcf")
+
+        yield self._check_calendar("user02", "user01", self.all_children)
+        yield self._check_notifications("user01", [inviteUID1 + "-reply", inviteUID2 + "-reply", ])
+
+
+    @inlineCallbacks
+    def test_accept_uninvite_two_groups(self):
+        """
+        Test that accept of two groups works, then uninvite each one.
+        """
+
+        # Two shares
+        inviteUID1 = yield self._createGroupShare(groupname="group1.vcf")
+        inviteUID2 = yield self._createGroupShare(groupname="group2.vcf")
+
+        yield self._check_calendar("user02", "user01", self.all_children)
+        yield self._check_notifications("user01", [inviteUID1 + "-reply", inviteUID2 + "-reply", ])
+
+        yield self.commit()
+
+        # Uninvite one
+        group = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="group1.vcf")
+        yield group.uninviteUIDFromShare("user02")
+        invites = yield group.sharingInvites()
+        self.assertEqual(len(invites), 0)
+
+        yield self._check_calendar("user02", "user01", self.group2_children)
+
+        shared = yield self.calendarObjectUnderTest(home="user02", calendar_name="user01", name="group1.vcf")
+        self.assertTrue(shared is None)
+        shared = yield self.calendarObjectUnderTest(home="user02", calendar_name="user01", name="card2.vcf")
+        self.assertTrue(shared is None)
+
+        yield self.commit()
+
+        # Uninvite other
+        group = yield self.calendarObjectUnderTest(home="user02", calendar_name="user01", name="group2.vcf")
+        yield group.uninviteUIDFromShare("user02")
+        invites = yield group.sharingInvites()
+        self.assertEqual(len(invites), 0)
+
+        sharedParent = yield self.calendarUnderTest(home="user02", name="user01")
+        self.assertTrue(sharedParent is None)
+
+
+    @inlineCallbacks
+    def test_accept_decline_two_groups(self):
+        """
+        Test that accept of two groups works, then decline each one.
+        """
+
+        # Two shares
+        inviteUID1 = yield self._createGroupShare(groupname="group1.vcf")
+        inviteUID2 = yield self._createGroupShare(groupname="group2.vcf")
+
+        yield self._check_calendar("user02", "user01", self.all_children)
+        yield self._check_notifications("user01", [inviteUID1 + "-reply", inviteUID2 + "-reply", ])
+
+        yield self.commit()
+
+        # Decline one
+        shareeHome = yield self.calendarHomeUnderTest(name="user02")
+        yield shareeHome.declineShare(inviteUID1)
+
+        yield self._check_calendar("user02", "user01", self.group2_children)
+
+        shared = yield self.calendarObjectUnderTest(home="user02", calendar_name="user01", name="group1.vcf")
+        self.assertTrue(shared is None)
+        shared = yield self.calendarObjectUnderTest(home="user02", calendar_name="user01", name="card2.vcf")
+        self.assertTrue(shared is None)
+
+        yield self.commit()
+
+        # Decline other
+        shareeHome = yield self.calendarHomeUnderTest(name="user02")
+        yield shareeHome.declineShare(inviteUID2)
+
+        sharedParent = yield self.calendarUnderTest(home="user02", name="user01")
+        self.assertTrue(sharedParent is None)
+
+
+    @inlineCallbacks
+    def test_accept_two_groups_different_access(self):
+        """
+        Test that accept of two groups works, then uninvite each one.
+        """
+
+        # Two shares
+        inviteUID1 = yield self._createGroupShare(groupname="group1.vcf")
+        inviteUID2 = yield self._createGroupShare(groupname="group2.vcf", mode=_BIND_MODE_WRITE)
+
+        yield self._check_calendar("user02", "user01", self.all_children)
+        yield self._check_notifications("user01", [inviteUID1 + "-reply", inviteUID2 + "-reply", ])
+
+        # Read only for all, write for group2's items
+        yield self._check_read_only("user02", "user01", ["group1.vcf", "card2.vcf", ])
+        yield self._check_read_write("user02", "user01", ["group2.vcf", "card1.vcf", "card3.vcf", ])
+
+        yield self.commit()
+
+        # Decline one
+        shareeHome = yield self.calendarHomeUnderTest(name="user02")
+        yield shareeHome.declineShare(inviteUID2)
+
+        yield self._check_calendar("user02", "user01", self.group1_children)
+
+        yield self._check_read_only("user02", "user01", ["group1.vcf", "card1.vcf", "card2.vcf", ])
+
+        shared = yield self.calendarObjectUnderTest(home="user02", calendar_name="user01", name="group2.vcf")
+        self.assertTrue(shared is None)
+        shared = yield self.calendarObjectUnderTest(home="user02", calendar_name="user01", name="card3.vcf")
+        self.assertTrue(shared is None)
+
+        yield self.commit()
+
+        # Decline other
+        shareeHome = yield self.calendarHomeUnderTest(name="user02")
+        yield shareeHome.declineShare(inviteUID1)
+
+        sharedParent = yield self.calendarUnderTest(home="user02", name="user01")
+        self.assertTrue(sharedParent is None)
+
+
+
+class MixedSharing(BaseSharingTests):
+    """
+    Test store-based combined address book and group book sharing.
+    """
+
+    @inlineCallbacks
+    def test_calendar_ro_then_groups(self):
+
+        # Share address book read-only
+        shareeName = yield self._createShare()
+        yield self._check_calendar("user02", "user01", self.fully_shared_children)
+        yield self._check_read_only("user02", "user01", self.all_children)
+        yield self._check_read_write("user02", "user01", [])
+        yield self._check_notifications("user02", [shareeName, ])
+
+        # Add group1 read-write
+        inviteUID1 = yield self._createGroupShare(groupname="group1.vcf", mode=_BIND_MODE_WRITE)
+
+        yield self._check_calendar("user02", "user01", self.fully_shared_children)
+        yield self._check_read_only("user02", "user01", ["group2.vcf", "card3.vcf", ])
+        yield self._check_read_write("user02", "user01", ["group1.vcf", "card1.vcf", "card2.vcf", ])
+        yield self._check_notifications("user02", [shareeName, inviteUID1, ])
+
+        # Add group2 read-write
+        inviteUID2 = yield self._createGroupShare(groupname="group2.vcf", mode=_BIND_MODE_WRITE)
+
+        yield self._check_calendar("user02", "user01", self.fully_shared_children)
+        yield self._check_read_only("user02", "user01", [])
+        yield self._check_read_write("user02", "user01", self.all_children)
+        yield self._check_notifications("user02", [shareeName, inviteUID1, inviteUID2])
+
+        # Uninvite group1
+        group = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="group1.vcf")
+        yield group.uninviteUIDFromShare("user02")
+
+        yield self._check_calendar("user02", "user01", self.fully_shared_children)
+        yield self._check_read_only("user02", "user01", ["group1.vcf", "card2.vcf", ])
+        yield self._check_read_write("user02", "user01", ["group2.vcf", "card1.vcf", "card3.vcf", ])
+
+        # Uninvite group2
+        group = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="group2.vcf")
+        yield group.uninviteUIDFromShare("user02")
+
+        yield self._check_calendar("user02", "user01", self.fully_shared_children)
+        yield self._check_read_only("user02", "user01", self.all_children)
+        yield self._check_read_write("user02", "user01", [])
+
+
+    @inlineCallbacks
+    def test_calendar_ro_then_group_no_accept(self):
+
+        # Share address book read-only
+        shareeName = yield self._createShare()
+        yield self._check_calendar("user02", "user01", self.fully_shared_children)
+        yield self._check_read_only("user02", "user01", self.all_children)
+        yield self._check_read_write("user02", "user01", [])
+        yield self._check_notifications("user02", [shareeName, ])
+
+        # Add group1 read-write - but do not accept
+        group = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="group1.vcf")
+        invited = yield group.inviteUIDToShare("user02", _BIND_MODE_WRITE, "summary")
+        yield self._check_notifications("user02", [shareeName, invited.shareUID(), ])
+
+        yield self._check_calendar("user02", "user01", self.fully_shared_children)
+        yield self._check_read_only("user02", "user01", self.all_children)
+        yield self._check_read_write("user02", "user01", [])
 
 
 
