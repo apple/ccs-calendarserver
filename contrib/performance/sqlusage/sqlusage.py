@@ -115,15 +115,15 @@ class EventSQLUsage(object):
 
         # Set of requests to execute
         requests = [
-            MultigetTest("mget-1" if self.compact else "multiget-1", sessions, self.logFilePath, 1),
-            MultigetTest("mget-50" if self.compact else "multiget-50", sessions, self.logFilePath, 50),
-            PropfindTest("prop-cal" if self.compact else "propfind-cal", sessions, self.logFilePath, 1),
-            SyncTest("s-full" if self.compact else "sync-full", sessions, self.logFilePath, True, 0),
-            SyncTest("s-1" if self.compact else "sync-1", sessions, self.logFilePath, False, 1),
-            QueryTest("q-1" if self.compact else "query-1", sessions, self.logFilePath, 1),
-            QueryTest("q-10" if self.compact else "query-10", sessions, self.logFilePath, 10),
-            PutTest("put", sessions, self.logFilePath),
-            InviteTest("invite", sessions, self.logFilePath),
+            MultigetTest("mget-1" if self.compact else "multiget-1", sessions, self.logFilePath, "event", 1),
+            MultigetTest("mget-50" if self.compact else "multiget-50", sessions, self.logFilePath, "event", 50),
+            PropfindTest("prop-cal" if self.compact else "propfind-cal", sessions, self.logFilePath, "event", 1),
+            SyncTest("s-full" if self.compact else "sync-full", sessions, self.logFilePath, "event", True, 0),
+            SyncTest("s-1" if self.compact else "sync-1", sessions, self.logFilePath, "event", False, 1),
+            QueryTest("q-1" if self.compact else "query-1", sessions, self.logFilePath, "event", 1),
+            QueryTest("q-10" if self.compact else "query-10", sessions, self.logFilePath, "event", 10),
+            PutTest("put", sessions, self.logFilePath, "event"),
+            InviteTest("invite", sessions, self.logFilePath, "event"),
         ]
         self.requestLabels = [request.label for request in requests]
 
@@ -221,14 +221,14 @@ class SharerSQLUsage(object):
 
         # Set of requests to execute
         requests = [
-            MultigetTest("mget-1" if self.compact else "multiget-1", sessions, self.logFilePath, 1),
-            MultigetTest("mget-50" if self.compact else "multiget-50", sessions, self.logFilePath, 50),
-            PropfindInviteTest("propfind", sessions, self.logFilePath, 1),
-            SyncTest("s-full" if self.compact else "sync-full", sessions, self.logFilePath, True, 0),
-            SyncTest("s-1" if self.compact else "sync-1", sessions, self.logFilePath, False, 1),
-            QueryTest("q-1" if self.compact else "query-1", sessions, self.logFilePath, 1),
-            QueryTest("q-10" if self.compact else "query-10", sessions, self.logFilePath, 10),
-            PutTest("put", sessions, self.logFilePath),
+            MultigetTest("mget-1" if self.compact else "multiget-1", sessions, self.logFilePath, "share", 1),
+            MultigetTest("mget-50" if self.compact else "multiget-50", sessions, self.logFilePath, "share", 50),
+            PropfindInviteTest("propfind", sessions, self.logFilePath, "share", 1),
+            SyncTest("s-full" if self.compact else "sync-full", sessions, self.logFilePath, "share", True, 0),
+            SyncTest("s-1" if self.compact else "sync-1", sessions, self.logFilePath, "share", False, 1),
+            QueryTest("q-1" if self.compact else "query-1", sessions, self.logFilePath, "share", 1),
+            QueryTest("q-10" if self.compact else "query-10", sessions, self.logFilePath, "share", 10),
+            PutTest("put", sessions, self.logFilePath, "share"),
         ]
         self.requestLabels = [request.label for request in requests]
 
@@ -286,7 +286,7 @@ class SharerSQLUsage(object):
         for i in range(n - self.currentCount):
             index = self.currentCount + i + 2
             users.append("user%02d" % (index,))
-            uids.append("urn:x-uid:user%02d" % (index,))
+            uids.append("urn:x-uid:10000000-0000-0000-0000-000000000%03d" % (index,))
         session.addInvitees(URL(path=calendarhref), uids, True)
 
         # Now accept each one
