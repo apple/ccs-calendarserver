@@ -1754,7 +1754,6 @@ class Calendar(CommonHomeChild):
     #===============================================================================
     # Group sharing
     #===============================================================================
-
     @inlineCallbacks
     def reconcileGroupSharee(self, groupUID):
         """
@@ -1891,31 +1890,23 @@ class Calendar(CommonHomeChild):
         returnValue(changed)
 
 
-    def effectiveShareMode(self):
-        return self._effectiveShareMode(
-            self._bindMode, self.ownerHome()._resourceID,
-            self._resourceID, self._txn
-        )
-
-
-    @classmethod
     @inlineCallbacks
-    def _effectiveShareMode(cls, bindMode, homeID, childID, txn):
-        if bindMode == _BIND_MODE_GROUP_WRITE:
+    def effectiveShareMode(self):
+        if self._bindMode == _BIND_MODE_GROUP_WRITE:
             returnValue(_BIND_MODE_WRITE)
-        elif bindMode in (_BIND_MODE_GROUP, _BIND_MODE_GROUP_READ):
+        elif self._bindMode in (_BIND_MODE_GROUP, _BIND_MODE_GROUP_READ):
             gs = schema.GROUP_SHAREE
             rows = yield Select(
                 [Max(gs.GROUP_BIND_MODE)], # _BIND_MODE_WRITE > _BIND_MODE_READ
                 From=gs,
-                Where=(gs.CALENDAR_HOME_ID == homeID).And(
-                    gs.CALENDAR_ID == childID
+                Where=(gs.CALENDAR_HOME_ID == self.ownerHome()._resourceID).And(
+                    gs.CALENDAR_ID == self._resourceID
                 )
-            ).on(txn)
+            ).on(self._txn)
             groupShareMode = rows[0][0]
             returnValue(groupShareMode)
         else:
-            returnValue(bindMode)
+            returnValue(self._bindMode)
 
 
     #

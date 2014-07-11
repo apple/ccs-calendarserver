@@ -4749,7 +4749,7 @@ class SharingMixIn(object):
             "sharee": shareeView.viewerHome().uid(),
             "uid": shareeView.shareUID(),
             "status": shareeView.shareStatus() if notificationState is None else notificationState,
-            "access": shareeView.shareMode(),
+            "access": (yield shareeView.effectiveShareMode()),
             "ownerName": self.shareName(),
             "summary": displayname,
         }
@@ -5149,14 +5149,6 @@ class SharingMixIn(object):
 
         result = []
         for homeUID, homeRID, _ignore_resourceID, resourceName, bindMode, bindStatus, bindMessage in invitedRows:
-
-            # performance optimzation: don't instantiate viewer or viewer home
-            if bindMode in (_BIND_MODE_GROUP, _BIND_MODE_GROUP_READ, _BIND_MODE_GROUP_WRITE):
-                bindMode = yield self._effectiveShareMode(
-                    bindMode, homeRID,
-                    self._resourceID, self._txn
-                )
-
             invite = SharingInvitation(
                 resourceName,
                 self.ownerHome().name(),
@@ -5290,11 +5282,6 @@ class SharingMixIn(object):
         @see: L{ICalendar.shareMode}
         """
         return self._bindMode
-
-
-    @classmethod
-    def _effectiveShareMode(cls, bindMode, homeID, childID, txn):
-        return bindMode
 
 
     def shareName(self):
