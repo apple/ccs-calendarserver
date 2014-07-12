@@ -444,11 +444,10 @@ create table GROUP_SHAREE_RECONCILE_WORK (
 
 create table GROUP_SHAREE (
     "GROUP_ID" integer not null references GROUPS on delete cascade,
-    "CALENDAR_HOME_ID" integer not null references CALENDAR_HOME on delete cascade,
     "CALENDAR_ID" integer not null references CALENDAR on delete cascade,
     "GROUP_BIND_MODE" integer not null,
     "MEMBERSHIP_HASH" nvarchar2(255), 
-    primary key ("GROUP_ID", "CALENDAR_HOME_ID", "CALENDAR_ID")
+    primary key ("GROUP_ID", "CALENDAR_ID")
 );
 
 create table DELEGATES (
@@ -789,10 +788,6 @@ create index GROUP_SHAREE_RECONCIL_4dc60f78 on GROUP_SHAREE_RECONCILE_WORK (
 
 create index GROUP_SHAREE_RECONCIL_1d14c921 on GROUP_SHAREE_RECONCILE_WORK (
     GROUP_ID
-);
-
-create index GROUP_SHAREE_CALENDAR_a9feee17 on GROUP_SHAREE (
-    CALENDAR_HOME_ID
 );
 
 create index GROUP_SHAREE_CALENDAR_28a88850 on GROUP_SHAREE (

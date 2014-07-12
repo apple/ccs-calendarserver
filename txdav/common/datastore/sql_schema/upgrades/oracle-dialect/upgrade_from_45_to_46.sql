@@ -68,17 +68,13 @@ create index GROUP_SHAREE_RECONCILE_WORK_GROUP_ID on GROUP_SHAREE_RECONCILE_WORK
 
 create table GROUP_SHAREE (
   GROUP_ID                      integer not null references GROUPS on delete cascade,
-  CALENDAR_HOME_ID 				integer not null references CALENDAR_HOME on delete cascade,
   CALENDAR_ID      				integer not null references CALENDAR on delete cascade,
   GROUP_BIND_MODE               integer not null, -- enum CALENDAR_BIND_MODE
   MEMBERSHIP_HASH               varchar(255) not null,
   
-  primary key (GROUP_ID, CALENDAR_HOME_ID, CALENDAR_ID) -- implicit index
+  primary key (GROUP_ID, CALENDAR_ID) -- implicit index
 );
 
-create index GROUP_SHAREE_CALENDAR_HOME_ID on GROUP_SHAREE(
-	CALENDAR_HOME_ID
-);
 create index GROUP_SHAREE_CALENDAR_ID on GROUP_SHAREE(
 	CALENDAR_ID
 );
