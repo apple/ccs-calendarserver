@@ -406,7 +406,7 @@ class GroupCacher(object):
         """
         The UIDs of the groups the uid is a member of
         """
-        return txn.groupsFor(uid)
+        return txn.groupUIDsFor(uid)
 
 
     @inlineCallbacks

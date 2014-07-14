@@ -1422,7 +1422,7 @@ class CommonStoreTransaction(object):
 
 
     @inlineCallbacks
-    def groupsFor(self, uid):
+    def groupUIDsFor(self, uid):
         """
         Returns the cached set of UIDs for the groups this given uid is
         a member of.

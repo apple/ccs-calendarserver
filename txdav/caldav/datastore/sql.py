@@ -1815,13 +1815,24 @@ class Calendar(CommonHomeChild):
         """
         return group mode after removing one group sharee or None
         """
-        # if more than one group
+        # count group sharees that self is member of
         gs = schema.GROUP_SHAREE
+        gm = schema.GROUP_MEMBERSHIP
         rows = yield Select(
             [Count(gs.GROUP_ID)],
             From=gs,
-            Where=gs.CALENDAR_ID == self._resourceID
-        ).on(self._txn)
+             Where=(
+                gs.GROUP_ID.In(
+                    Select(
+                        [gm.GROUP_ID],
+                        From=gm,
+                        Where=(
+                            gm.MEMBER_UID == Parameter("uid")
+                        )
+                    )
+                )
+            )
+        ).on(self._txn, uid=self.viewerHome().uid())
         if rows[0][0] > 0:
             # no mode change for group shares
             returnValue(
@@ -1946,18 +1957,22 @@ class Calendar(CommonHomeChild):
         yield self.updateShareeGroupLink(shareeUID, mode=mode)
 
         # invite every member of group
-        shareeViews = set()
+        shareeViews = []
         groupID = (yield self._txn.groupByUID(shareeUID))[0]
         memberUIDs = yield self._txn.groupMemberUIDs(groupID)
         for memberUID in memberUIDs:
-            shareeView = yield self.shareeView(memberUID)
-            newMode = _BIND_MODE_GROUP if shareeView is None else shareeView.groupModeAfterAddingOneGroupSharee()
-            if newMode is not None:
-                # everything but direct share
-                shareeView = yield super(Calendar, self).inviteUIDToShare(memberUID, newMode, summary)
-                shareeViews.add(shareeView)
+            if memberUID != self._home.uid():
+                shareeView = yield self.shareeView(memberUID)
+                newMode = _BIND_MODE_GROUP if shareeView is None else shareeView.groupModeAfterAddingOneGroupSharee()
+                if newMode is not None:
+                    # everything but direct
+                    shareeView = yield super(Calendar, self).inviteUIDToShare(memberUID, newMode, summary)
+                    shareeViews.append(shareeView)
 
-        returnValue(shareeViews)
+        # shared even if no sharees
+        yield self.setShared(True)
+
+        returnValue(tuple(shareeViews))
 
 
     @inlineCallbacks
@@ -2013,16 +2028,16 @@ class Calendar(CommonHomeChild):
                 # uninvite each member of group
                 memberUIDs = yield self._txn.groupMemberUIDs(groupID)
                 for memberUID in memberUIDs:
-                    shareeView = yield self.shareeView(memberUID)
-                    if shareeView is not None:
-
-                        newMode = yield shareeView._groupModeAfterRemovingOneGroupSharee()
-                        if newMode is None:
-                            # only group was shared, do delete share
-                            yield super(Calendar, self).uninviteUIDFromShare(memberUID)
-                        else:
-                            # multiple groups or group and individual was shared, update to new mode
-                            yield super(Calendar, self).inviteUIDToShare(memberUID, newMode)
+                    if memberUID != self._home.uid():
+                        shareeView = yield self.shareeView(memberUID)
+                        if shareeView is not None:
+                            newMode = yield shareeView._groupModeAfterRemovingOneGroupSharee()
+                            if newMode is None:
+                                # only group was shared, do delete share
+                                yield super(Calendar, self).uninviteUIDFromShare(memberUID)
+                            else:
+                                # multiple groups or group and individual was shared, update to new mode
+                                yield super(Calendar, self).inviteUIDToShare(memberUID, newMode)
 
                 returnValue(None)
 
