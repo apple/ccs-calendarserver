@@ -1030,16 +1030,12 @@ class GroupSharing(GroupSharingTests):
         self.assertEqual(len(shareeViewsGroup02), 3)
         shareeViewsGroup03 = yield calendar.inviteUIDToShare("group03", _BIND_MODE_READ, "summary")
         self.assertEqual(len(shareeViewsGroup03), 3)
-        shareeViews = dict([(shareeView.shareUID(), shareeView) for shareeView in shareeViewsGroup02 + shareeViewsGroup03]).values()
-        self.assertEqual(len(shareeViews), 4)
-        shareeViews = sorted(shareeViews, key=lambda shareeView: shareeView.viewerHome().uid())
+        shareeViewsDict = dict([(shareeView.shareUID(), shareeView) for shareeView in shareeViewsGroup02 + shareeViewsGroup03])
+        self.assertEqual(len(shareeViewsDict), 4)
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 4)
-        invites = sorted(invites, key=lambda invitee: invitee.shareeUID)
-        for i in range(len(invites)):
-            shareeView = shareeViews[i]
-            invite = invites[i]
-            self.assertEqual(invite.uid, shareeView.shareUID())
+        for invite in invites:
+            shareeView = shareeViewsDict[invite.uid]
             self.assertEqual(invite.ownerUID, "user01")
             self.assertEqual(invite.shareeUID, shareeView.viewerHome().uid())
             self.assertEqual(invite.mode, _BIND_MODE_GROUP)
@@ -1079,16 +1075,12 @@ class GroupSharing(GroupSharingTests):
         self.assertEqual(len(shareeViewsGroup02), 3)
         shareeViewsGroup03 = yield calendar.inviteUIDToShare("group03", _BIND_MODE_READ, "summary")
         self.assertEqual(len(shareeViewsGroup03), 3)
-        shareeViews = dict([(shareeView.shareUID(), shareeView) for shareeView in shareeViewsGroup02 + shareeViewsGroup03]).values()
-        self.assertEqual(len(shareeViews), 4)
-        shareeViews = sorted(shareeViews, key=lambda shareeView: shareeView.viewerHome().uid())
+        shareeViewsDict = dict([(shareeView.shareUID(), shareeView) for shareeView in shareeViewsGroup02 + shareeViewsGroup03])
+        self.assertEqual(len(shareeViewsDict), 4)
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 4)
-        invites = sorted(invites, key=lambda invitee: invitee.shareeUID)
-        for i in range(len(invites)):
-            shareeView = shareeViews[i]
-            invite = invites[i]
-            self.assertEqual(invite.uid, shareeView.shareUID())
+        for invite in invites:
+            shareeView = shareeViewsDict[invite.uid]
             self.assertEqual(invite.ownerUID, "user01")
             self.assertEqual(invite.shareeUID, shareeView.viewerHome().uid())
             self.assertEqual(invite.mode, _BIND_MODE_GROUP)
@@ -1156,16 +1148,12 @@ class GroupSharing(GroupSharingTests):
         self.assertEqual(len(shareeViewsGroup02), 3)
         shareeViewsGroup03 = yield calendar.inviteUIDToShare("group03", _BIND_MODE_READ, "summary")
         self.assertEqual(len(shareeViewsGroup03), 3)
-        shareeViews = dict([(shareeView.shareUID(), shareeView) for shareeView in shareeViewsGroup02 + shareeViewsGroup03]).values()
-        self.assertEqual(len(shareeViews), 4)
-        shareeViews = sorted(shareeViews, key=lambda shareeView: shareeView.viewerHome().uid())
+        shareeViewsDict = dict([(shareeView.shareUID(), shareeView) for shareeView in shareeViewsGroup02 + shareeViewsGroup03])
+        self.assertEqual(len(shareeViewsDict), 4)
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 4)
-        invites = sorted(invites, key=lambda invitee: invitee.shareeUID)
-        for i in range(len(invites)):
-            shareeView = shareeViews[i]
-            invite = invites[i]
-            self.assertEqual(invite.uid, shareeView.shareUID())
+        for invite in invites:
+            shareeView = shareeViewsDict[invite.uid]
             self.assertEqual(invite.ownerUID, "user01")
             self.assertEqual(invite.shareeUID, shareeView.viewerHome().uid())
             self.assertEqual(invite.mode, _BIND_MODE_GROUP)
@@ -1240,16 +1228,12 @@ class MixedSharing(GroupSharingTests):
         shareeViewsGroup02 = yield calendar.inviteUIDToShare("group02", _BIND_MODE_READ, "summary")
         self.assertEqual(len(shareeViewsGroup02), 3)
 
-        shareeViews = dict([(shareeView.shareUID(), shareeView) for shareeView in shareeViewsGroup02 + (shareeViewUser07,)]).values()
-        self.assertEqual(len(shareeViews), 3)
-        shareeViews = sorted(shareeViews, key=lambda shareeView: shareeView.viewerHome().uid())
+        shareeViewsDict = dict([(shareeView.shareUID(), shareeView) for shareeView in shareeViewsGroup02 + (shareeViewUser07,)])
+        self.assertEqual(len(shareeViewsDict), 3)
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 3)
-        invites = sorted(invites, key=lambda invitee: invitee.shareeUID)
-        for i in range(len(invites)):
-            shareeView = shareeViews[i]
-            invite = invites[i]
-            self.assertEqual(invite.uid, shareeView.shareUID())
+        for invite in invites:
+            shareeView = shareeViewsDict[invite.uid]
             self.assertEqual(invite.ownerUID, "user01")
             self.assertEqual(invite.shareeUID, shareeView.viewerHome().uid())
             self.assertEqual(invite.mode, _BIND_MODE_GROUP_READ if invite.shareeUID == "user07" else _BIND_MODE_GROUP)
@@ -1314,15 +1298,12 @@ class MixedSharing(GroupSharingTests):
         shareeViewUser07 = yield calendar.inviteUIDToShare("user07", _BIND_MODE_READ, "summary")
         self.assertNotEqual(shareeViewUser07, None)
 
-        shareeViews = dict([(shareeView.shareUID(), shareeView) for shareeView in shareeViewsGroup02 + (shareeViewUser07,)]).values()
-        self.assertEqual(len(shareeViews), 3)
-        shareeViews = sorted(shareeViews, key=lambda shareeView: shareeView.viewerHome().uid())
+        shareeViewsDict = dict([(shareeView.shareUID(), shareeView) for shareeView in shareeViewsGroup02 + (shareeViewUser07,)])
+        self.assertEqual(len(shareeViewsDict), 3)
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 3)
-        invites = sorted(invites, key=lambda invitee: invitee.shareeUID)
-        for i in range(len(invites)):
-            shareeView = shareeViews[i]
-            invite = invites[i]
+        for invite in invites:
+            shareeView = shareeViewsDict[invite.uid]
             self.assertEqual(invite.uid, shareeView.shareUID())
             self.assertEqual(invite.ownerUID, "user01")
             self.assertEqual(invite.shareeUID, shareeView.viewerHome().uid())
@@ -1394,15 +1375,12 @@ class MixedSharing(GroupSharingTests):
         shareeViewsGroup03 = yield calendar.inviteUIDToShare("group03", _BIND_MODE_READ, "summary")
         self.assertEqual(len(shareeViewsGroup03), 3)
 
-        shareeViews = dict([(shareeView.shareUID(), shareeView) for shareeView in shareeViewsGroup02 + (shareeViewUser07,) + shareeViewsGroup03]).values()
-        self.assertEqual(len(shareeViews), 4)
-        shareeViews = sorted(shareeViews, key=lambda shareeView: shareeView.viewerHome().uid())
+        shareeViewsDict = dict([(shareeView.shareUID(), shareeView) for shareeView in shareeViewsGroup02 + (shareeViewUser07,) + shareeViewsGroup03])
+        self.assertEqual(len(shareeViewsDict), 4)
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 4)
-        invites = sorted(invites, key=lambda invitee: invitee.shareeUID)
-        for i in range(len(invites)):
-            shareeView = shareeViews[i]
-            invite = invites[i]
+        for invite in invites:
+            shareeView = shareeViewsDict[invite.uid]
             self.assertEqual(invite.uid, shareeView.shareUID())
             self.assertEqual(invite.ownerUID, "user01")
             self.assertEqual(invite.shareeUID, shareeView.viewerHome().uid())
@@ -1490,15 +1468,12 @@ class MixedSharing(GroupSharingTests):
         shareeViewsGroup03 = yield calendar.inviteUIDToShare("group03", _BIND_MODE_READ)
         self.assertEqual(len(shareeViewsGroup03), 3)
 
-        shareeViews = dict([(shareeView.shareUID(), shareeView) for shareeView in shareeViewsGroup02 + (shareeViewUser07,) + shareeViewsGroup03]).values()
-        self.assertEqual(len(shareeViews), 4)
-        shareeViews = sorted(shareeViews, key=lambda shareeView: shareeView.viewerHome().uid())
+        shareeViewsDict = dict([(shareeView.shareUID(), shareeView) for shareeView in shareeViewsGroup02 + (shareeViewUser07,) + shareeViewsGroup03])
+        self.assertEqual(len(shareeViewsDict), 4)
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 4)
-        invites = sorted(invites, key=lambda invitee: invitee.shareeUID)
-        for i in range(len(invites)):
-            shareeView = shareeViews[i]
-            invite = invites[i]
+        for invite in invites:
+            shareeView = shareeViewsDict[invite.uid]
             self.assertEqual(invite.uid, shareeView.shareUID())
             self.assertEqual(invite.ownerUID, "user01")
             self.assertEqual(invite.shareeUID, shareeView.viewerHome().uid())
