@@ -34,14 +34,14 @@ from txdav.who.groups import GroupCacher
 import os
 
 
-class GroupAttendeeReconciliation(CommonCommonTests, unittest.TestCase):
+class GroupAttendeeTestBase(CommonCommonTests, unittest.TestCase):
     """
     GroupAttendeeReconciliation tests
     """
 
     @inlineCallbacks
     def setUp(self):
-        yield super(GroupAttendeeReconciliation, self).setUp()
+        yield super(GroupAttendeeTestBase, self).setUp()
 
         accountsFilePath = FilePath(
             os.path.join(os.path.dirname(__file__), "accounts")
@@ -55,7 +55,7 @@ class GroupAttendeeReconciliation(CommonCommonTests, unittest.TestCase):
 
 
     def configure(self):
-        super(GroupAttendeeReconciliation, self).configure()
+        super(GroupAttendeeTestBase, self).configure()
         config.GroupAttendees.Enabled = True
         config.GroupAttendees.ReconciliationDelaySeconds = 0
         config.GroupAttendees.UpdateOldEventLimitSeconds = 0
@@ -105,6 +105,9 @@ class GroupAttendeeReconciliation(CommonCommonTests, unittest.TestCase):
             orderMemberValues(Component.fromString(normalize_iCalStr(iCalStr2)))
         )
 
+
+
+class GroupAttendeeTests(GroupAttendeeTestBase):
 
     @inlineCallbacks
     def test_simplePUT(self):
@@ -401,6 +404,70 @@ END:VCALENDAR"""
 
 
     @inlineCallbacks
+    def test_groupPutOldEvent(self):
+        """
+        Test that old event with group attendee is expaned but not linked to group update
+        """
+
+        data_put_1 = """BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART:20140101T100000Z
+DURATION:PT1H
+SUMMARY:event 1
+UID:event1@ninevah.local
+ORGANIZER:MAILTO:user02@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE:MAILTO:group01@example.com
+END:VEVENT
+END:VCALENDAR"""
+
+        data_get_1 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+BEGIN:VEVENT
+UID:event1@ninevah.local
+DTSTART:20140101T100000Z
+DURATION:PT1H
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;RSVP=TRUE:urn:x-uid:group01
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user01
+CREATED:20060101T150000Z
+ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:x-uid:user02
+SUMMARY:event 1
+END:VEVENT
+END:VCALENDAR
+"""
+        groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
+
+        calendar = yield self.calendarUnderTest(name="calendar", home="user02")
+        vcalendar = Component.fromString(data_put_1)
+        yield calendar.createCalendarObjectWithName("data1.ics", vcalendar)
+        yield self.commit()
+
+        groupsToRefresh = yield groupCacher.groupsToRefresh(self.transactionUnderTest())
+        self.assertEqual(len(groupsToRefresh), 0)
+
+        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "group01")
+        if len(wps): # This is needed because the test currently fails and does actually create job items we have to wait for
+            yield self.commit()
+            yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
+        self.assertEqual(len(wps), 0)
+
+        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user02")
+        vcalendar = yield cobj.component()
+        self.assertEqual(normalize_iCalStr(vcalendar), normalize_iCalStr(data_get_1))
+
+
+
+class GroupAttendeeReconciliationTests(GroupAttendeeTestBase):
+
+    @inlineCallbacks
     def test_groupChange(self):
         """
         Test that group attendee are changed when the group changes.
@@ -682,67 +749,6 @@ END:VCALENDAR
         for cobj in cobjs:
             comp = yield cobj.componentForUser()
             self.assertTrue("STATUS:CANCELLED" in str(comp))
-
-
-    @inlineCallbacks
-    def test_groupPutOldEvent(self):
-        """
-        Test that old event with group attendee is expaned but not linked to group update
-        """
-
-        data_put_1 = """BEGIN:VCALENDAR
-CALSCALE:GREGORIAN
-PRODID:-//Example Inc.//Example Calendar//EN
-VERSION:2.0
-BEGIN:VEVENT
-DTSTAMP:20051222T205953Z
-CREATED:20060101T150000Z
-DTSTART:20140101T100000Z
-DURATION:PT1H
-SUMMARY:event 1
-UID:event1@ninevah.local
-ORGANIZER:MAILTO:user02@example.com
-ATTENDEE:mailto:user02@example.com
-ATTENDEE:MAILTO:group01@example.com
-END:VEVENT
-END:VCALENDAR"""
-
-        data_get_1 = """BEGIN:VCALENDAR
-VERSION:2.0
-CALSCALE:GREGORIAN
-PRODID:-//Example Inc.//Example Calendar//EN
-BEGIN:VEVENT
-UID:event1@ninevah.local
-DTSTART:20140101T100000Z
-DURATION:PT1H
-ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
-ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;RSVP=TRUE:urn:x-uid:group01
-ATTENDEE;CN=User 01;EMAIL=user01@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user01
-CREATED:20060101T150000Z
-ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:x-uid:user02
-SUMMARY:event 1
-END:VEVENT
-END:VCALENDAR
-"""
-        groupCacher = GroupCacher(self.transactionUnderTest().directoryService())
-
-        calendar = yield self.calendarUnderTest(name="calendar", home="user02")
-        vcalendar = Component.fromString(data_put_1)
-        yield calendar.createCalendarObjectWithName("data1.ics", vcalendar)
-        yield self.commit()
-
-        groupsToRefresh = yield groupCacher.groupsToRefresh(self.transactionUnderTest())
-        self.assertEqual(len(groupsToRefresh), 0)
-
-        wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "group01")
-        if len(wps): # This is needed because the test currently fails and does actually create job items we have to wait for
-            yield self.commit()
-            yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
-        self.assertEqual(len(wps), 0)
-
-        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user02")
-        vcalendar = yield cobj.component()
-        self.assertEqual(normalize_iCalStr(vcalendar), normalize_iCalStr(data_get_1))
 
 
     @inlineCallbacks
