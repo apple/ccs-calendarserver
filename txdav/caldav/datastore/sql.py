@@ -84,8 +84,8 @@ from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
 from txdav.common.datastore.sql_tables import _ATTACHMENTS_MODE_NONE, \
     _ATTACHMENTS_MODE_READ, _ATTACHMENTS_MODE_WRITE, _BIND_MODE_DIRECT, \
     _BIND_MODE_GROUP, _BIND_MODE_GROUP_READ, _BIND_MODE_GROUP_WRITE, \
-    _BIND_MODE_OWN, _BIND_MODE_READ, _BIND_MODE_WRITE, _TRANSP_OPAQUE, \
-    _TRANSP_TRANSPARENT, schema
+    _BIND_MODE_OWN, _BIND_MODE_READ, _BIND_MODE_WRITE, _BIND_STATUS_ACCEPTED, \
+    _TRANSP_OPAQUE, _TRANSP_TRANSPARENT, schema
 from txdav.common.icommondatastore import IndexedSearchException, \
     InternalDataStoreError, HomeChildNameAlreadyExistsError, \
     HomeChildNameNotAllowedError, ObjectResourceTooBigError, \
@@ -1760,31 +1760,33 @@ class Calendar(CommonHomeChild):
         reconcile bind table with group members
         """
         changed = False
-        if (yield self.updateShareeGroupLink, groupUID):
-            record = (
-                yield self._txn.directoryService().recordWithUID(groupUID.decode("utf-8"))
-            )
-            groupID = (yield self._txn.groupByUID(record.uid))[0]
+        if (yield self.updateShareeGroupLink(groupUID)):
+            groupID = (yield self._txn.groupByUID(groupUID))[0]
             memberUIDs = yield self._txn.groupMemberUIDs(groupID)
             boundUIDs = set()
 
-            bind = schema.CALENDAR_BIND
+            home = self._homeSchema
+            bind = self._bindSchema
             rows = yield Select(
-                [bind.HOME_RESOURCE_ID],
-                From=bind,
-                Where=bind.CALENDAR_RESOURCE_ID == self._resourceID.And(
-                    (bind.BIND_MODE == _BIND_MODE_GROUP).Or(
-                     bind.BIND_MODE == _BIND_MODE_GROUP_READ).Or(
-                     bind.BIND_MODE == _BIND_MODE_GROUP_WRITE)
+                [home.OWNER_UID],
+                From=home,
+                Where=home.RESOURCE_ID.In(
+                    Select(
+                        [bind.HOME_RESOURCE_ID],
+                        From=bind,
+                        Where=(bind.CALENDAR_RESOURCE_ID == self._resourceID).And(
+                            (bind.BIND_MODE == _BIND_MODE_GROUP).Or(
+                             bind.BIND_MODE == _BIND_MODE_GROUP_READ).Or(
+                             bind.BIND_MODE == _BIND_MODE_GROUP_WRITE)
+                        )
+                    )
                 )
             ).on(self._txn)
-            groupShareeHomeIDs = [row[0] for row in rows]
-            for groupShareeHomeID in groupShareeHomeIDs:
-                shareeHome = yield self._txn.calendarHomeWithResourceID(groupShareeHomeID, create=True)
-                if shareeHome.uid() in memberUIDs:
-                    boundUIDs.add(shareeHome.uid())
+            for [shareeHomeUID] in rows:
+                if shareeHomeUID in memberUIDs:
+                    boundUIDs.add(shareeHomeUID)
                 else:
-                    yield self.uninviteUIDFromShare(shareeHome.uid())
+                    yield self.uninviteUIDFromShare(shareeHomeUID)
                     changed = True
 
             for memberUID in memberUIDs - boundUIDs:
@@ -1812,14 +1814,37 @@ class Calendar(CommonHomeChild):
         }.get(self._bindMode)
 
 
+    @inlineCallbacks
     def _groupModeAfterRemovingOneIndividualSharee(self):
         """
         return group mode after adding one group sharee or None
         """
-        return {
-            _BIND_MODE_GROUP_READ: _BIND_MODE_GROUP,
-            _BIND_MODE_GROUP_WRITE: _BIND_MODE_GROUP,
-        }.get(self._bindMode)
+        if self._bindMode == _BIND_MODE_DIRECT:
+            gs = schema.GROUP_SHAREE
+            gm = schema.GROUP_MEMBERSHIP
+            rows = yield Select(
+                [Count(gs.GROUP_ID)],
+                From=gs,
+                 Where=(
+                    gs.GROUP_ID.In(
+                        Select(
+                            [gm.GROUP_ID],
+                            From=gm,
+                            Where=(
+                                gm.MEMBER_UID == Parameter("uid")
+                            )
+                        )
+                    )
+                )
+            ).on(self._txn, uid=self.viewerHome().uid())
+            groupMode = _BIND_MODE_GROUP if rows[0][0] > 0 else None
+        else:
+            groupMode = {
+                _BIND_MODE_GROUP_READ: _BIND_MODE_GROUP,
+                _BIND_MODE_GROUP_WRITE: _BIND_MODE_GROUP,
+            }.get(self._bindMode)
+
+        returnValue(groupMode)
 
 
     def _groupModeAfterAddingOneGroupSharee(self):
@@ -2017,17 +2042,12 @@ class Calendar(CommonHomeChild):
         @type shareeUID: C{str}
         """
 
-        # Ignore if it already exists
         shareeView = yield self.shareeView(shareeUID)
-        if shareeView is None:
-            shareeView = yield self.createShare(shareeUID=shareeUID, mode=_BIND_MODE_DIRECT, shareName=shareName)
-            yield shareeView.newShare()
-
-            # Check for external
-            if shareeView.viewerHome().external():
-                yield self._sendExternalInvite(shareeView)
-
-        returnValue(shareeView)
+        if shareeView is not None and shareeView._bindMode == _BIND_MODE_GROUP:
+            yield self.updateShare(shareeView, mode=_BIND_MODE_DIRECT, status=_BIND_STATUS_ACCEPTED)
+            returnValue(shareeView)
+        else:
+            returnValue((yield super(Calendar, self).directShareWithUser(shareeUID, shareName)))
 
 
     @inlineCallbacks
@@ -2061,13 +2081,14 @@ class Calendar(CommonHomeChild):
                 if memberUID != self._home.uid():
                     shareeView = yield self.shareeView(memberUID)
                     if shareeView is not None:
-                        newMode = yield shareeView._groupModeAfterRemovingOneGroupSharee()
-                        if newMode is None:
-                            # only group was shared, do delete share
-                            yield super(Calendar, self).uninviteUIDFromShare(memberUID)
-                        else:
-                            # multiple groups or group and individual was shared, update to new mode
-                            yield super(Calendar, self).inviteUIDToShare(memberUID, newMode)
+                            newMode = yield shareeView._groupModeAfterRemovingOneGroupSharee()
+                            if newMode is None:
+                                if shareeView._bindMode != _BIND_MODE_DIRECT:
+                                    # one group or individual share: delete share
+                                    yield super(Calendar, self).uninviteUIDFromShare(memberUID)
+                            else:
+                                # multiple groups or group and individual was shared, update to new mode
+                                yield super(Calendar, self).inviteUIDToShare(memberUID, newMode)
 
         else:
             shareeView = yield self.shareeView(shareeUID)

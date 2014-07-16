@@ -1277,6 +1277,87 @@ class MixedSharing(GroupSharingTests):
 
 
     @inlineCallbacks
+    def test_accept_uninvite_individual_direct_and_group(self):
+        """
+        Test individual invite + group containing individual invite, accept,
+        then uninvite individual, group.
+        """
+
+        # Invite
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        invites = yield calendar.sharingInvites()
+        self.assertEqual(len(invites), 0)
+        self.assertFalse(calendar.isShared())
+
+        shareeViewUser07 = yield calendar.directShareWithUser("user07")
+        self.assertNotEqual(shareeViewUser07, None)
+        invites = yield calendar.sharingInvites()
+        self.assertEqual(len(invites), 1)
+        self.assertEqual(invites[0].uid, shareeViewUser07.shareUID())
+        self.assertEqual(invites[0].ownerUID, "user01")
+        self.assertEqual(invites[0].shareeUID, "user07")
+        self.assertEqual(invites[0].mode, _BIND_MODE_DIRECT)
+        self.assertEqual(invites[0].status, _BIND_STATUS_ACCEPTED)
+
+        shareeViewsGroup02 = yield calendar.inviteUIDToShare("group02", _BIND_MODE_READ)
+        self.assertEqual(len(shareeViewsGroup02), 2)
+
+        shareeViewsDict = dict([(shareeView.shareUID(), shareeView) for shareeView in shareeViewsGroup02])
+        self.assertEqual(len(shareeViewsDict), 2)
+        invites = yield calendar.sharingInvites()
+        self.assertEqual(len(invites), 3)
+        for invite in invites:
+            shareeView = yield calendar.shareeView(invite.shareeUID)
+            self.assertEqual(invite.ownerUID, "user01")
+            self.assertEqual(invite.shareeUID, shareeView.viewerHome().uid())
+            self.assertEqual(invite.mode, _BIND_MODE_DIRECT if invite.shareeUID == "user07" else _BIND_MODE_GROUP)
+            self.assertEqual((yield shareeView.effectiveShareMode()), _BIND_MODE_DIRECT if invite.shareeUID == "user07" else _BIND_MODE_READ)
+            self.assertEqual(invite.status, _BIND_STATUS_ACCEPTED if invite.shareeUID == "user07" else _BIND_STATUS_INVITED)
+            self.assertEqual(invite.summary, None)
+            yield self._check_notifications(invite.shareeUID, [] if invite.shareeUID == "user07" else [invite.uid, ])
+
+        yield self.commit()
+
+        # accept
+        for invite in invites:
+            if invite.shareeUID != "user07":
+                shareeHome = yield self.homeUnderTest(name=invite.shareeUID)
+                yield shareeHome.acceptShare(invite.uid)
+
+        yield self._check_notifications("user01", [invite.uid + "-reply" for invite in invites if invite.shareeUID != "user07"])
+
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        self.assertTrue(calendar.isShared())
+
+        yield self.commit()
+
+        # Uninvite individual
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield calendar.uninviteUIDFromShare("user07")
+        invites = yield calendar.sharingInvites()
+        self.assertEqual(len(invites), 3)
+        for invite in invites:
+            shareeView = yield calendar.shareeView(invite.shareeUID)
+            self.assertNotEqual(shareeView, None)
+            self.assertEqual(invite.uid, shareeView.shareName())
+            self.assertEqual(invite.ownerUID, "user01")
+            self.assertEqual(invite.mode, _BIND_MODE_GROUP)
+            self.assertEqual((yield shareeView.effectiveShareMode()), _BIND_MODE_READ)
+            self.assertEqual(invite.status, _BIND_STATUS_ACCEPTED)
+            self.assertEqual(invite.summary, None)
+            yield self._check_notifications(invite.shareeUID, [invite.uid, ])
+
+        # Uninvite group
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield calendar.uninviteUIDFromShare("group02")
+        noinvites = yield calendar.sharingInvites()
+        self.assertEqual(len(noinvites), 0)
+
+        for invite in invites:
+            self.assertEqual((yield self.calendarUnderTest(home=invite.shareeUID, name=invite.uid)), None)
+
+
+    @inlineCallbacks
     def test_accept_uninvite_group_and_individual(self):
         """
         Test group + individual contained in group invite, accept, then uninvite group, individual.
@@ -1329,7 +1410,6 @@ class MixedSharing(GroupSharingTests):
         self.assertEqual(len(invites), 1)
 
         for invite in invites:
-            print("invite = %s" % (invite,))
             shareeView = yield calendar.shareeView(invite.shareeUID)
             self.assertNotEqual(shareeView, None)
             self.assertEqual(invite.ownerUID, "user01")
@@ -1343,6 +1423,82 @@ class MixedSharing(GroupSharingTests):
         yield self.commit()
 
         # Uninvite other
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield calendar.uninviteUIDFromShare("user07")
+        noinvites = yield calendar.sharingInvites()
+        self.assertEqual(len(noinvites), 0)
+
+        for invite in invites:
+            self.assertEqual((yield self.calendarUnderTest(home=invite.shareeUID, name=invite.uid)), None)
+
+
+    @inlineCallbacks
+    def test_accept_uninvite_group_and_individual_direct(self):
+        """
+        Test group + individual contained in group invite, accept, then uninvite group, individual.
+        """
+
+        # Invite
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        invites = yield calendar.sharingInvites()
+        self.assertEqual(len(invites), 0)
+        self.assertFalse(calendar.isShared())
+
+        shareeViewsGroup02 = yield calendar.inviteUIDToShare("group02", _BIND_MODE_READ)
+        self.assertEqual(len(shareeViewsGroup02), 3)
+        shareeViewsDict = dict([(shareeView.shareUID(), shareeView) for shareeView in shareeViewsGroup02])
+        self.assertEqual(len(shareeViewsDict), 3)
+        shareeViewUser07 = yield calendar.directShareWithUser("user07")
+        self.assertNotEqual(shareeViewUser07, None)
+
+        invites = yield calendar.sharingInvites()
+        self.assertEqual(len(invites), 3)
+        for invite in invites:
+            shareeView = yield calendar.shareeView(invite.shareeUID)
+            self.assertEqual(invite.ownerUID, "user01")
+            self.assertEqual(invite.shareeUID, shareeView.viewerHome().uid())
+            self.assertEqual(invite.mode, _BIND_MODE_DIRECT if invite.shareeUID == "user07" else _BIND_MODE_GROUP)
+            self.assertEqual((yield shareeView.effectiveShareMode()), _BIND_MODE_DIRECT if invite.shareeUID == "user07" else _BIND_MODE_READ)
+            self.assertEqual(invite.status, _BIND_STATUS_ACCEPTED if invite.shareeUID == "user07" else _BIND_STATUS_INVITED)
+            self.assertEqual(invite.summary, None)
+            yield self._check_notifications(invite.shareeUID, [invite.uid, ])
+
+        yield self.commit()
+
+        # accept
+        for invite in invites:
+            if invite.shareeUID != "user07":
+                shareeHome = yield self.homeUnderTest(name=invite.shareeUID)
+                yield shareeHome.acceptShare(invite.uid)
+
+        yield self._check_notifications("user01", [invite.uid + "-reply" for invite in invites if invite.shareeUID != "user07"])
+
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        self.assertTrue(calendar.isShared())
+
+        yield self.commit()
+
+        # Uninvite group
+        calendar = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield calendar.uninviteUIDFromShare("group02")
+        invites = yield calendar.sharingInvites()
+        self.assertEqual(len(invites), 1)
+
+        for invite in invites:
+            shareeView = yield calendar.shareeView(invite.shareeUID)
+            self.assertEqual(invites[0].ownerUID, "user01")
+            self.assertNotEqual(shareeView, None)
+            self.assertEqual(invite.ownerUID, "user01")
+            self.assertEqual(invite.uid, shareeView.shareName())
+            self.assertEqual(invite.mode, _BIND_MODE_DIRECT)
+            self.assertEqual((yield shareeView.effectiveShareMode()), _BIND_MODE_DIRECT)
+            self.assertEqual(invite.status, _BIND_STATUS_ACCEPTED)
+            self.assertEqual(invite.summary, None)
+            yield self._check_notifications(invite.shareeUID, [invite.uid, ])
+
+        yield self.commit()
+
+        # Uninvite individual
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
         yield calendar.uninviteUIDFromShare("user07")
         noinvites = yield calendar.sharingInvites()

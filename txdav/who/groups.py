@@ -31,7 +31,6 @@ from txdav.caldav.datastore.scheduling.icalsplitter import iCalSplitter
 from txdav.caldav.datastore.sql import CalendarStoreFeatures, ComponentUpdateState
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 import datetime
-import hashlib
 
 log = Logger()
 
@@ -244,7 +243,7 @@ class GroupShareeReconciliationWork(
         rows = yield Select(
             [bind.HOME_RESOURCE_ID],
             From=bind,
-            Where=bind.CALENDAR_RESOURCE_ID == self.calendarID.And(
+            Where=(bind.CALENDAR_RESOURCE_ID == self.calendarID).And(
                 bind.BIND_MODE == _BIND_MODE_OWN
             ),
         ).on(self.transaction)
@@ -252,8 +251,8 @@ class GroupShareeReconciliationWork(
             homeID = rows[0][0]
             home = yield self.transaction.calendarHomeWithResourceID(homeID)
             calendar = yield home.childWithID(self.calendarID)
-
-            yield calendar.reconcileGroupSharee(self.groupUID)
+            groupUID = ((yield self.transaction.groupByID(self.groupID)))[0]
+            yield calendar.reconcileGroupSharee(groupUID)
 
 
 
@@ -384,11 +383,11 @@ class GroupCacher(object):
         groupID, membershipChanged = yield txn.refreshGroup(groupUID)
 
         if membershipChanged:
-            wps = yield self.scheduleGroupAttendeeReconciliations(txn, groupID)
-        else:
-            wps = ()
+            wpsAttendee = yield self.scheduleGroupAttendeeReconciliations(txn, groupID)
+            wpsShareee = yield self.scheduleGroupShareeReconciliations(txn, groupID)
+            returnValue(wpsAttendee + wpsShareee)
 
-        returnValue(wps)
+        returnValue(tuple())
 
 
     def synchronizeMembers(self, txn, groupID, newMemberUIDs):
@@ -508,4 +507,4 @@ class GroupCacher(object):
 
         # FIXME: is this a good place to clear out unreferenced groups?
 
-        returnValue((delegatedUIDs | attendeeGroupUIDs | shareeGroupUIDs))
+        returnValue(frozenset(delegatedUIDs | attendeeGroupUIDs | shareeGroupUIDs))

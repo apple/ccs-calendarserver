@@ -62,7 +62,6 @@ from txdav.carddav.iaddressbookstore import IAddressBookTransaction
 from txdav.common.datastore.common import HomeChildBase
 from txdav.common.datastore.podding.conduit import PoddingConduit
 from txdav.common.datastore.sql_tables import _BIND_MODE_DIRECT, \
-    _BIND_MODE_GROUP, _BIND_MODE_GROUP_READ, _BIND_MODE_GROUP_WRITE, \
     _BIND_MODE_INDIRECT, _BIND_MODE_OWN, _BIND_STATUS_ACCEPTED, \
     _BIND_STATUS_DECLINED, _BIND_STATUS_DELETED, _BIND_STATUS_INVALID, \
     _BIND_STATUS_INVITED, _HOME_STATUS_EXTERNAL, _HOME_STATUS_NORMAL, \
