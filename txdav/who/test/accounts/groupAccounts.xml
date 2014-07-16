@@ -21,7 +21,7 @@ limitations under the License.
 <directory realm="Test Realm">
 	<record type="user">
 	    <short-name>user01</short-name>
-	    <uid>10000000-0000-0000-0000-000000000001</uid>
+	    <uid>user01</uid>
 	    <guid>10000000-0000-0000-0000-000000000001</guid>
 	    <password>user01</password>
 	    <full-name>User 01</full-name>
@@ -29,7 +29,7 @@ limitations under the License.
 	</record>
 	<record type="user">
 	    <short-name>user02</short-name>
-	    <uid>10000000-0000-0000-0000-000000000002</uid>
+	    <uid>user02</uid>
 	    <guid>10000000-0000-0000-0000-000000000002</guid>
 	    <password>user02</password>
 	    <full-name>User 02</full-name>
@@ -37,7 +37,7 @@ limitations under the License.
 	</record>
 	<record type="user">
 	    <short-name>user03</short-name>
-	    <uid>10000000-0000-0000-0000-000000000003</uid>
+	    <uid>user03</uid>
 	    <guid>10000000-0000-0000-0000-000000000003</guid>
 	    <password>user03</password>
 	    <full-name>User 03</full-name>
@@ -45,7 +45,7 @@ limitations under the License.
 	</record>
 	<record type="user">
 	    <short-name>user04</short-name>
-	    <uid>10000000-0000-0000-0000-000000000004</uid>
+	    <uid>user04</uid>
 	    <guid>10000000-0000-0000-0000-000000000004</guid>
 	    <password>user04</password>
 	    <full-name>User 04</full-name>
@@ -53,7 +53,7 @@ limitations under the License.
 	</record>
 	<record type="user">
 	    <short-name>user05</short-name>
-	    <uid>10000000-0000-0000-0000-000000000005</uid>
+	    <uid>user05</uid>
 	    <guid>10000000-0000-0000-0000-000000000005</guid>
 	    <password>user05</password>
 	    <full-name>User 05</full-name>
@@ -61,7 +61,7 @@ limitations under the License.
 	</record>
 	<record type="user">
 	    <short-name>user06</short-name>
-	    <uid>10000000-0000-0000-0000-000000000006</uid>
+	    <uid>user06</uid>
 	    <guid>10000000-0000-0000-0000-000000000006</guid>
 	    <password>user06</password>
 	    <full-name>User 06</full-name>
@@ -69,7 +69,7 @@ limitations under the License.
 	</record>
 	<record type="user">
 	    <short-name>user07</short-name>
-	    <uid>10000000-0000-0000-0000-000000000007</uid>
+	    <uid>user07</uid>
 	    <guid>10000000-0000-0000-0000-000000000007</guid>
 	    <password>user07</password>
 	    <full-name>User 07</full-name>
@@ -77,7 +77,7 @@ limitations under the License.
 	</record>
 	<record type="user">
 	    <short-name>user08</short-name>
-	    <uid>10000000-0000-0000-0000-000000000008</uid>
+	    <uid>user08</uid>
 	    <guid>10000000-0000-0000-0000-000000000008</guid>
 	    <password>user08</password>
 	    <full-name>User 08</full-name>
@@ -85,7 +85,7 @@ limitations under the License.
 	</record>
 	<record type="user">
 	    <short-name>user09</short-name>
-	    <uid>10000000-0000-0000-0000-000000000009</uid>
+	    <uid>user09</uid>
 	    <guid>10000000-0000-0000-0000-000000000009</guid>
 	    <password>user09</password>
 	    <full-name>User 09</full-name>
@@ -93,7 +93,7 @@ limitations under the License.
 	</record>
 	<record type="user">
 	    <short-name>user10</short-name>
-	    <uid>10000000-0000-0000-0000-000000000010</uid>
+	    <uid>user10</uid>
 	    <guid>10000000-0000-0000-0000-000000000010</guid>
 	    <password>user10</password>
 	    <full-name>User 10</full-name>
@@ -101,39 +101,39 @@ limitations under the License.
 	</record>
 	<record type="group">
 	    <short-name>group01</short-name>
-	    <uid>20000000-0000-0000-0000-000000000001</uid>
+	    <uid>group01</uid>
 	    <guid>20000000-0000-0000-0000-000000000001</guid>
 	    <full-name>Group 01</full-name>
 	    <email>group01@example.com</email>
-	    <member-uid>10000000-0000-0000-0000-000000000001</member-uid>
+	    <member-uid>user01</member-uid>
 	</record>
 	<record type="group">
 	    <short-name>group02</short-name>
-	    <uid>20000000-0000-0000-0000-000000000002</uid>
+	    <uid>group02</uid>
 	    <guid>20000000-0000-0000-0000-000000000002</guid>
 	    <full-name>Group 02</full-name>
 	    <email>group02@example.com</email>
-	    <member-uid>10000000-0000-0000-0000-000000000006</member-uid>
-	    <member-uid>10000000-0000-0000-0000-000000000007</member-uid>
-	    <member-uid>10000000-0000-0000-0000-000000000008</member-uid>
+	    <member-uid>user06</member-uid>
+	    <member-uid>user07</member-uid>
+	    <member-uid>user08</member-uid>
 	</record>
 	<record type="group">
 	    <short-name>group03</short-name>
-	    <uid>20000000-0000-0000-0000-000000000003</uid>
+	    <uid>group03</uid>
 	    <guid>20000000-0000-0000-0000-000000000003</guid>
 	    <full-name>Group 03</full-name>
 	    <email>group03@example.com</email>
-	    <member-uid>10000000-0000-0000-0000-000000000007</member-uid>
-	    <member-uid>10000000-0000-0000-0000-000000000008</member-uid>
-	    <member-uid>10000000-0000-0000-0000-000000000009</member-uid>
+	    <member-uid>user07</member-uid>
+	    <member-uid>user08</member-uid>
+	    <member-uid>user09</member-uid>
 	</record>
 	<record type="group">
 	    <short-name>group04</short-name>
-	    <uid>20000000-0000-0000-0000-000000000004</uid>
+	    <uid>group04</uid>
 	    <guid>20000000-0000-0000-0000-000000000004</guid>
 	    <full-name>Group 04</full-name>
-	    <member-uid>20000000-0000-0000-0000-000000000002</member-uid>
-	    <member-uid>20000000-0000-0000-0000-000000000003</member-uid>
-	    <member-uid>10000000-0000-0000-0000-000000000010</member-uid>
+	    <member-uid>group02</member-uid>
+	    <member-uid>group03</member-uid>
+	    <member-uid>user10</member-uid>
 	</record>
 </directory>
