@@ -694,17 +694,16 @@ class GroupSharing(GroupSharingTests):
         self.assertEqual(len(shareeViews), 3)
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 3)
-        shareeViews = sorted(shareeViews, key=lambda shareeView: shareeView.viewerHome().uid())
-        invites = sorted(invites, key=lambda invitee: invitee.shareeUID)
-        for i in range(len(invites)):
-            self.assertEqual(invites[i].uid, shareeViews[i].shareUID())
-            self.assertEqual(invites[i].ownerUID, "user01")
-            self.assertEqual(invites[i].shareeUID, shareeViews[i].viewerHome().uid())
-            self.assertEqual(invites[i].mode, _BIND_MODE_GROUP)
-            self.assertEqual((yield shareeViews[i].effectiveShareMode()), _BIND_MODE_READ)
-            self.assertEqual(invites[i].status, _BIND_STATUS_INVITED)
-            self.assertEqual(invites[i].summary, "summary")
-            yield self._check_notifications(invites[i].shareeUID, [invites[i].uid, ])
+        shareeViewsDict = dict([(shareeView.shareUID(), shareeView) for shareeView in shareeViews])
+        for invite in invites:
+            shareeView = shareeViewsDict[invite.uid]
+            self.assertEqual(invite.ownerUID, "user01")
+            self.assertEqual(invite.shareeUID, shareeView.viewerHome().uid())
+            self.assertEqual(invite.mode, _BIND_MODE_GROUP)
+            self.assertEqual((yield shareeView.effectiveShareMode()), _BIND_MODE_READ)
+            self.assertEqual(invite.status, _BIND_STATUS_INVITED)
+            self.assertEqual(invite.summary, "summary")
+            yield self._check_notifications(invite.shareeUID, [invite.uid, ])
 
         self.assertTrue(calendar.isShared())
 
@@ -721,8 +720,8 @@ class GroupSharing(GroupSharingTests):
         self.assertEqual(len(uninvites), 0)
         self.assertTrue(calendar.isShared())
 
-        for i in range(len(invites)):
-            yield self._check_notifications(invites[i].shareeUID, [])
+        for invite in invites:
+            yield self._check_notifications(invite.shareeUID, [])
 
         yield self.commit()
 
@@ -748,17 +747,16 @@ class GroupSharing(GroupSharingTests):
         self.assertEqual(len(shareeViews), 3)
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 3)
-        shareeViews = sorted(shareeViews, key=lambda shareeView: shareeView.viewerHome().uid())
-        invites = sorted(invites, key=lambda invitee: invitee.shareeUID)
-        for i in range(len(invites)):
-            self.assertEqual(invites[i].uid, shareeViews[i].shareUID())
-            self.assertEqual(invites[i].ownerUID, "user01")
-            self.assertEqual(invites[i].shareeUID, shareeViews[i].viewerHome().uid())
-            self.assertEqual(invites[i].mode, _BIND_MODE_GROUP)
-            self.assertEqual((yield shareeViews[i].effectiveShareMode()), _BIND_MODE_READ)
-            self.assertEqual(invites[i].status, _BIND_STATUS_INVITED)
-            self.assertEqual(invites[i].summary, "summary")
-            yield self._check_notifications(invites[i].shareeUID, [invites[i].uid, ])
+        shareeViewsDict = dict([(shareeView.shareUID(), shareeView) for shareeView in shareeViews])
+        for invite in invites:
+            shareeView = shareeViewsDict[invite.uid]
+            self.assertEqual(invite.ownerUID, "user01")
+            self.assertEqual(invite.shareeUID, shareeView.viewerHome().uid())
+            self.assertEqual(invite.mode, _BIND_MODE_GROUP)
+            self.assertEqual((yield shareeView.effectiveShareMode()), _BIND_MODE_READ)
+            self.assertEqual(invite.status, _BIND_STATUS_INVITED)
+            self.assertEqual(invite.summary, "summary")
+            yield self._check_notifications(invite.shareeUID, [invite.uid, ])
 
         self.assertTrue(calendar.isShared())
 
@@ -803,17 +801,16 @@ class GroupSharing(GroupSharingTests):
         self.assertEqual(len(shareeViews), 3)
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 3)
-        shareeViews = sorted(shareeViews, key=lambda shareeView: shareeView.viewerHome().uid())
-        invites = sorted(invites, key=lambda invitee: invitee.shareeUID)
-        for i in range(len(invites)):
-            self.assertEqual(invites[i].uid, shareeViews[i].shareUID())
-            self.assertEqual(invites[i].ownerUID, "user01")
-            self.assertEqual(invites[i].shareeUID, shareeViews[i].viewerHome().uid())
-            self.assertEqual(invites[i].mode, _BIND_MODE_GROUP)
-            self.assertEqual((yield shareeViews[i].effectiveShareMode()), _BIND_MODE_READ)
-            self.assertEqual(invites[i].status, _BIND_STATUS_INVITED)
-            self.assertEqual(invites[i].summary, "summary")
-            yield self._check_notifications(invites[i].shareeUID, [invites[i].uid, ])
+        shareeViewsDict = dict([(shareeView.shareUID(), shareeView) for shareeView in shareeViews])
+        for invite in invites:
+            shareeView = shareeViewsDict[invite.uid]
+            self.assertEqual(invite.ownerUID, "user01")
+            self.assertEqual(invite.shareeUID, shareeView.viewerHome().uid())
+            self.assertEqual(invite.mode, _BIND_MODE_GROUP)
+            self.assertEqual((yield shareeView.effectiveShareMode()), _BIND_MODE_READ)
+            self.assertEqual(invite.status, _BIND_STATUS_INVITED)
+            self.assertEqual(invite.summary, "summary")
+            yield self._check_notifications(invite.shareeUID, [invite.uid, ])
 
         self.assertTrue(calendar.isShared())
 
@@ -858,17 +855,16 @@ class GroupSharing(GroupSharingTests):
         self.assertEqual(len(shareeViews), 3)
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 3)
-        shareeViews = sorted(shareeViews, key=lambda shareeView: shareeView.viewerHome().uid())
-        invites = sorted(invites, key=lambda invitee: invitee.shareeUID)
-        for i in range(len(invites)):
-            self.assertEqual(invites[i].uid, shareeViews[i].shareUID())
-            self.assertEqual(invites[i].ownerUID, "user01")
-            self.assertEqual(invites[i].shareeUID, shareeViews[i].viewerHome().uid())
-            self.assertEqual(invites[i].mode, _BIND_MODE_GROUP)
-            self.assertEqual((yield shareeViews[i].effectiveShareMode()), _BIND_MODE_READ)
-            self.assertEqual(invites[i].status, _BIND_STATUS_INVITED)
-            self.assertEqual(invites[i].summary, "summary")
-            yield self._check_notifications(invites[i].shareeUID, [invites[i].uid, ])
+        shareeViewsDict = dict([(shareeView.shareUID(), shareeView) for shareeView in shareeViews])
+        for invite in invites:
+            shareeView = shareeViewsDict[invite.uid]
+            self.assertEqual(invite.ownerUID, "user01")
+            self.assertEqual(invite.shareeUID, shareeView.viewerHome().uid())
+            self.assertEqual(invite.mode, _BIND_MODE_GROUP)
+            self.assertEqual((yield shareeView.effectiveShareMode()), _BIND_MODE_READ)
+            self.assertEqual(invite.status, _BIND_STATUS_INVITED)
+            self.assertEqual(invite.summary, "summary")
+            yield self._check_notifications(invite.shareeUID, [invite.uid, ])
 
         self.assertTrue(calendar.isShared())
 
@@ -913,17 +909,16 @@ class GroupSharing(GroupSharingTests):
         self.assertEqual(len(shareeViews), 3)
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 3)
-        shareeViews = sorted(shareeViews, key=lambda shareeView: shareeView.viewerHome().uid())
-        invites = sorted(invites, key=lambda invitee: invitee.shareeUID)
-        for i in range(len(invites)):
-            self.assertEqual(invites[i].uid, shareeViews[i].shareUID())
-            self.assertEqual(invites[i].ownerUID, "user01")
-            self.assertEqual(invites[i].shareeUID, shareeViews[i].viewerHome().uid())
-            self.assertEqual(invites[i].mode, _BIND_MODE_GROUP)
-            self.assertEqual((yield shareeViews[i].effectiveShareMode()), _BIND_MODE_READ)
-            self.assertEqual(invites[i].status, _BIND_STATUS_INVITED)
-            self.assertEqual(invites[i].summary, "summary")
-            yield self._check_notifications(invites[i].shareeUID, [invites[i].uid, ])
+        shareeViewsDict = dict([(shareeView.shareUID(), shareeView) for shareeView in shareeViews])
+        for invite in invites:
+            shareeView = shareeViewsDict[invite.uid]
+            self.assertEqual(invite.ownerUID, "user01")
+            self.assertEqual(invite.shareeUID, shareeView.viewerHome().uid())
+            self.assertEqual(invite.mode, _BIND_MODE_GROUP)
+            self.assertEqual((yield shareeView.effectiveShareMode()), _BIND_MODE_READ)
+            self.assertEqual(invite.status, _BIND_STATUS_INVITED)
+            self.assertEqual(invite.summary, "summary")
+            yield self._check_notifications(invite.shareeUID, [invite.uid, ])
 
         self.assertTrue(calendar.isShared())
 
@@ -968,17 +963,16 @@ class GroupSharing(GroupSharingTests):
         self.assertEqual(len(shareeViews), 3)
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 3)
-        shareeViews = sorted(shareeViews, key=lambda shareeView: shareeView.viewerHome().uid())
-        invites = sorted(invites, key=lambda invitee: invitee.shareeUID)
-        for i in range(len(invites)):
-            self.assertEqual(invites[i].uid, shareeViews[i].shareUID())
-            self.assertEqual(invites[i].ownerUID, "user01")
-            self.assertEqual(invites[i].shareeUID, shareeViews[i].viewerHome().uid())
-            self.assertEqual(invites[i].mode, _BIND_MODE_GROUP)
-            self.assertEqual((yield shareeViews[i].effectiveShareMode()), _BIND_MODE_READ)
-            self.assertEqual(invites[i].status, _BIND_STATUS_INVITED)
-            self.assertEqual(invites[i].summary, "summary")
-            yield self._check_notifications(invites[i].shareeUID, [invites[i].uid, ])
+        shareeViewsDict = dict([(shareeView.shareUID(), shareeView) for shareeView in shareeViews])
+        for invite in invites:
+            shareeView = shareeViewsDict[invite.uid]
+            self.assertEqual(invite.ownerUID, "user01")
+            self.assertEqual(invite.shareeUID, shareeView.viewerHome().uid())
+            self.assertEqual(invite.mode, _BIND_MODE_GROUP)
+            self.assertEqual((yield shareeView.effectiveShareMode()), _BIND_MODE_READ)
+            self.assertEqual(invite.status, _BIND_STATUS_INVITED)
+            self.assertEqual(invite.summary, "summary")
+            yield self._check_notifications(invite.shareeUID, [invite.uid, ])
 
         self.assertTrue(calendar.isShared())
 
