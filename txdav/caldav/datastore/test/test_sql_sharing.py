@@ -1256,8 +1256,9 @@ class MixedSharing(GroupSharingTests):
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 3)
         for invite in invites:
-            shareeView = yield self.calendarUnderTest(home=invite.shareeUID, name=invite.uid)
+            shareeView = yield calendar.shareeView(invite.shareeUID)
             self.assertNotEqual(shareeView, None)
+            self.assertEqual(invite.uid, shareeView.shareName())
             self.assertEqual(invite.ownerUID, "user01")
             self.assertEqual(invite.mode, _BIND_MODE_GROUP)
             self.assertEqual((yield shareeView.effectiveShareMode()), _BIND_MODE_READ)
@@ -1328,10 +1329,11 @@ class MixedSharing(GroupSharingTests):
         self.assertEqual(len(invites), 1)
 
         for invite in invites:
-            shareeView = yield self.calendarUnderTest(home=invite.shareeUID, name=invite.uid)
+            print("invite = %s" % (invite,))
+            shareeView = yield calendar.shareeView(invite.shareeUID)
             self.assertNotEqual(shareeView, None)
             self.assertEqual(invite.ownerUID, "user01")
-            self.assertEqual(invite.shareeUID, shareeView.viewerHome().uid())
+            self.assertEqual(invite.uid, shareeView.shareName())
             self.assertEqual(invite.mode, _BIND_MODE_READ)
             self.assertEqual((yield shareeView.effectiveShareMode()), _BIND_MODE_READ)
             self.assertEqual(invite.status, _BIND_STATUS_ACCEPTED)
@@ -1404,10 +1406,10 @@ class MixedSharing(GroupSharingTests):
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 4)
         for invite in invites:
-            shareeView = yield self.calendarUnderTest(home=invite.shareeUID, name=invite.uid)
+            shareeView = yield calendar.shareeView(invite.shareeUID)
             self.assertNotEqual(shareeView, None)
+            self.assertEqual(invite.uid, shareeView.shareName())
             self.assertEqual(invite.ownerUID, "user01")
-            self.assertEqual(invite.shareeUID, shareeView.viewerHome().uid())
             self.assertEqual(invite.mode, _BIND_MODE_GROUP)
             self.assertEqual((yield shareeView.effectiveShareMode()), _BIND_MODE_READ)
             self.assertEqual(invite.status, _BIND_STATUS_ACCEPTED)
@@ -1421,10 +1423,10 @@ class MixedSharing(GroupSharingTests):
         self.assertEqual(len(invites), 3)
 
         for invite in invites:
-            shareeView = yield self.calendarUnderTest(home=invite.shareeUID, name=invite.uid)
+            shareeView = yield calendar.shareeView(invite.shareeUID)
             self.assertNotEqual(shareeView, None)
             self.assertEqual(invite.ownerUID, "user01")
-            self.assertEqual(invite.shareeUID, shareeView.viewerHome().uid())
+            self.assertEqual(invite.uid, shareeView.shareName())
             self.assertEqual(invite.mode, _BIND_MODE_GROUP)
             self.assertEqual((yield shareeView.effectiveShareMode()), _BIND_MODE_READ)
             self.assertEqual(invite.status, _BIND_STATUS_ACCEPTED)
@@ -1500,7 +1502,9 @@ class MixedSharing(GroupSharingTests):
         self.assertEqual(len(invites), 4)
 
         for invite in invites:
-            shareeView = yield self.calendarUnderTest(home=invite.shareeUID, name=invite.uid)
+            shareeView = yield calendar.shareeView(invite.shareeUID)
+            self.assertNotEqual(shareeView, None)
+            self.assertEqual(invite.uid, shareeView.shareName())
             self.assertEqual(invite.mode, _BIND_MODE_GROUP_READ if invite.shareeUID == "user07" else _BIND_MODE_GROUP)
             self.assertEqual((yield shareeView.effectiveShareMode()), _BIND_MODE_WRITE if shareeView in shareeViewsGroup02 else _BIND_MODE_READ)
             yield self._check_notifications(invite.shareeUID, [invite.uid, ])
@@ -1518,7 +1522,9 @@ class MixedSharing(GroupSharingTests):
         self.assertEqual(len(invites), 4)
 
         for invite in invites:
-            shareeView = yield self.calendarUnderTest(home=invite.shareeUID, name=invite.uid)
+            shareeView = yield calendar.shareeView(invite.shareeUID)
+            self.assertNotEqual(shareeView, None)
+            self.assertEqual(invite.uid, shareeView.shareName())
             self.assertEqual(invite.mode, _BIND_MODE_GROUP_WRITE if invite.shareeUID == "user07" else _BIND_MODE_GROUP)
             self.assertEqual((yield shareeView.effectiveShareMode()), _BIND_MODE_WRITE if shareeView in shareeViewsGroup03 else _BIND_MODE_READ)
             yield self._check_notifications(invite.shareeUID, [invite.uid, ])
@@ -1531,8 +1537,9 @@ class MixedSharing(GroupSharingTests):
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 4)
         for invite in invites:
-            shareeView = yield self.calendarUnderTest(home=invite.shareeUID, name=invite.uid)
+            shareeView = yield calendar.shareeView(invite.shareeUID)
             self.assertNotEqual(shareeView, None)
+            self.assertEqual(invite.uid, shareeView.shareName())
             self.assertEqual(invite.ownerUID, "user01")
             self.assertEqual(invite.mode, _BIND_MODE_GROUP)
             self.assertEqual((yield shareeView.effectiveShareMode()), _BIND_MODE_READ if invite.shareeUID == "user06" else _BIND_MODE_WRITE)
@@ -1547,8 +1554,9 @@ class MixedSharing(GroupSharingTests):
         self.assertEqual(len(invites), 3)
 
         for invite in invites:
-            shareeView = yield self.calendarUnderTest(home=invite.shareeUID, name=invite.uid)
+            shareeView = yield calendar.shareeView(invite.shareeUID)
             self.assertNotEqual(shareeView, None)
+            self.assertEqual(invite.uid, shareeView.shareName())
             self.assertEqual(invite.ownerUID, "user01")
             self.assertEqual(invite.mode, _BIND_MODE_GROUP)
             self.assertEqual((yield shareeView.effectiveShareMode()), _BIND_MODE_WRITE)
@@ -1564,7 +1572,6 @@ class MixedSharing(GroupSharingTests):
 
         for invite in invites:
             self.assertEqual((yield self.calendarUnderTest(home=invite.shareeUID, name=invite.uid)), None)
-
 
 
 
