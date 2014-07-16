@@ -588,9 +588,9 @@ class CalendarSharing(BaseSharingTests):
 
 
 
-class GroupSharing(BaseSharingTests):
+class GroupSharingTests(BaseSharingTests):
     """
-    Test store-based group book sharing.
+    Test store-based group sharing.
     """
 
     @inlineCallbacks
@@ -610,7 +610,7 @@ class GroupSharing(BaseSharingTests):
 
 
     def configure(self):
-        super(GroupSharing, self).configure()
+        super(GroupSharingTests, self).configure()
         config.Sharing.Enabled = True
         config.Sharing.Calendars.Enabled = True
         config.Sharing.Calendars.Groups.Enabled = True
@@ -624,6 +624,9 @@ class GroupSharing(BaseSharingTests):
         self.assertEqual(set(notifications), set(items))
 
 
+
+class GroupSharing(GroupSharingTests):
+
     @inlineCallbacks
     def test_no_shares(self):
         """
@@ -636,9 +639,9 @@ class GroupSharing(BaseSharingTests):
 
 
     @inlineCallbacks
-    def test_invite_empty_group(self):
+    def test_invite_owner_group(self):
         """
-        Test invite/uninvite creates/removes shares and notifications.
+        Test that inviting group with just owner creates no shares.
         """
 
         yield self._check_notifications("user01", [])
@@ -678,7 +681,7 @@ class GroupSharing(BaseSharingTests):
     @inlineCallbacks
     def test_invite_group(self):
         """
-        Test invite/uninvite creates/removes shares and notifications.
+        Test invite/uninvite group creates/removes shares and notifications.
         """
 
         # Invite
@@ -730,9 +733,9 @@ class GroupSharing(BaseSharingTests):
 
 
     @inlineCallbacks
-    def test_accept_share(self):
+    def test_accept_group(self):
         """
-        Test that invite+accept creates shares and notifications.
+        Test that shares created from group invite are accepted normally
         """
 
         # Invite
@@ -785,9 +788,9 @@ class GroupSharing(BaseSharingTests):
 
 
     @inlineCallbacks
-    def test_decline_share(self):
+    def test_decline_group(self):
         """
-        Test that invite+decline does not create shares but does create notifications.
+        Test that shared from group invite are declined normally.
         """
 
         # Invite
@@ -842,8 +845,7 @@ class GroupSharing(BaseSharingTests):
     @inlineCallbacks
     def test_accept_decline_share(self):
         """
-        Test that invite+accept/decline creates/removes shares and notifications.
-        Decline via the home.
+        Test that shares from group invite are accepted and declined normally.
         """
 
         # Invite
@@ -896,10 +898,9 @@ class GroupSharing(BaseSharingTests):
 
 
     @inlineCallbacks
-    def test_accept_remove_share(self):
+    def test_accept_remove_group(self):
         """
-        Test that invite+accept/decline creates/removes shares and notifications.
-        Decline via the shared collection (removal).
+        Test that shares from group invite are accepted then removed normally.
         """
 
         # Invite
@@ -954,8 +955,7 @@ class GroupSharing(BaseSharingTests):
     @inlineCallbacks
     def test_accept_uninvite_group(self):
         """
-        Test that invite+accept/decline creates/removes shares and notifications.
-        Decline via the shared collection (removal).
+        Test group invite then accepted shared can be group uninvited
         """
 
         # Invite
@@ -1017,7 +1017,7 @@ class GroupSharing(BaseSharingTests):
     @inlineCallbacks
     def test_accept_two_groups(self):
         """
-        Test that accept of two groups works.
+        Test invite/accept of two groups.
         """
 
         # Invite
@@ -1066,7 +1066,7 @@ class GroupSharing(BaseSharingTests):
     @inlineCallbacks
     def test_accept_uninvite_two_groups(self):
         """
-        Test that accept of two groups works, then uninvite each one.
+        Test 2 group invite, accept, 2 group uninvite.
         """
 
         # Invite
@@ -1142,7 +1142,8 @@ class GroupSharing(BaseSharingTests):
     @inlineCallbacks
     def test_accept_uninvite_two_groups_different_access(self):
         """
-        Test that accept of two groups works, then uninvite each one.
+        Test 2 group invite, accept, 2 group uninvite when group have different
+        access.
         """
 
         # Invite
@@ -1215,10 +1216,17 @@ class GroupSharing(BaseSharingTests):
             self.assertEqual((yield self.calendarUnderTest(home=invite.shareeUID, name=invite.uid)), None)
 
 
+
+class MixedSharing(GroupSharingTests):
+    """
+    Test store-based combined individual and group sharing.
+    """
+
     @inlineCallbacks
     def test_accept_uninvite_individual_and_group(self):
         """
-        Test that accept of two groups works, then uninvite each one.
+        Test individual invite + group containing individual invite, accept,
+        then uninvite individual, group.
         """
 
         # Invite
@@ -1292,7 +1300,7 @@ class GroupSharing(BaseSharingTests):
     @inlineCallbacks
     def test_accept_uninvite_group_and_individual(self):
         """
-        Test that accept of two groups works, then uninvite each one.
+        Test group + individual contained in group invite, accept, then uninvite group, individual.
         """
 
         # Invite
@@ -1370,7 +1378,7 @@ class GroupSharing(BaseSharingTests):
     @inlineCallbacks
     def test_accept_uninvite_individual_and_groups(self):
         """
-        Test that accept of two groups works, then uninvite each one.
+        Test individual invite + 2 group containing individual invite, accept, then uninvite individual, groups.
         """
 
         # Invite
@@ -1464,7 +1472,9 @@ class GroupSharing(BaseSharingTests):
     @inlineCallbacks
     def test_accept_uninvite_individual_and_groups_different_access(self):
         """
-        Test that accept of two groups works, then uninvite each one.
+        Test individual invite + 2 group containing individual invite, accept,
+        then uninvite individual, groups when individual and groups have
+        different access.
         """
 
         # Invite
@@ -1586,152 +1596,6 @@ class GroupSharing(BaseSharingTests):
         for invite in invites:
             self.assertEqual((yield self.calendarUnderTest(home=invite.shareeUID, name=invite.uid)), None)
 
-    '''
-    @inlineCallbacks
-    def test_accept_decline_two_groups(self):
-        """
-        Test that accept of two groups works, then decline each one.
-        """
-
-        # Two shares
-        inviteUID1 = yield self._createGroupShare(groupname="group1.vcf")
-        inviteUID2 = yield self._createGroupShare(groupname="group2.vcf")
-
-        yield self._check_calendar("user02", "user01", self.all_children)
-        yield self._check_notifications("user01", [inviteUID1 + "-reply", inviteUID2 + "-reply", ])
-
-        yield self.commit()
-
-        # Decline one
-        shareeHome = yield self.homeUnderTest(name="user02")
-        yield shareeHome.declineShare(inviteUID1)
-
-        yield self._check_calendar("user02", "user01", self.group2_children)
-
-        shared = yield self.calendarObjectUnderTest(home="user02", calendar_name="user01", name="group1.vcf")
-        self.assertTrue(shared is None)
-        shared = yield self.calendarObjectUnderTest(home="user02", calendar_name="user01", name="card2.vcf")
-        self.assertTrue(shared is None)
-
-        yield self.commit()
-
-        # Decline other
-        shareeHome = yield self.homeUnderTest(name="user02")
-        yield shareeHome.declineShare(inviteUID2)
-
-        sharedParent = yield self.calendarUnderTest(home="user02", name="user01")
-        self.assertTrue(sharedParent is None)
-
-
-    @inlineCallbacks
-    def test_accept_two_groups_different_access(self):
-        """
-        Test that accept of two groups works, then uninvite each one.
-        """
-
-        # Two shares
-        inviteUID1 = yield self._createGroupShare(groupname="group1.vcf")
-        inviteUID2 = yield self._createGroupShare(groupname="group2.vcf", mode=_BIND_MODE_WRITE)
-
-        yield self._check_calendar("user02", "user01", self.all_children)
-        yield self._check_notifications("user01", [inviteUID1 + "-reply", inviteUID2 + "-reply", ])
-
-        # Read only for all, write for group2's items
-        yield self._check_read_only("user02", "user01", ["group1.vcf", "card2.vcf", ])
-        yield self._check_read_write("user02", "user01", ["group2.vcf", "card1.vcf", "card3.vcf", ])
-
-        yield self.commit()
-
-        # Decline one
-        shareeHome = yield self.homeUnderTest(name="user02")
-        yield shareeHome.declineShare(inviteUID2)
-
-        yield self._check_calendar("user02", "user01", self.group1_children)
-
-        yield self._check_read_only("user02", "user01", ["group1.vcf", "card1.vcf", "card2.vcf", ])
-
-        shared = yield self.calendarObjectUnderTest(home="user02", calendar_name="user01", name="group2.vcf")
-        self.assertTrue(shared is None)
-        shared = yield self.calendarObjectUnderTest(home="user02", calendar_name="user01", name="card3.vcf")
-        self.assertTrue(shared is None)
-
-        yield self.commit()
-
-        # Decline other
-        shareeHome = yield self.homeUnderTest(name="user02")
-        yield shareeHome.declineShare(inviteUID1)
-
-        sharedParent = yield self.calendarUnderTest(home="user02", name="user01")
-        self.assertTrue(sharedParent is None)
-        '''
-
-'''
-class MixedSharing(BaseSharingTests):
-    """
-    Test store-based combined address book and group book sharing.
-    """
-
-    @inlineCallbacks
-    def test_calendar_ro_then_groups(self):
-
-        # Share address book read-only
-        shareeName = yield self._createShare()
-        yield self._check_calendar("user02", "user01", self.fully_shared_children)
-        yield self._check_read_only("user02", "user01", self.all_children)
-        yield self._check_read_write("user02", "user01", [])
-        yield self._check_notifications("user02", [shareeName, ])
-
-        # Add group1 read-write
-        inviteUID1 = yield self._createGroupShare(groupname="group1.vcf", mode=_BIND_MODE_WRITE)
-
-        yield self._check_calendar("user02", "user01", self.fully_shared_children)
-        yield self._check_read_only("user02", "user01", ["group2.vcf", "card3.vcf", ])
-        yield self._check_read_write("user02", "user01", ["group1.vcf", "card1.vcf", "card2.vcf", ])
-        yield self._check_notifications("user02", [shareeName, inviteUID1, ])
-
-        # Add group2 read-write
-        inviteUID2 = yield self._createGroupShare(groupname="group2.vcf", mode=_BIND_MODE_WRITE)
-
-        yield self._check_calendar("user02", "user01", self.fully_shared_children)
-        yield self._check_read_only("user02", "user01", [])
-        yield self._check_read_write("user02", "user01", self.all_children)
-        yield self._check_notifications("user02", [shareeName, inviteUID1, inviteUID2])
-
-        # Uninvite group1
-        group = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="group1.vcf")
-        yield group.uninviteUIDFromShare("user02")
-
-        yield self._check_calendar("user02", "user01", self.fully_shared_children)
-        yield self._check_read_only("user02", "user01", ["group1.vcf", "card2.vcf", ])
-        yield self._check_read_write("user02", "user01", ["group2.vcf", "card1.vcf", "card3.vcf", ])
-
-        # Uninvite group2
-        group = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="group2.vcf")
-        yield group.uninviteUIDFromShare("user02")
-
-        yield self._check_calendar("user02", "user01", self.fully_shared_children)
-        yield self._check_read_only("user02", "user01", self.all_children)
-        yield self._check_read_write("user02", "user01", [])
-
-
-    @inlineCallbacks
-    def test_calendar_ro_then_group_no_accept(self):
-
-        # Share address book read-only
-        shareeName = yield self._createShare()
-        yield self._check_calendar("user02", "user01", self.fully_shared_children)
-        yield self._check_read_only("user02", "user01", self.all_children)
-        yield self._check_read_write("user02", "user01", [])
-        yield self._check_notifications("user02", [shareeName, ])
-
-        # Add group1 read-write - but do not accept
-        group = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="group1.vcf")
-        invited = yield group.inviteUIDToShare("user02", _BIND_MODE_WRITE, "summary")
-        yield self._check_notifications("user02", [shareeName, invited.shareUID(), ])
-
-        yield self._check_calendar("user02", "user01", self.fully_shared_children)
-        yield self._check_read_only("user02", "user01", self.all_children)
-        yield self._check_read_write("user02", "user01", [])
 
 
 
@@ -1827,4 +1691,3 @@ class SharingRevisions(BaseSharingTests):
             self.assertEqual(len(changed), 0)
             self.assertEqual(len(deleted), 0)
             self.assertEqual(len(invalid), 0)
-'''
