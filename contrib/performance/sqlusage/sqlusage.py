@@ -123,7 +123,8 @@ class EventSQLUsage(object):
             QueryTest("q-1" if self.compact else "query-1", sessions, self.logFilePath, "event", 1),
             QueryTest("q-10" if self.compact else "query-10", sessions, self.logFilePath, "event", 10),
             PutTest("put", sessions, self.logFilePath, "event"),
-            InviteTest("invite", sessions, self.logFilePath, "event"),
+            InviteTest("invite-1", sessions, self.logFilePath, "event", 1),
+            InviteTest("invite-5", sessions, self.logFilePath, "event", 5),
         ]
         self.requestLabels = [request.label for request in requests]
 
