@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ##
-# Copyright (c) 2010-2014 Apple Inc. All rights reserved.
+# Copyright (c) 2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,18 +24,34 @@ import sys
 dataset = {}
 
 def analyze(fpath, title):
+    """
+    Analyze a readStats data file.
 
-    print("Analyzing data for %s" % (fpath,))
+    @param fpath: path of file to analyze
+    @type fpath: L{str}
+    @param title: title to use for data set
+    @type title: L{str}
+    """
+
+    print("Analyzing data for %s" % (title,))
     dataset[title] = {}
     with open(fpath) as f:
         for line in f:
             if line.startswith("- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"):
                 analyzeRecord(f, title)
 
-    print("Stored %d data points" % (len(dataset[title]),))
+    print("Read %d data points\n" % (len(dataset[title]),))
 
 
 def analyzeRecord(liter, title):
+    """
+    Analyze one entry from the readStats data file.
+
+    @param liter: iterator over lines in the file
+    @type liter: L{iter}
+    @param title: title to use for data set
+    @type title: L{str}
+    """
 
     dt = liter.next()
     time = dt[11:]
@@ -49,7 +65,14 @@ def analyzeRecord(liter, title):
             dataset[title][seconds].update(methods)
             break
 
+
 def parseOverall(line):
+    """
+    Parse the "Overall:" stats summary line.
+
+    @param line: the line to parse
+    @type line: L{str}
+    """
 
     splits = line.split("|")
     overall = {}
@@ -73,6 +96,12 @@ def parseOverall(line):
 
 
 def parseMethods(liter):
+    """
+    Parse the "Method Count" table from a data file entry.
+
+    @param liter: iterator over lines in the file
+    @type liter: L{iter}
+    """
 
     while liter.next()[1] != "-":
         pass
@@ -97,17 +126,24 @@ def parseMethods(liter):
 
 
 def plotSeries(key, ymin=None, ymax=None):
+    """
+    Plot the chosen dataset key for each scanned data file.
 
+    @param key: data set key to use
+    @type key: L{str}
+    @param ymin: minimum value for y-axis or L{None} for default
+    @type ymin: L{int} or L{float}
+    @param ymax: maximum value for y-axis or L{None} for default
+    @type ymax: L{int} or L{float}
+    """
 
-    color = iter(("b+", "r+", "g+",))
-    for _ignore_title, data in sorted(dataset.items(), key=lambda x: x[0]):
-        x1, y1 = zip(*[(k / 3600.0, v[key]) for k, v in sorted(data.items(), key=lambda x: x[0]) if key in v])
+    titles = []
+    for title, data in sorted(dataset.items(), key=lambda x: x[0]):
+        titles.append(title)
+        x, y = zip(*[(k / 3600.0, v[key]) for k, v in sorted(data.items(), key=lambda x: x[0]) if key in v])
     
-    #   print("".join(["{}\t{}\n".format(x, y) for x, y in zip(x1, y1)]))
-    
-        plt.plot(x1, y1, color.next())
+        plt.plot(x, y)
 
-    #plt.legend((key,), 'upper left', shadow=True, fancybox=True)
     plt.xlabel("Hours")
     plt.ylabel(key)
     plt.xlim(0, 24)
@@ -119,6 +155,7 @@ def plotSeries(key, ymin=None, ymax=None):
         (1, 4, 7, 10, 13, 16, 19, 22,),
         (18, 21, 0, 3, 6, 9, 12, 15,),
     )
+    plt.legend(titles, 'upper left', shadow=True, fancybox=True)
     plt.show()
 
 
@@ -161,6 +198,7 @@ if __name__ == "__main__":
 
     pwd = os.getcwd()
 
+    # Scan data directory and read in data from each file found
     fnames = os.listdir(scanDir)
     count = 1
     for name in fnames:
@@ -173,6 +211,8 @@ if __name__ == "__main__":
             analyze(os.path.join(scanDir, name), trailer)
             count += 1
 
+    # Build the set of data set keys that can be plotted and let the user
+    # choose which one
     keys = set()
     for data in dataset.values():
         for items in data.values():

@@ -1078,7 +1078,7 @@ DEFAULT_CONFIG = {
     },
 
     "GroupAttendees" : {
-        "Enabled": False,
+        "Enabled": True,
         "ReconciliationDelaySeconds" : 5,
         "UpdateOldEventLimitSeconds" : 1 * 24 * 60 * 60,   # 1 day
     },
