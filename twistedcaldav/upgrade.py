@@ -919,11 +919,22 @@ def migrateFromOD(directory):
 
     # Create internal copies of resources and locations based on what is
     # found in OD
+    from twext.who.idirectory import RecordType as BaseRecordType
     from twext.who.opendirectory import (
         DirectoryService as OpenDirectoryService
     )
+    from twext.who.util import ConstantsContainer
     from calendarserver.tools.resources import migrateResources
-    return migrateResources(OpenDirectoryService(), directory)
+    from txdav.who.opendirectory import _CSRecordType # Use this module for the import to make sure constants are setup properly
+
+    # We need to "patch" twext.who.opendirectory._service.DirectoryService to include resources and locations as supported record types
+    # during migration
+    class EnhancedDirectoryService(OpenDirectoryService):
+        recordType = ConstantsContainer((
+            BaseRecordType.user, BaseRecordType.group, _CSRecordType.location, _CSRecordType.resource
+        ))
+
+    return migrateResources(EnhancedDirectoryService(), directory)
 
 
 

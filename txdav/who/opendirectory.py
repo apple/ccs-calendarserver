@@ -19,7 +19,7 @@ from __future__ import print_function
 from __future__ import absolute_import
 
 """
-Calendar and contacts directory extentions to L{twext.who.opendirectory}.
+Calendar and contacts directory extensions to L{twext.who.opendirectory}.
 """
 
 __all__ = [
@@ -34,5 +34,5 @@ DirectoryService    # Something has to use the import
 from twext.who.opendirectory._constants import ODRecordType as _ODRecordType
 from .idirectory import RecordType as _CSRecordType
 
-_ODRecordType.location.recordType = _CSRecordType.location
+_ODRecordType.place.recordType = _CSRecordType.location     # Use dsRecTypeStandard:Places for calendar locations
 _ODRecordType.resource.recordType = _CSRecordType.resource
