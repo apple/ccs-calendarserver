@@ -844,6 +844,14 @@ limitations under the License.
     <email>user100@example.com</email>
 </record>
 <record type="user">
+    <uid>10000000-0000-0000-0000-000000000101</uid>
+    <guid>10000000-0000-0000-0000-000000000101</guid>
+    <short-name>user101</short-name>
+    <password>user101</password>
+    <full-name>User 101</full-name>
+    <email>user101@example.com</email>
+</record>
+<record type="user">
     <uid>50000000-0000-0000-0000-000000000001</uid>
     <guid>50000000-0000-0000-0000-000000000001</guid>
     <short-name>public01</short-name>

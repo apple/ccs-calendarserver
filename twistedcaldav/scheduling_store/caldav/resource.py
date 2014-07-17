@@ -149,6 +149,11 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         )
 
 
+    def dynamicProperties(self):
+        return super(ScheduleInboxResource, self).dynamicProperties() + (
+            customxml.CalendarAvailability.qname(),
+        )
+
     def resourceType(self):
         return davxml.ResourceType.scheduleInbox
 

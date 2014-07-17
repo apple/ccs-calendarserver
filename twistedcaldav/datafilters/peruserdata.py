@@ -109,9 +109,100 @@ class PerUserDataFilter(CalendarFilter):
 
         # Now transfer any components over
         if peruser_component:
-            self._mergeBack(ical, peruser_component)
+            self._filterBack(ical, peruser_component)
+        else:
+            self._defaultFilter(ical)
 
         return ical
+
+
+    def _filterBack(self, ical, peruser):
+        """
+        Merge the per-user data back into the main calendar data.
+
+        @param ical: main calendar data to merge into
+        @type ical: L{Component}
+        @param peruser: the per-user data to merge in
+        @type peruser: L{Component}
+        """
+
+        # Iterate over each instance in the per-user data and build mapping
+        peruser_recurrence_map = {}
+        for subcomponent in peruser.subcomponents():
+            if subcomponent.name() != PERINSTANCE_COMPONENT:
+                raise AssertionError("Wrong sub-component '%s' in a X-CALENDARSERVER-PERUSER component" % (subcomponent.name(),))
+            peruser_recurrence_map[subcomponent.getRecurrenceIDUTC()] = subcomponent
+
+        ical_recurrence_set = set(ical.getComponentInstances())
+        peruser_recurrence_set = set(peruser_recurrence_map.keys())
+
+        # Set operations to find union and differences
+        union_set = ical_recurrence_set.intersection(peruser_recurrence_set)
+        ical_only_set = ical_recurrence_set.difference(peruser_recurrence_set)
+        peruser_only_set = peruser_recurrence_set.difference(ical_recurrence_set)
+
+        # For ones in per-user data but no main data, we synthesize an instance and copy over per-user data
+        # NB We have to do this before we do any merge that may change the master
+        if ical.masterComponent() is not None:
+            for rid in peruser_only_set:
+                ical_component = ical.deriveInstance(rid)
+                if ical_component is None:
+                    continue
+                peruser_component = peruser_recurrence_map[rid]
+                self._filterBackComponent(ical_component, peruser_component)
+                ical.addComponent(ical_component)
+        elif peruser_only_set:
+            # We used to error out here, but instead we should silently ignore this error and keep going
+            pass
+
+        # Process the unions by merging in per-user data
+        for rid in union_set:
+            ical_component = ical.overriddenComponent(rid)
+            peruser_component = peruser_recurrence_map[rid]
+            self._filterBackComponent(ical_component, peruser_component)
+
+        # For ones in main data but no per-user data, we try and copy over the master per-user data
+        if ical_only_set:
+            peruser_master = peruser_recurrence_map.get(None)
+            if peruser_master:
+                for rid in ical_only_set:
+                    ical_component = ical.overriddenComponent(rid)
+                    self._filterBackComponent(ical_component, peruser_master)
+
+
+    def _filterBackComponent(self, ical, peruser):
+        """
+        Copy all properties and sub-components from per-user data into the main component
+
+        @param ical: main calendar component data to merge into
+        @type ical: L{Component}
+        @param peruser: the per-user data to merge in
+        @type peruser: L{Component}
+        """
+
+        # Each sub-component
+        for subcomponent in peruser.subcomponents():
+            ical.addComponent(subcomponent)
+
+        # Each property except RECURRENCE-ID
+        for property in peruser.properties():
+            if property.name() == "RECURRENCE-ID":
+                continue
+            ical.addProperty(property)
+
+
+    def _defaultFilter(self, ical):
+        """
+        There is no per-user component. Instead apply default properties to the data for this user.
+    
+        @param ical: the iCalendar object to process
+        @type ical: L{Component}
+        """
+
+        # TRANSP property behavior: if the event is all-day add TRANSP:TRANSPARENT, otherwise do nothing
+        comp = ical.mainComponent()
+        if comp.name() == "VEVENT" and comp.propertyValue("DTSTART").isDateOnly() and not comp.hasProperty("TRANSP"):
+            ical.addPropertyToAllComponents(Property("TRANSP", "TRANSPARENT"))
 
 
     def merge(self, icalnew, icalold):
@@ -146,80 +237,6 @@ class PerUserDataFilter(CalendarFilter):
         return icalnew
 
 
-    def _mergeBack(self, ical, peruser):
-        """
-        Merge the per-user data back into the main calendar data.
-
-        @param ical: main calendar data to merge into
-        @type ical: L{Component}
-        @param peruser: the per-user data to merge in
-        @type peruser: L{Component}
-        """
-
-        # Iterate over each instance in the per-user data and build mapping
-        peruser_recurrence_map = {}
-        for subcomponent in peruser.subcomponents():
-            if subcomponent.name() != PERINSTANCE_COMPONENT:
-                raise AssertionError("Wrong sub-component '%s' in a X-CALENDARSERVER-PERUSER component" % (subcomponent.name(),))
-            peruser_recurrence_map[subcomponent.getRecurrenceIDUTC()] = subcomponent
-
-        ical_recurrence_set = set(ical.getComponentInstances())
-        peruser_recurrence_set = set(peruser_recurrence_map.keys())
-
-        # Set operations to find union and differences
-        union_set = ical_recurrence_set.intersection(peruser_recurrence_set)
-        ical_only_set = ical_recurrence_set.difference(peruser_recurrence_set)
-        peruser_only_set = peruser_recurrence_set.difference(ical_recurrence_set)
-
-        # For ones in per-user data but no main data, we synthesize an instance and copy over per-user data
-        # NB We have to do this before we do any merge that may change the master
-        if ical.masterComponent() is not None:
-            for rid in peruser_only_set:
-                ical_component = ical.deriveInstance(rid)
-                if ical_component is None:
-                    continue
-                peruser_component = peruser_recurrence_map[rid]
-                self._mergeBackComponent(ical_component, peruser_component)
-                ical.addComponent(ical_component)
-        elif peruser_only_set:
-            # We used to error out here, but instead we should silently ignore this error and keep going
-            pass
-
-        # Process the unions by merging in per-user data
-        for rid in union_set:
-            ical_component = ical.overriddenComponent(rid)
-            peruser_component = peruser_recurrence_map[rid]
-            self._mergeBackComponent(ical_component, peruser_component)
-
-        # For ones in main data but no per-user data, we try and copy over the master per-user data
-        if ical_only_set:
-            peruser_master = peruser_recurrence_map.get(None)
-            if peruser_master:
-                for rid in ical_only_set:
-                    ical_component = ical.overriddenComponent(rid)
-                    self._mergeBackComponent(ical_component, peruser_master)
-
-
-    def _mergeBackComponent(self, ical, peruser):
-        """
-        Copy all properties and sub-components from per-user data into the main component
-        @param ical:
-        @type ical:
-        @param peruser:
-        @type peruser:
-        """
-
-        # Each sub-component
-        for subcomponent in peruser.subcomponents():
-            ical.addComponent(subcomponent)
-
-        # Each property except RECURRENCE-ID
-        for property in peruser.properties():
-            if property.name() == "RECURRENCE-ID":
-                continue
-            ical.addProperty(property)
-
-
     def _splitPerUserData(self, ical):
         """
         Split the per-user data out of the "normal" iCalendar components into separate per-user
@@ -248,6 +265,9 @@ class PerUserDataFilter(CalendarFilter):
 
             perinstance_component = Component(PERINSTANCE_COMPONENT) if self.uid else None
             perinstance_id_different = False
+
+            # Special case certain default property values
+            self._defaultMerge(component)
 
             # Transfer per-user properties from main component to per-instance component
             for property in tuple(component.properties()):
@@ -314,6 +334,21 @@ class PerUserDataFilter(CalendarFilter):
             derived = ical.deriveInstance(rid, newcomp=masterDerived)
             if derived is not None and derived == subcomponent:
                 ical.removeComponent(subcomponent)
+
+
+    def _defaultMerge(self, component):
+        """
+        Handle default property values during a merge.
+
+        @param component: the iCalendar component to process
+        @type component: L{Component}
+        """
+
+        # Special handling for TRANSP: if it is not present on an all-day event,
+        # add TRANSP:OPAQUE so that the default is explicitly included, since otherwise
+        # L_defaultFilter) will add TRANSP:TRANSPARENT
+        if component.name() == "VEVENT" and component.propertyValue("DTSTART").isDateOnly() and not component.hasProperty("TRANSP"):
+            component.addProperty(Property("TRANSP", "OPAQUE"))
 
 
     def _mergeRepresentations(self, icalnew, icalold):

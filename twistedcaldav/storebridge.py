@@ -1136,7 +1136,6 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
 
         tzids = set()
         isowner = (yield self.isOwner(request))
-        accessPrincipal = (yield self.resourceOwnerPrincipal(request))
 
         for name in (yield self._newStoreObject.listObjectResources()):
             try:
@@ -1153,7 +1152,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
 
                 # Get the access filtered view of the data
                 try:
-                    subcalendar = yield child.iCalendarFiltered(isowner, accessPrincipal.principalUID() if accessPrincipal else "")
+                    subcalendar = yield child.iCalendarFiltered(isowner)
                 except ValueError:
                     continue
                 assert subcalendar.name() == "VCALENDAR"
@@ -2675,6 +2674,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
     def componentForUser(self):
         return self._newStoreObject.componentForUser()
 
+    iCalendarForUser = componentForUser
 
     def validIfScheduleMatch(self, request):
         """

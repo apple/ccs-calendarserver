@@ -3525,6 +3525,18 @@ END:VCALENDAR
         return changed
 
 
+    def adjustedTransp(self):
+        """
+        Determine the TRANSP value for this component. Note that for all-day VEVENTs
+        we are going to treat the default as TRANSPARENT and not OPAQUE
+        """
+        transp = self.propertyValue("TRANSP")
+        if transp is None and self.name() == "VEVENT" and self.propertyValue("DTSTART").isDateOnly():
+            return "TRANSPARENT"
+        else:
+            return "OPAQUE" if transp is None else transp
+
+
     def allPerUserUIDs(self):
 
         results = set()

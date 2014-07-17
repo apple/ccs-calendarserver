@@ -111,7 +111,7 @@ init_build () {
     dep_packages="${TWEXT_PKG_CACHE}";
   fi;
 
-  project="$(setup_print name)";
+  project="$(setup_print name)" || project="<unknown>";
 
   # Find some hashing commands
   # sha1() = sha1 hash, if available
@@ -121,34 +121,34 @@ init_build () {
 
   hash="";
 
-  if type -ft openssl > /dev/null; then
+  if find_cmd openssl > /dev/null; then
     if [ -z "${hash}" ]; then hash="md5"; fi;
-    md5 () { "$(type -p openssl)" dgst -md5 "$@"; }
-  elif type -ft md5 > /dev/null; then
+    md5 () { "$(find_cmd openssl)" dgst -md5 "$@"; }
+  elif find_cmd md5 > /dev/null; then
     if [ -z "${hash}" ]; then hash="md5"; fi;
-    md5 () { "$(type -p md5)" "$@"; }
-  elif type -ft md5sum > /dev/null; then
+    md5 () { "$(find_cmd md5)" "$@"; }
+  elif find_cmd md5sum > /dev/null; then
     if [ -z "${hash}" ]; then hash="md5"; fi;
-    md5 () { "$(type -p md5sum)" "$@"; }
+    md5 () { "$(find_cmd md5sum)" "$@"; }
   fi;
 
-  if type -ft sha1sum > /dev/null; then
+  if find_cmd sha1sum > /dev/null; then
     if [ -z "${hash}" ]; then hash="sha1sum"; fi;
-    sha1 () { "$(type -p sha1sum)" "$@"; }
+    sha1 () { "$(find_cmd sha1sum)" "$@"; }
   fi;
-  if type -ft shasum > /dev/null; then
+  if find_cmd shasum > /dev/null; then
     if [ -z "${hash}" ]; then hash="sha1"; fi;
-    sha1 () { "$(type -p shasum)" "$@"; }
+    sha1 () { "$(find_cmd shasum)" "$@"; }
   fi;
 
   if [ "${hash}" = "sha1" ]; then
     hash () { sha1 "$@"; }
   elif [ "${hash}" = "md5" ]; then
     hash () { md5 "$@"; }
-  elif type -t cksum > /dev/null; then
+  elif find_cmd cksum > /dev/null; then
     hash="hash";
     hash () { cksum "$@" | cut -f 1 -d " "; }
-  elif type -t sum > /dev/null; then
+  elif find_cmd sum > /dev/null; then
     hash="hash";
     hash () { sum "$@" | cut -f 1 -d " "; }
   else
@@ -160,7 +160,7 @@ init_build () {
 setup_print () {
   what="$1"; shift;
 
-  PYTHONPATH="${wd}:${PYTHONPATH:-}" "${bootstrap_python}" - << EOF
+  PYTHONPATH="${wd}:${PYTHONPATH:-}" "${bootstrap_python}" - 2>/dev/null << EOF
 from __future__ import print_function
 import setup
 print(setup.${what})
@@ -568,10 +568,12 @@ c_dependencies () {
 #
 py_dependencies () {
   python="${py_bindir}/python";
+  py_ve_tools="${dev_home}/ve_tools";
 
   export PATH="${py_virtualenv}/bin:${PATH}";
   export PYTHON="${python}";
-  export PYTHONPATH="${wd}:${PYTHONPATH:-}";
+  export PYTHONPATH="${py_ve_tools}/lib:${wd}:${PYTHONPATH:-}";
+
 
   # Work around a change in Xcode tools that breaks Python modules in OS X
   # 10.9.2 and prior due to a hard error if the -mno-fused-madd is used, as
@@ -601,7 +603,7 @@ py_dependencies () {
 
   # Make sure setup got called enough to write the version file.
 
-  "${python}" "${wd}/setup.py" check > /dev/null;
+  PYTHONPATH="${PYTHONPATH}" "${python}" "${wd}/setup.py" check > /dev/null;
 
   if [ -d "${dev_home}/pip_downloads" ]; then
     pip_install="pip_install_from_cache";
@@ -626,24 +628,14 @@ py_dependencies () {
 
 
 bootstrap_virtualenv () {
-  py_ve_tools="${dev_home}/ve_tools";
-
-  if [ -d "${py_ve_tools}/lib" ]; then
-    export PYTHONPATH="${py_ve_tools}/lib:${PYTHONPATH:-}";
-  fi;
-
-  if "${bootstrap_python}" -m virtualenv > /dev/null 2>&1; then
-    return 0;
-  fi;
-
   mkdir -p "${py_ve_tools}";
   mkdir -p "${py_ve_tools}/lib";
   mkdir -p "${py_ve_tools}/junk";
 
   for pkg in             \
-      pip-1.5.4          \
-      virtualenv-1.11.4  \
-      setuptools-3.4.4   \
+      setuptools-5.4.1   \
+      pip-1.5.6          \
+      virtualenv-1.11.6  \
   ; do
          name="${pkg%-*}";
       version="${pkg#*-}";
@@ -669,8 +661,6 @@ bootstrap_virtualenv () {
 
       rm -rf "${tmp}";
   done;
-
-  export PYTHONPATH="${py_ve_tools}/lib:${PYTHONPATH:-}";
 }
 
 

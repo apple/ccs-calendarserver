@@ -31,7 +31,7 @@ class HTTPTestBase(object):
             self.timing = timing
 
 
-    def __init__(self, label, sessions, logFilePath):
+    def __init__(self, label, sessions, logFilePath, logFilePrefix):
         """
         @param label: label used to identify the test
         @type label: C{str}
@@ -39,6 +39,7 @@ class HTTPTestBase(object):
         self.label = label
         self.sessions = sessions
         self.logFilePath = logFilePath
+        self.logFilePrefix = logFilePrefix
         self.result = None
 
 
@@ -95,7 +96,7 @@ class HTTPTestBase(object):
         offset = 0
         while True:
             if lines[offset] == "*** SQL Stats ***":
-                if lines[offset + 2].split()[1] != "unlabeled":
+                if lines[offset + 2].startswith("Label: <"):
                     count = extractInt(lines[offset + 4])
                     rows = extractInt(lines[offset + 5])
                     timing = extractFloat(lines[offset + 6])
@@ -105,7 +106,8 @@ class HTTPTestBase(object):
         else:
             self.result = HTTPTestBase.SQLResults(-1, -1, 0.0)
 
-        with open("%s-%d-%s" % (self.logFilePath, event_count, self.label), "w") as f:
+        # Archive current sqlstats file
+        with open("%s-%s-%d-%s" % (self.logFilePath, self.logFilePrefix, event_count, self.label), "w") as f:
             f.write(data)
 
 

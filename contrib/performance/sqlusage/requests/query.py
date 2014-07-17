@@ -60,8 +60,8 @@ class QueryTest(HTTPTestBase):
     A sync operation
     """
 
-    def __init__(self, label, sessions, logFilePath, count):
-        super(QueryTest, self).__init__(label, sessions, logFilePath)
+    def __init__(self, label, sessions, logFilePath, logFilePrefix, count):
+        super(QueryTest, self).__init__(label, sessions, logFilePath, logFilePrefix)
         self.count = count
 
 

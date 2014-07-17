@@ -15,6 +15,18 @@
 # limitations under the License.
 ##
 
+find_cmd () {
+  local cmd="$1"; shift;
+
+  local path="$(type "${cmd}" 2>/dev/null | sed "s|^${cmd} is \(a tracked alias for \)\{0,1\}||")";
+
+  if [ -z "${cmd}" ]; then
+    return 1;
+  fi;
+
+  echo "${path}";
+}
+
 # Echo the major.minor version of the given Python interpreter.
 
 py_version () {
@@ -38,7 +50,7 @@ try_python () {
   fi;
 
   local py_version="$(py_version "${python}")";
-  if [ "${py_version/./}" -lt "25" ]; then
+  if [ "$(echo "${py_version}" | sed 's|\.||')" -lt "25" ]; then
     return 1;
   fi;
   return 0;
@@ -72,7 +84,7 @@ detect_python_version () {
       "/sw/bin/python${v}"                                              \
       ;
     do
-      if p="$(type -p "${p}")"; then
+      if p="$(find_cmd "${p}")"; then
         if try_python "${p}"; then
           echo "${p}";
           return 0;
@@ -148,7 +160,7 @@ init_py () {
   # the part of the PostgreSQL build process which builds pl_python.  Note that
   # detect_python_version, above, already honors $PYTHON, so if this is already
   # set it won't be stomped on, it will just be re-set to the same value.
-  export PYTHON="$(type -p ${bootstrap_python})";
+  export PYTHON="$(find_cmd ${bootstrap_python})";
 
   if [ -z "${bootstrap_python:-}" ]; then
     echo "No suitable python found. Python 2.6 or 2.7 is required.";

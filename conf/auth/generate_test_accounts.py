@@ -59,8 +59,8 @@ for uid, fullName, guid in (
 </record>
 """.format(uid=uid, guid=guid, fullName=fullName))
 
-# user01-100
-for i in xrange(1, 501 if EXTRA_GROUPS else 101):
+# user01-101
+for i in xrange(1, 501 if EXTRA_GROUPS else 102):
     out.write("""<record type="user">
     <uid>{guid}</uid>
     <guid>{guid}</guid>

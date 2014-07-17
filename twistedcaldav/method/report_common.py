@@ -366,7 +366,7 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
         if isinstance(property, caldavxml.CalendarData):
             # Handle private events access restrictions
             if calendar is None:
-                calendar = (yield resource.iCalendarForUser(request))
+                calendar = (yield resource.iCalendarForUser())
             filtered = HiddenInstanceFilter().filter(calendar)
             filtered = PrivateEventFilter(resource.accessMode, isowner).filter(filtered)
             filtered = CalendarDataFilter(property, timezone).filter(filtered)
@@ -669,12 +669,12 @@ def generateFreeBusyInfo(
                 # Add extended details
                 if do_event_details:
                     child = (yield request.locateChildResource(calresource, name))
-                    calendar = (yield child.iCalendarForUser(request))
+                    calendar = (yield child.iCalendarForUser())
                     _addEventDetails(calendar, event_details, rich_options, timerange, tzinfo)
 
         else:
             child = (yield request.locateChildResource(calresource, name))
-            calendar = (yield child.iCalendarForUser(request))
+            calendar = (yield child.iCalendarForUser())
 
             # The calendar may come back as None if the resource is being changed, or was deleted
             # between our initial index query and getting here. For now we will ignore this error, but in
@@ -716,7 +716,7 @@ def generateFreeBusyInfo(
                 # Add extended details
                 if calendar.mainType() == "VEVENT" and do_event_details:
                     child = (yield request.locateChildResource(calresource, name))
-                    calendar = (yield child.iCalendarForUser(request))
+                    calendar = (yield child.iCalendarForUser())
                     _addEventDetails(calendar, event_details, rich_options, timerange, tzinfo)
 
     returnValue(matchtotal)

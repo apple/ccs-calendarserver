@@ -66,7 +66,6 @@ from twistedcaldav.carddavxml import carddav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.datafilters.hiddeninstance import HiddenInstanceFilter
-from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
 from twistedcaldav.extensions import DAVResource, DAVPrincipalResource, \
     DAVResourceWithChildrenMixin
@@ -1059,20 +1058,6 @@ class CalDAVResource (
         return self._newStoreParentHome.isDefaultCalendar(self._newStoreObject)
 
 
-    @inlineCallbacks
-    def iCalendarForUser(self, request):
-
-        caldata = yield self.iCalendar()
-
-        accessUID = (yield self.resourceOwnerPrincipal(request))
-        if accessUID is None:
-            accessUID = ""
-        else:
-            accessUID = accessUID.principalUID()
-
-        returnValue(PerUserDataFilter(accessUID).filter(caldata))
-
-
     def iCalendarAddressDoNormalization(self, ical):
         """
         Normalize calendar user addresses in the supplied iCalendar object into their
@@ -1476,12 +1461,10 @@ class CalDAVResource (
 
 
     @inlineCallbacks
-    def iCalendarFiltered(self, isowner, accessUID=None):
+    def iCalendarFiltered(self, isowner):
 
         # Now "filter" the resource calendar data
-        caldata = (yield self.iCalendar())
-        if accessUID:
-            caldata = PerUserDataFilter(accessUID).filter(caldata)
+        caldata = (yield self.iCalendarForUser())
         caldata = HiddenInstanceFilter().filter(caldata)
         caldata = PrivateEventFilter(self.accessMode, isowner).filter(caldata)
         returnValue(caldata)

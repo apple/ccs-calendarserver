@@ -195,8 +195,8 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
         if "fieldsList" in results:
             numResults = len(results["fieldsList"])
         log.debug(
-            "DPS call {command} duration={duration:.2f}s, results={numResults}",
-            command=command, duration=duration, numResults=numResults
+            "DPS call {command} duration={duration:.2f}ms, results={numResults}",
+            command=command, duration=1000.0 * duration, numResults=numResults
         )
 
 

@@ -3415,7 +3415,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             start = instance.start
             end = instance.end
             floating = instance.start.floating()
-            transp = instance.component.propertyValue("TRANSP") == "TRANSPARENT"
+            transp = instance.component.adjustedTransp() == "TRANSPARENT"
             fbtype = instance.component.getFBType()
             start.setTimezoneUTC(True)
             end.setTimezoneUTC(True)
