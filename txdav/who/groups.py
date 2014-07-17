@@ -29,9 +29,8 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twistedcaldav.config import config
 from txdav.caldav.datastore.scheduling.icalsplitter import iCalSplitter
 from txdav.caldav.datastore.sql import CalendarStoreFeatures, ComponentUpdateState
-from txdav.common.datastore.sql_tables import schema
+from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 import datetime
-import hashlib
 
 log = Logger()
 
@@ -222,6 +221,41 @@ class GroupAttendeeReconciliationWork(
 
 
 
+class GroupShareeReconciliationWork(
+    WorkItem, fromTable(schema.GROUP_SHAREE_RECONCILE_WORK)
+):
+
+    group = property(
+        lambda self: (self.table.CALENDAR_ID == self.calendarID)
+    )
+
+
+    @inlineCallbacks
+    def doWork(self):
+
+        # Delete all other work items for this event
+        yield Delete(
+            From=self.table,
+            Where=self.group,
+        ).on(self.transaction)
+
+        bind = schema.CALENDAR_BIND
+        rows = yield Select(
+            [bind.HOME_RESOURCE_ID],
+            From=bind,
+            Where=(bind.CALENDAR_RESOURCE_ID == self.calendarID).And(
+                bind.BIND_MODE == _BIND_MODE_OWN
+            ),
+        ).on(self.transaction)
+        if rows:
+            homeID = rows[0][0]
+            home = yield self.transaction.calendarHomeWithResourceID(homeID)
+            calendar = yield home.childWithID(self.calendarID)
+            groupUID = ((yield self.transaction.groupByID(self.groupID)))[0]
+            yield calendar.reconcileGroupSharee(groupUID)
+
+
+
 def diffAssignments(old, new):
     """
     Compare two proxy assignment lists and return their differences in the form
@@ -315,14 +349,14 @@ class GroupCacher(object):
                 readDelegateGroupID = writeDelegateGroupID = None
                 if readDelegateUID:
                     (
-                        readDelegateGroupID, _ignore_name, hash,
+                        readDelegateGroupID, _ignore_name, _ignore_hash,
                         _ignore_modified, _ignore_extant
                     ) = (
                         yield txn.groupByUID(readDelegateUID)
                     )
                 if writeDelegateUID:
                     (
-                        writeDelegateGroupID, _ignore_name, hash,
+                        writeDelegateGroupID, _ignore_name, _ignore_hash,
                         _ignore_modified, _ignore_extant
                     ) = (
                         yield txn.groupByUID(writeDelegateUID)
@@ -346,106 +380,36 @@ class GroupCacher(object):
             and updates the GROUP_MEMBERSHIP table
             WorkProposal is returned for tests
         """
-        self.log.debug("Faulting in group: {g}", g=groupUID)
-        record = (yield self.directory.recordWithUID(groupUID))
-        if record is None:
-            # the group has disappeared from the directory
-            self.log.info("Group is missing: {g}", g=groupUID)
-        else:
-            self.log.debug("Got group record: {u}", u=record.uid)
+        groupID, membershipChanged = yield txn.refreshGroup(groupUID)
 
-        (
-            groupID, cachedName, cachedMembershipHash, _ignore_modified,
-            extant
-        ) = yield txn.groupByUID(
-            groupUID,
-            create=(record is not None)
-        )
+        if membershipChanged:
+            wpsAttendee = yield self.scheduleGroupAttendeeReconciliations(txn, groupID)
+            wpsShareee = yield self.scheduleGroupShareeReconciliations(txn, groupID)
+            returnValue(wpsAttendee + wpsShareee)
 
-        wps = tuple()
-        if groupID:
-            if record is not None:
-                members = yield record.expandedMembers()
-                name = record.displayName
-                extant = True
-            else:
-                members = frozenset()
-                name = cachedName
-                extant = False
-
-            membershipHashContent = hashlib.md5()
-            members = list(members)
-            members.sort(key=lambda x: x.uid)
-            for member in members:
-                membershipHashContent.update(str(member.uid))
-            membershipHash = membershipHashContent.hexdigest()
-
-            if cachedMembershipHash != membershipHash:
-                membershipChanged = True
-                self.log.debug(
-                    "Group '{group}' changed", group=name
-                )
-            else:
-                membershipChanged = False
-
-            if membershipChanged or record is not None:
-                # also updates group mod date
-                yield txn.updateGroup(
-                    groupUID, name, membershipHash, extant=extant
-                )
-
-            if membershipChanged:
-                newMemberUIDs = set()
-                for member in members:
-                    newMemberUIDs.add(member.uid)
-                yield self.synchronizeMembers(txn, groupID, newMemberUIDs)
-
-                wps = yield self.scheduleEventReconciliations(txn, groupID)
-
-        returnValue(wps)
+        returnValue(tuple())
 
 
-    @inlineCallbacks
     def synchronizeMembers(self, txn, groupID, newMemberUIDs):
-        numRemoved = numAdded = 0
-        cachedMemberUIDs = (yield txn.membersOfGroup(groupID))
-
-        for memberUID in cachedMemberUIDs:
-            if memberUID not in newMemberUIDs:
-                numRemoved += 1
-                yield txn.removeMemberFromGroup(memberUID, groupID)
-
-        for memberUID in newMemberUIDs:
-            if memberUID not in cachedMemberUIDs:
-                numAdded += 1
-                yield txn.addMemberToGroup(memberUID, groupID)
-
-        returnValue((numAdded, numRemoved))
+        return txn.synchronizeMembers(groupID, newMemberUIDs)
 
 
-    @inlineCallbacks
     def cachedMembers(self, txn, groupID):
         """
         The members of the given group as recorded in the db
         """
-        members = set()
-        memberUIDs = (yield txn.membersOfGroup(groupID))
-        for uid in memberUIDs:
-            record = (yield self.directory.recordWithUID(uid))
-            if record is not None:
-                members.add(record)
-        returnValue(members)
+        return txn.groupMembers(groupID)
 
 
     def cachedGroupsFor(self, txn, uid):
         """
         The UIDs of the groups the uid is a member of
         """
-        return txn.groupsFor(uid)
+        return txn.groupUIDsFor(uid)
 
 
     @inlineCallbacks
-    def scheduleEventReconciliations(self, txn, groupID):
+    def scheduleGroupAttendeeReconciliations(self, txn, groupID):
         """
         Find all events who have this groupID as an attendee and create
         work items for them.
@@ -471,6 +435,32 @@ class GroupCacher(object):
 
 
     @inlineCallbacks
+    def scheduleGroupShareeReconciliations(self, txn, groupID):
+        """
+        Find all calendars who have shared to this groupID and create
+        work items for them.
+        returns: WorkProposal
+        """
+        gs = schema.GROUP_SHAREE
+        rows = yield Select(
+            [gs.CALENDAR_ID, ],
+            From=gs,
+            Where=gs.GROUP_ID == groupID,
+        ).on(txn)
+
+        wps = []
+        for [calendarID] in rows:
+            wp = yield GroupShareeReconciliationWork.reschedule(
+                txn,
+                seconds=float(config.Sharing.Calendars.Groups.ReconciliationDelaySeconds),
+                calendarID=calendarID,
+                groupID=groupID,
+            )
+            wps.append(wp)
+        returnValue(tuple(wps))
+
+
+    @inlineCallbacks
     def groupsToRefresh(self, txn):
         delegatedUIDs = set((yield txn.allGroupDelegates()))
         self.log.info(
@@ -478,15 +468,15 @@ class GroupCacher(object):
         )
 
         # Get groupUIDs for all group attendees
-        groupAttendee = schema.GROUP_ATTENDEE
+        ga = schema.GROUP_ATTENDEE
         gr = schema.GROUPS
         rows = yield Select(
             [gr.GROUP_UID],
             From=gr,
             Where=gr.GROUP_ID.In(
                 Select(
-                    [groupAttendee.GROUP_ID],
-                    From=groupAttendee,
+                    [ga.GROUP_ID],
+                    From=ga,
                     Distinct=True
                 )
             )
@@ -496,6 +486,25 @@ class GroupCacher(object):
             "There are {count} group attendees", count=len(attendeeGroupUIDs)
         )
 
+        # Get groupUIDs for all group shares
+        gs = schema.GROUP_SHAREE
+        gr = schema.GROUPS
+        rows = yield Select(
+            [gr.GROUP_UID],
+            From=gr,
+            Where=gr.GROUP_ID.In(
+                Select(
+                    [gs.GROUP_ID],
+                    From=gs,
+                    Distinct=True
+                )
+            )
+        ).on(txn)
+        shareeGroupUIDs = set([row[0] for row in rows])
+        self.log.info(
+            "There are {count} group sharees", count=len(shareeGroupUIDs)
+        )
+
         # FIXME: is this a good place to clear out unreferenced groups?
 
-        returnValue(delegatedUIDs.union(attendeeGroupUIDs))
+        returnValue(frozenset(delegatedUIDs | attendeeGroupUIDs | shareeGroupUIDs))

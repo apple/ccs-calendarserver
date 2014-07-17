@@ -61,12 +61,11 @@ from txdav.caldav.icalendarstore import ICalendarTransaction, ICalendarStore
 from txdav.carddav.iaddressbookstore import IAddressBookTransaction
 from txdav.common.datastore.common import HomeChildBase
 from txdav.common.datastore.podding.conduit import PoddingConduit
-from txdav.common.datastore.sql_tables import _BIND_MODE_OWN, \
-    _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED, _BIND_STATUS_INVALID, \
-    _BIND_STATUS_INVITED, _BIND_MODE_DIRECT, _BIND_STATUS_DELETED, \
-    _BIND_MODE_INDIRECT, _HOME_STATUS_NORMAL, _HOME_STATUS_EXTERNAL, \
-    _HOME_STATUS_PURGING
-from txdav.common.datastore.sql_tables import schema, splitSQLString
+from txdav.common.datastore.sql_tables import _BIND_MODE_DIRECT, \
+    _BIND_MODE_INDIRECT, _BIND_MODE_OWN, _BIND_STATUS_ACCEPTED, \
+    _BIND_STATUS_DECLINED, _BIND_STATUS_DELETED, _BIND_STATUS_INVALID, \
+    _BIND_STATUS_INVITED, _HOME_STATUS_EXTERNAL, _HOME_STATUS_NORMAL, \
+    _HOME_STATUS_PURGING, schema, splitSQLString
 from txdav.common.icommondatastore import ConcurrentModification, \
     RecordNotAllowedError, ExternalShareFailed, ShareNotAllowed, \
     IndexedSearchException, NotFoundError
@@ -1069,18 +1068,25 @@ class CommonStoreTransaction(object):
         )
 
 
+    @inlineCallbacks
     def addGroup(self, groupUID, name, membershipHash):
         """
         @type groupUID: C{unicode}
         @type name: C{unicode}
         @type membershipHash: C{str}
         """
-        return self._addGroupQuery.on(
+        groupID = yield self._addGroupQuery.on(
             self,
             name=name.encode("utf-8"),
             groupUID=groupUID.encode("utf-8"),
             membershipHash=membershipHash
         )
+
+        record = yield self.directoryService().recordWithUID(groupUID)
+        yield self._refreshGroup(
+            groupUID, record, groupID, name.encode("utf-8"), membershipHash
+        )
+        returnValue(groupID)
 
 
     def updateGroup(self, groupUID, name, membershipHash, extant=True):
@@ -1270,7 +1276,7 @@ class CommonStoreTransaction(object):
 
 
     @inlineCallbacks
-    def membersOfGroup(self, groupID):
+    def groupMemberUIDs(self, groupID):
         """
         Returns the cached set of UIDs for members of the given groupID.
         Sub-groups are not returned in the results but their members are,
@@ -1290,7 +1296,132 @@ class CommonStoreTransaction(object):
 
 
     @inlineCallbacks
-    def groupsFor(self, uid):
+    def refreshGroup(self, groupUID):
+        """
+        Refreshes the group membership cache.
+
+        @param groupUID: the group UID
+        @type groupUID: C{unicode}
+
+        @return: Deferred firing with tuple of group ID C{str}, and
+            membershipChanged C{boolean}
+
+        """
+        log.debug("Faulting in group: {g}", g=groupUID)
+        record = (yield self.directoryService().recordWithUID(groupUID))
+        if record is None:
+            # the group has disappeared from the directory
+            log.info("Group is missing: {g}", g=groupUID)
+        else:
+            log.debug("Got group record: {u}", u=record.uid)
+
+        (
+            groupID, cachedName, cachedMembershipHash, _ignore_modified,
+            _ignore_extant
+        ) = yield self.groupByUID(
+            groupUID,
+            create=(record is not None)
+        )
+
+        membershipChanged = False
+        if groupID:
+            membershipChanged = yield self._refreshGroup(
+                groupUID, record, groupID, cachedName, cachedMembershipHash
+            )
+
+        returnValue((groupID, membershipChanged))
+
+
+    @inlineCallbacks
+    def _refreshGroup(self, groupUID, record, groupID, cachedName, cachedMembershipHash):
+        """
+        @param groupUID: the directory record
+        @type groupUID: C{unicode}
+        @param record: the directory record
+        @type record: C{iDirectoryRecord}
+        @param groupID: group resource id
+        @type groupID: C{str}
+        @param cachedName: group name in the database
+        @type cachedName: C{unicode}
+        @param cachedMembershipHash: membership hash in the database
+        @type cachedMembershipHash: C{str}
+
+        @return: Deferred firing with membershipChanged C{boolean}
+
+        """
+        if record is not None:
+            members = yield record.expandedMembers()
+            name = record.displayName
+            extant = True
+        else:
+            members = frozenset()
+            name = cachedName
+            extant = False
+
+        membershipHashContent = hashlib.md5()
+        members = list(members)
+        members.sort(key=lambda x: x.uid)
+        for member in members:
+            membershipHashContent.update(str(member.uid))
+        membershipHash = membershipHashContent.hexdigest()
+
+        if cachedMembershipHash != membershipHash:
+            membershipChanged = True
+            log.debug(
+                "Group '{group}' changed", group=name
+            )
+        else:
+            membershipChanged = False
+
+        if membershipChanged or record is not None:
+            # also updates group mod date
+            yield self.updateGroup(
+                groupUID, name, membershipHash, extant=extant
+            )
+
+        if membershipChanged:
+            newMemberUIDs = set()
+            for member in members:
+                newMemberUIDs.add(member.uid)
+            yield self.synchronizeMembers(groupID, newMemberUIDs)
+
+        returnValue(membershipChanged)
+
+
+    @inlineCallbacks
+    def synchronizeMembers(self, groupID, newMemberUIDs):
+        numRemoved = numAdded = 0
+        cachedMemberUIDs = (yield self.groupMemberUIDs(groupID))
+
+        for memberUID in cachedMemberUIDs:
+            if memberUID not in newMemberUIDs:
+                numRemoved += 1
+                yield self.removeMemberFromGroup(memberUID, groupID)
+
+        for memberUID in newMemberUIDs:
+            if memberUID not in cachedMemberUIDs:
+                numAdded += 1
+                yield self.addMemberToGroup(memberUID, groupID)
+
+        returnValue((numAdded, numRemoved))
+
+
+    @inlineCallbacks
+    def groupMembers(self, groupID):
+        """
+        The members of the given group as recorded in the db
+        """
+        members = set()
+        memberUIDs = (yield self.groupMemberUIDs(groupID))
+        for uid in memberUIDs:
+            record = (yield self.directoryService().recordWithUID(uid))
+            if record is not None:
+                members.add(record)
+        returnValue(members)
+
+
+    @inlineCallbacks
+    def groupUIDsFor(self, uid):
         """
         Returns the cached set of UIDs for the groups this given uid is
         a member of.
@@ -2768,7 +2899,7 @@ class SharingHomeMixIn(object):
                 self.uid(), shareName=shareUID
             )
         else:
-            shareeView = yield ownerView.inviteUserToShare(
+            shareeView = yield ownerView.inviteUIDToShare(
                 self.uid(), bindMode, summary, shareName=shareUID
             )
 
@@ -2792,7 +2923,7 @@ class SharingHomeMixIn(object):
             raise ExternalShareFailed("Invalid share ID: {}".format(shareUID))
 
         # Now carry out the share operation
-        yield ownerView.uninviteUserFromShare(self.uid())
+        yield ownerView.uninviteUIDFromShare(self.uid())
 
         # See if there are any references to the external share. If not,
         # remove it
@@ -4430,7 +4561,7 @@ class SharingMixIn(object):
     # Higher level API
     #
     @inlineCallbacks
-    def inviteUserToShare(self, shareeUID, mode, summary, shareName=None):
+    def inviteUIDToShare(self, shareeUID, mode, summary=None, shareName=None):
         """
         Invite a user to share this collection - either create the share if it does not exist, or
         update the existing share with new values. Make sure a notification is sent as well.
@@ -4487,7 +4618,7 @@ class SharingMixIn(object):
 
 
     @inlineCallbacks
-    def uninviteUserFromShare(self, shareeUID):
+    def uninviteUIDFromShare(self, shareeUID):
         """
         Remove a user from a share. Make sure a notification is sent as well.
 
@@ -4570,7 +4701,7 @@ class SharingMixIn(object):
 
         # Remove all sharees (direct and invited)
         for invitation in (yield self.sharingInvites()):
-            yield self.uninviteUserFromShare(invitation.shareeUID)
+            yield self.uninviteUIDFromShare(invitation.shareeUID)
 
 
     def newShare(self, displayname=None):
@@ -4599,7 +4730,6 @@ class SharingMixIn(object):
         """
         Called on the owner's resource.
         """
-
         # When deleting the message is the sharee's display name
         displayname = shareeView.shareMessage()
         if notificationState == _BIND_STATUS_DELETED:
@@ -4617,7 +4747,7 @@ class SharingMixIn(object):
             "sharee": shareeView.viewerHome().uid(),
             "uid": shareeView.shareUID(),
             "status": shareeView.shareStatus() if notificationState is None else notificationState,
-            "access": shareeView.shareMode(),
+            "access": (yield shareeView.effectiveShareMode()),
             "ownerName": self.shareName(),
             "summary": displayname,
         }
@@ -4751,12 +4881,12 @@ class SharingMixIn(object):
 
 
     @inlineCallbacks
-    def shareWith(self, shareeHome, mode, status=None, summary=None, shareName=None):
+    def shareWithUID(self, shareeUID, mode, status=None, summary=None, shareName=None):
         """
-        Share this (owned) L{CommonHomeChild} with another home.
+        Share this (owned) L{CommonHomeChild} with another principal.
 
-        @param shareeHome: The home of the sharee.
-        @type shareeHome: L{CommonHome}
+        @param shareeUID: The UID of the sharee.
+        @type: L{str}
 
         @param mode: The sharing mode; L{_BIND_MODE_READ} or
             L{_BIND_MODE_WRITE} or L{_BIND_MODE_DIRECT}
@@ -4764,11 +4894,43 @@ class SharingMixIn(object):
 
         @param status: The sharing status; L{_BIND_STATUS_INVITED} or
             L{_BIND_STATUS_ACCEPTED}
-        @type mode: L{str}
+        @type: L{str}
 
         @param summary: The proposed message to go along with the share, which
             will be used as the default display name.
-        @type summary: L{str}
+        @type: L{str}
+
+        @return: the name of the shared calendar in the new calendar home.
+        @rtype: L{str}
+        """
+        shareeHome = yield self._txn.calendarHomeWithUID(shareeUID, create=True)
+        returnValue(
+            (yield self.shareWith(shareeHome, mode, status, summary, shareName))
+        )
+
+
+    @inlineCallbacks
+    def shareWith(self, shareeHome, mode, status=None, summary=None, shareName=None):
+        """
+        Share this (owned) L{CommonHomeChild} with another home.
+
+        @param shareeHome: The home of the sharee.
+        @type: L{CommonHome}
+
+        @param mode: The sharing mode; L{_BIND_MODE_READ} or
+            L{_BIND_MODE_WRITE} or L{_BIND_MODE_DIRECT}
+        @type: L{str}
+
+        @param status: The sharing status; L{_BIND_STATUS_INVITED} or
+            L{_BIND_STATUS_ACCEPTED}
+        @type: L{str}
+
+        @param summary: The proposed message to go along with the share, which
+            will be used as the default display name.
+        @type: L{str}
+
+        @param shareName: The proposed name of the new share.
+        @type: L{str}
 
         @return: the name of the shared calendar in the new calendar home.
         @rtype: L{str}
@@ -4863,16 +5025,18 @@ class SharingMixIn(object):
 
         #remove None parameters, and substitute None for empty string
         bind = self._bindSchema
-        columnMap = dict([(k, v if v != "" else None) for k, v in {
-            bind.BIND_MODE:mode,
-            bind.BIND_STATUS:status,
-            bind.MESSAGE:summary
-        }.iteritems() if v is not None])
+        columnMap = {}
+        if mode != None and mode != self._bindMode:
+            columnMap[bind.BIND_MODE] = mode
+        if status != None:# and status != self._bindStatus:  # FIXME:
+            columnMap[bind.BIND_STATUS] = status
+        if summary != None and summary and summary != self._bindMessage:
+            columnMap[bind.MESSAGE] = summary
 
         if columnMap:
 
             # Count accepted
-            if status is not None:
+            if bind.BIND_STATUS in columnMap:
                 previouslyAcceptedCount = yield shareeView._previousAcceptCount()
 
             yield self._updateBindColumnsQuery(columnMap).on(
@@ -4977,12 +5141,12 @@ class SharingMixIn(object):
             returnValue([])
 
         # get all accepted binds
-        acceptedRows = yield self._sharedInvitationBindForResourceID.on(
+        invitedRows = yield self._sharedInvitationBindForResourceID.on(
             self._txn, resourceID=self._resourceID, homeID=self._home._resourceID
         )
 
         result = []
-        for homeUID, homeRID, _ignore_resourceID, resourceName, bindMode, bindStatus, bindMessage in acceptedRows:
+        for homeUID, homeRID, _ignore_resourceID, resourceName, bindMode, bindStatus, bindMessage in invitedRows:
             invite = SharingInvitation(
                 resourceName,
                 self.ownerHome().name(),
@@ -5105,6 +5269,13 @@ class SharingMixIn(object):
 
 
     def shareMode(self):
+        """
+        @see: L{ICalendar.shareMode}
+        """
+        return self._bindMode
+
+
+    def effectiveShareMode(self):
         """
         @see: L{ICalendar.shareMode}
         """

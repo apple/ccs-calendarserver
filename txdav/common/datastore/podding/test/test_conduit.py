@@ -284,7 +284,7 @@ END:VCALENDAR
         yield self.otherCommit()
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
-        yield calendar1.uninviteUserFromShare("puser01")
+        yield calendar1.uninviteUIDFromShare("puser01")
         yield self.commit()
 
         shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")

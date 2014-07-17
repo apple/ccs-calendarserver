@@ -461,12 +461,12 @@ class AugmentedDirectoryRecord(DirectoryRecord, CalendarDirectoryRecordMixin):
     def groups(self):
         augmented = []
 
-        def _groupsFor(txn):
-            return txn.groupsFor(self.uid)
+        def _groupUIDsFor(txn):
+            return txn.groupUIDsFor(self.uid)
 
         groupUIDs = yield self.service._store.inTransaction(
             "AugmentedDirectoryRecord.groups",
-            _groupsFor
+            _groupUIDsFor
         )
 
         for groupUID in groupUIDs:

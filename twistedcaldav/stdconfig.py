@@ -608,7 +608,7 @@ DEFAULT_CONFIG = {
     "MaxBytesBatchUpload"     : 10485760, # Maximum size of a batch POST (10 MB)
 
     "Sharing": {
-        "Enabled"             : False, # Overall on/off switch
+        "Enabled"             : True, # Overall on/off switch
         "AllowExternalUsers"  : False, # External (non-principal) sharees allowed
 
         "Calendars" : {
@@ -629,9 +629,13 @@ DEFAULT_CONFIG = {
                 "Global": [
                 ],
             },
+            "Groups" : {
+                "Enabled"     : False, # Calendar Group sharing on/off switch
+                "ReconciliationDelaySeconds" : 5,
+            },
         },
         "AddressBooks" : {
-            "Enabled"         : False, # Address Books on/off switch
+            "Enabled"         : False, # Address Book sharing on/off switch
             "CollectionProperties": {
                 "Shadowable": [
                     "{urn:ietf:params:xml:ns:carddav}addressbook-description",
@@ -642,7 +646,7 @@ DEFAULT_CONFIG = {
                 ],
             },
             "Groups" : {
-                "Enabled"         : False, # Address Books on/off switch
+                "Enabled"      : False, # Address Book Group sharing on/off switch
             },
         },
     },
@@ -1074,7 +1078,7 @@ DEFAULT_CONFIG = {
     },
 
     "GroupAttendees" : {
-        "Enabled": False,
+        "Enabled": True,
         "ReconciliationDelaySeconds" : 5,
         "UpdateOldEventLimitSeconds" : 1 * 24 * 60 * 60,   # 1 day
     },

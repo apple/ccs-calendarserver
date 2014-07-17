@@ -230,6 +230,9 @@ _BIND_MODE_READ = _bindMode('read')
 _BIND_MODE_WRITE = _bindMode('write')
 _BIND_MODE_DIRECT = _bindMode('direct')
 _BIND_MODE_INDIRECT = _bindMode('indirect')
+_BIND_MODE_GROUP = _bindMode('group')
+_BIND_MODE_GROUP_READ = _bindMode('group_read')
+_BIND_MODE_GROUP_WRITE = _bindMode('group_write')
 
 
 _addressBookObjectKind = _schemaConstants(

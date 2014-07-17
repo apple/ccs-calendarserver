@@ -150,7 +150,7 @@ END:VCARD
         invites = yield addressbook.sharingInvites()
         self.assertEqual(len(invites), 0)
 
-        shareeView = yield addressbook.inviteUserToShare("user02", mode, "summary")
+        shareeView = yield addressbook.inviteUIDToShare("user02", mode, "summary")
         inviteUID = shareeView.shareUID()
         yield self.commit()
 
@@ -179,7 +179,7 @@ END:VCARD
     def _inviteGroupShare(self, groupname="group1.vcf", mode=_BIND_MODE_READ):
         # Invite
         group = yield self.addressbookObjectUnderTest(home="user01", addressbook_name="addressbook", name=groupname)
-        shareeView = yield group.inviteUserToShare("user02", mode, "summary")
+        shareeView = yield group.inviteUIDToShare("user02", mode, "summary")
         inviteUID = shareeView.shareUID()
         yield self.commit()
 
@@ -264,7 +264,7 @@ class AddressBookSharing(BaseSharingTests):
         self.assertEqual(len(invites), 0)
         self.assertFalse(addressbook.isShared())
 
-        shareeView = yield addressbook.inviteUserToShare("user02", _BIND_MODE_READ, "summary")
+        shareeView = yield addressbook.inviteUIDToShare("user02", _BIND_MODE_READ, "summary")
         invites = yield addressbook.sharingInvites()
         self.assertEqual(len(invites), 1)
         self.assertEqual(invites[0].uid, shareeView.shareUID())
@@ -291,7 +291,7 @@ class AddressBookSharing(BaseSharingTests):
         self.assertEqual(len(invites), 1)
         self.assertTrue(addressbook.isShared())
 
-        yield addressbook.uninviteUserFromShare("user02")
+        yield addressbook.uninviteUIDFromShare("user02")
         invites = yield addressbook.sharingInvites()
         self.assertEqual(len(invites), 0)
 
@@ -317,7 +317,7 @@ class AddressBookSharing(BaseSharingTests):
         self.assertEqual(len(invites), 0)
         self.assertFalse(addressbook.isShared())
 
-        shareeView = yield addressbook.inviteUserToShare("user02", _BIND_MODE_READ, "summary")
+        shareeView = yield addressbook.inviteUIDToShare("user02", _BIND_MODE_READ, "summary")
         invites = yield addressbook.sharingInvites()
         self.assertEqual(len(invites), 1)
         inviteUID = shareeView.shareUID()
@@ -373,7 +373,7 @@ class AddressBookSharing(BaseSharingTests):
         self.assertEqual(len(invites), 0)
         self.assertFalse(addressbook.isShared())
 
-        shareeView = yield addressbook.inviteUserToShare("user02", _BIND_MODE_READ, "summary")
+        shareeView = yield addressbook.inviteUIDToShare("user02", _BIND_MODE_READ, "summary")
         invites = yield addressbook.sharingInvites()
         self.assertEqual(len(invites), 1)
         inviteUID = shareeView.shareUID()
@@ -427,7 +427,7 @@ class AddressBookSharing(BaseSharingTests):
         invites = yield addressbook.sharingInvites()
         self.assertEqual(len(invites), 0)
 
-        shareeView = yield addressbook.inviteUserToShare("user02", _BIND_MODE_READ, "summary")
+        shareeView = yield addressbook.inviteUIDToShare("user02", _BIND_MODE_READ, "summary")
         invites = yield addressbook.sharingInvites()
         self.assertEqual(len(invites), 1)
         inviteUID = shareeView.shareUID()
@@ -474,7 +474,7 @@ class AddressBookSharing(BaseSharingTests):
         invites = yield addressbook.sharingInvites()
         self.assertEqual(len(invites), 0)
 
-        shareeView = yield addressbook.inviteUserToShare("user02", _BIND_MODE_READ, "summary")
+        shareeView = yield addressbook.inviteUIDToShare("user02", _BIND_MODE_READ, "summary")
         invites = yield addressbook.sharingInvites()
         self.assertEqual(len(invites), 1)
         inviteUID = shareeView.shareUID()
@@ -595,7 +595,7 @@ class GroupSharing(BaseSharingTests):
         self.assertEqual(len(invites), 0)
         self.assertFalse(group.isShared())
 
-        shareeView = yield group.inviteUserToShare("user02", _BIND_MODE_READ, "summary")
+        shareeView = yield group.inviteUIDToShare("user02", _BIND_MODE_READ, "summary")
         invites = yield group.sharingInvites()
         self.assertEqual(len(invites), 1)
         self.assertEqual(invites[0].uid, shareeView.shareUID())
@@ -626,7 +626,7 @@ class GroupSharing(BaseSharingTests):
         self.assertEqual(len(invites), 1)
         self.assertTrue(group.isShared())
 
-        yield group.uninviteUserFromShare("user02")
+        yield group.uninviteUIDFromShare("user02")
         invites = yield group.sharingInvites()
         self.assertEqual(len(invites), 0)
         self.assertTrue(group.isShared())
@@ -651,7 +651,7 @@ class GroupSharing(BaseSharingTests):
         self.assertEqual(len(invites), 0)
         self.assertFalse(group.isShared())
 
-        shareeView = yield group.inviteUserToShare("user02", _BIND_MODE_READ, "summary")
+        shareeView = yield group.inviteUIDToShare("user02", _BIND_MODE_READ, "summary")
         invites = yield group.sharingInvites()
         self.assertEqual(len(invites), 1)
         inviteUID = shareeView.shareUID()
@@ -700,7 +700,7 @@ class GroupSharing(BaseSharingTests):
         self.assertEqual(len(invites), 0)
         self.assertFalse(group.isShared())
 
-        shareeView = yield group.inviteUserToShare("user02", _BIND_MODE_READ, "summary")
+        shareeView = yield group.inviteUIDToShare("user02", _BIND_MODE_READ, "summary")
         invites = yield group.sharingInvites()
         self.assertEqual(len(invites), 1)
         inviteUID = shareeView.shareUID()
@@ -754,7 +754,7 @@ class GroupSharing(BaseSharingTests):
         self.assertEqual(len(invites), 0)
         self.assertFalse(group.isShared())
 
-        shareeView = yield group.inviteUserToShare("user02", _BIND_MODE_READ, "summary")
+        shareeView = yield group.inviteUIDToShare("user02", _BIND_MODE_READ, "summary")
         invites = yield group.sharingInvites()
         self.assertEqual(len(invites), 1)
         inviteUID = shareeView.shareUID()
@@ -805,7 +805,7 @@ class GroupSharing(BaseSharingTests):
         invites = yield group.sharingInvites()
         self.assertEqual(len(invites), 0)
 
-        shareeView = yield group.inviteUserToShare("user02", _BIND_MODE_READ, "summary")
+        shareeView = yield group.inviteUIDToShare("user02", _BIND_MODE_READ, "summary")
         invites = yield group.sharingInvites()
         self.assertEqual(len(invites), 1)
         inviteUID = shareeView.shareUID()
@@ -867,7 +867,7 @@ class GroupSharing(BaseSharingTests):
 
         # Uninvite one
         group = yield self.addressbookObjectUnderTest(home="user01", addressbook_name="addressbook", name="group1.vcf")
-        yield group.uninviteUserFromShare("user02")
+        yield group.uninviteUIDFromShare("user02")
         invites = yield group.sharingInvites()
         self.assertEqual(len(invites), 0)
 
@@ -882,7 +882,7 @@ class GroupSharing(BaseSharingTests):
 
         # Uninvite other
         group = yield self.addressbookObjectUnderTest(home="user02", addressbook_name="user01", name="group2.vcf")
-        yield group.uninviteUserFromShare("user02")
+        yield group.uninviteUIDFromShare("user02")
         invites = yield group.sharingInvites()
         self.assertEqual(len(invites), 0)
 
@@ -1002,7 +1002,7 @@ class MixedSharing(BaseSharingTests):
 
         # Uninvite group1
         group = yield self.addressbookObjectUnderTest(home="user01", addressbook_name="addressbook", name="group1.vcf")
-        yield group.uninviteUserFromShare("user02")
+        yield group.uninviteUIDFromShare("user02")
 
         yield self._check_addressbook("user02", "user01", self.fully_shared_children)
         yield self._check_read_only("user02", "user01", ["group1.vcf", "card2.vcf", ])
@@ -1010,7 +1010,7 @@ class MixedSharing(BaseSharingTests):
 
         # Uninvite group2
         group = yield self.addressbookObjectUnderTest(home="user01", addressbook_name="addressbook", name="group2.vcf")
-        yield group.uninviteUserFromShare("user02")
+        yield group.uninviteUIDFromShare("user02")
 
         yield self._check_addressbook("user02", "user01", self.fully_shared_children)
         yield self._check_read_only("user02", "user01", self.all_children)
@@ -1029,7 +1029,7 @@ class MixedSharing(BaseSharingTests):
 
         # Add group1 read-write - but do not accept
         group = yield self.addressbookObjectUnderTest(home="user01", addressbook_name="addressbook", name="group1.vcf")
-        invited = yield group.inviteUserToShare("user02", _BIND_MODE_WRITE, "summary")
+        invited = yield group.inviteUIDToShare("user02", _BIND_MODE_WRITE, "summary")
         yield self._check_notifications("user02", [shareeName, invited.shareUID(), ])
 
         yield self._check_addressbook("user02", "user01", self.fully_shared_children)

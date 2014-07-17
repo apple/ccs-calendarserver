@@ -223,7 +223,7 @@ END:VCARD
         invites = yield calendar.sharingInvites()
         self.assertEqual(len(invites), 0)
 
-        shareeView = yield calendar.inviteUserToShare("user02", _BIND_MODE_READ, "summary")
+        shareeView = yield calendar.inviteUIDToShare("user02", _BIND_MODE_READ, "summary")
         inviteUID = shareeView.shareUID()
         yield self.commit()
 

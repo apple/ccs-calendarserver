@@ -78,7 +78,7 @@ class GroupCacherTest(StoreTestCase):
         self.assertEquals(membershipHash, "553eb54e3bbb26582198ee04541dbee4")
         self.assertEquals(extant, True)
 
-        members = (yield txn.membersOfGroup(groupID))
+        members = (yield txn.groupMemberUIDs(groupID))
         self.assertEquals(
             set([u'__cdaboo1__', u'__glyph1__', u'__sagen1__', u'__wsanchez1__']),
             members
@@ -510,7 +510,7 @@ class DynamicGroupTest(StoreTestCase):
 
         # The list of members stored in the DB for this group is now empty
         txn = store.newTransaction()
-        members = yield txn.membersOfGroup(groupID)
+        members = yield txn.groupMemberUIDs(groupID)
         yield txn.commit()
         self.assertEquals(members, set())
 
@@ -545,6 +545,6 @@ class DynamicGroupTest(StoreTestCase):
 
         # The list of members stored in the DB for this group has 100 users
         txn = store.newTransaction()
-        members = yield txn.membersOfGroup(groupID)
+        members = yield txn.groupMemberUIDs(groupID)
         yield txn.commit()
         self.assertEquals(len(members), 100)

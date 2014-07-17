@@ -808,7 +808,7 @@ def printGroupCacherInfo(service, store):
                 )
 
         print("Group members:")
-        memberUIDs = yield txn.membersOfGroup(groupID)
+        memberUIDs = yield txn.groupMemberUIDs(groupID)
         for memberUID in memberUIDs:
             record = yield directory.recordWithUID(memberUID)
             print(prettyRecord(record))

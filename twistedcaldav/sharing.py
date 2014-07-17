@@ -131,7 +131,7 @@ class SharedResourceMixin(object):
 
         # Remove all invitees
         for invitation in (yield self._newStoreObject.allInvitations()):
-            yield self._newStoreObject.uninviteUserFromShare(invitation.shareeUID)
+            yield self._newStoreObject.uninviteUIDFromShare(invitation.shareeUID)
 
         returnValue(True)
 
@@ -293,7 +293,8 @@ class SharedResourceMixin(object):
         else:
             # Invited shares use access mode from the invite
             # Get the access for self
-            returnValue(invitationAccessFromBindModeMap.get(self._newStoreObject.shareMode()))
+            bindMode = yield self._newStoreObject.effectiveShareMode()
+            returnValue(invitationAccessFromBindModeMap.get(bindMode))
 
 
     @inlineCallbacks
@@ -451,7 +452,7 @@ class SharedResourceMixin(object):
         returnValue(adjusted_invitations)
 
 
-    def inviteUserToShare(self, userid, cn, ace, summary, request):
+    def inviteUIDToShare(self, userid, cn, ace, summary, request):
         """ Send out in invite first, and then add this user to the share list
             @param userid:
             @param ace: Must be one of customxml.ReadWriteAccess or customxml.ReadAccess
@@ -469,7 +470,7 @@ class SharedResourceMixin(object):
         return self._processShareActionList(dl, resultIsList)
 
 
-    def uninviteUserFromShare(self, userid, ace, request):
+    def uninviteUIDFromShare(self, userid, ace, request):
         """
         Send out in uninvite first, and then remove this user from the share list.
         """
@@ -515,7 +516,7 @@ class SharedResourceMixin(object):
         if not sharee:
             returnValue(False)
 
-        result = (yield self._newStoreObject.inviteUserToShare(
+        result = (yield self._newStoreObject.inviteUIDToShare(
             sharee.principalUID(),
             invitationBindModeFromXMLMap[type(ace)],
             summary,
@@ -538,7 +539,7 @@ class SharedResourceMixin(object):
         else:
             returnValue(False)
 
-        result = (yield self._newStoreObject.uninviteUserFromShare(uid))
+        result = (yield self._newStoreObject.uninviteUIDFromShare(uid))
 
         returnValue(result)
 
@@ -660,12 +661,12 @@ class SharedResourceMixin(object):
                 del removeDict[u]
                 del setDict[u]
             for userid, access in removeDict.iteritems():
-                result = (yield self.uninviteUserFromShare(userid, access, request))
+                result = (yield self.uninviteUIDFromShare(userid, access, request))
                 # If result is False that means the user being removed was not
                 # actually invited, but let's not return an error in this case.
                 okusers.add(userid)
             for userid, (cn, access, summary) in setDict.iteritems():
-                result = (yield self.inviteUserToShare(userid, cn, access, summary, request))
+                result = (yield self.inviteUIDToShare(userid, cn, access, summary, request))
                 (okusers if result else badusers).add(userid)
             for userid, (cn, removeACL, newACL, summary) in updateinviteDict.iteritems():
                 result = (yield self.inviteUserUpdateToShare(userid, cn, removeACL, newACL, summary, request))
