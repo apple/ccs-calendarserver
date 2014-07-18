@@ -545,7 +545,7 @@ END:VCALENDAR
 """
 
         @inlineCallbacks
-        def expandedMembers(self, records=None):
+        def expandedMembers(self, records=None, seen=None):
             yield None
             returnValue(set())
 
@@ -684,7 +684,7 @@ END:VCALENDAR
 """
 
         @inlineCallbacks
-        def expandedMembers(self, records=None):
+        def expandedMembers(self, records=None, seen=None):
             yield None
             returnValue(set())
 
@@ -828,7 +828,7 @@ END:VCALENDAR
 """
 
         @inlineCallbacks
-        def expandedMembers(self, records=None):
+        def expandedMembers(self, records=None, seen=None):
             yield None
             returnValue(set())
 
@@ -990,7 +990,7 @@ END:VCALENDAR
 """
 
         @inlineCallbacks
-        def expandedMembers(self, records=None):
+        def expandedMembers(self, records=None, seen=None):
             yield None
             returnValue(set())
 
@@ -1135,7 +1135,7 @@ END:VCALENDAR
 """
 
         @inlineCallbacks
-        def expandedMembers(self, records=None):
+        def expandedMembers(self, records=None, seen=None):
             yield None
             returnValue(set())
 
@@ -1281,7 +1281,7 @@ END:VCALENDAR
 """
 
         @inlineCallbacks
-        def expandedMembers(self, records=None):
+        def expandedMembers(self, records=None, seen=None):
             yield None
             returnValue(set())
 

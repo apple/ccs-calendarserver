@@ -45,7 +45,7 @@ from twisted.python import hashlib
 from twisted.python.failure import Failure
 
 from twistedcaldav import customxml, ical
-from twistedcaldav.config import config
+from twistedcaldav.stdconfig import config
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.dateops import normalizeForIndex, datetimeMktime, \
     pyCalendarTodatetime, parseSQLDateToPyCalendar

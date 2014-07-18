@@ -167,7 +167,7 @@ class GroupCacherTest(StoreTestCase):
         yield self.groupCacher.refreshGroup(txn, uid)
         (
             groupID, _ignore_name, _ignore_membershipHash, _ignore_modified,
-            extant
+            _ignore_extant
         ) = yield txn.groupByUID(uid)
         results = yield txn.groupByID(groupID)
         self.assertEquals((uid, u"Top Group 1", hash, True), results)
@@ -428,6 +428,27 @@ class GroupCacherTest(StoreTestCase):
         )
 
 
+    @inlineCallbacks
+    def test_recursiveGroup(self):
+        """
+        Verify refreshGroup() adds a group to the Groups table with the
+        expected membership hash value and members
+        """
+
+        store = self.storeUnderTest()
+        txn = store.newTransaction()
+
+        record = yield self.directory.recordWithUID(u"recursive1_coasts")
+        members = yield record.expandedMembers()
+        self.assertEquals(
+            set([r.uid for r in members]),
+            set([u'6423F94A-6B76-4A3A-815B-D52CFD77935D', u'5A985493-EE2C-4665-94CF-4DFEA3A89500'])
+        )
+
+        yield txn.commit()
+
+
+
 class DynamicGroupTest(StoreTestCase):
 
 
@@ -487,7 +508,7 @@ class DynamicGroupTest(StoreTestCase):
         txn = store.newTransaction()
         yield self.groupCacher.refreshGroup(txn, u"testgroup")
         (
-            groupID, _ignore_name, membershipHash, _ignore_modified,
+            _ignore_groupID, _ignore_name, _ignore_membershipHash, _ignore_modified,
             extant
         ) = (yield txn.groupByUID(u"testgroup"))
         yield txn.commit()
@@ -500,7 +521,7 @@ class DynamicGroupTest(StoreTestCase):
         txn = store.newTransaction()
         yield self.groupCacher.refreshGroup(txn, u"testgroup")
         (
-            groupID, _ignore_name, membershipHash, _ignore_modified,
+            groupID, _ignore_name, _ignore_membershipHash, _ignore_modified,
             extant
         ) = (yield txn.groupByUID(u"testgroup"))
         yield txn.commit()
@@ -535,7 +556,7 @@ class DynamicGroupTest(StoreTestCase):
         txn = store.newTransaction()
         yield self.groupCacher.refreshGroup(txn, u"testgroup")
         (
-            groupID, _ignore_name, membershipHash, _ignore_modified,
+            groupID, _ignore_name, _ignore_membershipHash, _ignore_modified,
             extant
         ) = (yield txn.groupByUID(u"testgroup"))
         yield txn.commit()

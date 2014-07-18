@@ -29,19 +29,17 @@ from twisted.python.failure import Failure
 from twistedcaldav import memcacher
 from twistedcaldav.bind import doBind
 from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeProvisioningResource
-from twistedcaldav.directory.calendar import (
-    DirectoryCalendarHomeProvisioningResource
-)
+from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
 from twistedcaldav.directory.util import transactionFromRequest
 from twistedcaldav.memcacheclient import ClientFactory
 from twistedcaldav.stdconfig import config
 from txdav.common.datastore.file import CommonDataStore
 from txdav.common.datastore.test.util import deriveQuota, CommonCommonTests
 from txweb2.dav.test.util import SimpleRequest
-import txweb2.dav.test.util
 from txweb2.http import HTTPError, StatusResponse
-import xattr
 from txweb2.server import Site
+import txweb2.dav.test.util
+import xattr
 
 
 log = Logger()

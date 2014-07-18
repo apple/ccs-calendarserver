@@ -160,8 +160,7 @@ class DelegationTest(StoreTestCase):
         group1 = yield self.directory.recordWithUID(u"__top_group_1__")
         group2 = yield self.directory.recordWithUID(u"__sub_group_1__")
 
-        # Add group delegate, but before the group membership has been
-        # pulled in
+        # Add group delegate
         yield addDelegate(txn, delegator, group1, True)
         # Passing expanded=False will return the group
         delegates = (yield delegatesOf(txn, delegator, True, expanded=False))
@@ -169,14 +168,6 @@ class DelegationTest(StoreTestCase):
         self.assertEquals(delegates[0].uid, u"__top_group_1__")
         # Passing expanded=True will return not the group -- it only returns
         # non-groups
-        delegates = (yield delegatesOf(txn, delegator, True, expanded=True))
-        self.assertEquals(0, len(delegates))
-
-        # Now refresh the group and there will be 3 delegates (contained
-        # within 2 nested groups)
-        # guid = "49b350c69611477b94d95516b13856ab"
-        yield self.groupCacher.refreshGroup(txn, group1.uid)
-        yield self.groupCacher.refreshGroup(txn, group2.uid)
         delegates = (yield delegatesOf(txn, delegator, True, expanded=True))
         self.assertEquals(
             set([u"__sagen1__", u"__cdaboo1__", u"__glyph1__"]),

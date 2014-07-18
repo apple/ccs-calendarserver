@@ -109,12 +109,12 @@ class GroupShareeReconciliationTests(GroupShareeTestBase):
         """
 
         @inlineCallbacks
-        def expandedMembers(self, records=None):
+        def expandedMembers(self, records=None, seen=None):
 
             if self.uid == "group02" or self.uid == "group03":
                 returnValue(frozenset())
             else:
-                returnValue((yield unpatchedExpandedMembers(self, records)))
+                returnValue((yield unpatchedExpandedMembers(self, records, seen)))
 
         unpatchedExpandedMembers = CalendarDirectoryRecordMixin.expandedMembers
 
@@ -190,12 +190,12 @@ class GroupShareeReconciliationTests(GroupShareeTestBase):
         """
 
         @inlineCallbacks
-        def expandedMembers(self, records=None):
+        def expandedMembers(self, records=None, seen=None):
 
             if self.uid == "group02" or self.uid == "group03":
                 returnValue(frozenset())
             else:
-                returnValue((yield unpatchedExpandedMembers(self, records)))
+                returnValue((yield unpatchedExpandedMembers(self, records, seen)))
 
         unpatchedExpandedMembers = CalendarDirectoryRecordMixin.expandedMembers
 

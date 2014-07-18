@@ -470,10 +470,13 @@ class CalDAVResource (
         if config.Sharing.Enabled:
             if config.Sharing.Calendars.Enabled and self.isCalendarCollection():
                 baseProperties += (
-                    customxml.Invite.qname(),
                     customxml.AllowedSharingModes.qname(),
                     customxml.SharedURL.qname(),
                 )
+                if self.isShared() or self.isShareeResource():
+                    baseProperties += (
+                        customxml.Invite.qname(),
+                    )
 
             elif (
                 config.Sharing.AddressBooks.Enabled and self.isAddressBookCollection() or

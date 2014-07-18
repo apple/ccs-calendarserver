@@ -548,16 +548,27 @@ class CalendarDirectoryRecordMixin(object):
 
 
     @inlineCallbacks
-    def expandedMembers(self, members=None):
+    def expandedMembers(self, members=None, seen=None):
+        """
+        Return a L{set} containing the fully expanded membership list for this group.
+        Note: handle recursive groups.
+
+        @param members: membership to add to
+        @type members: L{set}
+        """
 
         if members is None:
             members = set()
+        if seen is None:
+            seen = set()
 
-        for member in (yield self.members()):
-            if member.recordType == BaseRecordType.user:
-                if member not in members:
+        if self not in seen:
+            seen.add(self)
+            for member in (yield self.members()):
+                if member.recordType == BaseRecordType.group:
+                    yield member.expandedMembers(members, seen)
+                else:
                     members.add(member)
-            yield member.expandedMembers(members)
 
         returnValue(members)
 
