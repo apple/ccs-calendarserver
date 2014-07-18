@@ -41,6 +41,7 @@ def usage(e=None):
     print("options:")
     print("  -h --help: print this help and exit")
     print("  -t: text output, not curses")
+    print("  -s: server host (and optional port) [localhost:8100]")
     print("")
 
     if e:
@@ -55,7 +56,7 @@ BOX_WIDTH = 52
 def main():
     try:
         (optargs, _ignore_args) = getopt(
-            sys.argv[1:], "ht", [
+            sys.argv[1:], "hs:t", [
                 "help",
             ],
         )
@@ -66,13 +67,22 @@ def main():
     # Get configuration
     #
     useCurses = True
+    server = ("localhost", 8100)
 
-    for opt, _ignore_arg in optargs:
+    for opt, arg in optargs:
         if opt in ("-h", "--help"):
             usage()
 
         elif opt in ("-t"):
             useCurses = False
+
+        elif opt in ("-s"):
+            server = arg.split(":")
+            if len(server) == 1:
+                server.append(8100)
+            else:
+                server[1] = int(server[1])
+            server = tuple(server)
 
         else:
             raise NotImplementedError(opt)
@@ -82,7 +92,7 @@ def main():
             curses.curs_set(0)
             curses.use_default_colors()
             curses.init_pair(1, curses.COLOR_RED, curses.COLOR_WHITE)
-            d = Dashboard(stdscrn, True)
+            d = Dashboard(server, stdscrn, True)
             d.run()
         curses.wrapper(_wrapped)
     else:
@@ -111,13 +121,13 @@ class Dashboard(object):
     registered_windows = {}
     registered_order = []
 
-    def __init__(self, screen, usesCurses):
+    def __init__(self, server, screen, usesCurses):
         self.screen = screen
         self.usesCurses = usesCurses
         self.paused = False
         self.seconds = 0.1 if usesCurses else 1.0
         self.sched = sched.scheduler(time.time, time.sleep)
-        self.client = DashboardClient(("localhost", 8100), True)
+        self.client = DashboardClient(server, True)
         self.client_error = False
 
 
