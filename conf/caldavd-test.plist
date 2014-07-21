@@ -662,7 +662,7 @@
     <key>MultiProcess</key>
     <dict>
       <key>ProcessCount</key>
-      <integer>2</integer> <!-- 0 = automatic -->
+      <integer>0</integer> <!-- 0 = automatic -->
     </dict>
 
 
