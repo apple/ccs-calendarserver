@@ -16,12 +16,18 @@
 ##
 from __future__ import print_function
 
+from json import dumps, loads
+from matplotlib.ticker import AutoMinorLocator
+import collections
 import getopt
 import matplotlib.pyplot as plt
 import os
 import sys
 
 dataset = {}
+
+def safeDivision(value, total, factor=1):
+    return value * factor / total if total else 0
 
 def analyze(fpath, title):
     """
@@ -34,16 +40,45 @@ def analyze(fpath, title):
     """
 
     print("Analyzing data for %s" % (title,))
-    dataset[title] = {}
-    with open(fpath) as f:
-        for line in f:
+    fpath_cached = fpath + ".cached"
+    if os.path.exists(fpath_cached):
+        with open(fpath_cached) as f:
+            d = loads(f.read())
+        dataset[title] = dict([(int(k), v) for k, v in d.items()])
+    else:
+        dataset[title] = {}
+        json = False
+        with open(fpath) as f:
+            line = f.next()
             if line.startswith("- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"):
-                analyzeRecord(f, title)
+                analyzeTableFormat(f, title)
+            elif line.startswith("{"):
+                analyzeJSONFormat(f, line, title)
+                json = True
+
+        if not json:
+            with open(fpath_cached, "w") as f:
+                f.write(dumps(dataset[title]))
 
     print("Read %d data points\n" % (len(dataset[title]),))
 
 
-def analyzeRecord(liter, title):
+def analyzeTableFormat(f, title):
+    """
+    Analyze a "table" format output file. First line has already been tested.
+
+    @param f: file object to read
+    @type f: L{File}
+    @param title: title to use for data set
+    @type title: L{str}
+    """
+    analyzeTableRecord(f, title)
+    for line in f:
+        if line.startswith("- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"):
+            analyzeTableRecord(f, title)
+
+
+def analyzeTableRecord(liter, title):
     """
     Analyze one entry from the readStats data file.
 
@@ -125,6 +160,114 @@ def parseMethods(liter):
     return methods
 
 
+def analyzeJSONFormat(f, first, title):
+    """
+    Analyze a JSON format output file. First line has already been tested.
+
+    @param f: file object to read
+    @type f: L{File}
+    @param title: title to use for data set
+    @type title: L{str}
+    """
+    analyzeJSONRecord(first, title)
+    for line in f:
+        if line:
+            analyzeJSONRecord(line, title)
+
+
+def analyzeJSONRecord(line, title):
+    """
+    Analyze a JSON record.
+    
+    @param line: line of JSON data to parse
+    @type line: L{str}
+    @param title: title to use for data set
+    @type title: L{str}
+    """
+
+    j = loads(line)
+
+    time = j["timestamp"][11:]
+    seconds = 60 * (60 * int(time[0:2]) + int(time[3:5])) + int(time[6:8])
+    dataset[title][seconds] = {}
+
+    allstats = [stat for server, stat in j.items() if server != "timestamp"]
+
+    analyzeJSONStatsSummary(allstats, title, seconds)
+    analyzeJSONStatsMethods(allstats, title, seconds)
+
+
+def analyzeJSONStatsSummary(allstats, title, seconds):
+    """
+    Analyze all server JSON summary stats.
+
+    @param allstats: set of JSON stats to analyze
+    @type allstats: L{dict}
+    @param title: title to use for data set
+    @type title: L{str}
+    @param seconds: timestamp for stats record
+    @type seconds: L{int}
+    """
+
+    results = collections.defaultdict(list)
+    for stats in allstats:
+        stat = stats["1m"]
+
+        results["Requests"].append(stat["requests"])
+        results["Av. Requests per second"].append(safeDivision(float(stat["requests"]), 60.0))
+        results["Av. Response"].append(safeDivision(stat["t"], stat["requests"]))
+        results["Av. Response no write"].append(safeDivision(stat["t"] - stat["t-resp-wr"], stat["requests"]))
+        results["Max. Response"].append(stat["T-MAX"])
+        results["Slot Average"].append(safeDivision(float(stat["slots"]), stat["requests"]))
+        results["CPU Average"].append(safeDivision(stat["cpu"], stat["requests"]))
+        results["CPU Current"].append(stats["system"]["cpu use"])
+        results["Memory Current"].append(stats["system"]["memory percent"])
+        results["500's"].append(stat["500"])
+
+    for key in ("Requests", "Av. Requests per second", "500's",):
+        dataset[title][seconds]["Overall:{}".format(key)] = sum(results[key])
+
+    for key in ("Av. Response", "Av. Response no write", "Slot Average", "CPU Average", "CPU Current", "Memory Current",):
+        dataset[title][seconds]["Overall:{}".format(key)] = sum(results[key]) / len(allstats)
+
+    dataset[title][seconds]["Overall:Max. Response"] = max(results["Max. Response"])
+
+
+def analyzeJSONStatsMethods(allstats, title, seconds):
+    """
+    Analyze all server JSON method stats.
+
+    @param allstats: set of JSON stats to analyze
+    @type allstats: L{dict}
+    @param title: title to use for data set
+    @type title: L{str}
+    @param seconds: timestamp for stats record
+    @type seconds: L{int}
+    """
+
+    methods = collections.defaultdict(int)
+    method_times = collections.defaultdict(float)
+    response_average = {}
+    for stat in allstats:
+        for method in stat["1m"]["method"]:
+            methods[method] += stat["1m"]["method"][method]
+        if "method-t" in stat["1m"]:
+            for method_time in stat["1m"]["method-t"]:
+                method_times[method_time] += stat["1m"]["method-t"][method_time]
+                response_average[method_time] = method_times[method_time] / methods[method_time]
+
+    total_count = sum(methods.values())
+    total_avresponse = sum(response_average.values())
+    total_response = sum(method_times.values())
+
+    for method, count in methods.items():
+        dataset[title][seconds]["Method:{}:Count".format(method)] = count
+        dataset[title][seconds]["Method:{}:Count %".format(method)] = safeDivision(methods[method], total_count, 100.0)
+        dataset[title][seconds]["Method:{}:Av. Response".format(method)] = response_average[method]
+        dataset[title][seconds]["Method:{}:Av. Response %".format(method)] = safeDivision(response_average[method], total_avresponse, 100.0)
+        dataset[title][seconds]["Method:{}:Total Resp. %".format(method)] = safeDivision(method_times[method], total_response, 100.0)
+
+
 def plotSeries(key, ymin=None, ymax=None):
     """
     Plot the chosen dataset key for each scanned data file.
@@ -155,6 +298,10 @@ def plotSeries(key, ymin=None, ymax=None):
         (1, 4, 7, 10, 13, 16, 19, 22,),
         (18, 21, 0, 3, 6, 9, 12, 15,),
     )
+    plt.minorticks_on()
+    plt.gca().xaxis.set_minor_locator(AutoMinorLocator(n=3))
+    plt.grid(True, "major", "x", alpha=0.5, linewidth=0.5)
+    plt.grid(True, "minor", "x", alpha=0.5, linewidth=0.5)
     plt.legend(titles, 'upper left', shadow=True, fancybox=True)
     plt.show()
 
@@ -202,7 +349,7 @@ if __name__ == "__main__":
     fnames = os.listdir(scanDir)
     count = 1
     for name in fnames:
-        if name.startswith("stats_all.log"):
+        if name.startswith("stats_all.log") and not name.endswith(".cached"):
             print("Found file: %s" % (os.path.join(scanDir, name),))
             trailer = name[len("stats_all.log"):]
             if trailer.startswith("-"):

@@ -63,7 +63,7 @@ def readSock(sockname, useTCP):
 
 
 
-def printStats(stats, multimode, showMethods, topUsers, showAgents):
+def printStats(stats, multimode, showMethods, topUsers, showAgents, dumpFile):
     if len(stats) == 1:
         if "Failed" in stats[0]:
             printFailedStats(stats[0]["Failed"])
@@ -501,6 +501,7 @@ Options:
     --methods     Include details about HTTP method usage
     --users N     Include details about top N users
     --agents      Include details about HTTP User-Agent usage
+    --dump FILE   File to dump JSON data to
 
 Description:
     This utility will print a summary of statistics read from a
@@ -522,11 +523,12 @@ if __name__ == '__main__':
     showMethods = False
     topUsers = 0
     showAgents = False
+    dumpFile = None
 
     multimodes = (("current", 60,), ("1m", 60,), ("5m", 5 * 60,), ("1h", 60 * 60,),)
     multimode = multimodes[2]
 
-    options, args = getopt.getopt(sys.argv[1:], "hs:t:", ["tcp=", "0", "1", "5", "60", "methods", "users=", "agents"])
+    options, args = getopt.getopt(sys.argv[1:], "hs:t:", ["tcp=", "0", "1", "5", "60", "methods", "users=", "agents", "dump="])
 
     for option, value in options:
         if option == "-h":
@@ -552,7 +554,16 @@ if __name__ == '__main__':
             topUsers = int(value)
         elif option == "--agents":
             showAgents = True
+        elif option == "--dump":
+            dumpFile = value
 
     while True:
-        printStats([readSock(server, useTCP) for server in servers], multimode, showMethods, topUsers, showAgents)
+        stats = [readSock(server, useTCP) for server in servers]
+        printStats(stats, multimode, showMethods, topUsers, showAgents, dumpFile)
+        if dumpFile is not None:
+            stats = dict([("{}:{}".format(*servers[ctr]), stat) for ctr, stat in enumerate(stats)])
+            stats["timestamp"] = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+            with open(dumpFile, "a") as f:
+                f.write(json.dumps(stats))
+                f.write("\n")
         time.sleep(delay)
