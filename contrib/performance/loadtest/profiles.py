@@ -205,8 +205,9 @@ class Inviter(ProfileBase):
             except IndexError:
                 continue
             cuaddr = u'mailto:%s' % (record.email,)
-            uuid = u'urn:x-uid:%s' % (record.uid,)
-            if cuaddr not in invitees and uuid not in invitees:
+            uuidx = u'urn:x-uid:%s' % (record.guid,)
+            uuid = u'urn:uuid:%s' % (record.guid,)
+            if cuaddr not in invitees and uuidx not in invitees and uuid not in invitees:
                 break
         else:
             return fail(CannotAddAttendee("Can't find uninvited user to invite."))

@@ -54,11 +54,12 @@ from contrib.performance.loadtest.webadmin import LoadSimAdminResource
 
 
 class _DirectoryRecord(object):
-    def __init__(self, uid, password, commonName, email):
+    def __init__(self, uid, password, commonName, email, guid):
         self.uid = uid
         self.password = password
         self.commonName = commonName
         self.email = email
+        self.guid = guid
 
 
 
@@ -92,10 +93,16 @@ def recordsFromCSVFile(path):
 
 
 def recordsFromCount(count, uid=u"user%02d", password=u"user%02d",
-                     commonName=u"User %02d", email=u"user%02d@example.com"):
+                     commonName=u"User %02d", email=u"user%02d@example.com",
+                     guid="10000000-0000-0000-0000-000000000%03d"):
     for i in range(1, count + 1):
-        yield _DirectoryRecord(uid % i, password % i,
-                               commonName % i, email % i)
+        yield _DirectoryRecord(
+            uid % i,
+            password % i,
+            commonName % i,
+            email % i,
+            guid % i,
+        )
 
 
 

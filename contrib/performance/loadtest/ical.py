@@ -729,7 +729,9 @@ class BaseAppleClient(BaseClient):
         for cuaddr in cuaddrs:
             if cuaddr.toString().startswith(u"mailto:"):
                 self.email = cuaddr.toString()
-            elif cuaddr.toString().startswith(u"urn:"):
+            elif cuaddr.toString().startswith(u"urn:x-uid"):
+                self.uuid = cuaddr.toString()
+            elif cuaddr.toString().startswith(u"urn:uuid") and self.uuid is None:
                 self.uuid = cuaddr.toString()
         if self.email is None:
             raise ValueError("Cannot operate without a mail-style principal URL")
