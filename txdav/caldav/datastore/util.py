@@ -83,7 +83,7 @@ def validateCalendarComponent(calendarObject, calendar, component, inserting, mi
             raise InvalidObjectResourceError(
                 "UID may not change (%s != %s)" % (
                     component.resourceUID(), calendarObject.uid()
-                 )
+                )
             )
     except NoSuchObjectResourceError:
         pass
@@ -674,7 +674,7 @@ def fixOneCalendarHome(home):
                 fixCount, comp = fixOneCalendarObject(comp)
                 fixedThisHome += fixCount
                 if fixCount:
-                    yield calObj.setComponent(comp)
+                    yield calObj._setComponentInternal(comp, internal_state=ComponentUpdateState.RAW)
             except:
                 log.failure(
                     "Error while processing calendar/object {calendarName} {calendarObject}",
