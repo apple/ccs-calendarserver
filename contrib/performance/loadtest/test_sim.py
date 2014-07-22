@@ -56,6 +56,7 @@ VALID_CONFIG = {
 VALID_CONFIG_PLIST = writePlistToString(VALID_CONFIG)
 
 
+
 class SimOptionsTests(TestCase):
     def test_defaultConfig(self):
         """
@@ -108,7 +109,7 @@ class CalendarClientSimulatorTests(TestCase):
     def _user(self, name):
         password = 'password-' + name
         email = name + "@example.com"
-        record = _DirectoryRecord(name, password, name, email)
+        record = _DirectoryRecord(name, password, name, email, name)
         return record
 
 
@@ -283,7 +284,7 @@ class LoadSimulatorTests(TestCase):
         simulation.
         """
         accounts = FilePath(self.mktemp())
-        accounts.setContent("foo,bar,baz,quux\nfoo2,bar2,baz2,quux2\n")
+        accounts.setContent("foo,bar,baz,quux,goo\nfoo2,bar2,baz2,quux2,goo2\n")
         config = VALID_CONFIG.copy()
         config["accounts"] = {
             "loader": "contrib.performance.loadtest.sim.recordsFromCSVFile",

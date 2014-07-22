@@ -170,6 +170,7 @@ END:VCALENDAR
 """
 
 
+
 class AnyUser(object):
     def __getitem__(self, index):
         return _AnyRecord(index)
@@ -182,6 +183,7 @@ class _AnyRecord(object):
         self.password = u"user%02d" % (index,)
         self.commonName = u"User %02d" % (index,)
         self.email = u"user%02d@example.com" % (index,)
+        self.guid = u"user%02d" % (index,)
 
 
 
@@ -225,7 +227,8 @@ class StubClient(BaseClient):
         self._pendingFailures = {}
         self.record = _DirectoryRecord(
             "user%02d" % (number,), "user%02d" % (number,),
-            "User %02d" % (number,), "user%02d@example.org" % (number,))
+            "User %02d" % (number,), "user%02d@example.org" % (number,),
+            "user%02d" % (number,))
         self.email = "mailto:user%02d@example.com" % (number,)
         self.uuid = "urn:uuid:user%02d" % (number,)
         self.rescheduled = set()
@@ -290,10 +293,11 @@ class StubClient(BaseClient):
     def changeEventAttendee(self, href, old, new):
         if href in self.rescheduled:
             return fail(IncorrectResponseCode(
-                    NO_CONTENT,
-                    Response(
-                        ('HTTP', 1, 1), PRECONDITION_FAILED,
-                        'Precondition Failed', None, None)))
+                NO_CONTENT,
+                Response(
+                    ('HTTP', 1, 1), PRECONDITION_FAILED,
+                    'Precondition Failed', None, None))
+            )
 
         vevent = self._events[href].component
         vevent.mainComponent().removeProperty(old)
@@ -791,7 +795,10 @@ class AccepterTests(TestCase):
         client._events[event.url] = event
         accepter = Accepter(clock, self.sim, client, userNumber)
         accepter.random = Deterministic()
-        accepter.random.gauss = lambda mu, sigma: randomDelay
+
+        def _gauss(mu, sigma):
+            return randomDelay
+        accepter.random.gauss = _gauss
         accepter.eventChanged(event.url)
         accepter.eventChanged(event.url)
         clock.advance(randomDelay)
@@ -838,10 +845,11 @@ class AccepterTests(TestCase):
         inboxEvent = Event(client.serializeLocation(), inboxURL + u'4321.ics', None, vevent)
         client._setEvent(inboxEvent.url, inboxEvent)
         client._failDeleteWithObject(inboxEvent.url, IncorrectResponseCode(
-                    NO_CONTENT,
-                    Response(
-                        ('HTTP', 1, 1), PRECONDITION_FAILED,
-                        'Precondition Failed', None, None)))
+            NO_CONTENT,
+            Response(
+                ('HTTP', 1, 1), PRECONDITION_FAILED,
+                'Precondition Failed', None, None))
+        )
         accepter = Accepter(clock, self.sim, client, userNumber)
         accepter.eventChanged(inboxEvent.url)
         clock.advance(3)
@@ -1035,11 +1043,13 @@ class OperationLoggerTests(TestCase):
         """
         logger = OperationLogger(outfile=StringIO())
         logger.observe(dict(
-                type='operation', phase='start', user='user01',
-                label='testing', lag=0.5))
+            type='operation', phase='start', user='user01',
+            label='testing', lag=0.5)
+        )
         logger.observe(dict(
-                type='operation', phase='end', user='user01',
-                duration=0.35, label='testing', success=True))
+            type='operation', phase='end', user='user01',
+            duration=0.35, label='testing', success=True)
+        )
         self.assertEqual([], logger.failures())
 
 
@@ -1052,8 +1062,9 @@ class OperationLoggerTests(TestCase):
         logger = OperationLogger(outfile=StringIO())
         for lag in [100.0, 1100.0, 1200.0]:
             logger.observe(dict(
-                    type='operation', phase='start', user='user01',
-                    label='testing', lag=lag))
+                type='operation', phase='start', user='user01',
+                label='testing', lag=lag)
+            )
         self.assertEqual(
             ["Median TESTING scheduling lag greater than 1000.0ms"],
             logger.failures())
@@ -1068,11 +1079,13 @@ class OperationLoggerTests(TestCase):
         logger = OperationLogger(outfile=StringIO())
         for _ignore in range(98):
             logger.observe(dict(
-                    type='operation', phase='end', user='user01',
-                    duration=0.25, label='testing', success=True))
-        logger.observe(dict(
                 type='operation', phase='end', user='user01',
-                duration=0.25, label='testing', success=False))
+                duration=0.25, label='testing', success=True)
+            )
+        logger.observe(dict(
+            type='operation', phase='end', user='user01',
+            duration=0.25, label='testing', success=False)
+        )
         self.assertEqual(
             ["Greater than 1% TESTING failed"],
             logger.failures())

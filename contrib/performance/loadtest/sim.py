@@ -53,6 +53,7 @@ from contrib.performance.loadtest.population import (
 from contrib.performance.loadtest.webadmin import LoadSimAdminResource
 
 
+
 class _DirectoryRecord(object):
     def __init__(self, uid, password, commonName, email, guid):
         self.uid = uid
@@ -68,15 +69,19 @@ def safeDivision(value, total, factor=1):
 
 
 
-def generateRecords(count, uidPattern="user%d", passwordPattern="user%d",
-    namePattern="User %d", emailPattern="user%d@example.com"):
+def generateRecords(
+    count, uidPattern="user%d", passwordPattern="user%d",
+    namePattern="User %d", emailPattern="user%d@example.com",
+    guidPattern="user%d"
+):
     for i in xrange(count):
         i += 1
         uid = uidPattern % (i,)
         password = passwordPattern % (i,)
         name = namePattern % (i,)
         email = emailPattern % (i,)
-        yield _DirectoryRecord(uid, password, name, email)
+        guid = guidPattern % (i,)
+        yield _DirectoryRecord(uid, password, name, email, guid)
 
 
 
@@ -151,7 +156,7 @@ class SimOptions(Options):
         ("clients", None, _defaultClients,
          "Configuration plist file name from which to read client parameters.",
          FilePath),
-        ]
+    ]
 
 
     def opt_logfile(self, filename):
@@ -194,7 +199,7 @@ class SimOptions(Options):
             configFile = self['config'].open()
         except IOError, e:
             raise UsageError("--config %s: %s" % (
-                    self['config'].path, e.strerror))
+                self['config'].path, e.strerror))
         try:
             try:
                 self.config = readPlist(configFile)
@@ -207,7 +212,7 @@ class SimOptions(Options):
             clientFile = self['clients'].open()
         except IOError, e:
             raise UsageError("--clients %s: %s" % (
-                    self['clients'].path, e.strerror))
+                self['clients'].path, e.strerror))
         try:
             try:
                 client_config = readPlist(clientFile)
@@ -327,8 +332,8 @@ class LoadSimulator(object):
                             namedAny(clientConfig["software"]),
                             cls._convertParams(clientConfig["params"]),
                             [ProfileType(
-                                    namedAny(profile["class"]),
-                                    cls._convertParams(profile["params"]))
+                                namedAny(profile["class"]),
+                                cls._convertParams(profile["params"]))
                              for profile in clientConfig["profiles"]]))
             if not parameters.clients:
                 parameters.addClient(1,

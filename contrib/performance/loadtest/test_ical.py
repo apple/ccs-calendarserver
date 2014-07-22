@@ -403,6 +403,7 @@ END:VCALENDAR
 """.replace("\n", "\r\n") % {'UID': EVENT_UID}
 
 
+
 class EventTests(TestCase):
     """
     Tests for L{Event}.
@@ -1122,15 +1123,16 @@ CALENDAR_HOME_PROPFIND_RESPONSE = _CALENDAR_HOME_PROPFIND_RESPONSE_TEMPLATE % {
     "xmpp": """\
         <xmpp-server xmlns='http://calendarserver.org/ns/'/>
         <xmpp-uri xmlns='http://calendarserver.org/ns/'/>""",
-    }
+}
 
 CALENDAR_HOME_PROPFIND_RESPONSE_WITH_XMPP = _CALENDAR_HOME_PROPFIND_RESPONSE_TEMPLATE % {
     "xmpp": """\
         <xmpp-server xmlns='http://calendarserver.org/ns/'>xmpp.example.invalid:1952</xmpp-server>
         <xmpp-uri xmlns='http://calendarserver.org/ns/'>xmpp:pubsub.xmpp.example.invalid?pubsub;node=/CalDAV/another.example.invalid/user01/</xmpp-uri>""",
-    }
+}
 
 CALENDAR_HOME_PROPFIND_RESPONSE_XMPP_MISSING = _CALENDAR_HOME_PROPFIND_RESPONSE_TEMPLATE % {"xmpp": ""}
+
 
 
 class MemoryResponse(object):
@@ -1157,7 +1159,8 @@ class OS_X_10_6Mixin:
     def setUp(self):
         TimezoneCache.create()
         self.record = _DirectoryRecord(
-            u"user91", u"user91", u"User 91", u"user91@example.org")
+            u"user91", u"user91", u"User 91", u"user91@example.org", u"user91",
+        )
         serializePath = self.mktemp()
         os.mkdir(serializePath)
         self.client = OS_X_10_6(
@@ -1196,18 +1199,20 @@ class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
         principal = principals['/principals/__uids__/user01/']
         self.assertEquals(
             principal.getHrefProperties(),
-            {davxml.principal_collection_set: URL(path='/principals/'),
-             caldavxml.calendar_home_set: URL(path='/calendars/__uids__/user01'),
-             caldavxml.calendar_user_address_set: (
+            {
+                davxml.principal_collection_set: URL(path='/principals/'),
+                caldavxml.calendar_home_set: URL(path='/calendars/__uids__/user01'),
+                caldavxml.calendar_user_address_set: (
                     URL(path='/principals/__uids__/user01/'),
                     URL(path='/principals/users/user01/'),
-                    ),
-             caldavxml.schedule_inbox_URL: URL(path='/calendars/__uids__/user01/inbox/'),
-             caldavxml.schedule_outbox_URL: URL(path='/calendars/__uids__/user01/outbox/'),
-             csxml.dropbox_home_URL: URL(path='/calendars/__uids__/user01/dropbox/'),
-             csxml.notification_URL: URL(path='/calendars/__uids__/user01/notification/'),
-             davxml.principal_URL: URL(path='/principals/__uids__/user01/'),
-             })
+                ),
+                caldavxml.schedule_inbox_URL: URL(path='/calendars/__uids__/user01/inbox/'),
+                caldavxml.schedule_outbox_URL: URL(path='/calendars/__uids__/user01/outbox/'),
+                csxml.dropbox_home_URL: URL(path='/calendars/__uids__/user01/dropbox/'),
+                csxml.notification_URL: URL(path='/calendars/__uids__/user01/notification/'),
+                davxml.principal_URL: URL(path='/principals/__uids__/user01/'),
+            }
+        )
         self.assertEquals(
             principal.getTextProperties(),
             {davxml.displayname: 'User 01'})
@@ -1258,12 +1263,13 @@ class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
             home
         )
         self.assertEqual({
-                home: XMPPPush(
-                    "xmpp.example.invalid:1952",
-                    "xmpp:pubsub.xmpp.example.invalid?pubsub;node=/CalDAV/another.example.invalid/user01/",
-                    "/Some/Unique/Value"
-                    )},
-                         self.client.xmpp)
+            home: XMPPPush(
+                "xmpp.example.invalid:1952",
+                "xmpp:pubsub.xmpp.example.invalid?pubsub;node=/CalDAV/another.example.invalid/user01/",
+                "/Some/Unique/Value"
+            )},
+            self.client.xmpp
+        )
 
 
     def test_handleMissingXMPP(self):
@@ -1982,9 +1988,7 @@ class VFreeBusyTests(OS_X_10_6Mixin, TestCase):
             uid = vevent.resourceUID()
             dtstamp = vevent.mainComponent().propertyValue("DTSTAMP")
             dtstamp = dtstamp.getText()
-            self.assertEqual(
-"""\
-BEGIN:VCALENDAR
+            self.assertEqual("""BEGIN:VCALENDAR
 CALSCALE:GREGORIAN
 VERSION:2.0
 METHOD:REQUEST
