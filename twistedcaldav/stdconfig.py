@@ -265,59 +265,59 @@ DEFAULT_CONFIG = {
     #
     "BindAddresses": [], # List of IP addresses to bind to [empty = all]
     "BindHTTPPorts": [], # List of port numbers to bind to for HTTP
-                           # [empty = same as "Port"]
+                         # [empty = same as "Port"]
     "BindSSLPorts": [], # List of port numbers to bind to for SSL
-                           # [empty = same as "SSLPort"]
+                        # [empty = same as "SSLPort"]
     "InheritFDs": [], # File descriptors to inherit for HTTP requests
-                           # (empty = don't inherit)
+                      # (empty = don't inherit)
     "InheritSSLFDs": [], # File descriptors to inherit for HTTPS requests
-                           # (empty = don't inherit)
+                         # (empty = don't inherit)
     "MetaFD": 0, # Inherited file descriptor to call recvmsg() on to
-                           # receive sockets (none = don't inherit)
+                 # receive sockets (none = don't inherit)
 
     "UseMetaFD": True, # Use a 'meta' FD, i.e. an FD to transmit other FDs
-                           # to slave processes.
+                       # to slave processes.
 
     "UseDatabase": True, # True: database; False: files
 
     "TransactionTimeoutSeconds": 300, # Timeout transactions that take longer than
-                              # the specified number of seconds. Zero means
-                              # no timeouts. 5 minute default.
+                                      # the specified number of seconds. Zero means
+                                      # no timeouts. 5 minute default.
 
     "DBType": "", # 2 possible values: empty, meaning 'spawn postgres
-                           # yourself', or 'postgres', meaning 'connect to a
-                           # postgres database as specified by the 'DSN'
-                           # configuration key.  Will support more values in
-                           # the future.
+                  # yourself', or 'postgres', meaning 'connect to a
+                  # postgres database as specified by the 'DSN'
+                  # configuration key.  Will support more values in
+                  # the future.
 
     "SpawnedDBUser": "caldav", # The username to use when DBType is empty
 
     "DBImportFile": "", # File path to SQL file to import at startup (includes schema)
 
     "DSN": "", # Data Source Name.  Used to connect to an external
-                           # database if DBType is non-empty.  Format varies
-                           # depending on database type.
+               # database if DBType is non-empty.  Format varies
+               # depending on database type.
 
     "DBAMPFD": 0, # Internally used by database to tell slave
-                           # processes to inherit a file descriptor and use it
-                           # as an AMP connection over a UNIX socket; see
-                           # twext.enterprise.adbapi2.ConnectionPoolConnection
+                  # processes to inherit a file descriptor and use it
+                  # as an AMP connection over a UNIX socket; see
+                  # twext.enterprise.adbapi2.ConnectionPoolConnection
 
     "SharedConnectionPool": False, # Use a shared database connection pool in
-                                    # the master process, rather than having
-                                    # each client make its connections directly.
+                                   # the master process, rather than having
+                                   # each client make its connections directly.
 
     "FailIfUpgradeNeeded": True, # Set to True to prevent the server or utility
                                    # tools from running if the database needs a schema
                                    # upgrade.
     "StopAfterUpgradeTriggerFile": "stop_after_upgrade",   # if this file exists in ConfigRoot, stop
-                                                            # the service after finishing upgrade phase
+                                                           # the service after finishing upgrade phase
 
     "UpgradeHomePrefix": "",    # When upgrading, only upgrade homes where the owner UID starts with
-                                    # with the specified prefix. The upgrade will only be partial and only
-                                    # apply to upgrade pieces that affect entire homes. The upgrade will
-                                    # need to be run again without this prefix set to complete the overall
-                                    # upgrade.
+                                # with the specified prefix. The upgrade will only be partial and only
+                                # apply to upgrade pieces that affect entire homes. The upgrade will
+                                # need to be run again without this prefix set to complete the overall
+                                # upgrade.
 
     #
     # Work queue configuration information
@@ -652,21 +652,21 @@ DEFAULT_CONFIG = {
     },
 
     "RestrictCalendarsToOneComponentType" : True, # Only allow calendars to be created with a single component type
-                                                   # If this is on, it will also trigger an upgrade behavior that will
-                                                   # split existing calendars into multiples based on component type.
-                                                   # If on, it will also cause new accounts to provision with separate
-                                                   # calendars for events and tasks.
+                                                  # If this is on, it will also trigger an upgrade behavior that will
+                                                  # split existing calendars into multiples based on component type.
+                                                  # If on, it will also cause new accounts to provision with separate
+                                                  # calendars for events and tasks.
 
     "SupportedComponents" : [                      # Set of supported iCalendar components
         "VEVENT",
         "VTODO",
-        #"VPOLL",
+        # "VPOLL",
     ],
 
     "ParallelUpgrades" : False, # Perform upgrades - currently only the
-                                   # database -> filesystem migration - but in
-                                   # the future, hopefully all relevant
-                                   # upgrades - in parallel in subprocesses.
+                                # database -> filesystem migration - but in
+                                # the future, hopefully all relevant
+                                # upgrades - in parallel in subprocesses.
 
     "MergeUpgrades": False, # During the upgrade phase of startup, rather than
                             # skipping homes found both on the filesystem and in
@@ -820,13 +820,13 @@ DEFAULT_CONFIG = {
                 "Always"                          : False, # Override augments setting and always auto-schedule
                 "AllowUsers"                      : False, # Allow auto-schedule for users
                 "DefaultMode"                     : "automatic", # Default mode for auto-schedule processing, one of:
-                                                                   # "none"            - no auto-scheduling
-                                                                   # "accept-always"   - always accept, ignore busy time
-                                                                   # "decline-always"  - always decline, ignore free time
-                                                                   # "accept-if-free"  - accept if free, do nothing if busy
-                                                                   # "decline-if-busy" - decline if busy, do nothing if free
-                                                                   # "automatic"       - accept if free, decline if busy
-                "FutureFreeBusyDays"              : 3 * 365,       # How far into the future to check for booking conflicts
+                                                                 # "none"            - no auto-scheduling
+                                                                 # "accept-always"   - always accept, ignore busy time
+                                                                 # "decline-always"  - always decline, ignore free time
+                                                                 # "accept-if-free"  - accept if free, do nothing if busy
+                                                                 # "decline-if-busy" - decline if busy, do nothing if free
+                                                                 # "automatic"       - accept if free, decline if busy
+                "FutureFreeBusyDays"              : 3 * 365,     # How far into the future to check for booking conflicts
             },
 
             "WorkQueues" : {
@@ -1008,29 +1008,29 @@ DEFAULT_CONFIG = {
                 "Port": 11311,
                 "HandleCacheTypes": [
                     "Default",
-#                   "OpenDirectoryBacker",
-#                   "ImplicitUIDLock",
-#                   "RefreshUIDLock",
-#                   "DIGESTCREDENTIALS",
-#                   "resourceInfoDB",
-#                   "pubsubnodes",
-#                   "FBCache",
-#                   "ScheduleAddressMapper",
-#                   "SQL.props",
-#                   "SQL.calhome",
-#                   "SQL.adbkhome",
+                    # "OpenDirectoryBacker",
+                    # "ImplicitUIDLock",
+                    # "RefreshUIDLock",
+                    # "DIGESTCREDENTIALS",
+                    # "resourceInfoDB",
+                    # "pubsubnodes",
+                    # "FBCache",
+                    # "ScheduleAddressMapper",
+                    # "SQL.props",
+                    # "SQL.calhome",
+                    # "SQL.adbkhome",
                 ]
             },
-#            "Shared": {
-#                "ClientEnabled": True,
-#                "ServerEnabled": True,
-#                "BindAddress": "127.0.0.1",
-#                "Port": 11211,
-#                "HandleCacheTypes": [
-#                    "ProxyDB",
-#                    "PrincipalToken",
-#                ]
-#            },
+            # "Shared": {
+            #     "ClientEnabled": True,
+            #     "ServerEnabled": True,
+            #     "BindAddress": "127.0.0.1",
+            #     "Port": 11211,
+            #     "HandleCacheTypes": [
+            #         "ProxyDB",
+            #         "PrincipalToken",
+            #     ]
+            # },
         },
         "memcached": "memcached", # Find in PATH
         "MaxMemory": 0, # Megabytes
@@ -1110,6 +1110,7 @@ DEFAULT_CONFIG = {
     "FreeBusyIndexExpandAheadDays": 365,
     "FreeBusyIndexExpandMaxDays": 5 * 365,
     "FreeBusyIndexDelayedExpand": True,
+    "FreeBusyIndexSmartUpdate": True,
 
     # The RootResource uses a twext property store. Specify the class here
     "RootResourcePropStoreClass": "txweb2.dav.xattrprops.xattrPropertyStore",
@@ -1304,7 +1305,7 @@ def _updateDataStore(configDict, reloading=False):
                 # non-default values later.)  -glyph
                 if previousAbsoluteName in configDict and (
                         configDict[previousAbsoluteName] == inDict[lastPath]
-                    ):
+                ):
                     userSpecifiedPath = configDict[previousRelativeName]
                 else:
                     userSpecifiedPath = inDict[lastPath]
@@ -1359,12 +1360,16 @@ def _updateMultiProcess(configDict, reloading=False):
         maxConnections += configDict.MaxDBConnectionsPerPool
     else:
         # Otherwise the master *and* each worker process will be connecting
-        maxConnections += ((configDict.MultiProcess.ProcessCount + 1) *
-            configDict.MaxDBConnectionsPerPool)
+        maxConnections += (
+            (configDict.MultiProcess.ProcessCount + 1) *
+            configDict.MaxDBConnectionsPerPool
+        )
 
     configDict.Postgres.MaxConnections = maxConnections
-    configDict.Postgres.SharedBuffers = int(configDict.Postgres.MaxConnections *
-        configDict.Postgres.BuffersToConnectionsRatio)
+    configDict.Postgres.SharedBuffers = int(
+        configDict.Postgres.MaxConnections *
+        configDict.Postgres.BuffersToConnectionsRatio
+    )
 
 
 
@@ -1622,8 +1627,7 @@ def _updateNotifications(configDict, reloading=False):
                             topic = getAPNTopicFromCertificate(certPath)
                             service[protocol]["Topic"] = topic
                         else:
-                            log.error("APNS certificate not found: %s" %
-                                (certPath,))
+                            log.error("APNS certificate not found: %s" % (certPath,))
                     else:
                         log.error("APNS certificate path not specified")
 
@@ -1688,8 +1692,7 @@ def _updateScheduling(configDict, reloading=False):
                     pass
                 except KeychainPasswordNotFound:
                     # The password doesn't exist in the keychain.
-                    log.info("iMIP %s password not found in keychain" %
-                        (direction,))
+                    log.info("iMIP %s password not found in keychain" % (direction,))
 
 
 
@@ -1755,7 +1758,7 @@ PRE_UPDATE_HOOKS = (
     _preUpdateDirectoryService,
     _preUpdateResourceService,
     _preUpdateDirectoryAddressBookBackingDirectoryService,
-    )
+)
 POST_UPDATE_HOOKS = (
     _updateMultiProcess,
     _updateDataStore,
@@ -1773,7 +1776,7 @@ POST_UPDATE_HOOKS = (
     _updateSharing,
     # _updateServers,
     _updateCompliance,
-    )
+)
 
 def _cleanup(configDict, defaultDict):
     cleanDict = copy.deepcopy(configDict)
@@ -1803,7 +1806,7 @@ def _cleanup(configDict, defaultDict):
         del cleanDict[oldKey]
 
     renamedOptions = {
-#       "BindAddress": "BindAddresses",
+        # "BindAddress": "BindAddresses",
     }
 
     for key in configDict:

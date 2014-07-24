@@ -164,7 +164,7 @@ class ImplicitProcessor(object):
         self.recipient_calendar_resource = None
         calendar_resource = (yield getCalendarObjectForRecord(self.txn, self.recipient.record, self.uid))
         if calendar_resource:
-            self.recipient_calendar = (yield calendar_resource.componentForUser(self.recipient.record.uid))
+            self.recipient_calendar = (yield calendar_resource.componentForUser(self.recipient.record.uid)).duplicate()
             self.recipient_calendar_resource = calendar_resource
 
 

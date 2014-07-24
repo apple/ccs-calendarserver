@@ -50,7 +50,7 @@ from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
 from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
 from txdav.caldav.datastore.scheduling.processing import ImplicitProcessor
 from txdav.caldav.datastore.scheduling.scheduler import ScheduleResponseQueue
-from txdav.caldav.datastore.sql import CalendarStoreFeatures
+from txdav.caldav.datastore.sql import CalendarStoreFeatures, CalendarObject
 from txdav.common.datastore.sql import ECALENDARTYPE, CommonObjectResource, \
     CommonStoreTransactionMonitor
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_DIRECT, \
@@ -192,8 +192,7 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         toHome = yield self.transactionUnderTest().calendarHomeWithUID(
             "new-home", create=True)
         toCalendar = yield toHome.calendarWithName("calendar")
-        ok, bad = (yield _migrateCalendar(fromCalendar, toCalendar,
-                               lambda x: x.component()))
+        ok, bad = (yield _migrateCalendar(fromCalendar, toCalendar, lambda x: x.component()))
         self.assertEqual(ok, 1)
         self.assertEqual(bad, 2)
 
@@ -212,8 +211,7 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         toHome = yield self.transactionUnderTest().calendarHomeWithUID(
             "new-home", create=True)
         toCalendar = yield toHome.calendarWithName("calendar")
-        ok, bad = (yield _migrateCalendar(fromCalendar, toCalendar,
-                               lambda x: x.component()))
+        ok, bad = (yield _migrateCalendar(fromCalendar, toCalendar, lambda x: x.component()))
         self.assertEqual(ok, 3)
         self.assertEqual(bad, 0)
 
@@ -400,8 +398,7 @@ END:VCALENDAR
         toHome = yield self.transactionUnderTest().calendarHomeWithUID(
             "home_attachments", create=True)
         toCalendar = yield toHome.calendarWithName("calendar")
-        ok, bad = (yield _migrateCalendar(fromCalendar, toCalendar,
-                               lambda x: x.component()))
+        ok, bad = (yield _migrateCalendar(fromCalendar, toCalendar, lambda x: x.component()))
         self.assertEqual(ok, 3)
         self.assertEqual(bad, 0)
 
@@ -421,14 +418,14 @@ END:VCALENDAR
                                lambda x: x.component())
 
         filter = caldavxml.Filter(
-                      caldavxml.ComponentFilter(
-                          caldavxml.ComponentFilter(
-                              caldavxml.TimeRange(start="%(now)s0201T000000Z" % self.nowYear, end="%(now)s0202T000000Z" % self.nowYear),
-                              name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
-                          ),
-                          name="VCALENDAR",
-                       )
-                  )
+            caldavxml.ComponentFilter(
+                caldavxml.ComponentFilter(
+                    caldavxml.TimeRange(start="%(now)s0201T000000Z" % self.nowYear, end="%(now)s0202T000000Z" % self.nowYear),
+                    name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
+                ),
+                name="VCALENDAR",
+            )
+        )
         filter = Filter(filter)
         filter.settimezone(None)
 
@@ -640,8 +637,7 @@ END:VCALENDAR
 
         @inlineCallbacks
         def _defer1():
-            yield cal1.createObjectResourceWithName("1.ics", Component.fromString(
-"""BEGIN:VCALENDAR
+            yield cal1.createObjectResourceWithName("1.ics", Component.fromString("""BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 CALSCALE:GREGORIAN
@@ -686,8 +682,7 @@ END:VCALENDAR
 
         @inlineCallbacks
         def _defer2():
-            yield cal2.createObjectResourceWithName("2.ics", Component.fromString(
-"""BEGIN:VCALENDAR
+            yield cal2.createObjectResourceWithName("2.ics", Component.fromString("""BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 CALSCALE:GREGORIAN
@@ -768,7 +763,7 @@ END:VCALENDAR
         txn2 = calendarStore.newTransaction()
 
         notification_uid1_1 = yield txn1.notificationsWithUID(
-           "uid1",
+            "uid1",
         )
 
         @inlineCallbacks
@@ -813,9 +808,11 @@ END:VCALENDAR
         yield self.commit()
 
         prop = schema.RESOURCE_PROPERTY
-        _allWithID = Select([prop.NAME, prop.VIEWER_UID, prop.VALUE],
-                        From=prop,
-                        Where=prop.RESOURCE_ID == Parameter("resourceID"))
+        _allWithID = Select(
+            [prop.NAME, prop.VIEWER_UID, prop.VALUE],
+            From=prop,
+            Where=prop.RESOURCE_ID == Parameter("resourceID")
+        )
 
         # Check that one property is present
         home = yield self.homeUnderTest()
@@ -859,9 +856,11 @@ END:VCALENDAR
         resourceID = calobject._resourceID
 
         prop = schema.RESOURCE_PROPERTY
-        _allWithID = Select([prop.NAME, prop.VIEWER_UID, prop.VALUE],
-                        From=prop,
-                        Where=prop.RESOURCE_ID == Parameter("resourceID"))
+        _allWithID = Select(
+            [prop.NAME, prop.VIEWER_UID, prop.VALUE],
+            From=prop,
+            Where=prop.RESOURCE_ID == Parameter("resourceID")
+        )
 
         # No properties on existing calendar object
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
@@ -912,9 +911,11 @@ END:VCALENDAR
         yield self.commit()
 
         prop = schema.RESOURCE_PROPERTY
-        _allWithID = Select([prop.NAME, prop.VIEWER_UID, prop.VALUE],
-                        From=prop,
-                        Where=prop.RESOURCE_ID == Parameter("resourceID"))
+        _allWithID = Select(
+            [prop.NAME, prop.VIEWER_UID, prop.VALUE],
+            From=prop,
+            Where=prop.RESOURCE_ID == Parameter("resourceID")
+        )
 
         # One property exists calendar object
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
@@ -1502,6 +1503,7 @@ END:VCALENDAR
         # Re-add event with re-indexing
         calendar = yield self.calendarUnderTest()
         calendarObject = yield self.calendarObjectUnderTest(name="indexing.ics")
+        calendarObject.tr_change = True
         yield calendarObject.setComponent(component)
         instances2 = yield calendarObject.instances()
         self.assertNotEqual(
@@ -1933,8 +1935,10 @@ END:VCALENDAR
         rev = calendar._revisionsSchema
         yield Delete(
             From=rev,
-            Where=(rev.HOME_RESOURCE_ID == Parameter("homeID")).And(
-                   rev.COLLECTION_NAME == Parameter("collectionName"))
+            Where=(
+                rev.HOME_RESOURCE_ID == Parameter("homeID")).And(
+                rev.COLLECTION_NAME == Parameter("collectionName")
+            )
         ).on(self.transactionUnderTest(), homeID=home.id(), collectionName="calendar")
 
         yield self.commit()
@@ -2430,28 +2434,41 @@ END:VCALENDAR
 """.replace("\n", "\r\n")
 
         calendar = yield self.calendarUnderTest(name="calendar", home="user01")
-        yield calendar.createCalendarObjectWithName("structured.ics",
-            Component.fromString(data))
-        cobj = yield self.calendarObjectUnderTest(name="structured.ics",
-            calendar_name="calendar", home="user01")
+        yield calendar.createCalendarObjectWithName(
+            "structured.ics",
+            Component.fromString(data)
+        )
+        cobj = yield self.calendarObjectUnderTest(
+            name="structured.ics",
+            calendar_name="calendar",
+            home="user01"
+        )
         comp = yield cobj.component()
         components = list(comp.subcomponents())
 
         # Check first component
         locProp = components[0].getProperty("LOCATION")
-        self.assertEquals(locProp.value(),
-            "Room with Address 1\n1 Infinite Loop, Cupertino, CA 95014")
+        self.assertEquals(
+            locProp.value(),
+            "Room with Address 1\n1 Infinite Loop, Cupertino, CA 95014"
+        )
         structProp = components[0].getProperty("X-APPLE-STRUCTURED-LOCATION")
-        self.assertEquals(structProp.value(),
-            "geo:37.331741,-122.030333")
+        self.assertEquals(
+            structProp.value(),
+            "geo:37.331741,-122.030333"
+        )
 
         # Check second component
         locProp = components[1].getProperty("LOCATION")
-        self.assertEquals(locProp.value(),
-            "Room with Address 2\n2 Infinite Loop, Cupertino, CA 95014")
+        self.assertEquals(
+            locProp.value(),
+            "Room with Address 2\n2 Infinite Loop, Cupertino, CA 95014"
+        )
         structProp = components[1].getProperty("X-APPLE-STRUCTURED-LOCATION")
-        self.assertEquals(structProp.value(),
-            "geo:37.332633,-122.030502")
+        self.assertEquals(
+            structProp.value(),
+            "geo:37.332633,-122.030502"
+        )
 
         yield self.commit()
 
@@ -2484,10 +2501,15 @@ END:VCALENDAR
         self.patch(config.HostedStatus, "Enabled", True)
 
         calendar = yield self.calendarUnderTest(name="calendar", home="user01")
-        yield calendar.createCalendarObjectWithName("external.ics",
-            Component.fromString(data))
-        cobj = yield self.calendarObjectUnderTest(name="external.ics",
-            calendar_name="calendar", home="user01")
+        yield calendar.createCalendarObjectWithName(
+            "external.ics",
+            Component.fromString(data)
+        )
+        cobj = yield self.calendarObjectUnderTest(
+            name="external.ics",
+            calendar_name="calendar",
+            home="user01"
+        )
         comp = yield cobj.component()
         components = list(comp.subcomponents())
 
@@ -6976,3 +6998,571 @@ END:VCALENDAR
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future2) % relsubs, "Failed future: %s" % (title,))
         self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past2) % relsubs, "Failed past: %s" % (title,))
         self.assertEqual(normalize_iCalStr(ical_inbox), normalize_iCalStr(data_inbox2) % relsubs, "Failed inbox: %s" % (title,))
+
+
+
+class TimeRangeUpdateOptimization(CommonCommonTests, unittest.TestCase):
+    """
+    CalendarObject splitting tests
+    """
+
+    EVENT1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:uid1
+DTSTART:{now}T120000Z
+DURATION:PT1H
+SUMMARY:New Event
+DTSTAMP:20100203T013909Z
+END:VEVENT
+END:VCALENDAR
+"""
+
+    EVENT2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:uid1
+DTSTART:{now}T120000Z
+DURATION:PT1H
+SUMMARY:New Event #2
+DTSTAMP:20100203T013909Z
+END:VEVENT
+END:VCALENDAR
+"""
+
+    EVENT3 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:uid1
+DTSTART:{now}T130000Z
+DURATION:PT1H
+SUMMARY:New Event
+DTSTAMP:20100203T013909Z
+END:VEVENT
+END:VCALENDAR
+"""
+
+    EVENT4 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:uid1
+DTSTART:{now}T120000Z
+DURATION:PT1H
+SUMMARY:New Event
+DTSTAMP:20100203T013909Z
+TRANSP:TRANSPARENT
+END:VEVENT
+END:VCALENDAR
+"""
+
+    EVENT5 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:uid1
+DTSTART:{now}T120000Z
+DURATION:PT1H
+SUMMARY:New Event
+STATUS:CANCELLED
+DTSTAMP:20100203T013909Z
+END:VEVENT
+END:VCALENDAR
+"""
+
+    EVENT6 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:uid1
+DTSTART:{now}T120000Z
+DURATION:PT1H
+SUMMARY:New Event
+DTSTAMP:20100203T013909Z
+X-APPLE-TRAVEL-DURATION;VALUE=DURATION:PT1H
+END:VEVENT
+END:VCALENDAR
+"""
+
+    EVENT7 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:uid1
+DTSTART:{now}T120000Z
+DURATION:PT1H
+SUMMARY:New Event
+DTSTAMP:20100203T013909Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+"""
+
+    EVENT8 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:uid1
+DTSTART:{now}T120000Z
+DURATION:PT1H
+SUMMARY:New Event
+DTSTAMP:20100203T013909Z
+RRULE:FREQ=DAILY;COUNT=10
+END:VEVENT
+END:VCALENDAR
+"""
+
+    EVENT9 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:uid1
+DTSTART:{now}T120000Z
+DURATION:PT1H
+SUMMARY:New Event
+DTSTAMP:20100203T013909Z
+RRULE:FREQ=DAILY
+EXDATE:{now}T120000Z
+END:VEVENT
+END:VCALENDAR
+"""
+
+    EVENT10 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:uid1
+DTSTART:{now}T120000Z
+DURATION:PT1H
+SUMMARY:New Event
+DTSTAMP:20100203T013909Z
+RRULE:FREQ=DAILY
+RDATE:{now}T150000Z
+END:VEVENT
+END:VCALENDAR
+"""
+
+
+    @inlineCallbacks
+    def setUp(self):
+        yield super(TimeRangeUpdateOptimization, self).setUp()
+        yield self.buildStoreAndDirectory()
+        yield self.populate()
+
+        self.now = DateTime.getNowUTC()
+        self.now.setDateOnly(True)
+
+        self.trcount = 0
+        base_addInstances = CalendarObject._addInstances
+        def __addInstances(*args):
+            self.trcount += 1
+            return base_addInstances(*args)
+        self.patch(CalendarObject, "_addInstances", __addInstances)
+
+        self.patch(config, "FreeBusyIndexDelayedExpand", False)
+        self.patch(config, "FreeBusyIndexSmartUpdate", True)
+
+
+    @inlineCallbacks
+    def populate(self):
+        yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
+        self.notifierFactory.reset()
+
+
+    @property
+    def requirements(self):
+        return {
+            "home1": {
+                "calendar_1": {},
+            },
+            "user01": {
+                "calendar": {},
+                "inbox": {},
+            },
+            "user02": {
+                "calendar": {},
+                "inbox": {},
+            },
+        }
+
+
+    @inlineCallbacks
+    def test_initalPUT(self):
+        """
+        Test that initial PUT causes a TIME_RANGE update
+        """
+
+        # First PUT causes T-R change
+        cal = yield self.calendarUnderTest()
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT1.format(now=self.now.getText())))
+        yield self.commit()
+
+        self.assertEqual(self.trcount, 1)
+
+
+    @inlineCallbacks
+    def test_updatePUT_withoutTRChange(self):
+        """
+        Test that second PUT withe time change causes a TIME_RANGE update
+        """
+
+        # First PUT causes T-R change
+        cal = yield self.calendarUnderTest()
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT1.format(now=self.now.getText())))
+        yield self.commit()
+
+        self.assertEqual(self.trcount, 1)
+
+        # Second PUT does not cause T-R change
+        cobj = yield self.calendarObjectUnderTest()
+        yield cobj.setComponent(Component.fromString(self.EVENT2.format(now=self.now.getText())))
+        yield self.commit()
+
+        self.assertEqual(self.trcount, 1)
+
+
+    @inlineCallbacks
+    def test_updatePUT_withoutOptimization(self):
+        """
+        Test that second PUT withe time change causes a TIME_RANGE update
+        """
+
+        self.patch(config, "FreeBusyIndexSmartUpdate", False)
+
+        # First PUT causes T-R change
+        cal = yield self.calendarUnderTest()
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT1.format(now=self.now.getText())))
+        yield self.commit()
+
+        self.assertEqual(self.trcount, 1)
+
+        # Second PUT does cause T-R change
+        cobj = yield self.calendarObjectUnderTest()
+        yield cobj.setComponent(Component.fromString(self.EVENT2.format(now=self.now.getText())))
+        yield self.commit()
+
+        self.assertEqual(self.trcount, 2)
+
+
+    @inlineCallbacks
+    def test_updatePUT_withTRChange(self):
+        """
+        Test that second PUT withe time change causes a TIME_RANGE update
+        """
+
+        # First PUT causes T-R change
+        cal = yield self.calendarUnderTest()
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT1.format(now=self.now.getText())))
+        yield self.commit()
+
+        self.assertEqual(self.trcount, 1)
+
+        # Second PUT causes T-R change
+        cobj = yield self.calendarObjectUnderTest()
+        yield cobj.setComponent(Component.fromString(self.EVENT3.format(now=self.now.getText())))
+        yield self.commit()
+
+        self.assertEqual(self.trcount, 2)
+
+
+    @inlineCallbacks
+    def test_updatePUT_withTranspChange(self):
+        """
+        Test that second PUT withe time change causes a TIME_RANGE update
+        """
+
+        # First PUT causes T-R change
+        cal = yield self.calendarUnderTest()
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT1.format(now=self.now.getText())))
+        yield self.commit()
+
+        self.assertEqual(self.trcount, 1)
+
+        # Second PUT causes T-R change
+        cobj = yield self.calendarObjectUnderTest()
+        yield cobj.setComponent(Component.fromString(self.EVENT4.format(now=self.now.getText())))
+        yield self.commit()
+
+        self.assertEqual(self.trcount, 2)
+
+
+    @inlineCallbacks
+    def test_updatePUT_withStatusChange(self):
+        """
+        Test that second PUT withe time change causes a TIME_RANGE update
+        """
+
+        # First PUT causes T-R change
+        cal = yield self.calendarUnderTest()
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT1.format(now=self.now.getText())))
+        yield self.commit()
+
+        self.assertEqual(self.trcount, 1)
+
+        # Second PUT causes T-R change
+        cobj = yield self.calendarObjectUnderTest()
+        yield cobj.setComponent(Component.fromString(self.EVENT5.format(now=self.now.getText())))
+        yield self.commit()
+
+        self.assertEqual(self.trcount, 2)
+
+
+    @inlineCallbacks
+    def test_updatePUT_withTravelTimeChange(self):
+        """
+        Test that second PUT withe time change causes a TIME_RANGE update
+        """
+
+        # First PUT causes T-R change
+        cal = yield self.calendarUnderTest()
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT1.format(now=self.now.getText())))
+        yield self.commit()
+
+        self.assertEqual(self.trcount, 1)
+
+        # Second PUT causes T-R change
+        cobj = yield self.calendarObjectUnderTest()
+        yield cobj.setComponent(Component.fromString(self.EVENT6.format(now=self.now.getText())))
+        yield self.commit()
+
+        self.assertEqual(self.trcount, 2)
+
+
+    @inlineCallbacks
+    def test_updatePUT_withRRULEChange(self):
+        """
+        Test that second PUT withe time change causes a TIME_RANGE update
+        """
+
+        # First PUT causes T-R change
+        cal = yield self.calendarUnderTest()
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT7.format(now=self.now.getText())))
+        yield self.commit()
+
+        self.assertEqual(self.trcount, 1)
+
+        # Second PUT causes T-R change
+        cobj = yield self.calendarObjectUnderTest()
+        yield cobj.setComponent(Component.fromString(self.EVENT8.format(now=self.now.getText())))
+        yield self.commit()
+
+        self.assertEqual(self.trcount, 2)
+
+
+    @inlineCallbacks
+    def test_updatePUT_withEXDATEAdd(self):
+        """
+        Test that second PUT withe time change causes a TIME_RANGE update
+        """
+
+        # First PUT causes T-R change
+        cal = yield self.calendarUnderTest()
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT7.format(now=self.now.getText())))
+        yield self.commit()
+
+        self.assertEqual(self.trcount, 1)
+
+        # Second PUT causes T-R change
+        cobj = yield self.calendarObjectUnderTest()
+        yield cobj.setComponent(Component.fromString(self.EVENT9.format(now=self.now.getText())))
+        yield self.commit()
+
+        self.assertEqual(self.trcount, 2)
+
+
+    @inlineCallbacks
+    def test_updatePUT_withRDATEAdd(self):
+        """
+        Test that second PUT withe time change causes a TIME_RANGE update
+        """
+
+        # First PUT causes T-R change
+        cal = yield self.calendarUnderTest()
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.EVENT7.format(now=self.now.getText())))
+        yield self.commit()
+
+        self.assertEqual(self.trcount, 1)
+
+        # Second PUT causes T-R change
+        cobj = yield self.calendarObjectUnderTest()
+        yield cobj.setComponent(Component.fromString(self.EVENT10.format(now=self.now.getText())))
+        yield self.commit()
+
+        self.assertEqual(self.trcount, 2)
+
+
+    INVITE1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:uid1
+DTSTART:{now}T120000Z
+DURATION:PT1H
+SUMMARY:New Event
+DTSTAMP:20100203T013909Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+
+    INVITE2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:uid1
+DTSTART:{now}T120000Z
+DURATION:PT1H
+SUMMARY:New Event
+DTSTAMP:20100203T013909Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+
+    INVITE3 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:uid1
+DTSTART:{now}T120000Z
+DURATION:PT1H
+SUMMARY:New Event #2
+DTSTAMP:20100203T013909Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+
+    INVITE4 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:uid1
+DTSTART:{now}T140000Z
+DURATION:PT1H
+SUMMARY:New Event #2
+DTSTAMP:20100203T013909Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+
+    @inlineCallbacks
+    def test_schedulingPUT(self):
+        """
+        Test that second PUT withe time change causes a TIME_RANGE update
+        """
+
+        # Need schedule-q off for this test
+        self.patch(config.Scheduling.Options.WorkQueues, "Enabled", False)
+
+        # First PUT causes T-R change
+        cal = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.INVITE1.format(now=self.now.getText())))
+        yield self.commit()
+
+        self.assertEqual(self.trcount, 3)
+
+        # Attendee reply does not cause T-R change (except for inbox item and attendee resource transp change)
+        cal = yield self.calendarUnderTest(home="user02", name="calendar")
+        cobjs = yield cal.calendarObjects()
+        self.assertEqual(len(cobjs), 1)
+        yield cobjs[0].setComponent(Component.fromString(self.INVITE2.format(now=self.now.getText())))
+        yield self.commit()
+
+        self.assertEqual(self.trcount, 5)
+
+        # Organizer summary change does not cause T-R change (except for inbox item)
+        cobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar")
+        yield cobj.setComponent(Component.fromString(self.INVITE3.format(now=self.now.getText())))
+        yield self.commit()
+
+        self.assertEqual(self.trcount, 6)
+
+        # Organizer dtstart change causes T-R change
+        cobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar")
+        yield cobj.setComponent(Component.fromString(self.INVITE4.format(now=self.now.getText())))
+        yield self.commit()
+
+        self.assertEqual(self.trcount, 9)
+
+
+    @inlineCallbacks
+    def test_schedulingPUT_withoutOptimization(self):
+        """
+        Test that second PUT withe time change causes a TIME_RANGE update
+        """
+
+        self.patch(config, "FreeBusyIndexSmartUpdate", False)
+
+        # Need schedule-q off for this test
+        self.patch(config.Scheduling.Options.WorkQueues, "Enabled", False)
+
+        # First PUT causes T-R change
+        cal = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.INVITE1.format(now=self.now.getText())))
+        yield self.commit()
+
+        self.assertEqual(self.trcount, 3)
+
+        # Attendee reply does cause T-R change (except for organizer update)
+        cal = yield self.calendarUnderTest(home="user02", name="calendar")
+        cobjs = yield cal.calendarObjects()
+        self.assertEqual(len(cobjs), 1)
+        yield cobjs[0].setComponent(Component.fromString(self.INVITE2.format(now=self.now.getText())))
+        yield self.commit()
+
+        self.assertEqual(self.trcount, 5)
+
+        # Organizer summary change causes T-R change
+        cobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar")
+        yield cobj.setComponent(Component.fromString(self.INVITE3.format(now=self.now.getText())))
+        yield self.commit()
+
+        self.assertEqual(self.trcount, 8)
+
+        # Organizer dtstart change causes T-R change
+        cobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar")
+        yield cobj.setComponent(Component.fromString(self.INVITE4.format(now=self.now.getText())))
+        yield self.commit()
+
+        self.assertEqual(self.trcount, 11)

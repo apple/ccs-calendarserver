@@ -59,6 +59,7 @@ from txdav.caldav.datastore.query.builder import buildExpression
 from txdav.caldav.datastore.query.filter import Filter
 from txdav.caldav.datastore.query.generator import CalDAVSQLQueryGenerator
 from txdav.caldav.datastore.scheduling.cuaddress import calendarUserFromCalendarUserAddress
+from txdav.caldav.datastore.scheduling.icaldiff import iCalDiff
 from txdav.caldav.datastore.scheduling.icalsplitter import iCalSplitter
 from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
 from txdav.caldav.datastore.scheduling.utils import uidFromCalendarUserAddress
@@ -1490,9 +1491,10 @@ class Calendar(CommonHomeChild):
         return Select(
             [co.RESOURCE_NAME],
             From=co,
-            Where=((co.RECURRANCE_MIN > Parameter("minDate"))
-                .Or(co.RECURRANCE_MAX < Parameter("maxDate")))
-                .And(co.CALENDAR_RESOURCE_ID == Parameter("resourceID"))
+            Where=(
+                (co.RECURRANCE_MIN > Parameter("minDate"))
+                .Or(co.RECURRANCE_MAX < Parameter("maxDate"))
+            ).And(co.CALENDAR_RESOURCE_ID == Parameter("resourceID"))
         )
 
 
@@ -1750,10 +1752,11 @@ class Calendar(CommonHomeChild):
             resourceID=child._resourceID
         )
 
-
-    #===============================================================================
+    # ===============================================================================
     # Group sharing
-    #===============================================================================
+    # ===============================================================================
+
+
     @inlineCallbacks
     def reconcileGroupSharee(self, groupUID):
         """
@@ -1775,9 +1778,9 @@ class Calendar(CommonHomeChild):
                         [bind.HOME_RESOURCE_ID],
                         From=bind,
                         Where=(bind.CALENDAR_RESOURCE_ID == self._resourceID).And(
-                            (bind.BIND_MODE == _BIND_MODE_GROUP).Or(
-                             bind.BIND_MODE == _BIND_MODE_GROUP_READ).Or(
-                             bind.BIND_MODE == _BIND_MODE_GROUP_WRITE)
+                            (bind.BIND_MODE == _BIND_MODE_GROUP)
+                            .Or(bind.BIND_MODE == _BIND_MODE_GROUP_READ)
+                            .Or(bind.BIND_MODE == _BIND_MODE_GROUP_WRITE)
                         )
                     )
                 )
@@ -1825,7 +1828,7 @@ class Calendar(CommonHomeChild):
             rows = yield Select(
                 [Count(gs.GROUP_ID)],
                 From=gs,
-                 Where=(
+                Where=(
                     gs.GROUP_ID.In(
                         Select(
                             [gm.GROUP_ID],
@@ -1871,7 +1874,7 @@ class Calendar(CommonHomeChild):
         rows = yield Select(
             [Count(gs.GROUP_ID)],
             From=gs,
-             Where=(
+            Where=(
                 gs.GROUP_ID.In(
                     Select(
                         [gm.GROUP_ID],
@@ -1957,7 +1960,7 @@ class Calendar(CommonHomeChild):
             rows = yield Select(
                 [Max(gs.GROUP_BIND_MODE)], # _BIND_MODE_WRITE > _BIND_MODE_READ
                 From=gs,
-                 Where=(
+                Where=(
                     gs.GROUP_ID.In(
                         Select(
                             [gm.GROUP_ID],
@@ -2224,7 +2227,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             "_created",
             "_modified",
             "_dataversion",
-         )
+        )
 
 
     @property
@@ -2358,22 +2361,19 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
             if groupID in groupIDToMembershipHashMap:
                 if groupIDToMembershipHashMap[groupID] != membershipHash:
-                    yield Update({
-                            ga.MEMBERSHIP_HASH: membershipHash,
-                        },
+                    yield Update(
+                        {ga.MEMBERSHIP_HASH: membershipHash, },
                         Where=(ga.RESOURCE_ID == self._resourceID).And(
-                            ga.GROUP_ID == groupID
-                        )
+                            ga.GROUP_ID == groupID)
                     ).on(self._txn)
                     changed = True
                 del groupIDToMembershipHashMap[groupID]
             else:
                 yield Insert({
-                        ga.RESOURCE_ID: self._resourceID,
-                        ga.GROUP_ID: groupID,
-                        ga.MEMBERSHIP_HASH: membershipHash,
-                    }
-                ).on(self._txn)
+                    ga.RESOURCE_ID: self._resourceID,
+                    ga.GROUP_ID: groupID,
+                    ga.MEMBERSHIP_HASH: membershipHash,
+                }).on(self._txn)
                 changed = True
 
         if groupIDToMembershipHashMap:
@@ -2506,7 +2506,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                         "Attendee list size {0} is larger than allowed limit {1}".format(
                             attendeeListLength, config.MaxAttendeesPerInstance
                         )
-                )
+                    )
 
 
     @inlineCallbacks
@@ -2523,13 +2523,15 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # Check for an allowed change
             if organizer is None and (
                 cutype == "ROOM" and not config.Scheduling.Options.AllowLocationWithoutOrganizer or
-                cutype == "RESOURCE" and not config.Scheduling.Options.AllowResourceWithoutOrganizer):
+                cutype == "RESOURCE" and not config.Scheduling.Options.AllowResourceWithoutOrganizer
+            ):
                 raise ValidOrganizerError("Organizer required in calendar data for a {0}".format(cutype.lower(),))
 
             # Check for tracking the modifier
             if organizer is None and (
                 cutype == "ROOM" and config.Scheduling.Options.TrackUnscheduledLocationData or
-                cutype == "RESOURCE" and config.Scheduling.Options.TrackUnscheduledResourceData):
+                cutype == "RESOURCE" and config.Scheduling.Options.TrackUnscheduledResourceData
+            ):
 
                 # Find current principal and update modified by details
                 authz = yield self.directoryService().recordWithUID(self.calendar().viewerHome().authzuid().decode("utf-8"))
@@ -2588,7 +2590,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 "X-CALENDARSERVER-ATTENDEE-COMMENT",
             ))
 
-            if old_has_private_comments and not new_has_private_comments:
+            if old_has_private_comments and not new_has_private_comments and internal_state == ComponentUpdateState.NORMAL:
                 # Transfer old comments to new calendar
                 log.debug("Organizer private comment properties were entirely removed by the client. Restoring existing properties.")
                 old_calendar = (yield self.componentForUser())
@@ -2813,12 +2815,16 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                                         "X-APPLE-RADIUS": "71",
                                         "X-TITLE": title,
                                     }
-                                    structured = Property("X-APPLE-STRUCTURED-LOCATION",
+                                    structured = Property(
+                                        "X-APPLE-STRUCTURED-LOCATION",
                                         geo.encode("utf-8"), params=params,
-                                        valuetype=Value.VALUETYPE_URI)
+                                        valuetype=Value.VALUETYPE_URI
+                                    )
                                     sub.replaceProperty(structured)
-                                    newLocProperty = Property("LOCATION",
-                                        "{0}\n{1}".format(title, street.encode("utf-8")))
+                                    newLocProperty = Property(
+                                        "LOCATION",
+                                        "{0}\n{1}".format(title, street.encode("utf-8"))
+                                    )
                                     sub.replaceProperty(newLocProperty)
 
 
@@ -3125,6 +3131,14 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 if did_implicit_action:
                     self._componentChanged = True
 
+            if not hasattr(self, "tr_change"):
+                if inserting or hasattr(component, "noInstanceIndexing") or not config.FreeBusyIndexSmartUpdate:
+                    self.tr_change = None
+                else:
+                    oldcomponent = yield self.componentForUser()
+                    self.tr_change = iCalDiff(oldcomponent, component, False).timeRangeDifference()
+
+
             # Always do the per-user data merge right before we store
             component = (yield self.mergePerUserData(component, inserting))
 
@@ -3162,8 +3176,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             category = ChangeCategory.inbox
         elif internal_state == ComponentUpdateState.ORGANIZER_ITIP_UPDATE:
             category = ChangeCategory.organizerITIPUpdate
-        elif (internal_state == ComponentUpdateState.ATTENDEE_ITIP_UPDATE and
-            hasattr(self._txn, "doing_attendee_refresh")):
+        elif (
+            internal_state == ComponentUpdateState.ATTENDEE_ITIP_UPDATE and
+            hasattr(self._txn, "doing_attendee_refresh")
+        ):
             category = ChangeCategory.attendeeITIPUpdate
 
         yield self._calendar.notifyChanged(category=category)
@@ -3201,7 +3217,12 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # In some cases there is no need to remove/rebuild the instance index because we know no time or
         # freebusy related properties have changed (e.g. an attendee reply and refresh). In those cases
         # the component will have a special attribute present to let us know to suppress the instance indexing.
-        instanceIndexingRequired = not getattr(component, "noInstanceIndexing", False) or inserting or reCreate
+        if inserting or reCreate:
+            instanceIndexingRequired = True
+        elif getattr(component, "noInstanceIndexing", False):
+            instanceIndexingRequired = False
+        else:
+            instanceIndexingRequired = getattr(self, "tr_change", True) in (None, True)
         instances = None
 
         if instanceIndexingRequired:
@@ -3276,7 +3297,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
             # Now coerce indexing to off if needed
             if not doInstanceIndexing:
-                #instances = None # used by removeOldEventGroupLink() call at end
+                # instances = None # used by removeOldEventGroupLink() call at end
                 recurrenceLowerLimit = None
                 recurrenceLimit = DateTime(1900, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
 
@@ -3514,8 +3535,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 self.log.error(
                     "Calendar data id={0} had unfixable problems:\n  {1}".format(
                         self._resourceID, "\n  ".join(unfixed),
-                        )
                     )
+                )
 
             if fixed:
                 self.log.error(
@@ -3695,8 +3716,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         txn = txn if txn is not None else self._txn
 
         rMin, rMax = (
-            yield self._recurrenceMinMaxByIDQuery.on(txn,
-                                         resourceID=self._resourceID)
+            yield self._recurrenceMinMaxByIDQuery.on(txn, resourceID=self._resourceID)
         )[0]
         returnValue((
             parseSQLDateToPyCalendar(rMin) if rMin is not None else None,
@@ -4535,7 +4555,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 returnValue(None)
 
             # Check it is still split-able
-            will = (yield  cobj.willSplit())
+            will = (yield cobj.willSplit())
 
             if will:
                 # Now do the spitting
@@ -4606,8 +4626,7 @@ class AttachmentStorageTransport(StorageTransportBase):
         # prevented from committing successfully.  It's not valid to have an
         # attachment that doesn't point to a real file.
 
-        home = (yield self._txn.calendarHomeWithResourceID(
-                    self._attachment._ownerHomeID))
+        home = (yield self._txn.calendarHomeWithResourceID(self._attachment._ownerHomeID))
 
         oldSize = self._attachment.size()
         newSize = self._file.tell()
@@ -4691,7 +4710,7 @@ class Attachment(object):
         att = schema.ATTACHMENT
         if self._dropboxID:
             where = (att.DROPBOX_ID == self._dropboxID).And(
-                   att.PATH == self._name)
+                att.PATH == self._name)
         else:
             where = (att.ATTACHMENT_ID == self._attachmentID)
         rows = (yield Select(
@@ -5399,7 +5418,7 @@ class ManagedAttachment(Attachment):
         yield Delete(
             From=attco,
             Where=(attco.ATTACHMENT_ID == self._attachmentID).And(
-                   attco.CALENDAR_OBJECT_RESOURCE_ID == resourceID),
+                attco.CALENDAR_OBJECT_RESOURCE_ID == resourceID),
         ).on(self._txn)
 
         # References still exist - if not remove actual attachment
