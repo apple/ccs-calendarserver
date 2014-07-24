@@ -58,8 +58,8 @@ class SyncTest(HTTPTestBase):
     A sync operation
     """
 
-    def __init__(self, label, sessions, logFilePath, full, count):
-        super(SyncTest, self).__init__(label, sessions, logFilePath)
+    def __init__(self, label, sessions, logFilePath, logFilePrefix, full, count):
+        super(SyncTest, self).__init__(label, sessions, logFilePath, logFilePrefix)
         self.full = full
         self.count = count
         self.synctoken = ""

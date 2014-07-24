@@ -26,8 +26,8 @@ class MultigetTest(HTTPTestBase):
     A multiget operation
     """
 
-    def __init__(self, label, sessions, logFilePath, count):
-        super(MultigetTest, self).__init__(label, sessions, logFilePath)
+    def __init__(self, label, sessions, logFilePath, logFilePrefix, count):
+        super(MultigetTest, self).__init__(label, sessions, logFilePath, logFilePrefix)
         self.count = count
 
 

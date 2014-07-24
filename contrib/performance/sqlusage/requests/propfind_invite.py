@@ -26,8 +26,8 @@ class PropfindInviteTest(HTTPTestBase):
     A propfind operation
     """
 
-    def __init__(self, label, sessions, logFilePath, depth=1):
-        super(PropfindInviteTest, self).__init__(label, sessions, logFilePath)
+    def __init__(self, label, sessions, logFilePath, logFilePrefix, depth=1):
+        super(PropfindInviteTest, self).__init__(label, sessions, logFilePath, logFilePrefix)
         self.depth = headers.Depth1 if depth == 1 else headers.Depth0
 
 

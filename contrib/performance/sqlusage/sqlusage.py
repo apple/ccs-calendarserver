@@ -115,15 +115,16 @@ class EventSQLUsage(object):
 
         # Set of requests to execute
         requests = [
-            MultigetTest("mget-1" if self.compact else "multiget-1", sessions, self.logFilePath, 1),
-            MultigetTest("mget-50" if self.compact else "multiget-50", sessions, self.logFilePath, 50),
-            PropfindTest("prop-cal" if self.compact else "propfind-cal", sessions, self.logFilePath, 1),
-            SyncTest("s-full" if self.compact else "sync-full", sessions, self.logFilePath, True, 0),
-            SyncTest("s-1" if self.compact else "sync-1", sessions, self.logFilePath, False, 1),
-            QueryTest("q-1" if self.compact else "query-1", sessions, self.logFilePath, 1),
-            QueryTest("q-10" if self.compact else "query-10", sessions, self.logFilePath, 10),
-            PutTest("put", sessions, self.logFilePath),
-            InviteTest("invite", sessions, self.logFilePath),
+            MultigetTest("mget-1" if self.compact else "multiget-1", sessions, self.logFilePath, "event", 1),
+            MultigetTest("mget-50" if self.compact else "multiget-50", sessions, self.logFilePath, "event", 50),
+            PropfindTest("prop-cal" if self.compact else "propfind-cal", sessions, self.logFilePath, "event", 1),
+            SyncTest("s-full" if self.compact else "sync-full", sessions, self.logFilePath, "event", True, 0),
+            SyncTest("s-1" if self.compact else "sync-1", sessions, self.logFilePath, "event", False, 1),
+            QueryTest("q-1" if self.compact else "query-1", sessions, self.logFilePath, "event", 1),
+            QueryTest("q-10" if self.compact else "query-10", sessions, self.logFilePath, "event", 10),
+            PutTest("put", sessions, self.logFilePath, "event"),
+            InviteTest("invite-1", sessions, self.logFilePath, "event", 1),
+            InviteTest("invite-5", sessions, self.logFilePath, "event", 5),
         ]
         self.requestLabels = [request.label for request in requests]
 
@@ -221,14 +222,14 @@ class SharerSQLUsage(object):
 
         # Set of requests to execute
         requests = [
-            MultigetTest("mget-1" if self.compact else "multiget-1", sessions, self.logFilePath, 1),
-            MultigetTest("mget-50" if self.compact else "multiget-50", sessions, self.logFilePath, 50),
-            PropfindInviteTest("propfind", sessions, self.logFilePath, 1),
-            SyncTest("s-full" if self.compact else "sync-full", sessions, self.logFilePath, True, 0),
-            SyncTest("s-1" if self.compact else "sync-1", sessions, self.logFilePath, False, 1),
-            QueryTest("q-1" if self.compact else "query-1", sessions, self.logFilePath, 1),
-            QueryTest("q-10" if self.compact else "query-10", sessions, self.logFilePath, 10),
-            PutTest("put", sessions, self.logFilePath),
+            MultigetTest("mget-1" if self.compact else "multiget-1", sessions, self.logFilePath, "share", 1),
+            MultigetTest("mget-50" if self.compact else "multiget-50", sessions, self.logFilePath, "share", 50),
+            PropfindInviteTest("propfind", sessions, self.logFilePath, "share", 1),
+            SyncTest("s-full" if self.compact else "sync-full", sessions, self.logFilePath, "share", True, 0),
+            SyncTest("s-1" if self.compact else "sync-1", sessions, self.logFilePath, "share", False, 1),
+            QueryTest("q-1" if self.compact else "query-1", sessions, self.logFilePath, "share", 1),
+            QueryTest("q-10" if self.compact else "query-10", sessions, self.logFilePath, "share", 10),
+            PutTest("put", sessions, self.logFilePath, "share"),
         ]
         self.requestLabels = [request.label for request in requests]
 
@@ -333,8 +334,8 @@ if __name__ == '__main__':
 
     server = "localhost"
     port = 8008
-    users = ("user01", "user02",)
-    pswds = ("user01", "user02",)
+    users = ("user01", "user02", "user03", "user04", "user05", "user06",)
+    pswds = ("user01", "user02", "user03", "user04", "user05", "user06",)
     file = "sqlstats.logs"
     event_counts = EVENT_COUNTS
     sharee_counts = SHAREE_COUNTS
