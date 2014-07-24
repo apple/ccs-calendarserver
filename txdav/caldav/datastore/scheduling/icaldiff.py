@@ -692,7 +692,7 @@ class iCalDiff(object):
         return partstatChanged
 
 
-    def whatIsDifferent(self):
+    def whatIsDifferent(self, isiTip=True):
         """
         Compare the two calendar objects in their entirety and return a list of properties
         and PARTSTAT parameters that are different.
@@ -721,7 +721,7 @@ class iCalDiff(object):
         for key in (oldset & newset):
             component1 = oldmap[key]
             component2 = newmap[key]
-            self._diffComponents(component1, component2, rids)
+            self._diffComponents(component1, component2, rids, isiTip)
 
         # Now verify that each additional component in oldset matches a derived component in newset
         for key in oldset - newset:
@@ -729,7 +729,7 @@ class iCalDiff(object):
             newcomponent = self.newcalendar.deriveInstance(key[2])
             if newcomponent is None:
                 continue
-            self._diffComponents(oldcomponent, newcomponent, rids)
+            self._diffComponents(oldcomponent, newcomponent, rids, isiTip)
 
         # Now verify that each additional component in oldset matches a derived component in newset
         for key in newset - oldset:
@@ -737,24 +737,59 @@ class iCalDiff(object):
             if oldcomponent is None:
                 continue
             newcomponent = newmap[key]
-            self._diffComponents(oldcomponent, newcomponent, rids)
+            self._diffComponents(oldcomponent, newcomponent, rids, isiTip)
 
         return rids
 
 
-    def _componentDuplicateAndNormalize(self, comp):
+    TRPROPS = frozenset((
+        "DTSTART",
+        "DTEND",
+        "DURATION",
+        "DUE",
+        "RECURRENCE-ID",
+        "RRULE",
+        "RDATE",
+        "EXDATE",
+        "STATUS",
+        "TRANSP",
+        "X-APPLE-TRAVEL-START",
+        "X-APPLE-TRAVEL-DURATION",
+        "X-APPLE-TRAVEL-RETURN",
+        "X-APPLE-TRAVEL-RETURN-DURATION",
+    ))
+
+    def timeRangeDifference(self):
+        """
+        Is there a difference between the two components that implies a change to the time or
+        transparency/status of any instance.
+
+        @return: L{True} if there is such a change, L{False} otherwise
+        @rtype: L{bool}
+        """
+
+        for props in self.whatIsDifferent(isiTip=False).values():
+            props = frozenset(props.keys())
+            if props & self.TRPROPS:
+                return True
+        else:
+            return False
+
+
+    def _componentDuplicateAndNormalize(self, comp, isiTip=True):
         comp = comp.duplicate()
         comp.normalizePropertyValueLists("EXDATE")
-        comp.removePropertyParameters("ORGANIZER", ("SCHEDULE-STATUS",))
-        comp.removePropertyParameters("ATTENDEE", ("SCHEDULE-STATUS", "SCHEDULE-FORCE-SEND",))
         comp.removeAlarms()
         comp.normalizeAll()
         comp.normalizeAttachments()
-        iTipGenerator.prepareSchedulingMessage(comp, reply=True)
+        if isiTip:
+            comp.removePropertyParameters("ORGANIZER", ("SCHEDULE-STATUS",))
+            comp.removePropertyParameters("ATTENDEE", ("SCHEDULE-STATUS", "SCHEDULE-FORCE-SEND",))
+            iTipGenerator.prepareSchedulingMessage(comp, reply=True)
         return comp
 
 
-    def _diffComponents(self, comp1, comp2, rids):
+    def _diffComponents(self, comp1, comp2, rids, isiTip=True):
 
         assert isinstance(comp1, Component) and isinstance(comp2, Component)
 
@@ -763,8 +798,8 @@ class iCalDiff(object):
             return
 
         # Duplicate then normalize for comparison
-        comp1 = self._componentDuplicateAndNormalize(comp1)
-        comp2 = self._componentDuplicateAndNormalize(comp2)
+        comp1 = self._componentDuplicateAndNormalize(comp1, isiTip)
+        comp2 = self._componentDuplicateAndNormalize(comp2, isiTip)
 
         # Diff all the properties
         propdiff = set(comp1.properties()) ^ set(comp2.properties())
@@ -773,7 +808,6 @@ class iCalDiff(object):
         propsChanged = {}
         for prop in propdiff:
             if prop.name() in (
-                "TRANSP",
                 "DTSTAMP",
                 "CREATED",
                 "LAST-MODIFIED",

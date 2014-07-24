@@ -58,6 +58,7 @@ from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.memcacher import Memcacher
 
 from txdav.base.propertystore.base import PropertyName
+from txdav.caldav.datastore.scheduling.icaldiff import iCalDiff
 from txdav.caldav.datastore.scheduling.icalsplitter import iCalSplitter
 from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
 from txdav.caldav.datastore.util import AttachmentRetrievalTransport, \
@@ -1746,7 +1747,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def preservePrivateComments(self, component, inserting):
+    def preservePrivateComments(self, component, inserting, internal_state):
         """
         Check for private comments on the old resource and the new resource and re-insert
         ones that are lost.
@@ -1765,7 +1766,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 "X-CALENDARSERVER-ATTENDEE-COMMENT",
             ))
 
-            if old_has_private_comments and not new_has_private_comments:
+            if old_has_private_comments and not new_has_private_comments and internal_state == ComponentUpdateState.NORMAL:
                 # Transfer old comments to new calendar
                 log.debug("Organizer private comment properties were entirely removed by the client. Restoring existing properties.")
                 old_calendar = (yield self.componentForUser())
@@ -1779,7 +1780,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # to raise an error to prevent that so the client bugs can be tracked down.
 
             # Look for properties with duplicate "X-CALENDARSERVER-ATTENDEE-REF" values in the same component
-            if component.hasDuplicatePrivateComments(doFix=config.RemoveDuplicatePrivateComments):
+            if component.hasDuplicatePrivateComments(doFix=config.RemoveDuplicatePrivateComments) and internal_state == ComponentUpdateState.NORMAL:
                 raise DuplicatePrivateCommentsError("Duplicate X-CALENDARSERVER-ATTENDEE-COMMENT properties present.")
 
 
@@ -2196,7 +2197,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 self.validAccess(component, inserting, internal_state)
 
             # Preserve private comments
-            yield self.preservePrivateComments(component, inserting)
+            yield self.preservePrivateComments(component, inserting, internal_state)
 
             managed_copied, managed_removed = (yield self.resourceCheckAttachments(component, inserting))
 
@@ -2215,7 +2216,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             yield self._lockUID(component, inserting, internal_state)
 
             # Preserve private comments
-            yield self.preservePrivateComments(component, inserting)
+            yield self.preservePrivateComments(component, inserting, internal_state)
 
             # Fix broken VTODOs
             yield self.replaceMissingToDoProperties(component, inserting, internal_state)
@@ -2258,6 +2259,13 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     component = new_component
                 if did_implicit_action:
                     self._componentChanged = True
+
+            if not hasattr(self, "tr_change"):
+                if inserting or hasattr(component, "noInstanceIndexing") or not config.FreeBusyIndexSmartUpdate:
+                    self.tr_change = None
+                else:
+                    oldcomponent = yield self.componentForUser()
+                    self.tr_change = iCalDiff(oldcomponent, component, False).timeRangeDifference()
 
             # Always do the per-user data merge right before we store
             component = (yield self.mergePerUserData(component, inserting))
@@ -2331,7 +2339,12 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # In some cases there is no need to remove/rebuild the instance index because we know no time or
         # freebusy related properties have changed (e.g. an attendee reply and refresh). In those cases
         # the component will have a special attribute present to let us know to suppress the instance indexing.
-        instanceIndexingRequired = not getattr(component, "noInstanceIndexing", False) or inserting or reCreate
+        if inserting or reCreate:
+            instanceIndexingRequired = True
+        elif getattr(component, "noInstanceIndexing", False):
+            instanceIndexingRequired = False
+        else:
+            instanceIndexingRequired = getattr(self, "tr_change", True) in (None, True)
 
         if instanceIndexingRequired:
 

@@ -1012,6 +1012,7 @@ DEFAULT_CONFIG = {
     "FreeBusyIndexExpandAheadDays": 365,
     "FreeBusyIndexExpandMaxDays": 5 * 365,
     "FreeBusyIndexDelayedExpand": True,
+    "FreeBusyIndexSmartUpdate": True,
 
     # The RootResource uses a twext property store. Specify the class here
     "RootResourcePropStoreClass": "twext.web2.dav.xattrprops.xattrPropertyStore",
