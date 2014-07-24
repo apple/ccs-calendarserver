@@ -170,14 +170,14 @@ def buildDirectory(homes=None):
     directory.addRecord(TestCalendarStoreDirectoryRecord(
         "il1", ("il1",), "1 Infinite Loop", [],
         extras={
-            "geo" : "37.331741,-122.030333",
+            "geo" : "geo:37.331741,-122.030333",
             "streetAddress" : "1 Infinite Loop, Cupertino, CA 95014",
         }
     ))
     directory.addRecord(TestCalendarStoreDirectoryRecord(
         "il2", ("il2",), "2 Infinite Loop", [],
         extras={
-            "geo" : "37.332633,-122.030502",
+            "geo" : "geo:37.332633,-122.030502",
             "streetAddress" : "2 Infinite Loop, Cupertino, CA 95014",
         }
     ))
