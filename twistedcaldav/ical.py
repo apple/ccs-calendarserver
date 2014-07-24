@@ -180,7 +180,7 @@ class Property (object):
             values are (possibly empty) lists of parameter values.
         """
         if name is None:
-            assert value  is None
+            assert value is None
             assert params is None
 
             pyobj = kwargs["pycalendar"]
@@ -3227,7 +3227,7 @@ END:VCALENDAR
 
             timeRange = Period(
                 start=dtstart.value(),
-                end=dtend.value()    if dtend is not None else None,
+                end=dtend.value() if dtend is not None else None,
                 duration=duration.value() if duration is not None else None,
             )
 

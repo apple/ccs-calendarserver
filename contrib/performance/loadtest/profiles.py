@@ -216,11 +216,11 @@ class Inviter(ProfileBase):
             name=u'ATTENDEE',
             value=cuaddr.encode("utf-8"),
             params={
-            'CN': record.commonName,
-            'CUTYPE': 'INDIVIDUAL',
-            'PARTSTAT': 'NEEDS-ACTION',
-            'ROLE': 'REQ-PARTICIPANT',
-            'RSVP': 'TRUE',
+                'CN': record.commonName,
+                'CUTYPE': 'INDIVIDUAL',
+                'PARTSTAT': 'NEEDS-ACTION',
+                'ROLE': 'REQ-PARTICIPANT',
+                'RSVP': 'TRUE',
             },
         )
 
@@ -368,11 +368,11 @@ END:VCALENDAR
             name=u'ATTENDEE',
             value=cuaddr.encode("utf-8"),
             params={
-            'CN': record.commonName,
-            'CUTYPE': 'INDIVIDUAL',
-            'PARTSTAT': 'NEEDS-ACTION',
-            'ROLE': 'REQ-PARTICIPANT',
-            'RSVP': 'TRUE',
+                'CN': record.commonName,
+                'CUTYPE': 'INDIVIDUAL',
+                'PARTSTAT': 'NEEDS-ACTION',
+                'ROLE': 'REQ-PARTICIPANT',
+                'RSVP': 'TRUE',
             },
         )
 
@@ -741,7 +741,7 @@ class OperationLogger(SummarizingMixin):
         u"start" : u"%(user)s - - - - - - - - - - - %(label)8s BEGIN %(lag)s",
         u"end"   : u"%(user)s - - - - - - - - - - - %(label)8s END [%(duration)5.2f s]",
         u"failed": u"%(user)s x x x x x x x x x x x %(label)8s FAILED %(reason)s",
-        }
+    }
 
     lagFormat = u'{lag %5.2f ms}'
 
@@ -831,12 +831,14 @@ class OperationLogger(SummarizingMixin):
     def report(self, output):
         output.write("\n")
         self.printHeader(output, [
-                (label, width)
-                for (label, width, _ignore_fmt)
-                in self._fields])
-        self.printData(output,
+            (label, width)
+            for (label, width, _ignore_fmt) in self._fields
+        ])
+        self.printData(
+            output,
             [fmt for (label, width, fmt) in self._fields],
-            sorted(self._perOperationTimes.items()))
+            sorted(self._perOperationTimes.items())
+        )
 
     _LATENCY_REASON = "Median %(operation)s scheduling lag greater than %(cutoff)sms"
     _FAILED_REASON = "Greater than %(cutoff).0f%% %(operation)s failed"
@@ -847,12 +849,12 @@ class OperationLogger(SummarizingMixin):
         for operation, lags in self._perOperationLags.iteritems():
             if median(lags) > self._lag_cut_off:
                 reasons.append(self._LATENCY_REASON % dict(
-                        operation=operation.upper(), cutoff=self._lag_cut_off * 1000))
+                    operation=operation.upper(), cutoff=self._lag_cut_off * 1000))
 
         for operation, times in self._perOperationTimes.iteritems():
             failures = len([success for (success, _ignore_duration) in times if not success])
             if failures * 100.0 / len(times) > self._fail_cut_off:
                 reasons.append(self._FAILED_REASON % dict(
-                        operation=operation.upper(), cutoff=self._fail_cut_off))
+                    operation=operation.upper(), cutoff=self._fail_cut_off))
 
         return reasons

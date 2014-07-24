@@ -739,8 +739,10 @@ class ScheduleRefreshWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REFRESH_W
         rows = (yield Select(
             (srw.WORK_ID,),
             From=srw,
-            Where=(srw.HOME_RESOURCE_ID == self.homeResourceID).And(
-                   srw.RESOURCE_ID == self.resourceID),
+            Where=(
+                srw.HOME_RESOURCE_ID == self.homeResourceID).And(
+                srw.RESOURCE_ID == self.resourceID
+            ),
         ).on(self.transaction))
         if rows:
             log.debug("Schedule refresh for resource-id: {rid} - ignored", rid=self.resourceID)
@@ -876,7 +878,8 @@ class ScheduleAutoReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_AUTO_RE
         log.debug("ScheduleAutoReplyWork - running for ID: {id}, UID: {uid}", id=self.workID, uid=self.icalendarUid)
 
         # Delete all other work items with the same pushID
-        yield Delete(From=self.table,
+        yield Delete(
+            From=self.table,
             Where=self.table.RESOURCE_ID == self.resourceID
         ).on(self.transaction)
 
