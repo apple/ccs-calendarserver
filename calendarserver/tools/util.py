@@ -215,7 +215,7 @@ class UsageError (StandardError):
 
 
 def booleanArgument(arg):
-    if   arg in ("true", "yes", "yup", "uh-huh", "1", "t", "y"):
+    if arg in ("true", "yes", "yup", "uh-huh", "1", "t", "y"):
         return True
     elif arg in ("false", "no", "nope", "nuh-uh", "0", "f", "n"):
         return False
@@ -312,14 +312,12 @@ def checkDirectory(dirpath, description, access=None, create=None, wait=False):
                 os.chmod(dirpath, mode)
                 os.chown(dirpath, uid, gid)
             except (OSError, IOError), e:
-                print("Unable to change mode/owner of %s: %s"
-                               % (dirpath, e))
+                print("Unable to change mode/owner of %s: %s" % (dirpath, e))
 
             print("Created directory: %s" % (dirpath,))
 
     if not os.path.isdir(dirpath):
-        raise ConfigurationError("%s is not a directory: %s"
-                                 % (description, dirpath))
+        raise ConfigurationError("%s is not a directory: %s" % (description, dirpath))
 
     if access and not os.access(dirpath, access):
         raise ConfigurationError(
@@ -340,8 +338,10 @@ def principalForPrincipalID(principalID, checkOnly=False, directory=None):
 
     if principalID.startswith("/"):
         segments = principalID.strip("/").split("/")
-        if (len(segments) == 3 and
-            segments[0] == "principals" and segments[1] == "__uids__"):
+        if (
+            len(segments) == 3 and
+            segments[0] == "principals" and segments[1] == "__uids__"
+        ):
             uid = segments[2]
         else:
             raise ValueError("Can't resolve all paths yet")
@@ -396,8 +396,10 @@ def recordForPrincipalID(directory, principalID, checkOnly=False):
 
     if principalID.startswith("/"):
         segments = principalID.strip("/").split("/")
-        if (len(segments) == 3 and
-            segments[0] == "principals" and segments[1] == "__uids__"):
+        if (
+            len(segments) == 3 and
+            segments[0] == "principals" and segments[1] == "__uids__"
+        ):
             uid = segments[2]
         else:
             raise ValueError("Can't resolve all paths yet")
@@ -468,8 +470,10 @@ def action_addProxyPrincipal(rootResource, directory, store, principal, proxyTyp
 @inlineCallbacks
 def action_removeProxyPrincipal(rootResource, directory, store, principal, proxyPrincipal, **kwargs):
     try:
-        removed = (yield removeProxy(rootResource, directory, store,
-            principal, proxyPrincipal, **kwargs))
+        removed = (yield removeProxy(
+            rootResource, directory, store,
+            principal, proxyPrincipal, **kwargs
+        ))
         if removed:
             print("Removed %s as a proxy for %s" % (
                 prettyPrincipal(proxyPrincipal),
@@ -487,8 +491,12 @@ def addProxy(rootResource, directory, store, principal, proxyType, proxyPrincipa
 
     subPrincipal = proxySubprincipal(principal, proxyType)
     if subPrincipal is None:
-        raise ProxyError("Unable to edit %s proxies for %s\n" % (proxyType,
-            prettyPrincipal(principal)))
+        raise ProxyError(
+            "Unable to edit %s proxies for %s\n" % (
+                proxyType,
+                prettyPrincipal(principal)
+            )
+        )
 
     membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
 
@@ -507,13 +515,15 @@ def addProxy(rootResource, directory, store, principal, proxyType, proxyPrincipa
     proxyTypes = ["read", "write"]
     proxyTypes.remove(proxyType)
 
-    (yield action_removeProxyPrincipal(rootResource, directory, store,
-        principal, proxyPrincipal, proxyTypes=proxyTypes))
+    yield action_removeProxyPrincipal(
+        rootResource, directory, store,
+        principal, proxyPrincipal, proxyTypes=proxyTypes
+    )
 
     # Schedule work the PeerConnectionPool will pick up as overdue
     def groupPollNow(txn):
         return GroupCacherPollingWork.reschedule(txn, 0, force=True)
-    yield store.inTransaction(groupPollNow)
+    yield store.inTransaction("addProxy groupPollNow", groupPollNow)
 
 
 
@@ -526,8 +536,12 @@ def removeProxy(rootResource, directory, store, principal, proxyPrincipal, **kwa
 
         subPrincipal = proxySubprincipal(principal, proxyType)
         if subPrincipal is None:
-            raise ProxyError("Unable to edit %s proxies for %s\n" % (proxyType,
-                prettyPrincipal(principal)))
+            raise ProxyError(
+                "Unable to edit %s proxies for %s\n" % (
+                    proxyType,
+                    prettyPrincipal(principal)
+                )
+            )
 
         membersProperty = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
 
@@ -549,7 +563,7 @@ def removeProxy(rootResource, directory, store, principal, proxyPrincipal, **kwa
         # Schedule work the PeerConnectionPool will pick up as overdue
         def groupPollNow(txn):
             return GroupCacherPollingWork.reschedule(txn, 0, force=True)
-        yield store.inTransaction(groupPollNow)
+        yield store.inTransaction("removeProxy groupPollNow", groupPollNow)
     returnValue(removed)
 
 

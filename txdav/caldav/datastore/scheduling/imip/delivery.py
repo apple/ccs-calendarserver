@@ -19,7 +19,6 @@
 Handles the sending of scheduling messages via iMIP (mail gateway).
 """
 
-from twext.enterprise.jobqueue import inTransaction
 from twext.python.log import Logger
 from txweb2 import responsecode
 from txweb2.dav.http import ErrorResponse
@@ -111,13 +110,14 @@ class ScheduleViaIMip(DeliveryService):
                     )
 
                     def enqueueOp(txn):
-                        return txn.enqueue(IMIPInvitationWork, fromAddr=fromAddr,
-                            toAddr=toAddr, icalendarText=caldata)
+                        return txn.enqueue(
+                            IMIPInvitationWork, fromAddr=fromAddr,
+                            toAddr=toAddr, icalendarText=caldata
+                        )
 
-                    yield inTransaction(
-                        lambda: self.scheduler.txn.store().newTransaction(
-                            "Submitting iMIP message for UID: {}".format(
-                            self.scheduler.calendar.resourceUID(),)),
+                    yield self.scheduler.txn.store().inTransaction(
+                        "Submitting iMIP message for UID: {}".format(
+                            self.scheduler.calendar.resourceUID(),),
                         enqueueOp
                     )
 
