@@ -167,6 +167,9 @@ class CalendarClientSimulatorTests(TestCase):
                 self._runResult = runResult
                 self.enabled = True
 
+            def initialize(self):
+                return succeed(None)
+
             def run(self):
                 return self._runResult
 
