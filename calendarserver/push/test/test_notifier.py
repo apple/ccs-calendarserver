@@ -36,8 +36,10 @@ class StubService(object):
         self.history = []
 
 
-    def enqueue(self, transaction, id, dataChangedTimestamp=None,
-        priority=None):
+    def enqueue(
+        self, transaction, id, dataChangedTimestamp=None,
+        priority=None
+    ):
         self.history.append((id, priority))
         return(succeed(None))
 
@@ -95,8 +97,10 @@ class StubDistributor(object):
         self.history = []
 
 
-    def enqueue(self, transaction, pushID, dataChangedTimestamp=None,
-        priority=None):
+    def enqueue(
+        self, transaction, pushID, dataChangedTimestamp=None,
+        priority=None
+    ):
         self.history.append((pushID, priority))
         return(succeed(None))
 
@@ -117,61 +121,75 @@ class PushNotificationWorkTests(StoreTestCase):
         self._sqlCalendarStore.callWithNewTransactions(decorateTransaction)
 
         txn = self._sqlCalendarStore.newTransaction()
-        yield txn.enqueue(PushNotificationWork,
+        yield txn.enqueue(
+            PushNotificationWork,
             pushID="/CalDAV/localhost/foo/",
             pushPriority=PushPriority.high.value
         )
         yield txn.commit()
         yield JobItem.waitEmpty(self.storeUnderTest().newTransaction, reactor, 60)
-        self.assertEquals(pushDistributor.history,
+        self.assertEquals(
+            pushDistributor.history,
             [("/CalDAV/localhost/foo/", PushPriority.high)])
 
         pushDistributor.reset()
         txn = self._sqlCalendarStore.newTransaction()
-        yield txn.enqueue(PushNotificationWork,
+        yield txn.enqueue(
+            PushNotificationWork,
             pushID="/CalDAV/localhost/bar/",
             pushPriority=PushPriority.high.value
         )
-        yield txn.enqueue(PushNotificationWork,
+        yield txn.enqueue(
+            PushNotificationWork,
             pushID="/CalDAV/localhost/bar/",
             pushPriority=PushPriority.high.value
         )
-        yield txn.enqueue(PushNotificationWork,
+        yield txn.enqueue(
+            PushNotificationWork,
             pushID="/CalDAV/localhost/bar/",
             pushPriority=PushPriority.high.value
         )
         # Enqueue a different pushID to ensure those are not grouped with
         # the others:
-        yield txn.enqueue(PushNotificationWork,
+        yield txn.enqueue(
+            PushNotificationWork,
             pushID="/CalDAV/localhost/baz/",
             pushPriority=PushPriority.high.value
         )
 
         yield txn.commit()
         yield JobItem.waitEmpty(self.storeUnderTest().newTransaction, reactor, 60)
-        self.assertEquals(set(pushDistributor.history),
-            set([("/CalDAV/localhost/bar/", PushPriority.high),
-             ("/CalDAV/localhost/baz/", PushPriority.high)]))
+        self.assertEquals(
+            set(pushDistributor.history),
+            set([
+                ("/CalDAV/localhost/bar/", PushPriority.high),
+                ("/CalDAV/localhost/baz/", PushPriority.high)
+            ])
+        )
 
         # Ensure only the high-water-mark priority push goes out, by
         # enqueuing low, medium, and high notifications
         pushDistributor.reset()
         txn = self._sqlCalendarStore.newTransaction()
-        yield txn.enqueue(PushNotificationWork,
+        yield txn.enqueue(
+            PushNotificationWork,
             pushID="/CalDAV/localhost/bar/",
             pushPriority=PushPriority.low.value
         )
-        yield txn.enqueue(PushNotificationWork,
+        yield txn.enqueue(
+            PushNotificationWork,
             pushID="/CalDAV/localhost/bar/",
             pushPriority=PushPriority.high.value
         )
-        yield txn.enqueue(PushNotificationWork,
+        yield txn.enqueue(
+            PushNotificationWork,
             pushID="/CalDAV/localhost/bar/",
             pushPriority=PushPriority.medium.value
         )
         yield txn.commit()
         yield JobItem.waitEmpty(self.storeUnderTest().newTransaction, reactor, 60)
-        self.assertEquals(pushDistributor.history,
+        self.assertEquals(
+            pushDistributor.history,
             [("/CalDAV/localhost/bar/", PushPriority.high)])
 
 
@@ -205,7 +223,8 @@ class NotifierFactory(StoreTestCase):
 
         home = yield self.homeUnderTest(name="user01")
         yield home.notifyChanged(category=ChangeCategory.default)
-        self.assertEquals(self.notifierFactory.history,
+        self.assertEquals(
+            self.notifierFactory.history,
             [("/CalDAV/example.com/user01/", PushPriority.high)])
         yield self.commit()
 

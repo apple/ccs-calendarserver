@@ -185,8 +185,8 @@ def parseStats(logFilePath, donormlize=True, verbose=False):
                 entries.append(bits)
                 if verbose and divmod(len(entries), 1000)[1] == 0:
                     print("%d entries" % (len(entries),))
-                #if float(bits[COLUMN_total_time]) > 1:
-                #    print(bits[COLUMN_total_time], bits[COLUMN_query])
+                # if float(bits[COLUMN_total_time]) > 1:
+                #     print(bits[COLUMN_total_time], bits[COLUMN_query])
 
     if verbose:
         print("Read %d entries" % (len(entries,)))

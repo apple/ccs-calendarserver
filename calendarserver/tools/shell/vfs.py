@@ -206,15 +206,15 @@ class Folder(File):
     @inlineCallbacks
     def child(self, name):
         # FIXME: Move this logic to locate()
-        #if not name:
-        #    return succeed(self)
-        #if name == ".":
-        #    return succeed(self)
-        #if name == "..":
-        #    path = self.path[:-1]
-        #    if not path:
-        #        path = "/"
-        #    return RootFolder(self.service).locate(path)
+        # if not name:
+        #     return succeed(self)
+        # if name == ".":
+        #     return succeed(self)
+        # if name == "..":
+        #     path = self.path[:-1]
+        #     if not path:
+        #         path = "/"
+        #     return RootFolder(self.service).locate(path)
 
         if name in self._children:
             returnValue(self._children[name])
@@ -736,7 +736,7 @@ class CalendarObject(File):
             organizerName = organizer.parameterValue("CN")
             organizerEmail = organizer.parameterValue("EMAIL")
 
-            name = " (%s)" % (organizerName ,) if organizerName  else ""
+            name = " (%s)" % (organizerName ,) if organizerName else ""
             email = " <%s>" % (organizerEmail,) if organizerEmail else ""
 
             rows.append(("Organizer", "%s%s%s" % (organizer.value(), name, email)))

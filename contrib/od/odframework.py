@@ -1,8 +1,10 @@
 import objc as _objc
 
-__bundle__ = _objc.initFrameworkWrapper("OpenDirectory",
+__bundle__ = _objc.initFrameworkWrapper(
+    "OpenDirectory",
     frameworkIdentifier="com.apple.OpenDirectory",
     frameworkPath=_objc.pathForFramework(
-    "/System/Library/Frameworks/OpenDirectory.framework"),
-    globals=globals())
-
+        "/System/Library/Frameworks/OpenDirectory.framework"
+    ),
+    globals=globals()
+)

@@ -85,12 +85,15 @@ class AMPPushForwarder(object):
 
 
     @inlineCallbacks
-    def enqueue(self, transaction, id, dataChangedTimestamp=None,
-        priority=PushPriority.high):
+    def enqueue(
+        self, transaction, id, dataChangedTimestamp=None,
+        priority=PushPriority.high
+    ):
         if dataChangedTimestamp is None:
             dataChangedTimestamp = int(time.time())
         for protocol in self.protocols:
-            yield protocol.callRemote(NotificationForID, id=id,
+            yield protocol.callRemote(
+                NotificationForID, id=id,
                 dataChangedTimestamp=dataChangedTimestamp,
                 priority=priority.value)
 
@@ -108,11 +111,14 @@ class AMPPushMasterListeningProtocol(amp.AMP):
 
 
     @NotificationForID.responder
-    def enqueueFromWorker(self, id, dataChangedTimestamp=None,
-        priority=PushPriority.high.value):
+    def enqueueFromWorker(
+        self, id, dataChangedTimestamp=None,
+        priority=PushPriority.high.value
+    ):
         if dataChangedTimestamp is None:
             dataChangedTimestamp = int(time.time())
-        self.master.enqueue(None, id, dataChangedTimestamp=dataChangedTimestamp,
+        self.master.enqueue(
+            None, id, dataChangedTimestamp=dataChangedTimestamp,
             priority=PushPriority.lookupByValue(priority))
         return {"status" : "OK"}
 
@@ -138,8 +144,10 @@ class AMPPushMaster(object):
     """
     log = Logger()
 
-    def __init__(self, controlSocket, parentService, port, enableStaggering,
-        staggerSeconds, reactor=None):
+    def __init__(
+        self, controlSocket, parentService, port, enableStaggering,
+        staggerSeconds, reactor=None
+    ):
         if reactor is None:
             from twisted.internet import reactor
         from twisted.application.strports import service as strPortsService
@@ -147,18 +155,21 @@ class AMPPushMaster(object):
         if port:
             # Service which listens for client subscriptions and sends
             # notifications to them
-            strPortsService(str(port), AMPPushNotifierFactory(self),
+            strPortsService(
+                str(port), AMPPushNotifierFactory(self),
                 reactor=reactor).setServiceParent(parentService)
 
         if controlSocket is not None:
             # Set up the listener which gets notifications from the slaves
-            controlSocket.addFactory(PUSH_ROUTE,
-                AMPPushMasterListenerFactory(self))
+            controlSocket.addFactory(
+                PUSH_ROUTE, AMPPushMasterListenerFactory(self)
+            )
 
         self.subscribers = []
 
         if enableStaggering:
-            self.scheduler = PushScheduler(reactor, self.sendNotification,
+            self.scheduler = PushScheduler(
+                reactor, self.sendNotification,
                 staggerSeconds=staggerSeconds)
         else:
             self.scheduler = None
@@ -174,8 +185,10 @@ class AMPPushMaster(object):
         self.subscribers.remove(p)
 
 
-    def enqueue(self, transaction, pushKey, dataChangedTimestamp=None,
-        priority=PushPriority.high):
+    def enqueue(
+        self, transaction, pushKey, dataChangedTimestamp=None,
+        priority=PushPriority.high
+    ):
         """
         Sends an AMP push notification to any clients subscribing to this pushKey.
 
@@ -200,7 +213,8 @@ class AMPPushMaster(object):
             if token is not None:
                 tokens.append(token)
         if tokens:
-            return self.scheduleNotifications(tokens, pushKey,
+            return self.scheduleNotifications(
+                tokens, pushKey,
                 dataChangedTimestamp, priority)
 
 
@@ -208,7 +222,8 @@ class AMPPushMaster(object):
     def sendNotification(self, token, id, dataChangedTimestamp, priority):
         for subscriber in self.subscribers:
             if subscriber.subscribedToID(id):
-                yield subscriber.notify(token, id, dataChangedTimestamp,
+                yield subscriber.notify(
+                    token, id, dataChangedTimestamp,
                     priority)
 
 
@@ -218,7 +233,8 @@ class AMPPushMaster(object):
             self.scheduler.schedule(tokens, id, dataChangedTimestamp, priority)
         else:
             for token in tokens:
-                yield self.sendNotification(token, id, dataChangedTimestamp,
+                yield self.sendNotification(
+                    token, id, dataChangedTimestamp,
                     priority)
 
 
@@ -252,7 +268,8 @@ class AMPPushNotifierProtocol(amp.AMP):
     def notify(self, token, id, dataChangedTimestamp, priority):
         if self.subscribedToID(id) == token:
             self.log.debug("Sending notification for %s to %s" % (id, token))
-            return self.callRemote(NotificationForID, id=id,
+            return self.callRemote(
+                NotificationForID, id=id,
                 dataChangedTimestamp=dataChangedTimestamp,
                 priority=priority.value)
 

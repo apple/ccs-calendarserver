@@ -78,16 +78,16 @@ def measure(host, port, dtrace, attendees, samples):
     method = 'POST'
     uri = 'http://%s:%d/calendars/__uids__/10000000-0000-0000-0000-000000000001/outbox/' % (host, port)
     headers = Headers({
-            "content-type": ["text/calendar"],
-            "originator": ["mailto:%s@example.com" % (user,)],
-            "recipient": [", ".join(["urn:x-uid:10000000-0000-0000-0000-000000000%03d" % (i,) for i in [userNumber] + targets])]})
+        "content-type": ["text/calendar"],
+        "originator": ["mailto:%s@example.com" % (user,)],
+        "recipient": [", ".join(["urn:x-uid:10000000-0000-0000-0000-000000000%03d" % (i,) for i in [userNumber] + targets])]})
     body = StringProducer(VFREEBUSY % {
-            "attendees": "".join([
-                    "ATTENDEE:urn:x-uid:10000000-0000-0000-0000-000000000%03d\n" % (i,)
-                    for i in [userNumber] + targets]),
-            "start": formatDate(baseTime.replace(hour=0, minute=0)) + 'Z',
-            "end": formatDate(
-                baseTime.replace(hour=0, minute=0) + timedelta(days=1)) + 'Z'})
+        "attendees": "".join([
+            "ATTENDEE:urn:x-uid:10000000-0000-0000-0000-000000000%03d\n" % (i,)
+            for i in [userNumber] + targets]),
+        "start": formatDate(baseTime.replace(hour=0, minute=0)) + 'Z',
+        "end": formatDate(
+            baseTime.replace(hour=0, minute=0) + timedelta(days=1)) + 'Z'})
 
     samples = yield sample(
         dtrace, samples,

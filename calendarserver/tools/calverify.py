@@ -170,7 +170,8 @@ def new_validRecurrenceIDs(self, doFix=True):
             brokenRID = brokenComponent.propertyValue("RECURRENCE-ID")
             if doFix:
                 master.addProperty(Property("RDATE", [brokenRID, ]))
-                fixed.append("Added RDATE for invalid occurrence: %s" %
+                fixed.append(
+                    "Added RDATE for invalid occurrence: %s" %
                     (brokenRID,))
             else:
                 unfixed.append("Invalid occurrence: %s" % (brokenRID,))
@@ -339,7 +340,7 @@ class CalVerifyOptions(Options):
         ['no-organizer', '', "Detect dark events without an organizer"],
         ['invalid-organizer', '', "Detect dark events with an organizer not in the directory"],
         ['disabled-organizer', '', "Detect dark events with a disabled organizer"],
-]
+    ]
 
     optParameters = [
         ['config', 'f', DEFAULT_CONFIG_FILE, "Specify caldavd.plist configuration path."],
@@ -478,11 +479,11 @@ class CalVerifyService(WorkerService, object):
 
         if inbox:
             cojoin = (cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
-                    cb.BIND_MODE == _BIND_MODE_OWN)
+                cb.BIND_MODE == _BIND_MODE_OWN)
         else:
             cojoin = (cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
-                    cb.BIND_MODE == _BIND_MODE_OWN).And(
-                    cb.CALENDAR_RESOURCE_NAME != "inbox")
+                cb.BIND_MODE == _BIND_MODE_OWN).And(
+                cb.CALENDAR_RESOURCE_NAME != "inbox")
 
         kwds = {}
         rows = (yield Select(
@@ -503,11 +504,11 @@ class CalVerifyService(WorkerService, object):
 
         if inbox:
             cojoin = (cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
-                    cb.BIND_MODE == _BIND_MODE_OWN)
+                cb.BIND_MODE == _BIND_MODE_OWN)
         else:
             cojoin = (cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
-                    cb.BIND_MODE == _BIND_MODE_OWN).And(
-                    cb.CALENDAR_RESOURCE_NAME != "inbox")
+                cb.BIND_MODE == _BIND_MODE_OWN).And(
+                cb.CALENDAR_RESOURCE_NAME != "inbox")
 
         kwds = {"uuid": uuid}
         if len(uuid) != 36:
@@ -558,11 +559,11 @@ class CalVerifyService(WorkerService, object):
 
         if inbox:
             cojoin = (cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
-                    cb.BIND_MODE == _BIND_MODE_OWN)
+                cb.BIND_MODE == _BIND_MODE_OWN)
         else:
             cojoin = (cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
-                    cb.BIND_MODE == _BIND_MODE_OWN).And(
-                    cb.CALENDAR_RESOURCE_NAME != "inbox")
+                cb.BIND_MODE == _BIND_MODE_OWN).And(
+                cb.CALENDAR_RESOURCE_NAME != "inbox")
 
         kwds = {
             "UID" : uid,
@@ -611,8 +612,8 @@ class CalVerifyService(WorkerService, object):
         tr = schema.TIME_RANGE
 
         cojoin = (cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
-                cb.BIND_MODE == _BIND_MODE_OWN).And(
-                cb.CALENDAR_RESOURCE_NAME != "inbox")
+            cb.BIND_MODE == _BIND_MODE_OWN).And(
+            cb.CALENDAR_RESOURCE_NAME != "inbox")
 
         kwds = {
             "Start" : pyCalendarTodatetime(start),
@@ -1543,7 +1544,7 @@ class SchedulingMismatchService(CalVerifyService):
                         eachAttendeesOwnStatus[organizerAttendee] = self.buildAttendeeStates(calendar, self.start, self.end, attendee_only=organizerAttendee)
                         attendeeResIDs[(organizerAttendee, uid)] = attresid
                         attendeeCreatedModified[organizerAttendee] = (att_created, att_modified,)
-                        #print("Reloaded missing attendee data")
+                        # print("Reloaded missing attendee data")
 
                 # If an entry for the attendee exists, then check whether attendee status matches
                 if organizerAttendee in eachAttendeesOwnStatus:
@@ -1708,8 +1709,8 @@ class SchedulingMismatchService(CalVerifyService):
                 rows = yield self.getAllResourceInfoWithUID(uid)
                 yield self.buildResourceInfo(rows, onlyOrganizer=True)
 
-                #if uid in self.organized_byuid:
-                #    print("Reloaded missing organizer data: %s" % (uid,))
+                # if uid in self.organized_byuid:
+                #     print("Reloaded missing organizer data: %s" % (uid,))
 
             if uid not in self.organized_byuid:
 

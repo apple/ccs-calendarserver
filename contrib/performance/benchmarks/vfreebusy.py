@@ -110,8 +110,8 @@ END:VEVENT
             'START': formatDate(base + i * interval),
             'END': formatDate(base + i * interval + duration),
             'SEQUENCE': i,
-            },
-        }
+        },
+    }
     return data.replace("\n", "\r\n")
 
 
@@ -149,17 +149,17 @@ def measure(host, port, dtrace, events, samples):
     method = 'POST'
     uri = 'http://%s:%d/calendars/__uids__/%s/outbox/' % (host, port, user)
     headers = Headers({
-            "content-type": ["text/calendar"],
-            "originator": ["mailto:%s@example.com" % (user,)],
-            "recipient": ["urn:x-uid:%s, urn:x-uid:10000000-0000-0000-0000-000000000002" % (uid,)]})
+        "content-type": ["text/calendar"],
+        "originator": ["mailto:%s@example.com" % (user,)],
+        "recipient": ["urn:x-uid:%s, urn:x-uid:10000000-0000-0000-0000-000000000002" % (uid,)]})
 
     vfb = VFREEBUSY % {
-            "attendees": "".join([
-                    "ATTENDEE:urn:x-uid:%s\n" % (uid,),
-                    "ATTENDEE:urn:x-uid:10000000-0000-0000-0000-000000000002\n"]),
-            "start": formatDate(baseTime.replace(hour=0, minute=0)) + 'Z',
-            "end": formatDate(
-                baseTime.replace(hour=0, minute=0) + timedelta(days=1)) + 'Z'}
+        "attendees": "".join([
+            "ATTENDEE:urn:x-uid:%s\n" % (uid,),
+            "ATTENDEE:urn:x-uid:10000000-0000-0000-0000-000000000002\n"]),
+        "start": formatDate(baseTime.replace(hour=0, minute=0)) + 'Z',
+        "end": formatDate(
+            baseTime.replace(hour=0, minute=0) + timedelta(days=1)) + 'Z'}
     body = StringProducer(vfb.replace("\n", "\r\n"))
 
     samples = yield sample(

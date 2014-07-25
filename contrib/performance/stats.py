@@ -96,11 +96,11 @@ class _Statistic(object):
 
     def summarize(self, data):
         return ''.join([
-                self.name, ' mean ', str(mean(data)), '\n',
-                self.name, ' median ', str(median(data)), '\n',
-                self.name, ' stddev ', str(stddev(data)), '\n',
-                self.name, ' median absolute deviation ', str(mad(data)), '\n',
-                self.name, ' sum ', str(sum(data)), '\n'])
+            self.name, ' mean ', str(mean(data)), '\n',
+            self.name, ' median ', str(median(data)), '\n',
+            self.name, ' stddev ', str(stddev(data)), '\n',
+            self.name, ' median absolute deviation ', str(mad(data)), '\n',
+            self.name, ' sum ', str(sum(data)), '\n'])
 
 
     def write(self, basename, data):
@@ -178,9 +178,9 @@ class SQLDuration(_Statistic):
                 total += interval
             times.append(total / NANO * 1000)
         return ''.join([
-                '%d: %s\n' % (count, statement)
-                for (statement, count)
-                in statements.iteritems()]) + _Statistic.summarize(self, times)
+            '%d: %s\n' % (count, statement)
+            for (statement, count)
+            in statements.iteritems()]) + _Statistic.summarize(self, times)
 
 
     def statements(self, samples):
@@ -230,7 +230,7 @@ def quantize(data):
     discrete buckets (eg, as would be suitable for constructing a
     histogram of the values).
     """
-    #buckets = {}
+    # buckets = {}
     return []
 
 

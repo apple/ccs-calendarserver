@@ -91,7 +91,7 @@ class ControlSocket(Factory, object):
         Build a thing that will multiplex AMP to all the relevant sockets.
         """
         receiverMap = {}
-        for k, f  in self._factoryMap.items():
+        for k, f in self._factoryMap.items():
             receiverMap[k] = f.buildProtocol(addr)
         return BinaryBoxProtocol(DispatchingBoxReceiver(receiverMap))
 

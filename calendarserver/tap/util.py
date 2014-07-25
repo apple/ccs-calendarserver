@@ -289,7 +289,7 @@ class PrincipalCredentialChecker(object):
                 "No such user: {user}".format(
                     user=credentials.credentials.username
                 )
-        )
+            )
 
         # See if record is enabledForLogin
         if not credentials.authnPrincipal.record.isLoginEnabled():
@@ -461,7 +461,8 @@ def getRootResource(config, newStore, resources=None):
         )
 
         if config.DirectoryAddressBook.Enabled and config.EnableSearchAddressBook:
-            log.info("Setting up directory address book: {cls}",
+            log.info(
+                "Setting up directory address book: {cls}",
                 cls=directoryBackedAddressBookResourceClass)
 
             directoryBackedAddressBookCollection = directoryBackedAddressBookResourceClass(
@@ -557,8 +558,9 @@ def getRootResource(config, newStore, resources=None):
 
     # Timezone service is optional
     if config.EnableTimezoneService:
-        log.info("Setting up time zone service resource: {cls}",
-                      cls=timezoneServiceResourceClass)
+        log.info(
+            "Setting up time zone service resource: {cls}",
+            cls=timezoneServiceResourceClass)
 
         timezoneService = timezoneServiceResourceClass(
             root,
@@ -567,8 +569,9 @@ def getRootResource(config, newStore, resources=None):
 
     # Standard Timezone service is optional
     if config.TimezoneService.Enabled:
-        log.info("Setting up standard time zone service resource: {cls}",
-                      cls=timezoneStdServiceResourceClass)
+        log.info(
+            "Setting up standard time zone service resource: {cls}",
+            cls=timezoneStdServiceResourceClass)
 
         timezoneStdService = timezoneStdServiceResourceClass(
             root,
@@ -630,8 +633,9 @@ def getRootResource(config, newStore, resources=None):
     # WebCal
     #
     if config.WebCalendarRoot:
-        log.info("Setting up WebCalendar resource: {res}",
-                      res=config.WebCalendarRoot)
+        log.info(
+            "Setting up WebCalendar resource: {res}",
+            res=config.WebCalendarRoot)
         webCalendar = webCalendarResourceClass(
             config.WebCalendarRoot,
             principalCollections=(principalCollection,),
@@ -657,7 +661,8 @@ def getRootResource(config, newStore, resources=None):
     #
     apnConfig = config.Notifications.Services.APNS
     if apnConfig.Enabled:
-        log.info("Setting up APNS resource at /{url}",
+        log.info(
+            "Setting up APNS resource at /{url}",
             url=apnConfig["SubscriptionURL"])
         apnResource = apnSubscriptionResourceClass(root, newStore)
         root.putChild(apnConfig["SubscriptionURL"], apnResource)
@@ -690,7 +695,8 @@ def getRootResource(config, newStore, resources=None):
                         schemeConfig["Qop"],
                         realm,
                     ))
-            log.info("Overriding {path} with {cls} ({schemes})",
+            log.info(
+                "Overriding {path} with {cls} ({schemes})",
                 path=path, cls=cls, schemes=schemes)
 
     authWrapper = AuthenticationWrapper(
@@ -917,11 +923,13 @@ class MemoryLimitService(Service, object):
                     try:
                         memory = self._memoryForPID(pid, self._residentOnly)
                     except Exception, e:
-                        log.error("Unable to determine memory usage of PID: {pid} ({err})",
+                        log.error(
+                            "Unable to determine memory usage of PID: {pid} ({err})",
                             pid=pid, err=e)
                         continue
                     if memory > self._bytes:
-                        log.warn("Killing large process: {name} PID:{pid} {memtype}:{mem}",
+                        log.warn(
+                            "Killing large process: {name} PID:{pid} {memtype}:{mem}",
                             name=name, pid=pid,
                             memtype=("Resident" if self._residentOnly else "Virtual"),
                             mem=memory)

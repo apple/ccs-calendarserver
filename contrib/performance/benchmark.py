@@ -211,7 +211,7 @@ class DTraceCollector(object):
             SQLDuration('execute'): self._execute, # Time spent in the execute phase of SQL execution
             SQLDuration('iternext'): self._iternext, # Time spent fetching rows from the execute phase
             SQLDuration('SQL'): self._execute + self._iternext, # Combination of the previous two
-            }
+        }
         self._init_stats()
         return results
 
@@ -370,11 +370,11 @@ class BenchmarkOptions(Options):
         ('label', 'l', 'data', 'A descriptive string to attach to the output filename.'),
         ('hosts-count', None, None, 'For distributed benchmark collection, the number of hosts participating in collection.', int),
         ('host-index', None, None, 'For distributed benchmark collection, the (zero-based) index of this host in the collection.', int),
-        ]
+    ]
 
     optFlags = [
         ('debug', None, 'Enable various debugging helpers'),
-        ]
+    ]
 
     def __init__(self):
         Options.__init__(self)

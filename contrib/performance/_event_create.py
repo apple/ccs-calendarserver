@@ -119,8 +119,8 @@ def makeVCalendar(uid, start, end, recurrence, organizerSequence, attendees):
             'ORGANIZER': makeOrganizer(organizerSequence),
             'ATTENDEES': ''.join(attendees),
             'RRULE': rrule,
-            },
-        }
+        },
+    }
     return cal.replace("\n", "\r\n")
 
 

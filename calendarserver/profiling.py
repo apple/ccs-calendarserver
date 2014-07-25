@@ -38,6 +38,7 @@ def profile_method():
     return wrapper
 
 
+
 def profile_inline_callback():
     """
     Decorator to profile an inlineCallback function

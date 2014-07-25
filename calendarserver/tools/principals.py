@@ -63,7 +63,7 @@ def usage(e=None):
     print("")
     print("  Principals are identified by one of the following:")
     print("    Type and shortname (eg.: users:wsanchez)")
-    #print("    A principal path (eg.: /principals/users/wsanchez/)")
+    # print("    A principal path (eg.: /principals/users/wsanchez/)")
     print("    A GUID (eg.: E415DBA7-40B5-49F5-A7CC-ACC81E4DEC79)")
     print("")
     print("options:")
@@ -791,7 +791,7 @@ def printGroupCacherInfo(service, store):
     groupUIDs = yield txn.allGroupDelegates()
     for groupUID in groupUIDs:
         (
-            groupID, name, _ignore_membershipHash, modified, extant
+            groupID, name, _ignore_membershipHash, modified, _ignore_extant
         ) = yield txn.groupByUID(
             groupUID
         )

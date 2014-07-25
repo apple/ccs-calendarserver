@@ -101,7 +101,7 @@ class AuthHandlerAgent(object):
         challengeType = {
             'basic': BasicChallenge,
             'digest': DigestChallenge,
-            }.get(scheme.lower())
+        }.get(scheme.lower())
         if challengeType is None:
             return "", None
         return scheme.lower(), challengeType(**args)
@@ -125,7 +125,7 @@ class AuthHandlerAgent(object):
             else:
                 authorization = headers.getRawHeaders('authorization')
             msg("UNAUTHORIZED response to %s %s (Authorization=%r)" % (
-                    method, uri, authorization))
+                method, uri, authorization))
             # Look for a challenge
             authorization = response.headers.getRawHeaders('www-authenticate')
             if authorization is None:

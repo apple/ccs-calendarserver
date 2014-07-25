@@ -296,8 +296,8 @@ class ObliterateService(WorkerService, object):
         self.output.write("Total Resources: %d\n" % (self.totalResources,))
         if self.attachments:
             self.output.write("Attachments removed: %s\n" % (len(self.attachments,)))
-            #for attachment in self.attachments:
-            #    self.output.write("    %s\n" % (attachment,))
+            # for attachment in self.attachments:
+            #     self.output.write("    %s\n" % (attachment,))
         self.output.write("Obliteration time: %.1fs\n" % (time.time() - t,))
 
 

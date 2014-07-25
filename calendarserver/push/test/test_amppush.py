@@ -58,7 +58,8 @@ class AMPPushMasterTests(StoreTestCase):
         self.assertTrue(client3.subscribedToID("/CalDAV/localhost/user03/"))
 
         dataChangedTimestamp = 1354815999
-        service.enqueue(None, "/CalDAV/localhost/user01/",
+        service.enqueue(
+            None, "/CalDAV/localhost/user01/",
             dataChangedTimestamp=dataChangedTimestamp,
             priority=PushPriority.high)
         self.assertEquals(len(client1.history), 0)
@@ -114,7 +115,8 @@ class AMPPushMasterTests(StoreTestCase):
         client1.reset()
         client2.reset()
         client2.unsubscribe("token2", "/CalDAV/localhost/user01/")
-        service.enqueue(None, "/CalDAV/localhost/user01/",
+        service.enqueue(
+            None, "/CalDAV/localhost/user01/",
             dataChangedTimestamp=dataChangedTimestamp,
             priority=PushPriority.low)
         self.assertEquals(len(client1.history), 0)
@@ -142,7 +144,8 @@ class AMPPushMasterTests(StoreTestCase):
         client1.reset()
         client2.reset()
         client2.subscribe("token2", "/CalDAV/localhost/user01/")
-        service.enqueue(None, "/CalDAV/localhost/user01/",
+        service.enqueue(
+            None, "/CalDAV/localhost/user01/",
             dataChangedTimestamp=dataChangedTimestamp,
             priority=PushPriority.medium)
         self.assertEquals(

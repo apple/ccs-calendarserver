@@ -109,7 +109,8 @@ class ApplePushNotifierServiceTests(StoreTestCase):
 
         # Set up the service
         clock = Clock()
-        service = (yield ApplePushNotifierService.makeService(settings,
+        service = (yield ApplePushNotifierService.makeService(
+            settings,
             self._sqlCalendarStore, testConnectorClass=TestConnector, reactor=clock))
         self.assertEquals(set(service.providers.keys()), set(["CalDAV", "CardDAV"]))
         self.assertEquals(set(service.feedbacks.keys()), set(["CalDAV", "CardDAV"]))
@@ -120,14 +121,17 @@ class ApplePushNotifierServiceTests(StoreTestCase):
         # Notification arrives from calendar server
         dataChangedTimestamp = 1354815999
         txn = self._sqlCalendarStore.newTransaction()
-        yield service.enqueue(txn, "/CalDAV/calendars.example.com/user01/calendar/",
+        yield service.enqueue(
+            txn, "/CalDAV/calendars.example.com/user01/calendar/",
             dataChangedTimestamp=dataChangedTimestamp, priority=PushPriority.high)
         yield txn.commit()
 
         # The notifications should be in the queue
-        self.assertTrue(((token, key1), dataChangedTimestamp, PushPriority.high)
+        self.assertTrue(
+            ((token, key1), dataChangedTimestamp, PushPriority.high)
             in service.providers["CalDAV"].queue)
-        self.assertTrue(((token2, key1), dataChangedTimestamp, PushPriority.high)
+        self.assertTrue(
+            ((token2, key1), dataChangedTimestamp, PushPriority.high)
             in service.providers["CalDAV"].queue)
 
         # Start the service, making the connection which should service the
@@ -186,7 +190,8 @@ class ApplePushNotifierServiceTests(StoreTestCase):
         providerConnector.transport.data = None
         # Send notification while service is connected
         txn = self._sqlCalendarStore.newTransaction()
-        yield service.enqueue(txn, "/CalDAV/calendars.example.com/user01/calendar/",
+        yield service.enqueue(
+            txn, "/CalDAV/calendars.example.com/user01/calendar/",
             priority=PushPriority.low)
         yield txn.commit()
         clock.advance(1) # so that first push is sent
@@ -217,7 +222,8 @@ class ApplePushNotifierServiceTests(StoreTestCase):
         # with amounts of data not fitting message boundaries
         # Send 1st 4 bytes
         history = []
-        errorData = struct.pack("!BBIBBI",
+        errorData = struct.pack(
+            "!BBIBBI",
             APNProviderProtocol.COMMAND_ERROR, 3, 4,
             APNProviderProtocol.COMMAND_ERROR, 5, 6,
         )
@@ -243,7 +249,8 @@ class ApplePushNotifierServiceTests(StoreTestCase):
         feedbackConnector = service.feedbacks["CalDAV"].testConnector
         timestamp = 2000
         binaryToken = token.decode("hex")
-        feedbackData = struct.pack("!IH32s", timestamp, len(binaryToken),
+        feedbackData = struct.pack(
+            "!IH32s", timestamp, len(binaryToken),
             binaryToken)
         yield feedbackConnector.receiveData(feedbackData)
 
@@ -255,10 +262,11 @@ class ApplePushNotifierServiceTests(StoreTestCase):
             return succeed(None)
         timestamp = 2000
         binaryToken = token.decode("hex")
-        feedbackData = struct.pack("!IH32sIH32s",
+        feedbackData = struct.pack(
+            "!IH32sIH32s",
             timestamp, len(binaryToken), binaryToken,
             timestamp, len(binaryToken), binaryToken,
-            )
+        )
         # Send 1st 10 bytes
         yield feedbackConnector.receiveData(feedbackData[:10], fn=feedbackTestFunction)
         # Send remaining bytes
@@ -276,7 +284,8 @@ class ApplePushNotifierServiceTests(StoreTestCase):
         txn = self._sqlCalendarStore.newTransaction()
         subscriptions = (yield txn.apnSubscriptionsByToken(token))
         yield txn.commit()
-        self.assertEquals(subscriptions,
+        self.assertEquals(
+            subscriptions,
             [["/CalDAV/calendars.example.com/user02/calendar/", 3000, "D2256BCC-48E2-42D1-BD89-CBA1E4CCDFFB"]]
         )
 
@@ -333,8 +342,10 @@ class ApplePushNotifierServiceTests(StoreTestCase):
         history = TokenHistory(maxSize=5)
 
         # Ensure returned identifiers increment
-        for id, token in enumerate(("one", "two", "three", "four", "five"),
-            start=1):
+        for id, token in enumerate(
+            ("one", "two", "three", "four", "five"),
+            start=1
+        ):
             self.assertEquals(id, history.add(token))
         self.assertEquals(len(history.history), 5)
 

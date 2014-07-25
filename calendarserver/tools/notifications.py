@@ -143,11 +143,14 @@ def main():
         password = getpass("Password for %s: " % (username,))
         admin = username
 
-    monitorService = PushMonitorService(useSSL, host, port, nodes, admin,
+    monitorService = PushMonitorService(
+        useSSL, host, port, nodes, admin,
         username, password, verbose)
-    reactor.addSystemEventTrigger("during", "startup",
+    reactor.addSystemEventTrigger(
+        "during", "startup",
         monitorService.startService)
-    reactor.addSystemEventTrigger("before", "shutdown",
+    reactor.addSystemEventTrigger(
+        "before", "shutdown",
         monitorService.stopService)
 
     reactor.run()
@@ -177,17 +180,20 @@ class PubSubClientFactory(xmlstream.XmlStreamFactory):
         self.xmlStream = None
         self.doKeepAlive = True
 
-        xmlstream.XmlStreamFactory.__init__(self,
-           XMPPAuthenticator(JID(self.jid), password))
+        xmlstream.XmlStreamFactory.__init__(
+            self,
+            XMPPAuthenticator(JID(self.jid), password))
 
         self.addBootstrap(xmlstream.STREAM_CONNECTED_EVENT, self.connected)
         self.addBootstrap(xmlstream.STREAM_END_EVENT, self.disconnected)
         self.addBootstrap(xmlstream.INIT_FAILED_EVENT, self.initFailed)
 
         self.addBootstrap(xmlstream.STREAM_AUTHD_EVENT, self.authenticated)
-        self.addBootstrap(IQAuthInitializer.INVALID_USER_EVENT,
+        self.addBootstrap(
+            IQAuthInitializer.INVALID_USER_EVENT,
             self.authFailed)
-        self.addBootstrap(IQAuthInitializer.AUTH_FAILED_EVENT,
+        self.addBootstrap(
+            IQAuthInitializer.AUTH_FAILED_EVENT,
             self.authFailed)
 
         if sigint:
@@ -253,7 +259,8 @@ class PubSubClientFactory(xmlstream.XmlStreamFactory):
         if self.doKeepAlive and self.xmlStream is not None:
             presence = domish.Element(('jabber:client', 'presence'))
             self.xmlStream.send(presence)
-            self.presenceCall = reactor.callLater(self.presenceSeconds,
+            self.presenceCall = reactor.callLater(
+                self.presenceSeconds,
                 self.sendPresence)
 
 
@@ -340,8 +347,10 @@ class PushMonitorService(Service):
     using XMPP and monitored for updates.
     """
 
-    def __init__(self, useSSL, host, port, nodes, authname, username, password,
-        verbose):
+    def __init__(
+        self, useSSL, host, port, nodes, authname, username, password,
+        verbose
+    ):
         self.useSSL = useSSL
         self.host = host
         self.port = port
@@ -365,7 +374,8 @@ class PushMonitorService(Service):
                 for home in homes:
                     paths.add(home)
                 for principal in (yield self.getProxyFor()):
-                    name, homes = (yield self.getPrincipalDetails(principal,
+                    name, homes = (yield self.getPrincipalDetails(
+                        principal,
                         includeCardDAV=False))
                     if self.verbose:
                         print(name, homes)
@@ -421,7 +431,8 @@ class PushMonitorService(Service):
         """
 
         try:
-            responseBody = (yield self.makeRequest(path, "PROPFIND", headers,
+            responseBody = (yield self.makeRequest(
+                path, "PROPFIND", headers,
                 body))
             try:
                 doc = ElementTree.fromstring(responseBody)
@@ -485,7 +496,8 @@ class PushMonitorService(Service):
         path = "/principals/users/%s/" % (self.username,)
 
         try:
-            responseBody = (yield self.makeRequest(path, "PROPFIND", headers,
+            responseBody = (yield self.makeRequest(
+                path, "PROPFIND", headers,
                 body))
             try:
                 doc = ElementTree.fromstring(responseBody)
@@ -541,7 +553,8 @@ class PushMonitorService(Service):
         """
 
         try:
-            responseBody = (yield self.makeRequest(path, "PROPFIND", headers,
+            responseBody = (yield self.makeRequest(
+                path, "PROPFIND", headers,
                 body))
             host = None
             port = None
@@ -617,7 +630,8 @@ class PushMonitorService(Service):
         service = "pubsub.%s" % (host,)
         jid = "%s@%s" % (self.authname, host)
 
-        pubsubFactory = PubSubClientFactory(jid, self.password, service, nodes,
+        pubsubFactory = PubSubClientFactory(
+            jid, self.password, service, nodes,
             self.verbose)
         connect(GAIEndpoint(reactor, host, port), pubsubFactory)
 
@@ -625,7 +639,8 @@ class PushMonitorService(Service):
     def makeRequest(self, path, method, headers, body):
         scheme = "https:" if self.useSSL else "http:"
         url = "%s//%s:%d%s" % (scheme, self.host, self.port, path)
-        caldavFactory = client.HTTPClientFactory(url, method=method,
+        caldavFactory = client.HTTPClientFactory(
+            url, method=method,
             headers=headers, postdata=body, agent="Push Monitor")
         caldavFactory.username = self.authname
         caldavFactory.password = self.password

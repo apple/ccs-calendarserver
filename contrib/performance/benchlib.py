@@ -88,8 +88,8 @@ def initialize(agent, host, port, user, password, root, principal, calendar):
         root=root, principal=principal)
     cal = "/calendars/users/%s/%s/" % (user, calendar)
     d = _serial([
-            (account.deleteResource, (cal,)),
-            (account.makeCalendar, (cal,))])
+        (account.deleteResource, (cal,)),
+        (account.makeCalendar, (cal,))])
     d.addCallback(lambda ignored: account)
     return d
 

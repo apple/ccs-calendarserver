@@ -151,7 +151,8 @@ def anonymizeRoot(directoryMap, sourceDirectory, destDirectory):
                                 print("Couldn't find %s, skipping." % (home,))
                                 continue
                             sourceHome = os.path.join(secondPath, home)
-                            destHome = os.path.join(destUidHomes,
+                            destHome = os.path.join(
+                                destUidHomes,
                                 record['guid'][0:2], record['guid'][2:4],
                                 record['guid'])
                             homeList.append((sourceHome, destHome, record))
@@ -261,7 +262,8 @@ def anonymizeRoot(directoryMap, sourceDirectory, destDirectory):
             for freeBusy in freeBusies:
                 xml += "<href xmlns='DAV:'>/calendars/__uids__/%s/%s/</href>\n" % (record['guid'], freeBusy)
             xml += "</calendar-free-busy-set>\n"
-            xattr.setxattr(destInbox,
+            xattr.setxattr(
+                destInbox,
                 "WebDAV:{urn:ietf:params:xml:ns:caldav}calendar-free-busy-set",
                 zlib.compress(xml)
             )
@@ -399,7 +401,8 @@ class DirectoryMap(object):
                     origRecordNames = record['dsAttrTypeStandard:RecordName']
                     origEmails = record.get('dsAttrTypeStandard:EMailAddress', [])
                     origMembers = record.get('dsAttrTypeStandard:GroupMembers', [])
-                    self.addRecord(internalType=internalType, guid=origGUID,
+                    self.addRecord(
+                        internalType=internalType, guid=origGUID,
                         names=origRecordNames, emails=origEmails,
                         members=origMembers)
 
@@ -407,8 +410,10 @@ class DirectoryMap(object):
         print("")
 
 
-    def addRecord(self, internalType="users", guid=None, names=None,
-        emails=None, members=None, cua=None):
+    def addRecord(
+        self, internalType="users", guid=None, names=None,
+        emails=None, members=None, cua=None
+    ):
 
         if cua:
             keys = [self.cua2key(cua)]

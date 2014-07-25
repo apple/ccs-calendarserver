@@ -65,11 +65,11 @@ class WebAdminLandingResource(TemplateResource):
         # self._root = root
         # self._principalCollections = principalCollections
 
-        #from .config import ConfigurationResource
-        #self.putChild(u"config", ConfigurationResource(configuration, principalCollections))
+        # from .config import ConfigurationResource
+        # self.putChild(u"config", ConfigurationResource(configuration, principalCollections))
 
-        #from .principals import PrincipalsResource
-        #self.putChild(u"principals", PrincipalsResource(directory, store, principalCollections))
+        # from .principals import PrincipalsResource
+        # self.putChild(u"principals", PrincipalsResource(directory, store, principalCollections))
 
         # from .logs import LogsResource
         # self.putChild(u"logs", LogsResource())

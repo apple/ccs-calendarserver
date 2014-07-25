@@ -2470,7 +2470,7 @@ class DelayedStartupProcessMonitor(Service, object):
         @param name: the name of the process to signal.
         @type signal: C{str}
         """
-        if not name in self.protocols:
+        if name not in self.protocols:
             return
         proc = self.protocols[name].transport
         try:

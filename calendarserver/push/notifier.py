@@ -50,7 +50,8 @@ class PushNotificationWork(WorkItem, fromTable(schema.PUSH_NOTIFICATION_WORK)):
 
         # Find all work items with the same push ID and find the highest
         # priority.  Delete matching work items.
-        results = (yield Select([self.table.WORK_ID, self.table.JOB_ID, self.table.PUSH_PRIORITY],
+        results = (yield Select(
+            [self.table.WORK_ID, self.table.JOB_ID, self.table.PUSH_PRIORITY],
             From=self.table, Where=self.table.PUSH_ID == self.pushID).on(
             self.transaction))
 
@@ -132,12 +133,15 @@ class Notifier(object):
 
         for prefix, id in ids:
             if self._notify:
-                self.log.debug("Notifications are enabled: %s %s/%s priority=%d" %
+                self.log.debug(
+                    "Notifications are enabled: %s %s/%s priority=%d" %
                     (self._storeObject, prefix, id, priority.value))
-                yield self._notifierFactory.send(prefix, id, txn,
+                yield self._notifierFactory.send(
+                    prefix, id, txn,
                     priority=priority)
             else:
-                self.log.debug("Skipping notification for: %s %s/%s" %
+                self.log.debug(
+                    "Skipping notification for: %s %s/%s" %
                     (self._storeObject, prefix, id,))
 
 
@@ -220,10 +224,12 @@ def getPubSubAPSConfiguration(notifierID, config):
         settings = {}
         settings["APSBundleID"] = applePushSettings[protocol]["Topic"]
         if config.EnableSSL:
-            url = "https://%s:%s/%s" % (config.ServerHostName, config.SSLPort,
+            url = "https://%s:%s/%s" % (
+                config.ServerHostName, config.SSLPort,
                 applePushSettings.SubscriptionURL)
         else:
-            url = "http://%s:%s/%s" % (config.ServerHostName, config.HTTPPort,
+            url = "http://%s:%s/%s" % (
+                config.ServerHostName, config.HTTPPort,
                 applePushSettings.SubscriptionURL)
         settings["SubscriptionURL"] = url
         settings["SubscriptionRefreshIntervalSeconds"] = applePushSettings.SubscriptionRefreshIntervalSeconds
@@ -263,5 +269,6 @@ class PushDistributor(object):
         @type priority: L{PushPriority}
         """
         for observer in self.observers:
-            yield observer.enqueue(transaction, pushKey,
+            yield observer.enqueue(
+                transaction, pushKey,
                 dataChangedTimestamp=None, priority=priority)

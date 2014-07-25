@@ -71,8 +71,10 @@ class ApplePushNotifierService(service.MultiService):
     log = Logger()
 
     @classmethod
-    def makeService(cls, settings, store, testConnectorClass=None,
-        reactor=None):
+    def makeService(
+        cls, settings, store, testConnectorClass=None,
+        reactor=None
+    ):
         """
         Creates the various "subservices" that work together to implement
         APN, including "provider" and "feedback" services for CalDAV and
@@ -129,7 +131,8 @@ class ApplePushNotifierService(service.MultiService):
                 )
                 provider.setServiceParent(service)
                 service.providers[protocol] = provider
-                service.log.info("APNS %s topic: %s" %
+                service.log.info(
+                    "APNS %s topic: %s" %
                     (protocol, settings[protocol]["Topic"]))
 
                 feedback = APNFeedbackService(
@@ -188,8 +191,10 @@ class ApplePushNotifierService(service.MultiService):
 
 
     @inlineCallbacks
-    def enqueue(self, transaction, pushKey, dataChangedTimestamp=None,
-        priority=PushPriority.high):
+    def enqueue(
+        self, transaction, pushKey, dataChangedTimestamp=None,
+        priority=PushPriority.high
+    ):
         """
         Sends an Apple Push Notification to any device token subscribed to
         this pushKey.
@@ -226,14 +231,16 @@ class ApplePushNotifierService(service.MultiService):
 
             numSubscriptions = len(subscriptions)
             if numSubscriptions > 0:
-                self.log.debug("Sending %d APNS notifications for %s" %
+                self.log.debug(
+                    "Sending %d APNS notifications for %s" %
                     (numSubscriptions, pushKey))
                 tokens = []
                 for token, uid in subscriptions:
                     if token and uid:
                         tokens.append(token)
                 if tokens:
-                    provider.scheduleNotifications(tokens, pushKey,
+                    provider.scheduleNotifications(
+                        tokens, pushKey,
                         dataChangedTimestamp, priority)
 
 
@@ -313,7 +320,8 @@ class APNProviderProtocol(Protocol):
                 if command == self.COMMAND_ERROR:
                     yield fn(status, identifier)
             except Exception, e:
-                self.log.warn("ProviderProtocol could not process error: %s (%s)" %
+                self.log.warn(
+                    "ProviderProtocol could not process error: %s (%s)" %
                     (message.encode("hex"), e))
 
 
@@ -336,12 +344,14 @@ class APNProviderProtocol(Protocol):
         if status in self.TOKEN_REMOVAL_CODES:
             token = self.history.extractIdentifier(identifier)
             if token is not None:
-                self.log.debug("Removing subscriptions for bad token: %s" %
+                self.log.debug(
+                    "Removing subscriptions for bad token: %s" %
                     (token,))
                 txn = self.factory.store.newTransaction(label="APNProviderProtocol.processError")
                 subscriptions = (yield txn.apnSubscriptionsByToken(token))
                 for key, _ignore_modified, _ignore_uid in subscriptions:
-                    self.log.debug("Removing subscription: %s %s" %
+                    self.log.debug(
+                        "Removing subscription: %s %s" %
                         (token, key))
                     yield txn.removeAPNSubscription(token, key)
                 yield txn.commit()
@@ -380,7 +390,8 @@ class APNProviderProtocol(Protocol):
             }
         )
         payloadLength = len(payload)
-        self.log.debug("Sending APNS notification to {token}: id={id} payload={payload} priority={priority}",
+        self.log.debug(
+            "Sending APNS notification to {token}: id={id} payload={payload} priority={priority}",
             token=token, id=identifier, payload=payload, priority=apnsPriority)
 
         """
@@ -397,34 +408,34 @@ class APNProviderProtocol(Protocol):
             at a time that conservces power on the device receiving it)
         """
 
-                                                    # Frame struct.pack format
-                                                    # ! Network byte order
+        # Frame struct.pack format                ! Network byte order
         command = self.COMMAND_PROVIDER             # B
         frameLength = (# I
             # Item 1 (Device token)
-            1 + # Item number                      # B
-            2 + # Item length                      # H
+            1 + # Item number                       # B
+            2 + # Item length                       # H
             32 + # device token                     # 32s
             # Item 2 (Payload)
-            1 + # Item number                      # B
-            2 + # Item length                      # H
+            1 + # Item number                       # B
+            2 + # Item length                       # H
             payloadLength + # the JSON payload      # %d s
             # Item 3 (Notification ID)
-            1 + # Item number                      # B
-            2 + # Item length                      # H
-            4 + # Notification ID                  # I
+            1 + # Item number                       # B
+            2 + # Item length                       # H
+            4 + # Notification ID                   # I
             # Item 4 (Expiration)
-            1 + # Item number                      # B
-            2 + # Item length                      # H
-            4 + # Expiration seconds since epoch   # I
+            1 + # Item number                       # B
+            2 + # Item length                       # H
+            4 + # Expiration seconds since epoch    # I
             # Item 5 (Priority)
-            1 + # Item number                      # B
-            2 + # Item length                      # H
+            1 + # Item number                       # B
+            2 + # Item length                       # H
             1    # Priority                         # B
         )
 
         self.transport.write(
-            struct.pack("!BIBH32sBH%dsBHIBHIBHB" % (payloadLength,),
+            struct.pack(
+                "!BIBH32sBH%dsBHIBHIBHB" % (payloadLength,),
 
                 command,                         # Command
                 frameLength,                     # Frame length
@@ -482,7 +493,8 @@ class APNProviderFactory(ReconnectingClientFactory):
     def clientConnectionFailed(self, connector, reason):
         self.log.error("Unable to connect to APN server: %s" % (reason,))
         self.connected = False
-        ReconnectingClientFactory.clientConnectionFailed(self, connector,
+        ReconnectingClientFactory.clientConnectionFailed(
+            self, connector,
             reason)
 
 
@@ -500,9 +512,11 @@ class APNProviderFactory(ReconnectingClientFactory):
 class APNConnectionService(service.Service):
     log = Logger()
 
-    def __init__(self, host, port, certPath, keyPath, chainPath="",
+    def __init__(
+        self, host, port, certPath, keyPath, chainPath="",
         passphrase="", sslMethod="TLSv1_METHOD", testConnector=None,
-        reactor=None):
+        reactor=None
+    ):
 
         self.host = host
         self.port = port
@@ -541,12 +555,15 @@ class APNConnectionService(service.Service):
 
 class APNProviderService(APNConnectionService):
 
-    def __init__(self, store, host, port, certPath, keyPath, chainPath="",
+    def __init__(
+        self, store, host, port, certPath, keyPath, chainPath="",
         passphrase="", sslMethod="TLSv1_METHOD",
         staggerNotifications=False, staggerSeconds=3,
-        testConnector=None, reactor=None):
+        testConnector=None, reactor=None
+    ):
 
-        APNConnectionService.__init__(self, host, port, certPath, keyPath,
+        APNConnectionService.__init__(
+            self, host, port, certPath, keyPath,
             chainPath=chainPath, passphrase=passphrase, sslMethod=sslMethod,
             testConnector=testConnector, reactor=reactor)
 
@@ -554,7 +571,8 @@ class APNProviderService(APNConnectionService):
         self.factory = None
         self.queue = []
         if staggerNotifications:
-            self.scheduler = PushScheduler(self.reactor, self.sendNotification,
+            self.scheduler = PushScheduler(
+                self.reactor, self.sendNotification,
                 staggerSeconds=staggerSeconds)
         else:
             self.scheduler = None
@@ -583,7 +601,8 @@ class APNProviderService(APNConnectionService):
             self.queue = []
             for (token, key), dataChangedTimestamp, priority in queued:
                 if token and key and dataChangedTimestamp and priority:
-                    self.sendNotification(token, key, dataChangedTimestamp,
+                    self.sendNotification(
+                        token, key, dataChangedTimestamp,
                         priority)
 
 
@@ -695,12 +714,14 @@ class APNFeedbackProtocol(Protocol):
             self.buffer = self.buffer[self.MESSAGE_LENGTH:]
 
             try:
-                timestamp, _ignore_tokenLength, binaryToken = struct.unpack("!IH32s",
+                timestamp, _ignore_tokenLength, binaryToken = struct.unpack(
+                    "!IH32s",
                     message)
                 token = binaryToken.encode("hex").lower()
                 yield fn(timestamp, token)
             except Exception, e:
-                self.log.warn("FeedbackProtocol could not process message: %s (%s)" %
+                self.log.warn(
+                    "FeedbackProtocol could not process message: %s (%s)" %
                     (message.encode("hex"), e))
 
 
@@ -719,14 +740,16 @@ class APNFeedbackProtocol(Protocol):
         @type token: C{str}
         """
 
-        self.log.debug("FeedbackProtocol processFeedback time=%d token=%s" %
+        self.log.debug(
+            "FeedbackProtocol processFeedback time=%d token=%s" %
             (timestamp, token))
         txn = self.factory.store.newTransaction(label="APNFeedbackProtocol.processFeedback")
         subscriptions = (yield txn.apnSubscriptionsByToken(token))
 
         for key, modified, _ignore_uid in subscriptions:
             if timestamp > modified:
-                self.log.debug("FeedbackProtocol removing subscription: %s %s" %
+                self.log.debug(
+                    "FeedbackProtocol removing subscription: %s %s" %
                     (token, key))
                 yield txn.removeAPNSubscription(token, key)
         yield txn.commit()
@@ -743,7 +766,8 @@ class APNFeedbackFactory(ClientFactory):
 
 
     def clientConnectionFailed(self, connector, reason):
-        self.log.error("Unable to connect to APN feedback server: %s" %
+        self.log.error(
+            "Unable to connect to APN feedback server: %s" %
             (reason,))
         self.connected = False
         ClientFactory.clientConnectionFailed(self, connector, reason)
@@ -752,11 +776,14 @@ class APNFeedbackFactory(ClientFactory):
 
 class APNFeedbackService(APNConnectionService):
 
-    def __init__(self, store, updateSeconds, host, port,
+    def __init__(
+        self, store, updateSeconds, host, port,
         certPath, keyPath, chainPath="", passphrase="", sslMethod="TLSv1_METHOD",
-        testConnector=None, reactor=None):
+        testConnector=None, reactor=None
+    ):
 
-        APNConnectionService.__init__(self, host, port, certPath, keyPath,
+        APNConnectionService.__init__(
+            self, host, port, certPath, keyPath,
             chainPath=chainPath, passphrase=passphrase, sslMethod=sslMethod,
             testConnector=testConnector, reactor=reactor)
 
@@ -780,13 +807,16 @@ class APNFeedbackService(APNConnectionService):
         self.nextCheck = None
         self.log.debug("APNFeedbackService checkForFeedback")
         self.connect(self.factory)
-        self.nextCheck = self.reactor.callLater(self.updateSeconds,
+        self.nextCheck = self.reactor.callLater(
+            self.updateSeconds,
             self.checkForFeedback)
 
 
 
-class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn,
-    DAVResourceWithoutChildrenMixin, DAVResource):
+class APNSubscriptionResource(
+    ReadOnlyNoCopyResourceMixIn,
+    DAVResourceWithoutChildrenMixin, DAVResource
+):
     """
     The DAV resource allowing clients to subscribe to Apple push notifications.
     To subscribe, a client should first determine the key they are interested

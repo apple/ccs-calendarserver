@@ -160,13 +160,15 @@ class PushScheduler(object):
         for token in tokens:
             internalKey = (token, key)
             if internalKey in self.outstanding:
-                self.log.debug("PushScheduler already has this scheduled: %s" %
+                self.log.debug(
+                    "PushScheduler already has this scheduled: %s" %
                     (internalKey,))
             else:
                 self.outstanding[internalKey] = self.reactor.callLater(
                     scheduleTime, self.send, token, key, dataChangedTimestamp,
                     priority)
-                self.log.debug("PushScheduler scheduled: %s in %.0f sec" %
+                self.log.debug(
+                    "PushScheduler scheduled: %s in %.0f sec" %
                     (internalKey, scheduleTime))
                 scheduleTime += self.staggerSeconds
 

@@ -203,7 +203,7 @@ class ShellProtocol(ReceiveLineProtocol):
         self.keyHandlers['\x04'] = self.handle_EOF   # Control-D
         self.keyHandlers['\x1c'] = self.handle_QUIT  # Control-\
         self.keyHandlers['\x0c'] = self.handle_FF    # Control-L
-        #self.keyHandlers['\t'  ] = self.handle_TAB   # Tab
+        # self.keyHandlers['\t'  ] = self.handle_TAB   # Tab
 
         if self.emulate == "emacs":
             # EMACS key bindinds
@@ -320,7 +320,7 @@ class ShellProtocol(ReceiveLineProtocol):
                 self.characterReceived(c, True)
 
             # FIXME: Add a space only if we know we've fully completed the term.
-            #self.characterReceived(" ", False)
+            # self.characterReceived(" ", False)
         else:
             self.terminal.nextLine()
             for completion in completions:
@@ -363,7 +363,7 @@ class ShellProtocol(ReceiveLineProtocol):
 
         if tokens:
             cmd = tokens.pop(0)
-            #print("Arguments: %r" % (tokens,))
+            # print("Arguments: %r" % (tokens,))
 
             m = getattr(self.commands, "cmd_%s" % (cmd,), None)
             if m:

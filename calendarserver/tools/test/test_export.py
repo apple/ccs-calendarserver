@@ -48,8 +48,8 @@ from calendarserver.tools.export import usage, exportToFile
 def holiday(uid):
     return (
         getModule("twistedcaldav.test").filePath
-            .sibling("data").child("Holidays").child(uid + ".ics")
-            .getContent()
+        .sibling("data").child("Holidays").child(uid + ".ics")
+        .getContent()
     )
 
 
@@ -292,7 +292,7 @@ class IntegrationTests(StoreTestCase):
         io = StringIO()
         yield exportToFile(
             [(yield self.txn().calendarHomeWithUID("user01"))
-              .calendarWithName("calendar1")], io
+                .calendarWithName("calendar1")], io
         )
         self.assertEquals(Component.fromString(io.getvalue()),
                           expected)
@@ -325,7 +325,7 @@ class IntegrationTests(StoreTestCase):
         io = StringIO()
         yield exportToFile(
             [(yield self.txn().calendarHomeWithUID("user01"))
-              .calendarWithName("calendar1")], io
+                .calendarWithName("calendar1")], io
         )
         self.assertEquals(Component.fromString(io.getvalue()),
                           expected)
@@ -355,7 +355,7 @@ class IntegrationTests(StoreTestCase):
         io = StringIO()
         yield exportToFile(
             [(yield self.txn().calendarHomeWithUID("user01"))
-              .calendarWithName("calendar1")], io
+                .calendarWithName("calendar1")], io
         )
         result = Component.fromString(io.getvalue())
 
@@ -396,7 +396,7 @@ class IntegrationTests(StoreTestCase):
         io = StringIO()
         yield exportToFile(
             [(yield self.txn().calendarHomeWithUID("user02"))
-              .calendarWithName("calendar1")], io
+                .calendarWithName("calendar1")], io
         )
         self.assertEquals(
             Component.fromString(resultForUser2),

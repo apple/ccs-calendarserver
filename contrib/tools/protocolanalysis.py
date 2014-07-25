@@ -1039,14 +1039,14 @@ class CalendarServerLogAnalyzer(object):
             print("URI Counts")
             self.printURICounts(doTabs)
 
-            #print("User Interaction Counts")
-            #self.printUserInteractionCounts(doTabs)
+            # print("User Interaction Counts")
+            # self.printUserInteractionCounts(doTabs)
 
             print("User Weights (top 100)")
             self.printUserWeights(doTabs)
 
-            #print("User Response times")
-            #self.printUserResponseTimes(doTabs)
+            # print("User Response times")
+            # self.printUserResponseTimes(doTabs)
 
             print("Sim values")
             self.printSimStats(doTabs)
@@ -1555,10 +1555,10 @@ class CalendarServerLogAnalyzer(object):
     def printUserInteractionCounts(self, doTabs):
         table = tables.Table()
         table.setDefaultColumnFormats((
-                tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-                tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-                tables.Table.ColumnFormat("%0.2f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-                ))
+            tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            tables.Table.ColumnFormat("%0.2f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+        ))
         table.addHeader(("# users accessed", "# of users", "% of users"))
         summary = self.summarizeUserInteraction(METHOD_PROPFIND_CALENDAR_HOME)
         total = sum(summary.values())
@@ -1574,11 +1574,11 @@ class CalendarServerLogAnalyzer(object):
         hours = self.timeCounts / self.resolutionMinutes / 60
         table = tables.Table()
         table.setDefaultColumnFormats((
-                tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-                tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-                tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-                tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-                ))
+            tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+        ))
         table.addHeader(("Item", "Value", "Items, per User, per Day", "Interval (sec), per item, per user"))
         table.addRow(("Unique Users", users, "", ""))
 
@@ -1673,7 +1673,7 @@ class Differ(TablePrinter):
         self.printInfo(doTabs)
 
         print("Load Analysis Differences")
-        #self.printLoadAnalysisDetails(doTabs)
+        # self.printLoadAnalysisDetails(doTabs)
         self.printHourlyTotals(doTabs)
 
         if not summary:

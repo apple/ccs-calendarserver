@@ -78,7 +78,7 @@ def analyze(fpath, noweekends, startDate=None, endDate=None, title=None):
 
                     if reqs <= 80:
                         data.append((dtstamp, reqs, resp, lqnon, cpu))
-                    #print("%s %d %d %d %d" % (dtstamp, reqs, resp, lqnon, cpu))
+                    # print("%s %d %d %d %d" % (dtstamp, reqs, resp, lqnon, cpu))
             except StopIteration:
                 break
 
@@ -120,8 +120,10 @@ def plotListenQBands(data, first, last, xlim, ylim):
     plt.plot(x1, y1, "b+", x2, y2, "g+", x3, y3, "y+")
 
     if first:
-        plt.legend(('ListenQ at zero', 'ListenQ < 50', 'ListenQ >= 50'),
-               'upper left', shadow=True, fancybox=True)
+        plt.legend(
+            ('ListenQ at zero', 'ListenQ < 50', 'ListenQ >= 50'),
+            'upper left', shadow=True, fancybox=True
+        )
     if last:
         plt.xlabel("Requests/second")
     plt.ylabel("Av. Response Time (ms)")
@@ -156,8 +158,10 @@ def plotCPUBands(data, first, last, xlim, ylim):
     )
 
     if first:
-        plt.legend(('CPU < 1/4', 'CPU < 1/2', 'CPU < 3/4', "CPU High"),
-               'upper left', shadow=True, fancybox=True)
+        plt.legend(
+            ('CPU < 1/4', 'CPU < 1/2', 'CPU < 3/4', "CPU High"),
+            'upper left', shadow=True, fancybox=True
+        )
     if last:
         plt.xlabel("Requests/second")
     plt.ylabel("Av. Response Time (ms)")

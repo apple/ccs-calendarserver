@@ -188,7 +188,7 @@ def printRequestSummary(stats):
         ("", "", "per second", "(ms)", "no write(ms)", "(ms)", "Average", "Average", ""),
     )
     table.setDefaultColumnFormats(
-       (
+        (
             tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.LEFT_JUSTIFY),
             tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
@@ -235,7 +235,7 @@ def printMultiRequestSummary(stats, cpus, memories, times, labels, index):
     )
     max_column = 5
     table.setDefaultColumnFormats(
-       (
+        (
             tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.LEFT_JUSTIFY),
             tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
@@ -295,7 +295,7 @@ def printHistogramSummary(stat, index):
         ("", "<10ms", "10ms<->100ms", "100ms<->1s", "1s<->10s", "10s<->30s", "30s<->60s", ">60s", "Over 1s", "Over 10s"),
     )
     table.setDefaultColumnFormats(
-       (
+        (
             tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.LEFT_JUSTIFY),
             tables.Table.ColumnFormat("%d (%.1f%%)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%d (%.1f%%)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
@@ -358,7 +358,7 @@ def printMethodCounts(stat):
         ("", "", "", "(ms)", "", ""),
     )
     table.setDefaultColumnFormats(
-       (
+        (
             tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.LEFT_JUSTIFY),
             tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%.1f%%", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
@@ -453,7 +453,7 @@ def printAgentCounts(stat):
         ("User-Agent", "Total", "Percentage"),
     )
     table.setDefaultColumnFormats(
-       (
+        (
             tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.LEFT_JUSTIFY),
             tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%.1f%%", tables.Table.ColumnFormat.RIGHT_JUSTIFY),

@@ -1030,14 +1030,14 @@ END:VCALENDAR
     requirements = {
         CalVerifyMismatchTestsBase.uuid1 : {
             "calendar" : {
-                 "missing_attendee.ics"      : (MISSING_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-                 "mismatched_attendee.ics"   : (MISMATCH_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-                 "mismatched2_attendee.ics"  : (MISMATCH2_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-                 "mismatched3_attendee.ics"  : (MISMATCH3_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-                 "mismatched_organizer.ics"  : (MISMATCH_ORGANIZER_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-                 "mismatched2_organizer.ics" : (MISMATCH2_ORGANIZER_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-           },
-           "inbox" : {},
+                "missing_attendee.ics"      : (MISSING_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+                "mismatched_attendee.ics"   : (MISMATCH_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+                "mismatched2_attendee.ics"  : (MISMATCH2_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+                "mismatched3_attendee.ics"  : (MISMATCH3_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+                "mismatched_organizer.ics"  : (MISMATCH_ORGANIZER_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+                "mismatched2_organizer.ics" : (MISMATCH2_ORGANIZER_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+            },
+            "inbox" : {},
         },
         CalVerifyMismatchTestsBase.uuid2 : {
             "calendar" : {
@@ -1048,7 +1048,7 @@ END:VCALENDAR
                 "mismatched_organizer.ics"  : (MISMATCH_ORGANIZER_2_ICS, CalVerifyMismatchTestsBase.metadata,),
                 "mismatched2_organizer.ics" : (MISMATCH2_ORGANIZER_2_ICS, CalVerifyMismatchTestsBase.metadata,),
             },
-           "inbox" : {},
+            "inbox" : {},
         },
         CalVerifyMismatchTestsBase.uuid3 : {
             "calendar" : {
@@ -1061,7 +1061,7 @@ END:VCALENDAR
                 "mismatched_organizer.ics" : (MISMATCH_ORGANIZER_3_ICS, CalVerifyMismatchTestsBase.metadata,),
                 "mismatched2_attendee.ics" : (MISMATCH2_ATTENDEE_3_ICS, CalVerifyMismatchTestsBase.metadata,),
             },
-           "inbox" : {},
+            "inbox" : {},
         },
     }
 
@@ -1331,10 +1331,10 @@ END:VCALENDAR
     requirements = {
         CalVerifyMismatchTestsBase.uuid1 : {
             "calendar" : {
-                 "missing_attendee.ics"      : (MISSING_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-                 "mismatched_attendee.ics"   : (MISMATCH_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-           },
-           "inbox" : {},
+                "missing_attendee.ics"      : (MISSING_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+                "mismatched_attendee.ics"   : (MISMATCH_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+            },
+            "inbox" : {},
         },
         CalVerifyMismatchTestsBase.uuid2 : {
             "calendar" : {},
@@ -1558,10 +1558,10 @@ END:VCALENDAR
     requirements = {
         CalVerifyMismatchTestsBase.uuid1 : {
             "calendar" : {
-                 "missing_attendee.ics"      : (MISSING_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-                 "mismatched_attendee.ics"   : (MISMATCH_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-           },
-           "inbox" : {},
+                "missing_attendee.ics"      : (MISSING_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+                "mismatched_attendee.ics"   : (MISMATCH_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+            },
+            "inbox" : {},
         },
         CalVerifyMismatchTestsBase.uuid2 : {
             "calendar" : {},

@@ -16,7 +16,8 @@
 
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.config import ConfigDict
-from calendarserver.tools.config import (WritableConfig, setKeyPath, getKeyPath,
+from calendarserver.tools.config import (
+    WritableConfig, setKeyPath, getKeyPath,
     flattenDictionary, processArgs)
 from calendarserver.tools.test.test_gateway import RunCommandTestCase
 from twisted.internet.defer import inlineCallbacks
@@ -118,7 +119,8 @@ class ConfigTestCase(RunCommandTestCase):
         """
         Verify readConfig returns with only the writable keys
         """
-        results = yield self.runCommand(command_readConfig,
+        results = yield self.runCommand(
+            command_readConfig,
             script="calendarserver_config")
 
         self.assertEquals(results["result"]["RedirectHTTPToHTTPS"], False)
@@ -140,7 +142,8 @@ class ConfigTestCase(RunCommandTestCase):
         """
         Verify writeConfig updates the writable plist file only
         """
-        results = yield self.runCommand(command_writeConfig,
+        results = yield self.runCommand(
+            command_writeConfig,
             script="calendarserver_config")
 
         self.assertEquals(results["result"]["EnableCalDAV"], False)
@@ -161,7 +164,8 @@ class ConfigTestCase(RunCommandTestCase):
         """
         Verify sending a bogus command returns an error
         """
-        results = yield self.runCommand(command_bogusCommand,
+        results = yield self.runCommand(
+            command_bogusCommand,
             script="calendarserver_config")
         self.assertEquals(results["error"], "Unknown command 'bogus'")
 

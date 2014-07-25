@@ -101,6 +101,7 @@ def UserNameFromUID(txn, uid):
     returnValue(record.shortNames[0] if record else "(%s)" % (uid,))
 
 
+
 @inlineCallbacks
 def UIDFromInput(txn, value):
     try:
@@ -755,14 +756,14 @@ class EventsInTimerange(Cmd):
 
         # Create fake filter element to match time-range
         filter = caldavxml.Filter(
-                      caldavxml.ComponentFilter(
-                          caldavxml.ComponentFilter(
-                              timerange,
-                              name=("VEVENT",),
-                          ),
-                          name="VCALENDAR",
-                       )
-                  )
+            caldavxml.ComponentFilter(
+                caldavxml.ComponentFilter(
+                    timerange,
+                    name=("VEVENT",),
+                ),
+                name="VCALENDAR",
+            )
+        )
         filter = Filter(filter)
         filter.settimezone(None)
 
@@ -806,26 +807,26 @@ class Purge(Cmd):
             schema.CALENDAR_OBJECT_REVISIONS,
 
             schema.CALENDAR,
-            #schema.CALENDAR_BIND, - cascades
-            #schema.CALENDAR_OBJECT, - cascades
-            #schema.TIME_RANGE, - cascades
-            #schema.TRANSPARENCY, - cascades
+            # schema.CALENDAR_BIND, - cascades
+            # schema.CALENDAR_OBJECT, - cascades
+            # schema.TIME_RANGE, - cascades
+            # schema.TRANSPARENCY, - cascades
 
 
             schema.CALENDAR_HOME,
-            #schema.CALENDAR_HOME_METADATA - cascades
+            # schema.CALENDAR_HOME_METADATA - cascades
             schema.ATTACHMENT,
 
             schema.ADDRESSBOOK_OBJECT_REVISIONS,
 
             schema.ADDRESSBOOK_HOME,
-            #schema.ADDRESSBOOK_HOME_METADATA, - cascades
-            #schema.ADDRESSBOOK_BIND, - cascades
-            #schema.ADDRESSBOOK_OBJECT, - cascades
+            # schema.ADDRESSBOOK_HOME_METADATA, - cascades
+            # schema.ADDRESSBOOK_BIND, - cascades
+            # schema.ADDRESSBOOK_OBJECT, - cascades
 
             schema.NOTIFICATION_HOME,
             schema.NOTIFICATION,
-            #schema.NOTIFICATION_OBJECT_REVISIONS - cascades,
+            # schema.NOTIFICATION_OBJECT_REVISIONS - cascades,
         )
 
         for tableschema in wipeout:

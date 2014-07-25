@@ -164,16 +164,16 @@ class BenchmarkOptionsTests(TestCase):
         subset.
         """
         self.options.parseOptions([
-                "--hosts-count=3", "--host-index=0",
-                "foo", "bar", "baz", "quux"])
+            "--hosts-count=3", "--host-index=0",
+            "foo", "bar", "baz", "quux"])
         self.assertEquals(self.options['benchmarks'], ["foo", "quux"])
 
         self.options.parseOptions([
-                "--hosts-count=3", "--host-index=1",
-                "foo", "bar", "baz", "quux"])
+            "--hosts-count=3", "--host-index=1",
+            "foo", "bar", "baz", "quux"])
         self.assertEquals(self.options['benchmarks'], ["bar"])
 
         self.options.parseOptions([
-                "--hosts-count=3", "--host-index=2",
-                "foo", "bar", "baz", "quux"])
+            "--hosts-count=3", "--host-index=2",
+            "foo", "bar", "baz", "quux"])
         self.assertEquals(self.options['benchmarks'], ["baz"])

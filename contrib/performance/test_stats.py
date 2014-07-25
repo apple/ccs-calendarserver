@@ -109,7 +109,7 @@ class DistributionTests(TestCase):
     # twisted.trial.unittest.FailTest: not equal:
     # a = datetime.datetime(2011, 6, 4, 15, 30, tzinfo=<DstTzInfo 'US/Eastern' EST-1 day, 19:00:00 STD>)
     # b = datetime.datetime(2011, 6, 4, 19, 30, tzinfo=<DstTzInfo 'US/Eastern' EDT-1 day, 20:00:00 DST>)
-    #test_workdistribution.todo = "Somehow timezones mess this up"
+    # test_workdistribution.todo = "Somehow timezones mess this up"
 
 
     def test_recurrencedistribution(self):

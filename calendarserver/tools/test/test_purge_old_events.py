@@ -455,7 +455,8 @@ class PurgeOldEventsTests(StoreTestCase):
 
         # Query for all old events
         results = (yield txn.eventsOlderThan(cutoff))
-        self.assertEquals(sorted(results),
+        self.assertEquals(
+            sorted(results),
             sorted([
                 ['home1', 'calendar1', 'old.ics', '1901-01-01 01:00:00'],
                 ['home1', 'calendar1', 'oldattachment1.ics', '1901-01-01 01:00:00'],
@@ -673,7 +674,8 @@ class PurgeOldEventsTests(StoreTestCase):
         # Create an addressbook and one CardDAV resource
         abHome = (yield txn.addressbookHomeWithUID("home1", create=True))
         abColl = (yield abHome.addressbookWithName("addressbook"))
-        (yield abColl.createAddressBookObjectWithName("card1",
+        (yield abColl.createAddressBookObjectWithName(
+            "card1",
             VCardComponent.fromString(VCARD_1)))
         self.assertEquals(len((yield abColl.addressbookObjects())), 1)
 
@@ -686,7 +688,8 @@ class PurgeOldEventsTests(StoreTestCase):
         (yield txn.commit())
 
         # Purge home1 completely
-        total = yield PurgePrincipalService.purgeUIDs(self._sqlCalendarStore, self.directory,
+        total = yield PurgePrincipalService.purgeUIDs(
+            self._sqlCalendarStore, self.directory,
             ("home1",), verbose=False, proxies=False)
 
         # Wait for queue to process

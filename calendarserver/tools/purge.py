@@ -302,7 +302,7 @@ class PurgeOldEventsService(WorkerService):
         print("  -h --help: print this help and exit")
         print("  -f --config <path>: Specify caldavd.plist configuration path")
         print("  -d --days <number>: specify how many days in the past to retain (default=%d)" % (DEFAULT_RETAIN_DAYS,))
-        #print("  -b --batch <number>: number of events to remove in each transaction (default=%d)" % (DEFAULT_BATCH_SIZE,))
+        # print("  -b --batch <number>: number of events to remove in each transaction (default=%d)" % (DEFAULT_BATCH_SIZE,))
         print("  -n --dry-run: calculate how many events to purge, but do not purge data")
         print("  -v --verbose: print progress information")
         print("  -D --debug: debug logging")
@@ -475,7 +475,7 @@ class PurgeAttachmentsService(WorkerService):
         print("  -h --help: print this help and exit")
         print("  -f --config <path>: Specify caldavd.plist configuration path")
         print("  -u --uuid <owner uid>: target a specific user UID")
-        #print("  -b --batch <number>: number of attachments to remove in each transaction (default=%d)" % (DEFAULT_BATCH_SIZE,))
+        # print("  -b --batch <number>: number of attachments to remove in each transaction (default=%d)" % (DEFAULT_BATCH_SIZE,))
         print("  -d --days <number>: specify how many days in the past to retain (default=%d) zero means no removal of old attachments" % (DEFAULT_RETAIN_DAYS,))
         print("  -n --dry-run: calculate how many attachments to purge, but do not purge data")
         print("  -v --verbose: print progress information")
@@ -680,7 +680,7 @@ class PurgeAttachmentsService(WorkerService):
             table = tables.Table()
             table.addHeader(("User", "Current Quota", "Orphan Size", "Orphan Count", "Dropbox Size", "Dropbox Count", "Managed Size", "Managed Count", "Total Size", "Total Count"))
             table.setDefaultColumnFormats(
-               (
+                (
                     tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.LEFT_JUSTIFY),
                     tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
                     tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
@@ -1011,14 +1011,14 @@ class PurgePrincipalService(WorkerService):
         # Anything in the past is left alone
         whenString = self.when.getText()
         query_filter = caldavxml.Filter(
-              caldavxml.ComponentFilter(
-                  caldavxml.ComponentFilter(
-                      caldavxml.TimeRange(start=whenString,),
-                      name=("VEVENT",),
-                  ),
-                  name="VCALENDAR",
-               )
-          )
+            caldavxml.ComponentFilter(
+                caldavxml.ComponentFilter(
+                    caldavxml.TimeRange(start=whenString,),
+                    name=("VEVENT",),
+                ),
+                name="VCALENDAR",
+            )
+        )
         query_filter = Filter(query_filter)
 
         count = 0

@@ -211,7 +211,7 @@ if __name__ == "__main__":
 
     vevents = []
     for count, (recurring, attendees, date, hour) in enumerate(eventTypes):
-        #print(recurring, attendees, date, hour)
+        # print(recurring, attendees, date, hour)
         vevents.append(makeVEVENT(recurring, attendees, date, hour, count + 1))
 
     print(calendar_template % {"VEVENTS" : "".join(vevents)})

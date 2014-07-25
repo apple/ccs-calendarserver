@@ -201,7 +201,8 @@ class StepperTestCase(TestCase):
         )
         result = (yield self.stepper.start("abc"))
         self.assertEquals(result, "abc") # original result passed through
-        self.assertEquals(self.history,
+        self.assertEquals(
+            self.history,
             ['one success', 'two success', 'three success', 'four success'])
 
 
@@ -211,7 +212,8 @@ class StepperTestCase(TestCase):
         self.stepper.addStep(StepThree(self._record, True))
         self.stepper.addStep(StepFour(self._record, True))
         self.failUnlessFailure(self.stepper.start(), ZeroDivisionError)
-        self.assertEquals(self.history,
+        self.assertEquals(
+            self.history,
             ['one success', 'two failure', 'three failure', 'four failure'])
 
 
@@ -223,5 +225,6 @@ class StepperTestCase(TestCase):
         self.stepper.addStep(StepFour(self._record, False))
         result = (yield self.stepper.start("abc"))
         self.assertEquals(result, None) # original result is gone
-        self.assertEquals(self.history,
+        self.assertEquals(
+            self.history,
             ['one success', 'two failure', 'three success', 'four failure'])

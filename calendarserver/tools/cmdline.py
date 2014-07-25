@@ -74,6 +74,7 @@ def utilityMain(
     if serviceMaker is None:
         serviceMaker = CalDAVServiceMaker
 
+
     # We want to validate that the actual service is always an instance of WorkerService, so wrap the
     # service maker callback inside a function that does that check
     def _makeValidService(store):

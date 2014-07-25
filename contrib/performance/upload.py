@@ -48,7 +48,7 @@ class UploadOptions(Options):
          'Identifier for the file/benchmark/parameter'),
         ('backend', None, None,
          'Which storage backend produced this data.'),
-        ]
+    ]
 
     def postOptions(self):
         assert self['url']
@@ -71,7 +71,7 @@ def _upload(reactor, url, project, revision, revision_date, benchmark,
         'std_dev': str(std_dev),
         'max': str(max_value),
         'min': str(min_value),
-        }
+    }
     print('uploading', data)
     agent = Agent(reactor)
     d = agent.request('POST', url, None, StringProducer(urlencode(data)))

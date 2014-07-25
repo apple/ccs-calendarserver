@@ -209,7 +209,8 @@ class GatewayTestCase(RunCommandTestCase):
         # self.assertEquals(results["result"]["Capacity"], "40")
         # self.assertEquals(results["result"]["Description"], "Test Description")
         self.assertEquals(results["result"]["RecordName"], ["createdlocation01"])
-        self.assertEquals(results["result"]["RealName"],
+        self.assertEquals(
+            results["result"]["RealName"],
             "Created Location 01 %s %s" % (unichr(208), u"\ud83d\udca3"))
         # self.assertEquals(results["result"]["Comment"], "Test Comment")
         self.assertEquals(results["result"]["AutoScheduleMode"], u"acceptIfFree")
@@ -288,7 +289,8 @@ class GatewayTestCase(RunCommandTestCase):
         self._flush()
 
         record = yield self.directory.recordWithUID("836B1B66-2E9A-4F46-8B1C-3DD6772C20B2")
-        self.assertEquals(record.fullNames[0],
+        self.assertEquals(
+            record.fullNames[0],
             u"Created Location 01 %s %s" % (unichr(208), u"\ud83d\udca3"))
 
         self.assertNotEquals(record, None)

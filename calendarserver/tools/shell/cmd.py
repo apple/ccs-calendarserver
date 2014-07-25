@@ -472,7 +472,7 @@ class Commands(CommandsBase):
         if not isinstance(wd, Folder):
             raise NotFoundError("Not a folder: %s" % (wd,))
 
-        #log.info("wd -> %s" % (wd,))
+        # log.info("wd -> %s" % (wd,))
         self.wd = wd
 
 

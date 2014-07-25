@@ -383,7 +383,8 @@ class PurgePrincipalTests(StoreTestCase):
         self.assertTrue(";UNTIL=" not in str(comp))
         yield self.commit()
 
-        count = (yield PurgePrincipalService.purgeUIDs(self.storeUnderTest(), self.directory,
+        count = (yield PurgePrincipalService.purgeUIDs(
+            self.storeUnderTest(), self.directory,
             (self.uid,), verbose=False, proxies=False))
         self.assertEquals(count, 2) # 2 events
 
@@ -480,7 +481,7 @@ class PurgePrincipalTestsWithWorkQueue(PurgePrincipalTests):
                 self.assertTrue(home.purging())
 
             yield self.commit()
-            #print len(work1), len(work2), len(work3), len(work4)
+            # print len(work1), len(work2), len(work3), len(work4)
             if len(work1) + len(work2) + len(work3) + len(work4) == 0:
                 break
             d = Deferred()

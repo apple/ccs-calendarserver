@@ -72,16 +72,16 @@ def recordBasicInfo(directory, record):
         if value:
             table.addRow((name, value))
 
-    add("Service"    , record.service   )
+    add("Service"    , record.service)
     add("Record Type", record.recordType)
 
     for shortName in record.shortNames:
         add("Short Name", shortName)
 
-    add("GUID"      , record.guid     )
-    add("Full Name" , record.fullName )
+    add("GUID"      , record.guid)
+    add("Full Name" , record.fullName)
     add("First Name", record.firstName)
-    add("Last Name" , record.lastName )
+    add("Last Name" , record.lastName)
 
     try:
         for email in record.emailAddresses:
@@ -116,7 +116,8 @@ def recordGroupMembershipInfo(directory, record):
     if not rows:
         return succeed(None)
 
-    rows = sorted(rows,
+    rows = sorted(
+        rows,
         key=lambda row: (row[1], row[2])
     )
 
@@ -162,7 +163,8 @@ def recordProxyAccessInfo(directory, record):
     if not rows:
         returnValue(None)
 
-    rows = sorted(rows,
+    rows = sorted(
+        rows,
         key=lambda row: (row[1], row[2], row[4])
     )
 
