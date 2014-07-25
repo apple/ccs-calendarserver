@@ -64,6 +64,15 @@ class ProfileBase(object):
         pass
 
 
+    def initialize(self):
+        """
+        Called before the profile runs for real. Can be used to initialize client state.
+
+        @return: a L{Deferred} that fires when initialization is done
+        """
+        return succeed(None)
+
+
     def _calendarsOfType(self, calendarType, componentType):
         return [
             cal
@@ -665,6 +674,132 @@ END:VCALENDAR
             href = '%s%s.ics' % (calendar.url, uid)
             d = self._client.addEvent(href, vcalendar)
             return self._newOperation("create", d)
+
+
+
+class EventUpdater(ProfileBase):
+    """
+    A Calendar user who creates a new event, and then updates its alarm.
+    """
+    _eventTemplate = Component.fromString("""\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.3//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20101018T155431Z
+UID:C98AD237-55AD-4F7D-9009-0D355D835822
+DTEND;TZID=America/New_York:20101021T130000
+TRANSP:OPAQUE
+SUMMARY:Simple event
+DTSTART;TZID=America/New_York:20101021T120000
+DTSTAMP:20101018T155438Z
+SEQUENCE:2
+BEGIN:VALARM
+X-WR-ALARMUID:D9D1AC84-F629-4B9D-9B6B-4A6CA9A11FEF
+UID:D9D1AC84-F629-4B9D-9B6B-4A6CA9A11FEF
+DESCRIPTION:Event reminder
+TRIGGER:-PT8M
+ACTION:DISPLAY
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n"))
+
+    def setParameters(
+        self,
+        enabled=True,
+        interval=25,
+        eventStartDistribution=NearFutureDistribution(),
+        eventDurationDistribution=UniformDiscreteDistribution([
+            15 * 60, 30 * 60,
+            45 * 60, 60 * 60,
+            120 * 60
+        ]),
+        recurrenceDistribution=RecurrenceDistribution(False),
+    ):
+        self.enabled = enabled
+        self._interval = interval
+        self._eventStartDistribution = eventStartDistribution
+        self._eventDurationDistribution = eventDurationDistribution
+        self._recurrenceDistribution = recurrenceDistribution
+
+
+    def initialize(self):
+        """
+        Called before the profile runs for real. Can be used to initialize client state.
+
+        @return: a L{Deferred} that fires when initialization is done
+        """
+        return self._initEvent()
+
+
+    def run(self):
+        self._call = LoopingCall(self._updateEvent)
+        self._call.clock = self._reactor
+        return self._call.start(self._interval)
+
+
+    def _initEvent(self):
+        if not self._client.started:
+            return succeed(None)
+
+        # If it already exists, don't re-create
+        calendar = self._calendarsOfType(caldavxml.calendar, "VEVENT")[0]
+        if calendar.events:
+            events = [event for event in calendar.events.values() if event.url.endswith("event_to_update.ics")]
+            if events:
+                return succeed(None)
+
+        # Copy the template event and fill in some of its fields
+        # to make a new event to create on the calendar.
+        vcalendar = self._eventTemplate.duplicate()
+        vevent = vcalendar.mainComponent()
+        uid = str(uuid4())
+        dtstart = self._eventStartDistribution.sample()
+        dtend = dtstart + Duration(seconds=self._eventDurationDistribution.sample())
+        vevent.replaceProperty(Property("CREATED", DateTime.getNowUTC()))
+        vevent.replaceProperty(Property("DTSTAMP", DateTime.getNowUTC()))
+        vevent.replaceProperty(Property("DTSTART", dtstart))
+        vevent.replaceProperty(Property("DTEND", dtend))
+        vevent.replaceProperty(Property("UID", uid))
+
+        rrule = self._recurrenceDistribution.sample()
+        if rrule is not None:
+            vevent.addProperty(Property(None, None, None, pycalendar=rrule))
+
+        href = '%s%s' % (calendar.url, "event_to_update.ics")
+        d = self._client.addEvent(href, vcalendar)
+        return self._newOperation("create", d)
+
+
+    def _updateEvent(self):
+        """
+        Try to add a new attendee to an event, or perhaps remove an
+        existing attendee from an event.
+
+        @return: C{None} if there are no events to play with,
+            otherwise a L{Deferred} which fires when the attendee
+            change has been made.
+        """
+
+        if not self._client.started:
+            return succeed(None)
+
+        # If it does not exist, try to create it
+        calendar = self._calendarsOfType(caldavxml.calendar, "VEVENT")[0]
+        if not calendar.events:
+            return self._initEvent()
+        events = [event for event in calendar.events.values() if event.url.endswith("event_to_update.ics")]
+        if not events:
+            return self._initEvent()
+        event = events[0]
+
+        # Add/update the ACKNOWLEDGED property
+        component = event.component.mainComponent()
+        component.replaceProperty(Property("ACKNOWLEDGED", DateTime.getNowUTC()))
+        d = self._client.changeEvent(event.url)
+        return self._newOperation("update", d)
 
 
 

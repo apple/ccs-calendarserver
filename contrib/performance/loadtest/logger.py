@@ -65,8 +65,8 @@ class SummarizingMixin(object):
                 failure = True
 
         return (operation, count, failed,) + \
-                tuple(thresholds) + \
-                (mean(durations), median(durations), stddev(durations), "FAIL" if failure else "")
+            tuple(thresholds) + \
+            (mean(durations), median(durations), stddev(durations), "FAIL" if failure else "")
 
 
     def _printRow(self, output, formats, values):

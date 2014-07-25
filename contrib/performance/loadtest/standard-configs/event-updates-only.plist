@@ -173,7 +173,7 @@
 						<key>params</key>
 						<dict>
 							<key>enabled</key>
-							<false/>
+							<true/>
 
 							<!-- Define the interval (in seconds) at which this profile will use
 								its client to create a new event. -->
@@ -276,18 +276,22 @@
 						<key>params</key>
 						<dict>
 							<key>enabled</key>
-							<true/>
+							<false/>
 
 							<!-- Define the frequency at which new invitations will be sent out. -->
 							<key>sendInvitationDistribution</key>
 							<dict>
 								<key>type</key>
-								<string>contrib.performance.stats.FixedDistribution</string>
+								<string>contrib.performance.stats.NormalDistribution</string>
 								<key>params</key>
 								<dict>
-									<!-- interval (in seconds). -->
-									<key>value</key>
-									<integer>120</integer>
+									<!-- mu gives the mean of the normal distribution (in seconds). -->
+									<key>mu</key>
+									<integer>10</integer>
+
+									<!-- and sigma gives its standard deviation. -->
+									<key>sigma</key>
+									<integer>5</integer>
 								</dict>
 							</dict>
 
@@ -332,12 +336,18 @@
 							<key>inviteeCountDistribution</key>
 							<dict>
 								<key>type</key>
-								<string>contrib.performance.stats.FixedDistribution</string>
+								<string>contrib.performance.stats.LogNormalDistribution</string>
 								<key>params</key>
 								<dict>
-									<!-- Number of attendees. -->
-									<key>value</key>
-									<integer>5</integer>
+									<!-- mode - peak-->
+									<key>mode</key>
+									<integer>1</integer>
+									<!-- mean - average-->
+									<key>median</key>
+									<integer>6</integer>
+									<!-- maximum -->
+									<key>maximum</key>
+									<real>100</real>
 								</dict>
 							</dict>
 
@@ -395,7 +405,7 @@
 								<dict>
 									<!-- False to disable RRULEs -->
 									<key>allowRecurrence</key>
-									<false/>
+									<true/>
 
 									<!-- These are the weights for the specific set of RRULEs. -->
 									<key>weights</key>

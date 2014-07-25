@@ -87,7 +87,10 @@ class ClientType(object, FancyEqMixin):
         Create a new instance of this client type.
         """
         return self.clientType(
-            reactor, serverAddress, principalPathTemplate, serializationPath, userRecord, authInfo, **self.clientParams)
+            reactor, serverAddress, principalPathTemplate,
+            serializationPath, userRecord, authInfo,
+            **self.clientParams
+        )
 
 
 
@@ -252,8 +255,12 @@ class CalendarClientSimulator(object):
                 for profileType in clientType.profileTypes:
                     profile = profileType(reactor, self, client, number)
                     if profile.enabled:
-                        d = profile.run()
-                        d.addErrback(self._profileFailure, profileType, reactor)
+                        d = profile.initialize()
+                        def _run(result):
+                            d2 = profile.run()
+                            d2.addErrback(self._profileFailure, profileType, reactor)
+                            return d2
+                        d.addCallback(_run)
 
         # XXX this status message is prone to be slightly inaccurate, but isn't
         # really used by much anyway.
@@ -276,7 +283,7 @@ class CalendarClientSimulator(object):
         if not self._stopped:
             where = self._dumpLogs(reactor, reason)
             err(reason, "Client stopped with error; recent traffic in %r" % (
-                    where.path,))
+                where.path,))
             if not isinstance(reason, Failure):
                 reason = Failure(reason)
             msg(type="client-failure", reason="%s: %s" % (reason.type, reason.value,))
@@ -286,7 +293,7 @@ class CalendarClientSimulator(object):
         if not self._stopped:
             where = self._dumpLogs(reactor, reason)
             err(reason, "Profile stopped with error; recent traffic in %r" % (
-                    where.path,))
+                where.path,))
 
 
     def _simFailure(self, reason, reactor):
@@ -557,12 +564,15 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
         output.write("* Details\n")
 
         self.printHeader(output, [
-                (label, width)
-                for (label, width, _ignore_fmt)
-                in self._fields])
-        self.printData(output,
+            (label, width)
+            for (label, width, _ignore_fmt)
+            in self._fields
+        ])
+        self.printData(
+            output,
             [fmt for (label, width, fmt) in self._fields],
-            sorted(self._perMethodTimes.items()))
+            sorted(self._perMethodTimes.items())
+        )
 
     _FAILED_REASON = "Greater than %(cutoff)g%% %(method)s failed"
 
@@ -587,7 +597,7 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
 
             checks = [
                 (failures, self._fail_cut_off, self._FAILED_REASON),
-                ]
+            ]
 
             for ctr, item in enumerate(self._thresholds):
                 threshold, fail_at = item

@@ -170,6 +170,109 @@
 						</dict>
 					</dict>
 
+					<!-- This profile will create a new event, and then periodically update the ACKNOWLEDGED property. -->
+					<dict>
+						<key>class</key>
+						<string>contrib.performance.loadtest.profiles.EventUpdater</string>
+
+						<key>params</key>
+						<dict>
+							<key>enabled</key>
+							<false/>
+
+							<!-- Define the interval (in seconds) at which this profile will use
+								its client to create a new event. -->
+							<key>interval</key>
+							<integer>5</integer>
+
+							<!-- Define how start times (DTSTART) for the randomly generated events
+								will be selected. This is an example of a "Distribution" parameter. The value
+								for most "Distribution" parameters are interchangeable and extensible. -->
+							<key>eventStartDistribution</key>
+							<dict>
+
+								<!-- This distribution is pretty specialized. It produces timestamps
+									in the near future, limited to certain days of the week and certain hours
+									of the day. -->
+								<key>type</key>
+								<string>contrib.performance.stats.WorkDistribution</string>
+
+								<key>params</key>
+								<dict>
+									<!-- These are the days of the week the distribution will use. -->
+									<key>daysOfWeek</key>
+									<array>
+										<string>mon</string>
+										<string>tue</string>
+										<string>wed</string>
+										<string>thu</string>
+										<string>fri</string>
+									</array>
+
+									<!-- The earliest hour of a day at which an event might be scheduled. -->
+									<key>beginHour</key>
+									<integer>8</integer>
+
+									<!-- And the latest hour of a day (at which an event will be scheduled
+										to begin!). -->
+									<key>endHour</key>
+									<integer>16</integer>
+
+									<!-- The timezone in which the event is scheduled. (XXX Does this
+										really work right?) -->
+									<key>tzname</key>
+									<string>America/Los_Angeles</string>
+								</dict>
+							</dict>
+
+							<!-- Define how recurrences are created. -->
+							<key>recurrenceDistribution</key>
+							<dict>
+
+								<!-- This distribution is pretty specialized.  We have a fixed set of
+								     RRULEs defined for this distribution and pick each based on a
+								     weight. -->
+								<key>type</key>
+								<string>contrib.performance.stats.RecurrenceDistribution</string>
+
+								<key>params</key>
+								<dict>
+									<!-- False to disable RRULEs -->
+									<key>allowRecurrence</key>
+									<true/>
+
+									<!-- These are the weights for the specific set of RRULEs. -->
+									<key>weights</key>
+									<dict>
+										<!-- Half of all events will be non-recurring -->
+										<key>none</key>
+										<integer>50</integer>
+										
+										<!-- Daily and weekly are pretty common -->
+										<key>daily</key>
+										<integer>25</integer>
+										<key>weekly</key>
+										<integer>25</integer>
+										
+										<!-- Monthly, yearly, daily & weekly limit not so common -->
+										<key>monthly</key>
+										<integer>0</integer>
+										<key>yearly</key>
+										<integer>0</integer>
+										<key>dailylimit</key>
+										<integer>0</integer>
+										<key>weeklylimit</key>
+										<integer>0</integer>
+										
+										<!-- Work days pretty common -->
+										<key>workdays</key>
+										<integer>0</integer>
+									</dict>
+								</dict>
+							</dict>
+						</dict>
+					</dict>
+
 					<!-- This profile invites some number of new attendees to new events. -->
 					<dict>
 						<key>class</key>

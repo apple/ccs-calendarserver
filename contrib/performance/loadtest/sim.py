@@ -331,10 +331,12 @@ class LoadSimulator(object):
                         ClientType(
                             namedAny(clientConfig["software"]),
                             cls._convertParams(clientConfig["params"]),
-                            [ProfileType(
-                                namedAny(profile["class"]),
-                                cls._convertParams(profile["params"]))
-                             for profile in clientConfig["profiles"]]))
+                            [
+                                ProfileType(
+                                    namedAny(profile["class"]),
+                                    cls._convertParams(profile["params"])
+                                ) for profile in clientConfig["profiles"]
+                            ]))
             if not parameters.clients:
                 parameters.addClient(1,
                                      ClientType(OS_X_10_6, {},

@@ -291,6 +291,13 @@ class BaseClient(object):
         raise NotImplementedError("%r does not implement addInvite" % (self.__class__,))
 
 
+    def changeEvent(self, href, calendar):
+        """
+        Called when a profile needs to change an event (no scheduling).
+        """
+        raise NotImplementedError("%r does not implement changeEvent" % (self.__class__,))
+
+
     def deleteEvent(self, href):
         """
         Called when a profile needs to delete an event.
@@ -472,7 +479,7 @@ class BaseAppleClient(BaseClient):
         # Allow events to go out into the world.
         self.catalog = {
             "eventChanged": Periodical(),
-            }
+        }
 
 
     def _addDefaultHeaders(self, headers):
@@ -550,9 +557,9 @@ class BaseAppleClient(BaseClient):
             return parser.getResults()
 
     _CALENDAR_TYPES = set([
-            caldavxml.calendar,
-            caldavxml.schedule_inbox,
-            ])
+        caldavxml.calendar,
+        caldavxml.schedule_inbox,
+    ])
 
     @inlineCallbacks
     def _propfind(self, url, body, depth='0', allowedStatus=(MULTI_STATUS,), method_label=None):
@@ -787,12 +794,12 @@ class BaseAppleClient(BaseClient):
 
                     changeTag = davxml.sync_token if self.supportSync else csxml.getctag
                     calendars.append(Calendar(
-                            nodeType.tag,
-                            componentTypes,
-                            textProps.get(davxml.displayname, None),
-                            href,
-                            textProps.get(changeTag, None),
-                            ))
+                        nodeType.tag,
+                        componentTypes,
+                        textProps.get(davxml.displayname, None),
+                        href,
+                        textProps.get(changeTag, None),
+                    ))
                     break
         return calendars
 
@@ -1215,8 +1222,10 @@ class BaseAppleClient(BaseClient):
         """
         Start monitoring for AMP-based push notifications
         """
-        subscribeToIDs(self.ampPushHost, self.ampPushPort, pushKeys,
-            self._receivedPush, self.reactor)
+        subscribeToIDs(
+            self.ampPushHost, self.ampPushPort, pushKeys,
+            self._receivedPush, self.reactor
+        )
 
 
     @inlineCallbacks
@@ -1413,8 +1422,10 @@ class BaseAppleClient(BaseClient):
             # test account names are all too similar
             # name = attendee.parameterValue('CN').encode("utf-8")
             # prefix = name[:4].lower()
-            prefix = random.choice(["chris", "cyru", "dre", "eric", "morg",
-                "well", "wilfr", "witz"])
+            prefix = random.choice([
+                "chris", "cyru", "dre", "eric", "morg",
+                "well", "wilfr", "witz"
+            ])
 
             email = attendee.value()
             if email.startswith("mailto:"):
@@ -1427,14 +1438,14 @@ class BaseAppleClient(BaseClient):
             yield self._report(
                 self.principalCollection,
                 self._USER_LIST_PRINCIPAL_PROPERTY_SEARCH % {
-                'displayname': prefix,
-                'email': prefix,
-                'firstname': prefix,
-                'lastname': prefix,
+                    'displayname': prefix,
+                    'email': prefix,
+                    'firstname': prefix,
+                    'lastname': prefix,
                 },
                 depth=None,
                 method_label="REPORT{psearch}",
-           )
+            )
 
             # Now learn about the attendee's availability
             yield self.requestAvailability(
@@ -1455,8 +1466,8 @@ class BaseAppleClient(BaseClient):
         component.mainComponent().addProperty(newAttendee)
         okCodes = NO_CONTENT
         headers = Headers({
-                'content-type': ['text/calendar'],
-                })
+            'content-type': ['text/calendar'],
+        })
         if event.scheduleTag is not None:
             headers.addRawHeader('if-schedule-tag-match', event.scheduleTag)
             okCodes = (NO_CONTENT, PRECONDITION_FAILED,)
@@ -1503,8 +1514,8 @@ class BaseAppleClient(BaseClient):
     @inlineCallbacks
     def addEvent(self, href, component, invite=False):
         headers = Headers({
-                'content-type': ['text/calendar'],
-                })
+            'content-type': ['text/calendar'],
+        })
 
         attendees = list(component.mainComponent().properties('ATTENDEE'))
         label_suffix = "small"
@@ -1542,6 +1553,29 @@ class BaseAppleClient(BaseClient):
 
         # Now do a normal PUT
         yield self.addEvent(href, component, invite=True)
+
+
+    @inlineCallbacks
+    def changeEvent(self, href):
+
+        event = self._events[href]
+        component = event.component
+
+        # At last, upload the new event definition
+        response = yield self._request(
+            (NO_CONTENT, PRECONDITION_FAILED,),
+            'PUT',
+            self.root + href.encode('utf-8'),
+            Headers({
+                'content-type': ['text/calendar'],
+                'if-match': [event.etag]
+            }),
+            StringProducer(component.getTextWithTimezones(includeTimezones=True)),
+            method_label="PUT{update}"
+        )
+
+        # Finally, re-retrieve the event to update the etag
+        yield self._updateEvent(response, href)
 
 
     def _localUpdateEvent(self, response, href, component):
@@ -1634,14 +1668,15 @@ class BaseAppleClient(BaseClient):
                     'originator': [self.email],
                     'recipient': [u', '.join(users).encode('utf-8')]}),
             StringProducer(self._POST_AVAILABILITY % {
-                    'attendees': attendeeStr,
-                    'summary': (u'Availability for %s' % (', '.join(users),)).encode('utf-8'),
-                    'organizer': self.email.encode('utf-8'),
-                    'vfreebusy-uid': str(uuid4()).upper(),
-                    'event-mask': maskStr,
-                    'start': start,
-                    'end': end,
-                    'now': now}),
+                'attendees': attendeeStr,
+                'summary': (u'Availability for %s' % (', '.join(users),)).encode('utf-8'),
+                'organizer': self.email.encode('utf-8'),
+                'vfreebusy-uid': str(uuid4()).upper(),
+                'event-mask': maskStr,
+                'start': start,
+                'end': end,
+                'now': now,
+            }),
             method_label="POST{fb-%s}" % (label_suffix,),
         )
         body = yield readBody(response)
@@ -1999,7 +2034,7 @@ class RequestLogger(object):
                 url=urlunparse(('', '') + urlparse(event['url'])[2:]),
                 code=event['code'],
                 duration=event['duration'],
-                )
+            )
 
             if event['success']:
                 formatArgs['success'] = self.success

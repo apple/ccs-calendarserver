@@ -34,7 +34,7 @@ if __name__ == '__main__':
             from twisted.internet import reactor
             from twisted.internet.stdio import StandardIO
 
-            #from contrib.performance.loadtest.ampsim import Worker
+            # from contrib.performance.loadtest.ampsim import Worker
             from contrib.performance.loadtest.sim import LagTrackingReactor
 
             StandardIO(Worker(LagTrackingReactor(reactor)))
@@ -183,7 +183,7 @@ class Manager(AMP):
 
     @LogMessage.responder
     def observed(self, event):
-        #from pprint import pformat
-        #self.output.write(pformat(event)+"\n")
+        # from pprint import pformat
+        # self.output.write(pformat(event)+"\n")
         msg(**event)
         return {}

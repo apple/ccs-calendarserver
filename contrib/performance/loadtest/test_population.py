@@ -36,8 +36,9 @@ class ReportStatisticsTests(TestCase):
         users = ['user01', 'user02', 'user03']
         for user in users:
             logger.observe(dict(
-                    type='response', method='GET', success=True,
-                    duration=1.23, user=user, client_type="test", client_id="1234"))
+                type='response', method='GET', success=True,
+                duration=1.23, user=user, client_type="test", client_id="1234"
+            ))
         self.assertEqual(len(users), logger.countUsers())
 
 
@@ -50,8 +51,9 @@ class ReportStatisticsTests(TestCase):
         clients = ['c01', 'c02', 'c03']
         for client in clients:
             logger.observe(dict(
-                    type='response', method='GET', success=True,
-                    duration=1.23, user="user01", client_type="test", client_id=client))
+                type='response', method='GET', success=True,
+                duration=1.23, user="user01", client_type="test", client_id=client
+            ))
         self.assertEqual(len(clients), logger.countClients())
 
 
@@ -64,7 +66,8 @@ class ReportStatisticsTests(TestCase):
         clients = ['c01', 'c02', 'c03']
         for client in clients:
             logger.observe(dict(
-                    type='client-failure', reason="testing %s" % (client,)))
+                type='client-failure', reason="testing %s" % (client,)
+            ))
         self.assertEqual(len(clients), logger.countClientFailures())
 
 
@@ -77,7 +80,8 @@ class ReportStatisticsTests(TestCase):
         clients = ['c01', 'c02', 'c03']
         for client in clients:
             logger.observe(dict(
-                    type='sim-failure', reason="testing %s" % (client,)))
+                type='sim-failure', reason="testing %s" % (client,)
+            ))
         self.assertEqual(len(clients), logger.countSimFailures())
 
 
@@ -89,8 +93,9 @@ class ReportStatisticsTests(TestCase):
         """
         logger = ReportStatistics()
         logger.observe(dict(
-                type='response', method='GET', success=True,
-                duration=2.5, user='user01', client_type="test", client_id="1234"))
+            type='response', method='GET', success=True,
+            duration=2.5, user='user01', client_type="test", client_id="1234"
+        ))
         self.assertEqual([], logger.failures())
 
 
@@ -102,11 +107,13 @@ class ReportStatisticsTests(TestCase):
         logger = ReportStatistics()
         for _ignore in range(98):
             logger.observe(dict(
-                    type='response', method='GET', success=True,
-                    duration=2.5, user='user01', client_type="test", client_id="1234"))
+                type='response', method='GET', success=True,
+                duration=2.5, user='user01', client_type="test", client_id="1234"
+            ))
         logger.observe(dict(
-                type='response', method='GET', success=False,
-                duration=2.5, user='user01', client_type="test", client_id="1234"))
+            type='response', method='GET', success=False,
+            duration=2.5, user='user01', client_type="test", client_id="1234"
+        ))
         self.assertEqual(
             ["Greater than 1% GET failed"],
             logger.failures())
@@ -121,12 +128,14 @@ class ReportStatisticsTests(TestCase):
         logger = ReportStatistics()
         for _ignore in range(94):
             logger.observe(dict(
-                    type='response', method='GET', success=True,
-                    duration=2.5, user='user01', client_type="test", client_id="1234"))
+                type='response', method='GET', success=True,
+                duration=2.5, user='user01', client_type="test", client_id="1234"
+            ))
         for _ignore in range(5):
             logger.observe(dict(
-                    type='response', method='GET', success=True,
-                    duration=3.5, user='user02', client_type="test", client_id="1234"))
+                type='response', method='GET', success=True,
+                duration=3.5, user='user02', client_type="test", client_id="1234"
+            ))
         self.assertEqual(
             ["Greater than 5% GET exceeded 3 second response time"],
             logger.failures())
@@ -141,11 +150,13 @@ class ReportStatisticsTests(TestCase):
         logger = ReportStatistics()
         for _ignore in range(98):
             logger.observe(dict(
-                    type='response', method='GET', success=True,
-                    duration=2.5, user='user01', client_type="test", client_id="1234"))
-        logger.observe(dict(
                 type='response', method='GET', success=True,
-                duration=5.5, user='user01', client_type="test", client_id="1234"))
+                duration=2.5, user='user01', client_type="test", client_id="1234"
+            ))
+        logger.observe(dict(
+            type='response', method='GET', success=True,
+            duration=5.5, user='user01', client_type="test", client_id="1234"
+        ))
         self.assertEqual(
             ["Greater than 1% GET exceeded 5 second response time"],
             logger.failures())
@@ -158,18 +169,22 @@ class ReportStatisticsTests(TestCase):
         logger = ReportStatistics()
         for _ignore in range(99):
             logger.observe(dict(
-                    type='response', method='GET', success=True,
-                    duration=2.5, user='user01', client_type="test", client_id="1234"))
+                type='response', method='GET', success=True,
+                duration=2.5, user='user01', client_type="test", client_id="1234"
+            ))
             logger.observe(dict(
-                    type='response', method='POST', success=True,
-                    duration=2.5, user='user01', client_type="test", client_id="1234"))
+                type='response', method='POST', success=True,
+                duration=2.5, user='user01', client_type="test", client_id="1234"
+            ))
 
         logger.observe(dict(
-                type='response', method='GET', success=False,
-                duration=2.5, user='user01', client_type="test", client_id="1234"))
+            type='response', method='GET', success=False,
+            duration=2.5, user='user01', client_type="test", client_id="1234"
+        ))
         logger.observe(dict(
-                type='response', method='POST', success=False,
-                duration=2.5, user='user01', client_type="test", client_id="1234"))
+            type='response', method='POST', success=False,
+            duration=2.5, user='user01', client_type="test", client_id="1234"
+        ))
 
         self.assertEqual([], logger.failures())
 
@@ -196,33 +211,41 @@ class ReportStatisticsTests(TestCase):
         # -small below threshold
         logger = ReportStatistics(thresholds=_thresholds)
         logger.observe(dict(
-                type='response', method='PUT{organizer-small}', success=True,
-                duration=0.2, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-small}', success=True,
+            duration=0.2, user='user01', client_type="test", client_id="1234"
+        ))
         logger.observe(dict(
-                type='response', method='PUT{organizer-small}', success=True,
-                duration=0.2, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-small}', success=True,
+            duration=0.2, user='user01', client_type="test", client_id="1234"
+        ))
         logger.observe(dict(
-                type='response', method='PUT{organizer-small}', success=True,
-                duration=0.2, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-small}', success=True,
+            duration=0.2, user='user01', client_type="test", client_id="1234"
+        ))
         logger.observe(dict(
-                type='response', method='PUT{organizer-small}', success=True,
-                duration=0.2, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-small}', success=True,
+            duration=0.2, user='user01', client_type="test", client_id="1234"
+        ))
         self.assertEqual([], logger.failures())
 
         # -small above 0.5 threshold
         logger = ReportStatistics(thresholds=_thresholds)
         logger.observe(dict(
-                type='response', method='PUT{organizer-small}', success=True,
-                duration=0.2, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-small}', success=True,
+            duration=0.2, user='user01', client_type="test", client_id="1234"
+        ))
         logger.observe(dict(
-                type='response', method='PUT{organizer-small}', success=True,
-                duration=0.6, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-small}', success=True,
+            duration=0.6, user='user01', client_type="test", client_id="1234"
+        ))
         logger.observe(dict(
-                type='response', method='PUT{organizer-small}', success=True,
-                duration=0.6, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-small}', success=True,
+            duration=0.6, user='user01', client_type="test", client_id="1234"
+        ))
         logger.observe(dict(
-                type='response', method='PUT{organizer-small}', success=True,
-                duration=0.6, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-small}', success=True,
+            duration=0.6, user='user01', client_type="test", client_id="1234"
+        ))
         self.assertEqual(
             ["Greater than 50% PUT{organizer-small} exceeded 0.5 second response time"],
             logger.failures()
@@ -231,17 +254,21 @@ class ReportStatisticsTests(TestCase):
         # -medium below 0.5 threshold
         logger = ReportStatistics(thresholds=_thresholds)
         logger.observe(dict(
-                type='response', method='PUT{organizer-medium}', success=True,
-                duration=0.2, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-medium}', success=True,
+            duration=0.2, user='user01', client_type="test", client_id="1234"
+        ))
         logger.observe(dict(
-                type='response', method='PUT{organizer-medium}', success=True,
-                duration=0.6, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-medium}', success=True,
+            duration=0.6, user='user01', client_type="test", client_id="1234"
+        ))
         logger.observe(dict(
-                type='response', method='PUT{organizer-medium}', success=True,
-                duration=0.6, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-medium}', success=True,
+            duration=0.6, user='user01', client_type="test", client_id="1234"
+        ))
         logger.observe(dict(
-                type='response', method='PUT{organizer-medium}', success=True,
-                duration=0.6, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-medium}', success=True,
+            duration=0.6, user='user01', client_type="test", client_id="1234"
+        ))
         self.assertEqual(
             [],
             logger.failures()
@@ -250,17 +277,21 @@ class ReportStatisticsTests(TestCase):
         # -medium above 1.0 threshold
         logger = ReportStatistics(thresholds=_thresholds)
         logger.observe(dict(
-                type='response', method='PUT{organizer-medium}', success=True,
-                duration=0.2, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-medium}', success=True,
+            duration=0.2, user='user01', client_type="test", client_id="1234"
+        ))
         logger.observe(dict(
-                type='response', method='PUT{organizer-medium}', success=True,
-                duration=1.6, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-medium}', success=True,
+            duration=1.6, user='user01', client_type="test", client_id="1234"
+        ))
         logger.observe(dict(
-                type='response', method='PUT{organizer-medium}', success=True,
-                duration=1.6, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-medium}', success=True,
+            duration=1.6, user='user01', client_type="test", client_id="1234"
+        ))
         logger.observe(dict(
-                type='response', method='PUT{organizer-medium}', success=True,
-                duration=1.6, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-medium}', success=True,
+            duration=1.6, user='user01', client_type="test", client_id="1234"
+        ))
         self.assertEqual(
             ["Greater than 50% PUT{organizer-medium} exceeded 1 second response time"],
             logger.failures()
@@ -269,17 +300,21 @@ class ReportStatisticsTests(TestCase):
         # -large below 1.0 threshold
         logger = ReportStatistics(thresholds=_thresholds)
         logger.observe(dict(
-                type='response', method='PUT{organizer-large}', success=True,
-                duration=0.2, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-large}', success=True,
+            duration=0.2, user='user01', client_type="test", client_id="1234"
+        ))
         logger.observe(dict(
-                type='response', method='PUT{organizer-large}', success=True,
-                duration=1.6, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-large}', success=True,
+            duration=1.6, user='user01', client_type="test", client_id="1234"
+        ))
         logger.observe(dict(
-                type='response', method='PUT{organizer-large}', success=True,
-                duration=1.6, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-large}', success=True,
+            duration=1.6, user='user01', client_type="test", client_id="1234"
+        ))
         logger.observe(dict(
-                type='response', method='PUT{organizer-large}', success=True,
-                duration=1.6, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-large}', success=True,
+            duration=1.6, user='user01', client_type="test", client_id="1234"
+        ))
         self.assertEqual(
             [],
             logger.failures()
@@ -288,17 +323,21 @@ class ReportStatisticsTests(TestCase):
         # -large above 3.0 threshold
         logger = ReportStatistics(thresholds=_thresholds)
         logger.observe(dict(
-                type='response', method='PUT{organizer-large}', success=True,
-                duration=0.2, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-large}', success=True,
+            duration=0.2, user='user01', client_type="test", client_id="1234"
+        ))
         logger.observe(dict(
-                type='response', method='PUT{organizer-large}', success=True,
-                duration=3.6, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-large}', success=True,
+            duration=3.6, user='user01', client_type="test", client_id="1234"
+        ))
         logger.observe(dict(
-                type='response', method='PUT{organizer-large}', success=True,
-                duration=3.6, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-large}', success=True,
+            duration=3.6, user='user01', client_type="test", client_id="1234"
+        ))
         logger.observe(dict(
-                type='response', method='PUT{organizer-large}', success=True,
-                duration=3.6, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-large}', success=True,
+            duration=3.6, user='user01', client_type="test", client_id="1234"
+        ))
         self.assertEqual(
             ["Greater than 50% PUT{organizer-large} exceeded 3 second response time"],
             logger.failures()
@@ -307,17 +346,21 @@ class ReportStatisticsTests(TestCase):
         # -huge below 10.0 threshold
         logger = ReportStatistics(thresholds=_thresholds)
         logger.observe(dict(
-                type='response', method='PUT{organizer-huge}', success=True,
-                duration=12.0, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-huge}', success=True,
+            duration=12.0, user='user01', client_type="test", client_id="1234"
+        ))
         logger.observe(dict(
-                type='response', method='PUT{organizer-huge}', success=True,
-                duration=8, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-huge}', success=True,
+            duration=8, user='user01', client_type="test", client_id="1234"
+        ))
         logger.observe(dict(
-                type='response', method='PUT{organizer-huge}', success=True,
-                duration=11.0, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-huge}', success=True,
+            duration=11.0, user='user01', client_type="test", client_id="1234"
+        ))
         logger.observe(dict(
-                type='response', method='PUT{organizer-huge}', success=True,
-                duration=9.0, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-huge}', success=True,
+            duration=9.0, user='user01', client_type="test", client_id="1234"
+        ))
         self.assertEqual(
             [],
             logger.failures()
@@ -326,17 +369,21 @@ class ReportStatisticsTests(TestCase):
         # -huge above 10.0 threshold
         logger = ReportStatistics(thresholds=_thresholds)
         logger.observe(dict(
-                type='response', method='PUT{organizer-huge}', success=True,
-                duration=12.0, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-huge}', success=True,
+            duration=12.0, user='user01', client_type="test", client_id="1234"
+        ))
         logger.observe(dict(
-                type='response', method='PUT{organizer-huge}', success=True,
-                duration=9.0, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-huge}', success=True,
+            duration=9.0, user='user01', client_type="test", client_id="1234"
+        ))
         logger.observe(dict(
-                type='response', method='PUT{organizer-huge}', success=True,
-                duration=12.0, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-huge}', success=True,
+            duration=12.0, user='user01', client_type="test", client_id="1234"
+        ))
         logger.observe(dict(
-                type='response', method='PUT{organizer-huge}', success=True,
-                duration=42.42, user='user01', client_type="test", client_id="1234"))
+            type='response', method='PUT{organizer-huge}', success=True,
+            duration=42.42, user='user01', client_type="test", client_id="1234"
+        ))
         self.assertEqual(
             ["Greater than 50% PUT{organizer-huge} exceeded 10 second response time"],
             logger.failures()
