@@ -212,7 +212,7 @@ class Dashboard(object):
                 ):
                     window.update()
         except Exception:
-            #print(str(e))
+            # print(str(e))
             pass
         if not self.usesCurses:
             print("-------------")
@@ -883,7 +883,7 @@ class RequestStatsWindow(BaseWindow):
         x = 1
         y = 1
         s1 = " {:<8}{:>8}{:>10}{:>10}{:>10}{:>10}{:>8}{:>8}{:>8} ".format(
-            "Period", "Reqs", "Av-Reqs", "Av-NoWr", "Av-Resp", "Max-Resp", "Slot", "CPU ", "500's"
+            "Period", "Reqs", "Av-Reqs", "Av-Resp", "Av-NoWr", "Max-Resp", "Slot", "CPU ", "500's"
         )
         s2 = " {:<8}{:>8}{:>10}{:>10}{:>10}{:>10}{:>8}{:>8}{:>8} ".format(
             "", "", "per sec", "(ms)", "(ms)", "(ms)", "Avg.", "Avg.", ""
