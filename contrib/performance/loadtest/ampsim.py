@@ -34,7 +34,7 @@ if __name__ == '__main__':
             from twisted.internet import reactor
             from twisted.internet.stdio import StandardIO
 
-            # from contrib.performance.loadtest.ampsim import Worker
+            from contrib.performance.loadtest.ampsim import Worker # @UnresolvedImport
             from contrib.performance.loadtest.sim import LagTrackingReactor
 
             StandardIO(Worker(LagTrackingReactor(reactor)))
@@ -87,6 +87,7 @@ class Account(Command):
         ("password", Unicode()),
         ("commonName", Unicode()),
         ("email", Unicode()),
+        ("guid", Unicode()),
     ]
 
 
@@ -156,7 +157,8 @@ class Manager(AMP):
                             uid=record.uid,
                             password=record.password,
                             commonName=record.commonName,
-                            email=record.email)
+                            email=record.email,
+                            guid=record.guid)
 
         workerConfig = deepcopy(self.loadsim.configTemplate)
         # The list of workers is for the manager only; the workers themselves
@@ -177,8 +179,7 @@ class Manager(AMP):
         self.output.write("Initiating worker configuration\n")
         def completed(x):
             self.output.write("Worker configuration complete.\n")
-        (self.callRemote(Configure, plist=plist)
-         .addCallback(completed))
+        self.callRemote(Configure, plist=plist).addCallback(completed)
 
 
     @LogMessage.responder

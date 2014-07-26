@@ -24,12 +24,12 @@
 							-->
 		<key>workers</key>
 		<array>
-			<string>./python contrib/performance/loadtest/ampsim.py</string>
-			<string>./python contrib/performance/loadtest/ampsim.py</string>
-			<string>./python contrib/performance/loadtest/ampsim.py</string>
-			<string>./python contrib/performance/loadtest/ampsim.py</string>
-			<string>./python contrib/performance/loadtest/ampsim.py</string>
-			<string>./python contrib/performance/loadtest/ampsim.py</string>
+			<string>./bin/python contrib/performance/loadtest/ampsim.py</string>
+			<string>./bin/python contrib/performance/loadtest/ampsim.py</string>
+			<string>./bin/python contrib/performance/loadtest/ampsim.py</string>
+			<string>./bin/python contrib/performance/loadtest/ampsim.py</string>
+			<string>./bin/python contrib/performance/loadtest/ampsim.py</string>
+			<string>./bin/python contrib/performance/loadtest/ampsim.py</string>
 		</array>
 
 		<!-- Identify the server to be load tested. -->
