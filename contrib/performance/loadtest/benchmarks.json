@@ -2,6 +2,7 @@
 	"GET{event}"                    : {"mean": 0.100, "weight": 1.000},
 
 	"PUT{event}"                    : {"mean": 0.250, "weight": 1.000},
+	"PUT{update}"                   : {"mean": 0.250, "weight": 1.000},
 	"PUT{attendee-small}"           : {"mean": 0.500, "weight": 1.000},
 	"PUT{attendee-medium}"          : {"mean": 1.000, "weight": 0.900},
 	"PUT{attendee-large}"           : {"mean": 1.500, "weight": 0.750},
