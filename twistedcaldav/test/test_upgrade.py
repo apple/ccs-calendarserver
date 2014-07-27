@@ -1520,6 +1520,11 @@ oldResourcesFormat = """<accounts realm="/Search">
     <guid>C4F46062-9094-4D34-8591-61A42D993FAA</guid>
     <name>location name</name>
   </location>
+  <location>
+    <uid>5456580a-08ee-4288-8a87-2b4204a62a12</uid>
+    <guid>5456580a-08ee-4288-8a87-2b4204a62a12</guid>
+    <name>Fake Room</name>
+  </location>
   <resource>
     <uid>resource1</uid>
     <guid>60B771CC-D727-4453-ACE0-0FE13CD7445A</guid>
@@ -1528,7 +1533,7 @@ oldResourcesFormat = """<accounts realm="/Search">
 </accounts>
 """
 
-newResourcesFormat = """<directory realm="/Search"><record type="location"><short-name>location1</short-name><guid>C4F46062-9094-4D34-8591-61A42D993FAA</guid><uid>C4F46062-9094-4D34-8591-61A42D993FAA</uid><full-name>location name</full-name></record><record type="resource"><short-name>resource1</short-name><guid>60B771CC-D727-4453-ACE0-0FE13CD7445A</guid><uid>60B771CC-D727-4453-ACE0-0FE13CD7445A</uid><full-name>resource name</full-name></record></directory>"""
+newResourcesFormat = """<directory realm="/Search"><record type="location"><short-name>location1</short-name><guid>C4F46062-9094-4D34-8591-61A42D993FAA</guid><uid>C4F46062-9094-4D34-8591-61A42D993FAA</uid><full-name>location name</full-name></record><record type="location"><short-name>5456580A-08EE-4288-8A87-2B4204A62A12</short-name><guid>5456580A-08EE-4288-8A87-2B4204A62A12</guid><uid>5456580A-08EE-4288-8A87-2B4204A62A12</uid><full-name>Fake Room</full-name></record><record type="resource"><short-name>resource1</short-name><guid>60B771CC-D727-4453-ACE0-0FE13CD7445A</guid><uid>60B771CC-D727-4453-ACE0-0FE13CD7445A</uid><full-name>resource name</full-name></record></directory>"""
 
 
 normalizeEvent = """BEGIN:VCALENDAR

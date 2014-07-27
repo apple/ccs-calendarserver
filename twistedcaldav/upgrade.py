@@ -27,6 +27,7 @@ import grp
 import shutil
 import errno
 import time
+import uuid
 from zlib import compress
 from cPickle import loads as unpickle, UnpicklingError
 
@@ -691,7 +692,13 @@ def upgradeResourcesXML(resourcesFilePath):
             if tags:
                 for tag in tags:
                     destFieldNode = XMLElement(tag)
-                    destFieldNode.text = sourceFieldNode.text
+                    value = sourceFieldNode.text
+                    try:
+                        # Normalize UUID values to uppercase
+                        value = str(uuid.UUID(value)).upper()
+                    except ValueError:
+                        pass
+                    destFieldNode.text = value
                     destNode.append(destFieldNode)
 
         directoryNode.append(destNode)
@@ -925,7 +932,7 @@ def migrateFromOD(directory):
     )
     from twext.who.util import ConstantsContainer
     from calendarserver.tools.resources import migrateResources
-    from txdav.who.opendirectory import _CSRecordType # Use this module for the import to make sure constants are setup properly
+    from txdav.who.opendirectory import _CSRecordType  # Use this module for the import to make sure constants are setup properly
 
     # We need to "patch" twext.who.opendirectory._service.DirectoryService to include resources and locations as supported record types
     # during migration
