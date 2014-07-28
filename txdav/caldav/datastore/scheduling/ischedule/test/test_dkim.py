@@ -328,7 +328,8 @@ class TestDKIMVerifier (TestDKIMBase):
 
         data = (
             # Count on Recipient
-            ("""Host:example.com
+            (
+                """Host:example.com
 Content-Type: text/calendar  ; charset =  "utf-8"
 Originator:  mailto:user01@example.com
 Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t
@@ -337,14 +338,15 @@ DKIM-Signature:  v=1;\t\t d=example.com; s = dkim; t\t=\t1234; a=rsa-sha1; \t\tq
 Cache-Control:no-cache
 Connection:close
 """,
-            """content-type:text/calendar ; charset = "utf-8"
+                """content-type:text/calendar ; charset = "utf-8"
 originator:mailto:user01@example.com
 recipient:mailto:user02@example.com,mailto:user03@example.com
 ischedule-version:1.0
 dkim-signature:v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known ; c=ischedule-relaxed/simple; h=Content-Type:Originator:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b="""
             ),
             # Exact count on Recipient
-            ("""Host:example.com
+            (
+                """Host:example.com
 Content-Type: text/calendar  ; charset =  "utf-8"
 Originator:  mailto:user01@example.com
 Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t
@@ -354,14 +356,15 @@ DKIM-Signature:  v=1;\t\t d=example.com; s = dkim; t\t=\t1234; a=rsa-sha1; \t\tq
 Cache-Control:no-cache
 Connection:close
 """,
-            """content-type:text/calendar ; charset = "utf-8"
+                """content-type:text/calendar ; charset = "utf-8"
 originator:mailto:user01@example.com
 recipient:mailto:user02@example.com,mailto:user03@example.com,mailto:user04@example.com
 ischedule-version:1.0
 dkim-signature:v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known ; c=ischedule-relaxed/simple; h=Content-Type:Originator:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b="""
             ),
             # Re-ordered Content-Type
-            ("""Host:example.com
+            (
+                """Host:example.com
 iSchedule-Version: 1.0
 Originator:  mailto:user01@example.com
 Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t
@@ -370,7 +373,7 @@ Content-Type: text/calendar  ; charset =  "utf-8"
 Cache-Control:no-cache
 Connection:close
 """,
-            """content-type:text/calendar ; charset = "utf-8"
+                """content-type:text/calendar ; charset = "utf-8"
 originator:mailto:user01@example.com
 recipient:mailto:user02@example.com,mailto:user03@example.com
 ischedule-version:1.0
@@ -393,7 +396,8 @@ dkim-signature:v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:htt
 
         data = (
             # Valid
-            ("""Host:example.com
+            (
+                """Host:example.com
 Content-Type: text/calendar  ; charset =  "utf-8"
 Originator:  mailto:user01@example.com
 Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t
@@ -401,11 +405,12 @@ DKIM-Signature:  v=1;\t\t d=example.com; s = dkim; t\t=\t1234; a=rsa-sha1; \t\tq
 Cache-Control:no-cache
 Connection:close
 """,
-            [DKIMUtils.extractTags("v=DKIM1; p=%s" % (self.public_key_data,))],
-            True,
+                [DKIMUtils.extractTags("v=DKIM1; p=%s" % (self.public_key_data,))],
+                True,
             ),
             # Invalid - no method
-            ("""Host:example.com
+            (
+                """Host:example.com
 Content-Type: text/calendar  ; charset =  "utf-8"
 Originator:  mailto:user01@example.com
 Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t
@@ -413,11 +418,12 @@ DKIM-Signature:  v=1;\t\t d=example.com; s = dkim; t\t=\t1234; a=rsa-sha1; \t\tq
 Cache-Control:no-cache
 Connection:close
 """,
-            [DKIMUtils.extractTags("v=DKIM1; p=%s" % (self.public_key_data,))],
-            False,
+                [DKIMUtils.extractTags("v=DKIM1; p=%s" % (self.public_key_data,))],
+                False,
             ),
             # Invalid - wrong algorithm
-            ("""Host:example.com
+            (
+                """Host:example.com
 Content-Type: text/calendar  ; charset =  "utf-8"
 Originator:  mailto:user01@example.com
 Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t
@@ -425,8 +431,8 @@ DKIM-Signature:  v=1;\t\t d=example.com; s = dkim; t\t=\t1234; a=rsa-sha1; \t\tq
 Cache-Control:no-cache
 Connection:close
 """,
-            [DKIMUtils.extractTags("v=DKIM1; h=sha-1; p=%s" % (self.public_key_data,))],
-            False,
+                [DKIMUtils.extractTags("v=DKIM1; h=sha-1; p=%s" % (self.public_key_data,))],
+                False,
             ),
         )
 

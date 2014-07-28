@@ -469,17 +469,17 @@ END:VCALENDAR
 
             # Create fake filter element to match time-range
             filter = caldavxml.Filter(
-                  caldavxml.ComponentFilter(
-                      caldavxml.ComponentFilter(
-                          TimeRange(
-                              start=trstart,
-                              end=trend,
-                          ),
-                          name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
-                      ),
-                      name="VCALENDAR",
-                   )
-              )
+                caldavxml.ComponentFilter(
+                    caldavxml.ComponentFilter(
+                        TimeRange(
+                            start=trstart,
+                            end=trend,
+                        ),
+                        name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
+                    ),
+                    name="VCALENDAR",
+                )
+            )
             filter = Filter(filter)
 
             resources = yield self.db.indexedSearch(filter)
@@ -655,17 +655,17 @@ END:VCALENDAR
 
             # Create fake filter element to match time-range
             filter = caldavxml.Filter(
-                  caldavxml.ComponentFilter(
-                      caldavxml.ComponentFilter(
-                          TimeRange(
-                              start=trstart,
-                              end=trend,
-                          ),
-                          name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
-                      ),
-                      name="VCALENDAR",
-                   )
-              )
+                caldavxml.ComponentFilter(
+                    caldavxml.ComponentFilter(
+                        TimeRange(
+                            start=trstart,
+                            end=trend,
+                        ),
+                        name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
+                    ),
+                    name="VCALENDAR",
+                )
+            )
             filter = Filter(filter)
 
             resources = yield self.db.indexedSearch(filter, fbtype=True)
@@ -1062,17 +1062,17 @@ END:VCALENDAR
 
             # Create fake filter element to match time-range
             filter = caldavxml.Filter(
-                  caldavxml.ComponentFilter(
-                      caldavxml.ComponentFilter(
-                          TimeRange(
-                              start=trstart,
-                              end=trend,
-                          ),
-                          name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
-                      ),
-                      name="VCALENDAR",
-                   )
-              )
+                caldavxml.ComponentFilter(
+                    caldavxml.ComponentFilter(
+                        TimeRange(
+                            start=trstart,
+                            end=trend,
+                        ),
+                        name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
+                    ),
+                    name="VCALENDAR",
+                )
+            )
             filter = Filter(filter)
 
             for useruid, instances in peruserinstances:

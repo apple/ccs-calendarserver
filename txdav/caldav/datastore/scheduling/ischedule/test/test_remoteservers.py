@@ -27,8 +27,7 @@ class Test_IScheduleServersParser(unittest.TestCase):
     def test_readXML(self):
 
         fp = FilePath(self.mktemp())
-        fp.open("w").write(
-"""<?xml version="1.0" encoding="utf-8"?>
+        fp.open("w").write("""<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE servers SYSTEM "servertoserver.dtd">
 <servers>
   <server>
@@ -43,8 +42,7 @@ class Test_IScheduleServersParser(unittest.TestCase):
     </hosts>
   </server>
 </servers>
-"""
-)
+""")
 
         parser = IScheduleServersParser(fp)
         self.assertEqual(len(parser.servers), 1)

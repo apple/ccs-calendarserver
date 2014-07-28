@@ -45,25 +45,25 @@ class BaseQueueSchedulingTests(CommonStoreTests):
     @classproperty(cache=False)
     def requirements(cls): #@NoSelf
         return {
-        "user01": {
-            "calendar": {
+            "user01": {
+                "calendar": {
+                },
+                "inbox": {
+                },
             },
-            "inbox": {
+            "user02": {
+                "calendar": {
+                },
+                "inbox": {
+                },
             },
-        },
-        "user02": {
-            "calendar": {
+            "user03": {
+                "calendar": {
+                },
+                "inbox": {
+                },
             },
-            "inbox": {
-            },
-        },
-        "user03": {
-            "calendar": {
-            },
-            "inbox": {
-            },
-        },
-    }
+        }
 
 
     @inlineCallbacks

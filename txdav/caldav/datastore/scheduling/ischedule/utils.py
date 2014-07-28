@@ -66,9 +66,10 @@ def lookupServerViaSRV(domain, service="_ischedules"):
         log.debug("DNS SRV: lookup failed: {exc}", exc=e)
         returnValue(None)
 
-    if len(answers) == 1 and answers[0].type == dns.SRV \
-                         and answers[0].payload \
-                         and answers[0].payload.target == dns.Name('.'):
+    if (
+        len(answers) == 1 and answers[0].type == dns.SRV and answers[0].payload
+        and answers[0].payload.target == dns.Name('.')
+    ):
         # decidedly not available
         log.debug("DNS SRV: disabled: {l}", l=lookup)
         returnValue(None)

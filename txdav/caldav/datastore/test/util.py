@@ -45,28 +45,28 @@ class CommonStoreTests(CommonCommonTests, TestCase):
     @classproperty(cache=False)
     def requirements(cls): #@NoSelf
         return {
-        "user01": {
-            "calendar_1": {
+            "user01": {
+                "calendar_1": {
+                },
+                "inbox": {
+                },
             },
-            "inbox": {
+            "user02": {
+                "calendar_1": {
+                },
+                "inbox": {
+                },
             },
-        },
-        "user02": {
-            "calendar_1": {
+            "user03": {
+                "calendar_1": {
+                },
+                "inbox": {
+                },
             },
-            "inbox": {
+            "user04": {
+                "calendar_1": {
+                },
+                "inbox": {
+                },
             },
-        },
-        "user03": {
-            "calendar_1": {
-            },
-            "inbox": {
-            },
-        },
-        "user04": {
-            "calendar_1": {
-            },
-            "inbox": {
-            },
-        },
-    }
+        }

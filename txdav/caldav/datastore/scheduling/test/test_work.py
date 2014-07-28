@@ -226,8 +226,7 @@ ORGANIZER:urn:x-uid:user01
 {attendees}
 END:VEVENT
 END:VCALENDAR
-""".format(attendees="\n".join(["ATTENDEE:urn:x-uid:user%02d" % i for i in range(1, 100)]))
-)
+""".format(attendees="\n".join(["ATTENDEE:urn:x-uid:user%02d" % i for i in range(1, 100)])))
 
 
     @inlineCallbacks
@@ -260,7 +259,7 @@ END:VCALENDAR
         home2 = yield self.calendarUnderTest(home="user02", name="calendar")
         cobjs = yield home2.calendarObjects()
         self.assertEqual(len(cobjs), 1)
-        #cal2 = yield cobjs[0].component()
+        # cal2 = yield cobjs[0].component()
 
         yield work.delete()
         yield jobs[0].delete()

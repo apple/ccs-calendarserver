@@ -114,7 +114,8 @@ class MailRetriever(service.Service):
         # If we're using our dedicated account on our local server, we're free
         # to delete all messages that arrive in the inbox so as to not let
         # cruft build up
-        self.deleteAllMail = shouldDeleteAllMail(config.ServerHostName,
+        self.deleteAllMail = shouldDeleteAllMail(
+            config.ServerHostName,
             settings.Server, settings.Username)
         self.mailReceiver = MailReceiver(store, directory)
         mailType = settings['Type']
@@ -126,12 +127,14 @@ class MailRetriever(service.Service):
         contextFactory = None
         if settings["UseSSL"]:
             contextFactory = ssl.ClientContextFactory()
-        self.point = GAIEndpoint(self.reactor, settings.Server,
+        self.point = GAIEndpoint(
+            self.reactor, settings.Server,
             settings.Port, contextFactory=contextFactory)
 
 
     def fetchMail(self):
-        return self.point.connect(self.factory(self.settings, self.mailReceiver,
+        return self.point.connect(self.factory(
+            self.settings, self.mailReceiver,
             self.deleteAllMail))
 
 
@@ -206,7 +209,7 @@ class MailReceiver(object):
                 deliveryStatus = part
                 continue
             elif contentType == "message/rfc822":
-                #original = part
+                # original = part
                 continue
             elif contentType == "text/calendar":
                 calBody = part.get_payload(decode=True)
@@ -259,16 +262,17 @@ class MailReceiver(object):
             organizer, attendee, _ignore_icaluid = result[0]
         except:
             # This isn't a token we recognize
-            log.error("Mail gateway found a token (%s) but didn't "
-                           "recognize it in message %s"
-                           % (token, msgId))
+            log.error(
+                "Mail gateway found a token (%s) but didn't recognize it in message %s"
+                % (token, msgId))
             returnValue(self.UNKNOWN_TOKEN)
 
         calendar.removeAllButOneAttendee(attendee)
         calendar.getOrganizerProperty().setValue(organizer)
         for comp in calendar.subcomponents():
             if comp.name() == "VEVENT":
-                comp.addProperty(Property("REQUEST-STATUS",
+                comp.addProperty(Property(
+                    "REQUEST-STATUS",
                     ["5.1", "Service unavailable"]))
                 break
         else:
@@ -278,7 +282,8 @@ class MailReceiver(object):
 
         log.warn("Mail gateway processing DSN %s" % (msgId,))
         txn = self.store.newTransaction(label="MailReceiver.processDSN")
-        yield txn.enqueue(IMIPReplyWork, organizer=organizer, attendee=attendee,
+        yield txn.enqueue(
+            IMIPReplyWork, organizer=organizer, attendee=attendee,
             icalendarText=str(calendar))
         yield txn.commit()
         returnValue(self.INJECTION_SUBMITTED)
@@ -292,12 +297,14 @@ class MailReceiver(object):
             # addr looks like: server_address+token@example.com
             token = self._extractToken(addr)
             if not token:
-                log.error("Mail gateway didn't find a token in message "
-                               "%s (%s)" % (msg['Message-ID'], msg['To']))
+                log.error(
+                    "Mail gateway didn't find a token in message "
+                    "%s (%s)" % (msg['Message-ID'], msg['To']))
                 returnValue(self.NO_TOKEN)
         else:
-            log.error("Mail gateway couldn't parse To: address (%s) in "
-                           "message %s" % (msg['To'], msg['Message-ID']))
+            log.error(
+                "Mail gateway couldn't parse To: address (%s) in "
+                "message %s" % (msg['To'], msg['Message-ID']))
             returnValue(self.MALFORMED_TO_ADDRESS)
 
         txn = self.store.newTransaction(label="MailReceiver.processReply")
@@ -308,9 +315,10 @@ class MailReceiver(object):
             organizer, attendee, _ignore_icaluid = result[0]
         except:
             # This isn't a token we recognize
-            log.error("Mail gateway found a token (%s) but didn't "
-                           "recognize it in message %s"
-                           % (token, msg['Message-ID']))
+            log.error(
+                "Mail gateway found a token (%s) but didn't "
+                "recognize it in message %s"
+                % (token, msg['Message-ID']))
             returnValue(self.UNKNOWN_TOKEN)
 
         for part in msg.walk():
@@ -319,8 +327,9 @@ class MailReceiver(object):
                 break
         else:
             # No icalendar attachment
-            log.warn("Mail gateway didn't find an icalendar attachment "
-                          "in message %s" % (msg['Message-ID'],))
+            log.warn(
+                "Mail gateway didn't find an icalendar attachment "
+                "in message %s" % (msg['Message-ID'],))
 
             toAddr = None
             fromAddr = attendee[7:]
@@ -336,12 +345,14 @@ class MailReceiver(object):
                     pass
 
             if toAddr is None:
-                log.error("Don't have an email address for the organizer; "
-                               "ignoring reply.")
+                log.error(
+                    "Don't have an email address for the organizer; "
+                    "ignoring reply.")
                 returnValue(self.NO_ORGANIZER_ADDRESS)
 
             settings = config.Scheduling["iMIP"]["Sending"]
-            smtpSender = SMTPSender(settings.Username, settings.Password,
+            smtpSender = SMTPSender(
+                settings.Username, settings.Password,
                 settings.UseSSL, settings.Server, settings.Port)
 
             del msg["From"]
@@ -364,8 +375,9 @@ class MailReceiver(object):
         organizerProperty = calendar.getOrganizerProperty()
         if organizerProperty is None:
             # ORGANIZER is required per rfc2446 section 3.2.3
-            log.warn("Mail gateway didn't find an ORGANIZER in REPLY %s"
-                          % (msg['Message-ID'],))
+            log.warn(
+                "Mail gateway didn't find an ORGANIZER in REPLY %s"
+                % (msg['Message-ID'],))
             event.addProperty(Property("ORGANIZER", organizer))
         else:
             organizerProperty.setValue(organizer)
@@ -374,7 +386,8 @@ class MailReceiver(object):
             # The attendee we're expecting isn't there, so add it back
             # with a SCHEDULE-STATUS of SERVICE_UNAVAILABLE.
             # The organizer will then see that the reply was not successful.
-            attendeeProp = Property("ATTENDEE", attendee,
+            attendeeProp = Property(
+                "ATTENDEE", attendee,
                 params={
                     "SCHEDULE-STATUS": iTIPRequestStatus.SERVICE_UNAVAILABLE,
                 }
@@ -387,7 +400,8 @@ class MailReceiver(object):
             # email template for the message.
 
         txn = self.store.newTransaction(label="MailReceiver.processReply")
-        yield txn.enqueue(IMIPReplyWork, organizer=organizer, attendee=attendee,
+        yield txn.enqueue(
+            IMIPReplyWork, organizer=organizer, attendee=attendee,
             icalendarText=str(calendar))
         yield txn.commit()
         returnValue(self.INJECTION_SUBMITTED)
@@ -422,11 +436,13 @@ class MailReceiver(object):
                     return self.processDSN(calBody, msg['Message-ID'])
                 else:
                     # It's a DSN without enough to go on
-                    log.error("Mail gateway can't process DSN %s"
-                                   % (msg['Message-ID'],))
+                    log.error(
+                        "Mail gateway can't process DSN %s"
+                        % (msg['Message-ID'],))
                     return succeed(self.INCOMPLETE_DSN)
 
-            log.info("Mail gateway received message %s from %s to %s" %
+            log.info(
+                "Mail gateway received message %s from %s to %s" %
                 (msg['Message-ID'], msg['From'], msg['To']))
 
             return self.processReply(msg)
@@ -465,14 +481,16 @@ class POP3DownloadProtocol(pop3client.POP3Client):
     def serverGreeting(self, greeting):
         self.log.debug("POP servergreeting")
         pop3client.POP3Client.serverGreeting(self, greeting)
-        login = self.login(self.factory.settings["Username"],
+        login = self.login(
+            self.factory.settings["Username"],
             self.factory.settings["Password"])
         login.addCallback(self.cbLoggedIn)
         login.addErrback(self.cbLoginFailed)
 
 
     def cbLoginFailed(self, reason):
-        self.log.error("POP3 login failed for %s" %
+        self.log.error(
+            "POP3 login failed for %s" %
             (self.factory.settings["Username"],))
         return self.quit()
 
@@ -551,9 +569,11 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client):
 
     def serverGreeting(self, capabilities):
         self.log.debug("IMAP servergreeting")
-        return self.authenticate(self.factory.settings["Password"]
-            ).addCallback(self.cbLoggedIn
-            ).addErrback(self.ebAuthenticateFailed)
+        return self.authenticate(
+            self.factory.settings["Password"]
+        ).addCallback(
+            self.cbLoggedIn
+        ).addErrback(self.ebAuthenticateFailed)
 
 
     def ebLogError(self, error):
@@ -561,12 +581,15 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client):
 
 
     def ebAuthenticateFailed(self, reason):
-        self.log.debug("IMAP authenticate failed for {name}, trying login",
+        self.log.debug(
+            "IMAP authenticate failed for {name}, trying login",
             name=self.factory.settings["Username"])
-        return self.login(self.factory.settings["Username"],
+        return self.login(
+            self.factory.settings["Username"],
             self.factory.settings["Password"]
-            ).addCallback(self.cbLoggedIn
-            ).addErrback(self.ebLoginFailed)
+        ).addCallback(
+            self.cbLoggedIn
+        ).addErrback(self.ebLoginFailed)
 
 
     def ebLoginFailed(self, reason):
@@ -610,9 +633,9 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client):
         if self.messageUIDs:
             nextUID = self.messageUIDs.pop(0)
             messageListToFetch = imap4.MessageSet(nextUID)
-            self.log.debug("Downloading message %d of %d (%s)" %
-                (self.messageCount - len(self.messageUIDs), self.messageCount,
-                nextUID))
+            self.log.debug(
+                "Downloading message %d of %d (%s)" %
+                (self.messageCount - len(self.messageUIDs), self.messageCount, nextUID))
             self.fetchMessage(messageListToFetch, True).addCallback(
                 self.cbGotMessage, messageListToFetch).addErrback(
                     self.ebLogError)
@@ -647,8 +670,9 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client):
 
 
     def cbFlagDeleted(self, messageList):
-        self.addFlags(messageList, ("\\Deleted",),
-            uid=True).addCallback(self.cbMessageDeleted, messageList)
+        self.addFlags(
+            messageList, ("\\Deleted",), uid=True
+        ).addCallback(self.cbMessageDeleted, messageList)
 
 
     def cbMessageDeleted(self, results, messageList):

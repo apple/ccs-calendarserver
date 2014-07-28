@@ -53,9 +53,7 @@ class ImplicitTransaction(
 
 
 
-class ImplicitCalendarHome(
-        proxyForInterface(ICalendarHome, "_calendarHome")
-    ):
+class ImplicitCalendarHome(proxyForInterface(ICalendarHome, "_calendarHome")):
 
     implements(ICalendarHome)
 
@@ -213,5 +211,4 @@ class ImplicitStore(proxyForInterface(ICalendarStore, "_calendarStore")):
         """
         Wrap an underlying L{ITransaction}.
         """
-        return ImplicitTransaction(
-                    self._calendarStore.newTransaction(label))
+        return ImplicitTransaction(self._calendarStore.newTransaction(label))

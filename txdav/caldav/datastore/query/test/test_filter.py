@@ -1,4 +1,4 @@
-##
+# #
 # Copyright (c) 2011-2014 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-##
+# #
 
 from pycalendar.timezone import Timezone
 
@@ -54,7 +54,7 @@ class TestQueryFilter(TestCase):
         filter = caldavxml.Filter(
             caldavxml.ComponentFilter(
                 *[caldavxml.ComponentFilter(
-                    **{"name":("VEVENT", "VFREEBUSY", "VAVAILABILITY")}
+                    **{"name": ("VEVENT", "VFREEBUSY", "VAVAILABILITY")}
                 )],
                 **{"name": "VCALENDAR"}
             )
@@ -82,8 +82,8 @@ class TestQueryFilter(TestCase):
         filter = caldavxml.Filter(
             caldavxml.ComponentFilter(
                 *[caldavxml.ComponentFilter(
-                    *[caldavxml.TimeRange(**{"start":"20060605T160000Z", "end":"20060605T170000Z"})],
-                    **{"name":("VEVENT", "VFREEBUSY", "VAVAILABILITY")}
+                    *[caldavxml.TimeRange(**{"start": "20060605T160000Z", "end": "20060605T170000Z"})],
+                    **{"name": ("VEVENT", "VFREEBUSY", "VAVAILABILITY")}
                 )],
                 **{"name": "VCALENDAR"}
             )
@@ -111,8 +111,8 @@ class TestQueryFilter(TestCase):
         filter = caldavxml.Filter(
             caldavxml.ComponentFilter(
                 *[caldavxml.ComponentFilter(
-                    *[caldavxml.TimeRange(**{"start":"20060605T160000Z", "end":"20060605T170000Z"})],
-                    **{"name":("VEVENT", "VFREEBUSY", "VAVAILABILITY")}
+                    *[caldavxml.TimeRange(**{"start": "20060605T160000Z", "end": "20060605T170000Z"})],
+                    **{"name": ("VEVENT", "VFREEBUSY", "VAVAILABILITY")}
                 )],
                 **{"name": "VCALENDAR"}
             )
@@ -141,10 +141,10 @@ class TestQueryFilter(TestCase):
             caldavxml.ComponentFilter(
                 *[
                     caldavxml.ComponentFilter(
-                        **{"name":("VEVENT")}
+                        **{"name": ("VEVENT")}
                     ),
                     caldavxml.ComponentFilter(
-                        **{"name":("VTODO")}
+                        **{"name": ("VTODO")}
                     ),
                 ],
                 **{"name": "VCALENDAR"}
@@ -174,11 +174,11 @@ class TestQueryFilter(TestCase):
             caldavxml.ComponentFilter(
                 *[
                     caldavxml.ComponentFilter(
-                        *[caldavxml.TimeRange(**{"start":"20060605T160000Z", })],
-                        **{"name":("VEVENT")}
+                        *[caldavxml.TimeRange(**{"start": "20060605T160000Z", })],
+                        **{"name": ("VEVENT")}
                     ),
                     caldavxml.ComponentFilter(
-                        **{"name":("VTODO")}
+                        **{"name": ("VTODO")}
                     ),
                 ],
                 **{"name": "VCALENDAR", "test": "anyof"}
@@ -208,7 +208,7 @@ class TestQueryFilter(TestCase):
         filter = caldavxml.Filter(
             caldavxml.ComponentFilter(
                 *[caldavxml.ComponentFilter(
-                    **{"name":("VEVENT", "VFREEBUSY", "VAVAILABILITY")}
+                    **{"name": ("VEVENT", "VFREEBUSY", "VAVAILABILITY")}
                 )],
                 **{"name": "VCALENDAR"}
             )
@@ -238,7 +238,7 @@ class TestQueryFilterSerialize(TestCase):
         filter = caldavxml.Filter(
             caldavxml.ComponentFilter(
                 *[caldavxml.ComponentFilter(
-                    **{"name":("VEVENT", "VFREEBUSY", "VAVAILABILITY")}
+                    **{"name": ("VEVENT", "VFREEBUSY", "VAVAILABILITY")}
                 )],
                 **{"name": "VCALENDAR"}
             )
@@ -260,8 +260,8 @@ class TestQueryFilterSerialize(TestCase):
         filter = caldavxml.Filter(
             caldavxml.ComponentFilter(
                 *[caldavxml.ComponentFilter(
-                    *[caldavxml.TimeRange(**{"start":"20060605T160000Z", "end":"20060605T170000Z"})],
-                    **{"name":("VEVENT", "VFREEBUSY", "VAVAILABILITY")}
+                    *[caldavxml.TimeRange(**{"start": "20060605T160000Z", "end": "20060605T170000Z"})],
+                    **{"name": ("VEVENT", "VFREEBUSY", "VAVAILABILITY")}
                 )],
                 **{"name": "VCALENDAR"}
             )
@@ -287,10 +287,10 @@ class TestQueryFilterSerialize(TestCase):
             caldavxml.ComponentFilter(
                 *[
                     caldavxml.ComponentFilter(
-                        **{"name":("VEVENT")}
+                        **{"name": ("VEVENT")}
                     ),
                     caldavxml.ComponentFilter(
-                        **{"name":("VTODO")}
+                        **{"name": ("VTODO")}
                     ),
                 ],
                 **{"name": "VCALENDAR"}
@@ -315,11 +315,11 @@ class TestQueryFilterSerialize(TestCase):
             caldavxml.ComponentFilter(
                 *[
                     caldavxml.ComponentFilter(
-                        *[caldavxml.TimeRange(**{"start":"20060605T160000Z", })],
-                        **{"name":("VEVENT")}
+                        *[caldavxml.TimeRange(**{"start": "20060605T160000Z", })],
+                        **{"name": ("VEVENT")}
                     ),
                     caldavxml.ComponentFilter(
-                        **{"name":("VTODO")}
+                        **{"name": ("VTODO")}
                     ),
                 ],
                 **{"name": "VCALENDAR", "test": "anyof"}
@@ -349,7 +349,7 @@ class TestQueryFilterSerialize(TestCase):
                             caldavxml.TextMatch.fromString("1234", False),
                             name="UID",
                         ),
-                        **{"name":("VEVENT")}
+                        **{"name": ("VEVENT")}
                     ),
                 ],
                 **{"name": "VCALENDAR", "test": "anyof"}
@@ -382,9 +382,9 @@ class TestQueryFilterMatch(TestCase):
                 *[caldavxml.ComponentFilter(
                     *[caldavxml.ComponentFilter(
                         caldavxml.IsNotDefined(),
-                        **{"name":"VALARM"}
+                        **{"name": "VALARM"}
                     )],
-                    **{"name":"VEVENT"}
+                    **{"name": "VEVENT"}
                 )],
                 **{"name": "VCALENDAR"}
             )
@@ -431,5 +431,4 @@ TRIGGER;RELATED=START:-PT10M
 END:VALARM
 END:VEVENT
 END:VCALENDAR
-"""
-        )))
+""")))

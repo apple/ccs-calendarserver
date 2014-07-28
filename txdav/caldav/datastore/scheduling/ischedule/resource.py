@@ -39,7 +39,7 @@ from txdav.caldav.datastore.scheduling.ischedule.dkim import ISCHEDULE_CAPABILIT
 from txdav.caldav.datastore.scheduling.ischedule.scheduler import IScheduleScheduler
 from txdav.caldav.datastore.scheduling.ischedule.xml import ischedule_namespace
 from txdav.xml import element as davxml
-import txdav.caldav.datastore.scheduling.ischedule.xml  as ischedulexml
+import txdav.caldav.datastore.scheduling.ischedule.xml as ischedulexml
 
 __all__ = [
     "IScheduleInboxResource",

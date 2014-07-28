@@ -77,9 +77,11 @@ class IMIPInvitationWork(WorkItem, fromTable(schema.IMIP_INVITATION_WORK)):
         if cls.mailSender is None:
             if config.Scheduling.iMIP.Enabled:
                 settings = config.Scheduling.iMIP.Sending
-                smtpSender = SMTPSender(settings.Username, settings.Password,
+                smtpSender = SMTPSender(
+                    settings.Username, settings.Password,
                     settings.UseSSL, settings.Server, settings.Port)
-                cls.mailSender = MailSender(settings.Address,
+                cls.mailSender = MailSender(
+                    settings.Address,
                     settings.SuppressionDays, smtpSender, getLanguage(config))
         return cls.mailSender
 
@@ -92,7 +94,8 @@ class IMIPInvitationWork(WorkItem, fromTable(schema.IMIP_INVITATION_WORK)):
         mailSender = self.getMailSender()
         if mailSender is not None:
             calendar = Component.fromString(self.icalendarText)
-            yield mailSender.outbound(self.transaction,
+            yield mailSender.outbound(
+                self.transaction,
                 self.fromAddr, self.toAddr, calendar)
 
 #
@@ -469,13 +472,14 @@ class MailSender(object):
                     if emailAddress:
                         attendeeProp.setValue("mailto:%s" % (emailAddress,))
 
-        msgId, message = self.generateEmail(inviteState, calendar, orgEmail,
+        msgId, message = self.generateEmail(
+            inviteState, calendar, orgEmail,
             orgCN, attendees, formattedFrom, addressWithToken, recipient,
             language=self.language)
 
         try:
-            success = (yield self.smtpSender.sendMessage(fromAddr, toAddr,
-                msgId, message))
+            success = (yield self.smtpSender.sendMessage(
+                fromAddr, toAddr, msgId, message))
             returnValue(success)
         except Exception, e:
             self.log.error("Failed to send IMIP message (%s)" % (str(e),))
@@ -543,8 +547,9 @@ class MailSender(object):
         plainText = self.renderPlainText(details, (orgCN, orgEmail),
                                          attendees, canceled)
 
-        htmlText = self.renderHTML(details, (orgCN, orgEmail),
-                                              attendees, canceled)
+        htmlText = self.renderHTML(
+            details, (orgCN, orgEmail), attendees, canceled
+        )
 
         msg = MIMEMultipart()
         msg["From"] = fromAddress
@@ -581,7 +586,8 @@ class MailSender(object):
         method = calendar.propertyValue("METHOD").lower()
         msgIcal.set_param("method", method)
         msgIcal.add_header("Content-ID", "<invitation.ics>")
-        msgIcal.add_header("Content-Disposition",
+        msgIcal.add_header(
+            "Content-Disposition",
             "inline;filename=invitation.ics")
         msg.attach(msgIcal)
 
@@ -600,15 +606,17 @@ class MailSender(object):
         plainAttendeeList = []
         for cn, mailto in attendees:
             if cn:
-                plainAttendeeList.append(cn if not mailto else
-                    "%s <%s>" % (cn, mailto))
+                plainAttendeeList.append(
+                    cn if not mailto else "%s <%s>" % (cn, mailto)
+                )
             elif mailto:
                 plainAttendeeList.append("<%s>" % (mailto,))
 
         details['plainAttendees'] = ", ".join(plainAttendeeList)
 
-        details['plainOrganizer'] = (orgCN if not orgEmail else
-            "%s <%s>" % (orgCN, orgEmail))
+        details['plainOrganizer'] = (
+            orgCN if not orgEmail else "%s <%s>" % (orgCN, orgEmail)
+        )
 
         # plain text version
         if canceled:

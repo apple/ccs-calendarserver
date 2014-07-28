@@ -751,7 +751,8 @@ class ScheduleResponseQueue (object):
             recipient = self.recipient_mapper(recipient)
 
         if not suppressErrorLog and code > 400: # Error codes only
-            self.log.error("Error during {method} for {r}: {msg}",
+            self.log.error(
+                "Error during {method} for {r}: {msg}",
                 method=self.method,
                 r=recipient,
                 msg=message,

@@ -44,7 +44,8 @@ class InboundTests(CommonCommonTests, unittest.TestCase):
 
         yield self.buildStoreAndDirectory()
         self.receiver = MailReceiver(self.store, self.directory)
-        self.retriever = MailRetriever(self.store, self.directory,
+        self.retriever = MailRetriever(
+            self.store, self.directory,
             ConfigDict({
                 "Type" : "pop",
                 "UseSSL" : False,
@@ -296,12 +297,11 @@ END:VCALENDAR
 
         txn = self.store.newTransaction()
         result = (yield injectMessage(
-                txn,
-                "urn:x-uid:user01",
-                "mailto:xyzzy@example.com",
-                calendar
-            )
-        )
+            txn,
+            "urn:x-uid:user01",
+            "mailto:xyzzy@example.com",
+            calendar
+        ))
         yield txn.commit()
         self.assertEquals(
             "1.2;Scheduling message has been delivered",
@@ -329,12 +329,11 @@ END:VCALENDAR
 
         txn = self.store.newTransaction()
         result = (yield injectMessage(
-                txn,
-                "urn:x-uid:unknown_user",
-                "mailto:xyzzy@example.com",
-                calendar
-            )
-        )
+            txn,
+            "urn:x-uid:unknown_user",
+            "mailto:xyzzy@example.com",
+            calendar
+        ))
         yield txn.commit()
         self.assertEquals(
             "3.7;Invalid Calendar User",
@@ -360,7 +359,8 @@ END:VEVENT
 END:VCALENDAR
 """
         txn = self.store.newTransaction()
-        yield txn.enqueue(IMIPReplyWork,
+        yield txn.enqueue(
+            IMIPReplyWork,
             organizer="urn:x-uid:user01",
             attendee="mailto:xyzzy@example.com",
             icalendarText=calendar
@@ -373,18 +373,33 @@ END:VCALENDAR
 
         # Delete if the mail server is on the same host and using our
         # dedicated account:
-        self.assertTrue(shouldDeleteAllMail("calendar.example.com",
-            "calendar.example.com", "com.apple.calendarserver"))
-        self.assertTrue(shouldDeleteAllMail("calendar.example.com",
-            "localhost", "com.apple.calendarserver"))
+        self.assertTrue(shouldDeleteAllMail(
+            "calendar.example.com",
+            "calendar.example.com",
+            "com.apple.calendarserver"
+        ))
+        self.assertTrue(shouldDeleteAllMail(
+            "calendar.example.com",
+            "localhost",
+            "com.apple.calendarserver"
+        ))
 
         # Don't delete all otherwise:
-        self.assertFalse(shouldDeleteAllMail("calendar.example.com",
-            "calendar.example.com", "not_ours"))
-        self.assertFalse(shouldDeleteAllMail("calendar.example.com",
-            "localhost", "not_ours"))
-        self.assertFalse(shouldDeleteAllMail("calendar.example.com",
-            "mail.example.com", "com.apple.calendarserver"))
+        self.assertFalse(shouldDeleteAllMail(
+            "calendar.example.com",
+            "calendar.example.com",
+            "not_ours"
+        ))
+        self.assertFalse(shouldDeleteAllMail(
+            "calendar.example.com",
+            "localhost",
+            "not_ours"
+        ))
+        self.assertFalse(shouldDeleteAllMail(
+            "calendar.example.com",
+            "mail.example.com",
+            "com.apple.calendarserver"
+        ))
 
 
     @inlineCallbacks

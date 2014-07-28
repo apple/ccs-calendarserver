@@ -39,7 +39,8 @@ class MailGatewayTokenDBTests(unittest.TestCase):
         self.path = self.mktemp()
         os.mkdir(self.path)
         oldDB = MailGatewayTokensDatabase(self.path)
-        oldDB.createToken("urn:uuid:user01", "mailto:attendee@example.com",
+        oldDB.createToken(
+            "urn:uuid:user01", "mailto:attendee@example.com",
             "icaluid1", token="token1")
         yield migrateTokensToStore(self.path, self.store)
         txn = self.store.newTransaction()

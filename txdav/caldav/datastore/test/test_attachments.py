@@ -113,15 +113,15 @@ class AttachmentTests(CommonCommonTests, unittest.TestCase):
         metadata3 = cls.metadata3.copy()
         metadata4 = cls.metadata4.copy()
         return {
-        "home1": {
-            "calendar_1": {
-                "1.ics": (cal1Root.child("1.ics").getContent(), metadata1),
-                "2.ics": (cal1Root.child("2.ics").getContent(), metadata2),
-                "3.ics": (cal1Root.child("3.ics").getContent(), metadata3),
-                "4.ics": (cal1Root.child("4.ics").getContent(), metadata4),
+            "home1": {
+                "calendar_1": {
+                    "1.ics": (cal1Root.child("1.ics").getContent(), metadata1),
+                    "2.ics": (cal1Root.child("2.ics").getContent(), metadata2),
+                    "3.ics": (cal1Root.child("3.ics").getContent(), metadata3),
+                    "4.ics": (cal1Root.child("4.ics").getContent(), metadata4),
+                },
             },
-        },
-    }
+        }
 
 
     def storeUnderTest(self):
@@ -291,9 +291,8 @@ END:VCALENDAR
         """
         cal = yield self.calendarUnderTest()
         yield cal.createCalendarObjectWithName("drop.ics", Component.fromString(
-                self.eventWithDropbox
-            )
-        )
+            self.eventWithDropbox
+        ))
         obj = yield cal.calendarObjectWithName("drop.ics")
         self.assertEquals((yield obj.dropboxID()), "some-dropbox-id")
 
@@ -1706,7 +1705,7 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         txn = self._sqlCalendarStore.newTransaction()
         calstore = CalendarStoreFeatures(self._sqlCalendarStore)
 
-        for dropbox_id, result_count, result_names  in (
+        for dropbox_id, result_count, result_names in (
             ("1.2", 1, ("1.2.ics",)),
             ("1.3", 2, ("1.3.ics", "2-2.3.ics",)),
             ("1.4", 4, ("1.4.ics", "1.5.ics", "2-3.2.ics", "2-3.3.ics",)),

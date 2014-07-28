@@ -38,7 +38,7 @@ __all__ = [
     "IAttachment",
 
     # Exceptions
-   #"InvalidCalendarComponentError",
+    # "InvalidCalendarComponentError",
     "InvalidCalendarAccessError",
     "TooManyAttendeesError",
     "ResourceDeletedError",

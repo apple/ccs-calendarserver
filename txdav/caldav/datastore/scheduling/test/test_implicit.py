@@ -896,25 +896,25 @@ class ImplicitRequests(CommonCommonTests, TestCase):
     @classproperty(cache=False)
     def requirements(cls): #@NoSelf
         return {
-        "user01": {
-            "calendar_1": {
+            "user01": {
+                "calendar_1": {
+                },
+                "inbox": {
+                },
             },
-            "inbox": {
+            "user02": {
+                "calendar_1": {
+                },
+                "inbox": {
+                },
             },
-        },
-        "user02": {
-            "calendar_1": {
+            "user03": {
+                "calendar_1": {
+                },
+                "inbox": {
+                },
             },
-            "inbox": {
-            },
-        },
-        "user03": {
-            "calendar_1": {
-            },
-            "inbox": {
-            },
-        },
-    }
+        }
 
 
     @inlineCallbacks
@@ -1656,28 +1656,28 @@ class ScheduleAgentFixBase(CommonCommonTests, TestCase):
     @classproperty(cache=False)
     def requirements(cls): #@NoSelf
         return {
-        "user01": {
-            "calendar_1": {
-                "organizer.ics": (cls.organizer_data, cls.metadata),
+            "user01": {
+                "calendar_1": {
+                    "organizer.ics": (cls.organizer_data, cls.metadata),
+                },
+                "inbox": {
+                },
             },
-            "inbox": {
+            "user02": {
+                "calendar_1": {
+                    "attendee2.ics": (cls.attendee2_data, cls.metadata),
+                },
+                "inbox": {
+                },
             },
-        },
-        "user02": {
-            "calendar_1": {
-                "attendee2.ics": (cls.attendee2_data, cls.metadata),
+            "user03": {
+                "calendar_1": {
+                    "attendee3.ics": (cls.attendee3_data, cls.metadata),
+                },
+                "inbox": {
+                },
             },
-            "inbox": {
-            },
-        },
-        "user03": {
-            "calendar_1": {
-                "attendee3.ics": (cls.attendee3_data, cls.metadata),
-            },
-            "inbox": {
-            },
-        },
-    }
+        }
 
 
 

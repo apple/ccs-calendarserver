@@ -286,7 +286,8 @@ class OutboundTests(unittest.TestCase):
     def setUp(self):
         self.store = yield buildStore(self, None)
         self.directory = self.store.directoryService()
-        self.sender = MailSender("server@example.com", 7, DummySMTPSender(),
+        self.sender = MailSender(
+            "server@example.com", 7, DummySMTPSender(),
             language="en")
 
         def _getSender(ignored):
@@ -304,7 +305,8 @@ class OutboundTests(unittest.TestCase):
     @inlineCallbacks
     def test_work(self):
         txn = self.store.newTransaction()
-        wp = (yield txn.enqueue(IMIPInvitationWork,
+        wp = (yield txn.enqueue(
+            IMIPInvitationWork,
             fromAddr=ORGANIZER,
             toAddr=ATTENDEE,
             icalendarText=initialInviteText.replace("\n", "\r\n"),
@@ -332,7 +334,8 @@ class OutboundTests(unittest.TestCase):
         self.sender.smtpSender.shouldSucceed = False
 
         txn = self.store.newTransaction()
-        wp = (yield txn.enqueue(IMIPInvitationWork,
+        wp = (yield txn.enqueue(
+            IMIPInvitationWork,
             fromAddr=ORGANIZER,
             toAddr=ATTENDEE,
             icalendarText=initialInviteText.replace("\n", "\r\n"),
@@ -343,8 +346,10 @@ class OutboundTests(unittest.TestCase):
         self.assertEquals(wp, self.wp)
 
 
-    def _interceptEmail(self, inviteState, calendar, orgEmail, orgCn,
-        attendees, fromAddress, replyToAddress, toAddress, language="en"):
+    def _interceptEmail(
+        self, inviteState, calendar, orgEmail, orgCn,
+        attendees, fromAddress, replyToAddress, toAddress, language="en"
+    ):
         self.inviteState = inviteState
         self.calendar = calendar
         self.orgEmail = orgEmail
@@ -354,7 +359,8 @@ class OutboundTests(unittest.TestCase):
         self.replyToAddress = replyToAddress
         self.toAddress = toAddress
         self.language = language
-        self.results = self._actualGenerateEmail(inviteState, calendar,
+        self.results = self._actualGenerateEmail(
+            inviteState, calendar,
             orgEmail, orgCn, attendees, fromAddress, replyToAddress, toAddress,
             language=language)
         return self.results
@@ -458,9 +464,11 @@ END:VCALENDAR
             ),
 
         )
-        for (inputCalendar, UID, inputOriginator, inputRecipient, inviteState,
+        for (
+            inputCalendar, UID, inputOriginator, inputRecipient, inviteState,
             outputOrganizerEmail, outputOrganizerName, outputAttendeeList,
-            outputFrom, encodedFrom, outputRecipient) in data:
+            outputFrom, encodedFrom, outputRecipient
+        ) in data:
 
             txn = self.store.newTransaction()
             yield self.sender.outbound(
@@ -484,11 +492,11 @@ END:VCALENDAR
             if UID: # The organizer is local, and server is sending to remote
                     # attendee
                 txn = self.store.newTransaction()
-                token = (yield txn.imipGetToken(inputOriginator, inputRecipient,
-                    UID))
+                token = (yield txn.imipGetToken(inputOriginator, inputRecipient, UID))
                 yield txn.commit()
                 self.assertNotEquals(token, None)
-                self.assertEquals(msg["Reply-To"],
+                self.assertEquals(
+                    msg["Reply-To"],
                     "server+%s@example.com" % (token,))
 
                 # Make sure attendee property for organizer exists and matches
@@ -535,7 +543,8 @@ END:VCALENDAR
         self.assertEquals(token1, token2)
 
         txn = self.store.newTransaction()
-        self.assertEquals((yield txn.imipLookupByToken(token1)),
+        self.assertEquals(
+            (yield txn.imipLookupByToken(token1)),
             [["organizer", "attendee", "icaluid"]])
         yield txn.commit()
 
@@ -559,11 +568,11 @@ END:VCALENDAR
         # Explictly store a token with mailto: CUA for organizer
         # (something that doesn't happen any more, but did in the past)
         txn = self.store.newTransaction()
-        origToken = (yield txn.imipCreateToken(organizerEmail,
+        origToken = (yield txn.imipCreateToken(
+            organizerEmail,
             "mailto:attendee@example.com",
             "CFDD5E46-4F74-478A-9311-B3FF905449C3"
-            )
-        )
+        ))
         yield txn.commit()
 
         inputCalendar = initialInviteText
@@ -572,7 +581,8 @@ END:VCALENDAR
         inputRecipient = "mailto:attendee@example.com"
 
         txn = self.store.newTransaction()
-        yield self.sender.outbound(txn, inputOriginator, inputRecipient,
+        yield self.sender.outbound(
+            txn, inputOriginator, inputRecipient,
             Component.fromString(inputCalendar.replace("\n", "\r\n")),
             onlyAfter=DateTime(2010, 1, 1, 0, 0, 0))
 

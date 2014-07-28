@@ -67,25 +67,25 @@ class SchedulerFreeBusyRequest(CommonCommonTests, TestCase):
     @classproperty(cache=False)
     def requirements(cls): #@NoSelf
         return {
-        "user01": {
-            "calendar_1": {
+            "user01": {
+                "calendar_1": {
+                },
+                "inbox": {
+                },
             },
-            "inbox": {
+            "user02": {
+                "calendar_1": {
+                },
+                "inbox": {
+                },
             },
-        },
-        "user02": {
-            "calendar_1": {
+            "user03": {
+                "calendar_1": {
+                },
+                "inbox": {
+                },
             },
-            "inbox": {
-            },
-        },
-        "user03": {
-            "calendar_1": {
-            },
-            "inbox": {
-            },
-        },
-    }
+        }
 
 
     def storeUnderTest(self):
@@ -284,12 +284,7 @@ FREEBUSY;FBTYPE=BUSY:%(now_12H)s/PT1H
 ORGANIZER:mailto:user01@example.com
 END:VFREEBUSY
 END:VCALENDAR
-""" % {
-    "now": self.now.getText(),
-    "now_1D": self.now_1D.getText(),
-    "now_12H": self.now_12H.getText(),
-    "now_13H": self.now_13H.getText(),
-}
+""" % {"now": self.now.getText(), "now_1D": self.now_1D.getText(), "now_12H": self.now_12H.getText(), "now_13H": self.now_13H.getText(), }
 
         scheduler = CalDAVScheduler(self.transactionUnderTest(), "user01")
         result = (yield scheduler.doSchedulingViaPOST("mailto:user01@example.com", ["mailto:user01@example.com", ], Component.fromString(data_request)))

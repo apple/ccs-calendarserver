@@ -210,7 +210,7 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
-               False,
+                False,
             ),
             (
                 "#2.4 Small, all cancelled, simple recurring component",
@@ -230,7 +230,7 @@ RRULE:FREQ=DAILY;COUNT=2
 END:VEVENT
 END:VCALENDAR
 """,
-                 False,
+                False,
             ),
             (
                 "#3.1 Small, old, recurring with future override",

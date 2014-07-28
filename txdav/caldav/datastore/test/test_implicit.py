@@ -54,19 +54,19 @@ class ImplicitRequests (CommonCommonTests, TestCase):
     @classproperty(cache=False)
     def requirements(cls): #@NoSelf
         return {
-        "user01": {
-            "calendar_1": {
+            "user01": {
+                "calendar_1": {
+                },
+                "inbox": {
+                },
             },
-            "inbox": {
+            "user02": {
+                "calendar_1": {
+                },
+                "inbox": {
+                },
             },
-        },
-        "user02": {
-            "calendar_1": {
-            },
-            "inbox": {
-            },
-        },
-    }
+        }
 
 
     def storeUnderTest(self):
@@ -183,7 +183,7 @@ END:VEVENT
 END:VCALENDAR
 """),
 
-        Component.fromString("""BEGIN:VCALENDAR
+            Component.fromString("""BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 METHOD:PUBLISH

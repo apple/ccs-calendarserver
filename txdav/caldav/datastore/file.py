@@ -173,8 +173,10 @@ class CalendarHome(CommonHome):
         for calendar in self.calendars():
             for calendarObject in calendar.calendarObjects():
                 component = calendarObject.component()
-                if (component.hasPropertyInAnyComponent("X-APPLE-DROPBOX") or
-                    component.hasPropertyInAnyComponent("ATTACH")):
+                if (
+                    component.hasPropertyInAnyComponent("X-APPLE-DROPBOX") or
+                    component.hasPropertyInAnyComponent("ATTACH")
+                ):
                     dropboxID = (yield calendarObject.dropboxID())
                     dropboxIDs.append(dropboxID)
         returnValue(dropboxIDs)

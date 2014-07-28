@@ -62,9 +62,11 @@ def normalizeCUAddr(addr):
     lower = addr.lower()
     if lower.startswith("mailto:"):
         addr = lower
-    if (addr.startswith("/") or
+    if (
+        addr.startswith("/") or
         addr.startswith("http:") or
-        addr.startswith("https:")):
+        addr.startswith("https:")
+    ):
         return addr.rstrip("/")
     else:
         return addr

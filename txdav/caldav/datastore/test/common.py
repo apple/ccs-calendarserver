@@ -241,49 +241,50 @@ class CommonTests(CommonCommonTests):
         metadata3 = cls.metadata3.copy()
         metadata4 = cls.metadata4.copy()
         return {
-        "home1": {
-            "calendar_1": {
-                "1.ics": (cal1Root.child("1.ics").getContent(), metadata1),
-                "2.ics": (cal1Root.child("2.ics").getContent(), metadata2),
-                "3.ics": (cal1Root.child("3.ics").getContent(), metadata3),
-                "4.ics": (cal1Root.child("4.ics").getContent(), metadata4),
+            "home1": {
+                "calendar_1": {
+                    "1.ics": (cal1Root.child("1.ics").getContent(), metadata1),
+                    "2.ics": (cal1Root.child("2.ics").getContent(), metadata2),
+                    "3.ics": (cal1Root.child("3.ics").getContent(), metadata3),
+                    "4.ics": (cal1Root.child("4.ics").getContent(), metadata4),
+                },
+                "calendar_2": {},
+                "calendar_empty": {},
+                "not_a_calendar": None
             },
-            "calendar_2": {},
-            "calendar_empty": {},
-            "not_a_calendar": None
-        },
-        "home_splits": {
-            "calendar_1": {
-                "1.ics": (cal1SplitsRoot.child("1.ics").getContent(), metadata1),
-                "2.ics": (cal1SplitsRoot.child("2.ics").getContent(), metadata2),
-                "3.ics": (cal1SplitsRoot.child("3.ics").getContent(), metadata3),
+            "home_splits": {
+                "calendar_1": {
+                    "1.ics": (cal1SplitsRoot.child("1.ics").getContent(), metadata1),
+                    "2.ics": (cal1SplitsRoot.child("2.ics").getContent(), metadata2),
+                    "3.ics": (cal1SplitsRoot.child("3.ics").getContent(), metadata3),
+                },
+                "calendar_2": {
+                    "1.ics": (cal2SplitsRoot.child("1.ics").getContent(), metadata1),
+                    "2.ics": (cal2SplitsRoot.child("2.ics").getContent(), metadata2),
+                    "3.ics": (cal2SplitsRoot.child("3.ics").getContent(), metadata3),
+                    "4.ics": (cal2SplitsRoot.child("4.ics").getContent(), metadata4),
+                    "5.ics": (cal2SplitsRoot.child("5.ics").getContent(), metadata4),
+                },
             },
-            "calendar_2": {
-                "1.ics": (cal2SplitsRoot.child("1.ics").getContent(), metadata1),
-                "2.ics": (cal2SplitsRoot.child("2.ics").getContent(), metadata2),
-                "3.ics": (cal2SplitsRoot.child("3.ics").getContent(), metadata3),
-                "4.ics": (cal2SplitsRoot.child("4.ics").getContent(), metadata4),
-                "5.ics": (cal2SplitsRoot.child("5.ics").getContent(), metadata4),
+            "home_no_splits": {
+                "calendar_1": {
+                    "1.ics": (cal1NoSplitsRoot.child("1.ics").getContent(), metadata1),
+                    "2.ics": (cal1NoSplitsRoot.child("2.ics").getContent(), metadata2),
+                    "3.ics": (cal1NoSplitsRoot.child("3.ics").getContent(), metadata3),
+                },
             },
-        },
-        "home_no_splits": {
-            "calendar_1": {
-                "1.ics": (cal1NoSplitsRoot.child("1.ics").getContent(), metadata1),
-                "2.ics": (cal1NoSplitsRoot.child("2.ics").getContent(), metadata2),
-                "3.ics": (cal1NoSplitsRoot.child("3.ics").getContent(), metadata3),
+            "home_splits_shared": {
+                "calendar_1": {},
             },
-        },
-        "home_splits_shared": {
-            "calendar_1": {},
-        },
-        "home_defaults": {
-            "calendar_1": {
-                "1.ics": (cal1DefaultsRoot.child("1.ics").getContent(), metadata1),
-                "3.ics": (cal1DefaultsRoot.child("3.ics").getContent(), metadata3),
+            "home_defaults": {
+                "calendar_1": {
+                    "1.ics": (cal1DefaultsRoot.child("1.ics").getContent(), metadata1),
+                    "3.ics": (cal1DefaultsRoot.child("3.ics").getContent(), metadata3),
+                },
+                "inbox" : {},
             },
-            "inbox" : {},
-        },
-    }
+        }
+
     md5s = {
         "home1": {
             "calendar_1": {
@@ -1378,8 +1379,9 @@ END:VCALENDAR
         text.
         """
         yield self.failUnlessFailure(
-            maybeDeferred((yield self.calendarUnderTest()).createCalendarObjectWithName,
-            "new", VComponent.fromString(test_event_notCalDAV_text)),
+            maybeDeferred(
+                (yield self.calendarUnderTest()).createCalendarObjectWithName,
+                "new", VComponent.fromString(test_event_notCalDAV_text)),
             InvalidObjectResourceError,
             InvalidComponentForStoreError,
         )
@@ -1590,9 +1592,8 @@ END:VCALENDAR
         cal = yield self.calendarUnderTest()
         st = yield home.syncToken()
         yield cal.createCalendarObjectWithName("new.ics", VComponent.fromString(
-                test_event_text
-            )
-        )
+            test_event_text
+        ))
 
         obj1 = yield cal.calendarObjectWithName("2.ics")
         yield obj1.remove()
@@ -1629,9 +1630,8 @@ END:VCALENDAR
         st = yield cal.syncToken()
         rev = self.token2revision(st)
         yield cal.createCalendarObjectWithName("new.ics", VComponent.fromString(
-                test_event_text
-            )
-        )
+            test_event_text
+        ))
         obj1 = yield cal.calendarObjectWithName("2.ics")
         yield obj1.remove()
         st2 = yield cal.syncToken()

@@ -59,26 +59,26 @@ END:VCALENDAR
     @classproperty(cache=False)
     def requirements(cls): #@NoSelf
         return {
-        "user01": {
-            "calendar": {
-                "cal1.ics": (cls.cal1, None,),
+            "user01": {
+                "calendar": {
+                    "cal1.ics": (cls.cal1, None,),
+                },
+                "inbox": {
+                },
             },
-            "inbox": {
+            "user02": {
+                "calendar": {
+                },
+                "inbox": {
+                },
             },
-        },
-        "user02": {
-            "calendar": {
+            "user03": {
+                "calendar": {
+                },
+                "inbox": {
+                },
             },
-            "inbox": {
-            },
-        },
-        "user03": {
-            "calendar": {
-            },
-            "inbox": {
-            },
-        },
-    }
+        }
 
 
 

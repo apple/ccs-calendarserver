@@ -71,26 +71,26 @@ END:VCALENDAR
     @classproperty(cache=False)
     def requirements(cls): #@NoSelf
         return {
-        "user01": {
-            "calendar": {
-                "cal1.ics": (cls.cal1, None,),
+            "user01": {
+                "calendar": {
+                    "cal1.ics": (cls.cal1, None,),
+                },
+                "inbox": {
+                },
             },
-            "inbox": {
+            "user02": {
+                "calendar": {
+                },
+                "inbox": {
+                },
             },
-        },
-        "user02": {
-            "calendar": {
+            "user03": {
+                "calendar": {
+                },
+                "inbox": {
+                },
             },
-            "inbox": {
-            },
-        },
-        "user03": {
-            "calendar": {
-            },
-            "inbox": {
-            },
-        },
-    }
+        }
 
 
     def storeUnderTest(self):
@@ -602,7 +602,7 @@ class GroupSharingTests(BaseSharingTests):
         )
         yield self.buildStoreAndDirectory(
             accounts=accountsFilePath.child("groupShareeAccounts.xml"),
-            #resources=accountsFilePath.child("resources.xml"),
+            # resources=accountsFilePath.child("resources.xml"),
         )
         yield self.populate()
 
@@ -1805,15 +1805,14 @@ class SharingRevisions(BaseSharingTests):
         self.assertEqual(len(invalid), 0)
 
         for depth, result in (
-            ("1", [otherCal.name() + '/',
-                   'calendar/',
-                   'inbox/'],
-            ),
-            ("infinity", [otherCal.name() + '/',
-                         otherCal.name() + '/cal1.ics',
-                         'calendar/',
-                         'inbox/'],
-             )):
+            ("1", [otherCal.name() + '/', 'calendar/', 'inbox/'],),
+            (
+                "infinity", [
+                    otherCal.name() + '/', otherCal.name() + '/cal1.ics',
+                    'calendar/', 'inbox/'
+                ],
+            )
+        ):
             changed, deleted, invalid = yield otherHome.resourceNamesSinceRevision(0, depth)
             self.assertEqual(set(changed), set(result))
             self.assertEqual(len(deleted), 0)
