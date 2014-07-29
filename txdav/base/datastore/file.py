@@ -77,9 +77,9 @@ class DataStore(object):
         """
         self._path = path
 
-#        if not path.isdir():
-            # FIXME: Add DataStoreNotFoundError?
-#            raise NotFoundError("No such data store")
+        # if not path.isdir():
+        # FIXME: Add DataStoreNotFoundError?
+        #     raise NotFoundError("No such data store")
 
 
     def __repr__(self):

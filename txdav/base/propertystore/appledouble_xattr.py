@@ -113,9 +113,8 @@ def attrsFromFile(fileobj, debugFile=None):
                 raise ValueError("Short read: expected %d bytes got %d" %
                                  (length - XATTR_OFFSET, len(data)))
             magic, _ignore_tag, total_size, data_start, data_length, \
-            _ignore_reserved1, _ignore_reserved2, _ignore_reserved3, \
-            flags, num_attrs = struct.unpack(XATTR_HEADER,
-                                             data[:XATTR_HEADER_LENGTH])
+                _ignore_reserved1, _ignore_reserved2, _ignore_reserved3, \
+                flags, num_attrs = struct.unpack(XATTR_HEADER, data[:XATTR_HEADER_LENGTH])
             if magic != XATTR_HDR_MAGIC:
                 raise ValueError("No xattrs found")
 
@@ -131,14 +130,13 @@ def attrsFromFile(fileobj, debugFile=None):
             # Get each xattr entry
             data = data[XATTR_HEADER_LENGTH:]
             for _ignore in xrange(num_attrs):
-                [xattr_offset, xattr_length,
-                 xattr_flags, xattr_name_len] = struct.unpack(
-                     XATTR_ENTRY, data[:XATTR_ENTRY_LENGTH]
-                 )
+                [
+                    xattr_offset, xattr_length,
+                    xattr_flags, xattr_name_len
+                ] = struct.unpack(XATTR_ENTRY, data[:XATTR_ENTRY_LENGTH])
                 xattr_name = data[
                     XATTR_ENTRY_LENGTH:
-                    XATTR_ENTRY_LENGTH + xattr_name_len
-                    - 1 # strip NULL terminator
+                    XATTR_ENTRY_LENGTH + xattr_name_len - 1 # strip NULL terminator
                 ]
                 fileobj.seek(xattr_offset)
                 xattr_value = fileobj.read(xattr_length)

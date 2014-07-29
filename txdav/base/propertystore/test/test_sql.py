@@ -50,7 +50,7 @@ class PropertyStoreTest(PropertyStoreTest):
         self.addCleanup(self.maybeCommitLast)
         self._txn = self.store.newTransaction()
         self.propertyStore = \
-        self.propertyStore1 = yield PropertyStore.load("user01", None, None, self._txn, 1)
+            self.propertyStore1 = yield PropertyStore.load("user01", None, None, self._txn, 1)
         self.propertyStore2 = yield PropertyStore.load("user01", "user02", None, self._txn, 1)
         self.propertyStore3 = yield PropertyStore.load("user01", None, "user03", self._txn, 1)
         self.propertyStore4 = yield PropertyStore.load("user01", "user02", "user04", self._txn, 1)
@@ -64,10 +64,10 @@ class PropertyStoreTest(PropertyStoreTest):
         else:
             result = None
         self.propertyStore = \
-        self.propertyStore1 = \
-        self.propertyStore2 = \
-        self.propertyStore3 = \
-        self.propertyStore4 = None
+            self.propertyStore1 = \
+            self.propertyStore2 = \
+            self.propertyStore3 = \
+            self.propertyStore4 = None
         returnValue(result)
 
 
@@ -80,7 +80,7 @@ class PropertyStoreTest(PropertyStoreTest):
 
         store = self.propertyStore1
         self.propertyStore = \
-        self.propertyStore1 = yield PropertyStore.load("user01", None, None, self._txn, 1)
+            self.propertyStore1 = yield PropertyStore.load("user01", None, None, self._txn, 1)
         self.propertyStore1._shadowableKeys = store._shadowableKeys
         self.propertyStore1._proxyOverrideKeys = store._proxyOverrideKeys
         self.propertyStore1._globalKeys = store._globalKeys
@@ -114,7 +114,7 @@ class PropertyStoreTest(PropertyStoreTest):
 
         store = self.propertyStore1
         self.propertyStore = \
-        self.propertyStore1 = yield PropertyStore.load("user01", None, None, self._txn, 1)
+            self.propertyStore1 = yield PropertyStore.load("user01", None, None, self._txn, 1)
         self.propertyStore1._shadowableKeys = store._shadowableKeys
         self.propertyStore1._proxyOverrideKeys = store._proxyOverrideKeys
         self.propertyStore1._globalKeys = store._globalKeys

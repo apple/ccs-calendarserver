@@ -37,7 +37,7 @@ from twisted.python.reflect import namedAny
 from txdav.xml.base import encodeXMLName
 from txdav.xml.parser import WebDAVDocument
 from txdav.base.propertystore.base import AbstractPropertyStore, PropertyName, \
-        validKey
+    validKey
 from txdav.idav import PropertyStoreError
 
 #
@@ -171,7 +171,7 @@ class PropertyStore(AbstractPropertyStore):
                 raise PropertyStoreError(e)
         except KeyError:
             # Check for uncompressed namespace
-            if  effectiveKey[0].namespace in self._namespaceCompress:
+            if effectiveKey[0].namespace in self._namespaceCompress:
                 try:
                     data = self.attrs[self._encodeKey(effectiveKey,
                                                       compressNamespace=False)]

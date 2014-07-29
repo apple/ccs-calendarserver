@@ -339,10 +339,11 @@ class PropertyStore(AbstractPropertyStore):
         del self._cached[(key_str, uid)]
         @inlineCallbacks
         def doIt(txn):
-            yield self._deleteQuery.on(txn, lambda: KeyError(key),
-                                 resourceID=self._resourceID,
-                                 name=key_str, uid=uid
-                                )
+            yield self._deleteQuery.on(
+                txn, lambda: KeyError(key),
+                resourceID=self._resourceID,
+                name=key_str, uid=uid
+            )
             if self._cacher is not None:
                 self._cacher.delete(self._cacheToken(uid))
 
