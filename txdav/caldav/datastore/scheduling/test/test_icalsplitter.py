@@ -35,6 +35,8 @@ class ICalSplitter (unittest.TestCase):
         self.now.setHHMMSS(0, 0, 0)
 
         self.subs["now"] = self.now
+        self.subs["now_1"] = self.now.duplicate()
+        self.subs["now_1"].offsetSeconds(-1)
 
         for i in range(30):
             attrname = "now_back%s" % (i + 1,)
@@ -2220,6 +2222,109 @@ END:VCALENDAR
             # Make sure new items won't split again
             self.assertFalse(splitter.willSplit(icalNew), "Failed future will split: %s" % (title,))
             self.assertFalse(splitter.willSplit(icalOld), "Failed past will split: %s" % (title,))
+
+
+    def test_split_negative_count(self):
+
+        data = (
+            (
+                "1.1 - RRULE with override",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:%(now_back30)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+RRULE:FREQ=WEEKLY;COUNT=100
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back23)s
+DTSTART:%(now_back23)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:%(now_back16)s
+DTSTART:%(now_back16)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:%(now_fwd5)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+RRULE:FREQ=WEEKLY;COUNT=95
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:%(uid)s
+DTSTART:%(now_back30)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+RRULE:FREQ=WEEKLY;UNTIL=%(now_fwd5_1)s
+END:VEVENT
+BEGIN:VEVENT
+UID:%(uid)s
+RECURRENCE-ID:%(now_back23)s
+DTSTART:%(now_back23)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+END:VEVENT
+BEGIN:VEVENT
+UID:%(uid)s
+RECURRENCE-ID:%(now_back16)s
+DTSTART:%(now_back16)s
+DURATION:PT1H
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:%(relID)s
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+        )
+
+        for title, calendar, split_future, split_past in data:
+            ical = Component.fromString(calendar % self.subs)
+            splitter = iCalSplitter(100, 0)
+            if title[0] == "1":
+                self.assertTrue(splitter.willSplit(ical), "Failed will split: %s" % (title,))
+            icalOld, icalNew = splitter.split(ical)
+            relsubs = dict(self.subs)
+            relsubs["uid"] = icalOld.resourceUID()
+            relsubs["relID"] = icalOld.mainComponent().propertyValue("RELATED-TO") if icalOld.mainComponent() else icalNew.mainComponent().propertyValue("RELATED-TO")
+            self.assertEqual(str(icalNew).replace("\r\n ", ""), split_future.replace("\n", "\r\n") % relsubs, "Failed future: %s" % (title,))
+            self.assertEqual(str(icalOld).replace("\r\n ", ""), split_past.replace("\n", "\r\n") % relsubs, "Failed past: %s" % (title,))
 
 
     def test_future_split(self):
