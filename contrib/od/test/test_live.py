@@ -40,7 +40,6 @@ if moduleImported:
     from twext.who.expression import (
         CompoundExpression, Operand, MatchExpression, MatchType, MatchFlags
     )
-    from twext.who.idirectory import QueryNotSupportedError
     from txdav.who.directory import CalendarDirectoryServiceMixin
     from txdav.who.opendirectory import DirectoryService as OpenDirectoryService
 
@@ -270,115 +269,6 @@ if moduleImported:
                 ],
                 ["odtestamanda", "odtestbill", "odtestgroupa", "odtestgroupb"]
             )
-
-
-        @onlyIfPopulated
-        @inlineCallbacks
-        def test_compoundWithEmbeddedSingleRecordType(self):
-            expression = CompoundExpression(
-                [
-                    CompoundExpression(
-                        [
-                            CompoundExpression(
-                                [
-                                    MatchExpression(
-                                        self.service.fieldName.fullNames, u"be",
-                                        matchType=MatchType.contains
-                                    ),
-                                    MatchExpression(
-                                        self.service.fieldName.emailAddresses, u"be",
-                                        matchType=MatchType.startsWith
-                                    ),
-                                ],
-                                Operand.OR
-                            ),
-                            CompoundExpression(
-                                [
-                                    MatchExpression(
-                                        self.service.fieldName.fullNames, u"test",
-                                        matchType=MatchType.contains
-                                    ),
-                                    MatchExpression(
-                                        self.service.fieldName.emailAddresses, u"test",
-                                        matchType=MatchType.startsWith
-                                    ),
-                                ],
-                                Operand.OR
-                            ),
-                        ],
-                        Operand.AND
-                    ),
-                    MatchExpression(
-                        self.service.fieldName.recordType, self.service.recordType.user,
-                    ),
-                ],
-                Operand.AND
-            )
-            try:
-                yield self.service.recordsFromExpression(expression)
-            except QueryNotSupportedError:
-                pass
-            else:
-                self.fail("This should have raised")
-
-
-        @onlyIfPopulated
-        @inlineCallbacks
-        def test_compoundWithEmbeddedMultipleRecordTypes(self):
-            expression = CompoundExpression(
-                [
-                    CompoundExpression(
-                        [
-                            CompoundExpression(
-                                [
-                                    MatchExpression(
-                                        self.service.fieldName.fullNames, u"be",
-                                        matchType=MatchType.contains
-                                    ),
-                                    MatchExpression(
-                                        self.service.fieldName.emailAddresses, u"be",
-                                        matchType=MatchType.startsWith
-                                    ),
-                                ],
-                                Operand.OR
-                            ),
-                            CompoundExpression(
-                                [
-                                    MatchExpression(
-                                        self.service.fieldName.fullNames, u"test",
-                                        matchType=MatchType.contains
-                                    ),
-                                    MatchExpression(
-                                        self.service.fieldName.emailAddresses, u"test",
-                                        matchType=MatchType.startsWith
-                                    ),
-                                ],
-                                Operand.OR
-                            ),
-                        ],
-                        Operand.AND
-                    ),
-                    CompoundExpression(
-                        [
-                            MatchExpression(
-                                self.service.fieldName.recordType, self.service.recordType.user,
-                            ),
-                            MatchExpression(
-                                self.service.fieldName.recordType, self.service.recordType.group,
-                            ),
-                        ],
-                        Operand.OR
-                    ),
-                ],
-                Operand.AND
-            )
-
-            try:
-                yield self.service.recordsFromExpression(expression)
-            except QueryNotSupportedError:
-                pass
-            else:
-                self.fail("This should have raised")
 
 
         @onlyIfPopulated

@@ -720,42 +720,6 @@ class StoreNotAvailable(Exception):
     """
 
 
-
-class QuitAfterUpgradeStep(object):
-
-    def __init__(self, triggerFile, reactor=None):
-        self.triggerFile = triggerFile
-        if reactor is None:
-            from twisted.internet import reactor
-        self.reactor = reactor
-
-
-    def removeTriggerFile(self):
-        try:
-            remove(self.triggerFile)
-        except OSError:
-            pass
-
-
-    def stepWithResult(self, result):
-        if exists(self.triggerFile):
-            self.removeTriggerFile()
-            self.reactor.stop()
-            raise PostUpgradeStopRequested()
-        else:
-            return succeed(result)
-
-
-    def stepWithFailure(self, failure):
-        if exists(self.triggerFile):
-            self.removeTriggerFile()
-            self.reactor.stop()
-            raise PostUpgradeStopRequested()
-        else:
-            return failure
-
-
-
 class CalDAVServiceMaker (object):
     log = Logger()
 
@@ -1580,14 +1544,6 @@ class CalDAVServiceMaker (object):
                 pps.addStep(
                     UpgradeDatabaseOtherStep(
                         store, uid=overrideUID, gid=overrideGID
-                    )
-                )
-
-                # Conditionally stop after upgrade at this point
-                pps.addStep(
-                    QuitAfterUpgradeStep(
-                        config.StopAfterUpgradeTriggerFile or
-                        config.UpgradeHomePrefix
                     )
                 )
 

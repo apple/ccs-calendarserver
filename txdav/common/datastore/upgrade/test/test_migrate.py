@@ -320,6 +320,35 @@ END:VCALENDAR
             self.assertEquals(object.md5(), md5)
 
 
+    @withSpecialValue(
+        "extraRequirements",
+        {
+            "nonexistent": {
+                "calendar_1": {
+                }
+            }
+        }
+    )
+    @inlineCallbacks
+    def test_upgradeCalendarHomesMissingDirectoryRecord(self):
+        """
+        Test an upgrade where a directory record is missing for a home;
+        the original home directory will remain on disk.
+        """
+        yield self.upgrader.stepWithResult(None)
+        txn = self.sqlStore.newTransaction()
+        self.addCleanup(txn.commit)
+        for uid in CommonTests.requirements:
+            if CommonTests.requirements[uid] is not None:
+                self.assertNotIdentical(
+                    None, (yield txn.calendarHomeWithUID(uid))
+                )
+        self.assertIdentical(None, (yield txn.calendarHomeWithUID(u"nonexistent")))
+        # Skipped calendar homes are not deleted
+        self.assertTrue(self.filesPath.child("calendars").child(
+            "__uids__").child("no").child("ne").child("nonexistent").exists())
+
+
     @inlineCallbacks
     def test_upgradeExistingHome(self):
         """

@@ -60,7 +60,7 @@ from calendarserver.tap.caldav import (
     CalDAVOptions, CalDAVServiceMaker, CalDAVService, GroupOwnedUNIXServer,
     DelayedStartupProcessMonitor, DelayedStartupLineLogger, TwistdSlaveProcess,
     _CONTROL_SERVICE_NAME, getSystemIDs, PreProcessingService,
-    QuitAfterUpgradeStep, DataStoreMonitor
+    DataStoreMonitor
 )
 from calendarserver.provision.root import RootResource
 from twext.enterprise.jobqueue import PeerConnectionPool, LocalQueuer
@@ -1503,31 +1503,6 @@ class PreProcessingServiceTestCase(TestCase):
                 ('serviceCreator', 'store', 'storageService')
             ]
         )
-
-
-    def test_quitAfterUpgradeStep(self):
-        triggerFileName = "stop_after_upgrade"
-        triggerFile = FilePath(triggerFileName)
-        self.pps.addStep(
-            StepOne(self._record, False)
-        ).addStep(
-            StepTwo(self._record, False)
-        ).addStep(
-            QuitAfterUpgradeStep(triggerFile.path, reactor=self.clock)
-        ).addStep(
-            StepFour(self._record, True)
-        )
-        triggerFile.setContent("")
-        self.pps.startService()
-        self.assertEquals(
-            self.history,
-            [
-                'one success', 'two success', 'four failure',
-                ('serviceCreator', None, 'storageService')
-            ]
-        )
-        self.assertFalse(triggerFile.exists())
-
 
 
 class StubStorageService(object):

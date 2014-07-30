@@ -50,6 +50,7 @@ from txdav.common.datastore.upgrade.sql.upgrades.calendar_upgrade_from_3_to_4 im
 from txdav.common.datastore.upgrade.sql.upgrades.calendar_upgrade_from_4_to_5 import doUpgrade as doCalendarUpgrade_4_to_5
 from txdav.common.datastore.upgrade.sql.upgrades.addressbook_upgrade_from_1_to_2 import doUpgrade as doAddressbookUpgrade_1_to_2
 
+from txdav.common.idirectoryservice import DirectoryRecordNotFoundError
 
 
 @inlineCallbacks
@@ -326,7 +327,12 @@ class UpgradeToDatabaseStep(object):
             returnValue(None)
         try:
             if sqlHome is None:
-                sqlHome = yield homeGetter(uid, create=True)
+                try:
+                    sqlHome = yield homeGetter(uid, create=True)
+                except DirectoryRecordNotFoundError:
+                    # The directory record does not exist; skip this home
+                    self.log.warn("Skipping migration of {uid} because it's missing from the directory service", uid=uid)
+                    returnValue(None)
             yield migrateFunc(fileHome, sqlHome, merge=self.merge)
         except:
             f = Failure()
@@ -361,11 +367,6 @@ class UpgradeToDatabaseStep(object):
                     txn, home, homeType
                 )
             )
-
-        for homeType in TOPPATHS:
-            homesPath = self.fileStore._path.child(homeType)
-            if homesPath.isdir():
-                homesPath.remove()
 
         # Set attachment directory ownership.  FIXME: is this still necessary
         # since attachments started living outside the database directory
