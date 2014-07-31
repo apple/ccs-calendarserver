@@ -576,12 +576,18 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
     @classproperty
     def _deleteBumpTokenQuery(cls): #@NoSelf
         rev = cls._revisionsSchema
-        return Update({rev.REVISION: schema.REVISION_SEQ,
-                       rev.OBJECT_RESOURCE_ID: Parameter("id"),
-                       rev.DELETED: True},
-                      Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
-                           rev.RESOURCE_NAME == Parameter("name")),
-                      Return=rev.REVISION)
+        return Update(
+            {
+                rev.REVISION: schema.REVISION_SEQ,
+                rev.OBJECT_RESOURCE_ID: Parameter("id"),
+                rev.DELETED: True
+            },
+            Where=(
+                rev.RESOURCE_ID == Parameter("resourceID")).And(
+                rev.RESOURCE_NAME == Parameter("name")
+            ),
+            Return=rev.REVISION
+        )
 
 
     @inlineCallbacks
@@ -694,7 +700,7 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
         bindRevisions = [self._bindRevision] if self.fullyShared() else []
 
         groupBindRows = yield AddressBookObject._acceptedBindForHomeIDAndAddressBookID.on(
-                self._txn, homeID=self._home._resourceID, addressbookID=self._resourceID
+            self._txn, homeID=self._home._resourceID, addressbookID=self._resourceID
         )
         if groupBindRows:
             bindRevisions += [groupBindRow[self.bindColumns().index(self._bindSchema.BIND_REVISION)] for groupBindRow in groupBindRows]
@@ -731,17 +737,17 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
             # get revision table changes
             rev = self._revisionsSchema
             results = [(
-                    name,
-                    id,
-                    wasdeleted,
-                ) for name, id, wasdeleted in (
-                    yield Select(
-                        [rev.RESOURCE_NAME, rev.OBJECT_RESOURCE_ID, rev.DELETED],
-                        From=rev,
-                        Where=(rev.REVISION > revision).And(
+                name,
+                id,
+                wasdeleted,
+            ) for name, id, wasdeleted in (
+                yield Select(
+                    [rev.RESOURCE_NAME, rev.OBJECT_RESOURCE_ID, rev.DELETED],
+                    From=rev,
+                    Where=(rev.REVISION > revision).And(
                         rev.RESOURCE_ID == self._resourceID)
-                    ).on(self._txn)
-                ) if name
+                ).on(self._txn)
+            ) if name
             ]
 
         # get deleted object names if any
@@ -874,7 +880,7 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
         self._objects.pop(child.uid(), None)
         if self._objectNames and child.name() in self._objectNames:
             self._objectNames.remove(child.name())
-        #yield self._deleteRevision(child.name())
+        # yield self._deleteRevision(child.name())
         yield self.notifyChanged()
 
 
@@ -1016,11 +1022,12 @@ N:{n};;;;
 X-ADDRESSBOOKSERVER-KIND:group
 END:VCARD
 """.replace("\n", "\r\n").format(
-            prodid=vCardProductID,
-            uid=uid,
-            fn=fn,
-            n=n,
-        ))
+                prodid=vCardProductID,
+                uid=uid,
+                fn=fn,
+                n=n,
+            )
+        )
 
         # then get member UIDs
         abo = schema.ADDRESSBOOK_OBJECT
@@ -1282,10 +1289,11 @@ END:VCARD
         DAL query to find members and revisions
         """
         aboMembers = schema.ABO_MEMBERS
-        return Select([aboMembers.MEMBER_ID, aboMembers.REMOVED, aboMembers.REVISION],
-                      From=aboMembers,
-                      Where=aboMembers.GROUP_ID.In(Parameter("groupIDs", len(groupIDs))),
-                     )
+        return Select(
+            [aboMembers.MEMBER_ID, aboMembers.REMOVED, aboMembers.REVISION],
+            From=aboMembers,
+            Where=aboMembers.GROUP_ID.In(Parameter("groupIDs", len(groupIDs))),
+        )
 
 
     @classmethod
@@ -1294,11 +1302,12 @@ END:VCARD
         DAL query to find members and revisions
         """
         aboMembers = schema.ABO_MEMBERS
-        return Select([aboMembers.MEMBER_ID, aboMembers.REMOVED, aboMembers.REVISION],
-                      From=aboMembers,
-                      Where=aboMembers.GROUP_ID.In(Parameter("groupIDs", len(groupIDs)))
-                            .And(aboMembers.REVISION <= Parameter("revision")),
-                     )
+        return Select(
+            [aboMembers.MEMBER_ID, aboMembers.REMOVED, aboMembers.REVISION],
+            From=aboMembers,
+            Where=aboMembers.GROUP_ID.In(Parameter("groupIDs", len(groupIDs))).And(
+                aboMembers.REVISION <= Parameter("revision")),
+        )
 
 
     @classmethod
@@ -1761,7 +1770,7 @@ class AddressBookObjectSharingMixIn(SharingMixIn):
 
             acceptedBindCount = 1 if addressbookAsShared.fullyShared() else 0
             groupBindRows = yield AddressBookObject._acceptedBindForHomeIDAndAddressBookID.on(
-                    self._txn, homeID=shareeHome._resourceID, addressbookID=addressbookAsShared._resourceID
+                self._txn, homeID=shareeHome._resourceID, addressbookID=addressbookAsShared._resourceID
             )
             acceptedBindCount += len(groupBindRows)
             if acceptedBindCount == 1:
@@ -1770,7 +1779,7 @@ class AddressBookObjectSharingMixIn(SharingMixIn):
                 shareeHome._children.pop(addressbookAsShared._resourceID, None)
             else:
                 yield addressbookAsShared.notifyPropertyChanged()
-                #update revision in all remaining bind table rows for this address book
+                # update revision in all remaining bind table rows for this address book
                 for groupBindRow in groupBindRows:
                     groupObject = yield addressbookAsShared.objectResourceWithID(
                         groupBindRow[self.bindColumns().index(self._bindSchema.RESOURCE_ID)]
@@ -1784,7 +1793,8 @@ class AddressBookObjectSharingMixIn(SharingMixIn):
             yield shareeHome.notifyChanged()
 
         # delete bind table rows for this share
-        yield self._deleteBindForResourceIDAndHomeID.on(self._txn,
+        yield self._deleteBindForResourceIDAndHomeID.on(
+            self._txn,
             resourceID=self._resourceID, homeID=shareeHome._resourceID
         )
 
@@ -2044,8 +2054,10 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
         if partiallyShared:
             readWriteGroupIDs = yield self.addressbook().readWriteGroupIDs()
             readWriteObjectIDs = (
-                set((yield self.addressbook().expandGroupIDs(self._txn, readWriteGroupIDs)))
-                    if readWriteGroupIDs else set()
+                set(
+                    (yield self.addressbook().expandGroupIDs(self._txn, readWriteGroupIDs))
+                )
+                if readWriteGroupIDs else set()
             )
             # can't delete item in read-only shared group, even if user has addressbook unbind
             if self._resourceID not in readWriteObjectIDs:
@@ -2056,7 +2068,8 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
 
         # get groups where this object was once a member and version info
         aboMembers = schema.ABO_MEMBERS
-        groupRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID, aboMembers.REMOVED, aboMembers.REVISION],
+        groupRows = yield Select(
+            [aboMembers.GROUP_ID, aboMembers.MEMBER_ID, aboMembers.REMOVED, aboMembers.REVISION],
             From=aboMembers,
             Where=aboMembers.MEMBER_ID == self._resourceID,
         ).on(self._txn)
@@ -2071,7 +2084,7 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
         # see if this object is in current version
         groupIDs = set([
             groupID for groupID, memberRows in groupIDToMemberRowMap.iteritems()
-                if self._resourceID in AddressBook._currentMemberIDsFromMemberIDRemovedRevisionRows(memberRows)
+            if self._resourceID in AddressBook._currentMemberIDsFromMemberIDRemovedRevisionRows(memberRows)
         ])
 
         if partiallyShared:
@@ -2082,7 +2095,8 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
 
         # add to member table rows marked removed
         for groupIDToRemoveFrom in groupIDsToRemoveFrom:
-            yield self._insertMemberIDQuery.on(self._txn,
+            yield self._insertMemberIDQuery.on(
+                self._txn,
                 groupID=groupIDToRemoveFrom,
                 addressbookID=self._ownerAddressBookResourceID,
                 memberID=self._resourceID,
@@ -2252,7 +2266,7 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
             "_created",
             "_modified",
             "_dataversion",
-         )
+        )
 
 
     @classmethod
@@ -2431,12 +2445,12 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
     @classmethod
     def _resourceIDAndUIDForUIDsAndAddressBookResourceIDQuery(cls, uids):
         abo = schema.ADDRESSBOOK_OBJECT
-        return Select([abo.RESOURCE_ID, abo.VCARD_UID],
-                      From=abo,
-                      Where=((abo.ADDRESSBOOK_HOME_RESOURCE_ID == Parameter("addressbookResourceID")
-                              ).And(
-                                    abo.VCARD_UID.In(Parameter("uids", len(uids))))),
-                      )
+        return Select(
+            [abo.RESOURCE_ID, abo.VCARD_UID],
+            From=abo,
+            Where=((abo.ADDRESSBOOK_HOME_RESOURCE_ID == Parameter("addressbookResourceID")).And(
+                abo.VCARD_UID.In(Parameter("uids", len(uids))))),
+        )
 
 
     @classmethod
@@ -2445,7 +2459,8 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
         return Delete(
             aboForeignMembers,
             Where=(aboForeignMembers.GROUP_ID == groupID).And(
-                    aboForeignMembers.MEMBER_ADDRESS.In(Parameter("memberAddrs", len(memberAddrs)))))
+                aboForeignMembers.MEMBER_ADDRESS.In(Parameter("memberAddrs", len(memberAddrs))))
+        )
 
 
     @classproperty
@@ -2469,7 +2484,8 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
                 abo.RESOURCE_ID,
                 abo.CREATED,
                 abo.MODIFIED
-        ))
+            )
+        )
 
 
     @classproperty
@@ -2610,7 +2626,8 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
 
             # add to member table rows
             for groupID in groupIDs:
-                yield self._insertMemberIDQuery.on(self._txn,
+                yield self._insertMemberIDQuery.on(
+                    self._txn,
                     groupID=groupID,
                     addressbookID=self._ownerAddressBookResourceID,
                     memberID=self._resourceID,
@@ -2653,8 +2670,8 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
             # get current foreign members
             currentForeignMemberRows = yield Select(
                 [aboForeignMembers.MEMBER_ADDRESS],
-                 From=aboForeignMembers,
-                 Where=aboForeignMembers.GROUP_ID == self._resourceID,
+                From=aboForeignMembers,
+                Where=aboForeignMembers.GROUP_ID == self._resourceID,
             ).on(self._txn)
             currentForeignMemberAddrs = [currentForeignMemberRow[0] for currentForeignMemberRow in currentForeignMemberRows]
 
@@ -2731,9 +2748,9 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
                     # get foreign members
                     aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
                     foreignMemberRows = yield Select(
-                         [aboForeignMembers.MEMBER_ADDRESS],
-                         From=aboForeignMembers,
-                         Where=aboForeignMembers.GROUP_ID == self._resourceID,
+                        [aboForeignMembers.MEMBER_ADDRESS],
+                        From=aboForeignMembers,
+                        Where=aboForeignMembers.GROUP_ID == self._resourceID,
                     ).on(self._txn)
                     foreignMembers = [foreignMemberRow[0] for foreignMemberRow in foreignMemberRows]
 
@@ -2788,12 +2805,14 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
         bind = cls._bindSchema
         child = cls._objectSchema
         columns = cls.bindColumns() + cls.additionalBindColumns() + cls.metadataColumns()
-        return Select(columns,
-                     From=child.join(
-                         bind, child.RESOURCE_ID == bind.RESOURCE_ID,
-                         'left outer'),
-                     Where=(bind.HOME_RESOURCE_ID == Parameter("homeID")
-                           ).And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED))
+        return Select(
+            columns,
+            From=child.join(
+                bind, child.RESOURCE_ID == bind.RESOURCE_ID,
+                'left outer'),
+            Where=(bind.HOME_RESOURCE_ID == Parameter("homeID")).And(
+                bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
+        )
 
 
     def notifyPropertyChanged(self):
@@ -2806,10 +2825,11 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
     @classproperty
     def _addressbookIDForResourceID(cls): #@NoSelf
         obj = cls._objectSchema
-        return Select([obj.PARENT_RESOURCE_ID],
-                      From=obj,
-                      Where=obj.RESOURCE_ID == Parameter("resourceID")
-                    )
+        return Select(
+            [obj.PARENT_RESOURCE_ID],
+            From=obj,
+            Where=obj.RESOURCE_ID == Parameter("resourceID")
+        )
 
 
     @classmethod
@@ -2824,12 +2844,12 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
         bind = cls._bindSchema
         abo = cls._objectSchema
         return Select(
-                  cls.bindColumns() + cls.additionalBindColumns(),
-                  From=bind.join(abo),
-                  Where=(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
-                        .And(bind.RESOURCE_ID == abo.RESOURCE_ID)
-                        .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
-                        .And(abo.ADDRESSBOOK_HOME_RESOURCE_ID == Parameter("addressbookID"))
+            cls.bindColumns() + cls.additionalBindColumns(),
+            From=bind.join(abo),
+            Where=(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED).And(
+                bind.RESOURCE_ID == abo.RESOURCE_ID).And(
+                    bind.HOME_RESOURCE_ID == Parameter("homeID")).And(
+                        abo.ADDRESSBOOK_HOME_RESOURCE_ID == Parameter("addressbookID"))
         )
 
 
@@ -2838,12 +2858,12 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
         bind = cls._bindSchema
         abo = cls._objectSchema
         return Select(
-                  cls.bindColumns() + cls.additionalBindColumns(),
-                  From=bind.join(abo),
-                  Where=(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED)
-                        .And(bind.RESOURCE_ID == abo.RESOURCE_ID)
-                        .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
-                        .And(abo.ADDRESSBOOK_HOME_RESOURCE_ID == Parameter("addressbookID"))
+            cls.bindColumns() + cls.additionalBindColumns(),
+            From=bind.join(abo),
+            Where=(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED).And(
+                bind.RESOURCE_ID == abo.RESOURCE_ID).And(
+                    bind.HOME_RESOURCE_ID == Parameter("homeID")).And(
+                        abo.ADDRESSBOOK_HOME_RESOURCE_ID == Parameter("addressbookID"))
         )
 
 
@@ -2852,11 +2872,11 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
         bind = cls._bindSchema
         abo = cls._objectSchema
         return Select(
-                  cls.bindColumns() + cls.additionalBindColumns(),
-                  From=bind.join(abo),
-                  Where=(bind.RESOURCE_ID == abo.RESOURCE_ID)
-                        .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
-                        .And(abo.ADDRESSBOOK_HOME_RESOURCE_ID == Parameter("addressbookID"))
+            cls.bindColumns() + cls.additionalBindColumns(),
+            From=bind.join(abo),
+            Where=(bind.RESOURCE_ID == abo.RESOURCE_ID).And(
+                bind.HOME_RESOURCE_ID == Parameter("homeID")).And(
+                    abo.ADDRESSBOOK_HOME_RESOURCE_ID == Parameter("addressbookID"))
         )
 
 

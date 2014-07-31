@@ -99,9 +99,10 @@ class AddressBookStoreTest(unittest.TestCase):
         Filenames starting with "." are reserved by this
         implementation, so no UIDs may start with ".".
         """
-        self.assertEquals(
-            (yield self.addressbookStore.newTransaction(self.id()
-                ).addressbookHomeWithUID(".xyzzy")),
+        self.assertEquals((
+            yield self.addressbookStore.newTransaction(
+                self.id())
+            .addressbookHomeWithUID(".xyzzy")),
             None
         )
 
@@ -235,8 +236,7 @@ class AddressBookTest(unittest.TestCase):
         )
         self.assertEquals(
             addressbookObject.component(),
-            (yield self.addressbook1.addressbookObjectWithName("1.vcf")
-                ).component()
+            (yield self.addressbook1.addressbookObjectWithName("1.vcf")).component()
         )
 
 

@@ -40,7 +40,7 @@ from txdav.carddav.datastore.util import _migrateAddressbook, migrateHome
 
 from txdav.common.icommondatastore import NoSuchObjectResourceError
 from txdav.common.datastore.sql import EADDRESSBOOKTYPE, CommonObjectResource
-from txdav.common.datastore.sql_tables import  _ABO_KIND_PERSON, _ABO_KIND_GROUP, schema
+from txdav.common.datastore.sql_tables import _ABO_KIND_PERSON, _ABO_KIND_GROUP, schema
 from txdav.common.datastore.test.util import cleanStore
 from txdav.carddav.datastore.sql import AddressBook
 
@@ -160,8 +160,8 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         toHome = yield self.transactionUnderTest().addressbookHomeWithUID(
             "new-home", create=True)
         toAddressbook = yield toHome.addressbookWithName("addressbook")
-        ok, bad = (yield _migrateAddressbook(fromAddressbook, toAddressbook,
-                                  lambda x: x.component()))
+        ok, bad = (yield _migrateAddressbook(
+            fromAddressbook, toAddressbook, lambda x: x.component()))
         self.assertEqual(ok, 1)
         self.assertEqual(bad, 1)
 
@@ -362,7 +362,7 @@ END:VCARD
         txn2 = addressbookStore.newTransaction()
 
         notification_uid1_1 = yield txn1.notificationsWithUID(
-           "uid1",
+            "uid1",
         )
 
         @inlineCallbacks
@@ -415,7 +415,7 @@ item1.X-ABADR:us
 UID:uid1
 END:VCARD
 """.replace("\n", "\r\n")
-            )
+        )
         self.assertEqual(person.resourceUID(), "uid1")
         abObject = yield adbk.createAddressBookObjectWithName("1.vcf", person)
         self.assertEqual(abObject.uid(), "uid1")
@@ -461,7 +461,7 @@ item1.X-ABADR:us
 UID:uid1
 END:VCARD
 """.replace("\n", "\r\n")
-            )
+        )
         self.assertEqual(person.resourceKind(), None)
         abObject = yield adbk.createAddressBookObjectWithName("p.vcf", person)
         self.assertEqual(abObject.kind(), _ABO_KIND_PERSON)
@@ -478,7 +478,7 @@ X-ADDRESSBOOKSERVER-KIND:group
 X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:uid1
 END:VCARD
 """.replace("\n", "\r\n")
-            )
+        )
         abObject = self.assertEqual(group.resourceKind(), "group")
         abObject = yield adbk.createAddressBookObjectWithName("g.vcf", group)
         self.assertEqual(abObject.kind(), _ABO_KIND_GROUP)
@@ -495,7 +495,7 @@ X-ADDRESSBOOKSERVER-KIND:badgroup
 X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:uid1
 END:VCARD
 """.replace("\n", "\r\n")
-            )
+        )
         abObject = self.assertEqual(badgroup.resourceKind(), "badgroup")
         abObject = yield adbk.createAddressBookObjectWithName("bg.vcf", badgroup)
         self.assertEqual(abObject.kind(), _ABO_KIND_PERSON)
@@ -553,7 +553,7 @@ item1.X-ABADR:us
 UID:uid1
 END:VCARD
 """.replace("\n", "\r\n")
-            )
+        )
         self.assertEqual(person.resourceKind(), None)
         personObject = yield adbk.createAddressBookObjectWithName("p.vcf", person)
 
@@ -569,7 +569,7 @@ X-ADDRESSBOOKSERVER-KIND:group
 X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:uid3
 END:VCARD
 """.replace("\n", "\r\n")
-            )
+        )
         groupObject = yield adbk.createAddressBookObjectWithName("g.vcf", group)
 
         aboMembers = schema.ABO_MEMBERS
@@ -592,14 +592,14 @@ X-ADDRESSBOOKSERVER-KIND:group
 X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:uid1
 END:VCARD
 """.replace("\n", "\r\n")
-            )
+        )
         subgroupObject = yield adbk.createAddressBookObjectWithName("sg.vcf", subgroup)
 
         memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers, Where=aboMembers.REMOVED == False).on(txn)
         self.assertEqual(sorted(memberRows), sorted([
-                                                     [groupObject._resourceID, subgroupObject._resourceID],
-                                                     [subgroupObject._resourceID, personObject._resourceID],
-                                                    ]))
+            [groupObject._resourceID, subgroupObject._resourceID],
+            [subgroupObject._resourceID, personObject._resourceID],
+        ]))
 
         foreignMemberRows = yield Select([aboForeignMembers.GROUP_ID, aboForeignMembers.MEMBER_ADDRESS], From=aboForeignMembers).on(txn)
         self.assertEqual(foreignMemberRows, [])
@@ -617,7 +617,7 @@ END:VCARD
         # see if this object is in current version
         groupIDs = set([
             groupID for groupID, memberIDRemovedRevisionRows in groupIDToMemberRowMap.iteritems()
-                if AddressBook._currentMemberIDsFromMemberIDRemovedRevisionRows(memberIDRemovedRevisionRows)
+            if AddressBook._currentMemberIDsFromMemberIDRemovedRevisionRows(memberIDRemovedRevisionRows)
         ])
 
         self.assertEqual(len(groupIDs), 0)
@@ -639,9 +639,11 @@ END:VCARD
         """
 
         prop = schema.RESOURCE_PROPERTY
-        _allWithID = Select([prop.NAME, prop.VIEWER_UID, prop.VALUE],
-                        From=prop,
-                        Where=prop.RESOURCE_ID == Parameter("resourceID"))
+        _allWithID = Select(
+            [prop.NAME, prop.VIEWER_UID, prop.VALUE],
+            From=prop,
+            Where=prop.RESOURCE_ID == Parameter("resourceID")
+        )
 
         # Create address book and add a property
         home = yield self.homeUnderTest()
@@ -691,9 +693,11 @@ END:VCARD
         resourceID = addressobject._resourceID
 
         prop = schema.RESOURCE_PROPERTY
-        _allWithID = Select([prop.NAME, prop.VIEWER_UID, prop.VALUE],
-                        From=prop,
-                        Where=prop.RESOURCE_ID == Parameter("resourceID"))
+        _allWithID = Select(
+            [prop.NAME, prop.VIEWER_UID, prop.VALUE],
+            From=prop,
+            Where=prop.RESOURCE_ID == Parameter("resourceID")
+        )
 
         # No properties on existing address book object
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)

@@ -110,8 +110,8 @@ class CalendarDirectoryServiceMixin(object):
 
     searchContext_location = "location"
     searchContext_resource = "resource"
-    searchContext_user     = "user"
-    searchContext_group    = "group"
+    searchContext_user = "user"
+    searchContext_group = "group"
     searchContext_attendee = "attendee"
 
 

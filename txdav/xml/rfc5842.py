@@ -90,9 +90,9 @@ class Segment (WebDAVTextElement):
 # sub-elements and so that can extend it here.
 
 
-#@registerElement
-#@registerElementClass
-#class BindResponse (WebDAVElement):
+# @registerElement
+# @registerElementClass
+# class BindResponse (WebDAVElement):
 #    """
 #    Response body for a BIND request
 #    """
@@ -104,9 +104,9 @@ class Segment (WebDAVTextElement):
 #    }
 #
 #
-#@registerElement
-#@registerElementClass
-#class UnbindRequest (WebDAVElement):
+# @registerElement
+# @registerElementClass
+# class UnbindRequest (WebDAVElement):
 #    """
 #    Request body for a UNBIND request
 #    """
@@ -118,9 +118,9 @@ class Segment (WebDAVTextElement):
 #    }
 #
 #
-#@registerElement
-#@registerElementClass
-#class Unbind (WebDAVElement):
+# @registerElement
+# @registerElementClass
+# class Unbind (WebDAVElement):
 #    """
 #    Response body for a UNBIND request
 #    """
@@ -132,9 +132,9 @@ class Segment (WebDAVTextElement):
 #    }
 #
 #
-#@registerElement
-#@registerElementClass
-#class RebindRequest (WebDAVElement):
+# @registerElement
+# @registerElementClass
+# class RebindRequest (WebDAVElement):
 #    """
 #    Request body for a REBIND request
 #    """
@@ -147,9 +147,9 @@ class Segment (WebDAVTextElement):
 #    }
 #
 #
-#@registerElement
-#@registerElementClass
-#class Rebind (WebDAVElement):
+# @registerElement
+# @registerElementClass
+# class Rebind (WebDAVElement):
 #    """
 #    Response body for a UNBIND request
 #    """

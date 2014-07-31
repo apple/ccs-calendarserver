@@ -246,7 +246,7 @@ END:VCARD
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
         token = yield calendar.syncToken()
 
-        #make changes
+        # make changes
         cal1Object = yield self.calendarObjectUnderTest(self.transactionUnderTest(), name="cal1.ics", calendar_name="calendar", home="user01")
         yield cal1Object.remove()
         cal2Object = yield self.calendarObjectUnderTest(self.transactionUnderTest(), name="cal2.ics", calendar_name="calendar", home="user01")
@@ -297,7 +297,7 @@ END:VCARD
         home = yield self.homeUnderTest(name="user01")
         token = yield home.syncToken()
 
-        #make notification changes as side effect of sharing
+        # make notification changes as side effect of sharing
         yield self._createCalendarShare()
 
         # Get object revisions
@@ -346,7 +346,7 @@ END:VCARD
         addressbook = yield self.addressbookUnderTest(home="user01", name="addressbook")
         token = yield addressbook.syncToken()
 
-        #make changes
+        # make changes
         card1Object = yield self.addressbookObjectUnderTest(self.transactionUnderTest(), name="card1.vcf", addressbook_name="addressbook", home="user01")
         yield card1Object.remove()
         card2Object = yield self.addressbookObjectUnderTest(self.transactionUnderTest(), name="card2.vcf", addressbook_name="addressbook", home="user01")

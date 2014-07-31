@@ -365,12 +365,13 @@ def _translateSchema(out, schema=schema):
                         elif default is False:
                             default = 0
                         out.write(" " + repr(default))
-            if ((not column.model.canBeNull())
-                 # Oracle treats empty strings as NULLs, so we have to accept
-                 # NULL values in columns of a string type.  Other types should
-                 # be okay though.
-                 and typeName not in ('varchar', 'nclob', 'char', 'nchar',
-                                      'nvarchar', 'nvarchar2')):
+            if (
+                (not column.model.canBeNull())
+                # Oracle treats empty strings as NULLs, so we have to accept
+                # NULL values in columns of a string type.  Other types should
+                # be okay though.
+                and typeName not in ('varchar', 'nclob', 'char', 'nchar', 'nvarchar', 'nvarchar2')
+            ):
                 out.write(' not null')
             if [column.model] in list(table.model.uniques()):
                 out.write(' unique')
@@ -461,7 +462,7 @@ def splitSQLString(sqlString):
             aggregated += agg
             continue
         if inPlSQL is None:
-            #if 'begin'.lower() in str(stmt).split()[0].lower():
+            # if 'begin'.lower() in str(stmt).split()[0].lower():
             if str(stmt).lower().strip().startswith('begin'):
                 inPlSQL = True
                 aggregated += str(stmt)

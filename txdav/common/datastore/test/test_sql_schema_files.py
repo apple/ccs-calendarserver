@@ -134,7 +134,7 @@ class SQLSchemaFiles(TestCase):
         indexed_columns = set()
         for index in schema.pseudoIndexes():
             indexed_columns.add("%s.%s" % (index.table.name, index.columns[0].name,))
-        #print indexed_columns
+        # print indexed_columns
 
         # Look at each table
         failures = []

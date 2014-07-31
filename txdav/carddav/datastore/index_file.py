@@ -81,15 +81,16 @@ class MemcachedUIDReserver(CachePoolUserMixIn):
     def reserveUID(self, uid):
         uid = uid.encode('utf-8')
         self.log.debug("Reserving UID %r @ %r" % (
-                uid,
-                self.index.resource.fp.path))
+            uid,
+            self.index.resource.fp.path
+        ))
 
         def _handleFalse(result):
             if result is False:
                 raise ReservationError(
                     "UID %s already reserved for address book collection %s."
                     % (uid, self.index.resource)
-                    )
+                )
 
         d = self.getCachePool().add(self._key(uid),
                                     'reserved',
@@ -101,15 +102,16 @@ class MemcachedUIDReserver(CachePoolUserMixIn):
     def unreserveUID(self, uid):
         uid = uid.encode('utf-8')
         self.log.debug("Unreserving UID %r @ %r" % (
-                uid,
-                self.index.resource.fp.path))
+            uid,
+            self.index.resource.fp.path
+        ))
 
         def _handleFalse(result):
             if result is False:
                 raise ReservationError(
                     "UID %s is not reserved for address book collection %s."
                     % (uid, self.index.resource)
-                    )
+                )
 
         d = self.getCachePool().delete(self._key(uid))
         d.addCallback(_handleFalse)
@@ -119,8 +121,9 @@ class MemcachedUIDReserver(CachePoolUserMixIn):
     def isReservedUID(self, uid):
         uid = uid.encode('utf-8')
         self.log.debug("Is reserved UID %r @ %r" % (
-                uid,
-                self.index.resource.fp.path))
+            uid,
+            self.index.resource.fp.path
+        ))
 
         def _checkValue((flags, value)):
             if value is None:
@@ -174,7 +177,7 @@ class SQLUIDReserver(object):
                 raise ReservationError(
                     "UID %s is not reserved for address book collection %s."
                     % (uid, self.index.resource)
-                    )
+                )
             else:
                 try:
                     self.index._db_execute(
@@ -647,7 +650,7 @@ class AddressBookIndex(AbstractSQLDatabase):
                 except ValueError:
                     log.error("Non-addressbook resource: %s" % (name,))
                 else:
-                    #log.info("Indexing resource: %s" % (name,))
+                    # log.info("Indexing resource: %s" % (name,))
                     self.addResource(name, vcard, True)
             finally:
                 stream.close()

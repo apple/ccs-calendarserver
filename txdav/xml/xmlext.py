@@ -46,10 +46,11 @@ def PrettyPrint(root, stream=sys.stdout, encoding='UTF-8', indent='  ',
     preserveElements = preserveElements or []
     owner_doc = root.ownerDocument or root
     if hasattr(owner_doc, 'getElementsByName'):
-        #We don't want to insert any whitespace into HTML inline elements
+        # We don't want to insert any whitespace into HTML inline elements
         preserveElements = preserveElements + HTML_4_TRANSITIONAL_INLINE
-    visitor = PrintVisitor(stream, encoding, indent,
-                                   preserveElements, nss_hints)
+    visitor = PrintVisitor(
+        stream, encoding, indent,
+        preserveElements, nss_hints)
     PrintWalker(visitor, root).run()
     stream.write('\n')
     return
@@ -57,7 +58,7 @@ def PrettyPrint(root, stream=sys.stdout, encoding='UTF-8', indent='  ',
 
 
 def GetAllNs(node):
-    #The xml namespace is implicit
+    # The xml namespace is implicit
     nss = {'xml': XML_NAMESPACE}
     if node.nodeType == Node.ATTRIBUTE_NODE and node.ownerElement:
         return GetAllNs(node.ownerElement)
@@ -73,7 +74,7 @@ def GetAllNs(node):
             elif attr.namespaceURI:
                 nss[attr.prefix] = attr.namespaceURI
     if node.parentNode:
-        #Inner NS/Prefix mappings take precedence over outer ones
+        # Inner NS/Prefix mappings take precedence over outer ones
         parent_nss = GetAllNs(node.parentNode)
         parent_nss.update(nss)
         nss = parent_nss
@@ -210,7 +211,7 @@ class PrintVisitor:
     def visitProlog(self):
         self._write("<?xml version='1.0' encoding='%s'?>" % (
             self.encoding or 'utf-8'
-            ))
+        ))
         self._inText = 0
         return
 
@@ -391,16 +392,16 @@ class PrintWalker:
 ILLEGAL_LOW_CHARS = '[\x01-\x08\x0B-\x0C\x0E-\x1F]'
 SURROGATE_BLOCK = '[\xF0-\xF7][\x80-\xBF][\x80-\xBF][\x80-\xBF]'
 ILLEGAL_HIGH_CHARS = '\xEF\xBF[\xBE\xBF]'
-#Note: Prolly fuzzy on this, but it looks as if characters from the surrogate block are allowed if in scalar form, which is encoded in UTF8 the same was as in surrogate block form
+# Note: Prolly fuzzy on this, but it looks as if characters from the surrogate block are allowed if in scalar form, which is encoded in UTF8 the same was as in surrogate block form
 XML_ILLEGAL_CHAR_PATTERN = re.compile('%s|%s' % (ILLEGAL_LOW_CHARS, ILLEGAL_HIGH_CHARS))
 
 g_utf8TwoBytePattern = re.compile('([\xC0-\xC3])([\x80-\xBF])')
 g_cdataCharPattern = re.compile('[&<]|]]>')
 g_charToEntity = {
-        '&': '&amp;',
-        '<': '&lt;',
-        ']]>': ']]&gt;',
-        }
+    '&': '&amp;',
+    '<': '&lt;',
+    ']]>': ']]&gt;',
+}
 
 # Slightly modified to not use types.Unicode
 import codecs
@@ -418,7 +419,7 @@ def strobj_to_utf8str(text, encoding):
     encoder = codecs.lookup(encoding)[0] # encode,decode,reader,writer
     if type(text) is not unicode:
         text = unicode(text, "utf-8")
-    #FIXME
+    # FIXME
     return str(encoder(text)[0])
 
 
@@ -433,8 +434,8 @@ def TranslateCdataAttr(characters):
     else:
         delimiter = "'"
         new_chars = re.sub("'", '&apos;', characters)
-    #FIXME: There's more to normalization
-    #Convert attribute new-lines to character entity
+    # FIXME: There's more to normalization
+    # Convert attribute new-lines to character entity
     # characters is possibly shorter than new_chars (no entities)
     if "\n" in characters:
         new_chars = re.sub('\n', '&#10;', new_chars)
@@ -442,7 +443,7 @@ def TranslateCdataAttr(characters):
 
 
 
-#Note: Unicode object only for now
+# Note: Unicode object only for now
 def TranslateCdata(characters, encoding='UTF-8', prev_chars='', markupSafe=0,
                    charsetHandler=utf8_to_code):
     """
@@ -464,9 +465,9 @@ def TranslateCdata(characters, encoding='UTF-8', prev_chars='', markupSafe=0,
             new_string = '&gt;' + new_string[1:]
     else:
         new_string = characters
-    #Note: use decimal char entity rep because some browsers are broken
-    #FIXME: This will bomb for high characters.  Should, for instance, detect
-    #The UTF-8 for 0xFFFE and put out &#xFFFE;
+    # Note: use decimal char entity rep because some browsers are broken
+    # FIXME: This will bomb for high characters.  Should, for instance, detect
+    # The UTF-8 for 0xFFFE and put out &#xFFFE;
     if XML_ILLEGAL_CHAR_PATTERN.search(new_string):
         new_string = XML_ILLEGAL_CHAR_PATTERN.subn(
             lambda m: '&#%i;' % ord(m.group()),
@@ -477,20 +478,20 @@ def TranslateCdata(characters, encoding='UTF-8', prev_chars='', markupSafe=0,
 
 
 def TranslateHtmlCdata(characters, encoding='UTF-8', prev_chars=''):
-    #Translate numerical char entity references with HTML entity equivalents
+    # Translate numerical char entity references with HTML entity equivalents
     new_string, _ignore_num_subst = re.subn(
         g_cdataCharPattern,
         lambda m, d=g_charToEntity: d[m.group()],
         characters
-        )
+    )
     if prev_chars[-2:] == ']]' and new_string[0] == '>':
         new_string = '&gt;' + new_string[1:]
     new_string = UseHtmlCharEntities(new_string)
     try:
         new_string = utf8_to_code(new_string, encoding)
     except:
-        #FIXME: This is a work-around, contributed by Mike Brown, that
-        #Deals with escaping output, until we have XML/HTML aware codecs
+        # FIXME: This is a work-around, contributed by Mike Brown, that
+        # Deals with escaping output, until we have XML/HTML aware codecs
         tmp_new_string = ""
         for c in new_string:
             try:
@@ -499,8 +500,8 @@ def TranslateHtmlCdata(characters, encoding='UTF-8', prev_chars=''):
                 new_c = '&#%i;' % ord(c)
             tmp_new_string = tmp_new_string + new_c
         new_string = tmp_new_string
-    #new_string, num_subst = re.subn(g_xmlIllegalCharPattern, lambda m: '&#%i;'%ord(m.group()), new_string)
-    #Note: use decimal char entity rep because some browsers are broken
+    # new_string, num_subst = re.subn(g_xmlIllegalCharPattern, lambda m: '&#%i;'%ord(m.group()), new_string)
+    # Note: use decimal char entity rep because some browsers are broken
     return new_string
 
 

@@ -54,17 +54,17 @@ from zope.interface import implementer
 
 log = Logger()
 
-##
-## Client implementation of Directory Proxy Service
-##
+#
+# Client implementation of Directory Proxy Service
+#
 
 
 
-## MOVE2WHO TODOs:
-## LDAP
-## Store based directory service (records in the store, i.e.
-##    locations/resources)
-## Store autoAcceptGroups in the group db?
+# MOVE2WHO TODOs:
+# LDAP
+# Store based directory service (records in the store, i.e.
+#    locations/resources)
+# Store autoAcceptGroups in the group db?
 
 @implementer(IDirectoryService, IStoreDirectoryService)
 class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
@@ -198,7 +198,6 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
             "DPS call {command} duration={duration:.2f}ms, results={numResults}",
             command=command, duration=1000.0 * duration, numResults=numResults
         )
-
 
 
     @inlineCallbacks
@@ -430,6 +429,7 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
             wikiUID=self.uid.encode("utf-8"),
             uid=record.uid.encode("utf-8")
         )
+
 
 
 # Test client:

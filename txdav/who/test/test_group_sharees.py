@@ -94,9 +94,9 @@ class GroupShareeTestBase(CommonCommonTests, unittest.TestCase):
         """
         Get the calendar detailed by C{requirements['home1']['calendar_1']}.
         """
-        returnValue((yield
-            (yield self.homeUnderTest(txn, home)).shareeView(shareUID))
-        )
+        returnValue((
+            yield (yield self.homeUnderTest(txn, home)).shareeView(shareUID)
+        ))
 
 
 

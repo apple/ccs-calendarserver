@@ -42,7 +42,7 @@ class TestQueryFilter(TestCase):
         filter = carddavxml.Filter(
             *[carddavxml.PropertyFilter(
                 carddavxml.TextMatch.fromString("Example"),
-                **{"name":"UID"}
+                **{"name": "UID"}
             )]
         )
         filter = Filter(filter)
@@ -64,7 +64,7 @@ class TestQueryFilter(TestCase):
         filter = carddavxml.Filter(
             *[carddavxml.PropertyFilter(
                 carddavxml.TextMatch.fromString("Example"),
-                **{"name":"UID"}
+                **{"name": "UID"}
             )]
         )
         filter = Filter(filter)
@@ -85,7 +85,7 @@ class TestQueryFilterSerialize(TestCase):
         filter = carddavxml.Filter(
             *[carddavxml.PropertyFilter(
                 carddavxml.TextMatch.fromString("Example"),
-                **{"name":"UID"}
+                **{"name": "UID"}
             )]
         )
         filter = Filter(filter)

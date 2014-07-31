@@ -265,6 +265,7 @@ class SQLStoreBuilder(object):
 
     @inlineCallbacks
     def cleanStore(self, testCase, storeToClean):
+
         cleanupTxn = storeToClean.sqlTxnFactory(
             "%s schema-cleanup" % (testCase.id(),)
         )
@@ -881,9 +882,9 @@ class CommonCommonTests(object):
         """
         Get the calendar detailed by C{requirements['home1']['calendar_1']}.
         """
-        returnValue((yield
-            (yield self.homeUnderTest(txn, home)).calendarWithName(name))
-        )
+        returnValue((
+            yield (yield self.homeUnderTest(txn, home)).calendarWithName(name)
+        ))
 
 
     @inlineCallbacks
@@ -910,9 +911,9 @@ class CommonCommonTests(object):
         """
         Get the addressbook detailed by C{requirements['home1']['addressbook']}.
         """
-        returnValue((yield
-            (yield self.addressbookHomeUnderTest(txn=txn, name=home)).addressbookWithName(name))
-        )
+        returnValue((
+            yield (yield self.addressbookHomeUnderTest(txn=txn, name=home)).addressbookWithName(name)
+        ))
 
 
     @inlineCallbacks

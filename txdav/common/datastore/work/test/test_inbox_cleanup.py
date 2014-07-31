@@ -161,7 +161,7 @@ END:VCALENDAR
         self.patch(config.InboxCleanup, "ItemLifetimeDays", -1)
         self.patch(config.InboxCleanup, "ItemLifeBeyondEventEndDays", -1)
 
-        #create orphans by deleting events
+        # create orphans by deleting events
         inbox = yield self.calendarUnderTest(home="user01", name="inbox")
         for item in (yield inbox.objectResourcesWithNames(["cal1.ics", "cal3.ics"])):
             yield item.remove()
@@ -191,9 +191,11 @@ END:VCALENDAR
 
         itemsToPredate = ["cal2.ics", "cal3.ics"]
         co = schema.CALENDAR_OBJECT
-        yield Update({co.CREATED: oldDate},
+        yield Update(
+            {co.CREATED: oldDate},
             Where=co.RESOURCE_NAME.In(Parameter("itemsToPredate", len(itemsToPredate))).And(
-            co.CALENDAR_RESOURCE_ID == inbox._resourceID)).on(self.transactionUnderTest(), itemsToPredate=itemsToPredate)
+                co.CALENDAR_RESOURCE_ID == inbox._resourceID)
+        ).on(self.transactionUnderTest(), itemsToPredate=itemsToPredate)
 
         # do cleanup
         yield self.transactionUnderTest().enqueue(CleanupOneInboxWork, homeID=inbox.ownerHome()._resourceID, notBefore=datetime.datetime.utcnow())
@@ -217,9 +219,10 @@ END:VCALENDAR
         cal3Event = yield calendar.objectResourceWithName("cal3.ics")
 
         tr = schema.TIME_RANGE
-        yield Update({tr.END_DATE: datetime.datetime.utcnow()},
-            Where=tr.CALENDAR_OBJECT_RESOURCE_ID == cal3Event._resourceID).on(
-            self.transactionUnderTest())
+        yield Update(
+            {tr.END_DATE: datetime.datetime.utcnow()},
+            Where=tr.CALENDAR_OBJECT_RESOURCE_ID == cal3Event._resourceID
+        ).on(self.transactionUnderTest())
         # do cleanup
         yield self.transactionUnderTest().enqueue(CleanupOneInboxWork, homeID=calendar.ownerHome()._resourceID, notBefore=datetime.datetime.utcnow())
         yield self.commit()

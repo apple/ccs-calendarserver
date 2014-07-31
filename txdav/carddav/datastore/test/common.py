@@ -109,7 +109,7 @@ END:VCARD
 
 
 vcard4notCardDAV_text = (# Missing UID, N and FN
-"""BEGIN:VCARD
+    """BEGIN:VCARD
 VERSION:3.0
 EMAIL;type=INTERNET;type=WORK;type=pref:lthompson@example.com
 TEL;type=WORK;type=pref:1-555-555-5555
@@ -208,8 +208,8 @@ class CommonTests(CommonCommonTests):
         """
         return (
             txn.addressbookHomeWithUID(name if name else "home1")
-                if txn
-                else self.transactionUnderTest().addressbookHomeWithUID(name if name else "home1")
+            if txn
+            else self.transactionUnderTest().addressbookHomeWithUID(name if name else "home1")
         )
 
 
@@ -218,8 +218,10 @@ class CommonTests(CommonCommonTests):
         """
         Get the addressbook detailed by C{requirements['home1']['addressbook']}.
         """
-        returnValue((yield (yield self.homeUnderTest(txn=txn, name=home))
-            .addressbookWithName(name if name else "addressbook")))
+        returnValue((
+            yield (yield self.homeUnderTest(txn=txn, name=home))
+            .addressbookWithName(name if name else "addressbook")
+        ))
 
 
     @inlineCallbacks
@@ -294,8 +296,10 @@ class CommonTests(CommonCommonTests):
         provides L{IAddressBookHome} and has a C{uid()} method that returns the
         same value that was passed in.
         """
-        addressbookHome = (yield self.transactionUnderTest()
-                            .addressbookHomeWithUID("home1"))
+        addressbookHome = (
+            yield self.transactionUnderTest()
+            .addressbookHomeWithUID("home1")
+        )
         self.assertEquals(addressbookHome.uid(), "home1")
         self.assertProvides(IAddressBookHome, addressbookHome)
 
@@ -357,7 +361,7 @@ class CommonTests(CommonCommonTests):
         """
         home = yield self.homeUnderTest()
         name = "addressbook"
-        #self.assertIdentical((yield home.addressbookWithName(name)), None)
+        # self.assertIdentical((yield home.addressbookWithName(name)), None)
         yield home.removeAddressBookWithName(name)
         self.assertNotIdentical((yield home.addressbookWithName(name)), None)
         # notify is called prior to commit
@@ -713,9 +717,11 @@ class CommonTests(CommonCommonTests):
         text.
         """
         yield self.failUnlessFailure(
-            maybeDeferred((yield self.addressbookUnderTest())
+            maybeDeferred(
+                (yield self.addressbookUnderTest())
                 .createAddressBookObjectWithName,
-                "new", VComponent.fromString(vcard4notCardDAV_text)),
+                "new", VComponent.fromString(vcard4notCardDAV_text)
+            ),
             InvalidObjectResourceError
         )
 
@@ -728,8 +734,10 @@ class CommonTests(CommonCommonTests):
         """
         addressbookObject = (yield self.addressbookObjectUnderTest())
         yield self.failUnlessFailure(
-            maybeDeferred(addressbookObject.setComponent,
-                VComponent.fromString(vcard4notCardDAV_text)),
+            maybeDeferred(
+                addressbookObject.setComponent,
+                VComponent.fromString(vcard4notCardDAV_text)
+            ),
             InvalidObjectResourceError
         )
 

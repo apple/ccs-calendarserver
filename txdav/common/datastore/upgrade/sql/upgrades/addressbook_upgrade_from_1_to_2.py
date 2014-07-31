@@ -67,11 +67,12 @@ def populateMemberTables(sqlStore):
             if lcResourceKind == "group":
                 # update kind
                 abo = schema.ADDRESSBOOK_OBJECT
-                yield Update({abo.KIND: _ABO_KIND_GROUP},
-                                Where=abo.RESOURCE_ID == abObject._resourceID,
-                                ).on(txn)
+                yield Update(
+                    {abo.KIND: _ABO_KIND_GROUP},
+                    Where=abo.RESOURCE_ID == abObject._resourceID,
+                ).on(txn)
                 abObject._kind = _ABO_KIND_GROUP
-                #update rest
+                # update rest
                 yield abObject.setComponent(component)
 
     logUpgradeStatus("Starting Addressbook Populate Members")

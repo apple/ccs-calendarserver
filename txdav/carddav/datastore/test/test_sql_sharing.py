@@ -111,24 +111,24 @@ END:VCARD
     @classproperty(cache=False)
     def requirements(cls): #@NoSelf
         return {
-        "user01": {
-            "addressbook": {
-                "card1.vcf": cls.card1,
-                "card2.vcf": cls.card2,
-                "card3.vcf": cls.card3,
-                "group1.vcf": cls.group1,
-                "group2.vcf": cls.group2,
+            "user01": {
+                "addressbook": {
+                    "card1.vcf": cls.card1,
+                    "card2.vcf": cls.card2,
+                    "card3.vcf": cls.card3,
+                    "group1.vcf": cls.group1,
+                    "group2.vcf": cls.group2,
+                },
             },
-        },
-        "user02": {
-            "addressbook": {
+            "user02": {
+                "addressbook": {
+                },
             },
-        },
-        "user03": {
-            "addressbook": {
+            "user03": {
+                "addressbook": {
+                },
             },
-        },
-    }
+        }
 
     fully_shared_children = ["addressbook.vcf", "group1.vcf", "group2.vcf", "card1.vcf", "card2.vcf", "card3.vcf", ]
     all_children = ["group1.vcf", "group2.vcf", "card1.vcf", "card2.vcf", "card3.vcf", ]
@@ -1174,15 +1174,15 @@ class SharingRevisions(BaseSharingTests):
         self.assertEqual(len(invalid), 0)
 
         for depth, result in (
-            ("1", ['addressbook/',
-                   'user01/', ]
-            ),
-            ("infinity", ['addressbook/',
-                             'user01/',
-                             'user01/card1.vcf',
-                             'user01/card2.vcf',
-                             'user01/group1.vcf']
-             )):
+            ("1", ['addressbook/', 'user01/', ]),
+            ("infinity", [
+                'addressbook/',
+                'user01/',
+                'user01/card1.vcf',
+                'user01/card2.vcf',
+                'user01/group1.vcf'
+            ])
+        ):
             changed, deleted, invalid = yield otherAB.viewerHome().resourceNamesSinceRevision(0, depth)
             self.assertEqual(set(changed), set(result))
             self.assertEqual(len(deleted), 0)

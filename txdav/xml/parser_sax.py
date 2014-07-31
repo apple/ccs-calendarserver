@@ -176,7 +176,7 @@ class WebDAVDocument(AbstractWebDAVDocument):
         except xml.sax.SAXParseException, e:
             raise ValueError(e)
 
-        #handler.dom.root_element.validate()
+        # handler.dom.root_element.validate()
 
         return handler.dom
 
@@ -184,5 +184,5 @@ class WebDAVDocument(AbstractWebDAVDocument):
     def writeXML(self, output):
         document = xml.dom.minidom.Document()
         self.root_element.addToDOM(document, None)
-        #document.normalize()
+        # document.normalize()
         xmlPrint(document, output)

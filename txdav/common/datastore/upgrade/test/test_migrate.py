@@ -86,8 +86,8 @@ class StoreCreator(AMP):
 
     @PickleConfig.responder
     def pickleConfig(self, config, delegateTo):
-        #from twistedcaldav.config import config as globalConfig
-        #globalConfig._data = config._data
+        # from twistedcaldav.config import config as globalConfig
+        # globalConfig._data = config._data
         swapAMP(self, namedAny(delegateTo)(config))
         return {}
 
@@ -282,10 +282,10 @@ END:VCALENDAR
         self.addCleanup(txn.commit)
         self.assertIdentical(
             None,
-            (yield (yield (yield
-                (yield txn.calendarHomeWithUID("home1"))
-                          .calendarWithName("calendar_1")))
-                          .calendarObjectWithName("bogus.ics"))
+            (yield (yield (yield (
+                yield txn.calendarHomeWithUID("home1")
+            ).calendarWithName("calendar_1"))
+            ).calendarObjectWithName("bogus.ics"))
         )
 
 

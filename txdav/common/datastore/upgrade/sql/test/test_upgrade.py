@@ -57,13 +57,15 @@ class SchemaUpgradeTests(TestCase):
 
         upgrader.schemaLocation = getModule(__name__).filePath.sibling("fake_schema1")
         files = upgrader.scanForUpgradeFiles("fake_dialect")
-        self.assertEqual(files,
+        self.assertEqual(
+            files,
             [(3, 4, upgrader.schemaLocation.child("upgrades").child("fake_dialect").child("upgrade_from_3_to_4.sql"))],
         )
 
         upgrader.schemaLocation = getModule(__name__).filePath.sibling("fake_schema2")
         files = upgrader.scanForUpgradeFiles("fake_dialect")
-        self.assertEqual(files,
+        self.assertEqual(
+            files,
             [
                 (3, 4, upgrader.schemaLocation.child("upgrades").child("fake_dialect").child("upgrade_from_3_to_4.sql")),
                 (3, 5, upgrader.schemaLocation.child("upgrades").child("fake_dialect").child("upgrade_from_3_to_5.sql")),
@@ -79,7 +81,8 @@ class SchemaUpgradeTests(TestCase):
         upgrader.schemaLocation = getModule(__name__).filePath.sibling("fake_schema1")
         files = upgrader.scanForUpgradeFiles("fake_dialect")
         upgrades = upgrader.determineUpgradeSequence(3, 4, files, "fake_dialect")
-        self.assertEqual(upgrades,
+        self.assertEqual(
+            upgrades,
             [upgrader.schemaLocation.child("upgrades").child("fake_dialect").child("upgrade_from_3_to_4.sql")],
         )
         self.assertRaises(RuntimeError, upgrader.determineUpgradeSequence, 3, 5, files, "fake_dialect")
@@ -87,18 +90,21 @@ class SchemaUpgradeTests(TestCase):
         upgrader.schemaLocation = getModule(__name__).filePath.sibling("fake_schema2")
         files = upgrader.scanForUpgradeFiles("fake_dialect")
         upgrades = upgrader.determineUpgradeSequence(3, 5, files, "fake_dialect")
-        self.assertEqual(upgrades,
+        self.assertEqual(
+            upgrades,
             [upgrader.schemaLocation.child("upgrades").child("fake_dialect").child("upgrade_from_3_to_5.sql")]
         )
         upgrades = upgrader.determineUpgradeSequence(4, 5, files, "fake_dialect")
-        self.assertEqual(upgrades,
+        self.assertEqual(
+            upgrades,
             [upgrader.schemaLocation.child("upgrades").child("fake_dialect").child("upgrade_from_4_to_5.sql")]
         )
 
         upgrader.schemaLocation = getModule(__name__).filePath.sibling("fake_schema3")
         files = upgrader.scanForUpgradeFiles("fake_dialect")
         upgrades = upgrader.determineUpgradeSequence(3, 5, files, "fake_dialect")
-        self.assertEqual(upgrades,
+        self.assertEqual(
+            upgrades,
             [
                 upgrader.schemaLocation.child("upgrades").child("fake_dialect").child("upgrade_from_3_to_4.sql"),
                 upgrader.schemaLocation.child("upgrades").child("fake_dialect").child("upgrade_from_4_to_5.sql"),

@@ -47,9 +47,9 @@ from zope.interface import implementer
 log = Logger()
 
 
-##
-## Server implementation of Directory Proxy Service
-##
+#
+# Server implementation of Directory Proxy Service
+#
 
 
 class DirectoryProxyAMPProtocol(amp.AMP):
@@ -254,8 +254,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         returnValue(response)
 
 
-
-
     @RecordsMatchingTokensCommand.responder
     @inlineCallbacks
     def recordsMatchingTokens(self, tokens, context=None):
@@ -267,7 +265,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         response = self._recordsToResponse(records)
         # log.debug("Responding with: {response}", response=response)
         returnValue(response)
-
 
 
     @RecordsMatchingFieldsCommand.responder
@@ -446,6 +443,7 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         }
         # log.debug("Responding with: {response}", response=response)
         returnValue(response)
+
 
 
 class DirectoryProxyAMPFactory(Factory):

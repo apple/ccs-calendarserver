@@ -299,7 +299,7 @@ class Response (WebDAVElement):
         propstat_count = 0
 
         for child in children:
-            if   isinstance(child, HRef):
+            if isinstance(child, HRef):
                 resource_count += 1
             elif isinstance(child, Status):
                 status_count += 1
@@ -311,7 +311,7 @@ class Response (WebDAVElement):
                 "{0} element must have at least one {1}.".format(
                     cls.sname(), HRef.sname()
                 )
-        )
+            )
 
         if status_count is 0:
             if propstat_count is 0:
@@ -326,7 +326,7 @@ class Response (WebDAVElement):
                     "{0} element with {1} may only have one {2}".format(
                         cls.sname(), PropertyStatus.sname(), HRef.sname()
                     )
-            )
+                )
 
             return PropertyStatusResponse.__new__(PropertyStatusResponse, *children)
 

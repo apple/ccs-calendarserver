@@ -82,25 +82,25 @@ class TestConduit (CommonCommonTests, txweb2.dav.test.util.TestCase):
     @classproperty(cache=False)
     def requirements(cls): #@NoSelf
         return {
-        "user01": {
-            "calendar_1": {
+            "user01": {
+                "calendar_1": {
+                },
+                "inbox": {
+                },
             },
-            "inbox": {
+            "user02": {
+                "calendar_1": {
+                },
+                "inbox": {
+                },
             },
-        },
-        "user02": {
-            "calendar_1": {
+            "user03": {
+                "calendar_1": {
+                },
+                "inbox": {
+                },
             },
-            "inbox": {
-            },
-        },
-        "user03": {
-            "calendar_1": {
-            },
-            "inbox": {
-            },
-        },
-    }
+        }
 
 
     @inlineCallbacks
@@ -274,7 +274,7 @@ END:VCALENDAR
         yield self.createShare("user01", "puser01")
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
-        shared = yield  calendar1.shareeView("puser01")
+        shared = yield calendar1.shareeView("puser01")
         self.assertEqual(shared.shareStatus(), _BIND_STATUS_ACCEPTED)
         yield self.commit()
 
@@ -306,7 +306,7 @@ END:VCALENDAR
         yield self.otherCommit()
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
-        yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
         count = yield calendar1.countObjectResources()
         self.assertEqual(count, 1)
         yield self.commit()
@@ -318,7 +318,7 @@ END:VCALENDAR
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
         object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
-        yield  object1.remove()
+        yield object1.remove()
         count = yield calendar1.countObjectResources()
         self.assertEqual(count, 0)
         yield self.commit()
@@ -343,8 +343,8 @@ END:VCALENDAR
         yield self.otherCommit()
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
-        yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
-        yield  calendar1.createCalendarObjectWithName("2.ics", Component.fromString(self.caldata2))
+        yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        yield calendar1.createCalendarObjectWithName("2.ics", Component.fromString(self.caldata2))
         objects = yield calendar1.listObjectResources()
         self.assertEqual(set(objects), set(("1.ics", "2.ics",)))
         yield self.commit()
@@ -356,7 +356,7 @@ END:VCALENDAR
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
         object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
-        yield  object1.remove()
+        yield object1.remove()
         objects = yield calendar1.listObjectResources()
         self.assertEqual(set(objects), set(("2.ics",)))
         yield self.commit()
@@ -386,7 +386,7 @@ END:VCALENDAR
         self.assertEqual(token1_1, token2_1)
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
-        yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
         yield self.commit()
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
@@ -402,7 +402,7 @@ END:VCALENDAR
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
         object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
-        yield  object1.remove()
+        yield object1.remove()
         count = yield calendar1.countObjectResources()
         self.assertEqual(count, 0)
         yield self.commit()
@@ -437,7 +437,7 @@ END:VCALENDAR
         yield self.otherCommit()
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
-        yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
         yield self.commit()
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
@@ -454,7 +454,7 @@ END:VCALENDAR
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
         object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
-        yield  object1.remove()
+        yield object1.remove()
         count = yield calendar1.countObjectResources()
         self.assertEqual(count, 0)
         yield self.commit()
@@ -491,7 +491,7 @@ END:VCALENDAR
         yield self.createShare("user01", "puser01")
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
-        yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
         yield self.commit()
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
@@ -518,7 +518,7 @@ END:VCALENDAR
         yield self.createShare("user01", "puser01")
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
-        yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
         yield self.commit()
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
@@ -545,13 +545,13 @@ END:VCALENDAR
         yield self.createShare("user01", "puser01")
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
-        yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
         yield self.commit()
 
         filter = caldavxml.Filter(
             caldavxml.ComponentFilter(
                 *[caldavxml.ComponentFilter(
-                    **{"name":("VEVENT", "VFREEBUSY", "VAVAILABILITY")}
+                    **{"name": ("VEVENT", "VFREEBUSY", "VAVAILABILITY")}
                 )],
                 **{"name": "VCALENDAR"}
             )
@@ -578,9 +578,9 @@ END:VCALENDAR
         yield self.createShare("user01", "puser01")
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
-        resource1 = yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        resource1 = yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
         resource_id1 = resource1.id()
-        resource2 = yield  calendar1.createCalendarObjectWithName("2.ics", Component.fromString(self.caldata2))
+        resource2 = yield calendar1.createCalendarObjectWithName("2.ics", Component.fromString(self.caldata2))
         resource_id2 = resource2.id()
         yield self.commit()
 
@@ -614,7 +614,7 @@ END:VCALENDAR
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
         object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
-        yield  object1.remove()
+        yield object1.remove()
         yield self.commit()
 
         shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
@@ -655,10 +655,10 @@ END:VCALENDAR
         yield self.createShare("user01", "puser01")
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
-        resource1 = yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        resource1 = yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
         resource_id1 = resource1.id()
-        yield  calendar1.createCalendarObjectWithName("2.ics", Component.fromString(self.caldata2))
-        resource3 = yield  calendar1.createCalendarObjectWithName("3.ics", Component.fromString(self.caldata3))
+        yield calendar1.createCalendarObjectWithName("2.ics", Component.fromString(self.caldata2))
+        resource3 = yield calendar1.createCalendarObjectWithName("3.ics", Component.fromString(self.caldata3))
         resource_id3 = resource3.id()
         yield self.commit()
 
@@ -697,7 +697,7 @@ END:VCALENDAR
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
         object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
-        yield  object1.remove()
+        yield object1.remove()
         yield self.commit()
 
         shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
@@ -738,7 +738,7 @@ END:VCALENDAR
         yield self.createShare("user01", "puser01")
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
-        resource = yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        resource = yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
         resource_id = resource.id()
         yield self.commit()
 
@@ -777,7 +777,7 @@ END:VCALENDAR
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
         object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
-        yield  object1.remove()
+        yield object1.remove()
         yield self.commit()
 
         shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
@@ -838,7 +838,7 @@ END:VCALENDAR
         yield self.createShare("user01", "puser01")
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
-        yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
         yield self.commit()
 
         shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
@@ -859,7 +859,7 @@ END:VCALENDAR
         yield self.createShare("user01", "puser01")
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
-        yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
         yield self.commit()
 
         shared_object = yield self.calendarObjectUnderTest(txn=self.newOtherTransaction(), home="puser01", calendar_name="shared-calendar", name="1.ics")
@@ -892,7 +892,7 @@ END:VCALENDAR
         yield self.createShare("user01", "puser01")
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
-        yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
         yield self.commit()
 
         shared_object = yield self.calendarObjectUnderTest(txn=self.newOtherTransaction(), home="puser01", calendar_name="shared-calendar", name="1.ics")
@@ -911,7 +911,7 @@ END:VCALENDAR
         yield self.createShare("user01", "puser01")
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
-        yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
         yield self.commit()
 
         shared_object = yield self.calendarObjectUnderTest(txn=self.newOtherTransaction(), home="puser01", calendar_name="shared-calendar", name="1.ics")
@@ -936,7 +936,7 @@ END:VCALENDAR
         yield self.createShare("user01", "puser01")
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
-        yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
         yield self.commit()
 
         fbstart = "{now:04d}0102T000000Z".format(**self.nowYear)
@@ -990,7 +990,7 @@ END:VCALENDAR
         yield self.createShare("user01", "puser01")
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
-        object1 = yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        object1 = yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
         resourceID = object1.id()
         yield self.commit()
 
@@ -1020,7 +1020,7 @@ END:VCALENDAR
         yield self.createShare("user01", "puser01")
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
-        yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
         yield self.commit()
 
         object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
@@ -1055,7 +1055,7 @@ END:VCALENDAR
         yield self.createShare("user01", "puser01")
 
         calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
-        yield  calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
         yield self.commit()
 
         object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")

@@ -63,7 +63,6 @@ import json
 import uuid
 from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
 import os
-import types
 
 ECALENDARTYPE = 0
 EADDRESSBOOKTYPE = 1
@@ -520,7 +519,8 @@ class SharedCollectionsDatabase(AbstractSQLDatabase):
 
     def addOrUpdateRecord(self, record):
 
-        self._db_execute("""insert or replace into SHARES (SHAREUID, SHARETYPE, HOSTURL, LOCALNAME, SUMMARY)
+        self._db_execute(
+            """insert or replace into SHARES (SHAREUID, SHARETYPE, HOSTURL, LOCALNAME, SUMMARY)
             values (:1, :2, :3, :4, :5)
             """, record.shareuid, record.sharetype, record.hosturl, record.localname, record.summary,
         )
@@ -613,7 +613,7 @@ class SharedCollectionsDatabase(AbstractSQLDatabase):
 
     def _makeRecord(self, row):
 
-        return SharedCollectionRecord(*[str(item) if type(item) == types.UnicodeType else item for item in row])
+        return SharedCollectionRecord(*[str(item) if isinstance(item, unicode) else item for item in row])
 
 
 
@@ -758,7 +758,7 @@ class CommonHome(FileMetaDataMixin):
             self.childWithName(name)
             for name in self._path.listdir()
             if not name.startswith(".") and
-                name not in self._removedChildren
+            name not in self._removedChildren
         )
 
     # For file store there is no efficient "bulk" load of all children so just
@@ -776,8 +776,8 @@ class CommonHome(FileMetaDataMixin):
             name
             for name in self._path.listdir()
             if not name.startswith(".") and
-                self._path.child(name).isdir() and
-                name not in self._removedChildren
+            self._path.child(name).isdir() and
+            name not in self._removedChildren
         ))
 
 
@@ -1535,8 +1535,7 @@ class NotificationCollection(CommonHomeChild):
             # Return undo
             return lambda: home._path.child(collectionName).remove()
 
-        txn.addOperation(do, "create notification child %r" %
-                          (collectionName,))
+        txn.addOperation(do, "create notification child %r" % (collectionName,))
         return c
 
     notificationObjects = CommonHomeChild.objectResources

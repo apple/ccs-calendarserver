@@ -663,6 +663,7 @@ class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
                 self.assertEquals(authenticated, answer)
 
 
+
 class DPSClientLargeResultsTest(unittest.TestCase):
     """
     Tests the client against a single directory service (as opposed to the

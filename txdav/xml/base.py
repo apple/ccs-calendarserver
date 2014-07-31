@@ -264,8 +264,8 @@ class WebDAVElement (object):
     def __eq__(self, other):
         if isinstance(other, WebDAVElement):
             return (
-                self.name == other.name       and
-                self.namespace == other.namespace  and
+                self.name == other.name and
+                self.namespace == other.namespace and
                 self.attributes == other.attributes and
                 self.children == other.children
             )
@@ -301,8 +301,10 @@ class WebDAVElement (object):
             output.write("  " * level)
 
         # Check for empty element (one with either no children or a single PCDATA that is itself empty)
-        if (len(self.children) == 0 or
-            (len(self.children) == 1 and isinstance(self.children[0], PCDATAElement) and len(str(self.children[0])) == 0)):
+        if (
+            len(self.children) == 0 or
+            (len(self.children) == 1 and isinstance(self.children[0], PCDATAElement) and len(str(self.children[0])) == 0)
+        ):
 
             # Write out any attributes or the namespace if difference from enclosing element.
             if self.attributes or (ns != self.namespace):
@@ -822,7 +824,7 @@ def parse_date(date):
 
             delta = (offset_hour * 60) + offset_minute
 
-            if   offset_sign == "+":
+            if offset_sign == "+":
                 offset = FixedOffset(0 - delta)
             elif offset_sign == "-":
                 offset = FixedOffset(0 + delta)

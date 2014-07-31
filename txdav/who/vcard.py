@@ -37,44 +37,44 @@ log = Logger()
 
 
 recordTypeToVCardKindMap = {
-   RecordType.user: "individual",
-   RecordType.group: "group",
-   CalRecordType.location: "location",
-   CalRecordType.resource: "device",
+    RecordType.user: "individual",
+    RecordType.group: "group",
+    CalRecordType.location: "location",
+    CalRecordType.resource: "device",
 }
 
 vCardKindToRecordTypeMap = {
-   "individual" : RecordType.user,
-   "group": RecordType.group,
-   "org": RecordType.group,
-   "location": CalRecordType.location,
-   "device": CalRecordType.resource,
+    "individual" : RecordType.user,
+    "group": RecordType.group,
+    "org": RecordType.group,
+    "location": CalRecordType.location,
+    "device": CalRecordType.resource,
 }
 
 
 # all possible generated parameters.
 vCardPropToParamMap = {
-    #"PHOTO": {"ENCODING": ("B",), "TYPE": ("JPEG",), },
+    # "PHOTO": {"ENCODING": ("B",), "TYPE": ("JPEG",), },
     "ADR": {"TYPE": ("WORK", "PREF", "POSTAL", "PARCEL",),
             "LABEL": None, "GEO": None, },
     "LABEL": {"TYPE": ("POSTAL", "PARCEL",)},
-    #"TEL": {"TYPE": None, },  # None means param value can be anything
+    # "TEL": {"TYPE": None, },  # None means param value can be anything
     "EMAIL": {"TYPE": None, },
-    #"KEY": {"ENCODING": ("B",), "TYPE": ("PGPPUBILICKEY", "USERCERTIFICATE", "USERPKCS12DATA", "USERSMIMECERTIFICATE",)},
-    #"URL": {"TYPE": ("WEBLOG", "HOMEPAGE",)},
-    #"IMPP": {"TYPE": ("PREF",), "X-SERVICE-TYPE": None, },
-    #"X-ABRELATEDNAMES": {"TYPE": None, },
-    #"X-AIM": {"TYPE": ("PREF",), },
-    #"X-JABBER": {"TYPE": ("PREF",), },
-    #"X-MSN": {"TYPE": ("PREF",), },
-    #"X-ICQ": {"TYPE": ("PREF",), },
+    # "KEY": {"ENCODING": ("B",), "TYPE": ("PGPPUBILICKEY", "USERCERTIFICATE", "USERPKCS12DATA", "USERSMIMECERTIFICATE",)},
+    # "URL": {"TYPE": ("WEBLOG", "HOMEPAGE",)},
+    # "IMPP": {"TYPE": ("PREF",), "X-SERVICE-TYPE": None, },
+    # "X-ABRELATEDNAMES": {"TYPE": None, },
+    # "X-AIM": {"TYPE": ("PREF",), },
+    # "X-JABBER": {"TYPE": ("PREF",), },
+    # "X-MSN": {"TYPE": ("PREF",), },
+    # "X-ICQ": {"TYPE": ("PREF",), },
 }
 
 
 vCardConstantProperties = {
-    #===================================================================
+    # ====================================================================
     # 3.6 EXPLANATORY TYPES http://tools.ietf.org/html/rfc2426#section-3.6
-    #===================================================================
+    # ====================================================================
     # 3.6.3 PRODID
     "PRODID": vCardProductID,
     # 3.6.9 VERSION
@@ -107,12 +107,13 @@ def vCardFromRecord(record, forceKind=None, addProps=None, parentURI=None):
                 prop=newProperty
             )
 
-    #=======================================================================
+    # =======================================================================
     # start
-    #=======================================================================
+    # =======================================================================
 
-    log.debug("vCardFromRecord: record={record}, forceKind={forceKind}, addProps={addProps}, parentURI={parentURI}",
-                   record=record, forceKind=forceKind, addProps=addProps, parentURI=parentURI)
+    log.debug(
+        "vCardFromRecord: record={record}, forceKind={forceKind}, addProps={addProps}, parentURI={parentURI}",
+        record=record, forceKind=forceKind, addProps=addProps, parentURI=parentURI)
 
     if forceKind is None:
         kind = recordTypeToVCardKindMap.get(record.recordType, "individual")
@@ -132,9 +133,9 @@ def vCardFromRecord(record, forceKind=None, addProps=None, parentURI=None):
     for key, value in constantProperties.items():
         vcard.addProperty(Property(key, value))
 
-    #===========================================================================
+    # ===========================================================================
     # 2.1 Predefined Type Usage
-    #===========================================================================
+    # ===========================================================================
     # 2.1.4 SOURCE Type http://tools.ietf.org/html/rfc2426#section-2.1.4
     if parentURI:
         uri = joinURL(parentURI, record.fields[FieldName.uid].encode("utf-8") + ".vcf")
@@ -152,9 +153,9 @@ def vCardFromRecord(record, forceKind=None, addProps=None, parentURI=None):
                 source = "https://{server}:{port}{uri}".format(server=config.ServerHostName, port=config.HTTPPort, uri=uri)
         vcard.addProperty(Property("SOURCE", source))
 
-    #===================================================================
+    # =======================================================================
     # 3.1 IDENTIFICATION TYPES http://tools.ietf.org/html/rfc2426#section-3.1
-    #===================================================================
+    # =======================================================================
     # 3.1.1 FN
     vcard.addProperty(Property("FN", record.fields[FieldName.fullNames][0].encode("utf-8")))
 
@@ -185,9 +186,9 @@ def vCardFromRecord(record, forceKind=None, addProps=None, parentURI=None):
     #     3.1.4 PHOTO
     #     3.1.5 BDAY
 
-    #===========================================================================
+    # ============================================================================
     # 3.2 Delivery Addressing Types http://tools.ietf.org/html/rfc2426#section-3.2
-    #===========================================================================
+    # ============================================================================
     # 3.2.1 ADR
     #
     # Experimental:
@@ -215,7 +216,7 @@ def vCardFromRecord(record, forceKind=None, addProps=None, parentURI=None):
         vcard.addProperty(
             Property(
                 "ADR", Adr(
-                    #pobox = box,
+                    # pobox = box,
                     extended=extended.encode("utf-8") if extended else None,
                     street=street.encode("utf-8") if street else None,
                     locality=city.encode("utf-8") if city else None,
@@ -228,13 +229,13 @@ def vCardFromRecord(record, forceKind=None, addProps=None, parentURI=None):
         )
 
     #    3.2.2 LABEL
-    #label = record.fields.get(CalFieldName.streetAddress)
+    # label = record.fields.get(CalFieldName.streetAddress)
     if label:
         vcard.addProperty(Property("LABEL", label.encode("utf-8"), params={"TYPE": ["POSTAL", "PARCEL", ]}))
 
-    #===================================================================
+    # ======================================================================================
     # 3.3 TELECOMMUNICATIONS ADDRESSING TYPES http://tools.ietf.org/html/rfc2426#section-3.3
-    #===================================================================
+    # ======================================================================================
     #
     # UNIMPLEMENTED
     #     3.3.1 TEL
@@ -250,9 +251,9 @@ def vCardFromRecord(record, forceKind=None, addProps=None, parentURI=None):
     # UNIMPLEMENTED:
     #     3.3.3 MAILER
     #
-    #===================================================================
+    # =====================================================================
     # 3.4 GEOGRAPHICAL TYPES http://tools.ietf.org/html/rfc2426#section-3.4
-    #===================================================================
+    # =====================================================================
     #
     # UNIMPLEMENTED:
     #     3.4.1 TZ
@@ -262,9 +263,9 @@ def vCardFromRecord(record, forceKind=None, addProps=None, parentURI=None):
     if geographicLocation:
         vcard.addProperty(Property("GEO", geographicLocation.encode("utf-8")))
 
-    #===================================================================
+    # =======================================================================
     # 3.5 ORGANIZATIONAL TYPES http://tools.ietf.org/html/rfc2426#section-3.5
-    #===================================================================
+    # =======================================================================
     #
     # UNIMPLEMENTED:
     #     3.5.1 TITLE
@@ -273,9 +274,9 @@ def vCardFromRecord(record, forceKind=None, addProps=None, parentURI=None):
     #     3.5.4 AGENT
     #     3.5.5 ORG
     #
-    #===================================================================
+    # ====================================================================
     # 3.6 EXPLANATORY TYPES http://tools.ietf.org/html/rfc2426#section-3.6
-    #===================================================================
+    # ====================================================================
     #
     # UNIMPLEMENTED:
     #     3.6.1 CATEGORIES
@@ -297,16 +298,16 @@ def vCardFromRecord(record, forceKind=None, addProps=None, parentURI=None):
     # ADDED WITH CONTSTANT PROPERTIES:
     #     3.6.9 VERSION
 
-    #===================================================================
+    # ===================================================================
     # 3.7 SECURITY TYPES http://tools.ietf.org/html/rfc2426#section-3.7
-    #===================================================================
+    # ===================================================================
     # UNIMPLEMENTED:
     #     3.7.1 CLASS
     #     3.7.2 KEY
 
-    #===================================================================
+    # ===================================================================
     # X Properties
-    #===================================================================
+    # ===================================================================
     # UNIMPLEMENTED:
     #    X-<instant messaging type> such as:
     #        "AIM", "FACEBOOK", "GAGU-GAGU", "GOOGLE TALK", "ICQ", "JABBER", "MSN", "QQ", "SKYPE", "YAHOO",
@@ -327,9 +328,9 @@ def vCardFromRecord(record, forceKind=None, addProps=None, parentURI=None):
         if cua:
             vcard.addProperty(Property("X-ADDRESSBOOKSERVER-MEMBER", cua.encode("utf-8")))
 
-    #===================================================================
+    # ===================================================================
     # vCard 4.0  http://tools.ietf.org/html/rfc6350
-    #===================================================================
+    # ===================================================================
     # UNIMPLEMENTED:
     #     6.4.3 IMPP http://tools.ietf.org/html/rfc6350#section-6.4.3
     #

@@ -50,8 +50,9 @@ class MultiStatusTests(WebDAVElementTestsMixin, TestCase):
     element = MultiStatus(
         Response(
             HRef("http://webdav.sb.aol.com/webdav/secret"),
-            Status("HTTP/1.1 403 Forbidden")),
-        )
+            Status("HTTP/1.1 403 Forbidden")
+        ),
+    )
 
 
 

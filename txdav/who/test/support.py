@@ -36,6 +36,7 @@ class TestRecord(IndexedDirectoryRecord, CalendarDirectoryRecordMixin):
     pass
 
 
+
 class InMemoryDirectoryService(IndexDirectoryService):
     """
     An in-memory IDirectoryService.  You must call updateRecords( ) if you want

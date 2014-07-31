@@ -225,9 +225,10 @@ class UpgradeHelperProcess(AMP):
                 lambda fileHome:
                 self.upgrader.migrateOneHome(fileTxn, homeType, fileHome)
             )
-            .addCallbacks(lambda ignored: fileTxn.commit(),
-                          lambda err: fileTxn.abort()
-                                      .addCallback(lambda ign: err))
+            .addCallbacks(
+                lambda ignored: fileTxn.commit(),
+                lambda err: fileTxn.abort()
+                    .addCallback(lambda ign: err))
             .addCallback(lambda ignored: {})
         )
 
@@ -302,8 +303,9 @@ class UpgradeToDatabaseStep(object):
 
                     appropriateStoreClass = AppleDoubleStore
 
-                return FileStore(path, None, None, True, True,
-                          propertyStoreClass=appropriateStoreClass)
+                return FileStore(
+                    path, None, None, True, True,
+                    propertyStoreClass=appropriateStoreClass)
         return None
 
 
@@ -361,7 +363,7 @@ class UpgradeToDatabaseStep(object):
         for homeType, eachFunc in [
                 ("calendar", self.fileStore.withEachCalendarHomeDo),
                 ("addressbook", self.fileStore.withEachAddressbookHomeDo),
-            ]:
+        ]:
             yield eachFunc(
                 lambda txn, home: self._upgradeAction(
                     txn, home, homeType
@@ -372,8 +374,10 @@ class UpgradeToDatabaseStep(object):
         # since attachments started living outside the database directory
         # created by initdb?  default permissions might be correct now.
         sqlAttachmentsPath = self.sqlStore.attachmentsPath
-        if (sqlAttachmentsPath and sqlAttachmentsPath.exists() and
-            (self.uid or self.gid)):
+        if (
+            sqlAttachmentsPath and sqlAttachmentsPath.exists() and
+            (self.uid or self.gid)
+        ):
             uid = self.uid or -1
             gid = self.gid or -1
             for fp in sqlAttachmentsPath.walk():
@@ -421,7 +425,7 @@ class UpgradeToDatabaseStep(object):
 
         # Now apply each required data upgrade
         self.sqlStore.setUpgrading(True)
-        for upgrade, description  in (
+        for upgrade, description in (
             (doCalendarUpgrade_1_to_2, "Calendar data upgrade from v1 to v2"),
             (doCalendarUpgrade_2_to_3, "Calendar data upgrade from v2 to v3"),
             (doCalendarUpgrade_3_to_4, "Calendar data upgrade from v3 to v4"),

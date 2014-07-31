@@ -783,39 +783,48 @@ class CommonStoreTransaction(object):
     @classproperty
     def _insertAPNSubscriptionQuery(cls):
         apn = schema.APN_SUBSCRIPTIONS
-        return Insert({apn.TOKEN: Parameter("token"),
-                       apn.RESOURCE_KEY: Parameter("resourceKey"),
-                       apn.MODIFIED: Parameter("modified"),
-                       apn.SUBSCRIBER_GUID: Parameter("subscriber"),
-                       apn.USER_AGENT: Parameter("userAgent"),
-                       apn.IP_ADDR: Parameter("ipAddr")})
+        return Insert({
+            apn.TOKEN: Parameter("token"),
+            apn.RESOURCE_KEY: Parameter("resourceKey"),
+            apn.MODIFIED: Parameter("modified"),
+            apn.SUBSCRIBER_GUID: Parameter("subscriber"),
+            apn.USER_AGENT: Parameter("userAgent"),
+            apn.IP_ADDR: Parameter("ipAddr")
+        })
 
 
     @classproperty
     def _updateAPNSubscriptionQuery(cls):
         apn = schema.APN_SUBSCRIPTIONS
-        return Update({apn.MODIFIED: Parameter("modified"),
-                       apn.SUBSCRIBER_GUID: Parameter("subscriber"),
-                       apn.USER_AGENT: Parameter("userAgent"),
-                       apn.IP_ADDR: Parameter("ipAddr")},
-                      Where=(apn.TOKEN == Parameter("token")).And(
-                             apn.RESOURCE_KEY == Parameter("resourceKey")))
+        return Update(
+            {
+                apn.MODIFIED: Parameter("modified"),
+                apn.SUBSCRIBER_GUID: Parameter("subscriber"),
+                apn.USER_AGENT: Parameter("userAgent"),
+                apn.IP_ADDR: Parameter("ipAddr")
+            },
+            Where=(apn.TOKEN == Parameter("token")).And(
+                apn.RESOURCE_KEY == Parameter("resourceKey"))
+        )
 
 
     @classproperty
     def _selectAPNSubscriptionQuery(cls):
         apn = schema.APN_SUBSCRIPTIONS
-        return Select([apn.MODIFIED, apn.SUBSCRIBER_GUID], From=apn,
-                Where=(
-                    apn.TOKEN == Parameter("token")).And(
-                    apn.RESOURCE_KEY == Parameter("resourceKey")
-                )
+        return Select(
+            [apn.MODIFIED, apn.SUBSCRIBER_GUID],
+            From=apn,
+            Where=(apn.TOKEN == Parameter("token")).And(
+                apn.RESOURCE_KEY == Parameter("resourceKey")
             )
+        )
 
 
     @inlineCallbacks
-    def addAPNSubscription(self, token, key, timestamp, subscriber,
-        userAgent, ipAddr):
+    def addAPNSubscription(
+        self, token, key, timestamp, subscriber,
+        userAgent, ipAddr
+    ):
         if not (token and key and timestamp and subscriber):
             raise InvalidSubscriptionValues()
 
@@ -823,11 +832,14 @@ class CommonStoreTransaction(object):
         userAgent = userAgent[:255]
         ipAddr = ipAddr[:255]
 
-        row = yield self._selectAPNSubscriptionQuery.on(self,
-            token=token, resourceKey=key)
+        row = yield self._selectAPNSubscriptionQuery.on(
+            self,
+            token=token, resourceKey=key
+        )
         if not row:  # Subscription does not yet exist
             try:
-                yield self._insertAPNSubscriptionQuery.on(self,
+                yield self._insertAPNSubscriptionQuery.on(
+                    self,
                     token=token, resourceKey=key, modified=timestamp,
                     subscriber=subscriber, userAgent=userAgent,
                     ipAddr=ipAddr)
@@ -837,7 +849,8 @@ class CommonStoreTransaction(object):
 
         else:  # Subscription exists, so update with new timestamp and subscriber
             try:
-                yield self._updateAPNSubscriptionQuery.on(self,
+                yield self._updateAPNSubscriptionQuery.on(
+                    self,
                     token=token, resourceKey=key, modified=timestamp,
                     subscriber=subscriber, userAgent=userAgent,
                     ipAddr=ipAddr)
@@ -855,7 +868,8 @@ class CommonStoreTransaction(object):
 
 
     def removeAPNSubscription(self, token, key):
-        return self._removeAPNSubscriptionQuery.on(self,
+        return self._removeAPNSubscriptionQuery.on(
+            self,
             token=token, resourceKey=key)
 
 
@@ -867,7 +881,8 @@ class CommonStoreTransaction(object):
 
 
     def purgeOldAPNSubscriptions(self, olderThan):
-        return self._purgeOldAPNSubscriptionQuery.on(self,
+        return self._purgeOldAPNSubscriptionQuery.on(
+            self,
             olderThan=olderThan)
 
 
@@ -909,11 +924,12 @@ class CommonStoreTransaction(object):
     @classproperty
     def _insertIMIPTokenQuery(cls):
         imip = schema.IMIP_TOKENS
-        return Insert({imip.TOKEN: Parameter("token"),
-                       imip.ORGANIZER: Parameter("organizer"),
-                       imip.ATTENDEE: Parameter("attendee"),
-                       imip.ICALUID: Parameter("icaluid"),
-                      })
+        return Insert({
+            imip.TOKEN: Parameter("token"),
+            imip.ORGANIZER: Parameter("organizer"),
+            imip.ATTENDEE: Parameter("attendee"),
+            imip.ICALUID: Parameter("icaluid"),
+        })
 
 
     @inlineCallbacks
@@ -925,7 +941,8 @@ class CommonStoreTransaction(object):
             token = str(uuid4())
 
         try:
-            yield self._insertIMIPTokenQuery.on(self,
+            yield self._insertIMIPTokenQuery.on(
+                self,
                 token=token, organizer=organizer, attendee=attendee,
                 icaluid=icaluid)
         except Exception:
@@ -952,29 +969,36 @@ class CommonStoreTransaction(object):
     @classproperty
     def _selectIMIPTokenQuery(cls):
         imip = schema.IMIP_TOKENS
-        return Select([imip.TOKEN], From=imip,
-                      Where=(imip.ORGANIZER == Parameter("organizer")).And(
-                             imip.ATTENDEE == Parameter("attendee")).And(
-                             imip.ICALUID == Parameter("icaluid")))
+        return Select(
+            [imip.TOKEN],
+            From=imip,
+            Where=(imip.ORGANIZER == Parameter("organizer")).And(
+                imip.ATTENDEE == Parameter("attendee")).And(
+                imip.ICALUID == Parameter("icaluid"))
+        )
 
 
     @classproperty
     def _updateIMIPTokenQuery(cls):
         imip = schema.IMIP_TOKENS
-        return Update({imip.ACCESSED: utcNowSQL, },
-                      Where=(imip.ORGANIZER == Parameter("organizer")).And(
-                             imip.ATTENDEE == Parameter("attendee")).And(
-                             imip.ICALUID == Parameter("icaluid")))
+        return Update(
+            {imip.ACCESSED: utcNowSQL, },
+            Where=(imip.ORGANIZER == Parameter("organizer")).And(
+                imip.ATTENDEE == Parameter("attendee")).And(
+                    imip.ICALUID == Parameter("icaluid"))
+        )
 
 
     @inlineCallbacks
     def imipGetToken(self, organizer, attendee, icaluid):
-        row = (yield self._selectIMIPTokenQuery.on(self, organizer=organizer,
+        row = (yield self._selectIMIPTokenQuery.on(
+            self, organizer=organizer,
             attendee=attendee, icaluid=icaluid))
         if row:
             token = row[0][0]
             # update the timestamp
-            yield self._updateIMIPTokenQuery.on(self, organizer=organizer,
+            yield self._updateIMIPTokenQuery.on(
+                self, organizer=organizer,
                 attendee=attendee, icaluid=icaluid)
         else:
             token = None
@@ -2661,8 +2685,8 @@ class CommonStoreTransaction(object):
                         aboMembers,
                         Where=(aboMembers.GROUP_ID == groupID).And(
                             aboMembers.MEMBER_ID == memberID).And(
-                                aboMembers.REVISION.In(Parameter("revisionsToRemove", len(revisionsToRemove)))
-                            )
+                            aboMembers.REVISION.In(Parameter("revisionsToRemove", len(revisionsToRemove)))
+                        )
                     ).on(self, revisionsToRemove=revisionsToRemove)
 
 
@@ -3588,9 +3612,10 @@ class CommonHome(SharingHomeMixIn):
             Do the changes query.
             Subclasses may override.
         """
-        result = yield self._changesQuery.on(self._txn,
-                                         resourceID=self._resourceID,
-                                         revision=revision)
+        result = yield self._changesQuery.on(
+            self._txn,
+            resourceID=self._resourceID,
+            revision=revision)
         returnValue(result)
 
 
@@ -3616,8 +3641,8 @@ class CommonHome(SharingHomeMixIn):
         Now that we are truncating the revision table, we need to handle the full sync (revision == 0)
         case a little differently as the revision table will not contain data for resources that exist,
         but were last modified before the revision cut-off. Instead for revision == 0 we need to list
-        all existing child resources.  
-  
+        all existing child resources.
+
         We need to handle shared collection a little differently from owned ones. When a shared collection
         is bound into a home we record a revision for it using the sharee home id and sharee collection name.
         That revision is the "starting point" for changes: so if sync occurs with a revision earlier than
@@ -3698,8 +3723,6 @@ class CommonHome(SharingHomeMixIn):
         deleted = sorted(deleted)
         invalid = sorted(invalid)
         returnValue((changed, deleted, invalid,))
-
-
 
 
     @inlineCallbacks
@@ -4139,10 +4162,10 @@ class _SharedSyncLogic(object):
                 raise SyncTokenValidException
 
             results = [
-                (name if name else "", removed) for name, removed in
-                    (yield self._objectNamesSinceRevisionQuery().on(
+                (name if name else "", removed) for name, removed in (
+                    yield self._objectNamesSinceRevisionQuery().on(
                         self._txn, revision=revision, resourceID=self._resourceID)
-                    )
+                )
             ]
             results.sort(key=lambda x: x[1])
 
@@ -4169,14 +4192,18 @@ class _SharedSyncLogic(object):
     @classproperty
     def _addNewRevision(cls):
         rev = cls._revisionsSchema
-        return Insert({rev.HOME_RESOURCE_ID: Parameter("homeID"),
-                       rev.RESOURCE_ID: Parameter("resourceID"),
-                       rev.COLLECTION_NAME: Parameter("collectionName"),
-                       rev.RESOURCE_NAME: None,
-                       # Always starts false; may be updated to be a tombstone
-                       # later.
-                       rev.DELETED: False},
-                     Return=[rev.REVISION])
+        return Insert(
+            {
+                rev.HOME_RESOURCE_ID: Parameter("homeID"),
+                rev.RESOURCE_ID: Parameter("resourceID"),
+                rev.COLLECTION_NAME: Parameter("collectionName"),
+                rev.RESOURCE_NAME: None,
+                # Always starts false; may be updated to be a tombstone
+                # later.
+                rev.DELETED: False
+            },
+            Return=[rev.REVISION]
+        )
 
 
     @inlineCallbacks
@@ -4263,13 +4290,16 @@ class _SharedSyncLogic(object):
         DAL query to indicate a shared collection has been deleted.
         """
         rev = cls._revisionsSchema
-        return Update({rev.RESOURCE_ID: None,
-                       rev.REVISION: schema.REVISION_SEQ,
-                       rev.DELETED: True},
-                      Where=(rev.HOME_RESOURCE_ID == Parameter("homeID")).And(
-                          rev.RESOURCE_ID == Parameter("resourceID")).And(
-                              rev.RESOURCE_NAME == None)
-                     )
+        return Update(
+            {
+                rev.RESOURCE_ID: None,
+                rev.REVISION: schema.REVISION_SEQ,
+                rev.DELETED: True
+            },
+            Where=(rev.HOME_RESOURCE_ID == Parameter("homeID")).And(
+                rev.RESOURCE_ID == Parameter("resourceID")).And(
+                rev.RESOURCE_NAME == None)
+        )
 
 
     @classproperty
@@ -4278,12 +4308,15 @@ class _SharedSyncLogic(object):
         DAL query to indicate an owned collection has been deleted.
         """
         rev = cls._revisionsSchema
-        return Update({rev.RESOURCE_ID: None,
-                       rev.REVISION: schema.REVISION_SEQ,
-                       rev.DELETED: True},
-                      Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
-                          rev.RESOURCE_NAME == None),
-                     )
+        return Update(
+            {
+                rev.RESOURCE_ID: None,
+                rev.REVISION: schema.REVISION_SEQ,
+                rev.DELETED: True
+            },
+            Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
+                rev.RESOURCE_NAME == None),
+        )
 
 
     @inlineCallbacks
@@ -4330,49 +4363,60 @@ class _SharedSyncLogic(object):
     @classproperty
     def _deleteBumpTokenQuery(cls):
         rev = cls._revisionsSchema
-        return Update({rev.REVISION: schema.REVISION_SEQ,
-                       rev.DELETED: True},
-                      Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
-                           rev.RESOURCE_NAME == Parameter("name")),
-                      Return=rev.REVISION)
+        return Update(
+            {rev.REVISION: schema.REVISION_SEQ, rev.DELETED: True},
+            Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
+                rev.RESOURCE_NAME == Parameter("name")),
+            Return=rev.REVISION
+        )
 
 
     @classproperty
     def _updateBumpTokenQuery(cls):
         rev = cls._revisionsSchema
-        return Update({rev.REVISION: schema.REVISION_SEQ},
-                      Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
-                           rev.RESOURCE_NAME == Parameter("name")),
-                      Return=rev.REVISION)
+        return Update(
+            {rev.REVISION: schema.REVISION_SEQ},
+            Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
+                rev.RESOURCE_NAME == Parameter("name")),
+            Return=rev.REVISION
+        )
 
 
     @classproperty
     def _insertFindPreviouslyNamedQuery(cls):
         rev = cls._revisionsSchema
-        return Select([rev.RESOURCE_ID], From=rev,
-                      Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
-                           rev.RESOURCE_NAME == Parameter("name")))
+        return Select(
+            [rev.RESOURCE_ID],
+            From=rev,
+            Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
+                rev.RESOURCE_NAME == Parameter("name"))
+        )
 
 
     @classproperty
     def _updatePreviouslyNamedQuery(cls):
         rev = cls._revisionsSchema
-        return Update({rev.REVISION: schema.REVISION_SEQ,
-                       rev.DELETED: False},
-                      Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
-                           rev.RESOURCE_NAME == Parameter("name")),
-                      Return=rev.REVISION)
+        return Update(
+            {rev.REVISION: schema.REVISION_SEQ, rev.DELETED: False},
+            Where=(rev.RESOURCE_ID == Parameter("resourceID")).And(
+                rev.RESOURCE_NAME == Parameter("name")),
+            Return=rev.REVISION
+        )
 
 
     @classproperty
     def _completelyNewRevisionQuery(cls):
         rev = cls._revisionsSchema
-        return Insert({rev.HOME_RESOURCE_ID: Parameter("homeID"),
-                       rev.RESOURCE_ID: Parameter("resourceID"),
-                       rev.RESOURCE_NAME: Parameter("name"),
-                       rev.REVISION: schema.REVISION_SEQ,
-                       rev.DELETED: False},
-                      Return=rev.REVISION)
+        return Insert(
+            {
+                rev.HOME_RESOURCE_ID: Parameter("homeID"),
+                rev.RESOURCE_ID: Parameter("resourceID"),
+                rev.RESOURCE_NAME: Parameter("name"),
+                rev.REVISION: schema.REVISION_SEQ,
+                rev.DELETED: False
+            },
+            Return=rev.REVISION
+        )
 
 
     @inlineCallbacks
@@ -4463,8 +4507,8 @@ class SharingMixIn(object):
         bind = cls._bindSchema
         return Update(
             columnMap,
-            Where=(bind.RESOURCE_ID == Parameter("resourceID"))
-                   .And(bind.HOME_RESOURCE_ID == Parameter("homeID")),
+            Where=(bind.RESOURCE_ID == Parameter("resourceID")).And(
+                bind.HOME_RESOURCE_ID == Parameter("homeID")),
         )
 
 
@@ -4473,8 +4517,8 @@ class SharingMixIn(object):
         bind = cls._bindSchema
         return Delete(
             From=bind,
-            Where=(bind.RESOURCE_ID == Parameter("resourceID"))
-                  .And(bind.HOME_RESOURCE_ID == Parameter("homeID")),
+            Where=(bind.RESOURCE_ID == Parameter("resourceID")).And(
+                bind.HOME_RESOURCE_ID == Parameter("homeID")),
         )
 
 
@@ -5023,7 +5067,7 @@ class SharingMixIn(object):
         # TODO: raise a nice exception if shareeView is not, in fact, a shared
         # version of this same L{CommonHomeChild}
 
-        #remove None parameters, and substitute None for empty string
+        # remove None parameters, and substitute None for empty string
         bind = self._bindSchema
         columnMap = {}
         if mode != None and mode != self._bindMode:
@@ -5235,8 +5279,8 @@ class SharingMixIn(object):
         bind = self._bindSchema
         yield Update(
             {bind.MESSAGE: self._bindMessage},
-            Where=(bind.RESOURCE_ID == Parameter("resourceID"))
-                  .And(bind.HOME_RESOURCE_ID == Parameter("homeID")),
+            Where=(bind.RESOURCE_ID == Parameter("resourceID")).And(
+                bind.HOME_RESOURCE_ID == Parameter("homeID")),
         ).on(self._txn, resourceID=self._resourceID, homeID=self.viewerHome()._resourceID)
 
         yield self.invalidateQueryCache()
@@ -5416,14 +5460,16 @@ class SharingMixIn(object):
         childMetaData = cls._homeChildMetaDataSchema
 
         columns = cls.bindColumns() + cls.additionalBindColumns() + cls.metadataColumns()
-        return Select(columns,
-                     From=child.join(
-                         bind, child.RESOURCE_ID == bind.RESOURCE_ID,
-                         'left outer').join(
-                         childMetaData, childMetaData.RESOURCE_ID == bind.RESOURCE_ID,
-                         'left outer'),
-                     Where=(bind.HOME_RESOURCE_ID == Parameter("homeID")
-                           ).And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED))
+        return Select(
+            columns,
+            From=child.join(
+                bind, child.RESOURCE_ID == bind.RESOURCE_ID,
+                'left outer').join(
+                    childMetaData, childMetaData.RESOURCE_ID == bind.RESOURCE_ID,
+                    'left outer'),
+            Where=(bind.HOME_RESOURCE_ID == Parameter("homeID")).And(
+                bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
+        )
 
 
     @classmethod
@@ -5432,8 +5478,8 @@ class SharingMixIn(object):
         return Select(
             [rev.RESOURCE_ID, Max(rev.REVISION)],
             From=rev,
-            Where=rev.RESOURCE_ID.In(Parameter("resourceIDs", len(resourceIDs))).
-                    And((rev.RESOURCE_NAME != None).Or(rev.DELETED == False)),
+            Where=rev.RESOURCE_ID.In(Parameter("resourceIDs", len(resourceIDs))).And(
+                (rev.RESOURCE_NAME != None).Or(rev.DELETED == False)),
             GroupBy=rev.RESOURCE_ID
         )
 
@@ -6095,8 +6141,8 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         obj = cls._objectSchema
         return Select(
             [obj.RESOURCE_NAME], From=obj,
-            Where=(obj.UID == Parameter("uid")
-                  ).And(obj.PARENT_RESOURCE_ID == Parameter("resourceID")))
+            Where=(obj.UID == Parameter("uid")).And(
+                obj.PARENT_RESOURCE_ID == Parameter("resourceID")))
 
 
     @inlineCallbacks
@@ -6124,8 +6170,9 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         obj = cls._objectSchema
         return Select(
             [obj.UID], From=obj,
-            Where=(obj.RESOURCE_NAME == Parameter("name")
-                  ).And(obj.PARENT_RESOURCE_ID == Parameter("resourceID")))
+            Where=(obj.RESOURCE_NAME == Parameter("name")).And(
+                obj.PARENT_RESOURCE_ID == Parameter("resourceID"))
+        )
 
 
     @inlineCallbacks
@@ -6437,7 +6484,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
                     [rev.RESOURCE_NAME, rev.DELETED],
                     From=rev,
                     Where=(rev.REVISION > revision).And(
-                    rev.RESOURCE_ID == self._resourceID)
+                        rev.RESOURCE_ID == self._resourceID)
                 ).on(self._txn))
                 if name
             ]
@@ -8028,7 +8075,7 @@ def determineNewest(uid, homeType):
             From=schema.NOTIFICATION_HOME.join(
                 schema.NOTIFICATION,
                 on=schema.NOTIFICATION_HOME.RESOURCE_ID ==
-                    schema.NOTIFICATION.NOTIFICATION_HOME_RESOURCE_ID),
+                schema.NOTIFICATION.NOTIFICATION_HOME_RESOURCE_ID),
             Where=schema.NOTIFICATION_HOME.OWNER_UID == uid
         )
     homeTypeName = {ECALENDARTYPE: "CALENDAR",
@@ -8039,9 +8086,9 @@ def determineNewest(uid, homeType):
     obj = getattr(schema, homeTypeName + "_OBJECT")
     return Select(
         [Max(obj.MODIFIED)],
-        From=home.join(bind, on=bind.HOME_RESOURCE_ID == home.RESOURCE_ID)
-           .join(child, on=child.RESOURCE_ID == bind.RESOURCE_ID)
-           .join(obj, on=obj.PARENT_RESOURCE_ID == child.RESOURCE_ID),
+        From=home.join(bind, on=bind.HOME_RESOURCE_ID == home.RESOURCE_ID).join(
+            child, on=child.RESOURCE_ID == bind.RESOURCE_ID).join(
+            obj, on=obj.PARENT_RESOURCE_ID == child.RESOURCE_ID),
         Where=(bind.BIND_MODE == 0).And(home.OWNER_UID == uid)
     )
 

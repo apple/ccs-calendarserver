@@ -71,10 +71,10 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         txn = self.transactionUnderTest()
         cs = schema.CALENDARSERVER
         version = (yield Select(
-                [cs.VALUE, ],
-                From=cs,
-                Where=cs.NAME == 'VERSION',
-            ).on(txn))
+            [cs.VALUE, ],
+            From=cs,
+            Where=cs.NAME == 'VERSION',
+        ).on(txn))
         self.assertNotEqual(version, None)
         self.assertEqual(len(version), 1)
         self.assertEqual(len(version[0]), 1)
@@ -350,23 +350,27 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         rp = schema.RESOURCE_PROPERTY
         txn = self.transactionUnderTest()
         # setup
-        yield Insert({rp.RESOURCE_ID: 1,
-                      rp.NAME: "asdf",
-                      rp.VALUE: "property-value",
-                      rp.VIEWER_UID: "not-a-uuid"}).on(txn)
-        yield Insert({rp.RESOURCE_ID: 2,
-                      rp.NAME: "fdsa",
-                      rp.VALUE: "another-value",
-                      rp.VIEWER_UID: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"}
-                    ).on(txn)
+        yield Insert({
+            rp.RESOURCE_ID: 1,
+            rp.NAME: "asdf",
+            rp.VALUE: "property-value",
+            rp.VIEWER_UID: "not-a-uuid"}).on(txn)
+        yield Insert({
+            rp.RESOURCE_ID: 2,
+            rp.NAME: "fdsa",
+            rp.VALUE: "another-value",
+            rp.VIEWER_UID: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"}
+        ).on(txn)
         # test
         from txdav.common.datastore.sql import _normalizeColumnUUIDs
         yield _normalizeColumnUUIDs(txn, rp.VIEWER_UID)
         self.assertEqual(
-            (yield Select([rp.RESOURCE_ID, rp.NAME,
-                           rp.VALUE, rp.VIEWER_UID], From=rp,
-                           OrderBy=rp.RESOURCE_ID, Ascending=True,
-                           ).on(txn)),
+            (yield Select(
+                [rp.RESOURCE_ID, rp.NAME,
+                    rp.VALUE, rp.VIEWER_UID],
+                From=rp,
+                OrderBy=rp.RESOURCE_ID, Ascending=True,
+            ).on(txn)),
             [[1, "asdf", "property-value", "not-a-uuid"],
              [2, "fdsa", "another-value",
               "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA"]]

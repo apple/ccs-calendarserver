@@ -66,25 +66,25 @@ class ConduitPOST (CommonCommonTests, txweb2.dav.test.util.TestCase):
     @classproperty(cache=False)
     def requirements(cls): #@NoSelf
         return {
-        "user01": {
-            "calendar_1": {
+            "user01": {
+                "calendar_1": {
+                },
+                "inbox": {
+                },
             },
-            "inbox": {
+            "user02": {
+                "calendar_1": {
+                },
+                "inbox": {
+                },
             },
-        },
-        "user02": {
-            "calendar_1": {
+            "user03": {
+                "calendar_1": {
+                },
+                "inbox": {
+                },
             },
-            "inbox": {
-            },
-        },
-        "user03": {
-            "calendar_1": {
-            },
-            "inbox": {
-            },
-        },
-    }
+        }
 
 
     @inlineCallbacks

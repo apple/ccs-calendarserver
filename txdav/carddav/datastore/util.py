@@ -52,7 +52,7 @@ def validateAddressBookComponent(addressbookObject, vcard, component, inserting)
             raise InvalidObjectResourceError(
                 "UID may not change (%s != %s)" % (
                     component.resourceUID(), addressbookObject.uid()
-                 )
+                )
             )
     except NoSuchObjectResourceError:
         pass

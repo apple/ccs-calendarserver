@@ -91,6 +91,7 @@ def timed(f):
     return timingWrapper
 
 
+
 @implementer(IDirectoryService, IStoreDirectoryService)
 class AugmentedDirectoryService(
     BaseDirectoryService, CalendarDirectoryServiceMixin

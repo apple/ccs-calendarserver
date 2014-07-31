@@ -221,10 +221,10 @@ class SampleSomeColumns(TestCase, SchemaTestHelper):
         """
         self.assertSortaEquals(
             self.translated(SchemaSyntax(self.schemaFromString(
-                            "create table alpha ( "
-                            'beta integer, check (beta > 3)'
-                            " );"
-                        ))),
+                "create table alpha ( "
+                'beta integer, check (beta > 3)'
+                " );"
+            ))),
             "create table alpha ( "
             '"beta" integer, check ("beta" > 3)'
             " );"
@@ -238,10 +238,10 @@ class SampleSomeColumns(TestCase, SchemaTestHelper):
         """
         self.assertSortaEquals(
             self.translated(SchemaSyntax(self.schemaFromString(
-                            "create table alpha ( "
-                            'beta integer, constraint beta_lt_3 check (beta > 3)'
-                            " );"
-                        ))),
+                "create table alpha ( "
+                'beta integer, constraint beta_lt_3 check (beta > 3)'
+                " );"
+            ))),
             "create table alpha ( "
             '"beta" integer, constraint "beta_lt_3" check ("beta" > 3)'
             " );"
@@ -303,26 +303,26 @@ class SQLSplitterTests(TestCase):
         One complex sql statement yields a single string
         """
         bigSQL = dedent(
-        '''SELECT
-              CL.CODE,
-              CL.CATEGORY,
-           FROM
-              CLIENTS_SUPPLIERS CL
-              INVOICES I
-           WHERE
-              CL.CODE = I.CODE AND
-              CL.CATEGORY = I.CATEGORY AND
-              CL.UP_DATE =
-                (SELECT
-                   MAX(CL2.UP_DATE)
-                 FROM
-                   CLIENTS_SUPPLIERS CL2
-                 WHERE
-                   CL2.CODE = I.CODE AND
-                   CL2.CATEGORY = I.CATEGORY AND
-                   CL2.UP_DATE <= I.EMISSION
-                ) AND
-                I.EMISSION BETWEEN DATE1 AND DATE2;''')
+            '''SELECT
+                  CL.CODE,
+                  CL.CATEGORY,
+               FROM
+                  CLIENTS_SUPPLIERS CL
+                  INVOICES I
+               WHERE
+                  CL.CODE = I.CODE AND
+                  CL.CATEGORY = I.CATEGORY AND
+                  CL.UP_DATE =
+                    (SELECT
+                       MAX(CL2.UP_DATE)
+                     FROM
+                       CLIENTS_SUPPLIERS CL2
+                     WHERE
+                       CL2.CODE = I.CODE AND
+                       CL2.CATEGORY = I.CATEGORY AND
+                       CL2.UP_DATE <= I.EMISSION
+                    ) AND
+                    I.EMISSION BETWEEN DATE1 AND DATE2;''')
         result = splitSQLString(bigSQL)
         r1 = result.next()
         self.assertEquals(r1, bigSQL.rstrip(";"))
@@ -334,13 +334,13 @@ class SQLSplitterTests(TestCase):
         One pl/sql block yields a single string
         """
         plsql = dedent(
-        '''BEGIN
-           LOOP
-               INSERT INTO T1 VALUES(i,i);
-               i := i+1;
-               EXIT WHEN i>100;
-           END LOOP;
-           END;''')
+            '''BEGIN
+               LOOP
+                   INSERT INTO T1 VALUES(i,i);
+                   i := i+1;
+                   EXIT WHEN i>100;
+               END LOOP;
+               END;''')
         s1 = 'BEGIN\nLOOP\nINSERT INTO T1 VALUES(i,i);i := i+1;EXIT WHEN i>100;END LOOP;END;'
         result = splitSQLString(plsql)
         r1 = result.next()
@@ -353,23 +353,23 @@ class SQLSplitterTests(TestCase):
         One sql statement and one pl/sql statement yields two separate strings
         """
         sql = dedent(
-        '''SELECT EGM.Name, BioEntity.BioEntityId INTO AUX
-            FROM EGM
-            INNER JOIN BioEntity
-                ON EGM.name LIKE BioEntity.Name AND EGM.TypeId = BioEntity.TypeId
-            OPTION (MERGE JOIN);''')
+            '''SELECT EGM.Name, BioEntity.BioEntityId INTO AUX
+                FROM EGM
+                INNER JOIN BioEntity
+                    ON EGM.name LIKE BioEntity.Name AND EGM.TypeId = BioEntity.TypeId
+                OPTION (MERGE JOIN);''')
         plsql = dedent(
-        '''BEGIN
-           FOR i IN 1..10 LOOP
-               IF MOD(i,2) = 0 THEN
-                   INSERT INTO temp VALUES (i, x, 'i is even');
-               ELSE
-                   INSERT INTO temp VALUES (i, x, 'i is odd');
-               END IF;
-               x := x + 100;
-           END LOOP;
-           COMMIT;
-           END;''')
+            '''BEGIN
+               FOR i IN 1..10 LOOP
+                   IF MOD(i,2) = 0 THEN
+                       INSERT INTO temp VALUES (i, x, 'i is even');
+                   ELSE
+                       INSERT INTO temp VALUES (i, x, 'i is odd');
+                   END IF;
+                   x := x + 100;
+               END LOOP;
+               COMMIT;
+               END;''')
         s2 = "BEGIN\nFOR i IN 1..10 LOOP\nIF MOD(i,2) = 0 THEN\nINSERT INTO temp VALUES (i, x, 'i is even');ELSE\nINSERT INTO temp VALUES (i, x, 'i is odd');END IF;x := x + 100;END LOOP;COMMIT;END;"
         result = splitSQLString(sql + plsql)
         r1 = result.next()
@@ -384,32 +384,32 @@ class SQLSplitterTests(TestCase):
         One sql statement and one pl/sql statement yields two separate strings
         """
         sql = dedent(
-        '''SELECT EGM.Name, BioEntity.BioEntityId INTO AUX
-            FROM EGM
-            INNER JOIN BioEntity
-                ON EGM.name LIKE BioEntity.Name AND EGM.TypeId = BioEntity.TypeId
-            OPTION (MERGE JOIN);''')
+            '''SELECT EGM.Name, BioEntity.BioEntityId INTO AUX
+                FROM EGM
+                INNER JOIN BioEntity
+                    ON EGM.name LIKE BioEntity.Name AND EGM.TypeId = BioEntity.TypeId
+                OPTION (MERGE JOIN);''')
         sqlfn = dedent(
-        '''CREATE or REPLACE FUNCTION foobar() RETURNS integer as $$
-           DECLARE
-             result integer;
-           BEGIN
-            SELECT ID into result from JOB;
-            RETURN result;
-           END
-           $$ LANGUAGE plpgsql;''')
+            '''CREATE or REPLACE FUNCTION foobar() RETURNS integer as $$
+               DECLARE
+                 result integer;
+               BEGIN
+                SELECT ID into result from JOB;
+                RETURN result;
+               END
+               $$ LANGUAGE plpgsql;''')
         plsql = dedent(
-        '''BEGIN
-           FOR i IN 1..10 LOOP
-               IF MOD(i,2) = 0 THEN
-                   INSERT INTO temp VALUES (i, x, 'i is even');
-               ELSE
-                   INSERT INTO temp VALUES (i, x, 'i is odd');
-               END IF;
-               x := x + 100;
-           END LOOP;
-           COMMIT;
-           END;''')
+            '''BEGIN
+               FOR i IN 1..10 LOOP
+                   IF MOD(i,2) = 0 THEN
+                       INSERT INTO temp VALUES (i, x, 'i is even');
+                   ELSE
+                       INSERT INTO temp VALUES (i, x, 'i is odd');
+                   END IF;
+                   x := x + 100;
+               END LOOP;
+               COMMIT;
+               END;''')
         s3 = "BEGIN\nFOR i IN 1..10 LOOP\nIF MOD(i,2) = 0 THEN\nINSERT INTO temp VALUES (i, x, 'i is even');ELSE\nINSERT INTO temp VALUES (i, x, 'i is odd');END IF;x := x + 100;END LOOP;COMMIT;END;"
         result = splitSQLString(sql + sqlfn + plsql)
         r1 = result.next()
@@ -427,50 +427,50 @@ class SQLSplitterTests(TestCase):
         ignoring comments
         """
         realsql = dedent(
-        '''
-        ----
-        -- Copyright (c) 2011-2014 Apple Inc. All rights reserved.
-        --
-        -- Licensed under the Apache License, Version 2.0 (the "License");
-        -- you may not use this file except in compliance with the License.
-        -- You may obtain a copy of the License at
-        --
-        -- http://www.apache.org/licenses/LICENSE-2.0
-        --
-        -- Unless required by applicable law or agreed to in writing, software
-        -- distributed under the License is distributed on an "AS IS" BASIS,
-        -- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-        -- See the License for the specific language governing permissions and
-        -- limitations under the License.
-        ----
+            '''
+            ----
+            -- Copyright (c) 2011-2014 Apple Inc. All rights reserved.
+            --
+            -- Licensed under the Apache License, Version 2.0 (the "License");
+            -- you may not use this file except in compliance with the License.
+            -- You may obtain a copy of the License at
+            --
+            -- http://www.apache.org/licenses/LICENSE-2.0
+            --
+            -- Unless required by applicable law or agreed to in writing, software
+            -- distributed under the License is distributed on an "AS IS" BASIS,
+            -- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+            -- See the License for the specific language governing permissions and
+            -- limitations under the License.
+            ----
 
-        ---------------------------------------------------
-        -- Upgrade database schema from VERSION 16 to 17 --
-        ---------------------------------------------------
-
-
-        ------------------------------
-        -- CALENDAR_OBJECT clean-up --
-        ------------------------------
-
-        begin
-        for i in (select constraint_name from user_cons_columns where column_name = 'ORGANIZER_OBJECT')
-        loop
-        execute immediate 'alter table calendar_object drop constraint ' || i.constraint_name;
-        end loop;
-        end;
-
-        alter table CALENDAR_OBJECT
-         drop (ORGANIZER_OBJECT);
-
-        create index CALENDAR_OBJECT_ICALE_82e731d5 on CALENDAR_OBJECT (
-            ICALENDAR_UID
-        );
+            ---------------------------------------------------
+            -- Upgrade database schema from VERSION 16 to 17 --
+            ---------------------------------------------------
 
 
-        -- Now update the version
-        update CALENDARSERVER set VALUE = '17' where NAME = 'VERSION';
-        ''')
+            ------------------------------
+            -- CALENDAR_OBJECT clean-up --
+            ------------------------------
+
+            begin
+            for i in (select constraint_name from user_cons_columns where column_name = 'ORGANIZER_OBJECT')
+            loop
+            execute immediate 'alter table calendar_object drop constraint ' || i.constraint_name;
+            end loop;
+            end;
+
+            alter table CALENDAR_OBJECT
+             drop (ORGANIZER_OBJECT);
+
+            create index CALENDAR_OBJECT_ICALE_82e731d5 on CALENDAR_OBJECT (
+                ICALENDAR_UID
+            );
+
+
+            -- Now update the version
+            update CALENDARSERVER set VALUE = '17' where NAME = 'VERSION';
+            ''')
         s1 = "begin\nfor i in (select constraint_name from user_cons_columns where column_name = 'ORGANIZER_OBJECT')\nloop\nexecute immediate 'alter table calendar_object drop constraint ' || i.constraint_name;end loop;end;"
         s2 = 'alter table CALENDAR_OBJECT\n drop (ORGANIZER_OBJECT)'
         s3 = 'create index CALENDAR_OBJECT_ICALE_82e731d5 on CALENDAR_OBJECT (\n    ICALENDAR_UID\n)'

@@ -869,7 +869,7 @@ END:VCALENDAR
         yield self.commit()
         yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
 
-        #finally, simulate an event that has become old
+        # finally, simulate an event that has become old
         self.patch(CalendarDirectoryRecordMixin, "expandedMembers", unpatchedExpandedMembers)
 
         (
@@ -878,11 +878,10 @@ END:VCALENDAR
         ) = yield self.transactionUnderTest().groupByUID("group01")
         ga = schema.GROUP_ATTENDEE
         yield Insert({
-                ga.RESOURCE_ID: cobj._resourceID,
-                ga.GROUP_ID: groupID,
-                ga.MEMBERSHIP_HASH: (-1),
-            }
-        ).on(self.transactionUnderTest())
+            ga.RESOURCE_ID: cobj._resourceID,
+            ga.GROUP_ID: groupID,
+            ga.MEMBERSHIP_HASH: (-1),
+        }).on(self.transactionUnderTest())
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "group01")
         self.assertEqual(len(wps), 1)
         yield self.commit()
@@ -1032,7 +1031,7 @@ END:VCALENDAR
             yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
         self.assertEqual(len(wps), 0)
 
-        #finally, simulate an event that has become old
+        # finally, simulate an event that has become old
         self.patch(CalendarDirectoryRecordMixin, "expandedMembers", unpatchedExpandedMembers)
 
         (
@@ -1041,11 +1040,10 @@ END:VCALENDAR
         ) = yield self.transactionUnderTest().groupByUID("group01")
         ga = schema.GROUP_ATTENDEE
         yield Insert({
-                ga.RESOURCE_ID: cobj._resourceID,
-                ga.GROUP_ID: groupID,
-                ga.MEMBERSHIP_HASH: (-1),
-            }
-        ).on(self.transactionUnderTest())
+            ga.RESOURCE_ID: cobj._resourceID,
+            ga.GROUP_ID: groupID,
+            ga.MEMBERSHIP_HASH: (-1),
+        }).on(self.transactionUnderTest())
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "group01")
         self.assertEqual(len(wps), 1)
         yield self.commit()
@@ -1194,7 +1192,7 @@ END:VCALENDAR
                     )
                 )
 
-        #TODO: add some meaningful test
+        # TODO: add some meaningful test
         '''
         cal = yield self.calendarUnderTest(name="calendar", home="user01")
         cobjs = yield cal.objectResources()
@@ -1344,7 +1342,7 @@ END:VCALENDAR
                 )
 
         yield self._verifyObjectResourceCount("user01", 1)
-        #TODO: add some meaningful test
+        # TODO: add some meaningful test
         '''
         cal = yield self.calendarUnderTest(name="calendar", home="user01")
         cobjs = yield cal.objectResources()
