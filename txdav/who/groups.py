@@ -22,7 +22,7 @@ Group membership caching
 from pycalendar.datetime import DateTime
 from pycalendar.duration import Duration
 from twext.enterprise.dal.record import fromTable
-from twext.enterprise.dal.syntax import Delete, Select
+from twext.enterprise.dal.syntax import Delete, Select, Parameter
 from twext.enterprise.jobqueue import WorkItem, RegeneratingWorkItem
 from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
@@ -331,6 +331,15 @@ class GroupCacher(object):
             )
             self.log.debug("Enqueued group refresh for {u}", u=groupUID)
 
+        # remove unused groups
+        gr = schema.GROUPS
+        yield Delete(
+            From=gr,
+            Where=gr.GROUP_UID.NotIn(
+                Parameter("groupUIDs", len(groupUIDs))
+            ) if groupUIDs else None
+        ).on(txn, groupUIDs=groupUIDs)
+
 
     @inlineCallbacks
     def applyExternalAssignments(self, txn, newAssignments):
@@ -380,12 +389,32 @@ class GroupCacher(object):
             and updates the GROUP_MEMBERSHIP table
             WorkProposal is returned for tests
         """
-        groupID, membershipChanged = yield txn.refreshGroup(groupUID)
+        self.log.debug("Faulting in group: {g}", g=groupUID)
+        record = (yield self.directory.recordWithUID(groupUID))
+        if record is None:
+            # the group has disappeared from the directory
+            self.log.info("Group is missing: {g}", g=groupUID)
+        else:
+            self.log.debug("Got group record: {u}", u=record.uid)
 
-        if membershipChanged:
-            wpsAttendee = yield self.scheduleGroupAttendeeReconciliations(txn, groupID)
-            wpsShareee = yield self.scheduleGroupShareeReconciliations(txn, groupID)
-            returnValue(wpsAttendee + wpsShareee)
+        (
+            groupID, cachedName, cachedMembershipHash, _ignore_modified,
+            cachedExtant
+        ) = yield txn.groupByUID(
+            groupUID,
+            create=(record is not None)
+        )
+
+        if groupID:
+            membershipChanged = yield txn.refreshGroup(
+                groupUID, record, groupID,
+                cachedName, cachedMembershipHash, cachedExtant
+            )
+
+            if membershipChanged:
+                wpsAttendee = yield self.scheduleGroupAttendeeReconciliations(txn, groupID)
+                wpsShareee = yield self.scheduleGroupShareeReconciliations(txn, groupID)
+                returnValue(wpsAttendee + wpsShareee)
 
         returnValue(tuple())
 
@@ -462,7 +491,7 @@ class GroupCacher(object):
 
     @inlineCallbacks
     def groupsToRefresh(self, txn):
-        delegatedUIDs = set((yield txn.allGroupDelegates()))
+        delegatedUIDs = frozenset((yield txn.allGroupDelegates()))
         self.log.info(
             "There are {count} group delegates", count=len(delegatedUIDs)
         )
@@ -481,7 +510,7 @@ class GroupCacher(object):
                 )
             )
         ).on(txn)
-        attendeeGroupUIDs = set([row[0] for row in rows])
+        attendeeGroupUIDs = frozenset([row[0] for row in rows])
         self.log.info(
             "There are {count} group attendees", count=len(attendeeGroupUIDs)
         )
@@ -500,11 +529,9 @@ class GroupCacher(object):
                 )
             )
         ).on(txn)
-        shareeGroupUIDs = set([row[0] for row in rows])
+        shareeGroupUIDs = frozenset([row[0] for row in rows])
         self.log.info(
             "There are {count} group sharees", count=len(shareeGroupUIDs)
         )
-
-        # FIXME: is this a good place to clear out unreferenced groups?
 
         returnValue(frozenset(delegatedUIDs | attendeeGroupUIDs | shareeGroupUIDs))

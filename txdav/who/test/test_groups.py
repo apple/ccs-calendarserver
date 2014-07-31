@@ -478,19 +478,21 @@ class DynamicGroupTest(StoreTestCase):
                 )
             )
 
-        # Add a group
-        records.append(
-            TestRecord(
-                self.directory,
-                {
-                    fieldName.uid: u"testgroup",
-                    fieldName.recordType: RecordType.group,
-                }
+        # Add two groups
+        for uid in (u"testgroup", u"emptygroup",):
+            records.append(
+                TestRecord(
+                    self.directory,
+                    {
+                        fieldName.uid: uid,
+                        fieldName.recordType: RecordType.group,
+                    }
+                )
             )
-        )
 
-        yield self.directory.updateRecords(records, create=True)
+            yield self.directory.updateRecords(records, create=True)
 
+        # add members to test group
         group = yield self.directory.recordWithUID(u"testgroup")
         members = yield self.directory.recordsWithRecordType(RecordType.user)
         yield group.setMembers(members)
@@ -505,67 +507,129 @@ class DynamicGroupTest(StoreTestCase):
         """
         store = self.storeUnderTest()
 
-        txn = store.newTransaction()
-        yield self.groupCacher.refreshGroup(txn, u"testgroup")
-        (
-            _ignore_groupID, _ignore_name, _ignore_membershipHash, _ignore_modified,
-            extant
-        ) = (yield txn.groupByUID(u"testgroup"))
-        yield txn.commit()
+        for uid in (u"testgroup", u"emptygroup",):
 
-        self.assertTrue(extant)
-
-        # Remove the group
-        yield self.directory.removeRecords([u"testgroup"])
-
-        txn = store.newTransaction()
-        yield self.groupCacher.refreshGroup(txn, u"testgroup")
-        (
-            groupID, _ignore_name, _ignore_membershipHash, _ignore_modified,
-            extant
-        ) = (yield txn.groupByUID(u"testgroup"))
-        yield txn.commit()
-
-        # Extant = False
-        self.assertFalse(extant)
-
-        # The list of members stored in the DB for this group is now empty
-        txn = store.newTransaction()
-        members = yield txn.groupMemberUIDs(groupID)
-        yield txn.commit()
-        self.assertEquals(members, set())
-
-        # Add the group back into the directory
-        fieldName = self.directory.fieldName
-        yield self.directory.updateRecords(
+            txn = store.newTransaction()
+            yield self.groupCacher.refreshGroup(txn, uid)
             (
-                TestRecord(
-                    self.directory,
-                    {
-                        fieldName.uid: u"testgroup",
-                        fieldName.recordType: RecordType.group,
-                    }
+                _ignore_groupID, _ignore_name, _ignore_membershipHash, _ignore_modified,
+                extant
+            ) = (yield txn.groupByUID(uid))
+            yield txn.commit()
+
+            self.assertTrue(extant)
+
+            # Remove the group
+            yield self.directory.removeRecords([uid])
+
+            txn = store.newTransaction()
+            yield self.groupCacher.refreshGroup(txn, uid)
+            (
+                groupID, _ignore_name, _ignore_membershipHash, _ignore_modified,
+                extant
+            ) = (yield txn.groupByUID(uid))
+            yield txn.commit()
+
+            # Extant = False
+            self.assertFalse(extant)
+
+            # The list of members stored in the DB for this group is now empty
+            txn = store.newTransaction()
+            members = yield txn.groupMemberUIDs(groupID)
+            yield txn.commit()
+            self.assertEquals(members, set())
+
+            # Add the group back into the directory
+            fieldName = self.directory.fieldName
+            yield self.directory.updateRecords(
+                (
+                    TestRecord(
+                        self.directory,
+                        {
+                            fieldName.uid: uid,
+                            fieldName.recordType: RecordType.group,
+                        }
+                    ),
                 ),
-            ),
-            create=True
-        )
-        group = yield self.directory.recordWithUID(u"testgroup")
-        members = yield self.directory.recordsWithRecordType(RecordType.user)
-        yield group.setMembers(members)
+                create=True
+            )
+            if uid == u"testgroup":
+                group = yield self.directory.recordWithUID(uid)
+                members = yield self.directory.recordsWithRecordType(RecordType.user)
+                yield group.setMembers(members)
 
+            txn = store.newTransaction()
+            yield self.groupCacher.refreshGroup(txn, uid)
+            (
+                groupID, _ignore_name, _ignore_membershipHash, _ignore_modified,
+                extant
+            ) = (yield txn.groupByUID(uid))
+            yield txn.commit()
+
+            # Extant = True
+            self.assertTrue(extant)
+
+            # The list of members stored in the DB for this group has 100 users
+            txn = store.newTransaction()
+            members = yield txn.groupMemberUIDs(groupID)
+            yield txn.commit()
+            self.assertEquals(len(members), 100 if uid == u"testgroup" else 0)
+
+
+    @inlineCallbacks
+    def test_update_delete(self):
+        """
+        Verify that unused groups are deleted from group cache
+        """
+        store = self.storeUnderTest()
+
+        # unused group deleted
+        for uid in (u"testgroup", u"emptygroup",):
+
+            txn = store.newTransaction()
+            yield self.groupCacher.refreshGroup(txn, uid)
+            groupID = (yield txn.groupByUID(uid, create=False))[0]
+            yield txn.commit()
+
+            self.assertNotEqual(groupID, None)
+
+            txn = store.newTransaction()
+            yield self.groupCacher.update(txn)
+            groupID = (yield txn.groupByUID(uid, create=False))[0]
+
+            self.assertEqual(groupID, None)
+
+        # delegate groups not deleted
+        for uid in (u"testgroup", u"emptygroup",):
+
+            groupID = (yield txn.groupByUID(uid))[0]
+            yield txn.addDelegateGroup(delegator=u"sagen", delegateGroupID=groupID, readWrite=True)
+            yield txn.commit()
+
+            self.assertNotEqual(groupID, None)
+
+            txn = store.newTransaction()
+            yield self.groupCacher.update(txn)
+            groupID = (yield txn.groupByUID(uid, create=False))[0]
+
+            self.assertNotEqual(groupID, None)
+
+        # delegate group is deleted. unused group is deleted
         txn = store.newTransaction()
-        yield self.groupCacher.refreshGroup(txn, u"testgroup")
-        (
-            groupID, _ignore_name, _ignore_membershipHash, _ignore_modified,
-            extant
-        ) = (yield txn.groupByUID(u"testgroup"))
+        testGroupID = (yield txn.groupByUID(u"testgroup", create=False))[0]
+        yield txn.removeDelegateGroup(delegator=u"sagen", delegateGroupID=testGroupID, readWrite=True)
+        testGroupID = (yield txn.groupByUID(u"testgroup", create=False))[0]
+        emptyGroupID = (yield txn.groupByUID(u"emptygroup", create=False))[0]
         yield txn.commit()
 
-        # Extant = True
-        self.assertTrue(extant)
+        self.assertNotEqual(testGroupID, None)
+        self.assertNotEqual(emptyGroupID, None)
 
-        # The list of members stored in the DB for this group has 100 users
         txn = store.newTransaction()
-        members = yield txn.groupMemberUIDs(groupID)
+        yield self.groupCacher.update(txn)
+        testGroupID = (yield txn.groupByUID(u"testgroup", create=False))[0]
+        emptyGroupID = (yield txn.groupByUID(u"emptygroup", create=False))[0]
         yield txn.commit()
-        self.assertEquals(len(members), 100)
+
+        self.assertEqual(testGroupID, None)
+        self.assertNotEqual(emptyGroupID, None)

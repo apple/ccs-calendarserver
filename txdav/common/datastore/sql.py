@@ -1107,8 +1107,8 @@ class CommonStoreTransaction(object):
         )
 
         record = yield self.directoryService().recordWithUID(groupUID)
-        yield self._refreshGroup(
-            groupUID, record, groupID, name.encode("utf-8"), membershipHash
+        yield self.refreshGroup(
+            groupUID, record, groupID, name.encode("utf-8"), membershipHash, True
         )
         returnValue(groupID)
 
@@ -1320,44 +1320,7 @@ class CommonStoreTransaction(object):
 
 
     @inlineCallbacks
-    def refreshGroup(self, groupUID):
-        """
-        Refreshes the group membership cache.
-
-        @param groupUID: the group UID
-        @type groupUID: C{unicode}
-
-        @return: Deferred firing with tuple of group ID C{str}, and
-            membershipChanged C{boolean}
-
-        """
-        log.debug("Faulting in group: {g}", g=groupUID)
-        record = (yield self.directoryService().recordWithUID(groupUID))
-        if record is None:
-            # the group has disappeared from the directory
-            log.info("Group is missing: {g}", g=groupUID)
-        else:
-            log.debug("Got group record: {u}", u=record.uid)
-
-        (
-            groupID, cachedName, cachedMembershipHash, _ignore_modified,
-            _ignore_extant
-        ) = yield self.groupByUID(
-            groupUID,
-            create=(record is not None)
-        )
-
-        membershipChanged = False
-        if groupID:
-            membershipChanged = yield self._refreshGroup(
-                groupUID, record, groupID, cachedName, cachedMembershipHash
-            )
-
-        returnValue((groupID, membershipChanged))
-
-
-    @inlineCallbacks
-    def _refreshGroup(self, groupUID, record, groupID, cachedName, cachedMembershipHash):
+    def refreshGroup(self, groupUID, record, groupID, cachedName, cachedMembershipHash, cachedExtant):
         """
         @param groupUID: the directory record
         @type groupUID: C{unicode}
@@ -1369,6 +1332,8 @@ class CommonStoreTransaction(object):
         @type cachedName: C{unicode}
         @param cachedMembershipHash: membership hash in the database
         @type cachedMembershipHash: C{str}
+        @param cachedExtant: extent field from in the database
+        @type cachedExtant: C{bool}
 
         @return: Deferred firing with membershipChanged C{boolean}
 
@@ -1383,9 +1348,7 @@ class CommonStoreTransaction(object):
             extant = False
 
         membershipHashContent = hashlib.md5()
-        members = list(members)
-        members.sort(key=lambda x: x.uid)
-        for member in members:
+        for member in sorted(members, key=lambda x: x.uid):
             membershipHashContent.update(str(member.uid))
         membershipHash = membershipHashContent.hexdigest()
 
@@ -1397,7 +1360,7 @@ class CommonStoreTransaction(object):
         else:
             membershipChanged = False
 
-        if membershipChanged or record is not None:
+        if membershipChanged or extant != cachedExtant:
             # also updates group mod date
             yield self.updateGroup(
                 groupUID, name, membershipHash, extant=extant
