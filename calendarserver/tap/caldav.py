@@ -28,7 +28,7 @@ from os import getuid, getgid, umask, remove, environ, stat, chown
 from os.path import exists, basename, isfile
 import socket
 from stat import S_ISSOCK
-from time import time
+import time
 from subprocess import Popen, PIPE
 from pwd import getpwuid, getpwnam
 from grp import getgrnam
@@ -682,6 +682,26 @@ class PreProcessingService(Service):
                     0, service.setServiceParent, self.parent
                 )
         except StoreNotAvailable:
+            log.error("Data store not available; shutting down")
+
+            if config.ServiceDisablingProgram:
+                # If the store is not available, we don't want launchd to
+                # repeatedly launch us, we want our job to get unloaded.
+                # If the config.ServiceDisablingProgram is assigned and exists
+                # we execute it now.  Its job is to carry out the platform-
+                # specific tasks of disabling the service.
+                if exists(config.ServiceDisablingProgram):
+                    log.error(
+                        "Disabling service via {exe}",
+                        exe=config.ServiceDisablingProgram
+                    )
+                    Popen(
+                        args=[config.ServiceDisablingProgram],
+                        stdout=PIPE,
+                        stderr=PIPE,
+                    ).communicate()
+                    time.sleep(60)
+
             self.reactor.stop()
 
         return succeed(None)
@@ -704,13 +724,6 @@ class PreProcessingService(Service):
         """
         self.addStep(self)
         self.stepper.start()
-
-
-
-class PostUpgradeStopRequested(Exception):
-    """
-    Raised when we've been asked to stop just after upgrade has completed.
-    """
 
 
 
@@ -2447,7 +2460,7 @@ class DelayedStartupProcessMonitor(Service, object):
         p.service = self
         p.name = name
         procObj, env, uid, gid = self.processes[name]
-        self.timeStarted[name] = time()
+        self.timeStarted[name] = time.time()
 
         childFDs = {0: "w", 1: "r", 2: "r"}
 
@@ -2504,7 +2517,7 @@ class DelayedStartupProcessMonitor(Service, object):
 
             if uidgid:
                 uidgid = '(' + uidgid + ')'
-            l.append("{:r}{}: {:r}".format(name, uidgid, procObj))
+            l.append("{}{}: {}".format(name, uidgid, procObj))
 
         return (
             "<{self.__class__.__name__} {l}>"

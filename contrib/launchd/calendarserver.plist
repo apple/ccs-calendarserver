@@ -34,6 +34,8 @@ limitations under the License.
     <string>kqueue</string>
     <string>-o</string>
     <string>FailIfUpgradeNeeded=False</string>
+    <string>-o</string>
+    <string>ServiceDisablingProgram=/Applications/Server.app/Contents/ServerRoot/Library/CalendarServer/bin/calendarserver_stop
   </array>
 
   <key>EnvironmentVariables</key>
@@ -44,7 +46,7 @@ limitations under the License.
 
   <key>InitGroups</key>
   <true/>
-  
+
   <key>AbandonProcessGroup</key>
   <true/>
 
@@ -68,7 +70,7 @@ limitations under the License.
 
   <key>PreventsSleep</key>
   <true/>
-  
+
   <key>StandardOutPath</key>
   <string>/Library/Server/Logs/caldavd.log</string>
 

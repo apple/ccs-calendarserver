@@ -1130,6 +1130,10 @@ DEFAULT_CONFIG = {
     # means no automatic shutdown.
     "AgentInactivityTimeoutSeconds"  : 5 * 60,
 
+    # Program to execute if the service cannot start; for example in OS X we
+    # want to call serveradmin to disable the service so launchd does not keep
+    # respawning it.  Empty string to disable this feature.
+    "ServiceDisablingProgram": "",
 
     # These three keys are relative to ConfigRoot:
 
