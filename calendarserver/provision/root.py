@@ -367,7 +367,7 @@ class RootResource(
                             .format(agent)
                         ))
 
-        if not hasattr(request, "authzUser"):
+        if not hasattr(request, "authnUser"):
             try:
                 authnUser, authzUser = yield self.authenticate(request)
                 request.authnUser = authnUser
