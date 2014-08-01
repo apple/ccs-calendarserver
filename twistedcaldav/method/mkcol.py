@@ -154,8 +154,10 @@ def http_MKCOL(self, request):
                 raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
 
             # Make sure feature is enabled
-            if (rtype == "calendar" and not config.EnableCalDAV or
-                rtype == "addressbook" and not config.EnableCardDAV):
+            if (
+                rtype == "calendar" and not config.EnableCalDAV or
+                rtype == "addressbook" and not config.EnableCardDAV
+            ):
                 error = "{DAV:}resourcetype property in MKCOL request body not supported: %s" % (mkcol,)
                 log.error("Error: {err}", err=error)
                 raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
@@ -184,8 +186,8 @@ def http_MKCOL(self, request):
             # Clean up
             errors.error()
             raise HTTPError(Response(
-                    code=responsecode.FORBIDDEN,
-                    stream=mkcolxml.MakeCollectionResponse(errors.response()).toxml()
+                code=responsecode.FORBIDDEN,
+                stream=mkcolxml.MakeCollectionResponse(errors.response()).toxml()
             ))
 
         # When calendar collections are single component only, default MKCALENDAR is VEVENT only

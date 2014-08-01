@@ -74,16 +74,16 @@ class iCalendar (twistedcaldav.test.util.TestCase):
 
 
     def test_component_equality(self):
-#        for filename in (
-#            os.path.join(self.data_dir, "Holidays", "C318A4BA-1ED0-11D9-A5E0-000A958A3252.ics"),
-#            os.path.join(self.data_dir, "Holidays.ics"),
-#        ):
-#            data = file(filename).read()
-#
-#            calendar1 = Component.fromString(data)
-#            calendar2 = Component.fromString(data)
-#
-#            self.assertEqual(calendar1, calendar2)
+        # for filename in (
+        #     os.path.join(self.data_dir, "Holidays", "C318A4BA-1ED0-11D9-A5E0-000A958A3252.ics"),
+        #     os.path.join(self.data_dir, "Holidays.ics"),
+        # ):
+        #     data = file(filename).read()
+        #
+        #     calendar1 = Component.fromString(data)
+        #     calendar2 = Component.fromString(data)
+        #
+        #     self.assertEqual(calendar1, calendar2)
 
         data1 = (
             (
@@ -334,7 +334,8 @@ END:VCALENDAR
 
         # Fix it
         calendar.validCalendarData(doFix=True)
-        self.assertTrue("RRULE:FREQ=DAILY;UNTIL=20110121T203000Z\r\n"
+        self.assertTrue(
+            "RRULE:FREQ=DAILY;UNTIL=20110121T203000Z\r\n"
             in str(calendar))
 
         # Now it should pass without fixing
@@ -536,14 +537,18 @@ END:VCALENDAR
             self.fail("Shouldn't validate for CalDAV")
 
         # Fix it
-        fixed, unfixed = calendar.validCalendarData(doFix=True,
+        fixed, unfixed = calendar.validCalendarData(
+            doFix=True,
             validateRecurrences=True)
-        self.assertEquals(fixed,
-            ["Removed earlier EXDATE: 20120201T113000",
-            "Removed earlier EXDATE: 20120202T113000",
-            "Removed earlier EXDATE: 20120214T113000",
-            "Removed earlier EXDATE: 20120215T113000",
-            "Removed earlier EXDATE: 20120216T113000"]
+        self.assertEquals(
+            fixed,
+            [
+                "Removed earlier EXDATE: 20120201T113000",
+                "Removed earlier EXDATE: 20120202T113000",
+                "Removed earlier EXDATE: 20120214T113000",
+                "Removed earlier EXDATE: 20120215T113000",
+                "Removed earlier EXDATE: 20120216T113000"
+            ]
         )
         self.assertEquals(unfixed, [])
 
@@ -3524,7 +3529,7 @@ X-ITEM2:True
 END:VEVENT
 END:VCALENDAR
 """,
-            ("X-ITEM2",),
+                ("X-ITEM2",),
             ),
             (
                 "Non recurring - two properties",
@@ -3567,7 +3572,7 @@ X-ITEM3:True
 END:VEVENT
 END:VCALENDAR
 """,
-            ("X-ITEM2", "X-ITEM3",),
+                ("X-ITEM2", "X-ITEM3",),
             ),
             (
                 "Non recurring - two properties - one overlap",
@@ -3610,7 +3615,7 @@ X-ITEM1:False
 END:VEVENT
 END:VCALENDAR
 """,
-            ("X-ITEM2", "X-ITEM1",),
+                ("X-ITEM2", "X-ITEM1",),
             ),
             (
                 "Non recurring - one property",
@@ -3679,7 +3684,7 @@ X-ITEM2:False
 END:VEVENT
 END:VCALENDAR
 """,
-            ("X-ITEM2",),
+                ("X-ITEM2",),
             ),
             (
                 "Non recurring - new override, one property",
@@ -3740,7 +3745,7 @@ X-ITEM2:True
 END:VEVENT
 END:VCALENDAR
 """,
-            ("X-ITEM2",),
+                ("X-ITEM2",),
             ),
         )
 
@@ -5298,7 +5303,7 @@ DTSTAMP:20080601T120000Z
 END:VEVENT
 END:VCALENDAR
 """,
-            1, 0,
+                1, 0,
             ),
             (
                 "1.2 - valid with RDATE",
@@ -5338,7 +5343,7 @@ DTSTAMP:20080601T120000Z
 END:VEVENT
 END:VCALENDAR
 """,
-            0, 0,
+                0, 0,
             ),
             (
                 "2.1 - EXDATEd RECURRENCE-ID",
@@ -5378,7 +5383,7 @@ DTSTAMP:20080601T120000Z
 END:VEVENT
 END:VCALENDAR
 """,
-            1, 0,
+                1, 0,
             ),
             (
                 "2.2 - EXDATEd invalid RECURRENCE-ID",
@@ -5419,7 +5424,7 @@ DTSTAMP:20080601T120000Z
 END:VEVENT
 END:VCALENDAR
 """,
-            2, 0,
+                2, 0,
             ),
             (
                 "2.2 - EXDATEd RECURRENCE-ID with RDATE",
@@ -5461,7 +5466,7 @@ DTSTAMP:20080601T120000Z
 END:VEVENT
 END:VCALENDAR
 """,
-            1, 0,
+                1, 0,
             ),
         )
 
@@ -5673,8 +5678,6 @@ END:VCALENDAR
                 self.fail("Valid calendar should validate")
 
 
-
-
     def test_add_exdate(self):
         data = ((
             """BEGIN:VCALENDAR
@@ -5804,9 +5807,9 @@ END:VCALENDAR
 
     def test_perUserData(self):
         data = (
-                    (
-                        "No per-user, not recurring 1.1",
-                        """BEGIN:VCALENDAR
+            (
+                "No per-user, not recurring 1.1",
+                """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
@@ -5821,18 +5824,18 @@ TRANSP:TRANSPARENT
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n"),
+                (
+                    (
+                        None,
                         (
-                            (
-                                None,
-                                (
-                                    ("", (True, None, None,),),
-                                ),
-                            ),
+                            ("", (True, None, None,),),
                         ),
                     ),
-                    (
-                        "Single user, not recurring 1.2",
-                        """BEGIN:VCALENDAR
+                ),
+            ),
+            (
+                "Single user, not recurring 1.2",
+                """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
@@ -5858,19 +5861,19 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n"),
+                (
+                    (
+                        None,
                         (
-                            (
-                                None,
-                                (
-                                    ("", (False, None, None,),),
-                                    ("user01", (False, None, None,),),
-                                ),
-                            ),
+                            ("", (False, None, None,),),
+                            ("user01", (False, None, None,),),
                         ),
                     ),
-                    (
-                        "Two users, not recurring 1.3",
-                        """BEGIN:VCALENDAR
+                ),
+            ),
+            (
+                "Two users, not recurring 1.3",
+                """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
@@ -5903,20 +5906,20 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n"),
+                (
+                    (
+                        None,
                         (
-                            (
-                                None,
-                                (
-                                    ("", (False, None, None,),),
-                                    ("user01", (False, None, None,),),
-                                    ("user02", (True, None, None,),),
-                                ),
-                            ),
+                            ("", (False, None, None,),),
+                            ("user01", (False, None, None,),),
+                            ("user02", (True, None, None,),),
                         ),
                     ),
-                    (
-                        "No per-user, simple recurring 2.1",
-                        """BEGIN:VCALENDAR
+                ),
+            ),
+            (
+                "No per-user, simple recurring 2.1",
+                """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
@@ -5931,24 +5934,24 @@ RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n"),
+                (
+                    (
+                        None,
                         (
-                            (
-                                None,
-                                (
-                                    ("", (False, None, None,),),
-                                ),
-                            ),
-                            (
-                                DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
-                                (
-                                    ("", (False, None, None,),),
-                                ),
-                            ),
+                            ("", (False, None, None,),),
                         ),
                     ),
                     (
-                        "Single user, simple recurring 2.2",
-                        """BEGIN:VCALENDAR
+                        DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
+                        (
+                            ("", (False, None, None,),),
+                        ),
+                    ),
+                ),
+            ),
+            (
+                "Single user, simple recurring 2.2",
+                """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
@@ -5975,26 +5978,26 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n"),
+                (
+                    (
+                        None,
                         (
-                            (
-                                None,
-                                (
-                                    ("", (False, None, None,),),
-                                    ("user01", (False, None, None,),),
-                                ),
-                            ),
-                            (
-                                DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
-                                (
-                                    ("", (False, None, None,),),
-                                    ("user01", (False, None, None,),),
-                                ),
-                            ),
+                            ("", (False, None, None,),),
+                            ("user01", (False, None, None,),),
                         ),
                     ),
                     (
-                        "Two users, simple recurring 2.3",
-                        """BEGIN:VCALENDAR
+                        DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
+                        (
+                            ("", (False, None, None,),),
+                            ("user01", (False, None, None,),),
+                        ),
+                    ),
+                ),
+            ),
+            (
+                "Two users, simple recurring 2.3",
+                """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
@@ -6028,28 +6031,28 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n"),
+                (
+                    (
+                        None,
                         (
-                            (
-                                None,
-                                (
-                                    ("", (False, None, None,),),
-                                    ("user01", (False, None, None,),),
-                                    ("user02", (True, None, None,),),
-                                ),
-                            ),
-                            (
-                                DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
-                                (
-                                    ("", (False, None, None,),),
-                                    ("user01", (False, None, None,),),
-                                    ("user02", (True, None, None,),),
-                                ),
-                            ),
+                            ("", (False, None, None,),),
+                            ("user01", (False, None, None,),),
+                            ("user02", (True, None, None,),),
                         ),
                     ),
                     (
-                        "No per-user, complex recurring 3.1",
-                        """BEGIN:VCALENDAR
+                        DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
+                        (
+                            ("", (False, None, None,),),
+                            ("user01", (False, None, None,),),
+                            ("user02", (True, None, None,),),
+                        ),
+                    ),
+                ),
+            ),
+            (
+                "No per-user, complex recurring 3.1",
+                """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
@@ -6076,36 +6079,36 @@ TRANSP:OPAQUE
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n"),
+                (
+                    (
+                        None,
                         (
-                            (
-                                None,
-                                (
-                                    ("", (True, None, None,),),
-                                ),
-                            ),
-                            (
-                                DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
-                                (
-                                    ("", (False, None, None,),),
-                                ),
-                            ),
-                            (
-                                DateTime(2008, 6, 3, 12, 0, 0, tzid=Timezone(utc=True)),
-                                (
-                                    ("", (True, None, None,),),
-                                ),
-                            ),
-                            (
-                                DateTime(2008, 6, 4, 12, 0, 0, tzid=Timezone(utc=True)),
-                                (
-                                    ("", (True, None, None,),),
-                                ),
-                            ),
+                            ("", (True, None, None,),),
                         ),
                     ),
                     (
-                        "Single user, complex recurring 3.2",
-                        """BEGIN:VCALENDAR
+                        DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
+                        (
+                            ("", (False, None, None,),),
+                        ),
+                    ),
+                    (
+                        DateTime(2008, 6, 3, 12, 0, 0, tzid=Timezone(utc=True)),
+                        (
+                            ("", (True, None, None,),),
+                        ),
+                    ),
+                    (
+                        DateTime(2008, 6, 4, 12, 0, 0, tzid=Timezone(utc=True)),
+                        (
+                            ("", (True, None, None,),),
+                        ),
+                    ),
+                ),
+            ),
+            (
+                "Single user, complex recurring 3.2",
+                """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
@@ -6150,40 +6153,40 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n"),
+                (
+                    (
+                        None,
                         (
-                            (
-                                None,
-                                (
-                                    ("", (False, None, None,),),
-                                    ("user01", (False, None, None,),),
-                                ),
-                            ),
-                            (
-                                DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
-                                (
-                                    ("", (False, None, None,),),
-                                    ("user01", (True, None, None,),),
-                                ),
-                            ),
-                            (
-                                DateTime(2008, 6, 3, 12, 0, 0, tzid=Timezone(utc=True)),
-                                (
-                                    ("", (False, None, None,),),
-                                    ("user01", (True, None, None,),),
-                                ),
-                            ),
-                            (
-                                DateTime(2008, 6, 4, 12, 0, 0, tzid=Timezone(utc=True)),
-                                (
-                                    ("", (False, None, None,),),
-                                    ("user01", (False, None, None,),),
-                                ),
-                            ),
+                            ("", (False, None, None,),),
+                            ("user01", (False, None, None,),),
                         ),
                     ),
                     (
-                        "Two users, complex recurring 3.3",
-                        """BEGIN:VCALENDAR
+                        DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
+                        (
+                            ("", (False, None, None,),),
+                            ("user01", (True, None, None,),),
+                        ),
+                    ),
+                    (
+                        DateTime(2008, 6, 3, 12, 0, 0, tzid=Timezone(utc=True)),
+                        (
+                            ("", (False, None, None,),),
+                            ("user01", (True, None, None,),),
+                        ),
+                    ),
+                    (
+                        DateTime(2008, 6, 4, 12, 0, 0, tzid=Timezone(utc=True)),
+                        (
+                            ("", (False, None, None,),),
+                            ("user01", (False, None, None,),),
+                        ),
+                    ),
+                ),
+            ),
+            (
+                "Two users, complex recurring 3.3",
+                """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
@@ -6248,44 +6251,44 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n"),
+                (
+                    (
+                        None,
                         (
-                            (
-                                None,
-                                (
-                                    ("", (False, None, None,),),
-                                    ("user01", (False, None, None,),),
-                                    ("user02", (True, None, None,),),
-                                ),
-                            ),
-                            (
-                                DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
-                                (
-                                    ("", (False, None, None,),),
-                                    ("user01", (True, None, None,),),
-                                    ("user02", (False, None, None,),),
-                                ),
-                            ),
-                            (
-                                DateTime(2008, 6, 3, 12, 0, 0, tzid=Timezone(utc=True)),
-                                (
-                                    ("", (False, None, None,),),
-                                    ("user01", (True, None, None,),),
-                                    ("user02", (True, None, None,),),
-                                ),
-                            ),
-                            (
-                                DateTime(2008, 6, 4, 12, 0, 0, tzid=Timezone(utc=True)),
-                                (
-                                    ("", (False, None, None,),),
-                                    ("user01", (False, None, None,),),
-                                    ("user02", (True, None, None,),),
-                                ),
-                            ),
+                            ("", (False, None, None,),),
+                            ("user01", (False, None, None,),),
+                            ("user02", (True, None, None,),),
                         ),
                     ),
                     (
-                        "Single user, with travel time 4.1",
-                        """BEGIN:VCALENDAR
+                        DateTime(2008, 6, 2, 12, 0, 0, tzid=Timezone(utc=True)),
+                        (
+                            ("", (False, None, None,),),
+                            ("user01", (True, None, None,),),
+                            ("user02", (False, None, None,),),
+                        ),
+                    ),
+                    (
+                        DateTime(2008, 6, 3, 12, 0, 0, tzid=Timezone(utc=True)),
+                        (
+                            ("", (False, None, None,),),
+                            ("user01", (True, None, None,),),
+                            ("user02", (True, None, None,),),
+                        ),
+                    ),
+                    (
+                        DateTime(2008, 6, 4, 12, 0, 0, tzid=Timezone(utc=True)),
+                        (
+                            ("", (False, None, None,),),
+                            ("user01", (False, None, None,),),
+                            ("user02", (True, None, None,),),
+                        ),
+                    ),
+                ),
+            ),
+            (
+                "Single user, with travel time 4.1",
+                """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
@@ -6312,17 +6315,17 @@ END:X-CALENDARSERVER-PERINSTANCE
 END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n"),
+                (
+                    (
+                        None,
                         (
-                            (
-                                None,
-                                (
-                                    ("", (False, None, None,),),
-                                    ("user01", (False, Duration(minutes=30), None,),),
-                                ),
-                            ),
+                            ("", (False, None, None,),),
+                            ("user01", (False, Duration(minutes=30), None,),),
                         ),
                     ),
-                )
+                ),
+            ),
+        )
 
         for title, text, results in data:
             calendar = Component.fromString(text)
@@ -7331,8 +7334,9 @@ END:VCALENDAR
 
     def test_hasInstancesAfter(self):
         data = (
-            ("In the past (single)", False,
-"""BEGIN:VCALENDAR
+            (
+                "In the past (single)", False,
+                """BEGIN:VCALENDAR
 VERSION:2.0
 CALSCALE:GREGORIAN
 PRODID:-//Apple Inc.//iCal 5.0.1//EN
@@ -7366,8 +7370,9 @@ END:VEVENT
 END:VCALENDAR
 """,
             ),
-            ("In the past (repeating)", False,
-"""
+            (
+                "In the past (repeating)", False,
+                """
 BEGIN:VCALENDAR
 VERSION:2.0
 CALSCALE:GREGORIAN
@@ -7414,8 +7419,9 @@ END:VEVENT
 END:VCALENDAR
 """,
             ),
-            ("Straddling (repeating)", True,
-"""
+            (
+                "Straddling (repeating)", True,
+                """
 BEGIN:VCALENDAR
 VERSION:2.0
 CALSCALE:GREGORIAN
@@ -7462,8 +7468,9 @@ END:VEVENT
 END:VCALENDAR
 """,
             ),
-            ("Future (single)", True,
-"""
+            (
+                "Future (single)", True,
+                """
 BEGIN:VCALENDAR
 VERSION:2.0
 CALSCALE:GREGORIAN
@@ -7498,8 +7505,9 @@ END:VEVENT
 END:VCALENDAR
 """,
             ),
-            ("Future (repeating)", True,
-"""
+            (
+                "Future (repeating)", True,
+                """
 BEGIN:VCALENDAR
 VERSION:2.0
 CALSCALE:GREGORIAN
@@ -7546,8 +7554,9 @@ END:VEVENT
 END:VCALENDAR
 """,
             ),
-            ("On the day (single)", True,
-"""
+            (
+                "On the day (single)", True,
+                """
 BEGIN:VCALENDAR
 VERSION:2.0
 CALSCALE:GREGORIAN
@@ -7582,8 +7591,9 @@ END:VEVENT
 END:VCALENDAR
 """,
             ),
-            ("Long non-all-day straddling (single)", True,
-"""
+            (
+                "Long non-all-day straddling (single)", True,
+                """
 BEGIN:VCALENDAR
 VERSION:2.0
 CALSCALE:GREGORIAN
@@ -7618,8 +7628,9 @@ END:VEVENT
 END:VCALENDAR
 """,
             ),
-            ("All Day in the past (repeating)", False,
-"""
+            (
+                "All Day in the past (repeating)", False,
+                """
 BEGIN:VCALENDAR
 VERSION:2.0
 CALSCALE:GREGORIAN
@@ -7638,8 +7649,9 @@ END:VEVENT
 END:VCALENDAR
 """,
             ),
-            ("Straddling All Day (repeating)", True,
-"""
+            (
+                "Straddling All Day (repeating)", True,
+                """
 BEGIN:VCALENDAR
 VERSION:2.0
 CALSCALE:GREGORIAN
@@ -7658,8 +7670,9 @@ END:VEVENT
 END:VCALENDAR
 """,
             ),
-            ("Straddling All Day (single multiday)", True,
-"""
+            (
+                "Straddling All Day (single multiday)", True,
+                """
 BEGIN:VCALENDAR
 VERSION:2.0
 CALSCALE:GREGORIAN
@@ -7677,8 +7690,9 @@ END:VEVENT
 END:VCALENDAR
 """,
             ),
-            ("Future All Day (single)", True,
-"""
+            (
+                "Future All Day (single)", True,
+                """
 BEGIN:VCALENDAR
 VERSION:2.0
 CALSCALE:GREGORIAN
@@ -7746,26 +7760,30 @@ END:VCALENDAR
                         "Baz",
                         "baz",
                         "INDIVIDUAL",
-                       ("urn:x-uid:baz", "urn:uuid:baz", "http://example.com/baz")
+                        ("urn:x-uid:baz", "urn:uuid:baz", "http://example.com/baz")
                     ),
                     "urn:x-uid:buz" : (
                         "Buz",
                         "buz",
                         "INDIVIDUAL",
-                       ("urn:x-uid:buz", "urn:uuid:buz", "http://example.com/buz")
+                        ("urn:x-uid:buz", "urn:uuid:buz", "http://example.com/buz")
                     ),
                 }[cuaddr]
             )
 
         yield component.normalizeCalendarUserAddresses(lookupFunction, None, toCanonical=False)
 
-        self.assertEquals("mailto:bar@example.com",
+        self.assertEquals(
+            "mailto:bar@example.com",
             component.getAttendeeProperty(("mailto:bar@example.com",)).value())
-        self.assertEquals("/foo",
+        self.assertEquals(
+            "/foo",
             component.getAttendeeProperty(("/foo",)).value())
-        self.assertEquals("http://example.com/baz",
+        self.assertEquals(
+            "http://example.com/baz",
             component.getAttendeeProperty(("http://example.com/baz",)).value())
-        self.assertEquals("http://example.com/buz",
+        self.assertEquals(
+            "http://example.com/buz",
             component.getAttendeeProperty(("http://example.com/buz",)).value())
 
 

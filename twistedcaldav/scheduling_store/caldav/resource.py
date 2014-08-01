@@ -154,6 +154,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
             customxml.CalendarAvailability.qname(),
         )
 
+
     def resourceType(self):
         return davxml.ResourceType.scheduleInbox
 

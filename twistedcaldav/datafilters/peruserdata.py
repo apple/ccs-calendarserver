@@ -194,7 +194,7 @@ class PerUserDataFilter(CalendarFilter):
     def _defaultFilter(self, ical):
         """
         There is no per-user component. Instead apply default properties to the data for this user.
-    
+
         @param ical: the iCalendar object to process
         @type ical: L{Component}
         """

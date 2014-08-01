@@ -334,7 +334,6 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
             yield db.clean()
 
 
-
     @inlineCallbacks
     def test_cachingDBInsertUncached(self):
 

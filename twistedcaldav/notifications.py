@@ -37,7 +37,6 @@ from txdav.common.icommondatastore import SyncTokenValidException
 
 import json
 import os
-import types
 
 log = Logger()
 
@@ -172,7 +171,8 @@ class NotificationsDatabase(AbstractSQLDatabase):
 
     def addOrUpdateRecord(self, record):
 
-        self._db_execute("""insert or replace into NOTIFICATIONS (UID, NAME, TYPE)
+        self._db_execute(
+            """insert or replace into NOTIFICATIONS (UID, NAME, TYPE)
             values (:1, :2, :3)
             """, record.uid, record.name, json.dumps(record.notificationtype),
         )
@@ -328,4 +328,6 @@ class NotificationsDatabase(AbstractSQLDatabase):
 
     def _makeRecord(self, row):
 
-        return NotificationRecord(*[str(item) if type(item) == types.UnicodeType else item for item in row])
+        return NotificationRecord(
+            *[str(item) if isinstance(item, unicode) else item for item in row]
+        )

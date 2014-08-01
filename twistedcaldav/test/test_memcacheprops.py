@@ -125,7 +125,8 @@ class MemcachePropertyCollectionTestCase(TestCase):
         child1.deadProperties().set(StubProperty("ns1:", "prop1", value="val1"))
 
         child2 = self.getColl().getChild("a")
-        self.assertEquals(child2.deadProperties().get(("ns1:", "prop1")).value,
+        self.assertEquals(
+            child2.deadProperties().get(("ns1:", "prop1")).value,
             "val1")
 
         child2.deadProperties().set(StubProperty("ns1:", "prop1", value="val2"))
@@ -133,7 +134,8 @@ class MemcachePropertyCollectionTestCase(TestCase):
         # force memcache to be consulted (once per collection per request)
         child1 = self.getColl().getChild("a")
 
-        self.assertEquals(child1.deadProperties().get(("ns1:", "prop1")).value,
+        self.assertEquals(
+            child1.deadProperties().get(("ns1:", "prop1")).value,
             "val2")
 
 
@@ -144,11 +146,14 @@ class MemcachePropertyCollectionTestCase(TestCase):
         child1.deadProperties().set(StubProperty("ns1:", "prop2", value="val0"))
         child1.deadProperties().set(StubProperty("ns1:", "prop3", value="val0"))
 
-        self.assertEquals(child2.deadProperties().get(("ns1:", "prop1")).value,
+        self.assertEquals(
+            child2.deadProperties().get(("ns1:", "prop1")).value,
             "val0")
-        self.assertEquals(child1.deadProperties().get(("ns1:", "prop2")).value,
+        self.assertEquals(
+            child1.deadProperties().get(("ns1:", "prop2")).value,
             "val0")
-        self.assertEquals(child1.deadProperties().get(("ns1:", "prop3")).value,
+        self.assertEquals(
+            child1.deadProperties().get(("ns1:", "prop3")).value,
             "val0")
 
         child2.deadProperties().set(StubProperty("ns1:", "prop1", value="val1"))
@@ -158,18 +163,24 @@ class MemcachePropertyCollectionTestCase(TestCase):
         child2 = self.getColl().getChild("a")
 
         # verify properties
-        self.assertEquals(child2.deadProperties().get(("ns1:", "prop1")).value,
+        self.assertEquals(
+            child2.deadProperties().get(("ns1:", "prop1")).value,
             "val1")
-        self.assertEquals(child2.deadProperties().get(("ns1:", "prop2")).value,
+        self.assertEquals(
+            child2.deadProperties().get(("ns1:", "prop2")).value,
             "val0")
-        self.assertEquals(child2.deadProperties().get(("ns1:", "prop3")).value,
+        self.assertEquals(
+            child2.deadProperties().get(("ns1:", "prop3")).value,
             "val3")
 
-        self.assertEquals(child1.deadProperties().get(("ns1:", "prop1")).value,
+        self.assertEquals(
+            child1.deadProperties().get(("ns1:", "prop1")).value,
             "val1")
-        self.assertEquals(child1.deadProperties().get(("ns1:", "prop2")).value,
+        self.assertEquals(
+            child1.deadProperties().get(("ns1:", "prop2")).value,
             "val0")
-        self.assertEquals(child1.deadProperties().get(("ns1:", "prop3")).value,
+        self.assertEquals(
+            child1.deadProperties().get(("ns1:", "prop3")).value,
             "val3")
 
 
@@ -180,11 +191,14 @@ class MemcachePropertyCollectionTestCase(TestCase):
         child1.deadProperties().set(StubProperty("ns1:", "prop2", value="val0"))
         child1.deadProperties().set(StubProperty("ns1:", "prop3", value="val0"))
 
-        self.assertEquals(child2.deadProperties().get(("ns1:", "prop1")).value,
+        self.assertEquals(
+            child2.deadProperties().get(("ns1:", "prop1")).value,
             "val0")
-        self.assertEquals(child1.deadProperties().get(("ns1:", "prop2")).value,
+        self.assertEquals(
+            child1.deadProperties().get(("ns1:", "prop2")).value,
             "val0")
-        self.assertEquals(child1.deadProperties().get(("ns1:", "prop3")).value,
+        self.assertEquals(
+            child1.deadProperties().get(("ns1:", "prop3")).value,
             "val0")
 
         child2.deadProperties().set(StubProperty("ns1:", "prop1", value="val1"))
@@ -192,9 +206,11 @@ class MemcachePropertyCollectionTestCase(TestCase):
         self.assertRaises(HTTPError, child1.deadProperties().get, ("ns1:", "prop1"))
 
         self.assertFalse(child1.deadProperties().contains(("ns1:", "prop1")))
-        self.assertEquals(child1.deadProperties().get(("ns1:", "prop2")).value,
+        self.assertEquals(
+            child1.deadProperties().get(("ns1:", "prop2")).value,
             "val0")
-        self.assertEquals(child1.deadProperties().get(("ns1:", "prop3")).value,
+        self.assertEquals(
+            child1.deadProperties().get(("ns1:", "prop3")).value,
             "val0")
 
         # force memcache to be consulted (once per collection per request)
@@ -202,9 +218,11 @@ class MemcachePropertyCollectionTestCase(TestCase):
 
         # verify properties
         self.assertFalse(child2.deadProperties().contains(("ns1:", "prop1")))
-        self.assertEquals(child2.deadProperties().get(("ns1:", "prop2")).value,
+        self.assertEquals(
+            child2.deadProperties().get(("ns1:", "prop2")).value,
             "val0")
-        self.assertEquals(child2.deadProperties().get(("ns1:", "prop3")).value,
+        self.assertEquals(
+            child2.deadProperties().get(("ns1:", "prop3")).value,
             "val0")
 
 
@@ -215,7 +233,8 @@ class MemcachePropertyCollectionTestCase(TestCase):
             child1.deadProperties().set(StubProperty("ns1:", "prop1", value="val1%s" % (uid if uid else "",)), uid=uid)
 
             child2 = self.getColl().getChild("a")
-            self.assertEquals(child2.deadProperties().get(("ns1:", "prop1"), uid=uid).value,
+            self.assertEquals(
+                child2.deadProperties().get(("ns1:", "prop1"), uid=uid).value,
                 "val1%s" % (uid if uid else "",))
 
             child2.deadProperties().set(StubProperty("ns1:", "prop1", value="val2%s" % (uid if uid else "",)), uid=uid)
@@ -223,7 +242,8 @@ class MemcachePropertyCollectionTestCase(TestCase):
             # force memcache to be consulted (once per collection per request)
             child1 = self.getColl().getChild("a")
 
-            self.assertEquals(child1.deadProperties().get(("ns1:", "prop1"), uid=uid).value,
+            self.assertEquals(
+                child1.deadProperties().get(("ns1:", "prop1"), uid=uid).value,
                 "val2%s" % (uid if uid else "",))
 
 
@@ -236,11 +256,14 @@ class MemcachePropertyCollectionTestCase(TestCase):
             child1.deadProperties().set(StubProperty("ns1:", "prop2", value="val0%s" % (uid if uid else "",)), uid=uid)
             child1.deadProperties().set(StubProperty("ns1:", "prop3", value="val0%s" % (uid if uid else "",)), uid=uid)
 
-            self.assertEquals(child2.deadProperties().get(("ns1:", "prop1"), uid=uid).value,
+            self.assertEquals(
+                child2.deadProperties().get(("ns1:", "prop1"), uid=uid).value,
                 "val0%s" % (uid if uid else "",))
-            self.assertEquals(child1.deadProperties().get(("ns1:", "prop2"), uid=uid).value,
+            self.assertEquals(
+                child1.deadProperties().get(("ns1:", "prop2"), uid=uid).value,
                 "val0%s" % (uid if uid else "",))
-            self.assertEquals(child1.deadProperties().get(("ns1:", "prop3"), uid=uid).value,
+            self.assertEquals(
+                child1.deadProperties().get(("ns1:", "prop3"), uid=uid).value,
                 "val0%s" % (uid if uid else "",))
 
             child2.deadProperties().set(StubProperty("ns1:", "prop1", value="val1%s" % (uid if uid else "",)), uid=uid)
@@ -250,18 +273,24 @@ class MemcachePropertyCollectionTestCase(TestCase):
             child2 = self.getColl().getChild("a")
 
             # verify properties
-            self.assertEquals(child2.deadProperties().get(("ns1:", "prop1"), uid=uid).value,
+            self.assertEquals(
+                child2.deadProperties().get(("ns1:", "prop1"), uid=uid).value,
                 "val1%s" % (uid if uid else "",))
-            self.assertEquals(child2.deadProperties().get(("ns1:", "prop2"), uid=uid).value,
+            self.assertEquals(
+                child2.deadProperties().get(("ns1:", "prop2"), uid=uid).value,
                 "val0%s" % (uid if uid else "",))
-            self.assertEquals(child2.deadProperties().get(("ns1:", "prop3"), uid=uid).value,
+            self.assertEquals(
+                child2.deadProperties().get(("ns1:", "prop3"), uid=uid).value,
                 "val3%s" % (uid if uid else "",))
 
-            self.assertEquals(child1.deadProperties().get(("ns1:", "prop1"), uid=uid).value,
+            self.assertEquals(
+                child1.deadProperties().get(("ns1:", "prop1"), uid=uid).value,
                 "val1%s" % (uid if uid else "",))
-            self.assertEquals(child1.deadProperties().get(("ns1:", "prop2"), uid=uid).value,
+            self.assertEquals(
+                child1.deadProperties().get(("ns1:", "prop2"), uid=uid).value,
                 "val0%s" % (uid if uid else "",))
-            self.assertEquals(child1.deadProperties().get(("ns1:", "prop3"), uid=uid).value,
+            self.assertEquals(
+                child1.deadProperties().get(("ns1:", "prop3"), uid=uid).value,
                 "val3%s" % (uid if uid else "",))
 
 
@@ -274,11 +303,14 @@ class MemcachePropertyCollectionTestCase(TestCase):
             child1.deadProperties().set(StubProperty("ns1:", "prop2", value="val0%s" % (uid if uid else "",)), uid=uid)
             child1.deadProperties().set(StubProperty("ns1:", "prop3", value="val0%s" % (uid if uid else "",)), uid=uid)
 
-            self.assertEquals(child2.deadProperties().get(("ns1:", "prop1"), uid=uid).value,
+            self.assertEquals(
+                child2.deadProperties().get(("ns1:", "prop1"), uid=uid).value,
                 "val0%s" % (uid if uid else "",))
-            self.assertEquals(child1.deadProperties().get(("ns1:", "prop2"), uid=uid).value,
+            self.assertEquals(
+                child1.deadProperties().get(("ns1:", "prop2"), uid=uid).value,
                 "val0%s" % (uid if uid else "",))
-            self.assertEquals(child1.deadProperties().get(("ns1:", "prop3"), uid=uid).value,
+            self.assertEquals(
+                child1.deadProperties().get(("ns1:", "prop3"), uid=uid).value,
                 "val0%s" % (uid if uid else "",))
 
             child2.deadProperties().set(StubProperty("ns1:", "prop1", value="val1%s" % (uid if uid else "",)), uid=uid)
@@ -286,9 +318,11 @@ class MemcachePropertyCollectionTestCase(TestCase):
             self.assertRaises(HTTPError, child1.deadProperties().get, ("ns1:", "prop1"), uid=uid)
 
             self.assertFalse(child1.deadProperties().contains(("ns1:", "prop1"), uid=uid))
-            self.assertEquals(child1.deadProperties().get(("ns1:", "prop2"), uid=uid).value,
+            self.assertEquals(
+                child1.deadProperties().get(("ns1:", "prop2"), uid=uid).value,
                 "val0%s" % (uid if uid else "",))
-            self.assertEquals(child1.deadProperties().get(("ns1:", "prop3"), uid=uid).value,
+            self.assertEquals(
+                child1.deadProperties().get(("ns1:", "prop3"), uid=uid).value,
                 "val0%s" % (uid if uid else "",))
 
             # force memcache to be consulted (once per collection per request)
@@ -296,9 +330,11 @@ class MemcachePropertyCollectionTestCase(TestCase):
 
             # verify properties
             self.assertFalse(child2.deadProperties().contains(("ns1:", "prop1"), uid=uid))
-            self.assertEquals(child2.deadProperties().get(("ns1:", "prop2"), uid=uid).value,
+            self.assertEquals(
+                child2.deadProperties().get(("ns1:", "prop2"), uid=uid).value,
                 "val0%s" % (uid if uid else "",))
-            self.assertEquals(child2.deadProperties().get(("ns1:", "prop3"), uid=uid).value,
+            self.assertEquals(
+                child2.deadProperties().get(("ns1:", "prop3"), uid=uid).value,
                 "val0%s" % (uid if uid else "",))
 
 

@@ -66,7 +66,8 @@ class LocalizationTests(TestCase):
 
             self.assertEquals(_("All day"), "Allway ayday")
 
-            self.assertEquals(_("%(startTime)s to %(endTime)s") %
+            self.assertEquals(
+                _("%(startTime)s to %(endTime)s") %
                 {'startTime': 'a', 'endTime': 'b'},
                 "a otay b"
             )
@@ -100,35 +101,43 @@ class LocalizationTests(TestCase):
 
             comp = data[0][1]
             self.assertEquals(t.date(comp), "Saturday, October 25, 2008")
-            self.assertEquals(t.time(comp),
+            self.assertEquals(
+                t.time(comp),
                 (u'9:15 AM to 10:15 AM (PDT)', u'1 hour 1 second'))
 
             comp = data[1][1]
-            self.assertEquals(t.time(comp),
+            self.assertEquals(
+                t.time(comp),
                 (u'1:15 PM to 3:15 PM (PDT)', u'2 hours 2 seconds'))
 
             comp = data[2][1]
-            self.assertEquals(t.time(comp),
+            self.assertEquals(
+                t.time(comp),
                 (u'11:05 AM to 2:15 PM (PDT)', u'3 hours 10 minutes'))
 
             comp = data[3][1]
-            self.assertEquals(t.time(comp),
+            self.assertEquals(
+                t.time(comp),
                 ("", u'All day'))
 
             comp = data[4][1]
-            self.assertEquals(t.time(comp),
+            self.assertEquals(
+                t.time(comp),
                 (u'1:15 PM (PDT)', ""))
 
             comp = data[5][1]
-            self.assertEquals(t.time(comp),
+            self.assertEquals(
+                t.time(comp),
                 (u'11:05 AM (PDT) to 6:15 PM (EDT)', u'4 hours 10 minutes'))
 
             comp = data[6][1]
-            self.assertEquals(t.time(comp),
+            self.assertEquals(
+                t.time(comp),
                 (u'11:05 AM to 5:15 PM (PDT)', u'1 day 6 hours 10 minutes'))
 
             comp = data[7][1]
-            self.assertEquals(t.time(comp),
+            self.assertEquals(
+                t.time(comp),
                 (u'11:05 AM to 12:15 PM (PDT)', u'2 days 1 hour 10 minutes'))
 
             self.assertEquals(t.monthAbbreviation(1), "JAN")
@@ -137,35 +146,43 @@ class LocalizationTests(TestCase):
 
             comp = data[0][1]
             self.assertEquals(t.date(comp), 'Aturdaysay, Octoberway 25, 2008')
-            self.assertEquals(t.time(comp),
+            self.assertEquals(
+                t.time(comp),
                 (u'09:15 otay 10:15 (PDT)', u'1 ourhay 1 econdsay'))
 
             comp = data[1][1]
-            self.assertEquals(t.time(comp),
+            self.assertEquals(
+                t.time(comp),
                 (u'13:15 otay 15:15 (PDT)', u'2 ourshay 2 econdsay'))
 
             comp = data[2][1]
-            self.assertEquals(t.time(comp),
+            self.assertEquals(
+                t.time(comp),
                 (u'11:05 otay 14:15 (PDT)', u'3 ourshay 10 inutesmay'))
 
             comp = data[3][1]
-            self.assertEquals(t.time(comp),
+            self.assertEquals(
+                t.time(comp),
                 ("", u'Allway ayday'))
 
             comp = data[4][1]
-            self.assertEquals(t.time(comp),
+            self.assertEquals(
+                t.time(comp),
                 (u'13:15 (PDT)', ""))
 
             comp = data[5][1]
-            self.assertEquals(t.time(comp),
+            self.assertEquals(
+                t.time(comp),
                 (u'11:05 (PDT) otay 18:15 (EDT)', u'4 ourshay 10 inutesmay'))
 
             comp = data[6][1]
-            self.assertEquals(t.time(comp),
+            self.assertEquals(
+                t.time(comp),
                 (u'11:05 otay 17:15 (PDT)', u'1 ayday 6 ourshay 10 inutesmay'))
 
             comp = data[7][1]
-            self.assertEquals(t.time(comp),
+            self.assertEquals(
+                t.time(comp),
                 (u'11:05 otay 12:15 (PDT)', u'2 aysday 1 ourhay 10 inutesmay'))
 
             self.assertEquals(t.monthAbbreviation(1), "ANJAY")

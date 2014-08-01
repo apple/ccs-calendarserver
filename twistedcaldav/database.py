@@ -20,7 +20,7 @@ try:
     import pgdb
 except:
     pgdb = None
-#pgdb = None
+# pgdb = None
 
 from twisted.enterprise.adbapi import ConnectionPool
 from twisted.internet.defer import inlineCallbacks, returnValue

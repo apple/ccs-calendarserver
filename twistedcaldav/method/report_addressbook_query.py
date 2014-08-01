@@ -178,18 +178,18 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
 
         if not addrresource.isAddressBookCollection():
 
-            #do UID lookup on last part of uri
+            # do UID lookup on last part of uri
             resource_name = urllib.unquote(uri[uri.rfind("/") + 1:])
             if resource_name.endswith(".vcf") and len(resource_name) > 4:
 
                 # see if parent is directory backed address book
-                parent = (yield  addrresource.locateParent(request, uri))
+                parent = (yield addrresource.locateParent(request, uri))
 
         # Check whether supplied resource is an address book or an address book object resource
         if addrresource.isAddressBookCollection():
 
             if addrresource.isDirectoryBackedAddressBookCollection():
-                yield  maybeDeferred(queryDirectoryBackedAddressBook, addrresource, filter)
+                yield maybeDeferred(queryDirectoryBackedAddressBook, addrresource, filter)
 
             else:
 
@@ -240,17 +240,17 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
             if resource_name.endswith(".vcf") and len(resource_name) > 4:
 
                 # see if parent is directory backed address book
-                parent = (yield  addrresource.locateParent(request, uri))
+                parent = (yield addrresource.locateParent(request, uri))
 
                 if parent.isDirectoryBackedAddressBookCollection():
 
                     vCardFilter = carddavxml.Filter(*[carddavxml.PropertyFilter(
-                                                carddavxml.TextMatch.fromString(resource_name[:-4]),
-                                                name="UID", # attributes
-                                                ), ])
+                        carddavxml.TextMatch.fromString(resource_name[:-4]),
+                        name="UID", # attributes
+                    ), ])
                     vCardFilter = Filter(vCardFilter)
 
-                    yield  maybeDeferred(queryDirectoryBackedAddressBook, parent, vCardFilter)
+                    yield maybeDeferred(queryDirectoryBackedAddressBook, parent, vCardFilter)
                     handled = True
 
             if not handled:
@@ -267,11 +267,11 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
     except NumberOfMatchesWithinLimits, e:
         self.log.info("Too many matching components in addressbook-query report. Limited to {limit} items", limit=e.maxLimit())
         responses.append(davxml.StatusResponse(
-                        davxml.HRef.fromString(request.uri),
-                        davxml.Status.fromResponseCode(responsecode.INSUFFICIENT_STORAGE_SPACE),
-                        davxml.Error(davxml.NumberOfMatchesWithinLimits()),
-                        davxml.ResponseDescription("Results limited to {limit} items".format(limit=e.maxLimit())),
-                    ))
+            davxml.HRef.fromString(request.uri),
+            davxml.Status.fromResponseCode(responsecode.INSUFFICIENT_STORAGE_SPACE),
+            davxml.Error(davxml.NumberOfMatchesWithinLimits()),
+            davxml.ResponseDescription("Results limited to {limit} items".format(limit=e.maxLimit())),
+        ))
 
     if not hasattr(request, "extendedLogItems"):
         request.extendedLogItems = {}

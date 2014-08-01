@@ -52,36 +52,61 @@ challengeOpaque = ('75c4bd95b96b7b7341c646c6502f0833-MTc4Mjg4NzU'
 
 challengeNonce = '178288758716122392881254770685'
 
-challengeResponse = ('digest',
-                     {'nonce': challengeNonce,
-                      'qop': 'auth', 'realm': 'test realm',
-                      'algorithm': 'md5', })
+challengeResponse = (
+    'digest',
+    {
+        'nonce': challengeNonce,
+        'qop': 'auth',
+        'realm': 'test realm',
+        'algorithm': 'md5',
+    }
+)
 
 cnonce = "29fc54aa1641c6fa0e151419361c8f23"
 
-authRequest1 = (('username="username", realm="test realm", nonce="%s", '
-                 'uri="/write/", response="%s", algorithm="md5", '
-                 'cnonce="29fc54aa1641c6fa0e151419361c8f23", nc=00000001, '
-                 'qop="auth"'),
-                ('username="username", realm="test realm", nonce="%s", '
-                 'uri="/write/", response="%s", algorithm="md5"'))
+authRequest1 = (
+    (
+        'username="username", realm="test realm", nonce="%s", '
+        'uri="/write/", response="%s", algorithm="md5", '
+        'cnonce="29fc54aa1641c6fa0e151419361c8f23", nc=00000001, '
+        'qop="auth"'
+    ),
+    (
+        'username="username", realm="test realm", nonce="%s", '
+        'uri="/write/", response="%s", algorithm="md5"'
+    )
+)
 
-authRequest2 = (('username="username", realm="test realm", nonce="%s", '
-                 'uri="/write/", response="%s", algorithm="md5", '
-                 'cnonce="29fc54aa1641c6fa0e151419361c8f23", nc=00000002, '
-                 'qop="auth"'),
-                ('username="username", realm="test realm", nonce="%s", '
-                 'uri="/write/", response="%s", algorithm="md5"'))
+authRequest2 = (
+    (
+        'username="username", realm="test realm", nonce="%s", '
+        'uri="/write/", response="%s", algorithm="md5", '
+        'cnonce="29fc54aa1641c6fa0e151419361c8f23", nc=00000002, '
+        'qop="auth"'
+    ),
+    (
+        'username="username", realm="test realm", nonce="%s", '
+        'uri="/write/", response="%s", algorithm="md5"'
+    )
+)
 
-authRequest3 = ('username="username", realm="test realm", nonce="%s", '
-                'uri="/write/", response="%s", algorithm="md5"')
+authRequest3 = (
+    'username="username", realm="test realm", nonce="%s", '
+    'uri="/write/", response="%s", algorithm="md5"'
+)
 
-authRequestComma = (('username="user,name", realm="test realm", nonce="%s", '
-                 'uri="/write/1,2.txt", response="%s", algorithm="md5", '
-                 'cnonce="29fc54aa1641c6fa0e151419361c8f23", nc=00000001, '
-                 'qop="auth"'),
-                ('username="user,name", realm="test realm", nonce="%s", '
-                 'uri="/write/1,2.txt", response="%s", algorithm="md5"'))
+authRequestComma = (
+    (
+        'username="user,name", realm="test realm", nonce="%s", '
+        'uri="/write/1,2.txt", response="%s", algorithm="md5", '
+        'cnonce="29fc54aa1641c6fa0e151419361c8f23", nc=00000001, '
+        'qop="auth"'
+    ),
+    (
+        'username="user,name", realm="test realm", nonce="%s", '
+        'uri="/write/1,2.txt", response="%s", algorithm="md5"'
+    )
+)
 
 namelessAuthRequest = 'realm="test realm",nonce="doesn\'t matter"'
 
@@ -103,18 +128,20 @@ class DigestAuthTestCase(TestCase):
         self.namespace1 = "DIGEST1"
         self.namespace2 = "DIGEST2"
 
-        self.credentialFactories = (QopDigestCredentialFactory(
-                                          'md5',
-                                          'auth',
-                                          'test realm',
-                                          self.namespace1
-                                      ),
-                                      QopDigestCredentialFactory(
-                                          'md5',
-                                          '',
-                                          'test realm',
-                                          self.namespace2
-                                      ))
+        self.credentialFactories = (
+            QopDigestCredentialFactory(
+                'md5',
+                'auth',
+                'test realm',
+                self.namespace1
+            ),
+            QopDigestCredentialFactory(
+                'md5',
+                '',
+                'test realm',
+                self.namespace2
+            )
+        )
 
 
     def getDigestResponse(self, challenge, ncount):
@@ -127,24 +154,28 @@ class DigestAuthTestCase(TestCase):
 
         if qop:
             expected = digest.calcResponse(
-                digest.calcHA1(algo,
-                               "username",
-                               "test realm",
-                               "password",
-                               nonce,
-                               cnonce),
+                digest.calcHA1(
+                    algo,
+                    "username",
+                    "test realm",
+                    "password",
+                    nonce,
+                    cnonce
+                ),
                 algo, nonce, ncount, cnonce, qop, "GET", "/write/", None
-                )
+            )
         else:
             expected = digest.calcResponse(
-                digest.calcHA1(algo,
-                               "username",
-                               "test realm",
-                               "password",
-                               nonce,
-                               cnonce),
+                digest.calcHA1(
+                    algo,
+                    "username",
+                    "test realm",
+                    "password",
+                    nonce,
+                    cnonce
+                ),
                 algo, nonce, None, None, None, "GET", "/write/", None
-                )
+            )
         return expected
 
 
@@ -158,24 +189,28 @@ class DigestAuthTestCase(TestCase):
 
         if qop:
             expected = digest.calcResponse(
-                digest.calcHA1(algo,
-                               "user,name",
-                               "test realm",
-                               "password",
-                               nonce,
-                               cnonce),
+                digest.calcHA1(
+                    algo,
+                    "user,name",
+                    "test realm",
+                    "password",
+                    nonce,
+                    cnonce
+                ),
                 algo, nonce, ncount, cnonce, qop, "GET", "/write/1,2.txt", None
-                )
+            )
         else:
             expected = digest.calcResponse(
-                digest.calcHA1(algo,
-                               "user,name",
-                               "test realm",
-                               "password",
-                               nonce,
-                               cnonce),
+                digest.calcHA1(
+                    algo,
+                    "user,name",
+                    "test realm",
+                    "password",
+                    nonce,
+                    cnonce
+                ),
                 algo, nonce, None, None, None, "GET", "/write/1,2.txt", None
-                )
+            )
         return expected
 
 
@@ -276,8 +311,10 @@ class DigestAuthTestCase(TestCase):
                 self.getDigestResponse(challenge, "00000001"),
             )
 
-            creds = (yield factory.decode(clientResponse,
-                                                  SimpleRequest(None, 'POST', '/')))
+            creds = (yield factory.decode(
+                clientResponse,
+                SimpleRequest(None, 'POST', '/')
+            ))
             self.failIf(creds.checkPassword('password'))
 
 
@@ -290,17 +327,21 @@ class DigestAuthTestCase(TestCase):
 
         # Check for no username
         for factory in self.credentialFactories:
-            e = (yield self.assertRaisesDeferred(error.LoginFailed,
-                                  factory.decode,
-                                  namelessAuthRequest,
-                                  _trivial_GET()))
+            e = (yield self.assertRaisesDeferred(
+                error.LoginFailed,
+                factory.decode,
+                namelessAuthRequest,
+                _trivial_GET()
+            ))
             self.assertEquals(str(e), "Invalid response, no username given.")
 
             # Check for an empty username
-            e = (yield self.assertRaisesDeferred(error.LoginFailed,
-                                  factory.decode,
-                                  namelessAuthRequest + ',username=""',
-                                  _trivial_GET()))
+            e = (yield self.assertRaisesDeferred(
+                error.LoginFailed,
+                factory.decode,
+                namelessAuthRequest + ',username=""',
+                _trivial_GET()
+            ))
             self.assertEquals(str(e), "Invalid response, no username given.")
 
 
@@ -311,10 +352,12 @@ class DigestAuthTestCase(TestCase):
         """
 
         for factory in self.credentialFactories:
-            e = (yield self.assertRaisesDeferred(error.LoginFailed,
-                                  factory.decode,
-                                  'realm="Test",username="Foo",opaque="bar"',
-                                  _trivial_GET()))
+            e = (yield self.assertRaisesDeferred(
+                error.LoginFailed,
+                factory.decode,
+                'realm="Test",username="Foo",opaque="bar"',
+                _trivial_GET()
+            ))
             self.assertEquals(str(e), "Invalid response, no nonce given.")
 
 
@@ -327,10 +370,12 @@ class DigestAuthTestCase(TestCase):
 
         # Check for no username
         for factory in self.credentialFactories:
-            e = (yield self.assertRaisesDeferred(error.LoginFailed,
-                                  factory.decode,
-                                  emtpyAttributeAuthRequest,
-                                  _trivial_GET()))
+            e = (yield self.assertRaisesDeferred(
+                error.LoginFailed,
+                factory.decode,
+                emtpyAttributeAuthRequest,
+                _trivial_GET()
+            ))
             self.assertEquals(str(e), "Invalid response, no username given.")
 
 
@@ -352,10 +397,10 @@ class DigestAuthTestCase(TestCase):
             creds = (yield factory.decode(clientResponse, _trivial_GET()))
 
             self.failUnless(creds.checkHash(
-                    md5('username:test realm:password').hexdigest()))
+                md5('username:test realm:password').hexdigest()))
 
             self.failIf(creds.checkHash(
-                    md5('username:test realm:bogus').hexdigest()))
+                md5('username:test realm:bogus').hexdigest()))
 
 
     @inlineCallbacks
@@ -500,7 +545,7 @@ class DigestAuthTestCase(TestCase):
             ("user", "realm", "password", "preHA1"),
             (None, "realm", None, "preHA1"),
             (None, None, "password", "preHA1"),
-            )
+        )
 
         for pszUsername, pszRealm, pszPassword, preHA1 in arguments:
             self.assertRaises(
@@ -513,7 +558,7 @@ class DigestAuthTestCase(TestCase):
                 "nonce",
                 "cnonce",
                 preHA1=preHA1
-                )
+            )
 
 
     @inlineCallbacks

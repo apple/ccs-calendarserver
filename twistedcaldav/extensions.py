@@ -76,8 +76,10 @@ log = Logger()
 class DirectoryPrincipalPropertySearchMixIn(object):
 
     @inlineCallbacks
-    def report_DAV__principal_property_search(self, request,
-        principal_property_search):
+    def report_DAV__principal_property_search(
+        self, request,
+        principal_property_search
+    ):
         """
         Generate a principal-property-search REPORT. (RFC 3744, section 9.4)
         Overrides twisted implementation, targeting only directory-enabled
@@ -123,8 +125,10 @@ class DirectoryPrincipalPropertySearchMixIn(object):
                 propertiesForResource = prop_common.propertyListForResource
                 propElement = child
 
-            elif child.qname() == (dav_namespace,
-                "apply-to-principal-collection-set"):
+            elif child.qname() == (
+                dav_namespace,
+                "apply-to-principal-collection-set"
+            ):
                 applyTo = True
 
             elif child.qname() == (dav_namespace, "property-search"):
@@ -203,8 +207,10 @@ class DirectoryPrincipalPropertySearchMixIn(object):
                 else:
                     nonDirectoryProps.append(prop)
             if nonDirectoryProps:
-                nonDirectorySearches.append((nonDirectoryProps, match,
-                    matchFlags, matchType))
+                nonDirectorySearches.append((
+                    nonDirectoryProps, match,
+                    matchFlags, matchType
+                ))
 
         matchingResources = []
         matchcount = 0
@@ -212,8 +218,10 @@ class DirectoryPrincipalPropertySearchMixIn(object):
         # nonDirectorySearches are ignored
         if fields:
 
-            records = (yield dir.recordsMatchingFieldsWithCUType(fields,
-                operand=operand, cuType=cuType))
+            records = (yield dir.recordsMatchingFieldsWithCUType(
+                fields,
+                operand=operand, cuType=cuType
+            ))
 
             for record in records:
                 resource = yield principalCollection.principalForRecord(record)
@@ -251,15 +259,19 @@ class DirectoryPrincipalPropertySearchMixIn(object):
                     responsecode.INSUFFICIENT_STORAGE_SPACE
                 ),
                 element.Error(element.NumberOfMatchesWithinLimits()),
-                element.ResponseDescription("Results limited by %s at %d"
-                                           % resultsWereLimited),
+                element.ResponseDescription(
+                    "Results limited by %s at %d"
+                    % resultsWereLimited
+                ),
             ))
         returnValue(MultiStatusResponse(responses))
 
 
     @inlineCallbacks
-    def report_http___calendarserver_org_ns__calendarserver_principal_search(self, request,
-        calendarserver_principal_search):
+    def report_http___calendarserver_org_ns__calendarserver_principal_search(
+        self, request,
+        calendarserver_principal_search
+    ):
         """
         Generate a calendarserver-principal-search REPORT.
 
@@ -282,8 +294,10 @@ class DirectoryPrincipalPropertySearchMixIn(object):
         tokens, context, applyTo, clientLimit, propElement = extractCalendarServerPrincipalSearchData(calendarserver_principal_search)
 
         if not validateTokens(tokens):
-            raise HTTPError(StatusResponse(responsecode.FORBIDDEN,
-                "Insufficient search token length"))
+            raise HTTPError(StatusResponse(
+                responsecode.FORBIDDEN,
+                "Insufficient search token length"
+            ))
 
         # Run report
         resultsWereLimited = None
@@ -342,8 +356,10 @@ class DirectoryPrincipalPropertySearchMixIn(object):
                     responsecode.INSUFFICIENT_STORAGE_SPACE
                 ),
                 element.Error(element.NumberOfMatchesWithinLimits()),
-                element.ResponseDescription("Results limited by %s at %d"
-                                           % resultsWereLimited),
+                element.ResponseDescription(
+                    "Results limited by %s at %d"
+                    % resultsWereLimited
+                ),
             ))
         returnValue(MultiStatusResponse(responses))
 
@@ -868,7 +884,8 @@ class ReadOnlyResourceMixIn (ReadOnlyWritePropertiesResourceMixIn):
 
 class PropertyNotFoundError (HTTPError):
     def __init__(self, qname):
-        HTTPError.__init__(self,
+        HTTPError.__init__(
+            self,
             StatusResponse(
                 responsecode.NOT_FOUND,
                 "No such property: %s" % encodeXMLName(*qname)
@@ -890,7 +907,7 @@ class CachingPropertyStore (object):
 
 
     def get(self, qname, uid=None):
-        #self.log.debug("Get: %r, %r" % (self.resource.fp.path, qname))
+        # self.log.debug("Get: %r, %r" % (self.resource.fp.path, qname))
 
         cache = self._cache()
 
@@ -913,7 +930,7 @@ class CachingPropertyStore (object):
 
 
     def set(self, property, uid=None):
-        #self.log.debug("Set: %r, %r" % (self.resource.fp.path, property))
+        # self.log.debug("Set: %r, %r" % (self.resource.fp.path, property))
 
         cache = self._cache()
 
@@ -925,7 +942,7 @@ class CachingPropertyStore (object):
 
 
     def contains(self, qname, uid=None):
-        #self.log.debug("Contains: %r, %r" % (self.resource.fp.path, qname))
+        # self.log.debug("Contains: %r, %r" % (self.resource.fp.path, qname))
 
         cachedQname = qname + (uid,)
 
@@ -938,14 +955,14 @@ class CachingPropertyStore (object):
                 raise
 
         if cachedQname in cache:
-            #self.log.debug("Contains cache hit: %r, %r, %r" % (self, self.resource.fp.path, qname))
+            # self.log.debug("Contains cache hit: %r, %r, %r" % (self, self.resource.fp.path, qname))
             return True
         else:
             return False
 
 
     def delete(self, qname, uid=None):
-        #self.log.debug("Delete: %r, %r" % (self.resource.fp.path, qname))
+        # self.log.debug("Delete: %r, %r" % (self.resource.fp.path, qname))
 
         cachedQname = qname + (uid,)
 
@@ -956,7 +973,7 @@ class CachingPropertyStore (object):
 
 
     def list(self, uid=None, filterByUID=True):
-        #self.log.debug("List: %r" % (self.resource.fp.path,))
+        # self.log.debug("List: %r" % (self.resource.fp.path,))
         keys = self._cache().iterkeys()
         if filterByUID:
             return [
@@ -970,7 +987,7 @@ class CachingPropertyStore (object):
 
     def _cache(self):
         if not hasattr(self, "_data"):
-            #self.log.debug("Cache init: %r" % (self.resource.fp.path,))
+            # self.log.debug("Cache init: %r" % (self.resource.fp.path,))
             self._data = dict(
                 (name, None)
                 for name in self.propertyStore.list(filterByUID=False)
@@ -999,8 +1016,10 @@ def extractCalendarServerPrincipalSearchData(doc):
         if child.qname() == (dav_namespace, "prop"):
             propElement = child
 
-        elif child.qname() == (dav_namespace,
-            "apply-to-principal-collection-set"):
+        elif child.qname() == (
+            dav_namespace,
+            "apply-to-principal-collection-set"
+        ):
             applyTo = True
 
         elif child.qname() == (calendarserver_namespace, "search-token"):

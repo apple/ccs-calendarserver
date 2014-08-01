@@ -154,7 +154,7 @@ class Memcacher(CachePoolUserMixIn):
             self._clock += seconds
 
 
-    #TODO: an sqlite based cacher that can be used for multiple instance servers
+    # TODO: an sqlite based cacher that can be used for multiple instance servers
     # in the absence of memcached. This is not ideal and we may want to not implement
     # this, but it is being documented for completeness.
     #

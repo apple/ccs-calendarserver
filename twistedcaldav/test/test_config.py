@@ -276,10 +276,10 @@ class ConfigTests(TestCase):
 
         config.update({"DirectoryService": {"type": "twistedcaldav.test.test_config.SuperDuperAwesomeService"}})
 
-        #self.assertEquals(
-        #    config.DirectoryService.params,
-        #    SuperDuperAwesomeService.defaultParameters
-        #)
+        # self.assertEquals(
+        #     config.DirectoryService.params,
+        #     SuperDuperAwesomeService.defaultParameters
+        # )
 
     testDirectoryService_unknownType.todo = "unimplemented"
 

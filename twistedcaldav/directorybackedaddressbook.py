@@ -102,10 +102,10 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
                     davxml.Grant(
                         davxml.Privilege(davxml.Read()),
                         davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet())
-                                    ),
+                    ),
                     davxml.Protected(),
                     TwistedACLInheritable(),
-               ),
+                ),
             )
         )
 
@@ -174,9 +174,9 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
             "EMAIL": FieldName.emailAddresses,
             "UID": FieldName.uid,
             "ADR": (
-                    CalFieldName.streetAddress,
-                    CalFieldName.floor,
-                    ),
+                CalFieldName.streetAddress,
+                CalFieldName.floor,
+            ),
             "KIND": FieldName.recordType,
             # LATER "X-ADDRESSBOOKSERVER-MEMBER": FieldName.membersUIDs,
         }
@@ -252,7 +252,7 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
                     else:
                         log.debug("doAddressBookDirectoryQuery: vCard did not match filter:\n{vcard}", vcard=vCardResult.vCard())
 
-                #no more results
+                # no more results
                 if not queryLimited:
                     break
 
@@ -338,20 +338,20 @@ def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, con
                 if addedExpressions is True:
                     if not allOf:
                         expressionList = True  # expressionList or True is True
-                    #else  expressionList and True is expressionList
+                    # else  expressionList and True is expressionList
                 elif addedExpressions is False:
                     if allOf:
                         expressionList = False  # expressionList and False is False
-                    #else expressionList or False is expressionList
+                    # else expressionList or False is expressionList
                 else:
                     if expressionList is False:
                         if not allOf:
                             expressionList = addedExpressions  # False or addedExpressions is addedExpressions
-                        #else False and addedExpressions is False
+                        # else False and addedExpressions is False
                     elif expressionList is True:
                         if allOf:
                             expressionList = addedExpressions  # False or addedExpressions is addedExpressions
-                        #else False and addedExpressions is False
+                        # else False and addedExpressions is False
                     else:
                         expressionList.extend(addedExpressions)
             return expressionList
@@ -432,7 +432,7 @@ def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, con
                         rawString = matchString
                         matchString = ""
                         for c in rawString:
-                            if not c in "TZ-:":
+                            if c not in "TZ-:":
                                 matchString += c
                     elif propFilter.filter_name == "GEO":
                         matchString = ",".join(matchString.split(";"))
@@ -440,10 +440,10 @@ def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, con
                     if propFilter.filter_name in ("N" , "ADR", "ORG",):
                         # for structured properties, change into multiple strings for ds query
                         if propFilter.filter_name == "ADR":
-                            #split by newline and comma
+                            # split by newline and comma
                             rawStrings = ",".join(matchString.split("\n")).split(",")
                         else:
-                            #split by space
+                            # split by space
                             rawStrings = matchString.split(" ")
 
                         # remove empty strings
@@ -460,7 +460,7 @@ def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, con
                     # end getMatchStrings
 
                 if constant:
-                    #FIXME: match is not implemented in twisteddaldav.query.Filter.TextMatch so use _match for now
+                    # FIXME: match is not implemented in twisteddaldav.query.Filter.TextMatch so use _match for now
                     return textMatchElement._match([constant, ])
                 else:
 
@@ -502,7 +502,7 @@ def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, con
 
                 # attribute exists search
                 return definedExpression(True, propFilterAllOf)
-                #end textMatchElementExpression()
+                # end textMatchElementExpression()
 
             # searchablePropFilterAttrNames are attributes to be used by this propfilter's expression
             searchableFields = vcardPropToSearchableFieldMap.get(propFilter.filter_name, [])
@@ -515,7 +515,7 @@ def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, con
                 # return None to try to match all items if this is the only property filter
                 return None
 
-            #create a textMatchElement for the IsNotDefined qualifier
+            # create a textMatchElement for the IsNotDefined qualifier
             if isinstance(propFilter.qualifier, IsNotDefined):
                 textMatchElement = TextMatch(carddavxml.TextMatch.fromString(""))
                 textMatchElement.negate = True
@@ -544,7 +544,7 @@ def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, con
                     propFilterExpressions = [CompoundExpression(propFilterExpressions, Operand.AND if propFilterAllOf else Operand.OR)]
 
             return propFilterExpressions
-            #end propFilterExpression
+            # end propFilterExpression
 
         expressions = None
         for propFilter in propFilters:
@@ -586,7 +586,7 @@ def expressionFromABFilter(addressBookFilter, vcardPropToSearchableFieldMap, con
         else:
             expression = not filterAllOf
 
-    #log.debug("expressionFromABFilter: expression={q!r}, properties={pn}", q=expression, pn=properties)
+    # log.debug("expressionFromABFilter: expression={q!r}, properties={pn}", q=expression, pn=properties)
     return((properties, expression))
 
 
@@ -599,7 +599,7 @@ class ABDirectoryQueryResult(DAVPropertyMixIn):
     def __init__(self, directoryBackedAddressBook,):
 
         self._directoryBackedAddressBook = directoryBackedAddressBook
-        #self._vCard = None
+        # self._vCard = None
 
 
     def __repr__(self):
@@ -637,7 +637,7 @@ class ABDirectoryQueryResult(DAVPropertyMixIn):
 
 
     def hRef(self, parentURI=None):
-        return davxml.HRef.fromString(joinURL(parentURI if parentURI else  self._directoryBackedAddressBook.uri, self.uri()))
+        return davxml.HRef.fromString(joinURL(parentURI if parentURI else self._directoryBackedAddressBook.uri, self.uri()))
 
 
     def readProperty(self, property, request):
@@ -668,7 +668,7 @@ class ABDirectoryQueryResult(DAVPropertyMixIn):
                 else:
                     modDatetime = datetime.datetime.utcnow()
 
-                #strip time zone because time zones are unimplemented in davxml.GETLastModified.fromDate
+                # strip time zone because time zones are unimplemented in davxml.GETLastModified.fromDate
                 d = modDatetime.date()
                 t = modDatetime.time()
                 modDatetimeNoTZ = datetime.datetime(d.year, d.month, d.day, t.hour, t.minute, t.second, t.microsecond, None)

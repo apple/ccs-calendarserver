@@ -66,7 +66,8 @@ class MemcachePropertyCollection (object):
 
             cls.log.info("Instantiating memcache connection for MemcachePropertyCollection")
 
-            MemcachePropertyCollection._memcacheClient = ClientFactory.getClient([
+            MemcachePropertyCollection._memcacheClient = ClientFactory.getClient(
+                [
                     "%s:%s" % (config.Memcached.Pools.Default.BindAddress, config.Memcached.Pools.Default.Port)
                 ],
                 debug=0,
@@ -106,9 +107,9 @@ class MemcachePropertyCollection (object):
             self.log.debug("No child property cache for %s" % (child,))
             childCache, token = ({}, None)
 
-            #message = "No child property cache for %s" % (child,)
-            #self.log.error(message)
-            #raise AssertionError(message)
+            # message = "No child property cache for %s" % (child,)
+            # self.log.error(message)
+            # raise AssertionError(message)
 
         return propertyCache, key, childCache, token
 
@@ -143,8 +144,10 @@ class MemcachePropertyCollection (object):
             for childName in childNames
         ))
 
-        result = self._split_gets_multi((key for key, _ignore_name in keys),
-            client.gets_multi)
+        result = self._split_gets_multi(
+            (key for key, _ignore_name in keys),
+            client.gets_multi
+        )
 
         if abortIfMissing:
             missing = "missing "
@@ -227,8 +230,10 @@ class MemcachePropertyCollection (object):
 
         client = self.memcacheClient()
         if client is not None:
-            self._split_set_multi(values, client.set_multi,
-                time=self.cacheTimeout)
+            self._split_set_multi(
+                values, client.set_multi,
+                time=self.cacheTimeout
+            )
 
 
     def _buildCache(self, childNames=None):
@@ -277,8 +282,10 @@ class MemcachePropertyCollection (object):
             retries = 10
             while retries:
                 try:
-                    if client.set(key, childCache, time=self.cacheTimeout,
-                        token=token):
+                    if client.set(
+                        key, childCache, time=self.cacheTimeout,
+                        token=token
+                    ):
                         # Success
                         break
 

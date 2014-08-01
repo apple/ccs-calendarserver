@@ -140,7 +140,7 @@ class ProvisionedPrincipals(StoreTestCase):
             self.assertEquals(shortNames, set(expected))
 
             for shortName in shortNames:
-                #print("     -> %s" % (shortName,))
+                # print("     -> %s" % (shortName,))
                 recordResource = yield typeResource.getChild(shortName)
                 self.failUnless(
                     isinstance(recordResource, DirectoryPrincipalResource)
@@ -861,7 +861,7 @@ class ProvisionedPrincipals(StoreTestCase):
             yield self._checkPrivileges(*args)
 
         for recordType in (yield provisioningResource.listChildren()):
-            #print("   -> %s" % (recordType,))
+            # print("   -> %s" % (recordType,))
             typeResource = yield provisioningResource.getChild(recordType)
 
             for args in (
@@ -992,7 +992,7 @@ class ProvisionedPrincipals(StoreTestCase):
             if allowed:
                 def onError(f):
                     f.trap(AccessDeniedError)
-                    #print(resource.readDeadProperty(davxml.ACL))
+                    # print(resource.readDeadProperty(davxml.ACL))
                     self.fail(
                         "%s should have %s privilege on %r"
                         % (principal.sname(), privilege.sname(), resource)
@@ -1003,7 +1003,7 @@ class ProvisionedPrincipals(StoreTestCase):
                     f.trap(AccessDeniedError)
 
                 def onSuccess(_):
-                    #print(resource.readDeadProperty(davxml.ACL))
+                    # print(resource.readDeadProperty(davxml.ACL))
                     self.fail(
                         "%s should not have %s privilege on %r"
                         % (principal.sname(), privilege.sname(), resource)

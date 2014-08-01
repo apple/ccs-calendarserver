@@ -544,7 +544,7 @@ END:VCALENDAR
 """
         CR = "\n"
         CRLF = "\r\n"
-        #validEvent = eventTemplate.format("", wsanchez=wsanchez, cdaboo=cdaboo).replace(CR, CRLF)
+        # validEvent = eventTemplate.format("", wsanchez=wsanchez, cdaboo=cdaboo).replace(CR, CRLF)
         invalidInstance = """
 BEGIN:VEVENT
 UID:20060110T231240Z-4011c71-187-6f73

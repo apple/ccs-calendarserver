@@ -254,9 +254,10 @@ class BaseCacheTestMixin(object):
 
     def test_getResponseForRequestNotInCache(self):
         d = self.rc.getResponseForRequest(StubRequest(
-                'PROPFIND',
-                '/calendars/__uids__/dreid/',
-                '/principals/__uids__/dreid/'))
+            'PROPFIND',
+            '/calendars/__uids__/dreid/',
+            '/principals/__uids__/dreid/'
+        ))
 
         d.addCallback(self.assertEquals, None)
         return d
@@ -264,9 +265,10 @@ class BaseCacheTestMixin(object):
 
     def test_getResponseForRequestInCache(self):
         d = self.rc.getResponseForRequest(StubRequest(
-                'PROPFIND',
-                '/calendars/__uids__/cdaboo/',
-                '/principals/__uids__/cdaboo/'))
+            'PROPFIND',
+            '/calendars/__uids__/cdaboo/',
+            '/principals/__uids__/cdaboo/'
+        ))
 
         d.addCallback(self.assertResponse, self.expected_response)
         return d
@@ -276,9 +278,10 @@ class BaseCacheTestMixin(object):
         self.tokens['/principals/__uids__/cdaboo/'] = 'principalToken1'
 
         d = self.rc.getResponseForRequest(StubRequest(
-                'PROPFIND',
-                '/calendars/__uids__/cdaboo/',
-                '/principals/__uids__/cdaboo/'))
+            'PROPFIND',
+            '/calendars/__uids__/cdaboo/',
+            '/principals/__uids__/cdaboo/'
+        ))
 
         d.addCallback(self.assertEquals, None)
         return d
@@ -288,9 +291,10 @@ class BaseCacheTestMixin(object):
         self.tokens['/calendars/__uids__/cdaboo/'] = 'uriToken1'
 
         d = self.rc.getResponseForRequest(StubRequest(
-                'PROPFIND',
-                '/calendars/__uids__/cdaboo/',
-                '/principals/__uids__/cdaboo/'))
+            'PROPFIND',
+            '/calendars/__uids__/cdaboo/',
+            '/principals/__uids__/cdaboo/'
+        ))
 
         d.addCallback(self.assertEquals, None)
         return d
@@ -300,9 +304,10 @@ class BaseCacheTestMixin(object):
         self.tokens['/calendars/__uids__/cdaboo/calendars/'] = 'childToken1'
 
         d = self.rc.getResponseForRequest(StubRequest(
-                'PROPFIND',
-                '/calendars/__uids__/cdaboo/',
-                '/principals/__uids__/cdaboo/'))
+            'PROPFIND',
+            '/calendars/__uids__/cdaboo/',
+            '/principals/__uids__/cdaboo/'
+        ))
 
         d.addCallback(self.assertEquals, None)
         return d
@@ -310,10 +315,11 @@ class BaseCacheTestMixin(object):
 
     def test_getResponseForDepthZero(self):
         d = self.rc.getResponseForRequest(StubRequest(
-                'PROPFIND',
-                '/calendars/__uids__/cdaboo/',
-                '/principals/__uids__/cdaboo/',
-                depth='0'))
+            'PROPFIND',
+            '/calendars/__uids__/cdaboo/',
+            '/principals/__uids__/cdaboo/',
+            depth='0'
+        ))
 
         d.addCallback(self.assertEquals, None)
         return d
@@ -321,10 +327,11 @@ class BaseCacheTestMixin(object):
 
     def test_getResponseForBody(self):
         d = self.rc.getResponseForRequest(StubRequest(
-                'PROPFIND',
-                '/calendars/__uids__/cdaboo/',
-                '/principals/__uids__/cdaboo/',
-                body='bazbax'))
+            'PROPFIND',
+            '/calendars/__uids__/cdaboo/',
+            '/principals/__uids__/cdaboo/',
+            body='bazbax'
+        ))
 
         d.addCallback(self.assertEquals, None)
         return d
@@ -332,10 +339,11 @@ class BaseCacheTestMixin(object):
 
     def test_getResponseForUnauthenticatedRequest(self):
         d = self.rc.getResponseForRequest(StubRequest(
-                'PROPFIND',
-                '/calendars/__uids__/cdaboo/',
-                '{DAV:}unauthenticated',
-                body='bazbax'))
+            'PROPFIND',
+            '/calendars/__uids__/cdaboo/',
+            '{DAV:}unauthenticated',
+            body='bazbax'
+        ))
 
         d.addCallback(self.assertEquals, None)
         return d
@@ -363,9 +371,10 @@ class BaseCacheTestMixin(object):
 
         def _assertResponse(ign):
             d1 = self.rc.getResponseForRequest(StubRequest(
-                    'PROPFIND',
-                    '/principals/__uids__/dreid/',
-                    '/principals/__uids__/dreid/'))
+                'PROPFIND',
+                '/principals/__uids__/dreid/',
+                '/principals/__uids__/dreid/'
+            ))
 
             d1.addCallback(self.assertResponse,
                            (expected_response.code,
@@ -374,9 +383,11 @@ class BaseCacheTestMixin(object):
             return d1
 
         d = self.rc.cacheResponseForRequest(
-            StubRequest('PROPFIND',
-                        '/principals/__uids__/dreid/',
-                        '/principals/__uids__/dreid/'),
+            StubRequest(
+                'PROPFIND',
+                '/principals/__uids__/dreid/',
+                '/principals/__uids__/dreid/'
+            ),
             expected_response)
 
         d.addCallback(_assertResponse)
@@ -419,23 +430,27 @@ class MemcacheResponseCacheTests(BaseCacheTestMixin, TestCase):
         self.expected_response = (200, Headers({}), "Foo")
 
         expected_key = hashlib.md5(':'.join([str(t) for t in (
-                'PROPFIND',
-                '/principals/__uids__/cdaboo/',
-                '/calendars/__uids__/cdaboo/',
-                '1',
-                hash('foobar'),
-                )])).hexdigest()
+            'PROPFIND',
+            '/principals/__uids__/cdaboo/',
+            '/calendars/__uids__/cdaboo/',
+            '1',
+            hash('foobar'),
+        )])).hexdigest()
 
         memcacheStub._cache[expected_key] = (
             0, #flags
             cPickle.dumps((
-            'principalToken0',
-            StubDirectoryRecord('cdaboo').cacheToken(),
-            'uriToken0',
-            {'/calendars/__uids__/cdaboo/calendars/': 'childToken0'},
-            (self.expected_response[0],
-             dict(list(self.expected_response[1].getAllRawHeaders())),
-             self.expected_response[2]))))
+                'principalToken0',
+                StubDirectoryRecord('cdaboo').cacheToken(),
+                'uriToken0',
+                {'/calendars/__uids__/cdaboo/calendars/': 'childToken0'},
+                (
+                    self.expected_response[0],
+                    dict(list(self.expected_response[1].getAllRawHeaders())),
+                    self.expected_response[2]
+                )
+            ))
+        )
 
         self.memcacheStub = memcacheStub
 
@@ -449,25 +464,29 @@ class MemcacheResponseCacheTests(BaseCacheTestMixin, TestCase):
         expected_response = (200, Headers({}), "Foobarbaz")
 
         _key = (
-                'PROPFIND',
-                '/principals/__uids__/cdaboo/',
-                '/calendars/users/cdaboo/',
-                '1',
-                hash('foobar'),
-                )
+            'PROPFIND',
+            '/principals/__uids__/cdaboo/',
+            '/calendars/users/cdaboo/',
+            '1',
+            hash('foobar'),
+        )
 
         expected_key = hashlib.md5(':'.join([str(t) for t in _key])).hexdigest()
 
         self.memcacheStub._cache[expected_key] = (
             0, #flags
             cPickle.dumps((
-                    'principalToken0',
-                    StubDirectoryRecord('cdaboo').cacheToken(),
-                    'uriToken0',
-                    {'/calendars/__uids__/cdaboo/calendars/': 'childToken0'},
-                    (expected_response[0],
-                     dict(list(expected_response[1].getAllRawHeaders())),
-                     expected_response[2]))))
+                'principalToken0',
+                StubDirectoryRecord('cdaboo').cacheToken(),
+                'uriToken0',
+                {'/calendars/__uids__/cdaboo/calendars/': 'childToken0'},
+                (
+                    expected_response[0],
+                    dict(list(expected_response[1].getAllRawHeaders())),
+                    expected_response[2]
+                )
+            ))
+        )
 
         d = self.rc.getResponseForRequest(
             StubRequest('PROPFIND',

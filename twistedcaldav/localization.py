@@ -120,7 +120,8 @@ class translationTo(object):
         key = (lang, domain, localeDir)
         self.translation = self.translations.get(key, None)
         if self.translation is None:
-            self.translation = gettext.translation(domain=domain,
+            self.translation = gettext.translation(
+                domain=domain,
                 localedir=localeDir, languages=[lang, 'en'], fallback=True)
             self.translations[key] = self.translation
 
@@ -208,9 +209,11 @@ class translationTo(object):
         return (
             _("%(startTime)s to %(endTime)s")
             % {
-                'startTime'      : self.dtTime(dtStart,
-                                    includeTimezone=(tzStart != tzEnd)),
-                'endTime'        : self.dtTime(dtEnd),
+                'startTime' : self.dtTime(
+                    dtStart,
+                    includeTimezone=(tzStart != tzEnd)
+                ),
+                'endTime' : self.dtTime(dtEnd),
             },
             self.dtDuration(duration)
         )
@@ -271,8 +274,10 @@ class translationTo(object):
         if days == 1:
             parts.append(_("1 day"))
         elif days > 1:
-            parts.append(_("%(dayCount)d days") %
-                {'dayCount' : days})
+            parts.append(
+                _("%(dayCount)d days") %
+                {'dayCount' : days}
+            )
 
         hours = divmod(total / 3600, 24)[1]
         minutes = divmod(total / 60, 60)[1]
@@ -281,20 +286,26 @@ class translationTo(object):
         if hours == 1:
             parts.append(_("1 hour"))
         elif hours > 1:
-            parts.append(_("%(hourCount)d hours") %
-                {'hourCount' : hours})
+            parts.append(
+                _("%(hourCount)d hours") %
+                {'hourCount' : hours}
+            )
 
         if minutes == 1:
             parts.append(_("1 minute"))
         elif minutes > 1:
-            parts.append(_("%(minuteCount)d minutes") %
-                {'minuteCount' : minutes})
+            parts.append(
+                _("%(minuteCount)d minutes") %
+                {'minuteCount' : minutes}
+            )
 
         if seconds == 1:
             parts.append(_("1 second"))
         elif seconds > 1:
-            parts.append(_("%(secondCount)d seconds") %
-                {'secondCount' : seconds})
+            parts.append(
+                _("%(secondCount)d seconds") %
+                {'secondCount' : seconds}
+            )
 
         return " ".join(parts)
 
@@ -380,28 +391,37 @@ def processLocalizationFiles(settings):
             try:
                 os.mkdir(gnuRoot)
             except OSError:
-                log.warn("Could not create gnuttext translation directory: %s"
+                log.warn(
+                    "Could not create gnuttext translation directory: %s"
                     % (gnuRoot,))
                 return
 
         # Scan for Apple translations (directories ending in .lproj)
         for item in os.listdir(lprojRoot):
             if item.endswith(".lproj"):
-                stringsFile = os.path.join(lprojRoot, item,
-                    'calendarserver.strings')
+                stringsFile = os.path.join(
+                    lprojRoot, item,
+                    'calendarserver.strings'
+                )
                 localeName = normalize(item[:-6])
-                moFile = os.path.join(gnuRoot, localeName, 'LC_MESSAGES',
-                    'calendarserver.mo')
+                moFile = os.path.join(
+                    gnuRoot, localeName, 'LC_MESSAGES',
+                    'calendarserver.mo'
+                )
                 if os.path.exists(stringsFile):
-                    if (not os.path.exists(moFile) or
+                    if (
+                        not os.path.exists(moFile) or
                         os.stat(stringsFile).st_mtime >
-                        os.stat(moFile).st_mtime):
+                        os.stat(moFile).st_mtime
+                    ):
                         log.info("Converting %s to %s" % (stringsFile, moFile))
                         try:
                             convertStringsFile(stringsFile, moFile)
                         except Exception, e:
-                            log.error("Failed to convert %s to %s: %s" %
-                                (stringsFile, moFile, e))
+                            log.error(
+                                "Failed to convert %s to %s: %s" %
+                                (stringsFile, moFile, e)
+                            )
                     else:
                         log.info("%s is up to date" % (moFile,))
 
@@ -447,8 +467,12 @@ def convertStringsFile(src, dest):
         origStr = original.encode("UTF-8")
         transStr = translation.encode("UTF-8")
 
-        descriptors.append((len(keys), len(origStr), len(values),
-            len(transStr)))
+        descriptors.append(
+            (
+                len(keys), len(origStr), len(values),
+                len(transStr)
+            )
+        )
         keys += origStr + '\0' # <NUL> terminated
         values += transStr + '\0'
 

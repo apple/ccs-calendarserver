@@ -210,8 +210,9 @@ END:VCALENDAR
                     status = propstat.childOfType(davxml.Status)
 
                     if status.code != responsecode.OK:
-                        self.fail("REPORT failed (status %s) to locate properties: %r"
-                              % (status.code, href))
+                        self.fail(
+                            "REPORT failed (status %s) to locate properties: %r"
+                            % (status.code, href))
 
                     properties = propstat.childOfType(davxml.PropertyContainer).children
 
@@ -251,8 +252,9 @@ END:VCALENDAR
                     status = response.childOfType(davxml.Status)
                 if status.code != responsecode.OK:
                     if href in okhrefs:
-                        self.fail("REPORT failed (status %s) to locate properties: %r"
-                              % (status.code, href))
+                        self.fail(
+                            "REPORT failed (status %s) to locate properties: %r"
+                            % (status.code, href))
                     else:
                         if href in badhrefs:
                             badhrefs.remove(href)

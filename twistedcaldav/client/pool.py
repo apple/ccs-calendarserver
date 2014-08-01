@@ -178,7 +178,7 @@ class HTTPClientPool(object):
         self._pendingConnects += 1
 
         self.log.debug("Initating new client connection to: %r" % (
-                self._endpoint,))
+            self._endpoint,))
         self._logClientStats()
 
         factory = self.clientFactory(self._reactor)
@@ -318,12 +318,14 @@ class HTTPClientPool(object):
 
 
     def _logClientStats(self):
-        self.log.debug("Clients #free: %d, #busy: %d, "
-                       "#pending: %d, #queued: %d" % (
+        self.log.debug(
+            "Clients #free: %d, #busy: %d, #pending: %d, #queued: %d" % (
                 len(self._freeClients),
                 len(self._busyClients),
                 self._pendingConnects,
-                len(self._pendingRequests)))
+                len(self._pendingRequests)
+            )
+        )
 
 
     def clientGone(self, client):
@@ -385,7 +387,7 @@ class HTTPClientPool(object):
             d, request, args, kwargs = self._pendingRequests.pop(0)
 
             self.log.debug("Performing Queued Request: %s, %r, %r" % (
-                    request, args, kwargs))
+                request, args, kwargs))
             self._logClientStats()
 
             _ign_d = self._submitRequest(request, *args, **kwargs)

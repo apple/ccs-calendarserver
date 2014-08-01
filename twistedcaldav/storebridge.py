@@ -59,8 +59,8 @@ from txdav.caldav.icalendarstore import (
     TooManyAttendeesError, InvalidCalendarAccessError, ValidOrganizerError,
     InvalidPerUserDataMerge,
     AttendeeAllowedError, ResourceDeletedError, InvalidAttachmentOperation,
-    ShareeAllowedError, DuplicatePrivateCommentsError, InvalidSplit
-, AttachmentSizeTooLarge, UnknownTimezone)
+    ShareeAllowedError, DuplicatePrivateCommentsError, InvalidSplit,
+    AttachmentSizeTooLarge, UnknownTimezone)
 from txdav.carddav.iaddressbookstore import (
     KindChangeNotAllowedError, GroupWithUnsharedAddressNotAllowedError
 )
@@ -836,7 +836,7 @@ class _CommonHomeChildCollectionMixin(object):
             except HTTPError, e:
                 hasPrivilege = e
 
-            #get components
+            # get components
             indexedComponents = []
             for index, xmldata in crudCreateInfo:
 
@@ -918,12 +918,12 @@ class _CommonHomeChildCollectionMixin(object):
                     )
             else:
                 xmlresponses[index] = davxml.StatusResponse(
-                        davxml.HRef.fromString(href),
-                        davxml.Status.fromResponseCode(code),
-                        davxml.Error(
-                            WebDAVUnknownElement.withName(*error),
-                        ) if error else None,
-                    )
+                    davxml.HRef.fromString(href),
+                    davxml.Status.fromResponseCode(code),
+                    davxml.Error(
+                        WebDAVUnknownElement.withName(*error),
+                    ) if error else None,
+                )
 
 
     @inlineCallbacks
@@ -2659,8 +2659,10 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         homeUID = ownerHome.uid()
         txn = ownerHome.transaction().store().newTransaction(
             "new transaction for %s, doing: %s" % (self._newStoreObject.name(), label,))
-        newParent = (yield (yield txn.calendarHomeWithUID(homeUID))
-                             .calendarWithName(calendarName))
+        newParent = (
+            yield (yield txn.calendarHomeWithUID(homeUID))
+            .calendarWithName(calendarName)
+        )
         newObject = (yield newParent.calendarObjectWithName(objectName))
         request._newStoreTransaction = txn
         request._resourcesByURL.clear()
@@ -3323,8 +3325,8 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         call super and provision group share
         """
         abObjectResource = yield super(AddressBookCollectionResource, self).makeChild(name)
-        #if abObjectResource.exists() and abObjectResource._newStoreObject.shareUID() is not None:
-        #    abObjectResource = yield self.parentResource().provisionShare(abObjectResource)
+        # if abObjectResource.exists() and abObjectResource._newStoreObject.shareUID() is not None:
+        #     abObjectResource = yield self.parentResource().provisionShare(abObjectResource)
         returnValue(abObjectResource)
 
 
@@ -3434,7 +3436,7 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
                     if ifmatch and ifmatch != etag.generate():
                         raise HTTPError(PRECONDITION_FAILED)
 
-                    #===========================================================
+                    # ===========================================================
                     # # If unshared is allowed deletes fails but crud adds works work!
                     # if (hasPrivilege is not True and not (
                     #             deleteResource.isShareeResource() or
@@ -3442,11 +3444,13 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
                     #         )
                     #     ):
                     #     raise hasPrivilege
-                    #===========================================================
+                    # ===========================================================
 
                     # don't allow shared group deletion -> unshare
-                    if (deleteResource.isShareeResource() or
-                        deleteResource._newStoreObject.isGroupForSharedAddressBook()):
+                    if (
+                        deleteResource.isShareeResource() or
+                        deleteResource._newStoreObject.isGroupForSharedAddressBook()
+                    ):
                         raise HTTPError(FORBIDDEN)
 
                     if hasPrivilege is not True:
@@ -3675,8 +3679,10 @@ class AddressBookObjectResource(_CommonObjectResource):
         """
         Override http_DELETE handle shared group deletion without fromParent=[davxml.Unbind()]
         """
-        if (self.isShareeResource() or
-            self.exists() and self._newStoreObject.isGroupForSharedAddressBook()):
+        if (
+            self.isShareeResource() or
+            self.exists() and self._newStoreObject.isGroupForSharedAddressBook()
+        ):
             returnValue((yield self.storeRemove(request)))
 
         returnValue((yield super(AddressBookObjectResource, self).http_DELETE(request)))

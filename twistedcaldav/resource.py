@@ -425,10 +425,10 @@ class CalDAVResource (
                 # These are "live" properties in the sense of WebDAV, however "live" for twext actually means
                 # ones that are also always present, but the default alarm properties are allowed to be absent
                 # and are in fact stored in the property store.
-                #caldavxml.DefaultAlarmVEventDateTime.qname(),
-                #caldavxml.DefaultAlarmVEventDate.qname(),
-                #caldavxml.DefaultAlarmVToDoDateTime.qname(),
-                #caldavxml.DefaultAlarmVToDoDate.qname(),
+                # caldavxml.DefaultAlarmVEventDateTime.qname(),
+                # caldavxml.DefaultAlarmVEventDate.qname(),
+                # caldavxml.DefaultAlarmVToDoDateTime.qname(),
+                # caldavxml.DefaultAlarmVToDoDate.qname(),
 
                 customxml.PubSubXMPPPushKeyProperty.qname(),
             )
@@ -1414,9 +1414,9 @@ class CalDAVResource (
             raise HTTPError(StatusResponse(responsecode.NOT_ALLOWED, "File exists"))
 
         # newStore guarantees that we always have a parent calendar home
-        #if not self.fp.parent().isdir():
-        #    log.error("Attempt to create collection with no parent: %s" % (self.fp.path,))
-        #    raise HTTPError(StatusResponse(responsecode.CONFLICT, "No parent collection"))
+        # if not self.fp.parent().isdir():
+        #     log.error("Attempt to create collection with no parent: %s" % (self.fp.path,))
+        #     raise HTTPError(StatusResponse(responsecode.CONFLICT, "No parent collection"))
 
         #
         # Verify that no parent collection is a calendar also
@@ -1503,9 +1503,9 @@ class CalDAVResource (
             raise HTTPError(StatusResponse(responsecode.NOT_ALLOWED, "File exists"))
 
         # newStore guarantees that we always have a parent calendar home
-        #if not os.path.isdir(os.path.dirname(self.fp.path)):
-        #    log.error("Attempt to create collection with no parent: %s" % (self.fp.path,))
-        #    raise HTTPError(StatusResponse(responsecode.CONFLICT, "No parent collection"))
+        # if not os.path.isdir(os.path.dirname(self.fp.path)):
+        #     log.error("Attempt to create collection with no parent: %s" % (self.fp.path,))
+        #     raise HTTPError(StatusResponse(responsecode.CONFLICT, "No parent collection"))
 
         #
         # Verify that no parent collection is a calendar also
@@ -1881,7 +1881,7 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
             if name == "addressbook-home-set":
                 returnValue(carddavxml.AddressBookHomeSet(
                     *[element.HRef(abhome_url) for abhome_url in self.addressBookHomeURLs()]
-                 ))
+                ))
             elif name == "directory-gateway" and self.directoryAddressBookEnabled():
                 returnValue(carddavxml.DirectoryGateway(
                     element.HRef.fromString(joinURL("/", config.DirectoryAddressBook.name, "/"))
@@ -2289,8 +2289,10 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
             returnValue(None)
 
         elif qname == (customxml.calendarserver_namespace, "pushkey"):
-            if (config.Notifications.Services.AMP.Enabled or
-                config.Notifications.Services.APNS.Enabled):
+            if (
+                config.Notifications.Services.AMP.Enabled or
+                config.Notifications.Services.APNS.Enabled
+            ):
                 notifier = self._newStoreHome.getNotifier("push")
                 if notifier is not None:
                     returnValue(customxml.PubSubXMPPPushKeyProperty(notifier.nodeName()))
@@ -2429,10 +2431,10 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
             # These are "live" properties in the sense of WebDAV, however "live" for twext actually means
             # ones that are also always present, but the default alarm properties are allowed to be absent
             # and are in fact stored in the property store.
-            #caldavxml.DefaultAlarmVEventDateTime.qname(),
-            #caldavxml.DefaultAlarmVEventDate.qname(),
-            #caldavxml.DefaultAlarmVToDoDateTime.qname(),
-            #caldavxml.DefaultAlarmVToDoDate.qname(),
+            # caldavxml.DefaultAlarmVEventDateTime.qname(),
+            # caldavxml.DefaultAlarmVEventDate.qname(),
+            # caldavxml.DefaultAlarmVToDoDateTime.qname(),
+            # caldavxml.DefaultAlarmVToDoDate.qname(),
 
         )
 
@@ -2928,19 +2930,27 @@ class AuthenticationWrapper(SuperAuthenticationWrapper):
     """ AuthenticationWrapper implementation which allows overriding
         credentialFactories on a per-resource-path basis """
 
-    def __init__(self, resource, portal,
+    def __init__(
+        self, resource, portal,
         wireEncryptedCredentialFactories, wireUnencryptedCredentialFactories,
-        loginInterfaces, overrides=None):
+        loginInterfaces, overrides=None
+    ):
 
-        super(AuthenticationWrapper, self).__init__(resource, portal,
+        super(AuthenticationWrapper, self).__init__(
+            resource, portal,
             wireEncryptedCredentialFactories, wireUnencryptedCredentialFactories,
-            loginInterfaces)
+            loginInterfaces
+        )
 
         self.overrides = {}
         if overrides:
             for path, factories in overrides.iteritems():
-                self.overrides[path] = dict([(factory.scheme, factory)
-                    for factory in factories])
+                self.overrides[path] = dict(
+                    [
+                        (factory.scheme, factory)
+                        for factory in factories
+                    ]
+                )
 
 
     def hook(self, req):
@@ -2949,8 +2959,10 @@ class AuthenticationWrapper(SuperAuthenticationWrapper):
 
         super(AuthenticationWrapper, self).hook(req)
 
-        factories = self.overrides.get(req.path.rstrip("/"),
-            req.credentialFactories)
+        factories = self.overrides.get(
+            req.path.rstrip("/"),
+            req.credentialFactories
+        )
         req.credentialFactories = factories
 
 

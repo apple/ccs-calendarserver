@@ -574,14 +574,14 @@ def generateFreeBusyInfo(
 
         # Create fake filter element to match time-range
         filter = caldavxml.Filter(
-                      caldavxml.ComponentFilter(
-                          caldavxml.ComponentFilter(
-                              cache_timerange if caching else timerange,
-                              name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
-                          ),
-                          name="VCALENDAR",
-                       )
-                  )
+            caldavxml.ComponentFilter(
+                caldavxml.ComponentFilter(
+                    cache_timerange if caching else timerange,
+                    name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
+                ),
+                name="VCALENDAR",
+            )
+        )
         filter = Filter(filter)
         tzinfo = filter.settimezone(tz)
 

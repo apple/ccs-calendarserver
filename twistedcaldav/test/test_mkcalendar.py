@@ -126,7 +126,7 @@ class MKCALENDAR (StoreTestCase):
                     caldavxml.CalendarDescription("Calendar restricted to events."), # FIXME: lang=en
                     caldavxml.SupportedCalendarComponentSet(caldavxml.CalendarComponent(name="VEVENT")),
                     caldavxml.CalendarTimeZone(
-"""BEGIN:VCALENDAR
+                        """BEGIN:VCALENDAR
 PRODID:-//Example Corp.//CalDAV Client//EN
 VERSION:2.0
 BEGIN:VTIMEZONE

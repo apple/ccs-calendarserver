@@ -195,7 +195,7 @@ class Config(object):
         parts = attr.split(".")
         lastDict = self._data
         for part in parts[:-1]:
-            if not part in lastDict:
+            if part not in lastDict:
                 lastDict[attr] = ConfigDict()
             lastDict = lastDict.__getattr__(part)
         configItem = parts[-1]
@@ -289,7 +289,8 @@ class Config(object):
                 self._afterResetHook(self._data, preserved)
             self.update(configDict, reloading=True)
         else:
-            raise ConfigurationError("Invalid configuration in %s"
+            raise ConfigurationError(
+                "Invalid configuration in %s"
                 % (self._provider.getConfigFileName(), ))
 
 

@@ -206,7 +206,7 @@ class AugmentDB(object):
         @return: L{Deferred}
         """
 
-        if not uid in self.cachedRecords:
+        if uid not in self.cachedRecords:
             result = (yield self._lookupAugmentRecord(uid))
             self.cachedRecords[uid] = result
         returnValue(self.cachedRecords[uid])

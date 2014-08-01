@@ -108,9 +108,10 @@ def mkroot(path):
 @logFuncCall
 def serveradmin(action, service):
     cmd = ' '.join((
-            SERVERADMIN,
-            action,
-            service))
+        SERVERADMIN,
+        action,
+        service
+    ))
 
     status, output = commands.getstatusoutput(cmd)
 
@@ -124,9 +125,10 @@ def serveradmin(action, service):
 @logFuncCall
 def isRunning(service):
     cmd = ' '.join((
-            SERVERADMIN,
-            'status',
-            service))
+        SERVERADMIN,
+        'status',
+        service
+    ))
 
     debug(cmd)
 

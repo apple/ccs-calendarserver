@@ -252,9 +252,9 @@ def multiget_common(self, request, multiget, collection_type):
                         textMatchElement = carddavxml.TextMatch.fromString(resource_name[:-4])
                         textMatchElement.attributes["match-type"] = "equals" # do equals compare. Default is "contains"
                         vCardFilters.append(carddavxml.PropertyFilter(
-                                                textMatchElement,
-                                                name="UID", # attributes
-                                            ))
+                            textMatchElement,
+                            name="UID", # attributes
+                        ))
                     else:
                         responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
 
@@ -265,7 +265,7 @@ def multiget_common(self, request, multiget, collection_type):
                 addressBookFilter = carddavxml.Filter(*vCardFilters)
                 addressBookFilter = Filter(addressBookFilter)
 
-                #get vCards and filter
+                # get vCards and filter
                 limit = config.DirectoryAddressBook.MaxQueryResults
                 results, limited = (yield self.doAddressBookDirectoryQuery(addressBookFilter, propertyreq, limit, defaultKind=None))
                 if limited:

@@ -134,8 +134,10 @@ def cuAddressConverter(origCUAddr):
             return "recordName", id
 
     else:
-        raise ValueError("Invalid calendar user address format: %s" %
-            (origCUAddr,))
+        raise ValueError(
+            "Invalid calendar user address format: %s" %
+            (origCUAddr,)
+        )
 
 
 
@@ -228,18 +230,15 @@ class DirectoryProvisioningResource (
         ("DAV:" , "displayname") :
             ("fullNames", None, "Display Name", davxml.DisplayName),
         ("urn:ietf:params:xml:ns:caldav" , "calendar-user-type") :
-            ("", cuTypeConverter, "Calendar User Type",
-            caldavxml.CalendarUserType),
+            ("", cuTypeConverter, "Calendar User Type", caldavxml.CalendarUserType),
         ("urn:ietf:params:xml:ns:caldav" , "calendar-user-address-set") :
-            ("", cuAddressConverter, "Calendar User Address Set",
-            caldavxml.CalendarUserAddressSet),
+            ("", cuAddressConverter, "Calendar User Address Set", caldavxml.CalendarUserAddressSet),
         (_cs_ns, "first-name") :
             ("firstName", None, "First Name", customxml.FirstNameProperty),
         (_cs_ns, "last-name") :
             ("lastName", None, "Last Name", customxml.LastNameProperty),
         (_cs_ns, "email-address-set") :
-            ("emailAddresses", None, "Email Addresses",
-            customxml.EmailAddressSet),
+            ("emailAddresses", None, "Email Addresses", customxml.EmailAddressSet),
     }
     _fieldList = [v for _ignore_k, v in sorted(_fieldMap.iteritems(), key=lambda x:x[0])]
 
@@ -342,8 +341,10 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
             else:
                 port = int(netloc[1])
 
-            if (host != config.ServerHostName and
-                host not in config.Scheduling.Options.PrincipalHostAliases):
+            if (
+                host != config.ServerHostName and
+                host not in config.Scheduling.Options.PrincipalHostAliases
+            ):
                 returnValue(None)
 
             if port != {
@@ -1057,7 +1058,8 @@ class DirectoryPrincipalResource (
                         relatives.add(found)
 
                     if infinity:
-                        yield self._getRelatives(method, relative, relatives, records,
+                        yield self._getRelatives(
+                            method, relative, relatives, records,
                             infinity=infinity)
 
         returnValue(relatives)
@@ -1416,7 +1418,7 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
         if config.EnableProxyPrincipals and name in (
             "calendar-proxy-read", "calendar-proxy-write",
             "calendar-proxy-read-for", "calendar-proxy-write-for",
-            ):
+        ):
             # name is required to be str
             from twistedcaldav.directory.calendaruserproxy import (
                 CalendarUserProxyPrincipalResource

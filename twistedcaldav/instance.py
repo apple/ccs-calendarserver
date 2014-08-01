@@ -155,7 +155,7 @@ class InstanceList(object):
                     self._addMasterToDoComponent(component, lowerLimit, limit)
                     master = component
             elif component.name() == "VJOURNAL":
-                #TODO: VJOURNAL
+                # TODO: VJOURNAL
                 raise NotImplementedError("VJOURNAL recurrence expansion not supported yet")
             elif component.name() == "VFREEBUSY":
                 self._addFreeBusyComponent(component, lowerLimit, limit)
@@ -175,7 +175,7 @@ class InstanceList(object):
             elif component.name() == "VTODO":
                 self._addOverrideToDoComponent(component, lowerLimit, limit, master)
             elif component.name() == "VJOURNAL":
-                #TODO: VJOURNAL
+                # TODO: VJOURNAL
                 raise NotImplementedError("VJOURNAL recurrence expansion not supported yet")
             elif component.name() == "AVAILABLE":
                 # AVAILABLE components are just like VEVENT components
@@ -268,7 +268,7 @@ class InstanceList(object):
         @param master: the master component which has already been expanded, or C{None}.
         """
 
-        #TODO: This does not take into account THISANDPRIOR - only THISANDFUTURE
+        # TODO: This does not take into account THISANDPRIOR - only THISANDFUTURE
 
         details = self._getMasterEventDetails(component)
         if details is None:
@@ -349,7 +349,7 @@ class InstanceList(object):
         @param master: the master component which has already been expanded, or C{None}.
         """
 
-        #TODO: This does not take into account THISANDPRIOR - only THISANDFUTURE
+        # TODO: This does not take into account THISANDPRIOR - only THISANDFUTURE
 
         details = self._getMasterToDoDetails(component)
         if details is None:
@@ -369,8 +369,11 @@ class InstanceList(object):
             # Begin expansion far in the past because there may be RDATEs earlier
             # than the master DTSTART, and if we exclude those, the associated
             # overridden instances will cause an InvalidOverriddenInstance.
-            limited = rrules.expand(rulestart,
-                Period(DateTime(1900, 1, 1), upperlimit), expanded)
+            limited = rrules.expand(
+                rulestart,
+                Period(DateTime(1900, 1, 1), upperlimit),
+                expanded
+            )
             for startDate in expanded:
                 startDate = self.normalizeFunction(startDate)
                 endDate = startDate + duration

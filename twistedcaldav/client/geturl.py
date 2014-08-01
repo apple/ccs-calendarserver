@@ -56,8 +56,10 @@ class AccumulatingProtocol(protocol.Protocol):
 
     def connectionMade(self):
         self.made = 1
-        if (self.factory is not None and
-            self.factory.protocolConnectionMade is not None):
+        if (
+            self.factory is not None and
+            self.factory.protocolConnectionMade is not None
+        ):
             d = self.factory.protocolConnectionMade
             self.factory.protocolConnectionMade = None
             d.callback(self)
