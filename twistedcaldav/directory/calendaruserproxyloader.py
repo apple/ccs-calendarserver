@@ -31,6 +31,8 @@ from twext.python.log import Logger
 from twistedcaldav.config import config, fullServerPath
 from twistedcaldav.xmlutil import readXML
 
+from txdav.who.delegates import addDelegate
+
 log = Logger()
 
 ELEMENT_PROXIES = "proxies"
@@ -52,11 +54,10 @@ class XMLCalendarUserProxyLoader(object):
         return "<%s %r>" % (self.__class__.__name__, self.xmlFile)
 
 
-    def __init__(self, xmlFile, service):
+    def __init__(self, xmlFile):
 
         self.items = []
         self.xmlFile = fullServerPath(config.DataRoot, xmlFile)
-        self.service = service
 
         # Read in XML
         try:
@@ -130,10 +131,42 @@ class XMLCalendarUserProxyLoader(object):
 
 
     @inlineCallbacks
-    def updateProxyDB(self):
+    def updateProxyDB(self, db):
+        """
+        Move the XML file proxies over to the proxyDB.
+        """
 
-        db = self.service
         for item in self.items:
             guid, write_proxies, read_proxies = item
             yield db.setGroupMembers("%s#%s" % (guid, "calendar-proxy-write"), write_proxies)
             yield db.setGroupMembers("%s#%s" % (guid, "calendar-proxy-read"), read_proxies)
+
+
+    @inlineCallbacks
+    def updateProxyStore(self, store):
+        """
+        Move the XML file proxies over to the store database.
+        """
+
+        directory = store.directoryService()
+        txn = store.newTransaction(label="xmlDelegatesToStore")
+        for item in self.items:
+            guid, write_proxies, read_proxies = item
+            delegatorRecord = yield directory.recordWithUID(guid)
+            if delegatorRecord is None:
+                continue
+            for proxy in write_proxies:
+                delegateRecord = yield directory.recordWithUID(proxy)
+                if delegateRecord is None:
+                    continue
+
+                yield addDelegate(txn, delegatorRecord, delegateRecord, True)
+
+            for proxy in read_proxies:
+                delegateRecord = yield directory.recordWithUID(proxy)
+                if delegateRecord is None:
+                    continue
+
+                yield addDelegate(txn, delegatorRecord, delegateRecord, False)
+
+        yield txn.commit()

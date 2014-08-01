@@ -880,8 +880,9 @@ class ProxySqliteDB(ADBAPISqliteMixin, ProxyDB):
 
     def __init__(self, dbpath):
 
+        self.dbpath = fullServerPath(config.DataRoot, dbpath)
         ADBAPISqliteMixin.__init__(self)
-        ProxyDB.__init__(self, "Proxies", "sqlite3", (fullServerPath(config.DataRoot, dbpath),))
+        ProxyDB.__init__(self, "Proxies", "sqlite3", (self.dbpath,))
 
 
 

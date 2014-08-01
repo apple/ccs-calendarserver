@@ -600,8 +600,8 @@ def upgrade_to_2(config, directory):
 #                                scanCollection(childCollection)
 
                 if os.path.isdir(calPath):
-                    #log.debug("Regular collection scan: %s" % (calPath,))
-                    #scanCollection(calPath)
+                    # log.debug("Regular collection scan: %s" % (calPath,))
+                    # scanCollection(calPath)
                     log.warn("Regular collection hidden: %s" % (calPath,))
                     os.rename(calPath, os.path.join(calHome, ".collection." + os.path.basename(calPath)))
 
@@ -650,6 +650,7 @@ def upgrade_to_2(config, directory):
 
     if flattenHomes():
         raise UpgradeError("Data upgrade failed, see error.log for details")
+
 
 
 def upgradeResourcesXML(resourcesFilePath):
@@ -986,14 +987,31 @@ def migrateAutoSchedule(config, directory):
 
 
 
-def loadDelegatesFromXML(xmlFile, service):
-    loader = XMLCalendarUserProxyLoader(xmlFile, service)
-    return loader.updateProxyDB()
+def loadDelegatesFromXMLintoProxyDB(xmlFile, service):
+    loader = XMLCalendarUserProxyLoader(xmlFile)
+    return loader.updateProxyDB(service)
+
+
+
+def loadDelegatesFromXMLintoStore(xmlFile, store):
+    loader = XMLCalendarUserProxyLoader(xmlFile)
+    return loader.updateProxyStore(store)
 
 
 
 @inlineCallbacks
-def migrateDelegatesToStore(service, store):
+def migrateDelegatesToStore(store):
+    """
+    Migrate the old sqlite proxyDB data into the store. Remove the sqlite file
+    afterwards.
+
+    @param store: the store to migrate into
+    @type store: L{CommonDataStore}
+    """
+
+    log.warn("Migrating delegates to the store")
+
+    service = ProxySqliteDB("proxies.sqlite")
     directory = store.directoryService()
     txn = store.newTransaction(label="migrateDelegatesToStore")
     for groupName, memberUID in (
@@ -1017,6 +1035,12 @@ def migrateDelegatesToStore(service, store):
         yield addDelegate(txn, delegatorRecord, delegateRecord, readWrite)
 
     yield txn.commit()
+
+    # Remove the old file
+    os.remove(service.dbpath)
+    journalPath = service.dbpath + "-journal"
+    if os.path.exists(journalPath):
+        os.remove(journalPath)
 
 
 
@@ -1089,23 +1113,42 @@ class PostDBImportStep(object):
     def stepWithResult(self, result):
         if self.doPostImport:
 
-            # Load proxy assignments from XML if specified
-            if (
-                self.config.ProxyLoadFromFile and
-                os.path.exists(self.config.ProxyLoadFromFile) and
-                not os.path.exists(
-                    os.path.join(
-                        self.config.DataRoot, "proxies.sqlite"
-                    )
-                )
+            # Migrate any proxyDB file that exists - remove it after migration
+            loadDoneFilePath = os.path.join(self.config.DataRoot, "proxies-loaded")
+            if os.path.exists(
+                os.path.join(self.config.DataRoot, "proxies.sqlite")
             ):
-                sqliteProxyService = ProxySqliteDB("proxies.sqlite")
-                yield loadDelegatesFromXML(
-                    self.config.ProxyLoadFromFile,
-                    sqliteProxyService
+                # Migrate delegate assignments from sqlite to store
+                yield migrateDelegatesToStore(
+                    self.store
                 )
+
+                # If migration happened and the XML load option is on, write a stub file to prevent
+                # it being loaded on the next restart
+                if (
+                    self.config.ProxyLoadFromFile and
+                    os.path.exists(self.config.ProxyLoadFromFile) and
+                    not os.path.exists(loadDoneFilePath)
+                ):
+                    # Write stub file as indicator loading is done
+                    FilePath(loadDoneFilePath).touch()
+
+            # If no migration, see if there is an XML file to load into the store (once only)
             else:
-                sqliteProxyService = None
+                if (
+                    self.config.ProxyLoadFromFile and
+                    os.path.exists(self.config.ProxyLoadFromFile) and
+                    not os.path.exists(loadDoneFilePath)
+                ):
+                    log.warn("Loading delegate assignments from XML")
+                    yield loadDelegatesFromXMLintoStore(
+                        self.config.ProxyLoadFromFile,
+                        self.store
+                    )
+
+                    # Write stub file as indicator loading is done
+                    FilePath(loadDoneFilePath).touch()
+
 
             # # Populate the group membership cache
             # if (self.config.GroupCaching.Enabled and
@@ -1125,11 +1168,6 @@ class PostDBImportStep(object):
             #         useExternalProxies=self.config.GroupCaching.UseExternalProxies)
             #     yield updater.updateCache(fast=True)
 
-            uid, gid = getCalendarServerIDs(self.config)
-            dbPath = os.path.join(self.config.DataRoot, "proxies.sqlite")
-            if os.path.exists(dbPath):
-                os.chown(dbPath, uid, gid)
-
             # Process old inbox items
             self.store.setMigrating(True)
             yield self.processInboxItems()
@@ -1137,11 +1175,6 @@ class PostDBImportStep(object):
 
             # Migrate mail tokens from sqlite to store
             yield migrateTokensToStore(self.config.DataRoot, self.store)
-
-            # Migrate delegate assignments from sqlite to store
-            if sqliteProxyService is None:
-                sqliteProxyService = ProxySqliteDB("proxies.sqlite")
-            yield migrateDelegatesToStore(sqliteProxyService, self.store)
 
 
     @inlineCallbacks

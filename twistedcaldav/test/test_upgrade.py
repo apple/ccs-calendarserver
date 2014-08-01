@@ -27,7 +27,7 @@ from twistedcaldav.test.util import StoreTestCase
 from twistedcaldav.upgrade import (
     xattrname, upgradeData, updateFreeBusySet,
     removeIllegalCharacters, normalizeCUAddrs,
-    loadDelegatesFromXML, migrateDelegatesToStore,
+    loadDelegatesFromXMLintoProxyDB, migrateDelegatesToStore,
     upgradeResourcesXML
 )
 from txdav.caldav.datastore.index_file import db_basename
@@ -319,7 +319,7 @@ class UpgradeTests(StoreTestCase):
             ".calendarserver_version" : {
                 "@contents" : "2",
             },
-            MailGatewayTokensDatabase.dbFilename : { "@contents" : None },
+            MailGatewayTokensDatabase.dbFilename : {"@contents" : None},
             "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) : {
                 "@contents" : None,
                 "@optional" : True,
@@ -1477,10 +1477,10 @@ class UpgradeTests(StoreTestCase):
         # Load delegates from xml into sqlite
         sqliteProxyService = ProxySqliteDB("proxies.sqlite")
         proxyFile = os.path.join(config.DataRoot, "proxies.xml")
-        yield loadDelegatesFromXML(proxyFile, sqliteProxyService)
+        yield loadDelegatesFromXMLintoProxyDB(proxyFile, sqliteProxyService)
 
         # Load delegates from sqlite into store
-        yield migrateDelegatesToStore(sqliteProxyService, store)
+        yield migrateDelegatesToStore(store)
 
         # Check delegates in store
         txn = store.newTransaction()
