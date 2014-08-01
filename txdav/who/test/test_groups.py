@@ -602,6 +602,7 @@ class DynamicGroupTest(StoreTestCase):
         # delegate groups not deleted
         for uid in (u"testgroup", u"emptygroup",):
 
+            txn = store.newTransaction()
             groupID = (yield txn.groupByUID(uid))[0]
             yield txn.addDelegateGroup(delegator=u"sagen", delegateGroupID=groupID, readWrite=True)
             yield txn.commit()
@@ -611,7 +612,7 @@ class DynamicGroupTest(StoreTestCase):
             txn = store.newTransaction()
             yield self.groupCacher.update(txn)
             groupID = (yield txn.groupByUID(uid, create=False))[0]
-
+            yield txn.commit()
             self.assertNotEqual(groupID, None)
 
         # delegate group is deleted. unused group is deleted
