@@ -120,7 +120,8 @@ def buildDirectory(
             )
             # We don't want system accounts returned in lookups, so tell
             # the service to suppress them.
-            directory = ODDirectoryService(suppressSystemRecords=True)
+            node = params.node
+            directory = ODDirectoryService(nodeName=node, suppressSystemRecords=True)
 
         elif "ldap" in directoryType:
             if params.credentials.dn and params.credentials.password:
