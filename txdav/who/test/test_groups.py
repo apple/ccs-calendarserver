@@ -18,11 +18,14 @@
 Group membership caching implementation tests
 """
 
+from twext.enterprise.jobqueue import JobItem
 from twext.who.idirectory import RecordType
+from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
+from twistedcaldav.stdconfig import config
 from twistedcaldav.test.util import StoreTestCase
 from txdav.common.icommondatastore import NotFoundError
-from txdav.who.groups import GroupCacher, diffAssignments
+from txdav.who.groups import GroupCacher, diffAssignments, GroupRefreshWork
 from txdav.who.test.support import TestRecord, CalendarInMemoryDirectoryService
 
 
@@ -498,6 +501,17 @@ class DynamicGroupTest(StoreTestCase):
         yield group.setMembers(members)
 
 
+        def doWork(self):
+            self.transaction._groupCacher = groupCacher
+            return unpatchedDoWork(self)
+
+        groupCacher = self.groupCacher
+        unpatchedDoWork = GroupRefreshWork.doWork
+        self.patch(GroupRefreshWork, "doWork", doWork)
+
+        config.AutomaticPurging.Enabled = True
+
+
     @inlineCallbacks
     def test_extant(self):
         """
@@ -577,7 +591,7 @@ class DynamicGroupTest(StoreTestCase):
 
 
     @inlineCallbacks
-    def test_update_delete(self):
+    def test_update_delete_unused(self):
         """
         Verify that unused groups are deleted from group cache
         """
@@ -596,6 +610,7 @@ class DynamicGroupTest(StoreTestCase):
             txn = store.newTransaction()
             yield self.groupCacher.update(txn)
             groupID = (yield txn.groupByUID(uid, create=False))[0]
+            yield txn.commit()
 
             self.assertEqual(groupID, None)
 
@@ -611,8 +626,13 @@ class DynamicGroupTest(StoreTestCase):
 
             txn = store.newTransaction()
             yield self.groupCacher.update(txn)
+            yield txn.commit()
+            yield JobItem.waitEmpty(store.newTransaction, reactor, 60)
+
+            txn = store.newTransaction()
             groupID = (yield txn.groupByUID(uid, create=False))[0]
             yield txn.commit()
+
             self.assertNotEqual(groupID, None)
 
         # delegate group is deleted. unused group is deleted
@@ -628,9 +648,67 @@ class DynamicGroupTest(StoreTestCase):
 
         txn = store.newTransaction()
         yield self.groupCacher.update(txn)
+        yield txn.commit()
+        yield JobItem.waitEmpty(store.newTransaction, reactor, 60)
+
+        txn = store.newTransaction()
         testGroupID = (yield txn.groupByUID(u"testgroup", create=False))[0]
         emptyGroupID = (yield txn.groupByUID(u"emptygroup", create=False))[0]
         yield txn.commit()
 
         self.assertEqual(testGroupID, None)
         self.assertNotEqual(emptyGroupID, None)
+
+
+    @inlineCallbacks
+    def test_update_delete_old_nonextant(self):
+        """
+        Verify that old missing groups are deleted from group cache
+        """
+
+        oldGroupPurgeIntervalSeconds = config.AutomaticPurging.GroupPurgeIntervalSeconds
+        store = self.storeUnderTest()
+
+        for uid in (u"testgroup", u"emptygroup",):
+
+            config.AutomaticPurging.GroupPurgeIntervalSeconds = oldGroupPurgeIntervalSeconds
+            txn = store.newTransaction()
+            groupID = (yield txn.groupByUID(uid))[0]
+            yield txn.addDelegateGroup(delegator=u"sagen", delegateGroupID=groupID, readWrite=True)
+            (
+                groupID, _ignore_name, _ignore_membershipHash, _ignore_modified,
+                extant
+            ) = yield txn.groupByUID(uid, create=False)
+            yield txn.commit()
+
+            self.assertTrue(extant)
+            self.assertNotEqual(groupID, None)
+
+            # Remove the group, still cached
+            yield self.directory.removeRecords([uid])
+            txn = store.newTransaction()
+            yield self.groupCacher.update(txn)
+            (
+                groupID, _ignore_name, _ignore_membershipHash, _ignore_modified,
+                extant
+            ) = yield txn.groupByUID(uid, create=False)
+            yield txn.commit()
+            yield JobItem.waitEmpty(store.newTransaction, reactor, 60)
+
+            txn = store.newTransaction()
+            (
+                groupID, _ignore_name, _ignore_membershipHash, _ignore_modified,
+                extant
+            ) = yield txn.groupByUID(uid, create=False)
+            yield txn.commit()
+            self.assertNotEqual(groupID, None)
+            self.assertFalse(extant)
+
+            # delete the group
+            config.AutomaticPurging.GroupPurgeIntervalSeconds = "0.0"
+
+            txn = store.newTransaction()
+            yield self.groupCacher.update(txn)
+            groupID = (yield txn.groupByUID(uid, create=False))[0]
+            yield txn.commit()
+            self.assertEqual(groupID, None)

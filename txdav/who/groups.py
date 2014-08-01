@@ -104,18 +104,12 @@ class GroupRefreshWork(WorkItem, fromTable(schema.GROUP_REFRESH_WORK)):
                 )
 
         else:
-            notBefore = (
-                datetime.datetime.utcnow() +
-                datetime.timedelta(seconds=10)
-            )
             log.debug(
                 "Rescheduling group refresh for {group}: {when}",
-                group=self.groupUid, when=notBefore
+                group=self.groupUid,
+                when=datetime.datetime.utcnow() + datetime.timedelta(seconds=10)
             )
-            yield self.transaction.enqueue(
-                GroupRefreshWork,
-                groupUID=self.groupUid, notBefore=notBefore
-            )
+            yield self.reschedule(self.transaction, 10, groupUID=self.groupUid)
 
 
 
@@ -317,28 +311,44 @@ class GroupCacher(object):
         # Figure out which groups matter
         groupUIDs = yield self.groupsToRefresh(txn)
         self.log.debug(
-            "Number of groups to refresh: {num}", num=len(groupUIDs)
+            "Groups to refresh: {g}", g=groupUIDs
         )
-        # For each of those groups, create a per-group refresh work item
-        for groupUID in groupUIDs:
-            notBefore = (
-                datetime.datetime.utcnow() +
-                datetime.timedelta(seconds=1)
-            )
-            self.log.debug("Enqueuing group refresh for {u}", u=groupUID)
-            yield txn.enqueue(
-                GroupRefreshWork, groupUid=groupUID, notBefore=notBefore
-            )
-            self.log.debug("Enqueued group refresh for {u}", u=groupUID)
 
-        # remove unused groups
         gr = schema.GROUPS
-        yield Delete(
-            From=gr,
-            Where=gr.GROUP_UID.NotIn(
-                Parameter("groupUIDs", len(groupUIDs))
-            ) if groupUIDs else None
-        ).on(txn, groupUIDs=groupUIDs)
+        if config.AutomaticPurging.Enabled and groupUIDs:
+            # remove unused groups and groups that have not been seen in a while
+            dateLimit = (
+                datetime.datetime.utcnow() -
+                datetime.timedelta(seconds=float(config.AutomaticPurging.GroupPurgeIntervalSeconds))
+            )
+            rows = yield Delete(
+                From=gr,
+                Where=(
+                    (gr.EXTANT == 0).And(gr.MODIFIED < dateLimit)
+                ).Or(
+                    gr.GROUP_UID.NotIn(
+                        Parameter("groupUIDs", len(groupUIDs))
+                    )
+                ) if groupUIDs else None,
+                Return=[gr.GROUP_UID]
+            ).on(txn, groupUIDs=groupUIDs)
+        else:
+            # remove unused groups
+            rows = yield Delete(
+                From=gr,
+                Where=gr.GROUP_UID.NotIn(
+                    Parameter("groupUIDs", len(groupUIDs))
+                ) if groupUIDs else None,
+                Return=[gr.GROUP_UID]
+            ).on(txn, groupUIDs=groupUIDs)
+        deletedGroupUIDs = [row[0] for row in rows]
+        if deletedGroupUIDs:
+            self.log.debug("Deleted old or unused groups {d}", d=deletedGroupUIDs)
+
+        # For each of those groups, create a per-group refresh work item
+        for groupUID in set(groupUIDs) - set(deletedGroupUIDs):
+            self.log.debug("Enqueuing group refresh for {u}", u=groupUID)
+            yield GroupRefreshWork.reschedule(txn, 0, groupUid=groupUID)
 
 
     @inlineCallbacks

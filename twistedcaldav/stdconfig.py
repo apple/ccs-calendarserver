@@ -1084,6 +1084,7 @@ DEFAULT_CONFIG = {
         "CheckStaggerSeconds": 0, # No staggering
         "PurgeIntervalSeconds": 7 * 24 * 60 * 60,   # 7 days
         "HomePurgeDelaySeconds": 60,
+        "GroupPurgeIntervalSeconds": 7 * 24 * 60 * 60,   # 7 days
     },
 
     "Manhole": {
