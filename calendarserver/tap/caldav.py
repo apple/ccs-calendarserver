@@ -23,7 +23,7 @@ __all__ = [
 ]
 
 import sys
-# import os
+from collections import OrderedDict
 from os import getuid, getgid, umask, remove, environ, stat, chown
 from os.path import exists, basename, isfile
 import socket
@@ -523,22 +523,9 @@ class SlaveSpawnerService(Service):
 
 
     def startService(self):
-        for slaveNumber in xrange(0, config.MultiProcess.ProcessCount):
-            if config.UseMetaFD:
-                extraArgs = dict(
-                    metaSocket=self.dispatcher.addSocket(slaveNumber)
-                )
-            else:
-                extraArgs = dict(inheritFDs=self.inheritFDs,
-                                 inheritSSLFDs=self.inheritSSLFDs)
-            if self.dispenser is not None:
-                extraArgs.update(ampSQLDispenser=self.dispenser)
-            process = TwistdSlaveProcess(
-                sys.argv[0], self.maker.tapname, self.configPath, slaveNumber,
-                config.BindAddresses, **extraArgs
-            )
-            self.monitor.addProcessObject(process, PARENT_ENVIRONMENT)
 
+        # Add the directory proxy sidecar first so it at least get spawned
+        # prior to the caldavd worker processes:
         if config.DirectoryProxy.Enabled:
             log.info("Adding directory proxy service")
 
@@ -558,6 +545,23 @@ class SlaveSpawnerService(Service):
             self.monitor.addProcess(
                 "directoryproxy", dpsArgv, env=PARENT_ENVIRONMENT
             )
+
+        for slaveNumber in xrange(0, config.MultiProcess.ProcessCount):
+            if config.UseMetaFD:
+                extraArgs = dict(
+                    metaSocket=self.dispatcher.addSocket(slaveNumber)
+                )
+            else:
+                extraArgs = dict(inheritFDs=self.inheritFDs,
+                                 inheritSSLFDs=self.inheritSSLFDs)
+            if self.dispenser is not None:
+                extraArgs.update(ampSQLDispenser=self.dispenser)
+            process = TwistdSlaveProcess(
+                sys.argv[0], self.maker.tapname, self.configPath, slaveNumber,
+                config.BindAddresses, **extraArgs
+            )
+            self.monitor.addProcessObject(process, PARENT_ENVIRONMENT)
+
 
 
 
@@ -2213,7 +2217,7 @@ class DelayedStartupProcessMonitor(Service, object):
         if reactor is None:
             from twisted.internet import reactor
         self._reactor = reactor
-        self.processes = {}
+        self.processes = OrderedDict()
         self.protocols = {}
         self.delay = {}
         self.timeStarted = {}
@@ -2291,6 +2295,8 @@ class DelayedStartupProcessMonitor(Service, object):
         # Now we're ready to build the command lines and actually add the
         # processes to procmon.
         super(DelayedStartupProcessMonitor, self).startService()
+        # This will be in the order added, since self.processes is an
+        # OrderedDict
         for name in self.processes:
             self.startProcess(name)
 
@@ -2310,7 +2316,9 @@ class DelayedStartupProcessMonitor(Service, object):
             if delayedCall.active():
                 delayedCall.cancel()
 
-        for name in self.processes:
+        # Stop processes in the reverse order from which they were added and
+        # started
+        for name in reversed(self.processes):
             self.stopProcess(name)
         return gatherResults(self.deferreds.values())
 
