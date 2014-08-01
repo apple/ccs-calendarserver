@@ -898,11 +898,8 @@ DEFAULT_CONFIG = {
     },
 
     "DirectoryProxy": {
-        "Enabled": False,
+        "Enabled": True,
         "SocketPath": "directory-proxy.sock",
-        "DirectoryType": "XML",  # "LDAP", "OD", "XML"
-        "Arguments": [],
-        "Keywords": {},
     },
 
     #
