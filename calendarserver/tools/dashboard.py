@@ -830,7 +830,7 @@ class SystemWindow(BaseWindow):
         )
         records["uptime"] = int(time.time() - records["start time"])
         hours, mins = divmod(records["uptime"] / 60, 60)
-        records["uptime"] = "{}:{:02d} hours".format(hours, mins)
+        records["uptime"] = "{}:{:02d} hh:mm".format(hours, mins)
         del records["start time"]
 
         for item, value in sorted(records.items(), key=lambda x: x[0]):
