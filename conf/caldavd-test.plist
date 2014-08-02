@@ -180,7 +180,7 @@
       <key>InProcessCachingSeconds</key>
       <integer>0</integer>
       <key>InSidecarCachingSeconds</key>
-      <integer>0</integer>
+      <integer>30</integer>
     </dict>
 
     <!--

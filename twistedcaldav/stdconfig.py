@@ -900,7 +900,7 @@ DEFAULT_CONFIG = {
     "DirectoryProxy": {
         "SocketPath": "directory-proxy.sock",
         "InProcessCachingSeconds": 0,
-        "InSidecarCachingSeconds": 0,
+        "InSidecarCachingSeconds": 30,
     },
 
     #
