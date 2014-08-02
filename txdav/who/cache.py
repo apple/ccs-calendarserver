@@ -68,6 +68,8 @@ class CachingDirectoryService(
     directory records.
     """
 
+    # FIXME: purge old records occasionally
+
     fieldName = ConstantsContainer((
         BaseFieldName,
         FieldName,
