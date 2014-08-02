@@ -18,6 +18,7 @@ import cPickle as pickle
 import datetime
 import uuid
 
+from calendarserver.tap.util import getDBPool, storeFromConfig
 from twext.python.log import Logger
 from twext.who.expression import MatchType, MatchFlags, Operand
 from twisted.application import service
@@ -39,6 +40,7 @@ from txdav.dps.commands import (
     WikiAccessForUIDCommand, ContinuationCommand
     # UpdateRecordsCommand, RemoveRecordsCommand
 )
+from txdav.who.cache import CachingDirectoryService
 from txdav.who.util import directoryFromConfig
 from txdav.who.wiki import WikiAccessLevel
 from zope.interface import implementer
@@ -571,10 +573,19 @@ class DirectoryProxyServiceMaker(object):
             setproctitle("CalendarServer Directory Proxy Service")
 
         try:
+            pool, txnFactory = getDBPool(config)
+            store = storeFromConfig(config, txnFactory, None)
             directory = directoryFromConfig(config)
+            if config.DirectoryProxy.InSidecarCachingSeconds:
+                directory = CachingDirectoryService(
+                    directory,
+                    expireSeconds=config.DirectoryProxy.InSidecarCachingSeconds
+                )
+            store.setDirectoryService(directory)
         except Exception as e:
             log.error("Failed to create directory service", error=e)
             raise
+
 
         log.info("Created directory service")
 

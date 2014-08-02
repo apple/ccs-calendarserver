@@ -175,6 +175,14 @@
     <key>MaxAllowedInstances</key>
     <integer>3000</integer>
 
+    <key>DirectoryProxy</key>
+    <dict>
+      <key>InProcessCachingSeconds</key>
+      <integer>10</integer>
+      <key>InSidecarCachingSeconds</key>
+      <integer>30</integer>
+    </dict>
+
     <!--
         Directory service
 
@@ -788,7 +796,7 @@
 		<dict>
 			<key>Enabled</key>
 			<true/>
-			
+
 			<!-- Make these short for testing -->
             <key>RequestDelaySeconds</key>
             <real>0.1</real>

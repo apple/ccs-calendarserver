@@ -94,9 +94,10 @@ from txdav.common.datastore.upgrade.sql.upgrade import (
 )
 from txdav.common.datastore.work.inbox_cleanup import InboxCleanupWork
 from txdav.common.datastore.work.revision_cleanup import FindMinValidRevisionWork
-from txdav.who.util import directoryFromConfig
 from txdav.dps.client import DirectoryService as DirectoryProxyClientService
+from txdav.who.cache import CachingDirectoryService
 from txdav.who.groups import GroupCacher
+from txdav.who.util import directoryFromConfig
 
 from twistedcaldav import memcachepool
 from twistedcaldav.config import ConfigurationError
@@ -526,25 +527,24 @@ class SlaveSpawnerService(Service):
 
         # Add the directory proxy sidecar first so it at least get spawned
         # prior to the caldavd worker processes:
-        if config.DirectoryProxy.Enabled:
-            log.info("Adding directory proxy service")
+        log.info("Adding directory proxy service")
 
-            dpsArgv = [
-                sys.executable,
-                sys.argv[0],
-            ]
-            if config.UserName:
-                dpsArgv.extend(("-u", config.UserName))
-            if config.GroupName:
-                dpsArgv.extend(("-g", config.GroupName))
-            dpsArgv.extend((
-                "--reactor={}".format(config.Twisted.reactor),
-                "-n", "caldav_directoryproxy",
-                "-f", self.configPath,
-            ))
-            self.monitor.addProcess(
-                "directoryproxy", dpsArgv, env=PARENT_ENVIRONMENT
-            )
+        dpsArgv = [
+            sys.executable,
+            sys.argv[0],
+        ]
+        if config.UserName:
+            dpsArgv.extend(("-u", config.UserName))
+        if config.GroupName:
+            dpsArgv.extend(("-g", config.GroupName))
+        dpsArgv.extend((
+            "--reactor={}".format(config.Twisted.reactor),
+            "-n", "caldav_directoryproxy",
+            "-f", self.configPath,
+        ))
+        self.monitor.addProcess(
+            "directoryproxy", dpsArgv, env=PARENT_ENVIRONMENT
+        )
 
         for slaveNumber in xrange(0, config.MultiProcess.ProcessCount):
             if config.UseMetaFD:
@@ -854,6 +854,11 @@ class CalDAVServiceMaker (object):
         directory = DirectoryProxyClientService(config.DirectoryRealmName)
         if config.Servers.Enabled:
             directory.setServersDB(buildServersDB(config.Servers.MaxClients))
+        if config.DirectoryProxy.InProcessCachingSeconds:
+            directory = CachingDirectoryService(
+                directory,
+                expireSeconds=config.DirectoryProxy.InProcessCachingSeconds
+            )
         store = storeFromConfig(config, txnFactory, directory)
         logObserver = AMPCommonAccessLoggingObserver()
         result = self.requestProcessingService(options, store, logObserver)
@@ -1491,18 +1496,19 @@ class CalDAVServiceMaker (object):
                 if directory is None:
                     # Create a Directory Proxy "Server" service and hand it to
                     # the store.
-                    # FIXME: right now the store passed *to* the directory is the
-                    # calendar/contacts data store, but for a multi-server deployment
-                    # it will need its own separate store.
                     if config.Servers.Enabled:
                         serversDB = buildServersDB(config.Servers.MaxClients)
                     else:
                         serversDB = None
-                    store.setDirectoryService(
-                        directoryFromConfig(
-                            config, store=store, serversDB=serversDB
-                        )
+                    directorySvc = directoryFromConfig(
+                        config, store=store, serversDB=serversDB
                     )
+                    if config.DirectoryProxy.InProcessCachingSeconds:
+                        directorySvc = CachingDirectoryService(
+                            directorySvc,
+                            expireSeconds=config.DirectoryProxy.InProcessCachingSeconds
+                        )
+                    store.setDirectoryService(directorySvc)
 
                 pps = PreProcessingService(
                     createMainService, cp, store, logObserver, storageService

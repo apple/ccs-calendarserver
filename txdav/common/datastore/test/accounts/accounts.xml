@@ -393,6 +393,35 @@ limitations under the License.
     <full-name>Empty Group</full-name>
   </record>
 
+  <!-- Caching Directory test records -->
+
+  <record type="user">
+    <uid>cache-uid-1</uid>
+    <guid>8166C681-2D08-4846-90F7-97023A6EDDC5</guid>
+    <short-name>cache-name-1</short-name>
+    <short-name>cache-alt-name-1</short-name>
+    <password>cache-password-1</password>
+    <full-name>Cache User 1</full-name>
+    <email>cache-user-1@example.com</email>
+  </record>
+
+  <record type="user">
+    <uid>cache-uid-duplicate-1</uid>
+    <short-name>cache-name-duplicate-1</short-name>
+    <short-name>cache-alt-name-duplicate-1</short-name>
+    <password>cache-password-duplicate-1</password>
+    <full-name>Cache User Duplicate 1</full-name>
+    <email>cache-user-1@example.com</email>
+  </record>
+
+  <record type="user">
+    <uid>cache-uid-2</uid>
+    <short-name>cache-name-2</short-name>
+    <password>cache-password-2</password>
+    <full-name>Cache User 2</full-name>
+    <email>cache-user-2@example.com</email>
+  </record>
+
   <!-- Calverify test records -->
 
   <record type="user">
