@@ -442,8 +442,6 @@ def getRootResource(config, newStore, resources=None):
     #
     log.info("Setting up document root at: {root}", root=config.DocumentRoot)
 
-    # principalCollection = directory.principalCollection
-
     if config.EnableCalDAV:
         log.info("Setting up calendar collection: {cls}", cls=calendarResourceClass)
         calendarCollection = calendarResourceClass(
@@ -451,6 +449,7 @@ def getRootResource(config, newStore, resources=None):
             "/calendars/",
             newStore,
         )
+        principalCollection.calendarCollection = calendarCollection
 
     if config.EnableCardDAV:
         log.info("Setting up address book collection: {cls}", cls=addressBookResourceClass)
@@ -459,6 +458,7 @@ def getRootResource(config, newStore, resources=None):
             "/addressbooks/",
             newStore,
         )
+        principalCollection.addressBookCollection = addressBookCollection
 
         if config.DirectoryAddressBook.Enabled and config.EnableSearchAddressBook:
             log.info(

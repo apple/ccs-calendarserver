@@ -286,6 +286,10 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
         # FIXME: Smells like a hack
         self.directory.setPrincipalCollection(self)
 
+        # Used to hook in the data collection root resources
+        self.calendarCollection = None
+        self.addressBookCollection = None
+
         #
         # Create children
         #
@@ -1349,10 +1353,10 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
 
     def _homeChildURL(self, name):
         if not hasattr(self, "calendarHomeURL"):
-            if not hasattr(self.record.service, "calendarHomesCollection"):
+            if self.parent.parent.calendarCollection is None:
                 return None
             self.calendarHomeURL = joinURL(
-                self.record.service.calendarHomesCollection.url(),
+                self.parent.parent.calendarCollection.url(),
                 uidsResourceName,
                 self.record.uid
             ) + "/"
@@ -1369,20 +1373,18 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
 
 
     def calendarHome(self, request):
-        # FIXME: self.record.service.calendarHomesCollection smells like a hack
-        service = self.record.service
-        if hasattr(service, "calendarHomesCollection"):
-            return service.calendarHomesCollection.homeForDirectoryRecord(self.record, request)
+        if self.parent.parent.calendarCollection is not None:
+            return self.parent.parent.calendarCollection.homeForDirectoryRecord(self.record, request)
         else:
             return succeed(None)
 
 
     def _addressBookHomeChildURL(self, name):
         if not hasattr(self, "addressBookHomeURL"):
-            if not hasattr(self.record.service, "addressBookHomesCollection"):
+            if self.parent.parent.addressBookCollection is None:
                 return None
             self.addressBookHomeURL = joinURL(
-                self.record.service.addressBookHomesCollection.url(),
+                self.parent.parent.addressBookCollection.url(),
                 uidsResourceName,
                 self.record.uid
             ) + "/"
@@ -1399,10 +1401,8 @@ class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
 
 
     def addressBookHome(self, request):
-        # FIXME: self.record.service.addressBookHomesCollection smells like a hack
-        service = self.record.service
-        if hasattr(service, "addressBookHomesCollection"):
-            return service.addressBookHomesCollection.homeForDirectoryRecord(self.record, request)
+        if self.parent.parent.addressBookCollection is not None:
+            return self.parent.parent.addressBookCollection.homeForDirectoryRecord(self.record, request)
         else:
             return succeed(None)
 

@@ -97,9 +97,6 @@ class DirectoryAddressBookHomeProvisioningResource(
         self._url = url
         self._newStore = store
 
-        # FIXME: Smells like a hack
-        directory.addressBookHomesCollection = self
-
         #
         # Create children
         #
