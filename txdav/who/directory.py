@@ -191,18 +191,6 @@ class CalendarDirectoryServiceMixin(object):
         returnValue(results)
 
 
-    def recordsMatchingFieldsWithCUType(self, fields, operand=Operand.OR,
-                                        cuType=None):
-        if cuType:
-            recordType = CalendarDirectoryRecordMixin.fromCUType(cuType)
-        else:
-            recordType = None
-
-        return self.recordsMatchingFields(
-            fields, operand=operand, recordType=recordType
-        )
-
-
     def recordsMatchingFields(self, fields, operand=Operand.OR, recordType=None):
         """
         @param fields: a iterable of tuples, each tuple consisting of:

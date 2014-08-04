@@ -66,7 +66,10 @@ from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.method.report import http_REPORT
 
 from twistedcaldav.config import config
+from txdav.who.directory import CalendarDirectoryRecordMixin
 from twext.who.expression import Operand, MatchType, MatchFlags
+
+
 
 thisModule = getModule(__name__)
 
@@ -218,10 +221,18 @@ class DirectoryPrincipalPropertySearchMixIn(object):
         # nonDirectorySearches are ignored
         if fields:
 
-            records = (yield dir.recordsMatchingFieldsWithCUType(
-                fields,
-                operand=operand, cuType=cuType
-            ))
+            if cuType:
+                recordType = CalendarDirectoryRecordMixin.fromCUType(cuType)
+            else:
+                recordType = None
+
+            records = (
+                yield dir.recordsMatchingFields(
+                    fields,
+                    operand=operand,
+                    recordType=recordType
+                )
+            )
 
             for record in records:
                 resource = yield principalCollection.principalForRecord(record)

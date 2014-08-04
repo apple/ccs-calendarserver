@@ -164,6 +164,36 @@ class CacheTest(StoreTestCase):
 
 
     @inlineCallbacks
+    def test_cachingByCUA(self):
+        """
+        recordWithCalendarUserAddress does not cache directly; the
+        underlying recordWith...() call should do the caching instead.
+        """
+
+        dir = self.cachingDirectory
+
+        record = yield dir.recordWithCalendarUserAddress(u"mailto:cache-user-2@example.com")
+        self.assertEquals(record.uid, u"cache-uid-2")
+        self.assertEquals(dir._hitCount, 0)
+        self.assertEquals(dir._requestCount, 1)
+        record = yield dir.recordWithCalendarUserAddress(u"mailto:cache-user-2@example.com")
+        self.assertEquals(record.uid, u"cache-uid-2")
+        self.assertEquals(dir._hitCount, 1)
+        self.assertEquals(dir._requestCount, 2)
+
+        dir.resetCache()
+
+        record = yield dir.recordWithCalendarUserAddress(u"urn:x-uid:cache-uid-1")
+        self.assertEquals(record.uid, u"cache-uid-1")
+        self.assertEquals(dir._hitCount, 0)
+        self.assertEquals(dir._requestCount, 1)
+        record = yield dir.recordWithCalendarUserAddress(u"urn:x-uid:cache-uid-1")
+        self.assertEquals(record.uid, u"cache-uid-1")
+        self.assertEquals(dir._hitCount, 1)
+        self.assertEquals(dir._requestCount, 2)
+
+
+    @inlineCallbacks
     def test_cachingExpiration(self):
         """
         Verify records expire at the expected time; in these tests, 10 seconds

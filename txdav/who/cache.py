@@ -317,20 +317,22 @@ class CachingDirectoryService(
         return self._directory.recordsWithRecordType(recordType)
 
 
-    def recordsMatchingTokens(self, *args, **kwds):
-        return CalendarDirectoryServiceMixin.recordsMatchingTokens(
-            self, *args, **kwds
+    def recordsMatchingTokens(self, tokens, context=None, limitResults=50,
+                              timeoutSeconds=10):
+        return self._directory.recordsMatchingTokens(
+            tokens, context=context, limitResults=limitResults,
+            timeoutSeconds=timeoutSeconds
         )
 
 
-    def recordsMatchingFields(self, *args, **kwds):
-        return CalendarDirectoryServiceMixin.recordsMatchingFields(
-            self, *args, **kwds
+    def recordsMatchingFields(self, fields, operand, recordType):
+        return self._directory.recordsMatchingFields(
+            fields, operand, recordType
         )
 
 
-    def recordWithCalendarUserAddress(self, *args, **kwds):
+    def recordWithCalendarUserAddress(self, cua):
         # This will get cached by the underlying recordWith... call
         return CalendarDirectoryServiceMixin.recordWithCalendarUserAddress(
-            self, *args, **kwds
+            self, cua
         )
