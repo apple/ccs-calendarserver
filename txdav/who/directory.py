@@ -269,9 +269,15 @@ class CalendarDirectoryRecordMixin(object):
 
         if isinstance(credentials, UsernamePassword):
             log.debug("UsernamePassword")
-            returnValue(
-                (yield self.verifyPlaintextPassword(credentials.password))
-            )
+            try:
+                if self._cached_password == credentials.password:
+                    returnValue(True)
+            except AttributeError:
+                pass
+            matches = yield self.verifyPlaintextPassword(credentials.password)
+            if matches:
+                self._cached_password = credentials.password
+            returnValue(matches)
 
         elif isinstance(credentials, DigestedCredentials):
             log.debug("DigestedCredentials")

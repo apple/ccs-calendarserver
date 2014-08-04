@@ -387,7 +387,17 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         record = (yield self._directory.recordWithUID(uid))
         authenticated = False
         if record is not None:
+            try:
+                if record._cached_password == password:
+                    response = {
+                        "authenticated": True,
+                    }
+                    returnValue(response)
+            except AttributeError:
+                pass
             authenticated = (yield record.verifyPlaintextPassword(password))
+            if authenticated:
+                record._cached_password = password
         response = {
             "authenticated": authenticated,
         }

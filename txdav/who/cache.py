@@ -72,13 +72,10 @@ class CachingDirectoryService(
     directory records.
     """
 
-    # FIXME: purge old records occasionally
-
     fieldName = ConstantsContainer((
         BaseFieldName,
         FieldName,
     ))
-
 
 
     def __init__(self, directory, expireSeconds=30):
