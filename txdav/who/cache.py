@@ -44,6 +44,10 @@ from txdav.who.idirectory import (
 )
 from twisted.python.constants import Values, ValueConstant
 
+# After this many lookup calls, we scan the cache for expired records
+# to purge
+SCAN_AFTER_LOOKUP_COUNT = 100
+
 log = Logger()
 
 
@@ -96,9 +100,16 @@ class CachingDirectoryService(
         }
         self._hitCount = 0
         self._requestCount = 0
+        self._lookupsUntilScan = SCAN_AFTER_LOOKUP_COUNT
 
 
     def setTestTime(self, timestamp):
+        """
+        Only used for unit tests to override the notion of "now"
+
+        @param timestamp: seconds
+        @type timestamp: C{float}
+        """
         self._test_time = timestamp
 
 
@@ -138,9 +149,26 @@ class CachingDirectoryService(
                 pass
 
 
+    def purgeExpiredRecords(self):
+        """
+        Scans the cache for expired records and deletes them
+        """
+        if hasattr(self, "_test_time"):
+            now = self._test_time
+        else:
+            now = time.time()
+
+        for indexType in self._cache:
+            for key, (cachedTime, record) in self._cache[indexType].items():
+                if now - self._expireSeconds > cachedTime:
+                    del self._cache[indexType][key]
+
+
     def lookupRecord(self, indexType, key):
         """
-        Looks for a record in the specified index, under the specified key
+        Looks for a record in the specified index, under the specified key.
+        After every SCAN_AFTER_LOOKUP_COUNT lookups are done,
+        purgeExpiredRecords() is called.
 
         @param index: an index type
         @type indexType: L{IndexType}
@@ -151,6 +179,12 @@ class CachingDirectoryService(
         @return: the cached directory record, or None
         @rtype: L{DirectoryRecord}
         """
+
+        if self._lookupsUntilScan == 0:
+            self._lookupsUntilScan = SCAN_AFTER_LOOKUP_COUNT
+            self.purgeExpiredRecords()
+        else:
+            self._lookupsUntilScan -= 1
 
         self._requestCount += 1
         if key in self._cache[indexType]:

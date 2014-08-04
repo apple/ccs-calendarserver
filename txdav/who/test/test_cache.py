@@ -20,7 +20,9 @@ Caching service tests
 
 from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.test.util import StoreTestCase
-from txdav.who.cache import CachingDirectoryService
+from txdav.who.cache import (
+    CachingDirectoryService, IndexType, SCAN_AFTER_LOOKUP_COUNT
+)
 from twext.who.idirectory import (
     RecordType
 )
@@ -228,3 +230,35 @@ class CacheTest(StoreTestCase):
         self.assertEquals(record.uid, u"cache-uid-1")
         self.assertEquals(dir._hitCount, 1)
         self.assertEquals(dir._requestCount, 4)
+
+
+    @inlineCallbacks
+    def test_cachePurging(self):
+        """
+        Verify records are purged from cache after a certain amount of requests
+        """
+
+        dir = self.cachingDirectory
+
+        dir.setTestTime(1.0)
+
+        record = yield dir.recordWithUID(u"cache-uid-1")
+        self.assertEquals(record.uid, u"cache-uid-1")
+        self.assertEquals(dir._hitCount, 0)
+        self.assertEquals(dir._requestCount, 1)
+
+        # 60 seconds later, the record has expired, but is still present
+        dir.setTestTime(60.0)
+
+        self.assertTrue(u"cache-uid-1" in dir._cache[IndexType.uid])
+
+        # After SCAN_AFTER_LOOKUP_COUNT requests, however, that expired entry
+        # will be removed
+
+        for i in xrange(SCAN_AFTER_LOOKUP_COUNT):
+            yield dir.recordWithUID(u"cache-uid-2")
+
+        # cache-uid-1 no longer in cache
+        self.assertFalse(u"cache-uid-1" in dir._cache[IndexType.uid])
+        # cache-uid-2 still in cache
+        self.assertTrue(u"cache-uid-2" in dir._cache[IndexType.uid])
