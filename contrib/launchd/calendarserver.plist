@@ -35,7 +35,7 @@ limitations under the License.
     <string>-o</string>
     <string>FailIfUpgradeNeeded=False</string>
     <string>-o</string>
-    <string>ServiceDisablingProgram=/Applications/Server.app/Contents/ServerRoot/Library/CalendarServer/bin/calendarserver_stop
+    <string>ServiceDisablingProgram=/Applications/Server.app/Contents/ServerRoot/Library/CalendarServer/bin/calendarserver_stop</string>
   </array>
 
   <key>EnvironmentVariables</key>
