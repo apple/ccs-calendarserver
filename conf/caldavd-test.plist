@@ -178,7 +178,7 @@
     <key>DirectoryProxy</key>
     <dict>
       <key>InProcessCachingSeconds</key>
-      <integer>0</integer>
+      <integer>10</integer>
       <key>InSidecarCachingSeconds</key>
       <integer>30</integer>
     </dict>
