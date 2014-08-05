@@ -1307,7 +1307,7 @@ class ImplicitScheduler(object):
                     continue
 
             # Do not schedule with groups - ever
-            if attendeeAddress.hosted() and attendeeAddress.getCUType() == "GROUP":
+            if attendeeAddress.hosted() and attendeeAddress.getCUType() in ("GROUP", "X-SERVER_GROUP"):
                 continue
 
             # Generate an iTIP CANCEL message for this attendee, cancelling
@@ -1370,7 +1370,7 @@ class ImplicitScheduler(object):
                     continue
 
             # Do not schedule with groups - ever
-            if attendeeAddress.hosted() and attendeeAddress.getCUType() == "GROUP":
+            if attendeeAddress.hosted() and attendeeAddress.getCUType() in ("GROUP", "X-SERVER_GROUP"):
                 continue
 
             itipmsg = iTipGenerator.generateAttendeeRequest(self.calendar, (attendee,), self.changed_rids)
