@@ -67,7 +67,6 @@ class GroupCacherPollingWork(
         groupCacher = getattr(self.transaction, "_groupCacher", None)
         if groupCacher is not None:
 
-            # New implementation
             try:
                 yield groupCacher.update(self.transaction)
             except Exception, e:

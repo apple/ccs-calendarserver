@@ -23,9 +23,9 @@ from twext.who.idirectory import (
     FieldName as BaseFieldName, RecordType, DirectoryConfigurationError
 )
 from twext.who.ldap import (
-    DirectoryService as LDAPDirectoryService, LDAPAttribute,
+    DirectoryService as LDAPDirectoryService,
     FieldName as LDAPFieldName,
-    RecordTypeSchema, LDAPObjectClass
+    RecordTypeSchema
 )
 from twext.who.util import ConstantsContainer
 from twisted.cred.credentials import UsernamePassword
@@ -131,62 +131,40 @@ def buildDirectory(
                 )
             else:
                 creds = None
+            mapping = params.mapping
             directory = LDAPDirectoryService(
                 params.uri,
                 params.rdnSchema.base,
                 credentials=creds,
                 fieldNameToAttributesMap=MappingProxyType({
-                    BaseFieldName.uid: ("apple-generateduid",),
-                    BaseFieldName.guid: ("apple-generateduid",),
-                    BaseFieldName.shortNames: (LDAPAttribute.uid.value,),
-                    BaseFieldName.fullNames: (LDAPAttribute.cn.value,),
-                    BaseFieldName.emailAddresses: (LDAPAttribute.mail.value,),
-                    BaseFieldName.password: (LDAPAttribute.userPassword.value,),
-                    LDAPFieldName.memberDNs: (LDAPAttribute.uniqueMember.value,),
+                    BaseFieldName.uid: mapping.uid,
+                    BaseFieldName.guid: mapping.guid,
+                    BaseFieldName.shortNames: mapping.shortNames,
+                    BaseFieldName.fullNames: mapping.fullNames,
+                    BaseFieldName.emailAddresses: mapping.emailAddresses,
+                    LDAPFieldName.memberDNs: mapping.memberDNs,
                 }),
                 recordTypeSchemas=MappingProxyType({
                     RecordType.user: RecordTypeSchema(
-                        relativeDN=u"ou=People",
-
-                        # (objectClass=inetOrgPerson)
-                        attributes=(
-                            (
-                                LDAPAttribute.objectClass.value,
-                                LDAPObjectClass.inetOrgPerson.value,
-                            ),
-                        ),
+                        relativeDN=params.rdnSchema.users,
+                        attributes=(),
                     ),
-
                     RecordType.group: RecordTypeSchema(
-                        relativeDN=u"ou=Groups",
-
-                        # (objectClass=groupOfNames)
-                        attributes=(
-                            (
-                                LDAPAttribute.objectClass.value,
-                                LDAPObjectClass.groupOfUniqueNames.value,
-                            ),
-                        ),
+                        relativeDN=params.rdnSchema.groups,
+                        attributes=(),
                     ),
-
                     CalRecordType.location: RecordTypeSchema(
-                        relativeDN=u"ou=places",
-
+                        relativeDN=params.rdnSchema.locations,
                         attributes=(),
                     ),
-
                     CalRecordType.resource: RecordTypeSchema(
-                        relativeDN=u"ou=resources",
-
+                        relativeDN=params.rdnSchema.resources,
                         attributes=(),
                     ),
-
                     CalRecordType.address: RecordTypeSchema(
-                        relativeDN=u"ou=buildings",
-
+                        relativeDN=params.rdnSchema.addresses,
                         attributes=(),
                     ),
-
                 })
             )
 

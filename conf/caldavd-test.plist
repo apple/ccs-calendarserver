@@ -196,7 +196,7 @@
     <key>DirectoryService</key>
     <dict>
       <key>type</key>
-      <string>twistedcaldav.directory.xmlfile.XMLDirectoryService</string>
+      <string>xml</string>
 
       <key>params</key>
       <dict>
@@ -210,14 +210,12 @@
     <key>DirectoryService</key>
     <dict>
       <key>type</key>
-      <string>twistedcaldav.directory.appleopendirectory.OpenDirectoryService</string>
+      <string>opendirectory</string>
 
       <key>params</key>
       <dict>
         <key>node</key>
         <string>/Search</string>
-        <key>cacheTimeout</key>
-        <integer>10</integer>
       </dict>
     </dict>
     -->
@@ -227,7 +225,7 @@
     <key>DirectoryService</key>
     <dict>
       <key>type</key>
-      <string>twistedcaldav.directory.ldapdirectory.LdapDirectoryService</string>
+      <string>ldap</string>
 
       <key>params</key>
       <dict>
@@ -235,136 +233,57 @@
         <array>
            <string>users</string>
            <string>groups</string>
-           <string>locations</string>
-           <string>resources</string>
         </array>
-        <key>cacheTimeout</key>
-        <integer>10</integer>
         <key>uri</key>
-        <string>ldap://ldapserver.example.com/</string>
-        <key>tls</key>
-        <false/>
-        <key>tlsCACertFile</key>
-        <string></string>
-        <key>tlsCACertDir</key>
-        <string></string>
-        <key>tlsRequireCert</key>
-        <string>never</string>
+        <string>ldap://server.example.com/</string>
         <key>credentials</key>
         <dict>
           <key>dn</key>
           <string>uid=admin,ou=people,o=example.com</string>
           <key>password</key>
-          <string>PASSWORD</string>
+          <string></string>
         </dict>
         <key>rdnSchema</key>
         <dict>
           <key>base</key>
-          <string>o=example.com</string>
-          <key>guidAttr</key>
-          <string>GUID</string>
+          <string>dc=server,dc=example,dc=com</string>
           <key>users</key>
-          <dict>
-            <key>rdn</key>
-            <string>ou=people</string>
-            <key>mapping</key>
-            <dict>
-                <key>recordName</key>
-                <string>uid</string>
-                <key>fullName</key>
-                <string>cn</string>
-                <key>emailAddresses</key>
-                <array>
-                    <string>mail</string>
-                    <string>mailAlias</string>
-                </array>
-                <key>firstName</key>
-                <string>givenName</string>
-                <key>lastName</key>
-                <string>sn</string>
-            </dict>
-          </dict>
+          <string>cn=users</string>
           <key>groups</key>
-          <dict>
-            <key>rdn</key>
-            <string>ou=groups</string>
-            <key>mapping</key>
-            <dict>
-                <key>recordName</key>
-                <string>cn</string>
-                <key>fullName</key>
-                <string>cn</string>
-                <key>emailAddresses</key>
-                <array>
-                    <string>mail</string>
-                    <string>mailAlias</string>
-                </array>
-            </dict>
-          </dict>
+          <string>cn=groups</string>
           <key>locations</key>
-          <dict>
-            <key>rdn</key>
-            <string>ou=locations</string>
-            <key>associatedAddressAttr</key>
-            <string></string>
-            <key>mapping</key>
-            <dict>
-                <key>recordName</key>
-                <string>cn</string>
-                <key>fullName</key>
-                <string>cn</string>
-            </dict>
-          </dict>
+          <string>cn=locations</string>
           <key>resources</key>
-          <dict>
-            <key>rdn</key>
-            <string>ou=resources</string>
-            <key>mapping</key>
-            <dict>
-                <key>recordName</key>
-                <string>cn</string>
-                <key>fullName</key>
-                <string>cn</string>
-            </dict>
-          </dict>
+          <string>cn=resources</string>
           <key>addresses</key>
-          <dict>
-            <key>rdn</key>
-            <string>ou=buildings</string>
-            <key>geoAttr</key>
-            <string></string>
-            <key>streetAddressAttr</key>
-            <string></string>
-            <key>mapping</key>
-            <dict>
-                <key>recordName</key>
-                <string>cn</string>
-                <key>fullName</key>
-                <string>cn</string>
-            </dict>
-          </dict>
+          <string>cn=addresses</string>
         </dict>
-        <key>groupSchema</key>
+        <key>mapping</key>
         <dict>
-          <key>membersAttr</key>
-          <string>uniqueMember</string>
-          <key>nestedGroupsAttr</key>
-          <string></string>
-          <key>memberIdAttr</key>
-          <string></string>
-        </dict>
-        <key>resourceSchema</key>
-        <dict>
-         <key>resourceInfoAttr</key>
-         <string></string>
-         <key>autoScheduleAttr</key>
-         <string></string>
-         <key>autoScheduleEnabledValue</key>
-         <string></string>
-         <key>proxyAttr</key>
-         <string></string>
-         <key>readOnlyProxyAttr</key>
-         <string></string>
+          <key>uid</key>
+          <array>
+            <string>apple-generateduid</string>
+          </array>
+          <key>guid</key>
+          <array>
+            <string>apple-generateduid</string>
+          </array>
+          <key>shortNames</key>
+          <array>
+            <string>uid</string>
+          </array>
+          <key>fullNames</key>
+          <array>
+            <string>cn</string>
+          </array>
+          <key>emailAddresses</key>
+          <array>
+            <string>mail</string>
+          </array>
+          <key>memberDNs</key>
+          <array>
+            <string>uniqueMember</string>
+          </array>
         </dict>
       </dict>
     </dict>
@@ -380,7 +299,7 @@
       <key>Enabled</key>
       <true/>
       <key>type</key>
-      <string>twistedcaldav.directory.xmlfile.XMLDirectoryService</string>
+      <string>xml</string>
 
       <key>params</key>
       <dict>
@@ -432,36 +351,6 @@
         <string>localhost</string>
         <key>database</key>
         <string>augments</string>
-      </dict>
-    </dict>
-     -->
-
-    <!-- Sqlite ProxyDB Service -->
-    <key>ProxyDBService</key>
-    <dict>
-      <key>type</key>
-      <string>twistedcaldav.directory.calendaruserproxy.ProxySqliteDB</string>
-
-      <key>params</key>
-      <dict>
-        <key>dbpath</key>
-        <string>proxies.sqlite</string>
-      </dict>
-    </dict>
-
-    <!-- PostgreSQL ProxyDB Service -->
-    <!--
-    <key>ProxyDBService</key>
-    <dict>
-      <key>type</key>
-      <string>twistedcaldav.directory.calendaruserproxy.ProxyPostgreSQLDB</string>
-
-      <key>params</key>
-      <dict>
-        <key>host</key>
-        <string>localhost</string>
-        <key>database</key>
-        <string>proxies</string>
       </dict>
     </dict>
      -->

@@ -1149,25 +1149,6 @@ class PostDBImportStep(object):
                     # Write stub file as indicator loading is done
                     FilePath(loadDoneFilePath).touch()
 
-
-            # # Populate the group membership cache
-            # if (self.config.GroupCaching.Enabled and
-            #     self.config.GroupCaching.EnableUpdater):
-            #     proxydb = calendaruserproxy.ProxyDBService
-            #     if proxydb is None:
-            #         proxydbClass = namedClass(self.config.ProxyDBService.type)
-            #         proxydb = proxydbClass(**self.config.ProxyDBService.params)
-
-            #     # MOVE2WHO FIXME: port to new group cacher
-            #     updater = GroupMembershipCacheUpdater(proxydb,
-            #         directory,
-            #         self.config.GroupCaching.UpdateSeconds,
-            #         self.config.GroupCaching.ExpireSeconds,
-            #         self.config.GroupCaching.LockSeconds,
-            #         namespace=self.config.GroupCaching.MemcachedPool,
-            #         useExternalProxies=self.config.GroupCaching.UseExternalProxies)
-            #     yield updater.updateCache(fast=True)
-
             # Process old inbox items
             self.store.setMigrating(True)
             yield self.processInboxItems()

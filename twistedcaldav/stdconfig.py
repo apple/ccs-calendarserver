@@ -49,133 +49,48 @@ else:
     DEFAULT_CONFIG_FILE = "/etc/caldavd/caldavd.plist"
 
 DEFAULT_SERVICE_PARAMS = {
-    "twistedcaldav.directory.xmlfile.XMLDirectoryService": {
+    "xml": {
+        "recordTypes": ("users", "groups"),
         "xmlFile": "accounts.xml",
-        "recordTypes": ("users", "groups"),
-        "statSeconds": 15,
     },
-    "twistedcaldav.directory.appleopendirectory.OpenDirectoryService": {
+    "opendirectory": {
+        "recordTypes": ("users", "groups"),
         "node": "/Search",
-        "cacheTimeout": 1,  # Minutes
-        "batchSize": 100,  # for splitting up large queries
-        "negativeCaching": False,
-        "restrictEnabledRecords": False,
-        "restrictToGroup": "",
-        "recordTypes": ("users", "groups"),
     },
-    "twistedcaldav.directory.ldapdirectory.LdapDirectoryService": {
-        "cacheTimeout": 1,  # Minutes
-        "negativeCaching": False,
-        "warningThresholdSeconds": 3,
-        "batchSize": 500,  # for splitting up large queries
-        "requestTimeoutSeconds": 10,
-        "requestResultsLimit": 200,
-        "optimizeMultiName": False,
-        "queryLocationsImplicitly": True,
-        "restrictEnabledRecords": False,
-        "restrictToGroup": "",
+    "ldap": {
         "recordTypes": ("users", "groups"),
         "uri": "ldap://localhost/",
-        "tls": False,
-        "tlsCACertFile": None,
-        "tlsCACertDir": None,
-        "tlsRequireCert": None,  # never, allow, try, demand, hard
         "credentials": {
             "dn": None,
             "password": None,
         },
-        "authMethod": "LDAP",
         "rdnSchema": {
             "base": "dc=example,dc=com",
-            "guidAttr": "entryUUID",
-            "users": {
-                "rdn": "ou=People",
-                "attr": "uid",  # used only to synthesize email address
-                "emailSuffix": None,  # used only to synthesize email address
-                "filter": None,  # additional filter for this type
-                "loginEnabledAttr": "",  # attribute controlling login
-                "loginEnabledValue": "yes",  # "True" value of above attribute
-                "calendarEnabledAttr": "",  # attribute controlling enabledForCalendaring
-                "calendarEnabledValue": "yes",  # "True" value of above attribute
-                "mapping": {  # maps internal record names to LDAP
-                    "recordName": "uid",
-                    "fullName": "cn",
-                    "emailAddresses": ["mail"],
-                    "firstName": "givenName",
-                    "lastName": "sn",
-                },
-            },
-            "groups": {
-                "rdn": "ou=Group",
-                "attr": "cn",  # used only to synthesize email address
-                "emailSuffix": None,  # used only to synthesize email address
-                "filter": None,  # additional filter for this type
-                "mapping": {  # maps internal record names to LDAP
-                    "recordName": "cn",
-                    "fullName": "cn",
-                    "emailAddresses": ["mail"],
-                    "firstName": "givenName",
-                    "lastName": "sn",
-                },
-            },
-            "locations": {
-                "rdn": "ou=Places",
-                "attr": "cn",  # used only to synthesize email address
-                "emailSuffix": None,  # used only to synthesize email address
-                "filter": None,  # additional filter for this type
-                "calendarEnabledAttr": "",  # attribute controlling enabledForCalendaring
-                "calendarEnabledValue": "yes",  # "True" value of above attribute
-                "mapping": {  # maps internal record names to LDAP
-                    "recordName": "cn",
-                    "fullName": "cn",
-                    "emailAddresses": ["mail"],
-                    "firstName": "givenName",
-                    "lastName": "sn",
-                },
-            },
-            "resources": {
-                "rdn": "ou=Resources",
-                "attr": "cn",  # used only to synthesize email address
-                "emailSuffix": None,  # used only to synthesize email address
-                "filter": None,  # additional filter for this type
-                "calendarEnabledAttr": "",  # attribute controlling enabledForCalendaring
-                "calendarEnabledValue": "yes",  # "True" value of above attribute
-                "mapping": {  # maps internal record names to LDAP
-                    "recordName": "cn",
-                    "fullName": "cn",
-                    "emailAddresses": ["mail"],
-                    "firstName": "givenName",
-                    "lastName": "sn",
-                },
-            },
+            "users": "cn=users",
+            "groups": "cn=groups",
+            "locations": "cn=locations",
+            "resources": "cn=resources",
+            "addresses": "cn=addresses",
         },
-        "groupSchema": {
-            "membersAttr": "member",  # how members are specified
-            "nestedGroupsAttr": None,  # how nested groups are specified
-            "memberIdAttr": None,  # which attribute the above refer to
-        },
-        "resourceSchema": {
-            "resourceInfoAttr": None,  # contains location/resource info
-            "autoAcceptGroupAttr": None,  # auto accept group
-        },
-        "poddingSchema": {
-            "serverIdAttr": None,  # maps to augments server-id
-        },
+        "mapping": {
+            "uid": ["apple-generateduid", ],
+            "guid": ["apple-generateduid", ],
+            "shortNames": ["uid", ],
+            "fullNames": ["cn", ],
+            "emailAddresses": ["mail", ],
+            "memberDNs": ["uniqueMember", ],
+        }
     },
 }
 
 DEFAULT_RESOURCE_PARAMS = {
-    "twistedcaldav.directory.xmlfile.XMLDirectoryService": {
-        "xmlFile": "resources.xml",
+    "xml": {
         "recordTypes": ("locations", "resources", "addresses"),
+        "xmlFile": "resources.xml",
     },
-    "twistedcaldav.directory.appleopendirectory.OpenDirectoryService": {
+    "opendirectory": {
+        "recordTypes": ("locations", "resources", "addresses"),
         "node": "/Search",
-        "cacheTimeout": 1,  # Minutes
-        "negativeCaching": False,
-        "restrictEnabledRecords": False,
-        "restrictToGroup": "",
-        "recordTypes": ("locations", "resources"),
     },
 }
 
@@ -192,19 +107,6 @@ DEFAULT_AUGMENT_PARAMS = {
         "database": "augments",
         "user": "",
         "password": "",
-    },
-}
-
-DEFAULT_PROXYDB_PARAMS = {
-    "twistedcaldav.directory.calendaruserproxy.ProxySqliteDB": {
-        "dbpath": "proxies.sqlite",
-    },
-    "twistedcaldav.directory.calendaruserproxy.ProxyPostgreSQLDB": {
-        "host": "localhost",
-        "database": "proxies",
-        "user": "",
-        "password": "",
-        "dbtype": "",
     },
 }
 
@@ -371,7 +273,7 @@ DEFAULT_CONFIG = {
     # Set to URL path of wiki authentication service, e.g. "/auth", in order
     # to use javascript authentication dialog.  Empty string indicates standard
     # browser authentication dialog should be used.
-    "WebCalendarAuthPath"     : "",
+    "WebCalendarAuthPath": "",
 
     # Define mappings of URLs to file system objects (directories or files)
     "Aliases": [],
@@ -384,8 +286,8 @@ DEFAULT_CONFIG = {
     #
     "DirectoryService": {
         "Enabled": True,
-        "type": "twistedcaldav.directory.xmlfile.XMLDirectoryService",
-        "params": DEFAULT_SERVICE_PARAMS["twistedcaldav.directory.xmlfile.XMLDirectoryService"],
+        "type": "xml",
+        "params": DEFAULT_SERVICE_PARAMS["xml"],
     },
 
     "DirectoryRealmName": "",
@@ -398,8 +300,8 @@ DEFAULT_CONFIG = {
     #
     "ResourceService": {
         "Enabled": True,
-        "type": "twistedcaldav.directory.xmlfile.XMLDirectoryService",
-        "params": DEFAULT_RESOURCE_PARAMS["twistedcaldav.directory.xmlfile.XMLDirectoryService"],
+        "type": "xml",
+        "params": DEFAULT_RESOURCE_PARAMS["xml"],
     },
 
     #
@@ -409,16 +311,12 @@ DEFAULT_CONFIG = {
     #
     "AugmentService": {
         "type": "twistedcaldav.directory.augment.AugmentXMLDB",
-        "params" : DEFAULT_AUGMENT_PARAMS["twistedcaldav.directory.augment.AugmentXMLDB"],
+        "params": DEFAULT_AUGMENT_PARAMS["twistedcaldav.directory.augment.AugmentXMLDB"],
     },
 
     #
     # Proxies
     #
-    "ProxyDBService": {
-        "type": "twistedcaldav.directory.calendaruserproxy.ProxySqliteDB",
-        "params": DEFAULT_PROXYDB_PARAMS["twistedcaldav.directory.calendaruserproxy.ProxySqliteDB"],
-    },
     "ProxyLoadFromFile": "", # Allows for initialization of the proxy database from an XML file
 
     #
@@ -1472,15 +1370,6 @@ def _postUpdateAugmentService(configDict, reloading=False):
 
 
 
-def _postUpdateProxyDBService(configDict, reloading=False):
-    if configDict.ProxyDBService.type in DEFAULT_PROXYDB_PARAMS:
-        for param in tuple(configDict.ProxyDBService.params):
-            if param not in DEFAULT_PROXYDB_PARAMS[configDict.ProxyDBService.type]:
-                log.warn("Parameter %s is not supported by service %s" % (param, configDict.ProxyDBService.type))
-                del configDict.ProxyDBService.params[param]
-
-
-
 def _updateACLs(configDict, reloading=False):
     #
     # Base resource ACLs
@@ -1766,7 +1655,6 @@ POST_UPDATE_HOOKS = (
     _postUpdateDirectoryService,
     _postUpdateResourceService,
     _postUpdateAugmentService,
-    _postUpdateProxyDBService,
     _updateACLs,
     _updateRejectClients,
     _updateLogLevels,
