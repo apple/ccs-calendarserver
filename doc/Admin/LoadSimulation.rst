@@ -26,7 +26,7 @@ The sim's default config is pre-configured to work against the Calendar Server's
 
 ::
 
- ./sim
+ ./bin/sim
 
 The sim should begin logging its activity, which might look something like:
 
