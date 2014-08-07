@@ -11,7 +11,7 @@
 		<project>pycparser</project>
 		<project>pycrypto</project>
 		<project>PyGreSQL</project>
-		<project>python-ldap-2.3.13</project>
+		<project>python-ldap</project>
 		<project>sqlparse</project>
 		<project>twextpy</project>
 		<project>Twisted</project>
