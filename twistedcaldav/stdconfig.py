@@ -978,7 +978,7 @@ DEFAULT_CONFIG = {
     },
 
     "AutomaticPurging": {
-        "Enabled": False,
+        "Enabled": True,
         "PollingIntervalSeconds": 7 * 24 * 60 * 60,   # 7 days
         "CheckStaggerSeconds": 0, # No staggering
         "PurgeIntervalSeconds": 7 * 24 * 60 * 60,   # 7 days
