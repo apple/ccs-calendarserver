@@ -1950,11 +1950,15 @@ class Calendar(CommonHomeChild):
         returnValue(changed)
 
 
+    @classmethod
     @inlineCallbacks
-    def effectiveShareMode(self):
-        if self._bindMode == _BIND_MODE_GROUP_WRITE:
+    def _effectiveShareMode(cls, bindMode, viewerUID, txn):
+        """
+        Get the effective share mode without a calendar object
+        """
+        if bindMode == _BIND_MODE_GROUP_WRITE:
             returnValue(_BIND_MODE_WRITE)
-        elif self._bindMode in (_BIND_MODE_GROUP, _BIND_MODE_GROUP_READ):
+        elif bindMode in (_BIND_MODE_GROUP, _BIND_MODE_GROUP_READ):
             gs = schema.GROUP_SHAREE
             gm = schema.GROUP_MEMBERSHIP
             rows = yield Select(
@@ -1971,10 +1975,17 @@ class Calendar(CommonHomeChild):
                         )
                     )
                 )
-            ).on(self._txn, uid=self.viewerHome().uid())
+            ).on(txn, uid=viewerUID)
             returnValue(rows[0][0])
         else:
-            returnValue(self._bindMode)
+            returnValue(bindMode)
+
+
+    def effectiveShareMode(self):
+        """
+        Get the high level sharemode for calendars shared to users or groups
+        """
+        return self._effectiveShareMode(self._bindMode, self.viewerHome().uid(), self._txn)
 
 
     #

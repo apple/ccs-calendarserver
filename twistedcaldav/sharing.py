@@ -25,18 +25,7 @@ __all__ = [
     "SharedHomeMixin",
 ]
 
-from txweb2 import responsecode
-from txweb2.http import HTTPError, Response, XMLResponse
-from txweb2.dav.http import ErrorResponse, MultiStatusResponse
-from txweb2.dav.resource import TwistedACLInheritable
-from txweb2.dav.util import allDataFromStream, joinURL
-
-from txdav.common.datastore.sql_tables import _BIND_MODE_OWN, \
-    _BIND_MODE_READ, _BIND_MODE_WRITE, _BIND_STATUS_INVITED, \
-    _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED, \
-    _BIND_STATUS_INVALID, _ABO_KIND_GROUP, _BIND_STATUS_DELETED, \
-    _BIND_MODE_DIRECT, _BIND_MODE_INDIRECT
-from txdav.xml import element
+from twext.who.idirectory import RecordType
 
 from twisted.internet.defer import succeed, inlineCallbacks, DeferredList, \
     returnValue
@@ -44,8 +33,20 @@ from twisted.internet.defer import succeed, inlineCallbacks, DeferredList, \
 from twistedcaldav import customxml, caldavxml
 from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
-from txdav.who.wiki import RecordType as WikiRecordType, WikiAccessLevel
 from twistedcaldav.linkresource import LinkFollowerMixIn
+
+from txdav.common.datastore.sql_tables import _ABO_KIND_GROUP, \
+    _BIND_MODE_DIRECT, _BIND_MODE_INDIRECT, _BIND_MODE_OWN, _BIND_MODE_READ, \
+    _BIND_MODE_WRITE, _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED, \
+    _BIND_STATUS_DELETED, _BIND_STATUS_INVALID, _BIND_STATUS_INVITED
+from txdav.xml import element
+from txdav.who.wiki import RecordType as WikiRecordType, WikiAccessLevel
+
+from txweb2 import responsecode
+from txweb2.dav.http import ErrorResponse, MultiStatusResponse
+from txweb2.dav.resource import TwistedACLInheritable
+from txweb2.dav.util import allDataFromStream, joinURL
+from txweb2.http import HTTPError, Response, XMLResponse
 
 
 class SharedResourceMixin(object):
@@ -434,6 +435,28 @@ class SharedResourceMixin(object):
 
 
     @inlineCallbacks
+    def principalForCalendarGroupAddress(self, groupid):
+        """
+        Get principal for group address if extant
+        """
+
+        if (
+            config.Sharing.Enabled and
+            config.Sharing.Calendars.Enabled and
+            config.Sharing.Calendars.Groups.Enabled
+        ):
+            # see if group
+            for principalCollection in self.principalCollections():
+                record = yield principalCollection.directory.recordWithCalendarUserAddress(groupid)
+                if record is not None and record.recordType == RecordType.group:
+                    groupPrincipal = yield principalCollection.principalForRecord(record)
+                    if groupPrincipal is not None:
+                        returnValue(groupPrincipal)
+
+        returnValue(None)
+
+
+    @inlineCallbacks
     def validateInvites(self, request, invitations=None):
         """
         Make sure each userid in an invite is valid - if not re-write status.
@@ -447,6 +470,14 @@ class SharedResourceMixin(object):
                 if not (yield self.validUserIDForShare("urn:x-uid:" + invitation.shareeUID, request)):
                     self.log.error("Invalid sharee detected: {uid}", uid=invitation.shareeUID)
                     invitation = invitation._replace(status=_BIND_STATUS_INVALID)
+
+            invitation = invitation._replace(
+                mode=(
+                    yield self._newStoreObject._effectiveShareMode(
+                        invitation.mode, invitation.shareeUID, self._newStoreObject._txn
+                    )
+                )
+            )
             adjusted_invitations.append(invitation)
 
         returnValue(adjusted_invitations)
@@ -513,8 +544,10 @@ class SharedResourceMixin(object):
 
         # We currently only handle local users
         sharee = yield self.principalForCalendarUserAddress(userid)
-        if not sharee:
-            returnValue(False)
+        if sharee is None:
+            sharee = yield self.principalForCalendarGroupAddress(userid)
+            if sharee is None:
+                returnValue(False)
 
         result = (yield self._newStoreObject.inviteUIDToShare(
             sharee.principalUID(),
@@ -640,7 +673,9 @@ class SharedResourceMixin(object):
 
                 # Validate each userid on add only
                 uid = (yield self.validUserIDForShare(userid, request))
-                (okusers if uid is not None else badusers).add(userid)
+                if uid is None:
+                    uid = yield self.principalForCalendarGroupAddress(userid)
+                (badusers if uid is None else okusers).add(userid)
             elif isinstance(item, customxml.InviteRemove):
                 userid, access = _handleInviteRemove(item)
                 removeDict[userid] = access
