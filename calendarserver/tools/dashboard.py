@@ -946,7 +946,7 @@ class DirectoryStatsWindow(BaseWindow):
         nlines = len(defaultIfNone(self.readItem("directory"), {}))
         self.rowCount = nlines
         self._createWindow(
-            "Directory Service", self.rowCount + 6, ncols=self.FORMAT_WIDTH,
+            "Directory Service", self.rowCount + 8, ncols=self.FORMAT_WIDTH,
             begin_y=top, begin_x=left
         )
         return self
@@ -982,10 +982,16 @@ class DirectoryStatsWindow(BaseWindow):
         y += 2
 
         overallCount = 0
+        overallCountCached = 0
+        overallCountUncached = 0
         overallTimeSpent = 0.0
 
         for methodName, (count, timeSpent) in sorted(records.items(), key=lambda x: x[0]):
             overallCount += count
+            if methodName.endswith("-hit"):
+                overallCountCached += count
+            if "-" not in methodName:
+                overallCountUncached += count
             overallTimeSpent += timeSpent
 
             s = " {:<40}{:>15d}{:>15.1f}{:>15.3f} ".format(
@@ -1003,19 +1009,35 @@ class DirectoryStatsWindow(BaseWindow):
                 pass
             y += 1
 
-        s = " {:<40}{:>15d}{:>15.1f}{:>15.5f} ".format(
+        s = " {:<40}{:>15d}{:>15.1f}{:>15.3f} ".format(
             "Total:",
             overallCount,
             overallTimeSpent,
             safeDivision(overallTimeSpent, overallCount, 1000.0)
         )
+        s_cached = " {:<40}{:>15d}{:>14.1f}%{:>15s} ".format(
+            "Total Cached:",
+            overallCountCached,
+            safeDivision(overallCountCached, overallCount, 100.0),
+            "",
+        )
+        s_uncached = " {:<40}{:>15d}{:>14.1f}%{:>15s} ".format(
+            "Total Uncached:",
+            overallCountUncached,
+            safeDivision(overallCountUncached, overallCount, 100.0),
+            "",
+        )
         if self.usesCurses:
             self.window.hline(y, x, "-", self.FORMAT_WIDTH - 2)
             y += 1
             self.window.addstr(y, x, s)
+            self.window.addstr(y + 1, x, s_cached)
+            self.window.addstr(y + 2, x, s_uncached)
         else:
             print(s)
-        y += 1
+            print(s1)
+            print(s2)
+        y += 3
 
         if self.usesCurses:
             self.window.refresh()

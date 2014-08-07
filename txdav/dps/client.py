@@ -27,6 +27,7 @@ import twext.who.idirectory
 from twext.who.util import ConstantsContainer
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+from twisted.internet.error import ConnectError
 from twisted.internet.protocol import ClientCreator
 from twisted.protocols import amp
 from twisted.python.constants import Names, NamedConstant
@@ -40,7 +41,7 @@ from txdav.dps.commands import (
     RecordsMatchingTokensCommand, RecordsMatchingFieldsCommand,
     MembersCommand, GroupsCommand, SetMembersCommand,
     VerifyPlaintextPasswordCommand, VerifyHTTPDigestCommand,
-    WikiAccessForUIDCommand, ContinuationCommand
+    WikiAccessForUIDCommand, ContinuationCommand, StatsCommand
 )
 from txdav.who.delegates import RecordType as DelegatesRecordType
 from txdav.who.directory import (
@@ -343,6 +344,15 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
             "This won't work until expressions are serializable to send "
             "across AMP"
         )
+
+
+    @inlineCallbacks
+    def stats(self):
+        try:
+            result = yield self._sendCommand(StatsCommand)
+            returnValue(pickle.loads(result['stats']))
+        except ConnectError:
+            returnValue({})
 
 
 

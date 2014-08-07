@@ -14,11 +14,18 @@
 # limitations under the License.
 ##
 
+
 from twext.enterprise.jobqueue import JobItem
 
 from twisted.internet.defer import inlineCallbacks, succeed, returnValue
+from twisted.internet.error import ConnectError
 from twisted.internet.protocol import Factory
 from twisted.protocols.basic import LineReceiver
+
+from twistedcaldav.config import config
+
+from txdav.dps.client import DirectoryService as DirectoryProxyClientService
+from txdav.who.cache import CachingDirectoryService
 
 import json
 
@@ -162,8 +169,8 @@ class DashboardProtocol (LineReceiver):
         @rtype: L{str}
         """
         try:
-            return succeed(self.factory.store.directoryService().stats())
-        except AttributeError:
+            return self.factory.directory.stats()
+        except (AttributeError, ConnectError):
             return succeed({})
 
 
@@ -176,3 +183,13 @@ class DashboardServer(Factory):
         self.logger = logObserver
         self.limiter = limiter
         self.store = None
+        self.directory = None
+
+
+    def makeDirectoryProxyClient(self):
+        self.directory = DirectoryProxyClientService(config.DirectoryRealmName)
+        if config.DirectoryProxy.InProcessCachingSeconds:
+            self.directory = CachingDirectoryService(
+                self.directory,
+                expireSeconds=config.DirectoryProxy.InProcessCachingSeconds
+            )

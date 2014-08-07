@@ -199,3 +199,11 @@ class WikiAccessForUIDCommand(amp.Command):
     response = [
         ('access', amp.String()),
     ]
+
+
+
+class StatsCommand(amp.Command):
+    arguments = []
+    response = [
+        ('stats', amp.String()),
+    ]

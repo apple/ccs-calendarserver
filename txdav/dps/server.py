@@ -37,7 +37,8 @@ from txdav.dps.commands import (
     RecordsMatchingTokensCommand, RecordsMatchingFieldsCommand,
     MembersCommand, GroupsCommand, SetMembersCommand,
     VerifyPlaintextPasswordCommand, VerifyHTTPDigestCommand,
-    WikiAccessForUIDCommand, ContinuationCommand
+    WikiAccessForUIDCommand, ContinuationCommand,
+    StatsCommand,
     # UpdateRecordsCommand, RemoveRecordsCommand
 )
 from txdav.who.cache import CachingDirectoryService
@@ -457,6 +458,16 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         returnValue(response)
 
 
+    @StatsCommand.responder
+    @inlineCallbacks
+    def stats(self):
+        stats = yield self._directory.stats()
+        response = {
+            "stats": pickle.dumps(stats),
+        }
+        returnValue(response)
+
+
 
 class DirectoryProxyAMPFactory(Factory):
     """
@@ -583,7 +594,7 @@ class DirectoryProxyServiceMaker(object):
             setproctitle("CalendarServer Directory Proxy Service")
 
         try:
-            pool, txnFactory = getDBPool(config)
+            _ignore_pool, txnFactory = getDBPool(config)
             store = storeFromConfig(config, txnFactory, None)
             directory = directoryFromConfig(config)
             if config.DirectoryProxy.InSidecarCachingSeconds:

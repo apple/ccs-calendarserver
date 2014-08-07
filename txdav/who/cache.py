@@ -61,6 +61,7 @@ class IndexType(Values):
     emailAddress = ValueConstant("emailAddress")
 
 
+
 @implementer(IDirectoryService, IStoreDirectoryService)
 class CachingDirectoryService(
     BaseDirectoryService, CalendarDirectoryServiceMixin
@@ -81,8 +82,14 @@ class CachingDirectoryService(
     def __init__(self, directory, expireSeconds=30):
         BaseDirectoryService.__init__(self, directory.realmName)
         self._directory = directory
+        self._directoryTiming = hasattr(self._directory, "_addTiming")
         self._expireSeconds = expireSeconds
         self.resetCache()
+
+
+    def _addTiming(self, key, duration):
+        if self._directoryTiming:
+            self._directory._addTiming(key, duration)
 
 
     def resetCache(self):
@@ -156,12 +163,12 @@ class CachingDirectoryService(
             now = time.time()
 
         for indexType in self._cache:
-            for key, (cachedTime, record) in self._cache[indexType].items():
+            for key, (cachedTime, _ignore_record) in self._cache[indexType].items():
                 if now - self._expireSeconds > cachedTime:
                     del self._cache[indexType][key]
 
 
-    def lookupRecord(self, indexType, key):
+    def lookupRecord(self, indexType, key, name):
         """
         Looks for a record in the specified index, under the specified key.
         After every SCAN_AFTER_LOOKUP_COUNT lookups are done,
@@ -200,6 +207,7 @@ class CachingDirectoryService(
                 )
                 # This record has expired
                 del self._cache[indexType][key]
+                self._addTiming("{}-expired".format(name), 0)
                 return None
 
             log.debug(
@@ -208,6 +216,7 @@ class CachingDirectoryService(
                 key=key
             )
             self._hitCount += 1
+            self._addTiming("{}-hit".format(name), 0)
             return record
         else:
             log.debug(
@@ -215,6 +224,8 @@ class CachingDirectoryService(
                 index=indexType.value,
                 key=key
             )
+
+        self._addTiming("{}-miss".format(name), 0)
         return None
 
 
@@ -224,7 +235,7 @@ class CachingDirectoryService(
     def recordWithUID(self, uid):
 
         # First check our cache
-        record = self.lookupRecord(IndexType.uid, uid)
+        record = self.lookupRecord(IndexType.uid, uid, "recordWithUID")
         if record is None:
             record = yield self._directory.recordWithUID(uid)
             if record is not None:
@@ -241,7 +252,7 @@ class CachingDirectoryService(
     def recordWithGUID(self, guid):
 
         # First check our cache
-        record = self.lookupRecord(IndexType.guid, guid)
+        record = self.lookupRecord(IndexType.guid, guid, "recordWithGUID")
         if record is None:
             record = yield self._directory.recordWithGUID(guid)
             if record is not None:
@@ -260,7 +271,8 @@ class CachingDirectoryService(
         # First check our cache
         record = self.lookupRecord(
             IndexType.shortName,
-            (recordType.name, shortName)
+            (recordType.name, shortName),
+            "recordWithShortName"
         )
         if record is None:
             record = yield self._directory.recordWithShortName(
@@ -280,7 +292,11 @@ class CachingDirectoryService(
     def recordsWithEmailAddress(self, emailAddress):
 
         # First check our cache
-        record = self.lookupRecord(IndexType.emailAddress, emailAddress)
+        record = self.lookupRecord(
+            IndexType.emailAddress,
+            emailAddress,
+            "recordsWithEmailAddress"
+        )
         if record is None:
             records = yield self._directory.recordsWithEmailAddress(emailAddress)
             if len(records) == 1:
@@ -367,3 +383,7 @@ class CachingDirectoryService(
         return CalendarDirectoryServiceMixin.recordWithCalendarUserAddress(
             self, cua
         )
+
+
+    def stats(self):
+        return self._directory.stats()

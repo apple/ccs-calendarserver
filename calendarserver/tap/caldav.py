@@ -511,13 +511,14 @@ class SlaveSpawnerService(Service):
     """
 
     def __init__(
-        self, maker, monitor, dispenser, dispatcher, configPath,
+        self, maker, monitor, dispenser, dispatcher, stats, configPath,
         inheritFDs=None, inheritSSLFDs=None
     ):
         self.maker = maker
         self.monitor = monitor
         self.dispenser = dispenser
         self.dispatcher = dispatcher
+        self.stats = stats
         self.configPath = configPath
         self.inheritFDs = inheritFDs
         self.inheritSSLFDs = inheritSSLFDs
@@ -562,6 +563,9 @@ class SlaveSpawnerService(Service):
             )
             self.monitor.addProcessObject(process, PARENT_ENVIRONMENT)
 
+        # Hook up the stats service directory to the DPS server after a short delay
+        if self.stats is not None:
+            self.monitor._reactor.callLater(5, self.stats.makeDirectoryProxyClient)
 
 
 
@@ -1795,7 +1799,8 @@ class CalDAVServiceMaker (object):
             )
             statsService.setName("unix-stats")
             statsService.setServiceParent(s)
-        if config.Stats.EnableTCPStatsSocket:
+
+        elif config.Stats.EnableTCPStatsSocket:
             stats = DashboardServer(logger.observer, cl if config.UseMetaFD else None)
             statsService = TCPServer(
                 config.Stats.TCPStatsPort, stats, interface=""
@@ -1867,7 +1872,7 @@ class CalDAVServiceMaker (object):
             multi = MultiService()
             pool.setServiceParent(multi)
             spawner = SlaveSpawnerService(
-                self, monitor, dispenser, dispatcher, options["config"],
+                self, monitor, dispenser, dispatcher, stats, options["config"],
                 inheritFDs=inheritFDs, inheritSSLFDs=inheritSSLFDs
             )
             spawner.setServiceParent(multi)

@@ -27,7 +27,7 @@ import time
 
 from zope.interface import implementer
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twistedcaldav.directory.augment import AugmentRecord
 from twext.python.log import Logger
 from twext.who.directory import DirectoryRecord
@@ -68,14 +68,7 @@ def timed(f):
         @param startTime: the start time of the call in seconds
         @type startTime: C{float}
         """
-        timings = AugmentedDirectoryService._timings
-        if key not in timings:
-            timings[key] = (0, 0.0)
-        count, timeSpent = timings[key]
-        count += 1
-        duration = (time.time() - startTime)
-        timeSpent += duration
-        timings[key] = (count, timeSpent)
+        AugmentedDirectoryService._addTiming(key, time.time() - startTime)
         return result
 
 
@@ -118,8 +111,18 @@ class AugmentedDirectoryService(
         self._augmentDB = augmentDB
 
 
+    @classmethod
+    def _addTiming(cls, key, duration):
+        if key not in cls._timings:
+            cls._timings[key] = (0, 0.0)
+        count, timeSpent = cls._timings[key]
+        count += 1
+        timeSpent += duration
+        cls._timings[key] = (count, timeSpent)
+
+
     def stats(self):
-        return self._timings
+        return succeed(self._timings)
 
 
     @property
