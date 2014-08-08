@@ -982,15 +982,22 @@ class DirectoryStatsWindow(BaseWindow):
         y += 2
 
         overallCount = 0
+        overallCountRatio = 0
         overallCountCached = 0
         overallCountUncached = 0
         overallTimeSpent = 0.0
 
-        for methodName, (count, timeSpent) in sorted(records.items(), key=lambda x: x[0]):
+        for methodName, result in sorted(records.items(), key=lambda x: x[0]):
+            if isinstance(result, int):
+                count, timeSpent = result, 0.0
+            else:
+                count, timeSpent = result
             overallCount += count
             if methodName.endswith("-hit"):
+                overallCountRatio += count
                 overallCountCached += count
             if "-" not in methodName:
+                overallCountRatio += count
                 overallCountUncached += count
             overallTimeSpent += timeSpent
 
@@ -1018,13 +1025,13 @@ class DirectoryStatsWindow(BaseWindow):
         s_cached = " {:<40}{:>15d}{:>14.1f}%{:>15s} ".format(
             "Total Cached:",
             overallCountCached,
-            safeDivision(overallCountCached, overallCount, 100.0),
+            safeDivision(overallCountCached, overallCountRatio, 100.0),
             "",
         )
         s_uncached = " {:<40}{:>15d}{:>14.1f}%{:>15s} ".format(
             "Total Uncached:",
             overallCountUncached,
-            safeDivision(overallCountUncached, overallCount, 100.0),
+            safeDivision(overallCountUncached, overallCountRatio, 100.0),
             "",
         )
         if self.usesCurses:

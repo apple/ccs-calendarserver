@@ -110,6 +110,13 @@ class AugmentedDirectoryService(
         self._store = store
         self._augmentDB = augmentDB
 
+        # Look for an LDAP DS with extra info to expose to the dashboard
+        self._ldapDS = None
+        for ds in self._directory._services:
+            if hasattr(ds, "poolStats"):
+                self._ldapDS = ds
+                break
+
 
     @classmethod
     def _addTiming(cls, key, duration):
@@ -122,7 +129,14 @@ class AugmentedDirectoryService(
 
 
     def stats(self):
-        return succeed(self._timings)
+        results = {}
+        results.update(self._timings)
+        
+        # An LDAP DS has extra info to expose via the dashboard
+        if self._ldapDS is not None:
+            results.update(self._ldapDS.poolStats)
+
+        return succeed(results)
 
 
     @property
