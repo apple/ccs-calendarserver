@@ -757,8 +757,13 @@ class ImplicitScheduler(object):
 
         # Always set RSVP=TRUE for any NEEDS-ACTION
         for attendee in self.calendar.getAllAttendeeProperties():
-            if attendee.parameterValue("PARTSTAT", "NEEDS-ACTION").upper() == "NEEDS-ACTION":
-                attendee.setParameter("RSVP", "TRUE")
+            if attendee.parameterValue("CUTYPE") != "X-SERVER-GROUP":
+                if attendee.parameterValue("PARTSTAT", "NEEDS-ACTION").upper() == "NEEDS-ACTION":
+                    attendee.setParameter("RSVP", "TRUE")
+            else:
+                # Always remove RSVP and PARTSTAT
+                attendee.removeParameter("RSVP")
+                attendee.removeParameter("PARTSTAT")
 
         # If processing a queue item, actually execute the scheduling operations, else queue it.
         # Note a split is always queued, so we do not need to re-queue
@@ -1157,111 +1162,13 @@ class ImplicitScheduler(object):
             self.calendar.bumpiTIPInfo(oldcalendar=self.oldcalendar, doSequence=True)
 
         # First process cancelled attendees
-        total = (yield self.processQueuedCancels())
+        total = (yield self.processCancels(queued=True))
 
         # Process regular requests next
         if self.action in ("create", "modify",):
-            total += (yield self.processQueuedRequests())
+            total += (yield self.processRequests(queued=True))
 
         self.logItems["itip.requests"] = total
-
-
-    @inlineCallbacks
-    def processQueuedCancels(self):
-        """
-        Set each ATTENDEE who would be scheduled to status to 1.2.
-        """
-
-        # Do one per attendee
-        aggregated = {}
-        for attendee, rid in self.cancelledAttendees:
-            aggregated.setdefault(attendee, []).append(rid)
-
-        count = 0
-        for attendee, rids in aggregated.iteritems():
-
-            # Don't send message back to the ORGANIZER
-            if attendee in self.organizerAddress.record.calendarUserAddresses:
-                continue
-
-            # Handle split by not scheduling local attendees
-            if self.split_details is not None:
-                attendeeAddress = (yield calendarUserFromCalendarUserAddress(attendee, self.txn))
-                if type(attendeeAddress) is LocalCalendarUser:
-                    continue
-
-            # Test whether an iTIP CANCEL message for this attendee would be generated
-            if None in rids:
-                # One big CANCEL will do
-                itipmsg = iTipGenerator.generateCancel(self.oldcalendar, (attendee,), None, self.action == "remove", test_only=True)
-            else:
-                # Multiple CANCELs
-                itipmsg = iTipGenerator.generateCancel(self.oldcalendar, (attendee,), rids, test_only=True)
-
-            # Send scheduling message
-            if itipmsg:
-
-                # Always make it look like scheduling succeeded when queuing
-                self.calendar.setParameterToValueForPropertyWithValue(
-                    "SCHEDULE-STATUS",
-                    iTIPRequestStatus.MESSAGE_DELIVERED_CODE,
-                    "ATTENDEE",
-                    attendee,
-                )
-
-                count += 1
-
-        returnValue(count)
-
-
-    @inlineCallbacks
-    def processQueuedRequests(self):
-        """
-        Set each ATTENDEE who would be scheduled to status to 1.2.
-        """
-
-        # Do one per attendee
-        count = 0
-        for attendee in self.attendees:
-
-            # Don't send message back to the ORGANIZER
-            if attendee in self.organizerAddress.record.calendarUserAddresses:
-                continue
-
-            # Don't send message to specified attendees
-            if attendee in self.except_attendees:
-                continue
-
-            # Only send to specified attendees
-            if self.only_refresh_attendees is not None and attendee not in self.only_refresh_attendees:
-                continue
-
-            # If SCHEDULE-FORCE-SEND only change, only send message to those Attendees
-            if self.reinvites and attendee not in self.reinvites:
-                continue
-
-            # Handle split by not scheduling local attendees
-            if self.split_details is not None:
-                attendeeAddress = (yield calendarUserFromCalendarUserAddress(attendee, self.txn))
-                if type(attendeeAddress) is LocalCalendarUser:
-                    continue
-
-            itipmsg = iTipGenerator.generateAttendeeRequest(self.calendar, (attendee,), self.changed_rids, test_only=True)
-
-            # Send scheduling message
-            if itipmsg is not None:
-
-                # Always make it look like scheduling succeeded when queuing
-                self.calendar.setParameterToValueForPropertyWithValue(
-                    "SCHEDULE-STATUS",
-                    iTIPRequestStatus.MESSAGE_DELIVERED_CODE,
-                    "ATTENDEE",
-                    attendee,
-                )
-
-                count += 1
-
-        returnValue(count)
 
 
     @inlineCallbacks
@@ -1282,7 +1189,15 @@ class ImplicitScheduler(object):
 
 
     @inlineCallbacks
-    def processCancels(self):
+    def processCancels(self, queued=False):
+        """
+        Process iTIP CANCEL messages for a set of attendees. For a queue operation we
+        simply set the ATTENDEE's SCHEDULE-STATUS to 1.2. For non-queued we do the
+        actual iTIP message send and process the result of that.
+
+        @param queued: whether actual processing will be done via the queue
+        @type queued: L{bool}
+        """
 
         # TODO: a better policy here is to aggregate by attendees with the same set of instances
         # being cancelled, but for now we will do one scheduling message per attendee.
@@ -1307,7 +1222,7 @@ class ImplicitScheduler(object):
                     continue
 
             # Do not schedule with groups - ever
-            if attendeeAddress.hosted() and attendeeAddress.getCUType() in ("GROUP", "X-SERVER-GROUP"):
+            if attendeeAddress.hosted() and attendeeAddress.getCUType() == "GROUP":
                 continue
 
             # Generate an iTIP CANCEL message for this attendee, cancelling
@@ -1323,13 +1238,22 @@ class ImplicitScheduler(object):
             # Send scheduling message
             if itipmsg:
 
-                # Add split details if needed
-                if self.split_details is not None:
-                    rid, uid, newer_piece = self.split_details
-                    itipmsg.addProperty(Property("X-CALENDARSERVER-SPLIT-RID", rid))
-                    itipmsg.addProperty(Property("X-CALENDARSERVER-SPLIT-OLDER-UID" if newer_piece else "X-CALENDARSERVER-SPLIT-NEWER-UID", uid))
+                if queued:
+                    # Always make it look like scheduling succeeded when queuing
+                    self.calendar.setParameterToValueForPropertyWithValue(
+                        "SCHEDULE-STATUS",
+                        iTIPRequestStatus.MESSAGE_DELIVERED_CODE,
+                        "ATTENDEE",
+                        attendee,
+                    )
+                else:
+                    # Add split details if needed
+                    if self.split_details is not None:
+                        rid, uid, newer_piece = self.split_details
+                        itipmsg.addProperty(Property("X-CALENDARSERVER-SPLIT-RID", rid))
+                        itipmsg.addProperty(Property("X-CALENDARSERVER-SPLIT-OLDER-UID" if newer_piece else "X-CALENDARSERVER-SPLIT-NEWER-UID", uid))
 
-                yield self.processSend(attendee, itipmsg, count=count)
+                    yield self.processSend(attendee, itipmsg, count=count)
 
                 count += 1
 
@@ -1337,7 +1261,17 @@ class ImplicitScheduler(object):
 
 
     @inlineCallbacks
-    def processRequests(self, cancel_count=0):
+    def processRequests(self, cancel_count=0, queued=False):
+        """
+        Process iTIP REQUEST messages for a set of attendees. For a queue operation we
+        simply set the ATTENDEE's SCHEDULE-STATUS to 1.2. For non-queued we do the
+        actual iTIP message send and process the result of that.
+
+        @param cancel_count: number of CANCELs already sent
+        @type cancel_count: L{int}
+        @param queued: whether actual processing will be done via the queue
+        @type queued: L{bool}
+        """
 
         # TODO: a better policy here is to aggregate by attendees with the same set of instances
         # being requested, but for now we will do one scheduling message per attendee.
@@ -1370,7 +1304,12 @@ class ImplicitScheduler(object):
                     continue
 
             # Do not schedule with groups - ever
-            if attendeeAddress.hosted() and attendeeAddress.getCUType() in ("GROUP", "X-SERVER-GROUP"):
+            if attendeeAddress.hosted() and attendeeAddress.getCUType() == "GROUP":
+                # Set SCHEDULE-STATUS to something appropriate
+                self.calendar.setParametersForPropertyWithValue(
+                    {"SCHEDULE-STATUS": iTIPRequestStatus.REQUEST_FORWARDED_CODE if config.GroupAttendees.Enabled else iTIPRequestStatus.NO_USER_SUPPORT_CODE},
+                    "ATTENDEE", attendee,
+                )
                 continue
 
             itipmsg = iTipGenerator.generateAttendeeRequest(self.calendar, (attendee,), self.changed_rids)
@@ -1378,13 +1317,22 @@ class ImplicitScheduler(object):
             # Send scheduling message
             if itipmsg is not None:
 
-                # Add split details if needed
-                if self.split_details is not None:
-                    rid, uid, newer_piece = self.split_details
-                    itipmsg.addProperty(Property("X-CALENDARSERVER-SPLIT-RID", rid))
-                    itipmsg.addProperty(Property("X-CALENDARSERVER-SPLIT-OLDER-UID" if newer_piece else "X-CALENDARSERVER-SPLIT-NEWER-UID", uid))
+                if queued:
+                    # Always make it look like scheduling succeeded when queuing
+                    self.calendar.setParameterToValueForPropertyWithValue(
+                        "SCHEDULE-STATUS",
+                        iTIPRequestStatus.MESSAGE_DELIVERED_CODE,
+                        "ATTENDEE",
+                        attendee,
+                    )
+                else:
+                    # Add split details if needed
+                    if self.split_details is not None:
+                        rid, uid, newer_piece = self.split_details
+                        itipmsg.addProperty(Property("X-CALENDARSERVER-SPLIT-RID", rid))
+                        itipmsg.addProperty(Property("X-CALENDARSERVER-SPLIT-OLDER-UID" if newer_piece else "X-CALENDARSERVER-SPLIT-NEWER-UID", uid))
 
-                yield self.processSend(attendee, itipmsg, count=count + cancel_count)
+                    yield self.processSend(attendee, itipmsg, count=count + cancel_count)
 
                 count += 1
 
@@ -1454,7 +1402,8 @@ class ImplicitScheduler(object):
                     "SCHEDULE-STATUS",
                     status.split(";")[0],
                     propname,
-                    recipient)
+                    recipient,
+                )
 
 
     @inlineCallbacks
@@ -1592,7 +1541,8 @@ class ImplicitScheduler(object):
                         "SCHEDULE-STATUS",
                         iTIPRequestStatus.NO_USER_SUPPORT_CODE,
                         "ORGANIZER",
-                        self.organizer)
+                        self.organizer,
+                    )
                 returnValue(None)
 
             else:
@@ -1658,8 +1608,14 @@ class ImplicitScheduler(object):
 
             # Check SCHEDULE-AGENT and coerce SERVER to NONE
             if self.calendar.getOrganizerScheduleAgent():
-                self.calendar.setParameterToValueForPropertyWithValue("SCHEDULE-AGENT", "NONE", "ORGANIZER", None)
-                self.calendar.setParameterToValueForPropertyWithValue("SCHEDULE-STATUS", iTIPRequestStatus.NO_USER_SUPPORT_CODE, "ORGANIZER", None)
+                self.calendar.setParametersForPropertyWithValue(
+                    {
+                        "SCHEDULE-AGENT": "NONE",
+                        "SCHEDULE-STATUS": iTIPRequestStatus.NO_USER_SUPPORT_CODE,
+                    },
+                    "ORGANIZER",
+                    None,
+                )
 
 
     def checkOrganizerScheduleAgent(self):
@@ -1673,8 +1629,14 @@ class ImplicitScheduler(object):
         if not config.Scheduling.iSchedule.Enabled and not local_organizer and is_server:
             # Coerce ORGANIZER to SCHEDULE-AGENT=NONE
             log.debug("Attendee '{attendee}' is not allowed to use SCHEDULE-AGENT=SERVER on organizer: UID:{uid}", attendee=self.attendeeAddress.record, uid=self.uid)
-            self.calendar.setParameterToValueForPropertyWithValue("SCHEDULE-AGENT", "NONE", "ORGANIZER", None)
-            self.calendar.setParameterToValueForPropertyWithValue("SCHEDULE-STATUS", iTIPRequestStatus.NO_USER_SUPPORT_CODE, "ORGANIZER", None)
+            self.calendar.setParametersForPropertyWithValue(
+                {
+                    "SCHEDULE-AGENT": "NONE",
+                    "SCHEDULE-STATUS": iTIPRequestStatus.NO_USER_SUPPORT_CODE,
+                },
+                "ORGANIZER",
+                None,
+            )
             is_server = False
 
         return is_server

@@ -100,6 +100,8 @@ class GroupAttendeeTestBase(CommonCommonTests, unittest.TestCase):
                             attendeeProp.removeParameterValue("MEMBER", paramterValue)
                         attendeeProp.setParameter("MEMBER", sorted(parameterValues))
 
+            return event
+
         self.assertEqual(
             orderMemberValues(Component.fromString(normalize_iCalStr(iCalStr1))),
             orderMemberValues(Component.fromString(normalize_iCalStr(iCalStr2)))
@@ -142,7 +144,7 @@ UID:event1@ninevah.local
 DTSTART:20140101T100000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;RSVP=TRUE:urn:x-uid:user01
-ATTENDEE;CN=Group 02;CUTYPE=X-SERVER-GROUP;EMAIL=group02@example.com;RSVP=TRUE:urn:x-uid:group02
+ATTENDEE;CN=Group 02;CUTYPE=X-SERVER-GROUP;EMAIL=group02@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group02
 ATTENDEE;CN=User 06;EMAIL=user06@example.com;MEMBER="urn:x-uid:group02";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user06
 ATTENDEE;CN=User 07;EMAIL=user07@example.com;MEMBER="urn:x-uid:group02";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user07
 ATTENDEE;CN=User 08;EMAIL=user08@example.com;MEMBER="urn:x-uid:group02";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user08
@@ -201,7 +203,7 @@ UID:event1@ninevah.local
 DTSTART:20140101T100000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;RSVP=TRUE:urn:x-uid:user01
-ATTENDEE;CUTYPE=X-SERVER-GROUP;RSVP=TRUE;SCHEDULE-STATUS=3.7:urn:uuid:FFFFFFFF-EEEE-DDDD-CCCC-BBBBBBBBBBBB
+ATTENDEE;CUTYPE=X-SERVER-GROUP;SCHEDULE-STATUS=3.7:urn:uuid:FFFFFFFF-EEEE-DDDD-CCCC-BBBBBBBBBBBB
 CREATED:20060101T150000Z
 ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 SUMMARY:event 1
@@ -253,7 +255,7 @@ DTSTART:20140101T100000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;RSVP=TRUE:urn:x-uid:user01
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
-ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;RSVP=TRUE:urn:x-uid:group01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
 CREATED:20060101T150000Z
 ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
 SUMMARY:event 1
@@ -308,7 +310,7 @@ UID:event1@ninevah.local
 DTSTART:20140101T100000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;RSVP=TRUE:urn:x-uid:user01
-ATTENDEE;CN=Group 04;CUTYPE=X-SERVER-GROUP;RSVP=TRUE:urn:x-uid:group04
+ATTENDEE;CN=Group 04;CUTYPE=X-SERVER-GROUP;SCHEDULE-STATUS=2.7:urn:x-uid:group04
 ATTENDEE;CN=User 06;EMAIL=user06@example.com;MEMBER="urn:x-uid:group04";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user06
 ATTENDEE;CN=User 07;EMAIL=user07@example.com;MEMBER="urn:x-uid:group04";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user07
 ATTENDEE;CN=User 08;EMAIL=user08@example.com;MEMBER="urn:x-uid:group04";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user08
@@ -376,9 +378,9 @@ UID:event1@ninevah.local
 DTSTART:20140101T100000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;RSVP=TRUE:urn:x-uid:user01
-ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;RSVP=TRUE:urn:x-uid:group01
-ATTENDEE;CN=Group 02;CUTYPE=X-SERVER-GROUP;EMAIL=group02@example.com;RSVP=TRUE:urn:x-uid:group02
-ATTENDEE;CN=Group 03;CUTYPE=X-SERVER-GROUP;EMAIL=group03@example.com;RSVP=TRUE:urn:x-uid:group03
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
+ATTENDEE;CN=Group 02;CUTYPE=X-SERVER-GROUP;EMAIL=group02@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group02
+ATTENDEE;CN=Group 03;CUTYPE=X-SERVER-GROUP;EMAIL=group03@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group03
 ATTENDEE;CN=User 06;EMAIL=user06@example.com;MEMBER="urn:x-uid:group02";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user06
 ATTENDEE;CN=User 07;EMAIL=user07@example.com;MEMBER="urn:x-uid:group02","urn:x-uid:group03";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user07
 ATTENDEE;CN=User 08;EMAIL=user08@example.com;MEMBER="urn:x-uid:group02","urn:x-uid:group03";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user08
@@ -435,7 +437,7 @@ UID:event1@ninevah.local
 DTSTART:20140101T100000Z
 DURATION:PT1H
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
-ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;RSVP=TRUE:urn:x-uid:group01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user01
 CREATED:20060101T150000Z
 ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:x-uid:user02
@@ -499,7 +501,7 @@ UID:event1@ninevah.local
 DTSTART:20240101T100000Z
 DURATION:PT1H
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
-ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;RSVP=TRUE:urn:x-uid:group01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
 CREATED:20060101T150000Z
 ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:x-uid:user02
 SUMMARY:event 1
@@ -516,7 +518,7 @@ UID:event1@ninevah.local
 DTSTART:20240101T100000Z
 DURATION:PT1H
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
-ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;RSVP=TRUE:urn:x-uid:group01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user01
 CREATED:20060101T150000Z
 ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:x-uid:user02
@@ -535,7 +537,7 @@ UID:event1@ninevah.local
 DTSTART:20240101T100000Z
 DURATION:PT1H
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
-ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;RSVP=TRUE:urn:x-uid:group01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
 CREATED:20060101T150000Z
 ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:x-uid:user02
 SEQUENCE:2
@@ -638,7 +640,7 @@ UID:event{0}@ninevah.local
 DTSTART:20240101T100000Z
 DURATION:PT1H
 ATTENDEE;CN=User 0{0};EMAIL=user0{0}@example.com;RSVP=TRUE:urn:x-uid:user0{0}
-ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;RSVP=TRUE:urn:x-uid:group01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
 CREATED:20060101T150000Z
 ORGANIZER;CN=User 0{0};EMAIL=user0{0}@example.com:urn:x-uid:user0{0}
 SUMMARY:event {0}
@@ -655,7 +657,7 @@ UID:event{0}@ninevah.local
 DTSTART:20240101T100000Z
 DURATION:PT1H
 ATTENDEE;CN=User 0{0};EMAIL=user0{0}@example.com;RSVP=TRUE:urn:x-uid:user0{0}
-ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;RSVP=TRUE:urn:x-uid:group01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user01
 CREATED:20060101T150000Z
 ORGANIZER;CN=User 0{0};EMAIL=user0{0}@example.com:urn:x-uid:user0{0}
@@ -674,7 +676,7 @@ UID:event{0}@ninevah.local
 DTSTART:20240101T100000Z
 DURATION:PT1H
 ATTENDEE;CN=User 0{0};EMAIL=user0{0}@example.com;RSVP=TRUE:urn:x-uid:user0{0}
-ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;RSVP=TRUE:urn:x-uid:group01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
 CREATED:20060101T150000Z
 ORGANIZER;CN=User 0{0};EMAIL=user0{0}@example.com:urn:x-uid:user0{0}
 SEQUENCE:2
@@ -800,7 +802,7 @@ UID:event1@ninevah.local
 DTSTART:20240101T100000Z
 DURATION:PT1H
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
-ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;RSVP=TRUE:urn:x-uid:group01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user01
 CREATED:20060101T150000Z
 ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:x-uid:user02
@@ -818,7 +820,7 @@ UID:event1@ninevah.local
 DTSTART:20140101T100000Z
 DURATION:PT1H
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
-ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;RSVP=TRUE:urn:x-uid:group01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
 CREATED:20060101T150000Z
 ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:x-uid:user02
 SEQUENCE:1
@@ -959,7 +961,7 @@ UID:event1@ninevah.local
 DTSTART:20120101T100000Z
 DURATION:PT1H
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
-ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;RSVP=TRUE:urn:x-uid:group01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user01
 CREATED:20060101T150000Z
 ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:x-uid:user02
@@ -978,7 +980,7 @@ UID:event1@ninevah.local
 DTSTART:20120101T100000Z
 DURATION:PT1H
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
-ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;RSVP=TRUE:urn:x-uid:group01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
 CREATED:20060101T150000Z
 ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:x-uid:user02
 RRULE:FREQ=DAILY;UNTIL=20140101T100000
@@ -1087,7 +1089,7 @@ UID:event1@ninevah.local
 DTSTART:20120101T100000Z
 DURATION:PT1H
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
-ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;RSVP=TRUE:urn:x-uid:group01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user01
 CREATED:20060101T150000Z
 ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:x-uid:user02
@@ -1105,7 +1107,7 @@ BEGIN:VEVENT
 UID:event1@ninevah.local
 {start}DURATION:PT1H
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
-ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;RSVP=TRUE:urn:x-uid:group01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
 CREATED:20060101T150000Z
 ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:x-uid:user02
 {relatedTo}RRULE:FREQ=DAILY;UNTIL=20240101T100000
@@ -1122,7 +1124,7 @@ BEGIN:VEVENT
 {uid}DTSTART:20120101T100000Z
 DURATION:PT1H
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
-ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;RSVP=TRUE:urn:x-uid:group01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user01
 CREATED:20060101T150000Z
 ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:x-uid:user02
@@ -1234,7 +1236,7 @@ UID:event1@ninevah.local
 DTSTART:20120101T100000Z
 DURATION:PT1H
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
-ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;RSVP=TRUE:urn:x-uid:group01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
 CREATED:20060101T150000Z
 ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:x-uid:user02
 RRULE:FREQ=DAILY;UNTIL=20240101T100000
@@ -1251,7 +1253,7 @@ BEGIN:VEVENT
 UID:event1@ninevah.local
 {start}DURATION:PT1H
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
-ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;RSVP=TRUE:urn:x-uid:group01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user01
 CREATED:20060101T150000Z
 ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:x-uid:user02
@@ -1269,7 +1271,7 @@ BEGIN:VEVENT
 {uid}DTSTART:20120101T100000Z
 DURATION:PT1H
 ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
-ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;RSVP=TRUE:urn:x-uid:group01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
 CREATED:20060101T150000Z
 ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:x-uid:user02
 {relatedTo}{rule}SEQUENCE:1
@@ -1395,9 +1397,9 @@ UID:event1@ninevah.local
 DTSTART:20240101T100000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;RSVP=TRUE:urn:x-uid:user01
-ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;RSVP=TRUE:urn:x-uid:group01
-ATTENDEE;CN=Group 02;CUTYPE=X-SERVER-GROUP;EMAIL=group02@example.com;RSVP=TRUE:urn:x-uid:group02
-ATTENDEE;CN=Group 03;CUTYPE=X-SERVER-GROUP;EMAIL=group03@example.com;RSVP=TRUE:urn:x-uid:group03
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
+ATTENDEE;CN=Group 02;CUTYPE=X-SERVER-GROUP;EMAIL=group02@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group02
+ATTENDEE;CN=Group 03;CUTYPE=X-SERVER-GROUP;EMAIL=group03@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group03
 ATTENDEE;CN=User 06;EMAIL=user06@example.com;MEMBER="urn:x-uid:group02";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user06
 ATTENDEE;CN=User 07;EMAIL=user07@example.com;MEMBER="urn:x-uid:group02","urn:x-uid:group03";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user07
 ATTENDEE;CN=User 08;EMAIL=user08@example.com;MEMBER="urn:x-uid:group02","urn:x-uid:group03";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user08
@@ -1417,9 +1419,9 @@ UID:event1@ninevah.local
 DTSTART:20240101T100000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;RSVP=TRUE:urn:x-uid:user01
-ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;RSVP=TRUE:urn:x-uid:group01
-ATTENDEE;CN=Group 02;CUTYPE=X-SERVER-GROUP;EMAIL=group02@example.com;RSVP=TRUE:urn:x-uid:group02
-ATTENDEE;CN=Group 03;CUTYPE=X-SERVER-GROUP;EMAIL=group03@example.com;RSVP=TRUE:urn:x-uid:group03
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
+ATTENDEE;CN=Group 02;CUTYPE=X-SERVER-GROUP;EMAIL=group02@example.com;SCHEDULE-STATUS=3.7:urn:x-uid:group02
+ATTENDEE;CN=Group 03;CUTYPE=X-SERVER-GROUP;EMAIL=group03@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group03
 ATTENDEE;CN=User 07;EMAIL=user07@example.com;MEMBER="urn:x-uid:group03";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user07
 ATTENDEE;CN=User 08;EMAIL=user08@example.com;MEMBER="urn:x-uid:group03";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user08
 ATTENDEE;CN=User 09;EMAIL=user09@example.com;MEMBER="urn:x-uid:group03";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user09
@@ -1440,9 +1442,9 @@ UID:event1@ninevah.local
 DTSTART:20240101T100000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;RSVP=TRUE:urn:x-uid:user01
-ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;RSVP=TRUE:urn:x-uid:group01
-ATTENDEE;CN=Group 02;CUTYPE=X-SERVER-GROUP;EMAIL=group02@example.com;RSVP=TRUE:urn:x-uid:group02
-ATTENDEE;CN=Group 03;CUTYPE=X-SERVER-GROUP;EMAIL=group03@example.com;RSVP=TRUE:urn:x-uid:group03
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
+ATTENDEE;CN=Group 02;CUTYPE=X-SERVER-GROUP;EMAIL=group02@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group02
+ATTENDEE;CN=Group 03;CUTYPE=X-SERVER-GROUP;EMAIL=group03@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group03
 ATTENDEE;CN=User 06;EMAIL=user06@example.com;MEMBER="urn:x-uid:group02";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user06
 ATTENDEE;CN=User 07;EMAIL=user07@example.com;MEMBER="urn:x-uid:group02","urn:x-uid:group03";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user07
 ATTENDEE;CN=User 08;EMAIL=user08@example.com;MEMBER="urn:x-uid:group02","urn:x-uid:group03";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user08
@@ -1573,8 +1575,8 @@ UID:event1@ninevah.local
 DTSTART:20240101T100000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;RSVP=TRUE:urn:x-uid:user01
-ATTENDEE;CN=Group 02;CUTYPE=X-SERVER-GROUP;EMAIL=group02@example.com;RSVP=TRUE:urn:x-uid:group02
-ATTENDEE;CN=Group 03;CUTYPE=X-SERVER-GROUP;EMAIL=group03@example.com;RSVP=TRUE:urn:x-uid:group03
+ATTENDEE;CN=Group 02;CUTYPE=X-SERVER-GROUP;EMAIL=group02@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group02
+ATTENDEE;CN=Group 03;CUTYPE=X-SERVER-GROUP;EMAIL=group03@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group03
 ATTENDEE;CN=User 06;EMAIL=user06@example.com;MEMBER="urn:x-uid:group02";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user06
 ATTENDEE;CN=User 07;EMAIL=user07@example.com;MEMBER="urn:x-uid:group02","urn:x-uid:group03";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user07
 ATTENDEE;CN=User 08;EMAIL=user08@example.com;MEMBER="urn:x-uid:group02","urn:x-uid:group03";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user08
@@ -1611,7 +1613,7 @@ UID:event1@ninevah.local
 DTSTART:20240101T100000Z
 DURATION:PT1H
 ATTENDEE;CN=User 01;EMAIL=user01@example.com;RSVP=TRUE:urn:x-uid:user01
-ATTENDEE;CN=Group 02;CUTYPE=X-SERVER-GROUP;EMAIL=group02@example.com;RSVP=TRUE:urn:x-uid:group02
+ATTENDEE;CN=Group 02;CUTYPE=X-SERVER-GROUP;EMAIL=group02@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group02
 ATTENDEE;CN=User 06;EMAIL=user06@example.com;MEMBER="urn:x-uid:group02";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user06
 ATTENDEE;CN=User 07;EMAIL=user07@example.com;MEMBER="urn:x-uid:group02";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user07
 ATTENDEE;CN=User 08;EMAIL=user08@example.com;MEMBER="urn:x-uid:group02";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user08

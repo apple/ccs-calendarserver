@@ -1091,6 +1091,7 @@ class iTIPRequestStatus(object):
     MESSAGE_DELIVERED_CODE = "1.2"
 
     SUCCESS_CODE = "2.0"
+    REQUEST_FORWARDED_CODE = "2.7"
 
     INVALID_CALENDAR_USER_CODE = "3.7"
     NO_AUTHORITY_CODE = "3.8"
@@ -1105,6 +1106,7 @@ class iTIPRequestStatus(object):
     MESSAGE_DELIVERED = MESSAGE_DELIVERED_CODE + ";Scheduling message has been delivered"
 
     SUCCESS = SUCCESS_CODE + ";Success"
+    REQUEST_FORWARDED = REQUEST_FORWARDED_CODE + ";Success; request forwarded to Calendar User."
 
     INVALID_CALENDAR_USER = INVALID_CALENDAR_USER_CODE + ";Invalid Calendar User"
     NO_AUTHORITY = NO_AUTHORITY_CODE + ";No authority"

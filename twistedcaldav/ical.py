@@ -2485,6 +2485,7 @@ class Component (object):
     def setParameterToValueForPropertyWithValue(self, paramname, paramvalue, propname, propvalue):
         """
         Add or change the parameter to the specified value on the property having the specified value.
+        If C{paramvalue} is L{None} remove the parameter.
 
         @param paramname: the parameter name
         @type paramname: C{str}
@@ -2496,12 +2497,37 @@ class Component (object):
         @type propvalue: C{str} or C{None}
         """
 
+        self.setParametersForPropertyWithValue(
+            {paramname: paramvalue},
+            propname,
+            propvalue,
+        )
+
+
+    def setParametersForPropertyWithValue(self, params, propname, propvalue):
+        """
+        Add, change or remove a set of parameters to the specified value on the property
+        having the specified value. Parameters are specified in a name:value L{dict}. If
+        the value is L{None} the parameter will be removed.
+
+        @param params: the parameter name/value pairs to set/remove
+        @type params: C{dict}
+        @param propname: the property name
+        @type propname: C{str}
+        @param propvalue: the property value to test
+        @type propvalue: C{str} or C{None}
+        """
+
         for component in self.subcomponents():
             if component.name() in ignoredComponents:
                 continue
             for property in component.properties(propname):
                 if propvalue is None or property.value() == propvalue:
-                    property.setParameter(paramname, paramvalue)
+                    for paramname, paramvalue in params.items():
+                        if paramvalue is not None:
+                            property.setParameter(paramname, paramvalue)
+                        else:
+                            property.removeParameter(paramname)
 
 
     def hasPropertyInAnyComponent(self, properties):
