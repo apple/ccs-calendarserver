@@ -378,6 +378,10 @@ class CachingDirectoryService(
         )
 
 
+    def recordsWithDirectoryBasedDelegates(self):
+        return self._directory.recordsWithDirectoryBasedDelegates()
+
+
     def recordWithCalendarUserAddress(self, cua):
         # This will get cached by the underlying recordWith... call
         return CalendarDirectoryServiceMixin.recordWithCalendarUserAddress(

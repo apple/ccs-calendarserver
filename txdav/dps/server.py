@@ -38,7 +38,7 @@ from txdav.dps.commands import (
     MembersCommand, GroupsCommand, SetMembersCommand,
     VerifyPlaintextPasswordCommand, VerifyHTTPDigestCommand,
     WikiAccessForUIDCommand, ContinuationCommand,
-    StatsCommand,
+    ExternalDelegatesCommand, StatsCommand, ExpandedMemberUIDsCommand
     # UpdateRecordsCommand, RemoveRecordsCommand
 )
 from txdav.who.cache import CachingDirectoryService
@@ -67,7 +67,7 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         self._directory = directory
 
         # How to large we let an AMP response get before breaking it up
-        self._maxSize = 60000
+        self._maxSize = 55000
 
         # The cache of results we have not fully responded with.  A dictionary
         # whose keys are "continuation tokens" and whose values are tuples of
@@ -78,19 +78,20 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         self._continuations = {}
 
 
-    def _storeContinuation(self, records):
+    def _storeContinuation(self, things, kind):
         """
         Store an iterable of records and generate an opaque token we can
         give back to the client so they can later retrieve these remaining
         results that did not fit in the previous AMP response.
 
-        @param records: an iterable of records
+        @param things: an iterable
+        @param kind: "items" or "records"
         @return: a C{str} token
         """
         token = str(uuid.uuid4())
         # FIXME: I included a timestamp just in case we want to have code that
         # looks for stale continuations to expire them.
-        self._continuations[token] = (datetime.datetime.now(), records)
+        self._continuations[token] = (datetime.datetime.now(), things, kind)
         return token
 
 
@@ -103,11 +104,12 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         @return: an iterable of records, or None if the token does not exist
         """
         if token in self._continuations:
-            _ignore_timestamp, records = self._continuations[token]
+            _ignore_timestamp, things, kind = self._continuations[token]
             del self._continuations[token]
         else:
-            records = None
-        return records
+            things = None
+            kind = None
+        return things, kind
 
 
     @ContinuationCommand.responder
@@ -120,8 +122,13 @@ class DirectoryProxyAMPProtocol(amp.AMP):
             in the previous response.
         """
         log.debug("Continuation: {c}", c=continuation)
-        records = self._retrieveContinuation(continuation)
-        response = self._recordsToResponse(records)
+        things, kind = self._retrieveContinuation(continuation)
+        if kind == "records":
+            response = self._recordsToResponse(things)
+        elif kind == "items":
+            response = self._itemsToResponse(things)
+        else:
+            response = {}
         # log.debug("Responding with: {response}", response=response)
         return response
 
@@ -135,7 +142,7 @@ class DirectoryProxyAMPProtocol(amp.AMP):
 
         @param records: an iterable of records
         @return: the response dictionary, with a list of pickled records
-            stored in the "fieldsList" key, and if there are leftover
+            stored in the "items" key, and if there are leftover
             records that did not fit, there will be a "continuation" key
             containing the token the client must send via ContinuationCommand.
         """
@@ -156,12 +163,51 @@ class DirectoryProxyAMPProtocol(amp.AMP):
                 fieldsList.append(pickled)
                 count += 1
 
-        response = {"fieldsList": fieldsList}
+        response = {"items": fieldsList}
 
         if records:
-            response["continuation"] = self._storeContinuation(records)
+            response["continuation"] = self._storeContinuation(records, "records")
 
         return response
+
+
+    def _itemsToResponse(self, items):
+        """
+        Craft an AMP response containing as many items as will fit within
+        the size limit.  Remaining items are stored as a "continuation",
+        identified by a token that is returned to the client to fetch later
+        via the ContinuationCommand.
+
+        @param records: an iterable
+        @return: the response dictionary, with a list of items
+            stored in the "items" key, and if there are leftover
+            items that did not fit, there will be a "continuation" key
+            containing the token the client must send via ContinuationCommand.
+        """
+        itemsToSend = []
+        count = 0
+        if items:
+            size = 0
+            while size < self._maxSize:
+                try:
+                    item = items.pop()
+                except (KeyError, IndexError):
+                    # We're done.
+                    # Note: because records is an iterable (list or set)
+                    # we're catching both KeyError and IndexError.
+                    break
+                size = size + len(item)
+                itemsToSend.append(item)
+                count += 1
+
+        response = {"items": itemsToSend}
+
+        if items:
+            response["continuation"] = self._storeContinuation(items, "items")
+
+        return response
+
+
 
 
     def recordToDict(self, record):
@@ -173,14 +219,12 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         if record is not None:
             for field, value in record.fields.iteritems():
                 valueType = record.service.fieldName.valueType(field)
-                # print("%s: %s (%s)" % (field.name, value, valueType))
                 if valueType in (unicode, bool):
                     fields[field.name] = value
                 elif valueType is uuid.UUID:
                     fields[field.name] = str(value)
                 elif issubclass(valueType, (Names, NamedConstant)):
                     fields[field.name] = value.name if value else None
-        # print("Server side fields", fields)
         return fields
 
 
@@ -380,6 +424,23 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         returnValue(response)
 
 
+    @ExpandedMemberUIDsCommand.responder
+    @inlineCallbacks
+    def expandedMemberUIDs(self, uid):
+        uid = uid.decode("utf-8")
+        log.debug("ExpandedMemberUIDs: {u}", u=uid)
+        try:
+            record = (yield self._directory.recordWithUID(uid))
+        except Exception as e:
+            log.error("Failed in expandedMemberUIDs", error=e)
+            record = None
+
+        uids = yield record.expandedMemberUIDs()
+        response = self._itemsToResponse([u.encode("utf-8") for u in uids])
+        # log.debug("Responding with: {response}", response=response)
+        returnValue(response)
+
+
     @VerifyPlaintextPasswordCommand.responder
     @inlineCallbacks
     def verifyPlaintextPassword(self, uid, password):
@@ -465,6 +526,16 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         response = {
             "stats": pickle.dumps(stats),
         }
+        returnValue(response)
+
+
+    @ExternalDelegatesCommand.responder
+    @inlineCallbacks
+    def externalDelegates(self):
+        log.debug("ExternalDelegates")
+        records = yield self._directory.recordsWithDirectoryBasedDelegates()
+        response = self._recordsToResponse(records)
+        # log.debug("Responding with: {response}", response=response)
         returnValue(response)
 
 

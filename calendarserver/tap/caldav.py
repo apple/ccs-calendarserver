@@ -941,7 +941,8 @@ class CalDAVServiceMaker (object):
         if config.GroupCaching.Enabled:
             groupCacher = GroupCacher(
                 directory,
-                updateSeconds=config.GroupCaching.UpdateSeconds
+                updateSeconds=config.GroupCaching.UpdateSeconds,
+                useDirectoryBasedDelegates=config.GroupCaching.UseDirectoryBasedDelegates,
             )
         else:
             groupCacher = None
@@ -1091,7 +1092,7 @@ class CalDAVServiceMaker (object):
         WorkSchedulingService(
             store,
             config.Scheduling.iMIP.Enabled,
-            (config.GroupCaching.Enabled and config.GroupCaching.EnableUpdater),
+            config.GroupCaching.Enabled,
             config.AutomaticPurging.Enabled
         ).setServiceParent(service)
 
@@ -1309,7 +1310,8 @@ class CalDAVServiceMaker (object):
             if config.GroupCaching.Enabled:
                 groupCacher = GroupCacher(
                     directory,
-                    updateSeconds=config.GroupCaching.UpdateSeconds
+                    updateSeconds=config.GroupCaching.UpdateSeconds,
+                    useDirectoryBasedDelegates=config.GroupCaching.UseDirectoryBasedDelegates,
                 )
             else:
                 groupCacher = None
@@ -1895,7 +1897,8 @@ class CalDAVServiceMaker (object):
             if config.GroupCaching.Enabled:
                 groupCacher = GroupCacher(
                     directory,
-                    updateSeconds=config.GroupCaching.UpdateSeconds
+                    updateSeconds=config.GroupCaching.UpdateSeconds,
+                    useDirectoryBasedDelegates=config.GroupCaching.UseDirectoryBasedDelegates,
                 )
             else:
                 groupCacher = None

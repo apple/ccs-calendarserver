@@ -405,18 +405,10 @@ create table GROUP_REFRESH_WORK (
     "GROUP_UID" nvarchar2(255)
 );
 
-create table GROUP_DELEGATE_CHANGES_WORK (
-    "WORK_ID" integer primary key not null,
-    "JOB_ID" integer not null references JOB,
-    "DELEGATOR_UID" nvarchar2(255),
-    "READ_DELEGATE_UID" nvarchar2(255),
-    "WRITE_DELEGATE_UID" nvarchar2(255)
-);
-
 create table GROUPS (
     "GROUP_ID" integer primary key,
     "NAME" nvarchar2(255),
-    "GROUP_UID" nvarchar2(255) unique,
+    "GROUP_UID" nvarchar2(255),
     "MEMBERSHIP_HASH" nvarchar2(255),
     "EXTANT" integer default 1,
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
@@ -604,7 +596,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '47');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '46');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');
@@ -759,10 +751,6 @@ create index GROUP_CACHER_POLLING__6eb3151c on GROUP_CACHER_POLLING_WORK (
 );
 
 create index GROUP_REFRESH_WORK_JO_717ede20 on GROUP_REFRESH_WORK (
-    JOB_ID
-);
-
-create index GROUP_DELEGATE_CHANGE_8bf9e6d8 on GROUP_DELEGATE_CHANGES_WORK (
     JOB_ID
 );
 

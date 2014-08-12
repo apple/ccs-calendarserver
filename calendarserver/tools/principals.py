@@ -883,10 +883,16 @@ def matchStrings(value, validValues):
 
 
 def printRecordList(records):
-    results = [
-        (record.displayName, record.recordType.name, record.uid, record.shortNames)
-        for record in records
-    ]
+    results = []
+    for record in records:
+        try:
+            shortNames = record.shortNames
+        except AttributeError:
+            shortNames = []
+        results.append(
+            (record.displayName, record.recordType.name, record.uid, shortNames)
+        )
+
     results.sort()
     format = "%-22s %-10s %-20s %s"
     print(format % ("Full name", "Type", "UID", "Short names"))

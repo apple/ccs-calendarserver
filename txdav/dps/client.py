@@ -41,7 +41,8 @@ from txdav.dps.commands import (
     RecordsMatchingTokensCommand, RecordsMatchingFieldsCommand,
     MembersCommand, GroupsCommand, SetMembersCommand,
     VerifyPlaintextPasswordCommand, VerifyHTTPDigestCommand,
-    WikiAccessForUIDCommand, ContinuationCommand, StatsCommand
+    WikiAccessForUIDCommand, ContinuationCommand,
+    StatsCommand, ExternalDelegatesCommand, ExpandedMemberUIDsCommand
 )
 from txdav.who.delegates import RecordType as DelegatesRecordType
 from txdav.who.directory import (
@@ -136,12 +137,12 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
 
     def _processMultipleRecords(self, result):
         """
-        Takes a dictionary with a "fieldsList" key whose value is an iterable
+        Takes a dictionary with a "items" key whose value is an iterable
         of pickled dictionaries (of records' fields), and returns a list of
         records.
         """
         serializedFieldsList = []
-        for fields in result["fieldsList"]:
+        for fields in result["items"]:
             fields = pickle.loads(fields)
             serializedFieldsList.append(fields)
         results = []
@@ -193,8 +194,8 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
         numResults = 0
         if "fields" in results:
             numResults = 1
-        if "fieldsList" in results:
-            numResults = len(results["fieldsList"])
+        if "items" in results:
+            numResults = len(results["items"])
         log.debug(
             "DPS call {command} duration={duration:.2f}ms, results={numResults}",
             command=command, duration=1000.0 * duration, numResults=numResults
@@ -235,9 +236,9 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
             )
             multi.append(results)
 
-        results = {"fieldsList": []}
+        results = {"items": []}
         for result in multi:
-            results["fieldsList"].extend(result["fieldsList"])
+            results["items"].extend(result["items"])
 
         self._logResultTiming(command, startTime, results)
         returnValue(postProcess(results))
@@ -339,6 +340,14 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
         )
 
 
+    def recordsWithDirectoryBasedDelegates(self):
+        return self._call(
+            ExternalDelegatesCommand,
+            self._processMultipleRecords
+        )
+
+
+
     def recordsFromExpression(self, expression, recordTypes=None):
         raise NotImplementedError(
             "This won't work until expressions are serializable to send "
@@ -424,6 +433,25 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
             uid=self.uid.encode("utf-8"),
             memberUIDs=memberUIDs
         )
+
+
+    def _convertUIDs(self, results):
+        uids = []
+        for uid in results["items"]:
+            uids.append(uid.decode("utf-8"))
+        return uids
+
+
+    def expandedMemberUIDs(self):
+        log.debug("DPS Client expandedMemberUIDs")
+        if self.recordType is RecordType.group:
+            return self.service._call(
+                ExpandedMemberUIDsCommand,
+                self._convertUIDs,
+                uid=self.uid.encode("utf-8")
+            )
+        else:
+            return succeed([])
 
 
     def _convertAccess(self, results):

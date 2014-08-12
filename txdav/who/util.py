@@ -143,6 +143,9 @@ def buildDirectory(
                     BaseFieldName.fullNames: mapping.fullNames,
                     BaseFieldName.emailAddresses: mapping.emailAddresses,
                     LDAPFieldName.memberDNs: mapping.memberDNs,
+                    CalFieldName.readOnlyProxy: mapping.readOnlyProxy,
+                    CalFieldName.readWriteProxy: mapping.readWriteProxy,
+                    CalFieldName.hasCalendars: mapping.hasCalendars,
                 }),
                 recordTypeSchemas=MappingProxyType({
                     RecordType.user: RecordTypeSchema(

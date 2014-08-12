@@ -32,6 +32,7 @@ from json import dumps, loads as from_json_text
 from twext.who.expression import (
     CompoundExpression, Operand,
     MatchExpression, MatchType, MatchFlags,
+    ExistsExpression, BooleanExpression
 )
 
 
@@ -43,6 +44,20 @@ def matchExpressionAsJSON(expression):
         value=expression.fieldValue,
         match=expression.matchType.name,
         flags=expression.flags.name,
+    )
+
+
+def existsExpressionAsJSON(expression):
+    return dict(
+        type=expression.__class__.__name__,
+        field=expression.fieldName.name,
+    )
+
+
+def booleanExpressionAsJSON(expression):
+    return dict(
+        type=expression.__class__.__name__,
+        field=expression.fieldName.name,
     )
 
 
@@ -62,6 +77,12 @@ def expressionAsJSON(expression):
 
     if isinstance(expression, MatchExpression):
         return matchExpressionAsJSON(expression)
+
+    if isinstance(expression, ExistsExpression):
+        return existsExpressionAsJSON(expression)
+
+    if isinstance(expression, BooleanExpression):
+        return booleanExpressionAsJSON(expression)
 
     raise TypeError(
         "Unknown expression type: {!r}".format(expression)
@@ -116,6 +137,31 @@ def matchExpressionFromJSON(service, json):
     )
 
 
+def existsExpressionFromJSON(service, json):
+    try:
+        jsonField = json["field"]
+    except KeyError as e:
+        raise ValueError(
+            "JSON match expression must have {!r} key.".format(e[0])
+        )
+
+    fieldName = service.fieldName.lookupByName(jsonField)
+
+    return ExistsExpression(fieldName)
+
+
+def booleanExpressionFromJSON(service, json):
+    try:
+        jsonField = json["field"]
+    except KeyError as e:
+        raise ValueError(
+            "JSON match expression must have {!r} key.".format(e[0])
+        )
+
+    fieldName = service.fieldName.lookupByName(jsonField)
+
+    return BooleanExpression(fieldName)
+
 
 def compoundExpressionFromJSON(json):
     try:
@@ -147,6 +193,12 @@ def expressionFromJSON(json):
 
     if json_type == "MatchExpression":
         return matchExpressionFromJSON(json)
+
+    if json_type == "ExistsExpression":
+        return existsExpressionFromJSON(json)
+
+    if json_type == "BooleanExpression":
+        return booleanExpressionFromJSON(json)
 
     raise NotImplementedError(
         "Unknown expression type: {}".format(json_type)

@@ -762,21 +762,10 @@ create table GROUP_REFRESH_WORK (
 create index GROUP_REFRESH_WORK_JOB_ID on
   GROUP_REFRESH_WORK(JOB_ID);
 
-create table GROUP_DELEGATE_CHANGES_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
-  JOB_ID                        integer      references JOB not null,
-  DELEGATOR_UID                 varchar(255) not null,
-  READ_DELEGATE_UID             varchar(255) not null,
-  WRITE_DELEGATE_UID            varchar(255) not null
-);
-
-create index GROUP_DELEGATE_CHANGES_WORK_JOB_ID on
-  GROUP_DELEGATE_CHANGES_WORK(JOB_ID);
-
 create table GROUPS (
   GROUP_ID                      integer      primary key default nextval('RESOURCE_ID_SEQ'),    -- implicit index
   NAME                          varchar(255) not null,
-  GROUP_UID                     varchar(255) not null unique,
+  GROUP_UID                     varchar(255) not null,
   MEMBERSHIP_HASH               varchar(255) not null,
   EXTANT                        integer default 1,
   CREATED                       timestamp default timezone('UTC', CURRENT_TIMESTAMP),
@@ -788,7 +777,7 @@ create index GROUPS_GROUP_UID on
 create table GROUP_MEMBERSHIP (
   GROUP_ID                     integer not null references GROUPS on delete cascade,
   MEMBER_UID                   varchar(255) not null,
-
+  
   primary key (GROUP_ID, MEMBER_UID)
 );
 
@@ -809,19 +798,19 @@ create index GROUP_ATTENDEE_RECONCILE_WORK_RESOURCE_ID on
 create index GROUP_ATTENDEE_RECONCILE_WORK_GROUP_ID on
   GROUP_ATTENDEE_RECONCILE_WORK(GROUP_ID);
 
-
+  
 create table GROUP_ATTENDEE (
   GROUP_ID                      integer not null references GROUPS on delete cascade,
   RESOURCE_ID                   integer not null references CALENDAR_OBJECT on delete cascade,
   MEMBERSHIP_HASH               varchar(255) not null,
-
+  
   primary key (GROUP_ID, RESOURCE_ID)
 );
 
 create index GROUP_ATTENDEE_RESOURCE_ID on
   GROUP_ATTENDEE(RESOURCE_ID);
 
-
+  
 create table GROUP_SHAREE_RECONCILE_WORK (
   WORK_ID                       integer primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   JOB_ID                        integer not null references JOB,
@@ -842,7 +831,7 @@ create table GROUP_SHAREE (
   CALENDAR_ID      				integer not null references CALENDAR on delete cascade,
   GROUP_BIND_MODE               integer not null, -- enum CALENDAR_BIND_MODE
   MEMBERSHIP_HASH               varchar(255) not null,
-
+  
   primary key (GROUP_ID, CALENDAR_ID)
 );
 
@@ -971,7 +960,7 @@ create index SCHEDULE_REFRESH_WORK_RESOURCE_ID on
 create table SCHEDULE_REFRESH_ATTENDEES (
   RESOURCE_ID                   integer      not null references CALENDAR_OBJECT on delete cascade,
   ATTENDEE                      varchar(255) not null,
-
+  
   primary key (RESOURCE_ID, ATTENDEE)
 );
 
@@ -1138,7 +1127,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '47');
+insert into CALENDARSERVER values ('VERSION', '46');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');

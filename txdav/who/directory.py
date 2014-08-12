@@ -22,7 +22,8 @@ import uuid
 
 from twext.python.log import Logger
 from twext.who.expression import (
-    MatchType, Operand, MatchExpression, CompoundExpression, MatchFlags
+    MatchType, Operand, MatchExpression, CompoundExpression, MatchFlags,
+    ExistsExpression, BooleanExpression
 )
 from twext.who.idirectory import RecordType as BaseRecordType
 from twisted.cred.credentials import UsernamePassword
@@ -32,7 +33,8 @@ from twistedcaldav.ical import Property
 from txdav.caldav.datastore.scheduling.utils import normalizeCUAddr
 from txdav.who.delegates import RecordType as DelegateRecordType
 from txdav.who.idirectory import (
-    RecordType as DAVRecordType, AutoScheduleMode
+    RecordType as DAVRecordType, AutoScheduleMode,
+    FieldName as CalFieldName
 )
 from txweb2.auth.digest import DigestedCredentials
 
@@ -255,6 +257,38 @@ class CalendarDirectoryServiceMixin(object):
             if oldName == value:
                 return self.recordType.lookupByName(name)
         return None
+
+
+    @inlineCallbacks
+    def recordsWithDirectoryBasedDelegates(self):
+        """
+        Fetch calendar-enabled locations and resources which have proxy
+        groups assigned.
+        """
+
+        expression = CompoundExpression(
+            (
+                BooleanExpression(CalFieldName.hasCalendars),
+                CompoundExpression(
+                    (
+                        ExistsExpression(CalFieldName.readOnlyProxy),
+                        ExistsExpression(CalFieldName.readWriteProxy)
+                    ),
+                    Operand.OR
+                )
+            ),
+            Operand.AND
+        )
+
+        records = yield self.recordsFromExpression(
+            expression,
+            recordTypes=(self.recordType.location,)
+            # FIXME, commenting out resources for the moment since it's
+            # super slow:
+            # recordTypes=(self.recordType.location, self.recordType.resource)
+
+        )
+        returnValue(records)
 
 
 
@@ -535,8 +569,8 @@ class CalendarDirectoryRecordMixin(object):
             organizerRecord = yield service.recordWithCalendarUserAddress(organizer)
             if organizerRecord is not None:
                 autoAcceptGroup = yield service.recordWithUID(autoAcceptGroup)
-                members = yield autoAcceptGroup.expandedMembers()
-                if organizerRecord.uid in ([m.uid for m in members]):
+                memberUIDs = yield autoAcceptGroup.expandedMemberUIDs()
+                if organizerRecord.uid in memberUIDs:
                     returnValue(True)
         returnValue(False)
 
@@ -559,12 +593,23 @@ class CalendarDirectoryRecordMixin(object):
         if self not in seen:
             seen.add(self)
             for member in (yield self.members()):
-                if member.recordType == BaseRecordType.group:
-                    yield member.expandedMembers(members, seen)
-                else:
-                    members.add(member)
+                if member is not None:
+                    if member.recordType == BaseRecordType.group:
+                        yield member.expandedMembers(members, seen)
+                    else:
+                        members.add(member)
 
         returnValue(members)
+
+
+    @inlineCallbacks
+    def expandedMemberUIDs(self):
+        """
+        Return a L{set} containing the UIDs of the fully expanded membership
+        for this group.
+        """
+        members = yield self.expandedMembers()
+        returnValue([member.uid for member in members])
 
 
     # For scheduling/freebusy

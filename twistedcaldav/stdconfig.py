@@ -79,6 +79,8 @@ DEFAULT_SERVICE_PARAMS = {
             "fullNames": ["cn", ],
             "emailAddresses": ["mail", ],
             "memberDNs": ["uniqueMember", ],
+            "readWriteProxy": ["icsContact", ],
+            "readOnlyProxy": ["icsSecondaryOwners", ],
         }
     },
 }
@@ -965,10 +967,8 @@ DEFAULT_CONFIG = {
 
     "GroupCaching" : {
         "Enabled": True,
-        "MemcachedPool" : "Default",
         "UpdateSeconds" : 300,
-        "EnableUpdater" : True,
-        "UseExternalProxies" : False,
+        "UseDirectoryBasedDelegates" : False,
     },
 
     "GroupAttendees" : {

@@ -31,6 +31,7 @@ from txdav.caldav.datastore.scheduling.icalsplitter import iCalSplitter
 from txdav.caldav.datastore.sql import CalendarStoreFeatures, ComponentUpdateState
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 import datetime
+import time
 
 log = Logger()
 
@@ -47,7 +48,7 @@ class GroupCacherPollingWork(
         def _enqueue(txn):
             return GroupCacherPollingWork.reschedule(txn, seconds)
 
-        if config.InboxCleanup.Enabled:
+        if config.GroupCaching.Enabled:
             return store.inTransaction("GroupCacherPollingWork.initialSchedule", _enqueue)
         else:
             return succeed(None)
@@ -67,6 +68,7 @@ class GroupCacherPollingWork(
         groupCacher = getattr(self.transaction, "_groupCacher", None)
         if groupCacher is not None:
 
+            startTime = time.time()
             try:
                 yield groupCacher.update(self.transaction)
             except Exception, e:
@@ -74,6 +76,11 @@ class GroupCacherPollingWork(
                     "Failed to update new group membership cache ({error})",
                     error=e
                 )
+            endTime = time.time()
+            log.debug(
+                "GroupCacher polling took {duration:0.2f} seconds",
+                duration=(endTime - startTime)
+            )
 
 
 
@@ -110,6 +117,35 @@ class GroupRefreshWork(WorkItem, fromTable(schema.GROUP_REFRESH_WORK)):
             )
             yield self.reschedule(self.transaction, 10, groupUID=self.groupUid)
 
+
+
+class GroupDelegateChangesWork(WorkItem, fromTable(schema.GROUP_DELEGATE_CHANGES_WORK)):
+
+    delegator = property(lambda self: (self.table.DELEGATOR_UID == self.delegatorUid))
+
+    @inlineCallbacks
+    def doWork(self):
+        # Delete all other work items for this delegator
+        yield Delete(
+            From=self.table,
+            Where=self.delegator,
+        ).on(self.transaction)
+
+        groupCacher = getattr(self.transaction, "_groupCacher", None)
+        if groupCacher is not None:
+
+            try:
+                yield groupCacher.applyExternalAssignments(
+                    self.transaction,
+                    self.delegatorUid.decode("utf-8"),
+                    self.readDelegateUid.decode("utf-8"),
+                    self.writeDelegateUid.decode("utf-8")
+                )
+            except Exception, e:
+                log.error(
+                    "Failed to apply external delegates for {uid} {err}",
+                    uid=self.delegatorUid, err=e
+                )
 
 
 class GroupAttendeeReconciliationWork(
@@ -288,30 +324,45 @@ class GroupCacher(object):
     def __init__(
         self, directory,
         updateSeconds=600,
-        useExternalProxies=False,
-        externalProxiesSource=None
+        useDirectoryBasedDelegates=False,
+        directoryBasedDelegatesSource=None
     ):
         self.directory = directory
-        self.useExternalProxies = useExternalProxies
-        if useExternalProxies and externalProxiesSource is None:
-            externalProxiesSource = self.directory.getExternalProxyAssignments
-        self.externalProxiesSource = externalProxiesSource
+        self.useDirectoryBasedDelegates = useDirectoryBasedDelegates
+        if useDirectoryBasedDelegates and directoryBasedDelegatesSource is None:
+            directoryBasedDelegatesSource = self.directory.recordsWithDirectoryBasedDelegates
+        self.directoryBasedDelegatesSource = directoryBasedDelegatesSource
         self.updateSeconds = updateSeconds
 
 
     @inlineCallbacks
     def update(self, txn):
-        # TODO
-        # Pull in external delegate assignments and stick in delegate db
-        # if self.useExternalProxies:
-        #     externalAssignments = (yield self.externalProxiesSource())
-        # yield self.applyExternalAssignments(txn, externalAssignments)
+
+        if self.useDirectoryBasedDelegates:
+            # Pull in delegate assignments from the directory and stick them
+            # into the delegate db
+            recordsWithDirectoryBasedDelegates = yield self.directoryBasedDelegatesSource()
+            externalAssignments = {}
+            for record in recordsWithDirectoryBasedDelegates:
+                try:
+                    readWriteProxy = record.readWriteProxy
+                except AttributeError:
+                    readWriteProxy = None
+                try:
+                    readOnlyProxy = record.readOnlyProxy
+                except AttributeError:
+                    readOnlyProxy = None
+
+                if readOnlyProxy or readWriteProxy:
+                    externalAssignments[record.uid] = (readOnlyProxy, readWriteProxy)
+
+            yield self.scheduleExternalAssignments(txn, externalAssignments)
 
         # Figure out which groups matter
         groupUIDs = yield self.groupsToRefresh(txn)
-        self.log.debug(
-            "Groups to refresh: {g}", g=groupUIDs
-        )
+        # self.log.debug(
+        #     "Groups to refresh: {g}", g=groupUIDs
+        # )
 
         gr = schema.GROUPS
         if config.AutomaticPurging.Enabled and groupUIDs:
@@ -351,9 +402,11 @@ class GroupCacher(object):
 
 
     @inlineCallbacks
-    def applyExternalAssignments(self, txn, newAssignments):
+    def scheduleExternalAssignments(
+        self, txn, newAssignments, immediately=False
+    ):
 
-        oldAssignments = (yield txn.externalDelegates())
+        oldAssignments = yield txn.externalDelegates()
 
         # external assignments is of the form:
         # { delegatorUID: (readDelegateGroupUID, writeDelegateGroupUID),
@@ -364,30 +417,68 @@ class GroupCacher(object):
             for (
                 delegatorUID, (readDelegateUID, writeDelegateUID)
             ) in changed:
-                readDelegateGroupID = writeDelegateGroupID = None
-                if readDelegateUID:
-                    (
-                        readDelegateGroupID, _ignore_name, _ignore_hash,
-                        _ignore_modified, _ignore_extant
-                    ) = (
-                        yield txn.groupByUID(readDelegateUID)
-                    )
-                if writeDelegateUID:
-                    (
-                        writeDelegateGroupID, _ignore_name, _ignore_hash,
-                        _ignore_modified, _ignore_extant
-                    ) = (
-                        yield txn.groupByUID(writeDelegateUID)
-                    )
-                yield txn.assignExternalDelegates(
-                    delegatorUID, readDelegateGroupID, writeDelegateGroupID,
-                    readDelegateUID, writeDelegateUID
+                self.log.debug(
+                    "Scheduling external delegate assignment changes for {uid}",
+                    uid=delegatorUID
                 )
+                if not readDelegateUID:
+                    readDelegateUID = ""
+                if not writeDelegateUID:
+                    writeDelegateUID = ""
+                if immediately:
+                    yield self.applyExternalAssignments(
+                        txn, delegatorUID, readDelegateUID, writeDelegateUID
+                    )
+                else:
+                    yield GroupDelegateChangesWork.reschedule(
+                        txn, 0, delegatorUid=delegatorUID,
+                        readDelegateUid=readDelegateUID,
+                        writeDelegateUid=writeDelegateUID
+                    )
         if removed:
             for delegatorUID in removed:
-                yield txn.assignExternalDelegates(
-                    delegatorUID, None, None, None, None
+                self.log.debug(
+                    "Scheduling external delegation assignment removal for {uid}",
+                    uid=delegatorUID
                 )
+                if immediately:
+                    yield self.applyExternalAssignments(
+                        txn, delegatorUID, "", ""
+                    )
+                else:
+                    yield GroupDelegateChangesWork.reschedule(
+                        txn, 0, delegatorUid=delegatorUID,
+                        readDelegateUid="", writeDelegateUid=""
+                    )
+
+
+    @inlineCallbacks
+    def applyExternalAssignments(
+        self, txn, delegatorUID, readDelegateUID, writeDelegateUID
+    ):
+        self.log.debug(
+            "External delegate assignments changed for {uid}",
+            uid=delegatorUID
+        )
+        readDelegateGroupID = writeDelegateGroupID = None
+        if readDelegateUID:
+            (
+                readDelegateGroupID, _ignore_name, _ignore_hash,
+                _ignore_modified, _ignore_extant
+            ) = (
+                yield txn.groupByUID(readDelegateUID)
+            )
+        if writeDelegateUID:
+            (
+                writeDelegateGroupID, _ignore_name, _ignore_hash,
+                _ignore_modified, _ignore_extant
+            ) = (
+                yield txn.groupByUID(writeDelegateUID)
+            )
+        yield txn.assignExternalDelegates(
+            delegatorUID, readDelegateGroupID, writeDelegateGroupID,
+            readDelegateUID, writeDelegateUID
+        )
 
 
     @inlineCallbacks
@@ -398,7 +489,8 @@ class GroupCacher(object):
             and updates the GROUP_MEMBERSHIP table
             WorkProposal is returned for tests
         """
-        self.log.debug("Faulting in group: {g}", g=groupUID)
+        self.log.debug("Refreshing group: {g}", g=groupUID)
+
         record = (yield self.directory.recordWithUID(groupUID))
         if record is None:
             # the group has disappeared from the directory
@@ -421,9 +513,20 @@ class GroupCacher(object):
             )
 
             if membershipChanged:
+                self.log.debug(
+                    "Membership changed for group {uid} {name}",
+                    uid=groupUID,
+                    name=cachedName
+                )
                 wpsAttendee = yield self.scheduleGroupAttendeeReconciliations(txn, groupID)
                 wpsShareee = yield self.scheduleGroupShareeReconciliations(txn, groupID)
                 returnValue(wpsAttendee + wpsShareee)
+            else:
+                self.log.debug(
+                    "No membership change for group {uid} {name}",
+                    uid=groupUID,
+                    name=cachedName
+                )
 
         returnValue(tuple())
 

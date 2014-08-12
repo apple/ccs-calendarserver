@@ -129,12 +129,16 @@ class ProxyPrincipalDetailElement(Element):
                 guid = record.guid
         except AttributeError:
             guid = ""
+        try:
+            shortNames = record.shortNames
+        except AttributeError:
+            shortNames = []
         return tag.fillSlots(
             directoryGUID=record.service.guid,
             realm=record.service.realmName,
             guid=guid,
             recordType=record.service.recordTypeToOldName(record.recordType),
-            shortNames=record.shortNames,
+            shortNames=shortNames,
             fullName=record.displayName,
             principalUID=parent.principalUID(),
             principalURL=formatLink(parent.principalURL()),

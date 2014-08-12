@@ -1339,17 +1339,17 @@ class CommonStoreTransaction(object):
 
         """
         if record is not None:
-            members = yield record.expandedMembers()
+            memberUIDs = yield record.expandedMemberUIDs()
             name = record.displayName
             extant = True
         else:
-            members = frozenset()
+            memberUIDs = frozenset()
             name = cachedName
             extant = False
 
         membershipHashContent = hashlib.md5()
-        for member in sorted(members, key=lambda x: x.uid):
-            membershipHashContent.update(str(member.uid))
+        for memberUID in sorted(memberUIDs):
+            membershipHashContent.update(str(memberUID))
         membershipHash = membershipHashContent.hexdigest()
 
         if cachedMembershipHash != membershipHash:
@@ -1368,8 +1368,8 @@ class CommonStoreTransaction(object):
 
         if membershipChanged:
             newMemberUIDs = set()
-            for member in members:
-                newMemberUIDs.add(member.uid)
+            for memberUID in memberUIDs:
+                newMemberUIDs.add(memberUID)
             yield self.synchronizeMembers(groupID, newMemberUIDs)
 
         returnValue(membershipChanged)

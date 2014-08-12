@@ -53,7 +53,7 @@ class RecordsWithRecordTypeCommand(amp.Command):
         ('recordType', amp.String()),
     ]
     response = [
-        ('fieldsList', amp.ListOf(amp.String())),
+        ('items', amp.ListOf(amp.String())),
         ('continuation', amp.String(optional=True)),
     ]
 
@@ -64,7 +64,7 @@ class RecordsWithEmailAddressCommand(amp.Command):
         ('emailAddress', amp.String()),
     ]
     response = [
-        ('fieldsList', amp.ListOf(amp.String())),
+        ('items', amp.ListOf(amp.String())),
         ('continuation', amp.String(optional=True)),
     ]
 
@@ -75,7 +75,7 @@ class ContinuationCommand(amp.Command):
         ('continuation', amp.String(optional=True)),
     ]
     response = [
-        ('fieldsList', amp.ListOf(amp.String())),
+        ('items', amp.ListOf(amp.String())),
         ('continuation', amp.String(optional=True)),
     ]
 
@@ -87,7 +87,7 @@ class RecordsMatchingTokensCommand(amp.Command):
         ('context', amp.String(optional=True)),
     ]
     response = [
-        ('fieldsList', amp.ListOf(amp.String())),
+        ('items', amp.ListOf(amp.String())),
         ('continuation', amp.String(optional=True)),
     ]
 
@@ -100,7 +100,7 @@ class RecordsMatchingFieldsCommand(amp.Command):
         ('recordType', amp.String(optional=True)),
     ]
     response = [
-        ('fieldsList', amp.ListOf(amp.String())),
+        ('items', amp.ListOf(amp.String())),
         ('continuation', amp.String(optional=True)),
     ]
 
@@ -108,7 +108,7 @@ class RecordsMatchingFieldsCommand(amp.Command):
 
 class UpdateRecordsCommand(amp.Command):
     arguments = [
-        ('fieldsList', amp.ListOf(amp.String())),
+        ('items', amp.ListOf(amp.String())),
         ('create', amp.Boolean(optional=True)),
     ]
     response = [
@@ -132,7 +132,7 @@ class MembersCommand(amp.Command):
         ('uid', amp.String()),
     ]
     response = [
-        ('fieldsList', amp.ListOf(amp.String())),
+        ('items', amp.ListOf(amp.String())),
         ('continuation', amp.String(optional=True)),
     ]
 
@@ -143,7 +143,7 @@ class GroupsCommand(amp.Command):
         ('uid', amp.String()),
     ]
     response = [
-        ('fieldsList', amp.ListOf(amp.String())),
+        ('items', amp.ListOf(amp.String())),
         ('continuation', amp.String(optional=True)),
     ]
 
@@ -156,6 +156,16 @@ class SetMembersCommand(amp.Command):
     ]
     response = [
         ('success', amp.Boolean()),
+    ]
+
+
+class ExpandedMemberUIDsCommand(amp.Command):
+    arguments = [
+        ('uid', amp.String()),
+    ]
+    response = [
+        ('items', amp.ListOf(amp.String())),
+        ('continuation', amp.String(optional=True)),
     ]
 
 
@@ -200,6 +210,13 @@ class WikiAccessForUIDCommand(amp.Command):
         ('access', amp.String()),
     ]
 
+
+class ExternalDelegatesCommand(amp.Command):
+    arguments = []
+    response = [
+        ('items', amp.ListOf(amp.String())),
+        ('continuation', amp.String(optional=True)),
+    ]
 
 
 class StatsCommand(amp.Command):

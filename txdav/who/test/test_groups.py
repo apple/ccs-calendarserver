@@ -190,7 +190,9 @@ class GroupCacherTest(StoreTestCase):
         newAssignments = {
             u"__wsanchez1__": (None, u"__top_group_1__")
         }
-        yield self.groupCacher.applyExternalAssignments(txn, newAssignments)
+        yield self.groupCacher.scheduleExternalAssignments(
+            txn, newAssignments, immediately=True
+        )
         oldExternalAssignments = (yield txn.externalDelegates())
         self.assertEquals(
             oldExternalAssignments,
@@ -215,7 +217,10 @@ class GroupCacherTest(StoreTestCase):
                 u"__top_group_1__"
             ),
         }
-        yield self.groupCacher.applyExternalAssignments(txn, newAssignments)
+
+        yield self.groupCacher.scheduleExternalAssignments(
+            txn, newAssignments, immediately=True
+        )
         oldExternalAssignments = (yield txn.externalDelegates())
         self.assertEquals(
             oldExternalAssignments,
@@ -290,7 +295,9 @@ class GroupCacherTest(StoreTestCase):
                 None
             ),
         }
-        yield self.groupCacher.applyExternalAssignments(txn, newAssignments)
+        yield self.groupCacher.scheduleExternalAssignments(
+            txn, newAssignments, immediately=True
+        )
         oldExternalAssignments = (yield txn.externalDelegates())
         self.assertEquals(
             oldExternalAssignments,

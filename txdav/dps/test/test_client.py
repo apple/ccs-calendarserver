@@ -47,8 +47,8 @@ if testMode == "xml":
 
     # Mix in the calendar-specific service methods
     class CalendarXMLDirectoryService(
-        XMLDirectoryService,
-        CalendarDirectoryServiceMixin
+        CalendarDirectoryServiceMixin,
+        XMLDirectoryService
     ):
         pass
 
@@ -60,8 +60,8 @@ elif testMode == "od":
 
     # Mix in the calendar-specific service methods
     class CalendarODDirectoryService(
-        OpenDirectoryService,
-        CalendarDirectoryServiceMixin
+        CalendarDirectoryServiceMixin,
+        OpenDirectoryService
     ):
         pass
 
@@ -590,6 +590,18 @@ class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
 
 
     @inlineCallbacks
+    def test_expandedMemberUIDs(self):
+        group = yield self.client.recordWithUID(u"__top_group_1__")
+        memberUIDs = yield group.expandedMemberUIDs()
+        self.assertEquals(
+            set(memberUIDs),
+            set(
+                [u'__wsanchez1__', u'__cdaboo1__', u'__glyph1__', u'__sagen1__']
+            )
+        )
+
+
+    @inlineCallbacks
     def test_groups(self):
 
         # A group must first be "refreshed" into the DB otherwise we won't
@@ -717,8 +729,8 @@ class DPSClientLargeResultsTest(unittest.TestCase):
 
         # Connect the two services directly via an IOPump
         client = AMP()
-        server = DirectoryProxyAMPProtocol(remoteDirectory)
-        pump = returnConnected(server, client)
+        self.server = DirectoryProxyAMPProtocol(remoteDirectory)
+        pump = returnConnected(self.server, client)
 
         # Replace the normal _getConnection method with one that bypasses any
         # actual networking
@@ -768,3 +780,9 @@ class DPSClientLargeResultsTest(unittest.TestCase):
         group = yield self.directory.recordWithUID(u"bigGroup")
         members = yield group.members()
         self.assertEquals(len(members), self.numUsers)
+
+        # force the limit small so continuations happen
+        self.server._maxSize = 500
+        # expandedMemberUIDs
+        memberUIDs = yield group.expandedMemberUIDs()
+        self.assertEquals(len(memberUIDs), self.numUsers)

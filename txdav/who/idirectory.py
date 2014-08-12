@@ -156,6 +156,16 @@ class FieldName(Names):
     autoAcceptGroup.description = u"auto-accept group"
     autoAcceptGroup.valueType = BaseFieldName.valueType(BaseFieldName.uid)
 
+    readOnlyProxy = NamedConstant()
+    readOnlyProxy.description = u"read-only proxy group"
+    readOnlyProxy.valueType = BaseFieldName.valueType(BaseFieldName.uid)
+
+    readWriteProxy = NamedConstant()
+    readWriteProxy.description = u"read-write proxy group"
+    readWriteProxy.valueType = BaseFieldName.valueType(BaseFieldName.uid)
+
+
+
     # For "locations", i.e., scheduled spaces:
 
     associatedAddress = NamedConstant()
