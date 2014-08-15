@@ -164,8 +164,6 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
                 yield ClientCreator(reactor, amp.AMP).connectUNIX(path)
             )
             self._connection = connection
-        else:
-            log.debug("Already have connection")
         returnValue(self._connection)
 
 
