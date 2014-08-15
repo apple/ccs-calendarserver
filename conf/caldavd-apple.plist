@@ -208,12 +208,17 @@
     <key>DirectoryService</key>
     <dict>
       <key>type</key>
-      <string>twistedcaldav.directory.appleopendirectory.OpenDirectoryService</string>
+      <string>opendirectory</string>
 
       <key>params</key>
       <dict>
         <key>node</key>
         <string>/Search</string>
+        <key>recordTypes</key>
+        <array>
+          <string>users</string>
+          <string>groups</string>
+        </array>
       </dict>
     </dict>
 
