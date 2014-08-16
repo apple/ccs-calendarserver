@@ -5033,11 +5033,11 @@ class SharingMixIn(object):
         # remove None parameters, and substitute None for empty string
         bind = self._bindSchema
         columnMap = {}
-        if mode != None and mode != self._bindMode:
+        if mode != None and mode != shareeView._bindMode:
             columnMap[bind.BIND_MODE] = mode
-        if status != None:# and status != self._bindStatus:  # FIXME:
+        if status != None and status != shareeView._bindStatus:
             columnMap[bind.BIND_STATUS] = status
-        if summary != None and summary and summary != self._bindMessage:
+        if summary != None and summary != shareeView._bindMessage:
             columnMap[bind.MESSAGE] = summary
 
         if columnMap:
@@ -5059,7 +5059,7 @@ class SharingMixIn(object):
                 shareeView._bindStatus = columnMap[bind.BIND_STATUS]
                 yield shareeView._changedStatus(previouslyAcceptedCount)
 
-            if summary is not None:
+            if bind.MESSAGE in columnMap:
                 shareeView._bindMessage = columnMap[bind.MESSAGE]
 
             yield shareeView.invalidateQueryCache()
