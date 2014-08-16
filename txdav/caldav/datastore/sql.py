@@ -2037,7 +2037,7 @@ class Calendar(CommonHomeChild):
                     shareeView = yield super(Calendar, self).inviteUIDToShare(memberUID, newMode, summary)
                     shareeViews.append(shareeView)
 
-        # shared even if no sharees
+        # shared even if no group members
         yield self.setShared(True)
 
         returnValue(tuple(shareeViews))
@@ -2095,14 +2095,14 @@ class Calendar(CommonHomeChild):
                 if memberUID != self._home.uid():
                     shareeView = yield self.shareeView(memberUID)
                     if shareeView is not None:
-                            newMode = yield shareeView._groupModeAfterRemovingOneGroupSharee()
-                            if newMode is None:
-                                if shareeView._bindMode != _BIND_MODE_DIRECT:
-                                    # one group or individual share: delete share
-                                    yield super(Calendar, self).uninviteUIDFromShare(memberUID)
-                            else:
-                                # multiple groups or group and individual was shared, update to new mode
-                                yield super(Calendar, self).inviteUIDToShare(memberUID, newMode)
+                        newMode = yield shareeView._groupModeAfterRemovingOneGroupSharee()
+                        if newMode is None:
+                            if shareeView._bindMode != _BIND_MODE_DIRECT:
+                                # one group or individual share: delete share
+                                yield super(Calendar, self).uninviteUIDFromShare(memberUID)
+                        else:
+                            # multiple groups or group and individual was shared, update to new mode
+                            yield super(Calendar, self).inviteUIDToShare(memberUID, newMode)
 
         else:
             shareeView = yield self.shareeView(shareeUID)
@@ -3148,7 +3148,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 else:
                     oldcomponent = yield self.componentForUser()
                     self.tr_change = iCalDiff(oldcomponent, component, False).timeRangeDifference()
-
 
             # Always do the per-user data merge right before we store
             component = (yield self.mergePerUserData(component, inserting))
