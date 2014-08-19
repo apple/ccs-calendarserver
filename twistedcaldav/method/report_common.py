@@ -334,7 +334,7 @@ def validPropertyListAddressDataTypeVersion(prop):
 
 
 @inlineCallbacks
-def _namedPropertiesForResource(request, props, resource, calendar=None, timezone=None, vcard=None, isowner=True):
+def _namedPropertiesForResource(request, props, resource, calendar=None, timezone=None, vcard=None, isowner=True, dataAllowed=True, forbidden=False):
     """
     Return the specified properties on the specified resource.
     @param request: the L{IRequest} for the current request.
@@ -349,10 +349,15 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
         will be used to get the vcard if needed.
     @param isowner: C{True} if the authorized principal making the request is the DAV:owner,
         C{False} otherwise.
+    @param dataAllowed: C{True} if calendar/address data is allowed to be returned,
+        C{False} otherwise.
+    @param forbidden: if C{True} then return 403 status for all properties,
+        C{False} otherwise.
     @return: a map of OK and NOT FOUND property values.
     """
     properties_by_status = {
         responsecode.OK        : [],
+        responsecode.FORBIDDEN : [],
         responsecode.NOT_FOUND : [],
     }
 
@@ -363,29 +368,39 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
         returnMinimal = request.headers.getHeader("brief", False)
 
     for property in props:
-        if isinstance(property, caldavxml.CalendarData):
-            # Handle private events access restrictions
-            if calendar is None:
-                calendar = (yield resource.iCalendarForUser())
-            filtered = HiddenInstanceFilter().filter(calendar)
-            filtered = PrivateEventFilter(resource.accessMode, isowner).filter(filtered)
-            filtered = CalendarDataFilter(property, timezone).filter(filtered)
-            propvalue = CalendarData.fromCalendar(filtered, format=property.content_type)
-            properties_by_status[responsecode.OK].append(propvalue)
-            continue
-
-        if isinstance(property, carddavxml.AddressData):
-            if vcard is None:
-                vcard = (yield resource.vCard())
-            filtered = AddressDataFilter(property).filter(vcard)
-            propvalue = AddressData.fromAddress(filtered, format=property.content_type)
-            properties_by_status[responsecode.OK].append(propvalue)
-            continue
-
         if isinstance(property, element.WebDAVElement):
             qname = property.qname()
         else:
             qname = property
+
+        if forbidden:
+            properties_by_status[responsecode.FORBIDDEN].append(propertyName(qname))
+            continue
+
+        if isinstance(property, caldavxml.CalendarData):
+            if dataAllowed:
+                # Handle private events access restrictions
+                if calendar is None:
+                    calendar = (yield resource.iCalendarForUser())
+                filtered = HiddenInstanceFilter().filter(calendar)
+                filtered = PrivateEventFilter(resource.accessMode, isowner).filter(filtered)
+                filtered = CalendarDataFilter(property, timezone).filter(filtered)
+                propvalue = CalendarData.fromCalendar(filtered, format=property.content_type)
+                properties_by_status[responsecode.OK].append(propvalue)
+            else:
+                properties_by_status[responsecode.FORBIDDEN].append(propertyName(qname))
+            continue
+
+        if isinstance(property, carddavxml.AddressData):
+            if dataAllowed:
+                if vcard is None:
+                    vcard = (yield resource.vCard())
+                filtered = AddressDataFilter(property).filter(vcard)
+                propvalue = AddressData.fromAddress(filtered, format=property.content_type)
+                properties_by_status[responsecode.OK].append(propvalue)
+            else:
+                properties_by_status[responsecode.FORBIDDEN].append(propertyName(qname))
+            continue
 
         has = (yield resource.hasProperty(property, request))
 
@@ -400,7 +415,7 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
                 f = Failure()
                 status = statusForFailure(f, "getting property: %s" % (qname,))
                 if status not in properties_by_status:
-                        properties_by_status[status] = []
+                    properties_by_status[status] = []
                 if not returnMinimal or status != responsecode.NOT_FOUND:
                     properties_by_status[status].append(propertyName(qname))
         elif not returnMinimal:
