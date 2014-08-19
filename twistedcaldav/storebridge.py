@@ -280,7 +280,20 @@ class _CommonHomeChildCollectionMixin(object):
         if qname == customxml.MaxResources.qname() and config.MaxResourcesPerCollection:
             returnValue(customxml.MaxResources.fromString(config.MaxResourcesPerCollection))
 
-        returnValue((yield super(_CommonHomeChildCollectionMixin, self).readProperty(prop, request)))
+        elif qname == customxml.BulkRequests.qname() and config.EnableBatchUpload:
+            returnValue(customxml.BulkRequests(
+                customxml.Simple(
+                    customxml.MaxBulkResources.fromString(str(config.MaxResourcesBatchUpload)),
+                    customxml.MaxBulkBytes.fromString(str(config.MaxBytesBatchUpload)),
+                ),
+                customxml.CRUD(
+                    customxml.MaxBulkResources.fromString(str(config.MaxResourcesBatchUpload)),
+                    customxml.MaxBulkBytes.fromString(str(config.MaxBytesBatchUpload)),
+                ),
+            ))
+
+        result = (yield super(_CommonHomeChildCollectionMixin, self).readProperty(prop, request))
+        returnValue(result)
 
 
     def url(self):
@@ -586,25 +599,6 @@ class _CommonHomeChildCollectionMixin(object):
         addLocation(request, request.unparseURL(path=newchildURL, params=""))
 
         returnValue(response)
-
-
-    @inlineCallbacks
-    def _readGlobalProperty(self, qname, prop, request):
-
-        if config.EnableBatchUpload and qname == customxml.BulkRequests.qname():
-            returnValue(customxml.BulkRequests(
-                customxml.Simple(
-                    customxml.MaxBulkResources.fromString(str(config.MaxResourcesBatchUpload)),
-                    customxml.MaxBulkBytes.fromString(str(config.MaxBytesBatchUpload)),
-                ),
-                customxml.CRUD(
-                    customxml.MaxBulkResources.fromString(str(config.MaxResourcesBatchUpload)),
-                    customxml.MaxBulkBytes.fromString(str(config.MaxBytesBatchUpload)),
-                ),
-            ))
-        else:
-            result = (yield super(_CommonHomeChildCollectionMixin, self)._readGlobalProperty(qname, prop, request))
-            returnValue(result)
 
 
     @inlineCallbacks
@@ -1243,11 +1237,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         )
 
 
-    def _hasGlobalProperty(self, property, request):
-        """
-        Need to special case schedule-calendar-transp for backwards compatability.
-        """
-
+    def hasProperty(self, property, request):
         if type(property) is tuple:
             qname = property
         else:
@@ -1261,7 +1251,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
             return succeed(self._newStoreObject.getTimezone() is not None)
 
         else:
-            return super(CalendarCollectionResource, self)._hasGlobalProperty(property, request)
+            return super(CalendarCollectionResource, self).hasProperty(property, request)
 
 
     @inlineCallbacks
@@ -1284,17 +1274,33 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
 
 
     @inlineCallbacks
-    def _writeGlobalProperty(self, property, request):
+    def writeProperty(self, property, request):
 
         if property.qname() in DefaultAlarmPropertyMixin.ALARM_PROPERTIES:
+            if not property.valid():
+                raise HTTPError(ErrorResponse(
+                    responsecode.CONFLICT,
+                    (caldav_namespace, "valid-calendar-data"),
+                    description="Invalid property"
+                ))
             yield self.setDefaultAlarmProperty(property)
             returnValue(None)
 
         elif property.qname() == caldavxml.CalendarTimeZone.qname():
+            if not property.valid():
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "valid-calendar-data"),
+                    description="Invalid property"
+                ))
             yield self._newStoreObject.setTimezone(property.calendar())
             returnValue(None)
 
-        result = (yield super(CalendarCollectionResource, self)._writeGlobalProperty(property, request))
+        elif property.qname() == caldavxml.ScheduleCalendarTransp.qname():
+            yield self._newStoreObject.setUsedForFreeBusy(property == caldavxml.ScheduleCalendarTransp(caldavxml.Opaque()))
+            returnValue(None)
+
+        result = (yield super(CalendarCollectionResource, self).writeProperty(property, request))
         returnValue(result)
 
 

@@ -431,6 +431,8 @@ class CalDAVResource (
                 # caldavxml.DefaultAlarmVToDoDate.qname(),
 
                 customxml.PubSubXMPPPushKeyProperty.qname(),
+
+                caldavxml.ScheduleCalendarTransp.qname(),
             )
 
         if self.isAddressBookCollection() and not self.isDirectoryBackedAddressBookCollection():
@@ -490,60 +492,6 @@ class CalDAVResource (
         return super(CalDAVResource, self).liveProperties() + baseProperties
 
 
-    def isShadowableProperty(self, qname):
-        """
-        Shadowable properties are ones on shared resources where a "default" exists until
-        a user overrides with their own value.
-        """
-        return qname in (
-            caldavxml.CalendarDescription.qname(),
-            caldavxml.CalendarTimeZone.qname(),
-            carddavxml.AddressBookDescription.qname(),
-        )
-
-
-    def isGlobalProperty(self, qname):
-        """
-        A global property is one that is the same for all users.
-        """
-        if qname in self.liveProperties():
-            if qname in (
-                element.DisplayName.qname(),
-            ):
-                return False
-            else:
-                return True
-        else:
-            return False
-
-
-    @inlineCallbacks
-    def hasProperty(self, property, request):
-        """
-        Need to special case schedule-calendar-transp for backwards compatability.
-        """
-        res = (yield self._hasGlobalProperty(property, request))
-        returnValue(res)
-
-
-    def _hasGlobalProperty(self, property, request):
-        """
-        Need to special case schedule-calendar-transp for backwards compatability.
-        """
-
-        if type(property) is tuple:
-            qname = property
-        else:
-            qname = property.qname()
-
-        # Force calendar collections to always appear to have the property
-        if qname == caldavxml.ScheduleCalendarTransp.qname() and self.isCalendarCollection():
-            return succeed(True)
-
-        else:
-            return super(CalDAVResource, self).hasProperty(property, request)
-
-
     @inlineCallbacks
     def readProperty(self, property, request):
         if type(property) is tuple:
@@ -551,34 +499,20 @@ class CalDAVResource (
         else:
             qname = property.qname()
 
-        if self.isCalendarCollection() or (self.isAddressBookCollection() and not self.isDirectoryBackedAddressBookCollection()):
+        # Push notification DAV property "pushkey"
+        if qname == customxml.PubSubXMPPPushKeyProperty.qname() and (
+            self.isCalendarCollection() or (self.isAddressBookCollection() and not self.isDirectoryBackedAddressBookCollection())
+        ):
 
-            # Push notification DAV property "pushkey"
-            if qname == customxml.PubSubXMPPPushKeyProperty.qname():
+            if hasattr(self, "_newStoreObject"):
+                notifier = self._newStoreObject.getNotifier("push")
+                if notifier is not None:
+                    propVal = customxml.PubSubXMPPPushKeyProperty(notifier.nodeName())
+                    returnValue(propVal)
 
-                if hasattr(self, "_newStoreObject"):
-                    notifier = self._newStoreObject.getNotifier("push")
-                    if notifier is not None:
-                        propVal = customxml.PubSubXMPPPushKeyProperty(notifier.nodeName())
-                        returnValue(propVal)
+            returnValue(customxml.PubSubXMPPPushKeyProperty())
 
-                returnValue(customxml.PubSubXMPPPushKeyProperty())
-
-        res = (yield self._readGlobalProperty(qname, property, request))
-        returnValue(res)
-
-
-    def _readSharedProperty(self, qname, request):
-
-        # Default behavior - read per-user dead property
-        p = self.deadProperties().get(qname)
-        return p
-
-
-    @inlineCallbacks
-    def _readGlobalProperty(self, qname, property, request):
-
-        if qname == element.Owner.qname():
+        elif qname == element.Owner.qname():
             owner = (yield self.owner(request))
             returnValue(element.Owner(owner))
 
@@ -715,13 +649,6 @@ class CalDAVResource (
             "%r is not a WebDAVElement instance" % (property,)
         )
 
-        self._preProcessWriteProperty(property, request)
-
-        res = (yield self._writeGlobalProperty(property, request))
-        returnValue(res)
-
-
-    def _preProcessWriteProperty(self, property, request, isShare=False):
         if property.qname() == caldavxml.SupportedCalendarComponentSet.qname():
             if not self.isPseudoCalendarCollection():
                 raise HTTPError(StatusResponse(
@@ -745,31 +672,13 @@ class CalDAVResource (
                     responsecode.FORBIDDEN,
                     "Property %s may only be set on calendar collection." % (property,)
                 ))
-            if not property.valid():
-                raise HTTPError(ErrorResponse(
-                    responsecode.FORBIDDEN,
-                    (caldav_namespace, "valid-calendar-data"),
-                    description="Invalid property"
-                ))
 
         # Validate default alarm properties (do this even if the default alarm feature is off)
-        elif property.qname() in (
-            caldavxml.DefaultAlarmVEventDateTime.qname(),
-            caldavxml.DefaultAlarmVEventDate.qname(),
-            caldavxml.DefaultAlarmVToDoDateTime.qname(),
-            caldavxml.DefaultAlarmVToDoDate.qname(),
-        ):
+        elif property.qname() in DefaultAlarmPropertyMixin.ALARM_PROPERTIES:
             if not self.isCalendarCollection() and not isinstance(self, CalendarHomeResource):
                 raise HTTPError(StatusResponse(
                     responsecode.FORBIDDEN,
                     "Property %s may only be set on calendar or home collection." % (property,)
-                ))
-
-            if not property.valid():
-                raise HTTPError(ErrorResponse(
-                    responsecode.CONFLICT,
-                    (caldav_namespace, "valid-calendar-data"),
-                    description="Invalid property"
                 ))
 
         elif property.qname() == caldavxml.ScheduleCalendarTransp.qname():
@@ -778,14 +687,6 @@ class CalDAVResource (
                     responsecode.FORBIDDEN,
                     "Property %s may only be set on calendar collection." % (property,)
                 ))
-
-
-    @inlineCallbacks
-    def _writeGlobalProperty(self, property, request):
-
-        if property.qname() == caldavxml.ScheduleCalendarTransp.qname():
-            yield self._newStoreObject.setUsedForFreeBusy(property == caldavxml.ScheduleCalendarTransp(caldavxml.Opaque()))
-            returnValue(None)
 
         result = (yield super(CalDAVResource, self).writeProperty(property, request))
         returnValue(result)
@@ -2452,11 +2353,7 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         )
 
 
-    def _hasGlobalProperty(self, property, request):
-        """
-        Need to special case schedule-calendar-transp for backwards compatability.
-        """
-
+    def hasProperty(self, property, request):
         if type(property) is tuple:
             qname = property
         else:
@@ -2467,7 +2364,7 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
             return succeed(self.getDefaultAlarmProperty(qname) is not None)
 
         else:
-            return super(CalendarHomeResource, self)._hasGlobalProperty(property, request)
+            return super(CalendarHomeResource, self).hasProperty(property, request)
 
 
     @inlineCallbacks
@@ -2506,13 +2403,19 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
 
 
     @inlineCallbacks
-    def _writeGlobalProperty(self, property, request):
+    def writeProperty(self, property, request):
 
         if property.qname() in DefaultAlarmPropertyMixin.ALARM_PROPERTIES:
+            if not property.valid():
+                raise HTTPError(ErrorResponse(
+                    responsecode.CONFLICT,
+                    (caldav_namespace, "valid-calendar-data"),
+                    description="Invalid property"
+                ))
             yield self.setDefaultAlarmProperty(property)
             returnValue(None)
 
-        result = (yield super(CalendarHomeResource, self)._writeGlobalProperty(property, request))
+        result = (yield super(CalendarHomeResource, self).writeProperty(property, request))
         returnValue(result)
 
 
