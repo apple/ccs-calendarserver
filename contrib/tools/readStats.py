@@ -77,7 +77,7 @@ def printStat(stats, index, showMethods, topUsers, showAgents):
     print("Server: %s" % (stats["Server"],))
     print(datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S"))
     print("Service Uptime: %s" % (datetime.timedelta(seconds=(int(time.time() - stats["System"]["start time"]))),))
-    if stats["System"]["cpu count"] > 0:
+    if "System" in stats and stats["System"]["cpu count"] > 0:
         print("Current CPU: %.1f%% (%d CPUs)" % (
             stats["System"]["cpu use"],
             stats["System"]["cpu count"],
@@ -120,7 +120,7 @@ def printMultipleStats(stats, multimode, showMethods, topUsers, showAgents):
     cpus = []
     memories = []
     for stat in stats:
-        if stat["System"]["cpu count"] > 0:
+        if "System" in stat and stat["System"]["cpu count"] > 0:
             cpus.append(stat["System"]["cpu use"])
             memories.append(stat["System"]["memory percent"])
         else:
@@ -195,18 +195,31 @@ def printRequestSummary(stats):
 
     for key, seconds in (("Current", 60,), ("1 Minute", 60,), ("5 Minutes", 5 * 60,), ("1 Hour", 60 * 60,),):
 
-        stat = stats[key]
-        table.addRow((
-            key,
-            stat["requests"],
-            safeDivision(float(stat["requests"]), seconds),
-            safeDivision(stat["t"], stat["requests"]),
-            safeDivision(stat["t"] - stat["t-resp-wr"], stat["requests"]),
-            stat["T-MAX"],
-            safeDivision(float(stat["slots"]), stat["requests"]),
-            safeDivision(stat["cpu"], stat["requests"]),
-            stat["500"],
-        ))
+        if key in stats:
+            stat = stats[key]
+            table.addRow((
+                key,
+                stat["requests"],
+                safeDivision(float(stat["requests"]), seconds),
+                safeDivision(stat["t"], stat["requests"]),
+                safeDivision(stat["t"] - stat["t-resp-wr"], stat["requests"]),
+                stat["T-MAX"],
+                safeDivision(float(stat["slots"]), stat["requests"]),
+                safeDivision(stat["cpu"], stat["requests"]),
+                stat["500"],
+            ))
+        else:
+            table.addRow((
+                "",
+                0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1,
+            ))
 
     os = StringIO()
     table.printTable(os=os)
@@ -246,21 +259,25 @@ def printMultiRequestSummary(stats, cpus, memories, times, labels, index):
     totals = ["Overall:", 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, "", ]
     for ctr, stat in enumerate(stats):
 
-        stat = stat[key]
+        if key in stat:
+            stat = stat[key]
 
-        col = []
-        col.append(labels[ctr])
-        col.append(stat["requests"])
-        col.append(safeDivision(float(stat["requests"]), seconds))
-        col.append(safeDivision(stat["t"], stat["requests"]))
-        col.append(safeDivision(stat["t"] - stat["t-resp-wr"], stat["requests"]))
-        col.append(stat["T-MAX"])
-        col.append(safeDivision(float(stat["slots"]), stat["requests"]))
-        col.append(safeDivision(stat["cpu"], stat["requests"]))
-        col.append(cpus[ctr])
-        col.append(memories[ctr])
-        col.append(stat["500"])
-        col.append(times[ctr])
+            col = []
+            col.append(labels[ctr])
+            col.append(stat["requests"])
+            col.append(safeDivision(float(stat["requests"]), seconds))
+            col.append(safeDivision(stat["t"], stat["requests"]))
+            col.append(safeDivision(stat["t"] - stat["t-resp-wr"], stat["requests"]))
+            col.append(stat["T-MAX"])
+            col.append(safeDivision(float(stat["slots"]), stat["requests"]))
+            col.append(safeDivision(stat["cpu"], stat["requests"]))
+            col.append(cpus[ctr])
+            col.append(memories[ctr])
+            col.append(stat["500"])
+            col.append(times[ctr])
+        else:
+            col = ["", 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, "", ]
+
         table.addRow(col)
         for item in xrange(1, len(col) - 1):
             if item == max_column:
