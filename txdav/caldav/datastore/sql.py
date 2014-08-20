@@ -1886,23 +1886,22 @@ class Calendar(CommonHomeChild):
                 )
             )
         ).on(self._txn, uid=self.viewerHome().uid())
-        if rows[0][0] > 0:
+        if rows[0][0] > 1:
             # no mode change for group shares
-            returnValue(
-                {
-                    _BIND_MODE_GROUP: _BIND_MODE_GROUP,
-                    _BIND_MODE_GROUP_READ: _BIND_MODE_GROUP_READ,
-                    _BIND_MODE_GROUP_WRITE: _BIND_MODE_GROUP_WRITE,
-                }.get(self._bindMode)
-            )
+            result = {
+                _BIND_MODE_GROUP: _BIND_MODE_GROUP,
+                _BIND_MODE_GROUP_READ: _BIND_MODE_GROUP_READ,
+                _BIND_MODE_GROUP_WRITE: _BIND_MODE_GROUP_WRITE,
+            }.get(self._bindMode)
 
-        # else return mode without any groups
-        returnValue(
-            {
+        else:
+            # return mode without any groups
+            result = {
                 _BIND_MODE_GROUP_READ: _BIND_MODE_READ,
                 _BIND_MODE_GROUP_WRITE: _BIND_MODE_WRITE,
             }.get(self._bindMode)
-        )
+
+        returnValue(result)
 
 
     @inlineCallbacks
@@ -2073,22 +2072,20 @@ class Calendar(CommonHomeChild):
         @type shareeUID: C{str}
         """
 
-        # see if group sharee for self & delete
-        gr = schema.GROUPS
-        gs = schema.GROUP_SHAREE
-        rows = yield Delete(
-            From=gs,
-            Where=(gs.CALENDAR_ID == self._resourceID).And(
-                gs.GROUP_ID == Select(
-                    [gr.GROUP_ID],
-                    From=gr,
-                    Where=(gr.GROUP_UID == shareeUID)
-                )
-            ),
-            Return=[gs.GROUP_ID]
-        ).on(self._txn)
+        rows = None
+        groupID = (yield self._txn.groupByUID(shareeUID, create=False))[0]
+        if groupID is not None:
+            gs = schema.GROUP_SHAREE
+            rows = yield Select(
+                [gs.GROUP_ID],
+                From=gs,
+                Where=(gs.CALENDAR_ID == self._resourceID).And(
+                    gs.GROUP_ID == groupID
+                ),
+            ).on(self._txn)
 
         if rows:
+            reinvites = []
             # uninvite each member of group
             memberUIDs = yield self._txn.groupMemberUIDs(rows[0][0])
             for memberUID in memberUIDs:
@@ -2101,8 +2098,20 @@ class Calendar(CommonHomeChild):
                                 # one group or individual share: delete share
                                 yield super(Calendar, self).uninviteUIDFromShare(memberUID)
                         else:
-                            # multiple groups or group and individual was shared, update to new mode
-                            yield super(Calendar, self).inviteUIDToShare(memberUID, newMode)
+                            # multiple groups or group and individual was shared add to reinvite list to update
+                            reinvites.append((memberUID, newMode))
+
+            # Delete before super.inviteUIDTOShare() and after super.inviteUIDToShare() so notification has correct access mode
+            yield Delete(
+                From=gs,
+                Where=(gs.CALENDAR_ID == self._resourceID).And(
+                    gs.GROUP_ID == groupID
+                ),
+            ).on(self._txn)
+
+            for memberUID, newMode in reinvites:
+                shareeView = yield self.shareeView(memberUID)
+                yield super(Calendar, self).inviteUIDToShare(memberUID, newMode)
 
         else:
             shareeView = yield self.shareeView(shareeUID)
