@@ -20,22 +20,21 @@ DAV sync-collection report
 
 __all__ = ["report_DAV__sync_collection"]
 
-from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.python.failure import Failure
-
 from twext.python.log import Logger
-from txdav.xml import element
-from twext.web2.dav.http import ErrorResponse
 from twext.web2 import responsecode
-from twext.web2.dav.http import MultiStatusResponse, statusForFailure
+from twext.web2.dav.http import ErrorResponse
+from twext.web2.dav.http import MultiStatusResponse
 from twext.web2.dav.method.prop_common import responseForHref
-from twext.web2.dav.method.propfind import propertyName
 from twext.web2.dav.util import joinURL
 from twext.web2.http import HTTPError, StatusResponse
 
+from twisted.internet.defer import inlineCallbacks, returnValue
+
 from twistedcaldav.config import config
+from twistedcaldav.method.report_common import _namedPropertiesForResource
 
 from txdav.common.icommondatastore import ConcurrentModification
+from txdav.xml import element
 
 import functools
 
@@ -83,47 +82,6 @@ def report_DAV__sync_collection(self, request, sync_collection):
 
     propertyreq = sync_collection.property.children if sync_collection.property else None
 
-    @inlineCallbacks
-    def _namedPropertiesForResource(request, props, resource, forbidden=False):
-        """
-        Return the specified properties on the specified resource.
-        @param request: the L{IRequest} for the current request.
-        @param props: a list of property elements or qname tuples for the properties of interest.
-        @param resource: the L{DAVResource} for the targeted resource.
-        @return: a map of OK and NOT FOUND property values.
-        """
-        properties_by_status = {
-            responsecode.OK        : [],
-            responsecode.FORBIDDEN : [],
-            responsecode.NOT_FOUND : [],
-        }
-
-        for property in props:
-            if isinstance(property, element.WebDAVElement):
-                qname = property.qname()
-            else:
-                qname = property
-
-            if forbidden:
-                properties_by_status[responsecode.FORBIDDEN].append(propertyName(qname))
-            else:
-                props = (yield resource.listProperties(request))
-                if qname in props:
-                    try:
-                        prop = (yield resource.readProperty(qname, request))
-                        properties_by_status[responsecode.OK].append(prop)
-                    except:
-                        f = Failure()
-                        log.error("Error reading property %r for resource %s: %s" % (qname, request.uri, f.value))
-                        status = statusForFailure(f, "getting property: %s" % (qname,))
-                        if status not in properties_by_status:
-                            properties_by_status[status] = []
-                        properties_by_status[status].append(propertyName(qname))
-                else:
-                    properties_by_status[responsecode.NOT_FOUND].append(propertyName(qname))
-
-        returnValue(properties_by_status)
-
     # Do some optimization of access control calculation by determining any inherited ACLs outside of
     # the child resource loop and supply those to the checkPrivileges on each child.
     filteredaces = (yield self.inheritedACEsforChildren(request))
@@ -154,7 +112,7 @@ def report_DAV__sync_collection(self, request, sync_collection):
                 responses,
                 href,
                 child,
-                functools.partial(_namedPropertiesForResource, forbidden=False) if propertyreq else None,
+                functools.partial(_namedPropertiesForResource, dataAllowed=False, forbidden=False) if propertyreq else None,
                 propertyreq)
         except ConcurrentModification:
             # This can happen because of a race-condition between the
@@ -172,7 +130,7 @@ def report_DAV__sync_collection(self, request, sync_collection):
                 responses,
                 href,
                 child,
-                functools.partial(_namedPropertiesForResource, forbidden=True) if propertyreq else None,
+                functools.partial(_namedPropertiesForResource, dataAllowed=False, forbidden=True) if propertyreq else None,
                 propertyreq)
         except ConcurrentModification:
             # This can happen because of a race-condition between the
