@@ -23,7 +23,6 @@ from setuptools import setup, find_packages as setuptools_find_packages
 import errno
 import os
 import subprocess
-import sys
 
 
 #
@@ -264,14 +263,6 @@ extras_requirements = {
 #
 
 extensions = []
-
-if sys.platform == "darwin":
-    try:
-        from calendarserver.platform.darwin import sacl
-        extensions.append(sacl.ffi.verifier.get_extension())
-    except ImportError:
-        pass
-
 
 
 #

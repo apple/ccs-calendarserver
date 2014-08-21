@@ -20,7 +20,7 @@ __all__ = [
 ]
 
 try:
-    from calendarserver.platform.darwin.sacl import checkSACL
+    from twext.python.sacl import checkSACL
 except ImportError:
     # OS X Server SACLs not supported on this system, make SACL check a no-op
     checkSACL = lambda *ignored: True
