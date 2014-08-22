@@ -14,11 +14,17 @@
 # limitations under the License.
 ##
 
-from calendarserver.tap.util import MemoryLimitService, Stepper
+import OpenSSL
+from calendarserver.tap.util import (
+    MemoryLimitService, Stepper, PreFlightChecksStep
+)
 from twistedcaldav.util import computeProcessCount
 from twistedcaldav.test.util import TestCase
 from twisted.internet.task import Clock
 from twisted.internet.defer import succeed, inlineCallbacks
+from twisted.python.filepath import FilePath
+from twistedcaldav.config import ConfigDict, ConfigurationError
+
 
 class ProcessCountTestCase(TestCase):
 
@@ -37,10 +43,10 @@ class ProcessCountTestCase(TestCase):
             (6, 2, 2, 2, 2, 6),
             (1, 2, 1, 4, 99, 8),
 
-            (2, 1, 2, 2, 2, 2), # 2 cores, 2GB = 2
-            (2, 1, 2, 2, 4, 2), # 2 cores, 4GB = 2
-            (2, 1, 2, 8, 6, 8), # 8 cores, 6GB = 8
-            (2, 1, 2, 8, 16, 8), # 8 cores, 16GB = 8
+            (2, 1, 2, 2, 2, 2),   # 2 cores, 2GB = 2
+            (2, 1, 2, 2, 4, 2),   # 2 cores, 4GB = 2
+            (2, 1, 2, 8, 6, 8),   # 8 cores, 6GB = 8
+            (2, 1, 2, 8, 16, 8),  # 8 cores, 16GB = 8
         )
 
         for min, perCPU, perGB, cpu, mem, expected in data:
@@ -89,10 +95,10 @@ class MemoryLimitServiceTestCase(TestCase):
         """
         data = {
             # PID : (name, resident memory-in-bytes, virtual memory-in-bytes)
-            101 : ("process #1", 10, 1010),
-            102 : ("process #2", 30, 1030),
-            103 : ("process #3", 50, 1050),
-            99  : ("memcached-Default", 10, 1010),
+            101: ("process #1", 10, 1010),
+            102: ("process #2", 30, 1030),
+            103: ("process #3", 50, 1050),
+            99: ("memcached-Default", 10, 1010),
         }
 
         processes = []
@@ -200,7 +206,7 @@ class StepperTestCase(TestCase):
             StepFour(self._record, False)
         )
         result = (yield self.stepper.start("abc"))
-        self.assertEquals(result, "abc") # original result passed through
+        self.assertEquals(result, "abc")  # original result passed through
         self.assertEquals(
             self.history,
             ['one success', 'two success', 'three success', 'four success'])
@@ -224,7 +230,73 @@ class StepperTestCase(TestCase):
         self.stepper.addStep(StepThree(self._record, True))
         self.stepper.addStep(StepFour(self._record, False))
         result = (yield self.stepper.start("abc"))
-        self.assertEquals(result, None) # original result is gone
+        self.assertEquals(result, None)  # original result is gone
         self.assertEquals(
             self.history,
             ['one success', 'two failure', 'three success', 'four failure'])
+
+
+class PreFlightChecksStepTestCase(TestCase):
+    """
+    Verify that missing, empty, or bogus TLS Certificates are detected
+    """
+
+    @inlineCallbacks
+    def test_missingCertificate(self):
+        step = PreFlightChecksStep(
+            ConfigDict(
+                {
+                    "SSLCertificate": "missing",
+                }
+            )
+        )
+        try:
+            yield step.stepWithResult(None)
+        except ConfigurationError as e:
+            self.assertTrue("Missing" in str(e))
+        else:
+            self.fail("Did not raise ConfigurationError")
+
+
+    @inlineCallbacks
+    def test_emptyCertificate(self):
+        certFilePath = FilePath(self.mktemp())
+        certFilePath.setContent("")
+        step = PreFlightChecksStep(
+            ConfigDict(
+                {
+                    "SSLCertificate": certFilePath.path,
+                }
+            )
+        )
+        try:
+            yield step.stepWithResult(None)
+        except ConfigurationError as e:
+            self.assertTrue("Empty" in str(e))
+        else:
+            self.fail("Did not raise ConfigurationError")
+
+
+    @inlineCallbacks
+    def test_bogusCertificate(self):
+        certFilePath = FilePath(self.mktemp())
+        certFilePath.setContent("bogus")
+        keyFilePath = FilePath(self.mktemp())
+        keyFilePath.setContent("bogus")
+        step = PreFlightChecksStep(
+            ConfigDict(
+                {
+                    "SSLCertificate": certFilePath.path,
+                    "SSLPrivateKey": keyFilePath.path,
+                    "SSLAuthorityChain": "",
+                    "SSLMethod": "SSLv3_METHOD",
+                    "SSLCiphers": "ALL:!aNULL:!ADH:!eNULL:!LOW:!EXP:RC4+RSA:+HIGH:+MEDIUM",
+                }
+            )
+        )
+        try:
+            yield step.stepWithResult(None)
+        except OpenSSL.SSL.Error:
+            pass
+        else:
+            self.fail("Did not raise OpenSSL.SSL.Error")

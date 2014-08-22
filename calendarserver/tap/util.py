@@ -24,13 +24,19 @@ __all__ = [
     "getDBPool",
     "FakeRequest",
     "MemoryLimitService",
+    "PreFlightChecksStep",
+    "getSSLPassphrase",
 ]
 
 import errno
+import OpenSSL
 import os
-from socket import fromfd, AF_UNIX, SOCK_STREAM, socketpair
 import psutil
+from socket import fromfd, AF_UNIX, SOCK_STREAM, socketpair
+from subprocess import Popen, PIPE
 
+
+from twext.internet.ssl import ChainingOpenSSLContextFactory
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.python.log import Logger
 from txweb2.auth.basic import BasicCredentialFactory
@@ -98,6 +104,11 @@ from twext.who.checker import UsernamePasswordCredentialChecker
 from twext.who.checker import HTTPDigestCredentialChecker
 from twisted.cred.error import UnauthorizedLogin
 from txweb2.dav.auth import IPrincipalCredentials
+
+from twistedcaldav.config import ConfigurationError
+from twistedcaldav.stdconfig import config
+
+
 log = Logger()
 
 
@@ -952,7 +963,7 @@ def checkDirectories(config):
         "Server root",
         # Require write access because one might not allow editing on /
         access=os.W_OK,
-        wait=True # Wait in a loop until ServerRoot exists
+        wait=True  # Wait in a loop until ServerRoot exists
     )
 
     #
@@ -1052,7 +1063,10 @@ class Stepper(object):
 
 
     def defaultStepWithFailure(self, failure):
-        if failure.type != NotAllowedToUpgrade:
+        if failure.type not in (
+            NotAllowedToUpgrade, ConfigurationError,
+            OpenSSL.SSL.Error
+        ):
             log.failure("Step failure", failure=failure)
         return failure
 
@@ -1098,3 +1112,130 @@ class Stepper(object):
         self.deferred.callback(result)
 
         return self.deferred
+
+
+class PreFlightChecksStep(object):
+    """
+    A place to make any other checks before finishing up the
+    PreProcessingService.
+    """
+
+    def __init__(self, config):
+        self.config = config
+
+
+    def stepWithResult(self, result):
+        self.verifyTLSCertificate()
+        return succeed(None)
+
+
+    def verifyTLSCertificate(self):
+        """
+        If a TLS certificate is configured, make sure it exists, is non empty,
+        and that it's valid.
+        """
+
+        if self.config.SSLCertificate:
+            if not os.path.exists(self.config.SSLCertificate):
+                log.error(
+                    "The configured TLS certificate ({cert}) is missing",
+                    cert=self.config.SSLCertificate
+                )
+                raise ConfigurationError("Missing certificate file")
+        else:
+            return
+
+        length = os.stat(self.config.SSLCertificate).st_size
+        if length == 0:
+                log.error(
+                    "The configured TLS certificate ({cert}) is empty",
+                    cert=self.config.SSLCertificate
+                )
+                raise ConfigurationError("Empty certificate file")
+
+        try:
+            ChainingOpenSSLContextFactory(
+                self.config.SSLPrivateKey,
+                self.config.SSLCertificate,
+                certificateChainFile=self.config.SSLAuthorityChain,
+                passwdCallback=getSSLPassphrase,
+                sslmethod=getattr(OpenSSL.SSL, self.config.SSLMethod),
+                ciphers=self.config.SSLCiphers.strip()
+            )
+        except Exception as e:
+            log.error(
+                "The configured TLS certificate ({cert}) cannot be used: {reason}",
+                cert=self.config.SSLCertificate,
+                reason=str(e)
+            )
+            raise
+
+
+def getSSLPassphrase(*ignored):
+
+    if not config.SSLPrivateKey:
+        return None
+
+    if config.SSLCertAdmin and os.path.isfile(config.SSLCertAdmin):
+        child = Popen(
+            args=[
+                "sudo", config.SSLCertAdmin,
+                "--get-private-key-passphrase", config.SSLPrivateKey,
+            ],
+            stdout=PIPE, stderr=PIPE,
+        )
+        output, error = child.communicate()
+
+        if child.returncode:
+            log.error(
+                "Could not get passphrase for {key}: {error}",
+                key=config.SSLPrivateKey, error=error
+            )
+        else:
+            log.info(
+                "Obtained passphrase for {key}", key=config.SSLPrivateKey
+            )
+            return output.strip()
+
+    if (
+        config.SSLPassPhraseDialog and
+        os.path.isfile(config.SSLPassPhraseDialog)
+    ):
+        sslPrivKey = open(config.SSLPrivateKey)
+        try:
+            keyType = None
+            for line in sslPrivKey.readlines():
+                if "-----BEGIN RSA PRIVATE KEY-----" in line:
+                    keyType = "RSA"
+                    break
+                elif "-----BEGIN DSA PRIVATE KEY-----" in line:
+                    keyType = "DSA"
+                    break
+        finally:
+            sslPrivKey.close()
+
+        if keyType is None:
+            log.error(
+                "Could not get private key type for {key}",
+                key=config.SSLPrivateKey
+            )
+        else:
+            child = Popen(
+                args=[
+                    config.SSLPassPhraseDialog,
+                    "{}:{}".format(config.ServerHostName, config.SSLPort),
+                    keyType,
+                ],
+                stdout=PIPE, stderr=PIPE,
+            )
+            output, error = child.communicate()
+
+            if child.returncode:
+                log.error(
+                    "Could not get passphrase for {key}: {error}",
+                    key=config.SSLPrivateKey, error=error
+                )
+            else:
+                return output.strip()
+
+    return None

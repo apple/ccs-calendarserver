@@ -25,7 +25,7 @@ __all__ = [
 import sys
 from collections import OrderedDict
 from os import getuid, getgid, umask, remove, environ, stat, chown
-from os.path import exists, basename, isfile
+from os.path import exists, basename
 import socket
 from stat import S_ISSOCK
 import time
@@ -127,7 +127,7 @@ from calendarserver.tap.util import (
     checkDirectories, getRootResource,
     oracleConnectorFromConfig, pgConnectorFromConfig,
     pgServiceFromConfig, getDBPool, MemoryLimitService,
-    storeFromConfig
+    storeFromConfig, getSSLPassphrase, PreFlightChecksStep
 )
 try:
     from calendarserver.version import version
@@ -1582,6 +1582,10 @@ class CalDAVServiceMaker (object):
                 )
 
                 pps.addStep(
+                    PreFlightChecksStep(config)
+                )
+
+                pps.addStep(
                     UpgradeReleaseLockStep(store)
                 )
 
@@ -2649,77 +2653,6 @@ class DelayedStartupLoggingProtocol(ProcessProtocol):
         if not self.empty:
             self.output.dataReceived('\n')
         self.service.processEnded(self.name)
-
-
-
-def getSSLPassphrase(*ignored):
-
-    if not config.SSLPrivateKey:
-        return None
-
-    if config.SSLCertAdmin and isfile(config.SSLCertAdmin):
-        child = Popen(
-            args=[
-                "sudo", config.SSLCertAdmin,
-                "--get-private-key-passphrase", config.SSLPrivateKey,
-            ],
-            stdout=PIPE, stderr=PIPE,
-        )
-        output, error = child.communicate()
-
-        if child.returncode:
-            log.error(
-                "Could not get passphrase for {key}: {error}",
-                key=config.SSLPrivateKey, error=error
-            )
-        else:
-            log.info(
-                "Obtained passphrase for {key}", key=config.SSLPrivateKey
-            )
-            return output.strip()
-
-    if (
-        config.SSLPassPhraseDialog and
-        isfile(config.SSLPassPhraseDialog)
-    ):
-        sslPrivKey = open(config.SSLPrivateKey)
-        try:
-            keyType = None
-            for line in sslPrivKey.readlines():
-                if "-----BEGIN RSA PRIVATE KEY-----" in line:
-                    keyType = "RSA"
-                    break
-                elif "-----BEGIN DSA PRIVATE KEY-----" in line:
-                    keyType = "DSA"
-                    break
-        finally:
-            sslPrivKey.close()
-
-        if keyType is None:
-            log.error(
-                "Could not get private key type for {key}",
-                key=config.SSLPrivateKey
-            )
-        else:
-            child = Popen(
-                args=[
-                    config.SSLPassPhraseDialog,
-                    "{}:{}".format(config.ServerHostName, config.SSLPort),
-                    keyType,
-                ],
-                stdout=PIPE, stderr=PIPE,
-            )
-            output, error = child.communicate()
-
-            if child.returncode:
-                log.error(
-                    "Could not get passphrase for {key}: {error}",
-                    key=config.SSLPrivateKey, error=error
-                )
-            else:
-                return output.strip()
-
-    return None
 
 
 
