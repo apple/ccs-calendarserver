@@ -2,16 +2,16 @@
 <!DOCTYPE timezones SYSTEM "timezones.dtd">
 
 <timezones>
-  <dtstamp>2014-06-09T19:47:04Z</dtstamp>
+  <dtstamp>2014-08-25T14:48:40Z</dtstamp>
   <timezone>
     <tzid>AUS Central Standard Time</tzid>
-    <dtstamp>2014-06-09T19:47:04Z</dtstamp>
-    <md5>942e93fd3bdd2d06bf96febe3bca4c11</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>aa8088f3350e8a1a890fe8c507db5ec0</md5>
   </timezone>
   <timezone>
     <tzid>AUS Eastern Standard Time</tzid>
-    <dtstamp>2014-06-09T19:47:04Z</dtstamp>
-    <md5>72b814a9cd04f2198b25d71f6099d0a1</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>aedc7281d2db725767692ce9e6931f2e</md5>
   </timezone>
   <timezone>
     <tzid>Afghanistan Standard Time</tzid>
@@ -21,12 +21,23 @@
   <timezone>
     <tzid>Africa/Abidjan</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <alias>Africa/Bamako</alias>
+    <alias>Africa/Banjul</alias>
+    <alias>Africa/Conakry</alias>
+    <alias>Africa/Dakar</alias>
+    <alias>Africa/Freetown</alias>
+    <alias>Africa/Lome</alias>
+    <alias>Africa/Nouakchott</alias>
+    <alias>Africa/Ouagadougou</alias>
+    <alias>Africa/Sao_Tome</alias>
+    <alias>Africa/Timbuktu</alias>
+    <alias>Atlantic/St_Helena</alias>
     <md5>dc9468decb9742f08bafcd6d65a50f32</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Accra</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>b8ccb06b2506954bb7a44aab22c51c77</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>86ddbc676cfdfbb1223bd275b1ffbd17</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Addis_Ababa</tzid>
@@ -51,9 +62,8 @@
   </timezone>
   <timezone>
     <tzid>Africa/Bamako</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <alias>Africa/Timbuktu</alias>
-    <md5>36c24c8559ca140fcd5caab5f818f3ef</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>37ed4bfb2314a5671fcfe1de7ac34c31</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Bangui</tzid>
@@ -62,8 +72,8 @@
   </timezone>
   <timezone>
     <tzid>Africa/Banjul</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>2d075b945749ad66ad0752c266832782</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>db57889d81a79410b608e573041434b2</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Bissau</tzid>
@@ -87,16 +97,16 @@
   </timezone>
   <timezone>
     <tzid>Africa/Cairo</tzid>
-    <dtstamp>2014-05-30T18:27:48Z</dtstamp>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>Egypt</alias>
     <alias>Egypt Standard Time</alias>
-    <md5>42e3629db1f2e76ad81f9e078823ac99</md5>
+    <md5>4cca264fe9b8a79fb3e694c371e6c1dc</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Casablanca</tzid>
-    <dtstamp>2014-05-30T18:27:48Z</dtstamp>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>Morocco Standard Time</alias>
-    <md5>751312234a74ed078fc6ec8611615b11</md5>
+    <md5>57e31200a8485757dcbd615d039de766</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Ceuta</tzid>
@@ -105,13 +115,13 @@
   </timezone>
   <timezone>
     <tzid>Africa/Conakry</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>dc03ad3587d98adc83d2e454fc8c4e5e</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>700b9ead56b23aadd79e8548aecc5e65</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Dakar</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>a5e281f47227c240805e0f0cfd4911ea</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>deccdd632467bb3d33ea4a4de5a61b4a</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Dar_es_Salaam</tzid>
@@ -130,13 +140,13 @@
   </timezone>
   <timezone>
     <tzid>Africa/El_Aaiun</tzid>
-    <dtstamp>2014-05-30T18:27:48Z</dtstamp>
-    <md5>edbb9954094b125b1ea484e00eab4243</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>72204903ecc876b87e88ef5261865175</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Freetown</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>04bb2c81c6cff903bc5f3a9223acc1e3</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>8da670d12cde0ebd17a8c9268e2a5bd6</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Gaborone</tzid>
@@ -193,8 +203,8 @@
   </timezone>
   <timezone>
     <tzid>Africa/Lome</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>657a384ba6b08c900645d99d21928f5f</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>4dd50f2ae06e0ae54b957205d9609570</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Luanda</tzid>
@@ -259,13 +269,13 @@
   </timezone>
   <timezone>
     <tzid>Africa/Nouakchott</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>4ff77ed24d7a670bff2bcbc68d6c0386</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>0f9508cd3ecd92a25c96c30168e68ba8</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Ouagadougou</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>2739667ed4d639130dc5a8448cec220a</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>c0aaef7f39ecf180865f53878488ed72</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Porto-Novo</tzid>
@@ -274,13 +284,13 @@
   </timezone>
   <timezone>
     <tzid>Africa/Sao_Tome</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>64891151395186aa0e9d998be5258075</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>1ac2bdc0038fc3e29305367b224e2094</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Timbuktu</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>7b774241c34b5f1404a886b5d25de274</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>2379a50ce0da575ed7d4e6cec8f98e16</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Tripoli</tzid>
@@ -876,8 +886,8 @@
   </timezone>
   <timezone>
     <tzid>America/Metlakatla</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>dea1e126a4dab896a439fa543b278275</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>7d1a3aeb0252bca412da643a1c2dbf48</md5>
   </timezone>
   <timezone>
     <tzid>America/Mexico_City</tzid>
@@ -1215,8 +1225,8 @@
   </timezone>
   <timezone>
     <tzid>Antarctica/Casey</tzid>
-    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
-    <md5>58db2f5bace220cddb515364949f90f7</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>557f6c323f9b7238de30613de3855fb0</md5>
   </timezone>
   <timezone>
     <tzid>Antarctica/Davis</tzid>
@@ -1230,8 +1240,8 @@
   </timezone>
   <timezone>
     <tzid>Antarctica/Macquarie</tzid>
-    <dtstamp>2013-05-08T18:04:04Z</dtstamp>
-    <md5>b86814d608da162ed7388271e449f11a</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>5055dc1cfd815121920122f8aad98356</md5>
   </timezone>
   <timezone>
     <tzid>Antarctica/Mawson</tzid>
@@ -1275,8 +1285,8 @@
   </timezone>
   <timezone>
     <tzid>Arab Standard Time</tzid>
-    <dtstamp>2014-06-09T19:47:04Z</dtstamp>
-    <md5>af8262cea313e34b65ea6e9838b24677</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>0fa1ed7a723138e25e7756468bd8f9c6</md5>
   </timezone>
   <timezone>
     <tzid>Arabian Standard Time</tzid>
@@ -1387,20 +1397,24 @@
     <md5>43bbd7aad1dd165dc2343be99e5edffe</md5>
   </timezone>
   <timezone>
+    <tzid>Asia/Chita</tzid>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>0345954ed3de7f79e67f7d03ffaa6782</md5>
+  </timezone>
+  <timezone>
     <tzid>Asia/Choibalsan</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <md5>2b920f4fddfc354fe6facc5d17466d93</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Chongqing</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <alias>Asia/Chungking</alias>
-    <md5>20f06242c241a8acff06126ebc9fa0b2</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>f27728f7cc06a18912de019a30348442</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Chungking</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>91f7215bff1684393b0e26ee8a47fe19</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>29688a8d838d4a5bf0ef75122d3c2810</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Colombo</tzid>
@@ -1449,8 +1463,8 @@
   </timezone>
   <timezone>
     <tzid>Asia/Harbin</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>8d8c66b3749017ef82fbda759f135028</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>8cb255c03a3650f0bdd4d135ec8fbfc0</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Hebron</tzid>
@@ -1476,9 +1490,9 @@
   </timezone>
   <timezone>
     <tzid>Asia/Irkutsk</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>North Asia East Standard Time</alias>
-    <md5>29acf8ac702a7d7841a3356c3962ff88</md5>
+    <md5>6ef23463784d932d78123932587c8cdc</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Istanbul</tzid>
@@ -1492,8 +1506,8 @@
   </timezone>
   <timezone>
     <tzid>Asia/Jayapura</tzid>
-    <dtstamp>2013-10-01T01:19:11Z</dtstamp>
-    <md5>8fcec2bd8414e2cc845c807af45d1dce</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>8872e943a4b2c24c5e8727c5deac38bd</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Jerusalem</tzid>
@@ -1522,8 +1536,8 @@
   </timezone>
   <timezone>
     <tzid>Asia/Kashgar</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>322ee93357cf482f7d3249a33e2be4b8</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>50f9b83adcda2bcd5d0bdb246014d0dc</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Kathmandu</tzid>
@@ -1539,8 +1553,8 @@
   </timezone>
   <timezone>
     <tzid>Asia/Khandyga</tzid>
-    <dtstamp>2013-05-08T18:04:04Z</dtstamp>
-    <md5>c018a4ecc0129069349c3f39ee82e820</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>7d53c5eeee6a5395ea694a8aae3870d6</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Kolkata</tzid>
@@ -1550,9 +1564,9 @@
   </timezone>
   <timezone>
     <tzid>Asia/Krasnoyarsk</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>North Asia Standard Time</alias>
-    <md5>3e4dbf51d4e4d8988d4d52bc8e3932ed</md5>
+    <md5>fc4935eac1a99df31ca834a6bfa08270</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Kuala_Lumpur</tzid>
@@ -1582,9 +1596,9 @@
   </timezone>
   <timezone>
     <tzid>Asia/Magadan</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>Magadan Standard Time</alias>
-    <md5>feb4df3f54948a62c9260a8ff0d8560c</md5>
+    <md5>249d14f37ffa593ebca0fce4cec73cfa</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Makassar</tzid>
@@ -1610,19 +1624,19 @@
   </timezone>
   <timezone>
     <tzid>Asia/Novokuznetsk</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>b88718e35ff62bcb169bf2ad91d2b37a</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>fd77436639583113fbb28c9f0c76882a</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Novosibirsk</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>N. Central Asia Standard Time</alias>
-    <md5>b8e017738a63324214d6586cbf078d62</md5>
+    <md5>c5b1e01e894481cbd84d9221d778aba9</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Omsk</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>b3b7662bc01e6871876853ce6e765105</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>444ebb17876c295ac444d9a9f99c6721</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Oral</tzid>
@@ -1641,8 +1655,8 @@
   </timezone>
   <timezone>
     <tzid>Asia/Pyongyang</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>b6861280b8dc28affa6aeca079c88a8e</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>876fec01b8a488ff1493e4d62f49d00f</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Qatar</tzid>
@@ -1662,9 +1676,9 @@
   </timezone>
   <timezone>
     <tzid>Asia/Riyadh</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>Arab Standard Time</alias>
-    <md5>6d11d7edcfa78b32acf9a17169ce728c</md5>
+    <md5>02593ad9143ee7df72b802747f963ad0</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Saigon</tzid>
@@ -1673,8 +1687,8 @@
   </timezone>
   <timezone>
     <tzid>Asia/Sakhalin</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>b53ad0ddb957456a2074f2778268f0d2</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>d01ec407b73f5fc811a60c2d2a621784</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Samarkand</tzid>
@@ -1683,17 +1697,20 @@
   </timezone>
   <timezone>
     <tzid>Asia/Seoul</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <alias>ROK</alias>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>Korea Standard Time</alias>
-    <md5>ddab80bd6902fd85f4a75a99fe066c50</md5>
+    <alias>ROK</alias>
+    <md5>f071153a03c5772a7f3dfc47c79f0bc5</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Shanghai</tzid>
-    <dtstamp>2013-05-08T18:04:04Z</dtstamp>
-    <alias>PRC</alias>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <alias>Asia/Chongqing</alias>
+    <alias>Asia/Chungking</alias>
+    <alias>Asia/Harbin</alias>
     <alias>China Standard Time</alias>
-    <md5>b96ef8cf7c74c16e15f25c292c9a9ae8</md5>
+    <alias>PRC</alias>
+    <md5>b062a101bd345b50c43f983786f1809a</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Singapore</tzid>
@@ -1703,23 +1720,28 @@
     <md5>f2f8be51082b2ede9114b3c78a24c608</md5>
   </timezone>
   <timezone>
+    <tzid>Asia/Srednekolymsk</tzid>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>0a7050ba615233ece3574281b9852838</md5>
+  </timezone>
+  <timezone>
     <tzid>Asia/Taipei</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>ROC</alias>
     <alias>Taipei Standard Time</alias>
-    <md5>392c0daab0b369c725eaef960e59cb77</md5>
+    <md5>30a11bdf6114e9c5b157bcbdbde636f5</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Tashkent</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>West Asia Standard Time</alias>
-    <md5>ed56064ae96e061f96e38e1414ff1e40</md5>
+    <md5>15d2a5155d56870b20e2f49bf4b3873a</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Tbilisi</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>Georgian Standard Time</alias>
-    <md5>a473849976251aac174309b4c54cc7b8</md5>
+    <md5>076f7403e05f86b50d424f2e0a5aff74</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Tehran</tzid>
@@ -1746,10 +1768,10 @@
   </timezone>
   <timezone>
     <tzid>Asia/Tokyo</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>Japan</alias>
     <alias>Tokyo Standard Time</alias>
-    <md5>596917b840456dcac60971ed275e06f9</md5>
+    <md5>11f1afc021683a3fd2090190e59fc79b</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Ujung_Pandang</tzid>
@@ -1770,13 +1792,14 @@
   </timezone>
   <timezone>
     <tzid>Asia/Urumqi</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>bc247e6fadd19729ce941a5c4e52d163</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <alias>Asia/Kashgar</alias>
+    <md5>6dc92a1533b0a27082808eb4fa46f544</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Ust-Nera</tzid>
-    <dtstamp>2013-05-08T18:04:04Z</dtstamp>
-    <md5>c84184d1076dea2db4e41868d210f52b</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>9bf0082095a2a129e813f4d8e1dc08d8</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Vientiane</tzid>
@@ -1785,21 +1808,21 @@
   </timezone>
   <timezone>
     <tzid>Asia/Vladivostok</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>Vladivostok Standard Time</alias>
-    <md5>2f8cf1b4ef5274cf8e117d0a8a591c44</md5>
+    <md5>3ea5b58ba569a8c609f8273b3534c6b6</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Yakutsk</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>Yakutsk Standard Time</alias>
-    <md5>c8446d91924f4f5f899e821604f6e2dd</md5>
+    <md5>da3ed9e6c15430ebbbadde73b0a8d45f</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Yekaterinburg</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>Ekaterinburg Standard Time</alias>
-    <md5>ceb73b7be048c14a0ee0ecc9a91d3652</md5>
+    <md5>ffba76d2568855917bc77ad4f508a97d</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Yerevan</tzid>
@@ -1869,8 +1892,8 @@
   </timezone>
   <timezone>
     <tzid>Atlantic/St_Helena</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>0166dbc020d487b7bb903f17769b3720</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>106bfe228e6d356aa667c201c1589ede</md5>
   </timezone>
   <timezone>
     <tzid>Atlantic/Stanley</tzid>
@@ -1879,135 +1902,135 @@
   </timezone>
   <timezone>
     <tzid>Australia/ACT</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>9c9e45a080f6c7f427aec34e11291278</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>a122be16c6ac312db6e9e68647723168</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Adelaide</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>Australia/South</alias>
     <alias>Cen. Australia Standard Time</alias>
-    <md5>ca7281d2d6822a955147c350b7b1cb71</md5>
+    <md5>03c14d2911720789b0bad1d017f31004</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Brisbane</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>Australia/Queensland</alias>
     <alias>E. Australia Standard Time</alias>
-    <md5>a35c97646a88eec10ad3a6e6b567e508</md5>
+    <md5>bf3ea8a24741515e7c2f7ddb633fae75</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Broken_Hill</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>Australia/Yancowinna</alias>
-    <md5>0f8e51628d17d8f91b3971d3a809a3bf</md5>
+    <md5>cade9fa08e79fee649eea90463b6e14a</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Canberra</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>2505a7cf51647c591b3919e64a7c9c6b</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>4b316781337f1a90d1d65aceee8c3257</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Currie</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>42409348c1d54c59f3181351025814d4</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>89eb08746bac7b45b9e00d4d543b4c86</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Darwin</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <alias>Australia/North</alias>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>AUS Central Standard Time</alias>
-    <md5>73bbf21cb68354d5fab3393f9e0cc467</md5>
+    <alias>Australia/North</alias>
+    <md5>4928a869fd1d8fbb0961943a75889d4c</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Eucla</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>1b3c9e044ce22312c26bb983c59bb736</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>3c57079b8b9539a0b1961220e0aa2674</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Hobart</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>Australia/Tasmania</alias>
     <alias>Tasmania Standard Time</alias>
-    <md5>3f93782299131bc5e257f74b156c7bff</md5>
+    <md5>406bdd969574653dde5860794d9bd0c9</md5>
   </timezone>
   <timezone>
     <tzid>Australia/LHI</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>6b36a74e6c684ccbce21b77e4d4091f5</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>3a697f264fb615f9a868b1b464b1053c</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Lindeman</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>1e8f20bbf164fcd3cc7b73f9f75719ff</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>309abd74a256f5dd9552b54d5515f3fc</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Lord_Howe</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>Australia/LHI</alias>
-    <md5>daf0954473ef7d097f05ec2eb76f3351</md5>
+    <md5>b2a5e3d36d7e72a854502363a3ff3489</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Melbourne</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>Australia/Victoria</alias>
-    <md5>037416e5be342cd637de9d2e3ed77463</md5>
+    <md5>4af8e05e727b46c756dafc9383c3b049</md5>
   </timezone>
   <timezone>
     <tzid>Australia/NSW</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>21e3bc63a47ad045e53077f1d438f93d</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>a9123b744645d9b40b96289c254a8d41</md5>
   </timezone>
   <timezone>
     <tzid>Australia/North</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>721e27da253b8e74cb741374b9b0369d</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>1b75d256278a6b4187ebf5439122bf23</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Perth</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>Australia/West</alias>
     <alias>W. Australia Standard Time</alias>
-    <md5>a9da90a8b6373ae57da42a972cfa5e67</md5>
+    <md5>5d1780e94d6db0e1c26abab668bae3bd</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Queensland</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>e01eda0a4b9dc7109c6c6f6a58c2be9f</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>59585c90de1920d7e44b0f021ab2b007</md5>
   </timezone>
   <timezone>
     <tzid>Australia/South</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>a06d5be7aef4ebe989cb2935a6e72474</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>fee294dea371fb35a61610ce0fd0fa8a</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Sydney</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <alias>Australia/Canberra</alias>
-    <alias>Australia/ACT</alias>
-    <alias>Australia/NSW</alias>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>AUS Eastern Standard Time</alias>
-    <md5>bcdd3fd1c6c326bdef770905bedab9d1</md5>
+    <alias>Australia/ACT</alias>
+    <alias>Australia/Canberra</alias>
+    <alias>Australia/NSW</alias>
+    <md5>6937b3ce5ef40de50817dce91da1b951</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Tasmania</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>6e5ed2a391ecf3e73f6a681c54f6a812</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>3d961e64422f8745b81b75955d2a4687</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Victoria</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>c377fc0182ffacac506bc15b2a3a85ac</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>ffd795f3a8d300eb866d6c4739a7d868</md5>
   </timezone>
   <timezone>
     <tzid>Australia/West</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>0bd8e32dd1533af639e9a0de85a95f87</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>02c7fba7a619cbc67e35af469a4d5505</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Yancowinna</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>da6459a041f1b5580ffb691930c7c6ce</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>7d72dd364927bae98aea1fe083691448</md5>
   </timezone>
   <timezone>
     <tzid>Azerbaijan Standard Time</tzid>
@@ -2121,8 +2144,8 @@
   </timezone>
   <timezone>
     <tzid>Cen. Australia Standard Time</tzid>
-    <dtstamp>2014-06-09T19:47:04Z</dtstamp>
-    <md5>54a9e6a2ce0acf942122fa53bf92079d</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>036788dc8d6598d595d43b4cf8630990</md5>
   </timezone>
   <timezone>
     <tzid>Central America Standard Time</tzid>
@@ -2141,8 +2164,8 @@
   </timezone>
   <timezone>
     <tzid>Central Europe Standard Time</tzid>
-    <dtstamp>2014-06-09T19:47:04Z</dtstamp>
-    <md5>a6253b4f08c997ace48d666a75dd609d</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>dbf9cc35644b76e3ab6aba8d873be6cd</md5>
   </timezone>
   <timezone>
     <tzid>Central European Standard Time</tzid>
@@ -2176,8 +2199,8 @@
   </timezone>
   <timezone>
     <tzid>China Standard Time</tzid>
-    <dtstamp>2014-06-09T19:47:04Z</dtstamp>
-    <md5>2bb98ef96d017132ecf3facafbb35165</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>aa810ecd260b0fffc7888573d7cb295b</md5>
   </timezone>
   <timezone>
     <tzid>Cuba</tzid>
@@ -2196,8 +2219,8 @@
   </timezone>
   <timezone>
     <tzid>E. Australia Standard Time</tzid>
-    <dtstamp>2014-06-09T19:47:04Z</dtstamp>
-    <md5>9e6975e3e2d7aa07fde3d48ee8ab76bb</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>bd8a06b960e6f9edcb8188143878a784</md5>
   </timezone>
   <timezone>
     <tzid>E. South America Standard Time</tzid>
@@ -2226,13 +2249,13 @@
   </timezone>
   <timezone>
     <tzid>Egypt</tzid>
-    <dtstamp>2014-05-30T18:27:48Z</dtstamp>
-    <md5>e5bdfeba2637858848136c41d6dd6592</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>871db4517cde051c1f4b69bfb56fbe8a</md5>
   </timezone>
   <timezone>
     <tzid>Egypt Standard Time</tzid>
-    <dtstamp>2014-06-09T19:47:04Z</dtstamp>
-    <md5>a03e4c51b498c0942fe9c94e6c99942c</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>4781b912f3b562666db834f6599f8d8c</md5>
   </timezone>
   <timezone>
     <tzid>Eire</tzid>
@@ -2241,8 +2264,8 @@
   </timezone>
   <timezone>
     <tzid>Ekaterinburg Standard Time</tzid>
-    <dtstamp>2014-06-09T19:47:04Z</dtstamp>
-    <md5>3a2fd3183b2fb59554aa605e8d246c34</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>bd4b7417b2ef5e673ab55fc78852756e</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT</tzid>
@@ -2492,9 +2515,9 @@
   </timezone>
   <timezone>
     <tzid>Europe/Budapest</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>Central Europe Standard Time</alias>
-    <md5>5d9410ec171c22f3cb6af853666832b8</md5>
+    <md5>7d42315fc9d8fbda69c87ed3eb1e62fb</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Busingen</tzid>
@@ -2530,9 +2553,9 @@
   </timezone>
   <timezone>
     <tzid>Europe/Helsinki</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>Europe/Mariehamn</alias>
-    <md5>dd283cbfe6254558e2bb8ea6d02d29de</md5>
+    <md5>7af522c8e3cddde6dc895f164e5dac98</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Isle_of_Man</tzid>
@@ -2554,9 +2577,9 @@
   </timezone>
   <timezone>
     <tzid>Europe/Kaliningrad</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>Kaliningrad Standard Time</alias>
-    <md5>4c60c5a58f54e04b1e78ca79090900b5</md5>
+    <md5>2824925c903d4eb600a8e8a21fbaf6c0</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Kiev</tzid>
@@ -2604,8 +2627,8 @@
   </timezone>
   <timezone>
     <tzid>Europe/Mariehamn</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>66beba42e7efc813938aaf2c8e9d5342</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>1a9a5556ae6839b785f26a9f0e0834a2</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Minsk</tzid>
@@ -2619,10 +2642,10 @@
   </timezone>
   <timezone>
     <tzid>Europe/Moscow</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <alias>W-SU</alias>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>Russian Standard Time</alias>
-    <md5>163c9f35321ad3b6d79c5e13d3de4a66</md5>
+    <alias>W-SU</alias>
+    <md5>dc6d48ab74ad62c72da0cfab7dc5094c</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Nicosia</tzid>
@@ -2655,8 +2678,8 @@
   </timezone>
   <timezone>
     <tzid>Europe/Riga</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>c681c3dc7a02d76ca5504e9c98f8eeb5</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>816de2ba9f111498fc5122936c81eb0c</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Rome</tzid>
@@ -2667,8 +2690,8 @@
   </timezone>
   <timezone>
     <tzid>Europe/Samara</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>9c1b93f97de31a294309b3bc69003bf6</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>9bd6bbef6ec3d1e77582b5b61722c5fd</md5>
   </timezone>
   <timezone>
     <tzid>Europe/San_Marino</tzid>
@@ -2682,8 +2705,8 @@
   </timezone>
   <timezone>
     <tzid>Europe/Simferopol</tzid>
-    <dtstamp>2014-05-30T18:27:48Z</dtstamp>
-    <md5>fc3bdb913a35075929aa5cf04c056833</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>2676406ead653805468ab26c23ce29a1</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Skopje</tzid>
@@ -2742,8 +2765,8 @@
   </timezone>
   <timezone>
     <tzid>Europe/Volgograd</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>ff054663b12ac0c37e90adf89a5c1f6b</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>632b3c0c178759873073f41582b1c48f</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Warsaw</tzid>
@@ -2821,8 +2844,8 @@
   </timezone>
   <timezone>
     <tzid>Georgian Standard Time</tzid>
-    <dtstamp>2014-06-09T19:47:04Z</dtstamp>
-    <md5>ce12e3a54f497a428ac320f8e44ebe1b</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>53e804cc93e7b8bcf8cd0e4133c7a3a6</md5>
   </timezone>
   <timezone>
     <tzid>Greenland Standard Time</tzid>
@@ -2947,8 +2970,8 @@
   </timezone>
   <timezone>
     <tzid>Japan</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>ff59375f1fd8af619f193e904888c448</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>baaaf75ee37b93ba7a5b59ee99f1e0d2</md5>
   </timezone>
   <timezone>
     <tzid>Jordan Standard Time</tzid>
@@ -2957,13 +2980,13 @@
   </timezone>
   <timezone>
     <tzid>Kaliningrad Standard Time</tzid>
-    <dtstamp>2014-06-09T19:47:04Z</dtstamp>
-    <md5>e06d0cefda50969894397c8c2bdb132f</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>47ad8674b4e98188ddd29714bff59af5</md5>
   </timezone>
   <timezone>
     <tzid>Korea Standard Time</tzid>
-    <dtstamp>2014-06-09T19:47:04Z</dtstamp>
-    <md5>756dd3b6d51cc197eb8c2a08fb88aa30</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>74e60ff70ddaa1941c70e4065b613db7</md5>
   </timezone>
   <timezone>
     <tzid>Kwajalein</tzid>
@@ -2997,8 +3020,8 @@
   </timezone>
   <timezone>
     <tzid>Magadan Standard Time</tzid>
-    <dtstamp>2014-06-09T19:47:04Z</dtstamp>
-    <md5>0399e537a95ae84af318fe49135304ec</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>beb535a22e37916cabe5c96c4f9e0c85</md5>
   </timezone>
   <timezone>
     <tzid>Mauritius Standard Time</tzid>
@@ -3032,8 +3055,8 @@
   </timezone>
   <timezone>
     <tzid>Morocco Standard Time</tzid>
-    <dtstamp>2014-06-09T19:47:04Z</dtstamp>
-    <md5>e268fdccf45f90b9a0bb372521040c80</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>5d4392637c7beef6f834520cb5a202d2</md5>
   </timezone>
   <timezone>
     <tzid>Mountain Standard Time</tzid>
@@ -3052,8 +3075,8 @@
   </timezone>
   <timezone>
     <tzid>N. Central Asia Standard Time</tzid>
-    <dtstamp>2014-06-09T19:47:04Z</dtstamp>
-    <md5>d77a6f9abab36065495b31edd8e77c80</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>abee7e106b8c10980230357ed4f94d9f</md5>
   </timezone>
   <timezone>
     <tzid>NZ</tzid>
@@ -3062,8 +3085,8 @@
   </timezone>
   <timezone>
     <tzid>NZ-CHAT</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>b7ab01dcc64ed6b0877b41a48a5f5bf1</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>2d945e82ffca9e2dea81e780d4c49b72</md5>
   </timezone>
   <timezone>
     <tzid>Namibia Standard Time</tzid>
@@ -3092,18 +3115,18 @@
   </timezone>
   <timezone>
     <tzid>North Asia East Standard Time</tzid>
-    <dtstamp>2014-06-09T19:47:04Z</dtstamp>
-    <md5>095f1c445394d82adec64602d537a986</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>bf68bda2ad59c11d5d676f8e992918ba</md5>
   </timezone>
   <timezone>
     <tzid>North Asia Standard Time</tzid>
-    <dtstamp>2014-06-09T19:47:04Z</dtstamp>
-    <md5>6fedb564e771afc51b219f2bae5da796</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>3b0c8f8fdb72434fab0d89402f7881f0</md5>
   </timezone>
   <timezone>
     <tzid>PRC</tzid>
-    <dtstamp>2013-05-08T18:04:04Z</dtstamp>
-    <md5>4b00f46a2c83f3e58d09f75fbb92e2ba</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>0bb9d48f2787db4e806bfed655126d2f</md5>
   </timezone>
   <timezone>
     <tzid>PST8PDT</tzid>
@@ -3127,9 +3150,9 @@
   </timezone>
   <timezone>
     <tzid>Pacific/Apia</tzid>
-    <dtstamp>2013-01-14T15:32:16Z</dtstamp>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>Samoa Standard Time</alias>
-    <md5>c7fe6c219fb68825f1e065008bc06040</md5>
+    <md5>26019758f8b26469ed28a2b5435ce514</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Auckland</tzid>
@@ -3142,9 +3165,9 @@
   </timezone>
   <timezone>
     <tzid>Pacific/Chatham</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>NZ-CHAT</alias>
-    <md5>95a97b69d55aa2c0f804cc64e2c7372a</md5>
+    <md5>0eb2a5bd486350fcf9de344ff3f2fab0</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Chuuk</tzid>
@@ -3272,10 +3295,10 @@
   </timezone>
   <timezone>
     <tzid>Pacific/Pago_Pago</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <alias>US/Samoa</alias>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>Pacific/Samoa</alias>
-    <md5>4a94a3c2a6fd989abce492f2558c0c01</md5>
+    <alias>US/Samoa</alias>
+    <md5>28462857ff875550bc0b773035b1d73f</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Palau</tzid>
@@ -3316,8 +3339,8 @@
   </timezone>
   <timezone>
     <tzid>Pacific/Samoa</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>0ef449f6efcf8af5e231acd565527b15</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>4d144eb4f7b938f4e297447f7a1ce90a</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Tahiti</tzid>
@@ -3377,13 +3400,13 @@
   </timezone>
   <timezone>
     <tzid>ROC</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>89de140cb0176610bffea12b53ad6d12</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>bd2472304a316cd37b5bfd0573bad6e7</md5>
   </timezone>
   <timezone>
     <tzid>ROK</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>b4ce7399fc454c07647554d069239558</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>a8338463043ff4a9bd40b1b1c65e5cfd</md5>
   </timezone>
   <timezone>
     <tzid>Romance Standard Time</tzid>
@@ -3392,8 +3415,8 @@
   </timezone>
   <timezone>
     <tzid>Russian Standard Time</tzid>
-    <dtstamp>2014-06-09T19:47:04Z</dtstamp>
-    <md5>1651f23851e6f44162396c133a095d26</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>68da7b1efe578798319b4412728a3daa</md5>
   </timezone>
   <timezone>
     <tzid>SA Eastern Standard Time</tzid>
@@ -3417,8 +3440,8 @@
   </timezone>
   <timezone>
     <tzid>Samoa Standard Time</tzid>
-    <dtstamp>2014-06-09T19:47:04Z</dtstamp>
-    <md5>d14f124106dc5c45bc686eb62128e7e5</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>6027fd085584d4998e7838c8e36d3111</md5>
   </timezone>
   <timezone>
     <tzid>Singapore</tzid>
@@ -3447,18 +3470,18 @@
   </timezone>
   <timezone>
     <tzid>Taipei Standard Time</tzid>
-    <dtstamp>2014-06-09T19:47:04Z</dtstamp>
-    <md5>ae23a32cf494ea76c848a68a7ae972f7</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>9cd8ea6ccb038b04a749ceff2003f32a</md5>
   </timezone>
   <timezone>
     <tzid>Tasmania Standard Time</tzid>
-    <dtstamp>2014-06-09T19:47:04Z</dtstamp>
-    <md5>656d5bff4d0c2340ae30a5e764538d68</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>f3ecfc3afb1391d111734a7696ee9f2d</md5>
   </timezone>
   <timezone>
     <tzid>Tokyo Standard Time</tzid>
-    <dtstamp>2014-06-09T19:47:04Z</dtstamp>
-    <md5>af0a29619e7caacdb24f136d4d9a9f57</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>317cf2aedf34b0cf9cba157d6717197b</md5>
   </timezone>
   <timezone>
     <tzid>Tonga Standard Time</tzid>
@@ -3547,8 +3570,8 @@
   </timezone>
   <timezone>
     <tzid>US/Samoa</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>25dab73c0f7efc3a997a2efa5466c12e</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>c3c91d4c592193c284562f5d518b61f9</md5>
   </timezone>
   <timezone>
     <tzid>UTC</tzid>
@@ -3587,18 +3610,18 @@
   </timezone>
   <timezone>
     <tzid>Vladivostok Standard Time</tzid>
-    <dtstamp>2014-06-09T19:47:04Z</dtstamp>
-    <md5>53e23ab867c6a9b4e87eefef6668ed7a</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>992b5c0e32120f342a5a213d04caceb2</md5>
   </timezone>
   <timezone>
     <tzid>W-SU</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>3fdc23a1e84d1e77026ef5134217ffa3</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>8bfefaab4a8dd81d35bfa320d1ce7cbd</md5>
   </timezone>
   <timezone>
     <tzid>W. Australia Standard Time</tzid>
-    <dtstamp>2014-06-09T19:47:04Z</dtstamp>
-    <md5>adfbe5b5fd570ef3eefd7340a5e729cf</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>19f793c93ca0ae6dcabb3827441e8b8d</md5>
   </timezone>
   <timezone>
     <tzid>W. Central Africa Standard Time</tzid>
@@ -3617,8 +3640,8 @@
   </timezone>
   <timezone>
     <tzid>West Asia Standard Time</tzid>
-    <dtstamp>2014-06-09T19:47:04Z</dtstamp>
-    <md5>3484ac60b5568e639e5683a32bc6cdcf</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>eeddd569084c85fcfaaf489a2e42064f</md5>
   </timezone>
   <timezone>
     <tzid>West Pacific Standard Time</tzid>
@@ -3627,8 +3650,8 @@
   </timezone>
   <timezone>
     <tzid>Yakutsk Standard Time</tzid>
-    <dtstamp>2014-06-09T19:47:04Z</dtstamp>
-    <md5>81e4af08c31bf752ca8b0f4ea3937518</md5>
+    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <md5>978b20ca3d1fe14da2941cbf3b94f84e</md5>
   </timezone>
   <timezone>
     <tzid>Zulu</tzid>
