@@ -47,11 +47,13 @@ def matchExpressionAsJSON(expression):
     )
 
 
+
 def existsExpressionAsJSON(expression):
     return dict(
         type=expression.__class__.__name__,
         field=expression.fieldName.name,
     )
+
 
 
 def booleanExpressionAsJSON(expression):
@@ -137,6 +139,7 @@ def matchExpressionFromJSON(service, json):
     )
 
 
+
 def existsExpressionFromJSON(service, json):
     try:
         jsonField = json["field"]
@@ -150,6 +153,7 @@ def existsExpressionFromJSON(service, json):
     return ExistsExpression(fieldName)
 
 
+
 def booleanExpressionFromJSON(service, json):
     try:
         jsonField = json["field"]
@@ -161,6 +165,7 @@ def booleanExpressionFromJSON(service, json):
     fieldName = service.fieldName.lookupByName(jsonField)
 
     return BooleanExpression(fieldName)
+
 
 
 def compoundExpressionFromJSON(json):

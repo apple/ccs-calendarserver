@@ -131,7 +131,7 @@ class AugmentedDirectoryService(
     def stats(self):
         results = {}
         results.update(self._timings)
-        
+
         # An LDAP DS has extra info to expose via the dashboard
         if self._ldapDS is not None:
             results.update(self._ldapDS.poolStats)

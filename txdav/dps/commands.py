@@ -159,6 +159,7 @@ class SetMembersCommand(amp.Command):
     ]
 
 
+
 class ExpandedMemberUIDsCommand(amp.Command):
     arguments = [
         ('uid', amp.String()),
@@ -211,12 +212,14 @@ class WikiAccessForUIDCommand(amp.Command):
     ]
 
 
+
 class ExternalDelegatesCommand(amp.Command):
     arguments = []
     response = [
         ('items', amp.ListOf(amp.String())),
         ('continuation', amp.String(optional=True)),
     ]
+
 
 
 class StatsCommand(amp.Command):

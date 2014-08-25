@@ -345,7 +345,6 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
         )
 
 
-
     def recordsFromExpression(self, expression, recordTypes=None):
         raise NotImplementedError(
             "This won't work until expressions are serializable to send "

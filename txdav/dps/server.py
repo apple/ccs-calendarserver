@@ -208,8 +208,6 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         return response
 
 
-
-
     def recordToDict(self, record):
         """
         Turn a record in a dictionary of fields which can be reconstituted

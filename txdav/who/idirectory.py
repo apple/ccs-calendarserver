@@ -164,8 +164,6 @@ class FieldName(Names):
     readWriteProxy.description = u"read-write proxy group"
     readWriteProxy.valueType = BaseFieldName.valueType(BaseFieldName.uid)
 
-
-
     # For "locations", i.e., scheduled spaces:
 
     associatedAddress = NamedConstant()

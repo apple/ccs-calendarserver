@@ -148,6 +148,7 @@ class GroupDelegateChangesWork(WorkItem, fromTable(schema.GROUP_DELEGATE_CHANGES
                 )
 
 
+
 class GroupAttendeeReconciliationWork(
     WorkItem, fromTable(schema.GROUP_ATTENDEE_RECONCILE_WORK)
 ):

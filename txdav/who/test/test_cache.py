@@ -45,7 +45,6 @@ class CacheTest(StoreTestCase):
         self.storeUnderTest().setDirectoryService(self.cachingDirectory)
 
 
-
     @inlineCallbacks
     def test_cachingPassThrough(self):
         """
@@ -74,7 +73,6 @@ class CacheTest(StoreTestCase):
 
         record = yield dir.recordWithCalendarUserAddress(u"mailto:cache-user-2@example.com")
         self.assertEquals(record.uid, u"cache-uid-2")
-
 
 
     @inlineCallbacks
@@ -255,7 +253,7 @@ class CacheTest(StoreTestCase):
         # After SCAN_AFTER_LOOKUP_COUNT requests, however, that expired entry
         # will be removed
 
-        for i in xrange(SCAN_AFTER_LOOKUP_COUNT):
+        for _ignore_i in xrange(SCAN_AFTER_LOOKUP_COUNT):
             yield dir.recordWithUID(u"cache-uid-2")
 
         # cache-uid-1 no longer in cache
