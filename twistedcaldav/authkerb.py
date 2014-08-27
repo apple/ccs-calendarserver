@@ -48,6 +48,7 @@ from txweb2.dav.auth import IPrincipalCredentials
 
 from twext.python.log import Logger
 
+
 class KerberosCredentialFactoryBase(object):
     """
     Code common to Kerberos-based credential factories.
@@ -56,26 +57,26 @@ class KerberosCredentialFactoryBase(object):
 
     implements(ICredentialFactory)
 
-    def __init__(self, principal=None, type=None, hostname=None):
+    def __init__(self, principal=None, serviceType=None, hostname=None):
         """
 
         @param principal:  full Kerberos principal (e.g., 'HTTP/server.example.com@EXAMPLE.COM'). If C{None}
             then the type and hostname arguments are used instead.
-        @type service:     str
-        @param type:       service type for Kerberos (e.g., 'HTTP'). Must be C{None} if principal used.
-        @type type:        str
+        @type principal:     str
+        @param serviceType:       service type for Kerberos (e.g., 'HTTP'). Must be C{None} if principal used.
+        @type serviceType:        str
         @param hostname:   hostname for this server. Must be C{None} if principal used.
         @type hostname:    str
         """
 
         # Only certain combinations of arguments allowed
-        assert (principal and not type and not hostname) or (not principal and type and hostname)
+        assert (principal and not serviceType and not hostname) or (not principal and serviceType and hostname)
 
         if not principal:
             # Look up the Kerberos principal given the service type and hostname, and extract
             # the realm and a service principal value for later use.
             try:
-                principal = kerberos.getServerPrincipalDetails(type, hostname)
+                principal = kerberos.getServerPrincipalDetails(serviceType, hostname)
             except kerberos.KrbError, ex:
                 self.log.error("getServerPrincipalDetails: %s" % (ex[0],))
                 raise ValueError('Authentication System Failure: %s' % (ex[0],))
@@ -137,26 +138,26 @@ class BasicKerberosCredentialFactory(KerberosCredentialFactoryBase):
 
     scheme = 'basic'
 
-    def __init__(self, principal=None, type=None, hostname=None):
+    def __init__(self, principal=None, serviceType=None, hostname=None):
         """
 
         @param principal:  full Kerberos principal (e.g., 'HTTP/server.example.com@EXAMPLE.COM'). If C{None}
             then the type and hostname arguments are used instead.
-        @type service:     str
-        @param type:       service type for Kerberos (e.g., 'HTTP'). Must be C{None} if principal used.
-        @type type:        str
+        @type principal:     str
+        @param serviceType:       service type for Kerberos (e.g., 'HTTP'). Must be C{None} if principal used.
+        @type serviceType:        str
         @param hostname:   hostname for this server. Must be C{None} if principal used.
         @type hostname:    str
         """
 
-        super(BasicKerberosCredentialFactory, self).__init__(principal, type, hostname)
+        super(BasicKerberosCredentialFactory, self).__init__(principal, serviceType, hostname)
 
 
     def getChallenge(self, _ignore_peer):
         return succeed({'realm': self.realm})
 
 
-    def decode(self, response, request): #@UnusedVariable
+    def decode(self, response, request):  # @UnusedVariable
         try:
             creds = (response + '===').decode('base64')
         except:
@@ -220,19 +221,19 @@ class NegotiateCredentialFactory(KerberosCredentialFactoryBase):
 
     scheme = 'negotiate'
 
-    def __init__(self, principal=None, type=None, hostname=None):
+    def __init__(self, principal=None, serviceType=None, hostname=None):
         """
 
         @param principal:  full Kerberos principal (e.g., 'HTTP/server.example.com@EXAMPLE.COM'). If C{None}
             then the type and hostname arguments are used instead.
-        @type service:     str
-        @param type:       service type for Kerberos (e.g., 'HTTP'). Must be C{None} if principal used.
-        @type type:        str
+        @type principal:     str
+        @param serviceType:       service type for Kerberos (e.g., 'HTTP'). Must be C{None} if principal used.
+        @type serviceType:        str
         @param hostname:   hostname for this server. Must be C{None} if principal used.
         @type hostname:    str
         """
 
-        super(NegotiateCredentialFactory, self).__init__(principal, type, hostname)
+        super(NegotiateCredentialFactory, self).__init__(principal, serviceType, hostname)
 
 
     def getChallenge(self, _ignore_peer):
@@ -301,7 +302,7 @@ class NegotiateCredentialFactory(KerberosCredentialFactoryBase):
 
         wwwauth = '%s %s' % (self.scheme, response)
 
-        def responseFilterAddWWWAuthenticate(request, response): #@UnusedVariable
+        def responseFilterAddWWWAuthenticate(request, response):  # @UnusedVariable
             if response.code != responsecode.UNAUTHORIZED:
                 response.headers.addRawHeader('www-authenticate', wwwauth)
             return response

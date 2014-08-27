@@ -416,7 +416,7 @@ def getRootResource(config, newStore, resources=None):
                     principal = schemeConfig["ServicePrincipal"]
                     if not principal:
                         credFactory = NegotiateCredentialFactory(
-                            type="HTTP",
+                            serviceType="HTTP",
                             hostname=config.ServerHostName,
                         )
                     else:
