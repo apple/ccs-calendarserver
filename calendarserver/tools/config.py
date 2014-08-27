@@ -31,6 +31,9 @@ import xml
 from plistlib import readPlistFromString, writePlistToString
 from twistedcaldav.config import config, ConfigDict, ConfigurationError, mergeData
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
+from twisted.python.filepath import FilePath
+
+
 WRITABLE_CONFIG_KEYS = [
     "Authentication.Basic.AllowedOverWireUnencrypted",
     "Authentication.Basic.Enabled",
@@ -450,7 +453,9 @@ class WritableConfig(object):
         @type restart: C{bool}
         """
         if self.dirty:
-            plistlib.writePlist(self.currentConfigSubset, self.fileName)
+            content = writePlistToString(self.currentConfigSubset)
+            fp = FilePath(self.fileName)
+            fp.setContent(content)
             self.dirty = False
             if restart:
                 restartService(self.config.PIDFile)
