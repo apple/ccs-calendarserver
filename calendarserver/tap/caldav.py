@@ -1405,8 +1405,10 @@ class CalDAVServiceMaker (object):
             return config.UtilityServiceClass(store)
 
         uid, gid = getSystemIDs(config.UserName, config.GroupName)
-        return self.storageService(toolServiceCreator, None, uid=uid, gid=gid,
-                                   directory=None)
+        return self.storageService(
+            toolServiceCreator, None, uid=uid, gid=gid, directory=None,
+            preFlightChecks=False
+        )
 
 
     def makeService_Agent(self, options):
@@ -1442,7 +1444,9 @@ class CalDAVServiceMaker (object):
             return makeAgentService(store)
 
         uid, gid = getSystemIDs(config.UserName, config.GroupName)
-        svc = self.storageService(agentServiceCreator, None, uid=uid, gid=gid)
+        svc = self.storageService(
+            agentServiceCreator, None, uid=uid, gid=gid, preFlightChecks=False
+        )
         agentLoggingService = ErrorLoggingMultiService(
             config.ErrorLogEnabled,
             config.AgentLogFile,
@@ -1454,7 +1458,8 @@ class CalDAVServiceMaker (object):
 
 
     def storageService(
-        self, createMainService, logObserver, uid=None, gid=None, directory=None
+        self, createMainService, logObserver, uid=None, gid=None, directory=None,
+        preFlightChecks=True
     ):
         """
         If necessary, create a service to be started used for storage; for
@@ -1581,9 +1586,10 @@ class CalDAVServiceMaker (object):
                     )
                 )
 
-                pps.addStep(
-                    PreFlightChecksStep(config)
-                )
+                if preFlightChecks:
+                    pps.addStep(
+                        PreFlightChecksStep(config)
+                    )
 
                 pps.addStep(
                     UpgradeReleaseLockStep(store)
