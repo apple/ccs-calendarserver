@@ -357,10 +357,11 @@ create table PERUSER (
   USER_ID                     varchar(255) not null,
   TRANSPARENT                 boolean      not null,
   ADJUSTED_START_DATE         timestamp    default null,
-  ADJUSTED_END_DATE           timestamp    default null,
-  
-  primary key (TIME_RANGE_INSTANCE_ID, USER_ID)    -- implicit index
+  ADJUSTED_END_DATE           timestamp    default null
 );
+
+create index PERUSER_TIME_RANGE_INSTANCE_ID on
+  PERUSER(TIME_RANGE_INSTANCE_ID);
 
 
 ----------------
@@ -517,7 +518,7 @@ create table ABO_MEMBERS (
   REMOVED         boolean     default false not null,
   MODIFIED        timestamp   default timezone('UTC', CURRENT_TIMESTAMP),
 
-  primary key (GROUP_ID, MEMBER_ID, REVISION) -- implicit index
+    primary key (GROUP_ID, MEMBER_ID, REVISION) -- implicit index
 );
 
 create index ABO_MEMBERS_ADDRESSBOOK_ID on
@@ -582,10 +583,11 @@ create table CALENDAR_OBJECT_REVISIONS (
   RESOURCE_NAME             varchar(255),
   REVISION                  integer      default nextval('REVISION_SEQ') not null,
   DELETED                   boolean      not null,
-  MODIFIED                  timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  
-  unique(CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_ID, CALENDAR_NAME, RESOURCE_NAME)    -- implicit index
+  MODIFIED                  timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
 );
+
+create index CALENDAR_OBJECT_REVISIONS_HOME_RESOURCE_ID_CALENDAR_RESOURCE_ID
+  on CALENDAR_OBJECT_REVISIONS(CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_ID);
 
 create index CALENDAR_OBJECT_REVISIONS_RESOURCE_ID_RESOURCE_NAME_DELETED_REVISION
   on CALENDAR_OBJECT_REVISIONS(CALENDAR_RESOURCE_ID, RESOURCE_NAME, DELETED, REVISION);
@@ -606,10 +608,11 @@ create table ADDRESSBOOK_OBJECT_REVISIONS (
   RESOURCE_NAME                 varchar(255),
   REVISION                      integer      default nextval('REVISION_SEQ') not null,
   DELETED                       boolean      not null,
-  MODIFIED                      timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  
-  unique(ADDRESSBOOK_HOME_RESOURCE_ID, OWNER_HOME_RESOURCE_ID, ADDRESSBOOK_NAME, RESOURCE_NAME)    -- implicit index
+  MODIFIED                      timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
 );
+
+create index ADDRESSBOOK_OBJECT_REVISIONS_HOME_RESOURCE_ID_OWNER_HOME_RESOURCE_ID
+  on ADDRESSBOOK_OBJECT_REVISIONS(ADDRESSBOOK_HOME_RESOURCE_ID, OWNER_HOME_RESOURCE_ID);
 
 create index ADDRESSBOOK_OBJECT_REVISIONS_OWNER_HOME_RESOURCE_ID_RESOURCE_NAME_DELETED_REVISION
   on ADDRESSBOOK_OBJECT_REVISIONS(OWNER_HOME_RESOURCE_ID, RESOURCE_NAME, DELETED, REVISION);
@@ -1135,7 +1138,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '48');
+insert into CALENDARSERVER values ('VERSION', '47');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');
