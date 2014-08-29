@@ -149,6 +149,7 @@ install-commands::
 	          caldavd                                                                                                        \
 	          calendarserver_config                                                                                          \
 	          calendarserver_command_gateway                                                                                 \
+	          calendarserver_diagnose                                                                                        \
 	          calendarserver_export                                                                                          \
 	          calendarserver_manage_principals                                                                               \
 	          calendarserver_purge_attachments                                                                               \

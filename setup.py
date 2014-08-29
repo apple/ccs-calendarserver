@@ -163,6 +163,9 @@ script_entry_points = {
     "dbinspect":
     ("calendarserver.tools.dbinspect", "main"),
 
+    "diagnose":
+    ("calendarserver.tools.diagnose", "main"),
+
     "dkimtool":
     ("calendarserver.tools.dkimtool", "main"),
 
