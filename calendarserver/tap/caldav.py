@@ -127,7 +127,7 @@ from calendarserver.tap.util import (
     checkDirectories, getRootResource,
     oracleConnectorFromConfig, pgConnectorFromConfig,
     pgServiceFromConfig, getDBPool, MemoryLimitService,
-    storeFromConfig, getSSLPassphrase, PreFlightChecksStep
+    storeFromConfig, getSSLPassphrase, preFlightChecks
 )
 try:
     from calendarserver.version import version
@@ -1406,8 +1406,7 @@ class CalDAVServiceMaker (object):
 
         uid, gid = getSystemIDs(config.UserName, config.GroupName)
         return self.storageService(
-            toolServiceCreator, None, uid=uid, gid=gid, directory=None,
-            preFlightChecks=False
+            toolServiceCreator, None, uid=uid, gid=gid, directory=None
         )
 
 
@@ -1445,7 +1444,7 @@ class CalDAVServiceMaker (object):
 
         uid, gid = getSystemIDs(config.UserName, config.GroupName)
         svc = self.storageService(
-            agentServiceCreator, None, uid=uid, gid=gid, preFlightChecks=False
+            agentServiceCreator, None, uid=uid, gid=gid
         )
         agentLoggingService = ErrorLoggingMultiService(
             config.ErrorLogEnabled,
@@ -1458,8 +1457,7 @@ class CalDAVServiceMaker (object):
 
 
     def storageService(
-        self, createMainService, logObserver, uid=None, gid=None, directory=None,
-        preFlightChecks=True
+        self, createMainService, logObserver, uid=None, gid=None, directory=None
     ):
         """
         If necessary, create a service to be started used for storage; for
@@ -1586,11 +1584,6 @@ class CalDAVServiceMaker (object):
                     )
                 )
 
-                if preFlightChecks:
-                    pps.addStep(
-                        PreFlightChecksStep(config)
-                    )
-
                 pps.addStep(
                     UpgradeReleaseLockStep(store)
                 )
@@ -1650,12 +1643,25 @@ class CalDAVServiceMaker (object):
         Create a master service to coordinate a multi-process configuration,
         spawning subprocesses that use L{makeService_Slave} to perform work.
         """
+
         s = ErrorLoggingMultiService(
             config.ErrorLogEnabled,
             config.ErrorLogFile,
             config.ErrorLogRotateMB * 1024 * 1024,
             config.ErrorLogMaxRotatedFiles
         )
+
+        # Perform early pre-flight checks.  If this returns True, continue on.
+        # Otherwise one of two things will happen:
+        #   A) preFlightChecks( ) will have registered an "after startup" system
+        #      event trigger to request a shutdown via the
+        #      ServiceDisablingProgram, and we want to return our
+        #      ErrorLoggingMultiService so that logging is set up enough to
+        #      emit our reason for shutting down into the error.log.
+        #   B) preFlightChecks( ) will sys.exit(1) if there is not a
+        #      ServiceDisablingProgram configured.
+        if not preFlightChecks(config):
+            return s
 
         # Add a service to re-exec the master when it receives SIGHUP
         ReExecService(config.PIDFile).setServiceParent(s)

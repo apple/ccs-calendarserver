@@ -20,12 +20,12 @@ Utilities for assembling the service and resource hierarchy.
 """
 
 __all__ = [
-    "getRootResource",
-    "getDBPool",
     "FakeRequest",
-    "MemoryLimitService",
-    "PreFlightChecksStep",
+    "getDBPool",
+    "getRootResource",
     "getSSLPassphrase",
+    "MemoryLimitService",
+    "preFlightChecks",
 ]
 
 import errno
@@ -34,6 +34,7 @@ import os
 import psutil
 from socket import fromfd, AF_UNIX, SOCK_STREAM, socketpair
 from subprocess import Popen, PIPE
+import sys
 
 
 from twext.internet.ssl import ChainingOpenSSLContextFactory
@@ -1114,61 +1115,106 @@ class Stepper(object):
         return self.deferred
 
 
-class PreFlightChecksStep(object):
+def requestShutdown(programPath, reason):
     """
-    A place to make any other checks before finishing up the
-    PreProcessingService.
+    Log the shutdown reason and call the shutdown-requesting program.
+
+    In the case the service is spawned by launchd (or equivalent), if our
+    service decides it needs to shut itself down, because of a misconfiguration,
+    for example, we can't just exit.  We may need to go through the system
+    machinery to unload our job, manage reverse proxies, update admin UI, etc.
+    Therefore you can configure the ServiceDisablingProgram plist key to point
+    to a program to run which will stop our service.
+
+    @param programPath: the full path to a program to call (with no args)
+    @type programPath: C{str}
+    @param reason: a shutdown reason to log
+    @type reason: C{str}
+    """
+    log.error("Shutting down Calendar and Contacts server")
+    log.error(reason)
+    Popen(
+        args=[config.ServiceDisablingProgram],
+        stdout=PIPE,
+        stderr=PIPE,
+    ).communicate()
+
+
+def preFlightChecks(config):
+    """
+    Perform checks prior to spawning any processes.  Returns True if the checks
+    are ok, False if they don't and we have a ServiceDisablingProgram configured.
+    Otherwise exits.
     """
 
-    def __init__(self, config):
-        self.config = config
+    success, reason = verifyTLSCertificate(config)
 
-
-    def stepWithResult(self, result):
-        self.verifyTLSCertificate()
-        return succeed(None)
-
-
-    def verifyTLSCertificate(self):
-        """
-        If a TLS certificate is configured, make sure it exists, is non empty,
-        and that it's valid.
-        """
-
-        if self.config.SSLCertificate:
-            if not os.path.exists(self.config.SSLCertificate):
-                log.error(
-                    "The configured TLS certificate ({cert}) is missing",
-                    cert=self.config.SSLCertificate
+    if not success:
+        if config.ServiceDisablingProgram:
+            # If pre-flight checks fail, we don't want launchd to
+            # repeatedly launch us, we want our job to get unloaded.
+            # If the config.ServiceDisablingProgram is assigned and exists
+            # we schedule it to run after startService finishes.
+            # Its job is to carry out the platform-specific tasks of disabling
+            # the service.
+            if os.path.exists(config.ServiceDisablingProgram):
+                addSystemEventTrigger(
+                    "after", "startup",
+                    requestShutdown, config.ServiceDisablingProgram, reason
                 )
-                raise ConfigurationError("Missing certificate file")
+            return False
+
         else:
-            return
+            sys.exit(1)
 
-        length = os.stat(self.config.SSLCertificate).st_size
-        if length == 0:
-                log.error(
-                    "The configured TLS certificate ({cert}) is empty",
-                    cert=self.config.SSLCertificate
+    return True
+
+
+def verifyTLSCertificate(config):
+    """
+    If a TLS certificate is configured, make sure it exists, is non empty,
+    and that it's valid.
+    """
+
+    if config.SSLCertificate:
+        if not os.path.exists(config.SSLCertificate):
+            message = (
+                "The configured TLS certificate ({cert}) is missing".format(
+                    cert=config.SSLCertificate
                 )
-                raise ConfigurationError("Empty certificate file")
-
-        try:
-            ChainingOpenSSLContextFactory(
-                self.config.SSLPrivateKey,
-                self.config.SSLCertificate,
-                certificateChainFile=self.config.SSLAuthorityChain,
-                passwdCallback=getSSLPassphrase,
-                sslmethod=getattr(OpenSSL.SSL, self.config.SSLMethod),
-                ciphers=self.config.SSLCiphers.strip()
             )
-        except Exception as e:
-            log.error(
-                "The configured TLS certificate ({cert}) cannot be used: {reason}",
-                cert=self.config.SSLCertificate,
+            return False, message
+    else:
+        return True, "TLS disabled"
+
+    length = os.stat(config.SSLCertificate).st_size
+    if length == 0:
+            message = (
+                "The configured TLS certificate ({cert}) is empty".format(
+                    cert=config.SSLCertificate
+                )
+            )
+            return False, message
+
+    try:
+        ChainingOpenSSLContextFactory(
+            config.SSLPrivateKey,
+            config.SSLCertificate,
+            certificateChainFile=config.SSLAuthorityChain,
+            passwdCallback=getSSLPassphrase,
+            sslmethod=getattr(OpenSSL.SSL, config.SSLMethod),
+            ciphers=config.SSLCiphers.strip()
+        )
+    except Exception as e:
+        message = (
+            "The configured TLS certificate ({cert}) cannot be used: {reason}".format(
+                cert=config.SSLCertificate,
                 reason=str(e)
             )
-            raise
+        )
+        return False, message
+
+    return True, "TLS enabled"
 
 
 def getSSLPassphrase(*ignored):

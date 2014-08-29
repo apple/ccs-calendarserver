@@ -14,16 +14,15 @@
 # limitations under the License.
 ##
 
-import OpenSSL
 from calendarserver.tap.util import (
-    MemoryLimitService, Stepper, PreFlightChecksStep
+    MemoryLimitService, Stepper, verifyTLSCertificate
 )
 from twistedcaldav.util import computeProcessCount
 from twistedcaldav.test.util import TestCase
 from twisted.internet.task import Clock
 from twisted.internet.defer import succeed, inlineCallbacks
 from twisted.python.filepath import FilePath
-from twistedcaldav.config import ConfigDict, ConfigurationError
+from twistedcaldav.config import ConfigDict
 
 
 class ProcessCountTestCase(TestCase):
@@ -236,54 +235,41 @@ class StepperTestCase(TestCase):
             ['one success', 'two failure', 'three success', 'four failure'])
 
 
-class PreFlightChecksStepTestCase(TestCase):
+class PreFlightChecksTestCase(TestCase):
     """
     Verify that missing, empty, or bogus TLS Certificates are detected
     """
 
-    @inlineCallbacks
     def test_missingCertificate(self):
-        step = PreFlightChecksStep(
+        success, reason = verifyTLSCertificate(
             ConfigDict(
                 {
                     "SSLCertificate": "missing",
                 }
             )
         )
-        try:
-            yield step.stepWithResult(None)
-        except ConfigurationError as e:
-            self.assertTrue("Missing" in str(e))
-        else:
-            self.fail("Did not raise ConfigurationError")
+        self.assertFalse(success)
 
 
-    @inlineCallbacks
     def test_emptyCertificate(self):
         certFilePath = FilePath(self.mktemp())
         certFilePath.setContent("")
-        step = PreFlightChecksStep(
+        success, reason = verifyTLSCertificate(
             ConfigDict(
                 {
                     "SSLCertificate": certFilePath.path,
                 }
             )
         )
-        try:
-            yield step.stepWithResult(None)
-        except ConfigurationError as e:
-            self.assertTrue("Empty" in str(e))
-        else:
-            self.fail("Did not raise ConfigurationError")
+        self.assertFalse(success)
 
 
-    @inlineCallbacks
     def test_bogusCertificate(self):
         certFilePath = FilePath(self.mktemp())
         certFilePath.setContent("bogus")
         keyFilePath = FilePath(self.mktemp())
         keyFilePath.setContent("bogus")
-        step = PreFlightChecksStep(
+        success, reason = verifyTLSCertificate(
             ConfigDict(
                 {
                     "SSLCertificate": certFilePath.path,
@@ -294,9 +280,4 @@ class PreFlightChecksStepTestCase(TestCase):
                 }
             )
         )
-        try:
-            yield step.stepWithResult(None)
-        except OpenSSL.SSL.Error:
-            pass
-        else:
-            self.fail("Did not raise OpenSSL.SSL.Error")
+        self.assertFalse(success)
