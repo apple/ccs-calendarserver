@@ -61,6 +61,10 @@ def usage(e=None):
 
 
 def main():
+
+    if os.getuid() != 0:
+        usage("This program must be run as root")
+
     try:
         (optargs, args) = getopt(
             sys.argv[1:], "h", [
