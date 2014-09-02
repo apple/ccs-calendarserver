@@ -564,12 +564,28 @@ def _addRemoveProxy(msg, fn, store, record, proxyType, *proxyIDs):
 
 @inlineCallbacks
 def action_addProxy(store, record, proxyType, *proxyIDs):
+    if config.GroupCaching.Enabled and config.GroupCaching.UseDirectoryBasedDelegates:
+        if record.recordType in (
+            record.service.recordType.location,
+            record.service.recordType.resource,
+        ):
+            print("You are not allowed to add proxies for locations or resources via command line when their proxy assignments come from the directory service.")
+            returnValue(None)
+
     yield _addRemoveProxy("Added", addDelegate, store, record, proxyType, *proxyIDs)
 
 
 
 @inlineCallbacks
 def action_removeProxy(store, record, *proxyIDs):
+    if config.GroupCaching.Enabled and config.GroupCaching.UseDirectoryBasedDelegates:
+        if record.recordType in (
+            record.service.recordType.location,
+            record.service.recordType.resource,
+        ):
+            print("You are not allowed to remove proxies for locations or resources via command line when their proxy assignments come from the directory service.")
+            returnValue(None)
+
     # Write
     yield _addRemoveProxy("Removed", removeDelegate, store, record, "write", *proxyIDs)
     # Read
