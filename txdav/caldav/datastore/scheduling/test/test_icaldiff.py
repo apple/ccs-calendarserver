@@ -4520,10 +4520,161 @@ END:VCALENDAR
             ),
         )
 
-        for description, calendar1, calendar2, rids in itertools.chain(data1, data2, data3,):
+        data4 = (
+            (
+                "#4.1 Override component removed",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T130000Z
+DTEND:20080602T140000Z
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                {},
+            ),
+            (
+                "#4.2 Override component added",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+END:VEVENT
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T130000Z
+DTEND:20080602T140000Z
+SUMMARY:Test
+END:VCALENDAR
+""",
+                {},
+            ),
+        )
+
+        data5 = (
+            (
+                "#5.1 Override component removed",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T130000Z
+DTEND:20080602T140000Z
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                {"20080602T120000Z": {"DTSTART": set()}},
+            ),
+            (
+                "#5.2 Override component added",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080601T120000Z
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+RECURRENCE-ID:20080602T120000Z
+DTSTART:20080602T130000Z
+DTEND:20080602T140000Z
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                {"20080602T120000Z": {"DTSTART": set()}},
+            ),
+        )
+
+        for description, calendar1, calendar2, rids in itertools.chain(data1, data2, data3, data4,):
             differ = iCalDiff(Component.fromString(calendar1), Component.fromString(calendar2), False)
             got_rids = differ.whatIsDifferent()
             rids = dict([(DateTime.parseText(k) if k else None, v) for k, v in rids.items()])
+            self.assertEqual(got_rids, rids, msg="%s expected R-IDs: '%s', got: '%s'" % (description, rids, got_rids,))
+
+        for description, calendar1, calendar2, rids in itertools.chain(data5,):
+            differ = iCalDiff(Component.fromString(calendar1), Component.fromString(calendar2), False)
+            got_rids = differ.whatIsDifferent(isiTip=False)
             self.assertEqual(got_rids, rids, msg="%s expected R-IDs: '%s', got: '%s'" % (description, rids, got_rids,))
 
 

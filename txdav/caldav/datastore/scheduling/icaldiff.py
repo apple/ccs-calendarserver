@@ -770,16 +770,28 @@ class iCalDiff(object):
 
         # Now verify that each additional component in oldset matches a derived component in newset
         for key in oldset - newset:
+            rid = key[2]
             oldcomponent = oldmap[key]
-            newcomponent = self.newcalendar.deriveInstance(key[2])
+            newcomponent = self.newcalendar.deriveInstance(rid)
             if newcomponent is None:
+                # For the non iTIP case we must report missing components on either side. Marking
+                # the DTSTART as changed is enough to trigger logic in the caller to treat this
+                # as a significant change.
+                if not isiTip:
+                    rids[rid.getText() if rid is not None else ""] = {"DTSTART": set()}
                 continue
             self._diffComponents(oldcomponent, newcomponent, rids, isiTip)
 
         # Now verify that each additional component in oldset matches a derived component in newset
         for key in newset - oldset:
-            oldcomponent = self.oldcalendar.deriveInstance(key[2])
+            rid = key[2]
+            oldcomponent = self.oldcalendar.deriveInstance(rid)
             if oldcomponent is None:
+                # For the non iTIP case we must report missing components on either side. Marking
+                # the DTSTART as changed is enough to trigger logic in the caller to treat this
+                # as a significant change.
+                if not isiTip:
+                    rids[rid.getText() if rid is not None else ""] = {"DTSTART": set()}
                 continue
             newcomponent = newmap[key]
             self._diffComponents(oldcomponent, newcomponent, rids, isiTip)

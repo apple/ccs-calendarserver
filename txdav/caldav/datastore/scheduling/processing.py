@@ -43,7 +43,6 @@ import collections
 import hashlib
 import json
 import uuid
-import time
 
 """
 CalDAV implicit processing.
@@ -755,9 +754,7 @@ class ImplicitProcessor(object):
                             end=str(makeTimedUTC(instance.end)),
                         )
 
-                        t = time.time()
                         yield generateFreeBusyInfo(testcal, fbinfo, tr, 0, uid, servertoserver=True, accountingItems=accounting if len(instances) == 1 else None)
-                        print time.time() - t
 
                         # If any fbinfo entries exist we have an overlap
                         if len(fbinfo[0]) or len(fbinfo[1]) or len(fbinfo[2]):

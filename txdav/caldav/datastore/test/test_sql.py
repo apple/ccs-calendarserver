@@ -7003,7 +7003,7 @@ END:VCALENDAR
 
 class TimeRangeUpdateOptimization(CommonCommonTests, unittest.TestCase):
     """
-    CalendarObject splitting tests
+    CalendarObject time range optimization tests.
     """
 
     EVENT1 = """BEGIN:VCALENDAR
@@ -7174,13 +7174,17 @@ END:VCALENDAR
 
         self.now = DateTime.getNowUTC()
         self.now.setDateOnly(True)
+        self.now1 = self.now.duplicate()
+        self.now1.offsetDay(1)
+        self.now2 = self.now.duplicate()
+        self.now2.offsetDay(2)
 
         self.trcount = 0
         base_addInstances = CalendarObject._addInstances
-        def __addInstances(*args):
+        def _addInstances(*args):
             self.trcount += 1
             return base_addInstances(*args)
-        self.patch(CalendarObject, "_addInstances", __addInstances)
+        self.patch(CalendarObject, "_addInstances", _addInstances)
 
         self.patch(config, "FreeBusyIndexDelayedExpand", False)
         self.patch(config, "FreeBusyIndexSmartUpdate", True)
@@ -7489,7 +7493,7 @@ END:VCALENDAR
     @inlineCallbacks
     def test_schedulingPUT(self):
         """
-        Test that second PUT withe time change causes a TIME_RANGE update
+        Test that second PUT with time change causes a TIME_RANGE update
         """
 
         # Need schedule-q off for this test
@@ -7529,7 +7533,7 @@ END:VCALENDAR
     @inlineCallbacks
     def test_schedulingPUT_withoutOptimization(self):
         """
-        Test that second PUT withe time change causes a TIME_RANGE update
+        Test that second PUT with time change causes a TIME_RANGE update
         """
 
         self.patch(config, "FreeBusyIndexSmartUpdate", False)
@@ -7566,3 +7570,189 @@ END:VCALENDAR
         yield self.commit()
 
         self.assertEqual(self.trcount, 11)
+
+
+    INVITE_OVERRIDE1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:uid1
+DTSTART:{now}T120000Z
+DURATION:PT1H
+SUMMARY:New Event
+DTSTAMP:20100203T013909Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:uid1
+RECURRENCE-ID:{now1}T120000Z
+DTSTART:{now1}T120000Z
+DURATION:PT1H
+SUMMARY:New Event now1
+DTSTAMP:20100203T013909Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:x-uid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+"""
+
+    INVITE_OVERRIDE2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:uid1
+RECURRENCE-ID:{now1}T120000Z
+DTSTART:{now1}T120000Z
+DURATION:PT1H
+SUMMARY:New Event now1
+DTSTAMP:20100203T013909Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:urn:x-uid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+"""
+
+    INVITE_OVERRIDE3 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:uid1
+DTSTART:{now}T120000Z
+DURATION:PT1H
+SUMMARY:New Event
+DTSTAMP:20100203T013909Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:uid1
+RECURRENCE-ID:{now1}T120000Z
+DTSTART:{now1}T120000Z
+DURATION:PT1H
+SUMMARY:New Event now1
+DTSTAMP:20100203T013909Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:urn:x-uid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:uid1
+RECURRENCE-ID:{now2}T120000Z
+DTSTART:{now2}T120000Z
+DURATION:PT1H
+SUMMARY:New Event now2
+DTSTAMP:20100203T013909Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:x-uid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+"""
+
+    INVITE_OVERRIDE4 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:uid1
+DTSTART:{now}T120000Z
+DURATION:PT1H
+SUMMARY:New Event
+DTSTAMP:20100203T013909Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:uid1
+RECURRENCE-ID:{now1}T120000Z
+DTSTART:{now1}T120000Z
+DURATION:PT1H
+SUMMARY:New Event now1
+DTSTAMP:20100203T013909Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+END:VEVENT
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:uid1
+RECURRENCE-ID:{now2}T120000Z
+DTSTART:{now2}T120000Z
+DURATION:PT1H
+SUMMARY:New Event now2
+DTSTAMP:20100203T013909Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:urn:x-uid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+"""
+
+
+    @inlineCallbacks
+    def test_schedulingPUT_AddRemoveOverride_AutoAccept(self):
+        """
+        Test that second PUT with override change causes a TIME_RANGE update
+        """
+
+        # Need schedule-q off for this test
+        self.patch(config.Scheduling.Options.WorkQueues, "Enabled", False)
+        self.patch(config.Scheduling.Options.WorkQueues, "AutoReplyDelaySeconds", 1)
+
+        # First PUT causes T-R change
+        cal = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(self.INVITE_OVERRIDE1.format(
+            now=self.now.getText(),
+            now1=self.now1.getText(),
+            now2=self.now2.getText(),
+        )))
+        yield self.commit()
+
+        # Wait for it to complete
+        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
+
+        self.assertEqual(self.trcount, 3)
+
+        # Organizer adds attendee to override causes T-R change (except for their item)
+        cobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar")
+        yield cobj.setComponent(Component.fromString(self.INVITE_OVERRIDE3.format(
+            now=self.now.getText(),
+            now1=self.now1.getText(),
+            now2=self.now2.getText(),
+        )))
+        yield self.commit()
+
+        # Wait for it to complete
+        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
+
+        self.assertEqual(self.trcount, 5)
+
+        # Organizer removes attendee from override causes T-R change (except for their item)
+        cobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar")
+        yield cobj.setComponent(Component.fromString(self.INVITE_OVERRIDE4.format(
+            now=self.now.getText(),
+            now1=self.now1.getText(),
+            now2=self.now2.getText(),
+        )))
+        yield self.commit()
+
+        # Wait for it to complete
+        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
+
+        self.assertEqual(self.trcount, 6)
