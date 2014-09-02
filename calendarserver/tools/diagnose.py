@@ -143,6 +143,8 @@ def main():
 
     connectToCaldavd(keys)
 
+    showWebApps()
+
 
 def showProcesses():
 
@@ -455,6 +457,19 @@ def checkPlist(plistPath):
         return False
 
     return True
+
+
+def showWebApps():
+    print()
+    print("Web apps:")
+
+    code, stdout, stderr = runCommand(
+        "/Applications/Server.app/Contents/ServerRoot/usr/sbin/webappctl",
+        "status",
+        "-"
+    )
+    print(stdout)
+
 
 ##
 # Keychain access
