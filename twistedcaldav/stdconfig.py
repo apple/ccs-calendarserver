@@ -1004,7 +1004,7 @@ DEFAULT_CONFIG = {
     "FreeBusyIndexLowerLimitDays": 365,
     "FreeBusyIndexExpandAheadDays": 365,
     "FreeBusyIndexExpandMaxDays": 5 * 365,
-    "FreeBusyIndexDelayedExpand": True,
+    "FreeBusyIndexDelayedExpand": False,
     "FreeBusyIndexSmartUpdate": True,
 
     # The RootResource uses a twext property store. Specify the class here
