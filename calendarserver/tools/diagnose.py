@@ -101,16 +101,16 @@ def main():
         print("{} does not exist (but that's ok)".format(PREFS_PLIST))
 
     serverRoot = getServerRoot()
-    print("Prefs plist says ServerRoot directory is: {}".format(serverRoot))
+    print("Prefs plist says ServerRoot directory is: {}".format(serverRoot.encode("utf-8")))
 
     systemPlist = os.path.join(serverRoot, "Config", "caldavd-system.plist")
     try:
         if checkPlist(systemPlist):
-            print("{} exists and can be parsed".format(systemPlist))
+            print("{} exists and can be parsed".format(systemPlist.encode("utf-8")))
         else:
-            print("{} exists but cannot be parsed".format(systemPlist))
+            print("{} exists but cannot be parsed".format(systemPlist.encode("utf-8")))
     except FileNotFound:
-        print("{} does not exist".format(systemPlist))
+        print("{} does not exist".format(systemPlist.encode("utf-8")))
 
 
     keys = showConfigKeys()
@@ -240,7 +240,7 @@ def showPostgresStatus(serverRoot):
     clusterPath = os.path.join(serverRoot, "Data", "Database.xpg", "cluster.pg")
 
     print()
-    print("Postgres status for cluster {}:".format(clusterPath))
+    print("Postgres status for cluster {}:".format(clusterPath.encode("utf-8")))
 
     code, stdout, stderr = runCommand(
         "/usr/bin/sudo",
