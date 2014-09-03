@@ -90,7 +90,7 @@ class IMIPPollingWork(RegeneratingWorkItem, fromTable(schema.IMIP_POLLING_WORK))
         Return the interval in seconds between regenerating instances.
         """
         mailRetriever = self.transaction._mailRetriever
-        return mailRetriever.settings["seconds"]
+        return mailRetriever.settings["PollingSeconds"]
 
 
     @inlineCallbacks
