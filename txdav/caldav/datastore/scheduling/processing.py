@@ -555,7 +555,7 @@ class ImplicitProcessor(object):
                         self.recipient.principal,
                         json.dumps(accounting) + "\r\n",
                         filename=self.uid.encode("base64")[:-1] + ".txt"
-                )
+                    )
 
                 # Only store inbox item when reply is not sent or always for users
                 store_inbox = store_inbox or self.recipient.principal.getCUType() == "INDIVIDUAL"
@@ -676,11 +676,10 @@ class ImplicitProcessor(object):
             processed_message, delete_original, rids = iTipProcessing.processCancel(self.message, self.recipient_calendar, autoprocessing=autoprocessed)
             if processed_message:
                 if autoprocessed and accountingEnabled("AutoScheduling", self.recipient.principal):
-                    accounting = {
-                        "action": "cancel",
-                        "when": PyCalendarDateTime.getNowUTC().getText(),
-                        "deleting": delete_original,
-                    }
+                    accounting = collections.OrderedDict()
+                    accounting["when"] = PyCalendarDateTime.getNowUTC().getText()
+                    accounting["deleting"] = delete_original
+                    accounting["action"] = "cancel"
                     emitAccounting(
                         "AutoScheduling",
                         self.recipient.principal,
@@ -807,11 +806,10 @@ class ImplicitProcessor(object):
         """
 
         if accountingEnabled("AutoScheduling", self.recipient.principal):
-            accounting = {
-                "when": PyCalendarDateTime.getNowUTC().getText(),
-                "automode": automode,
-                "changed": False,
-            }
+            accounting = collections.OrderedDict()
+            accounting["when"] = PyCalendarDateTime.getNowUTC().getText()
+            accounting["automode"] = automode
+            accounting["changed"] = False
         else:
             accounting = None
 
@@ -869,7 +867,6 @@ class ImplicitProcessor(object):
         fbset = [fbcalendar for fbcalendar in fbset if fbcalendar.isUsedForFreeBusy()]
         if accounting is not None:
             accounting["fbset"] = [testcal.name() for testcal in fbset]
-            accounting["tr"] = []
 
         for testcal in fbset:
 
@@ -877,6 +874,10 @@ class ImplicitProcessor(object):
             # for use during the query itself.
             tz = testcal.getTimezone()
             tzinfo = tz.gettimezone() if tz is not None else PyCalendarTimezone(utc=True)
+
+            if accounting is not None:
+                accounting[testcal.name()] = {}
+                accounting[testcal.name()]["tr"] = []
 
             # Now do search for overlapping time-range and set instance.free based
             # on whether there is an overlap or not.
@@ -904,25 +905,42 @@ class ImplicitProcessor(object):
                             end=str(makeTimedUTC(instance.end)),
                         )
 
-                        yield generateFreeBusyInfo(testcal, fbinfo, tr, 0, uid, servertoserver=True, accountingItems=accounting if len(instances) == 1 else None)
+                        if accounting is None:
+                            yield generateFreeBusyInfo(testcal, fbinfo, tr, 0, uid, servertoserver=True)
+                        else:
+                            # Do this twice if cache is used and compare results
+                            details1 = {}
+                            yield generateFreeBusyInfo(testcal, fbinfo, tr, 0, uid, servertoserver=True, accountingItems=details1)
+                            if "useCache" not in accounting[testcal.name()]:
+                                accounting[testcal.name()]["useCache"] = details1
+
+                            if accounting[testcal.name()]["useCache"]["fb-cached"]:
+                                fbinfo_nocache = ([], [], [])
+                                details2 = {}
+                                yield generateFreeBusyInfo(testcal, fbinfo_nocache, tr, 0, uid, servertoserver=True, accountingItems=details2, allowCache=False)
+                                if "noCache" not in accounting[testcal.name()]:
+                                    accounting[testcal.name()]["noCache"] = details2
+                                if fbinfo != fbinfo_nocache:
+                                    log.error("Auto-accept free busy cache inconsistent with database query")
+                                    accounting[testcal.name()]["badCache"] = (details1, details2)
 
                         # If any fbinfo entries exist we have an overlap
                         if len(fbinfo[0]) or len(fbinfo[1]) or len(fbinfo[2]):
                             instance.free = False
                         if accounting is not None:
-                            accounting["tr"].insert(0, (tr.attributes["start"], tr.attributes["end"], instance.free,))
+                            accounting[testcal.name()]["tr"].insert(0, (tr.attributes["start"], tr.attributes["end"], instance.free,))
                     except QueryMaxResources:
                         instance.free = False
                         log.info("Exceeded number of matches whilst trying to find free-time.")
                         if accounting is not None:
-                            accounting["problem"] = "Exceeded number of matches"
+                            accounting[testcal.name()]["problem"] = "Exceeded number of matches"
 
             # If everything is declined we can exit now
             if not any([instance.free for instance in instances]):
                 break
 
-        if accounting is not None:
-            accounting["tr"] = accounting["tr"][:30]
+            if accounting is not None:
+                accounting[testcal.name()]["tr"] = accounting[testcal.name()]["tr"][:30]
 
         # Now adjust the instance.partstat currently set to "NEEDS-ACTION" to the
         # value determined by auto-accept logic based on instance.free state. However,

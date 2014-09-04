@@ -106,6 +106,7 @@ def generateFreeBusyInfo(
     event_details=None,
     logItems=None,
     accountingItems=None,
+    allowCache=True,
 ):
     """
     Run a free busy report on the specified calendar collection
@@ -127,6 +128,7 @@ def generateFreeBusyInfo(
     @param event_details: a C{list} into which to store extended VEVENT details if not C{None}
     @param logItems: a C{dict} to store logging info to
     @param accountingItems: a C{dict} to store accounting info to
+    @param allowCache: if C{True} the FB cache will be used, otherwise it will never be used
     """
 
     # First check the privilege on this collection
@@ -178,12 +180,12 @@ def generateFreeBusyInfo(
             rich_options["resource"] = True
 
     # Try cache
-    resources = (yield FBCacheEntry.getCacheEntry(calresource, attendee_uid, timerange)) if config.EnableFreeBusyCache else None
+    resources = (yield FBCacheEntry.getCacheEntry(calresource, attendee_uid, timerange)) if config.EnableFreeBusyCache and allowCache else None
 
     if resources is None:
 
         if accountingItems is not None:
-            accountingItems["fb-uncached"] = accountingItems.get("fb-uncached", 0) + 1
+            accountingItems["fb-cached"] = False
 
         caching = False
         if config.EnableFreeBusyCache:
@@ -233,7 +235,7 @@ def generateFreeBusyInfo(
 
     else:
         if accountingItems is not None:
-            accountingItems["fb-cached"] = accountingItems.get("fb-cached", 0) + 1
+            accountingItems["fb-cached"] = True
 
         # Log extended item
         if logItems is not None:
