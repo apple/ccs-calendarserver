@@ -90,7 +90,12 @@ class IMIPPollingWork(RegeneratingWorkItem, fromTable(schema.IMIP_POLLING_WORK))
         Return the interval in seconds between regenerating instances.
         """
         mailRetriever = self.transaction._mailRetriever
-        return mailRetriever.settings["PollingSeconds"]
+        if mailRetriever is not None:
+            return mailRetriever.settings["PollingSeconds"]
+
+        # The lack of mailRetriever means IMIP polling is turned off.
+        # Returning None will cause this work item to no longer be scheduled.
+        return None
 
 
     @inlineCallbacks
