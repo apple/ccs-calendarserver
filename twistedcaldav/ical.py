@@ -3501,16 +3501,16 @@ END:VCALENDAR
             # remove attendee or update MEMBER attribute for non-primary attendees in this group,
             for attendeeProp in oldAttendeeProps:
                 if attendeeProp.hasParameter("MEMBER"):
-                    parameterValues = tuple(attendeeProp.parameterValues("MEMBER"))
-                    if groupCUA in parameterValues:
+                    memberValues = attendeeProp.parameterValues("MEMBER")
+                    if groupCUA in tuple(memberValues):
                         if attendeeProp.value() not in memberCUAs:
-                            attendeeProp.removeParameterValue("MEMBER", groupCUA)
-                            if not attendeeProp.parameterValues("MEMBER"):
+                            memberValues.remove(groupCUA)
+                            if len(memberValues) == 0:
                                 component.removeProperty(attendeeProp)
                             changed = True
                     else:
                         if attendeeProp.value() in memberCUAs:
-                            attendeeProp.setParameter("MEMBER", parameterValues + (groupCUA,))
+                            memberValues.append(groupCUA)
                             changed = True
 
         return changed
@@ -3537,10 +3537,10 @@ END:VCALENDAR
                     attendeeCUA = attendeeProp.value()
                     if attendeeCUA in allMemberCUAs:
                         # remove orphan member values
-                        parameterValues = tuple(attendeeProp.parameterValues("MEMBER"))
-                        for orphanGroupCUA in set(parameterValues) - nonemptyGroupCUAs:
-                            attendeeProp.removeParameterValue("MEMBER", orphanGroupCUA)
-                            if not attendeeProp.parameterValues("MEMBER"):
+                        memberValues = attendeeProp.parameterValues("MEMBER")
+                        for orphanGroupCUA in set(memberValues) - nonemptyGroupCUAs:
+                            memberValues.remove(orphanGroupCUA)
+                            if len(memberValues) == 0:
                                 component.removeProperty(attendeeProp)
                             changed = True
                     else:

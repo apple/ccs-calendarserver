@@ -23,7 +23,7 @@ from twisted.internet.defer import inlineCallbacks, succeed
 
 from twistedcaldav.dateops import normalizeForExpand
 from twistedcaldav.ical import Component, Property, InvalidICalendarDataError, \
-    normalizeCUAddress, normalize_iCalStr
+    normalizeCUAddress, normalize_iCalStr, diff_iCalStrs
 from twistedcaldav.ical import iCalendarProductID
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 import twistedcaldav.test.util
@@ -11082,3 +11082,470 @@ END:VCALENDAR
             component = Component.fromString(txt).mainComponent()
             transp = component.adjustedTransp()
             self.assertEqual(transp, result, msg=title)
+
+
+    def test_reconcileGroupAttendees(self):
+        """
+        reconcileGroupAttendees()
+        """
+
+        data = (
+            (
+                "No change",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;VALUE=DATE:20080601
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ORGANIZER:mailto:user01@example.com
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;VALUE=DATE:20080601
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ORGANIZER:mailto:user01@example.com
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                {},
+                False,
+            ),
+            (
+                "Empty group",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;VALUE=DATE:20080601
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE;CUTYPE=X-SERVER-GROUP:urn:uuid:group01
+ORGANIZER:mailto:user01@example.com
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;VALUE=DATE:20080601
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE;CUTYPE=X-SERVER-GROUP:urn:uuid:group01
+ORGANIZER:mailto:user01@example.com
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                {"urn:uuid:group01": ()},
+                False,
+            ),
+            (
+                "One new member",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;VALUE=DATE:20080601
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE;CUTYPE=X-SERVER-GROUP:urn:uuid:group01
+ORGANIZER:mailto:user01@example.com
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;VALUE=DATE:20080601
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE;CUTYPE=X-SERVER-GROUP:urn:uuid:group01
+ATTENDEE;MEMBER="urn:uuid:group01":mailto:user03@example.com
+ORGANIZER:mailto:user01@example.com
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                {
+                    "urn:uuid:group01": (
+                        Property("ATTENDEE", "mailto:user03@example.com", {"MEMBER": "urn:uuid:group01"}),
+                    )
+                },
+                True,
+            ),
+            (
+                "One existing member",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;VALUE=DATE:20080601
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE;CUTYPE=X-SERVER-GROUP:urn:uuid:group01
+ATTENDEE;MEMBER="urn:uuid:group01":mailto:user03@example.com
+ORGANIZER:mailto:user01@example.com
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;VALUE=DATE:20080601
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE;CUTYPE=X-SERVER-GROUP:urn:uuid:group01
+ATTENDEE;MEMBER="urn:uuid:group01":mailto:user03@example.com
+ORGANIZER:mailto:user01@example.com
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                {
+                    "urn:uuid:group01": (
+                        Property("ATTENDEE", "mailto:user03@example.com", {"MEMBER": "urn:uuid:group01"}),
+                    )
+                },
+                False,
+            ),
+            (
+                "One removed member",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;VALUE=DATE:20080601
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE;CUTYPE=X-SERVER-GROUP:urn:uuid:group01
+ATTENDEE;MEMBER="urn:uuid:group01":mailto:user03@example.com
+ORGANIZER:mailto:user01@example.com
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;VALUE=DATE:20080601
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE;CUTYPE=X-SERVER-GROUP:urn:uuid:group01
+ORGANIZER:mailto:user01@example.com
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                {"urn:uuid:group01": ()},
+                True,
+            ),
+            (
+                "Two members: one existing, one new",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;VALUE=DATE:20080601
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE;CUTYPE=X-SERVER-GROUP:urn:uuid:group01
+ATTENDEE;MEMBER="urn:uuid:group01":mailto:user03@example.com
+ORGANIZER:mailto:user01@example.com
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;VALUE=DATE:20080601
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE;CUTYPE=X-SERVER-GROUP:urn:uuid:group01
+ATTENDEE;MEMBER="urn:uuid:group01":mailto:user03@example.com
+ATTENDEE;MEMBER="urn:uuid:group01":mailto:user04@example.com
+ORGANIZER:mailto:user01@example.com
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                {
+                    "urn:uuid:group01": (
+                        Property("ATTENDEE", "mailto:user03@example.com", {"MEMBER": "urn:uuid:group01"}),
+                        Property("ATTENDEE", "mailto:user04@example.com", {"MEMBER": "urn:uuid:group01"}),
+                    )
+                },
+                True,
+            ),
+            (
+                "Two existing members",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;VALUE=DATE:20080601
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE;CUTYPE=X-SERVER-GROUP:urn:uuid:group01
+ATTENDEE;MEMBER="urn:uuid:group01":mailto:user03@example.com
+ATTENDEE;MEMBER="urn:uuid:group01":mailto:user04@example.com
+ORGANIZER:mailto:user01@example.com
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;VALUE=DATE:20080601
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE;CUTYPE=X-SERVER-GROUP:urn:uuid:group01
+ATTENDEE;MEMBER="urn:uuid:group01":mailto:user03@example.com
+ATTENDEE;MEMBER="urn:uuid:group01":mailto:user04@example.com
+ORGANIZER:mailto:user01@example.com
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                {
+                    "urn:uuid:group01": (
+                        Property("ATTENDEE", "mailto:user03@example.com", {"MEMBER": "urn:uuid:group01"}),
+                        Property("ATTENDEE", "mailto:user04@example.com", {"MEMBER": "urn:uuid:group01"}),
+                    )
+                },
+                False,
+            ),
+            (
+                "One existing, one removed member",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;VALUE=DATE:20080601
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE;CUTYPE=X-SERVER-GROUP:urn:uuid:group01
+ATTENDEE;MEMBER="urn:uuid:group01":mailto:user03@example.com
+ATTENDEE;MEMBER="urn:uuid:group01":mailto:user04@example.com
+ORGANIZER:mailto:user01@example.com
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;VALUE=DATE:20080601
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE;CUTYPE=X-SERVER-GROUP:urn:uuid:group01
+ATTENDEE;MEMBER="urn:uuid:group01":mailto:user04@example.com
+ORGANIZER:mailto:user01@example.com
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                {
+                    "urn:uuid:group01": (
+                        Property("ATTENDEE", "mailto:user04@example.com", {"MEMBER": "urn:uuid:group01"}),
+                    )
+                },
+                True,
+            ),
+            (
+                "Member with removed group",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;VALUE=DATE:20080601
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE;MEMBER="urn:uuid:group01":mailto:user03@example.com
+ORGANIZER:mailto:user01@example.com
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;VALUE=DATE:20080601
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ORGANIZER:mailto:user01@example.com
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                {},
+                True,
+            ),
+            (
+                "Member with removed group added to another",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;VALUE=DATE:20080601
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE;CUTYPE=X-SERVER-GROUP:urn:uuid:group02
+ATTENDEE;MEMBER="urn:uuid:group01":mailto:user03@example.com
+ORGANIZER:mailto:user01@example.com
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;VALUE=DATE:20080601
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE;CUTYPE=X-SERVER-GROUP:urn:uuid:group02
+ATTENDEE;MEMBER="urn:uuid:group02":mailto:user03@example.com
+ORGANIZER:mailto:user01@example.com
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                {
+                    "urn:uuid:group02": (
+                        Property("ATTENDEE", "mailto:user03@example.com", {"MEMBER": "urn:uuid:group01"}),
+                    )
+                },
+                True,
+            ),
+            (
+                "Member with removed group in another",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;VALUE=DATE:20080601
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE;CUTYPE=X-SERVER-GROUP:urn:uuid:group02
+ATTENDEE;MEMBER="urn:uuid:group01","urn:uuid:group02":mailto:user03@example.com
+ORGANIZER:mailto:user01@example.com
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;VALUE=DATE:20080601
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+ATTENDEE;CUTYPE=X-SERVER-GROUP:urn:uuid:group02
+ATTENDEE;MEMBER="urn:uuid:group02":mailto:user03@example.com
+ORGANIZER:mailto:user01@example.com
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+""",
+                {
+                    "urn:uuid:group02": (
+                        Property("ATTENDEE", "mailto:user03@example.com", {"MEMBER": "urn:uuid:group01"}),
+                    )
+                },
+                True,
+            ),
+        )
+
+        for title, txt, txt_result, propMap, changed in data:
+            cal = Component.fromString(txt)
+            result = cal.reconcileGroupAttendees(propMap)
+            self.assertEqual(result, changed, msg="{}: {}".format(title, "Result mismatch"))
+            self.assertEqual(normalize_iCalStr(cal), normalize_iCalStr(txt_result), msg="{}:{}".format(title, diff_iCalStrs(cal, txt_result)))
