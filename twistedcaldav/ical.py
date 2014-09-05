@@ -3479,7 +3479,7 @@ END:VCALENDAR
                 yield component.normalizeCalendarUserAddresses(lookupFunction, recordFunction, toCanonical)
 
 
-    def _reconcileGroupAttendee(self, groupCUA, memberAtttendeeProps):
+    def _reconcileGroupAttendee(self, groupCUA, memberAttendeeProps):
 
         changed = False
         for component in self.subcomponents():
@@ -3491,7 +3491,7 @@ END:VCALENDAR
 
             # add new member attendees
             memberCUAs = set()
-            for newAttendeeProp in memberAtttendeeProps:
+            for newAttendeeProp in memberAttendeeProps:
                 memberCUA = newAttendeeProp.value()
                 if memberCUA not in oldAttendeeCUAs:
                     component.addProperty(newAttendeeProp)
