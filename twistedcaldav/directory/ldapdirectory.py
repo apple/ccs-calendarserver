@@ -550,6 +550,9 @@ class LdapDirectoryService(CachingDirectoryService):
             except ldap.FILTER_ERROR, e:
                 self.log.error("LDAP filter error: %s %s" % (e, filterstr))
                 return []
+            except ldap.INVALID_SYNTAX, e:
+                self.log.error("LDAP invalid syntax: %s %s" % (e, filterstr))
+                return []
             except ldap.SIZELIMIT_EXCEEDED, e:
                 self.log.debug("LDAP result limit exceeded: %d" % (resultLimit,))
             except ldap.TIMELIMIT_EXCEEDED, e:
