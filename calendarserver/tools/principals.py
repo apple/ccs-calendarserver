@@ -36,6 +36,7 @@ from txdav.who.delegates import (
     addDelegate, removeDelegate, RecordType as DelegateRecordType
 )
 from txdav.who.idirectory import AutoScheduleMode
+from txdav.who.groups import GroupCacherPollingWork
 
 
 allowedAutoScheduleModes = {
@@ -94,6 +95,7 @@ def usage(e=None):
     print("  --get-street-address: get the street address string for an address")
     print("  --set-address=guid: associate principal with an address (by guid)")
     print("  --get-address: get the associated address's guid")
+    print("  --refresh-groups: schedule a group membership refresh")
 
     if e:
         sys.exit(64)
@@ -150,6 +152,7 @@ def main():
                 "get-address",
                 "set-street-address=",
                 "get-street-address",
+                "refresh-groups",
                 "verbose",
             ],
         )
@@ -165,6 +168,7 @@ def main():
     listPrincipals = None
     searchPrincipals = None
     printGroupInfo = False
+    scheduleGroupRefresh = False
     principalActions = []
     verbose = False
 
@@ -193,6 +197,9 @@ def main():
 
         elif opt in ("", "--print-group-info"):
             printGroupInfo = True
+
+        elif opt in ("", "--refresh-groups"):
+            scheduleGroupRefresh = True
 
         elif opt in ("", "--list-principals"):
             listPrincipals = arg
@@ -277,6 +284,10 @@ def main():
 
     elif printGroupInfo:
         function = printGroupCacherInfo
+        params = ()
+
+    elif scheduleGroupRefresh:
+        function = scheduleGroupRefreshJob
         params = ()
 
     elif addType:
@@ -832,6 +843,18 @@ def printGroupCacherInfo(service, store):
         print("Last cached: {} GMT".format(modified))
         print()
 
+    yield txn.commit()
+
+
+
+@inlineCallbacks
+def scheduleGroupRefreshJob(service, store):
+    """
+    Schedule GroupCacherPollingWork
+    """
+    txn = store.newTransaction()
+    print("Scheduling a group refresh")
+    yield GroupCacherPollingWork.reschedule(txn, 0, force=True)
     yield txn.commit()
 
 
