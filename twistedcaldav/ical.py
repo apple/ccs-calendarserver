@@ -3494,6 +3494,7 @@ END:VCALENDAR
             for newAttendeeProp in memberAttendeeProps:
                 memberCUA = newAttendeeProp.value()
                 if memberCUA not in oldAttendeeCUAs:
+                    log.debug("Group reconciliation: Adding {m} ({g})", m=memberCUA, g=groupCUA)
                     component.addProperty(newAttendeeProp)
                     changed = True
                 memberCUAs.add(memberCUA)
@@ -3507,6 +3508,7 @@ END:VCALENDAR
                             memberValues.remove(groupCUA)
                             if len(memberValues) == 0:
                                 component.removeProperty(attendeeProp)
+                                log.debug("Group reconciliation: removing {a} ({g})", a=attendeeProp.value(), g=groupCUA)
                             changed = True
                     else:
                         if attendeeProp.value() in memberCUAs:
