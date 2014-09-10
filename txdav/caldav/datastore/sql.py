@@ -2349,6 +2349,23 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
+    def groupEventLinks(self):
+        """
+        Return the current group event links for this resource.
+
+        @return: a L{dict} with group ids as the key and membership hash as the value
+        @rtype: L{dict}
+        """
+        ga = schema.GROUP_ATTENDEE
+        rows = yield Select(
+            [ga.GROUP_ID, ga.MEMBERSHIP_HASH],
+            From=ga,
+            Where=ga.RESOURCE_ID == self._resourceID,
+        ).on(self._txn)
+        returnValue(dict(rows))
+
+
+    @inlineCallbacks
     def updateEventGroupLink(self, groupCUAToAttendeeMemberPropMap=None):
         """
         update schema.GROUP_ATTENDEE
@@ -2360,13 +2377,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 returnValue(False)
 
         changed = False
-        ga = schema.GROUP_ATTENDEE
-        rows = yield Select(
-            [ga.GROUP_ID, ga.MEMBERSHIP_HASH],
-            From=ga,
-            Where=ga.RESOURCE_ID == self._resourceID,
-        ).on(self._txn)
-        groupIDToMembershipHashMap = dict(rows)
+        groupIDToMembershipHashMap = (yield self.groupEventLinks())
 
         for groupCUA in groupCUAToAttendeeMemberPropMap:
             groupRecord = yield self.directoryService().recordWithCalendarUserAddress(groupCUA)
@@ -2379,6 +2390,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 _ignore_extant
             ) = yield self._txn.groupByUID(groupUID)
 
+            ga = schema.GROUP_ATTENDEE
             if groupID in groupIDToMembershipHashMap:
                 if groupIDToMembershipHashMap[groupID] != membershipHash:
                     yield Update(
@@ -2416,38 +2428,52 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
     @inlineCallbacks
     def removeOldEventGroupLink(self, component, instances, inserting, txn):
+        """
+        Check to see if the calendar event has any instances ongoing into the future (past
+        a cut-off value in the future - default 1 hour). If there are no ongoing instances,
+        then "decouple" this resource from the automatic group reconciliation process as
+        past events should only show the group membership as it existed at the time.
+
+        @param component: the iCalendar data to process
+        @type component: L{Component}
+        @param instances: list of instances
+        @type instances: L{InstanceList} or L{None}
+        @param inserting: whether or not the resource is being created
+        @type inserting: L{bool}
+        @param txn: transaction to use
+        @type txn: L{Transaction}
+        """
 
         isOldEventWithGroupAttendees = False
 
         # If this event is old, break possible tie to group update
         if hasattr(self, "_groupCUAToAttendeeMemberPropMap"):
 
-            if (component.masterComponent() is None or not component.isRecurring()):
-                cutoffDate_datatime = (
-                    datetime.datetime.utcnow() +
-                    datetime.timedelta(seconds=config.GroupAttendees.UpdateOldEventLimitSeconds)
+            # If we were not provided with any instances, then expand the component to check
+            if instances is None:
+                # Do an expansion out to the cut-off and then check to see if there
+                # are still instances beyond that
+                expand = (DateTime.getNowUTC() +
+                          Duration(seconds=config.GroupAttendees.AutoUpdateSecondsFromNow))
+
+                instances = component.expandTimeRanges(
+                    expand,
+                    lowerLimit=None,
+                    ignoreInvalidInstances=True
                 )
-                tr = schema.TIME_RANGE
-                rows = yield Select(
-                    [Count(tr.CALENDAR_OBJECT_RESOURCE_ID)],
-                    From=tr,
-                    Where=(
-                        tr.CALENDAR_OBJECT_RESOURCE_ID == self._resourceID).And(
-                        tr.END_DATE > cutoffDate_datatime
-                    ),
-                ).on(txn)
-                isOldEventWithGroupAttendees = rows[0][0] == 0
+
+                isOldEventWithGroupAttendees = instances.limit is None
+
+            elif len(instances.instances):
+                cutoffDate_DateTime = (
+                    DateTime.getNowUTC() +
+                    Duration(seconds=config.GroupAttendees.AutoUpdateSecondsFromNow)
+                )
+                maxInstanceKey = sorted(instance for instance in instances)[-1]
+                isOldEventWithGroupAttendees = instances[maxInstanceKey].start < cutoffDate_DateTime and instances.limit is None
 
             else:
-                if instances and len(instances.instances):
-                    cutoffDate_DateTime = (
-                        DateTime.getNowUTC() +
-                        Duration(seconds=config.GroupAttendees.UpdateOldEventLimitSeconds)
-                    )
-                    maxInstanceKey = sorted(instance for instance in instances)[-1]
-                    isOldEventWithGroupAttendees = cutoffDate_DateTime > instances[maxInstanceKey].end
-                else:
-                    isOldEventWithGroupAttendees = True
+                isOldEventWithGroupAttendees = instances.limit is None
 
             if isOldEventWithGroupAttendees:
                 if inserting:
@@ -2462,6 +2488,65 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     ).on(txn)
 
         returnValue(isOldEventWithGroupAttendees)
+
+
+    @inlineCallbacks
+    def groupAttendeeChanged(self, groupID):
+        """
+        One or more group attendee membership lists have changed, so sync up with those
+        changes. This might involve splitting the event if there are past instances of
+        a recurring event, since we don't want the attendee list in the past instances
+        to change.
+        """
+        component = yield self.componentForUser()
+
+        # Change a copy of the original, as we need the original cached on the resource
+        # so we can do a diff to test implicit scheduling changes
+        component = component.duplicate()
+
+        # sync group attendees
+        if (yield self.reconcileGroupAttendees(component)):
+
+            # Group attendees in the event have changed
+
+            # Do not reconcile events entirely in the past
+            if (
+                yield self.removeOldEventGroupLink(
+                    component,
+                    instances=None,
+                    inserting=False,
+                    txn=self._txn
+                )
+            ):
+                returnValue(None)
+
+            # For recurring events we split the event so past instances are not reconciled
+            if component.masterComponent() is not None and component.isRecurring():
+                splitter = iCalSplitter(0, 0)
+                break_point = DateTime.getToday() + Duration(seconds=config.GroupAttendees.AutoUpdateSecondsFromNow)
+                rid = splitter.whereSplit(component, break_point=break_point)
+                if rid is not None:
+                    yield self.split(onlyThis=True, rid=rid)
+
+                    # remove group link to ensure update (update to unknown hash would work too)
+                    # FIXME: its possible that more than one group id gets updated during this single work item, so we
+                    # need to make sure that ALL the group_id's are removed by this query.
+                    ga = schema.GROUP_ATTENDEE
+                    yield Delete(
+                        From=ga,
+                        Where=(ga.RESOURCE_ID == self._resourceID).And(
+                            ga.GROUP_ID == groupID
+                        )
+                    ).on(self._txn)
+
+                    # update group attendee in remaining component
+                    component = yield self.componentForUser()
+                    component = component.duplicate()
+                    yield self.reconcileGroupAttendees(component)
+                    yield self._setComponentInternal(component, inserting=False, internal_state=ComponentUpdateState.SPLIT_OWNER)
+                    returnValue(None)
+
+            yield self.setComponent(component)
 
 
     def validCalendarDataCheck(self, component, inserting):

@@ -58,7 +58,7 @@ class GroupAttendeeTestBase(CommonCommonTests, unittest.TestCase):
         super(GroupAttendeeTestBase, self).configure()
         config.GroupAttendees.Enabled = True
         config.GroupAttendees.ReconciliationDelaySeconds = 0
-        config.GroupAttendees.UpdateOldEventLimitSeconds = 0
+        config.GroupAttendees.AutoUpdateSecondsFromNow = 0
 
 
     @inlineCallbacks

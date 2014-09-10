@@ -27,6 +27,7 @@ from txweb2 import responsecode
 from txweb2.http_headers import MimeType
 from txweb2.stream import MemoryStream
 
+from twisted.python.filepath import FilePath
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, DeferredList, \
     succeed
@@ -74,6 +75,7 @@ from twext.enterprise.ienterprise import AlreadyFinishedError
 from twext.enterprise.jobqueue import JobItem
 
 import datetime
+import os
 
 
 class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
@@ -7756,3 +7758,932 @@ END:VCALENDAR
         yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
 
         self.assertEqual(self.trcount, 6)
+
+
+
+class GroupExpand(CommonCommonTests, unittest.TestCase):
+    """
+    CalendarObject group attendee expansion.
+    """
+
+    @inlineCallbacks
+    def setUp(self):
+        yield super(GroupExpand, self).setUp()
+
+        accountsFilePath = FilePath(
+            os.path.join(os.path.dirname(__file__), "accounts")
+        )
+        yield self.buildStoreAndDirectory(
+            accounts=accountsFilePath.child("groupAttendeeAccounts.xml"),
+        )
+
+        yield self.populate()
+
+        now = DateTime.getNowUTC()
+        now.setDateOnly(True)
+        past1 = now.duplicate()
+        past1.offsetDay(-1)
+        past2 = now.duplicate()
+        past2.offsetDay(-2)
+        past400 = now.duplicate()
+        past400.offsetDay(-400)
+        now1 = now.duplicate()
+        now1.offsetDay(1)
+        now2 = now.duplicate()
+        now2.offsetDay(2)
+        self.subs = {
+            "now": now,
+            "past1": past1,
+            "past2": past2,
+            "past400": past400,
+            "now1": now1,
+            "now2": now2,
+        }
+
+
+    @inlineCallbacks
+    def populate(self):
+        yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
+        self.notifierFactory.reset()
+
+
+    @property
+    def requirements(self):
+        return {
+            "user01": {
+                "calendar": {},
+                "inbox": {},
+            },
+            "user02": {
+                "calendar": {},
+                "inbox": {},
+            },
+            "user03": {
+                "calendar": {},
+                "inbox": {},
+            },
+        }
+
+
+    @inlineCallbacks
+    def test_expand_insert(self):
+        """
+        Test that creating an event with a group attendee triggers expansion.
+        """
+
+        event = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+UID:uid1
+DTSTART:{now1}T120000Z
+DURATION:PT1H
+SUMMARY:New Event
+DTSTAMP:20100203T013909Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:urn:x-uid:group01
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        result = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:uid1
+DTSTAMP:20100203T013909Z
+DTSTART:{now1}T120000Z
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
+SUMMARY:New Event
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        # PUT causes expansion
+        cal = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(event))
+        yield self.commit()
+
+        calobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        comp = yield calobj.componentForUser()
+        self.assertEqual(normalize_iCalStr(comp), normalize_iCalStr(result), msg=diff_iCalStrs(comp, result))
+
+        links = yield calobj.groupEventLinks()
+        self.assertEqual(len(links), 1)
+
+
+    @inlineCallbacks
+    def test_expand_update_new(self):
+        """
+        Test that updating an event with a new group attendee triggers expansion, both with
+        and without a time range change.
+        """
+        event1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+UID:uid1
+DTSTART:{now1}T120000Z
+DURATION:PT1H
+SUMMARY:New Event
+DTSTAMP:20100203T013909Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        event2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+UID:uid1
+DTSTART:{now1}T120000Z
+DURATION:PT1H
+SUMMARY:New Event
+DTSTAMP:20100203T013909Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:urn:x-uid:group01
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        result = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:uid1
+DTSTAMP:20100203T013909Z
+DTSTART:{now1}T120000Z
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
+SEQUENCE:1
+SUMMARY:New Event
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        # PUT does not cause expansion
+        cal = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(event1))
+        yield self.commit()
+
+        calobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        links = yield calobj.groupEventLinks()
+        self.assertEqual(len(links), 0)
+        yield self.commit()
+
+        # PUT causes expansion
+        calobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        yield calobj.setComponent(Component.fromString(event2))
+        yield self.commit()
+
+        calobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        comp = yield calobj.componentForUser()
+        self.assertEqual(normalize_iCalStr(comp), normalize_iCalStr(result), msg=diff_iCalStrs(comp, result))
+
+        links = yield calobj.groupEventLinks()
+        self.assertEqual(len(links), 1)
+
+
+    @inlineCallbacks
+    def test_expand_update_existing(self):
+        """
+        Test that updating an event with an existing group attendee leaves expansion in place,
+        both with and without a time range change.
+        """
+        event1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+UID:uid1
+DTSTART:{now1}T120000Z
+DURATION:PT1H
+SUMMARY:New Event
+DTSTAMP:20100203T013909Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:urn:x-uid:group01
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        event2 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:uid1
+DTSTAMP:20100203T013909Z
+DTSTART:{now1}T120000Z
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
+SEQUENCE:1
+SUMMARY:New Event #2
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        event3 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:uid1
+DTSTAMP:20100203T013909Z
+DTSTART:{now1}T130000Z
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
+SEQUENCE:1
+SUMMARY:New Event #2
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        result = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:uid1
+DTSTAMP:20100203T013909Z
+DTSTART:{now1}T130000Z
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
+SEQUENCE:2
+SUMMARY:New Event #2
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        # PUT causes expansion
+        cal = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(event1))
+        yield self.commit()
+
+        calobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        links = yield calobj.groupEventLinks()
+        self.assertEqual(len(links), 1)
+        yield self.commit()
+
+        # PUT expansion done - no time-range change
+        calobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        yield calobj.setComponent(Component.fromString(event2))
+        yield self.commit()
+
+        calobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        links = yield calobj.groupEventLinks()
+        self.assertEqual(len(links), 1)
+
+        # PUT expansion done - time-range change
+        calobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        yield calobj.setComponent(Component.fromString(event3))
+        yield self.commit()
+
+        calobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        comp = yield calobj.componentForUser()
+        self.assertEqual(normalize_iCalStr(comp), normalize_iCalStr(result), msg=diff_iCalStrs(comp, result))
+
+        links = yield calobj.groupEventLinks()
+        self.assertEqual(len(links), 1)
+
+
+    @inlineCallbacks
+    def test_expand_insert_recurring(self):
+        """
+        Test that creating an event with a group attendee triggers expansion.
+        """
+
+        event = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+UID:uid1
+DTSTART:{now1}T120000Z
+DURATION:PT1H
+SUMMARY:New Event
+DTSTAMP:20100203T013909Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:urn:x-uid:group01
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        result = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:uid1
+DTSTAMP:20100203T013909Z
+DTSTART:{now1}T120000Z
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
+RRULE:FREQ=DAILY
+SUMMARY:New Event
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        # PUT causes expansion
+        cal = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(event))
+        yield self.commit()
+
+        calobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        comp = yield calobj.componentForUser()
+        self.assertEqual(normalize_iCalStr(comp), normalize_iCalStr(result), msg=diff_iCalStrs(comp, result))
+
+        links = yield calobj.groupEventLinks()
+        self.assertEqual(len(links), 1)
+
+
+    @inlineCallbacks
+    def test_expand_update_new_recurring(self):
+        """
+        Test that updating an event with a new group attendee triggers expansion, both with
+        and without a time range change.
+        """
+        event1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+UID:uid1
+DTSTART:{now1}T120000Z
+DURATION:PT1H
+SUMMARY:New Event
+DTSTAMP:20100203T013909Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        event2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+UID:uid1
+DTSTART:{now1}T120000Z
+DURATION:PT1H
+SUMMARY:New Event
+DTSTAMP:20100203T013909Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:urn:x-uid:group01
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        result = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:uid1
+DTSTAMP:20100203T013909Z
+DTSTART:{now1}T120000Z
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
+RRULE:FREQ=DAILY
+SEQUENCE:1
+SUMMARY:New Event
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        # PUT does not cause expansion
+        cal = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(event1))
+        yield self.commit()
+
+        calobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        links = yield calobj.groupEventLinks()
+        self.assertEqual(len(links), 0)
+        yield self.commit()
+
+        # PUT causes expansion
+        calobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        yield calobj.setComponent(Component.fromString(event2))
+        yield self.commit()
+
+        calobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        comp = yield calobj.componentForUser()
+        self.assertEqual(normalize_iCalStr(comp), normalize_iCalStr(result), msg=diff_iCalStrs(comp, result))
+
+        links = yield calobj.groupEventLinks()
+        self.assertEqual(len(links), 1)
+
+
+    @inlineCallbacks
+    def test_expand_update_existing_recurring(self):
+        """
+        Test that updating an event with an existing group attendee leaves expansion in place,
+        both with and without a time range change.
+        """
+        event1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+UID:uid1
+DTSTART:{now1}T120000Z
+DURATION:PT1H
+SUMMARY:New Event
+DTSTAMP:20100203T013909Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:urn:x-uid:group01
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        event2 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:uid1
+DTSTAMP:20100203T013909Z
+DTSTART:{now1}T120000Z
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
+RRULE:FREQ=DAILY
+SEQUENCE:1
+SUMMARY:New Event #2
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        event3 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:uid1
+DTSTAMP:20100203T013909Z
+DTSTART:{now1}T130000Z
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
+RRULE:FREQ=DAILY
+SEQUENCE:1
+SUMMARY:New Event #2
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        result = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:uid1
+DTSTAMP:20100203T013909Z
+DTSTART:{now1}T130000Z
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
+RRULE:FREQ=DAILY
+SEQUENCE:2
+SUMMARY:New Event #2
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        # PUT causes expansion
+        cal = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(event1))
+        yield self.commit()
+
+        calobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        links = yield calobj.groupEventLinks()
+        self.assertEqual(len(links), 1)
+        yield self.commit()
+
+        # PUT expansion done - no time-range change
+        calobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        yield calobj.setComponent(Component.fromString(event2))
+        yield self.commit()
+
+        calobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        links = yield calobj.groupEventLinks()
+        self.assertEqual(len(links), 1)
+
+        # PUT expansion done - time-range change
+        calobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        yield calobj.setComponent(Component.fromString(event3))
+        yield self.commit()
+
+        calobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        comp = yield calobj.componentForUser()
+        self.assertEqual(normalize_iCalStr(comp), normalize_iCalStr(result), msg=diff_iCalStrs(comp, result))
+
+        links = yield calobj.groupEventLinks()
+        self.assertEqual(len(links), 1)
+
+
+    @inlineCallbacks
+    def test_expand_insert_past(self):
+        """
+        Test that creating an event with a group attendee triggers expansion.
+        """
+
+        event = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+UID:uid1
+DTSTART:{past1}T120000Z
+DURATION:PT1H
+SUMMARY:New Event
+DTSTAMP:20100203T013909Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:urn:x-uid:group01
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        result = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:uid1
+DTSTAMP:20100203T013909Z
+DTSTART:{past1}T120000Z
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
+SUMMARY:New Event
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        # PUT causes expansion
+        cal = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(event))
+        yield self.commit()
+
+        calobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        comp = yield calobj.componentForUser()
+        self.assertEqual(normalize_iCalStr(comp), normalize_iCalStr(result), msg=diff_iCalStrs(comp, result))
+
+        links = yield calobj.groupEventLinks()
+        self.assertEqual(len(links), 0)
+
+
+    @inlineCallbacks
+    def test_expand_update_new_past(self):
+        """
+        Test that updating an event with a new group attendee triggers expansion, both with
+        and without a time range change.
+        """
+        event1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+UID:uid1
+DTSTART:{past1}T120000Z
+DURATION:PT1H
+SUMMARY:New Event
+DTSTAMP:20100203T013909Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        event2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+UID:uid1
+DTSTART:{past1}T120000Z
+DURATION:PT1H
+SUMMARY:New Event
+DTSTAMP:20100203T013909Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:urn:x-uid:group01
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        result = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:uid1
+DTSTAMP:20100203T013909Z
+DTSTART:{past1}T120000Z
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
+SEQUENCE:1
+SUMMARY:New Event
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        # PUT does not cause expansion
+        cal = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(event1))
+        yield self.commit()
+
+        calobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        links = yield calobj.groupEventLinks()
+        self.assertEqual(len(links), 0)
+        yield self.commit()
+
+        # PUT causes expansion
+        calobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        yield calobj.setComponent(Component.fromString(event2))
+        yield self.commit()
+
+        calobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        comp = yield calobj.componentForUser()
+        self.assertEqual(normalize_iCalStr(comp), normalize_iCalStr(result), msg=diff_iCalStrs(comp, result))
+
+        links = yield calobj.groupEventLinks()
+        self.assertEqual(len(links), 0)
+
+
+    @inlineCallbacks
+    def test_expand_update_existing_past(self):
+        """
+        Test that updating an event with an existing group attendee leaves expansion in place,
+        both with and without a time range change.
+        """
+        event1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+UID:uid1
+DTSTART:{past1}T120000Z
+DURATION:PT1H
+SUMMARY:New Event
+DTSTAMP:20100203T013909Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:urn:x-uid:group01
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        event2 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:uid1
+DTSTAMP:20100203T013909Z
+DTSTART:{past1}T120000Z
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
+SEQUENCE:1
+SUMMARY:New Event #2
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        event3 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:uid1
+DTSTAMP:20100203T013909Z
+DTSTART:{past1}T130000Z
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
+SEQUENCE:1
+SUMMARY:New Event #2
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        result = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:uid1
+DTSTAMP:20100203T013909Z
+DTSTART:{past1}T130000Z
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
+SEQUENCE:2
+SUMMARY:New Event #2
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        # PUT causes expansion
+        cal = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(event1))
+        yield self.commit()
+
+        calobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        links = yield calobj.groupEventLinks()
+        self.assertEqual(len(links), 0)
+        yield self.commit()
+
+        # PUT expansion done - no time-range change
+        calobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        yield calobj.setComponent(Component.fromString(event2))
+        yield self.commit()
+
+        calobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        links = yield calobj.groupEventLinks()
+        self.assertEqual(len(links), 0)
+
+        # PUT expansion done - time-range change
+        calobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        yield calobj.setComponent(Component.fromString(event3))
+        yield self.commit()
+
+        calobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        comp = yield calobj.componentForUser()
+        self.assertEqual(normalize_iCalStr(comp), normalize_iCalStr(result), msg=diff_iCalStrs(comp, result))
+
+        links = yield calobj.groupEventLinks()
+        self.assertEqual(len(links), 0)
+
+
+    @inlineCallbacks
+    def test_expand_insert_recurrence_big_future_step(self):
+        """
+        Test that creating an event with a recurrence with one instance in the past and one in the distant
+        future is properly linked.
+        """
+
+        event = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+UID:uid1
+DTSTART:{past1}T120000Z
+DURATION:PT1H
+SUMMARY:New Event
+DTSTAMP:20100203T013909Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:urn:x-uid:group01
+RRULE:FREQ=YEARLY;INTERVAL=2
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        result = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:uid1
+DTSTAMP:20100203T013909Z
+DTSTART:{past1}T120000Z
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
+RRULE:FREQ=YEARLY;INTERVAL=2
+SUMMARY:New Event
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        # PUT causes expansion
+        cal = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(event))
+        yield self.commit()
+
+        calobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        comp = yield calobj.componentForUser()
+        self.assertEqual(normalize_iCalStr(comp), normalize_iCalStr(result), msg=diff_iCalStrs(comp, result))
+
+        links = yield calobj.groupEventLinks()
+        self.assertEqual(len(links), 1)
+
+
+    @inlineCallbacks
+    def test_expand_insert_recurrence_big_past_step(self):
+        """
+        Test that creating an event with a recurrence with one instance in the distant past and one in the distant
+        future is properly linked.
+        """
+
+        event = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+UID:uid1
+DTSTART:{past400}T120000Z
+DURATION:PT1H
+SUMMARY:New Event
+DTSTAMP:20100203T013909Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user01@example.com
+ATTENDEE:urn:x-uid:group01
+RRULE:FREQ=YEARLY;INTERVAL=4
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        result = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:uid1
+DTSTAMP:20100203T013909Z
+DTSTART:{past400}T120000Z
+DURATION:PT1H
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com;SCHEDULE-STATUS=2.7:urn:x-uid:group01
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:user02
+ORGANIZER;CN=User 01;EMAIL=user01@example.com:urn:x-uid:user01
+RRULE:FREQ=YEARLY;INTERVAL=4
+SUMMARY:New Event
+END:VEVENT
+END:VCALENDAR
+""".format(**self.subs)
+
+        # PUT causes expansion
+        cal = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield cal.createObjectResourceWithName("1.ics", Component.fromString(event))
+        yield self.commit()
+
+        calobj = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        comp = yield calobj.componentForUser()
+        self.assertEqual(normalize_iCalStr(comp), normalize_iCalStr(result), msg=diff_iCalStrs(comp, result))
+
+        links = yield calobj.groupEventLinks()
+        self.assertEqual(len(links), 1)

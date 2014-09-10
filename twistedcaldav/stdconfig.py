@@ -974,7 +974,7 @@ DEFAULT_CONFIG = {
     "GroupAttendees" : {
         "Enabled": True,
         "ReconciliationDelaySeconds" : 5,
-        "UpdateOldEventLimitSeconds" : 1 * 24 * 60 * 60,   # 1 day
+        "AutoUpdateSecondsFromNow" : 60 * 60,   # 1 hour
     },
 
     "AutomaticPurging": {
