@@ -32,7 +32,8 @@ from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.memcacher import Memcacher
 
 from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
-from txdav.caldav.datastore.scheduling.itip import iTipProcessing, iTIPRequestStatus
+from txdav.caldav.datastore.scheduling.itip import iTipProcessing, iTIPRequestStatus, \
+    iTipGenerator
 from txdav.caldav.datastore.scheduling.utils import getCalendarObjectForRecord
 
 import collections
@@ -1154,7 +1155,8 @@ class ImplicitProcessor(object):
         originator_calendar = (yield calendar_resource.componentForUser(self.originator.principal.uid))
 
         # Get attendee's view of that
-        originator_calendar.attendeesView((self.recipient.cuaddr,))
+        originator_calendar = originator_calendar.duplicate()
+        iTipGenerator.generateAttendeeView(originator_calendar, (self.recipient.cuaddr,), None)
 
         # Locate the attendee's copy of the event if it exists.
         recipient_resource = (yield getCalendarObjectForRecord(self.txn, self.recipient.principal, self.uid))

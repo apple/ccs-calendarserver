@@ -206,7 +206,10 @@ class iTipProcessing(object):
                     component = component.duplicate()
                     missingDeclined = iTipProcessing.transferItems(calendar, component, master_valarms, private_comments, transps, completeds, organizer_schedule_status, attendee_dtstamp, other_props, recipient, remove_matched=True)
                     if not missingDeclined:
+                        # Add the component and make sure to remove any matching EXDATE
                         calendar.addComponent(component)
+                        if current_master is not None:
+                            current_master.removeExdate(component.getRecurrenceIDUTC())
                         if recipient:
                             iTipProcessing.addTranspForNeedsAction((component,), recipient)
 
@@ -826,14 +829,32 @@ class iTipGenerator(object):
         itip.replaceProperty(Property("PRODID", iCalendarProductID))
         itip.addProperty(Property("METHOD", "REQUEST"))
 
+        return iTipGenerator.generateAttendeeView(itip, attendees, filter_rids)
+
+
+    @staticmethod
+    def generateAttendeeView(calendar, attendees, filter_rids):
+        """
+        Generate an attendee's view of an iCalendar object. The object might be an iTIP
+        message derived from the organizer's event, or it might be a copy of
+        the organizer's event itself. The later is used when "fixing" broken attendee
+        data that needs to be made to look consistent with the organizer's.
+
+        @param calendar: the calendar data to process
+        @type calendar: L{Component}
+        @param attendees: list of attendees to view for
+        @type attendees: L{list}
+        @param filter_rids: list of instances to include, of L{None} for all
+        @type filter_rids: L{list} or L{None}
+        """
         # Now filter out components that do not contain every attendee
-        itip.attendeesView(attendees, onlyScheduleAgentServer=True)
+        calendar.attendeesView(attendees, onlyScheduleAgentServer=True)
 
         # Now filter out components except the ones specified
-        if itip.filterComponents(filter_rids):
+        if calendar.filterComponents(filter_rids):
             # Strip out unwanted bits
-            iTipGenerator.prepareSchedulingMessage(itip)
-            return itip
+            iTipGenerator.prepareSchedulingMessage(calendar)
+            return calendar
 
         else:
             return None
