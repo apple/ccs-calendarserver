@@ -228,13 +228,14 @@ class DirectoryProxyAMPProtocol(amp.AMP):
 
     @RecordWithShortNameCommand.responder
     @inlineCallbacks
-    def recordWithShortName(self, recordType, shortName):
+    def recordWithShortName(self, recordType, shortName, timeoutSeconds=None):
         recordType = recordType  # keep as bytes
         shortName = shortName.decode("utf-8")
         log.debug("RecordWithShortName: {r} {n}", r=recordType, n=shortName)
         record = (yield self._directory.recordWithShortName(
-            self._directory.recordType.lookupByName(recordType), shortName)
-        )
+            self._directory.recordType.lookupByName(recordType), shortName,
+            timeoutSeconds=timeoutSeconds
+        ))
         fields = self.recordToDict(record)
         response = {
             "fields": pickle.dumps(fields),
@@ -245,11 +246,13 @@ class DirectoryProxyAMPProtocol(amp.AMP):
 
     @RecordWithUIDCommand.responder
     @inlineCallbacks
-    def recordWithUID(self, uid):
+    def recordWithUID(self, uid, timeoutSeconds=None):
         uid = uid.decode("utf-8")
         log.debug("RecordWithUID: {u}", u=uid)
         try:
-            record = (yield self._directory.recordWithUID(uid))
+            record = (yield self._directory.recordWithUID(
+                uid, timeoutSeconds=timeoutSeconds
+            ))
         except Exception as e:
             log.error("Failed in recordWithUID", error=e)
             record = None
@@ -263,10 +266,12 @@ class DirectoryProxyAMPProtocol(amp.AMP):
 
     @RecordWithGUIDCommand.responder
     @inlineCallbacks
-    def recordWithGUID(self, guid):
+    def recordWithGUID(self, guid, timeoutSeconds=None):
         guid = uuid.UUID(guid)
         log.debug("RecordWithGUID: {g}", g=guid)
-        record = (yield self._directory.recordWithGUID(guid))
+        record = (yield self._directory.recordWithGUID(
+            guid, timeoutSeconds=timeoutSeconds
+        ))
         fields = self.recordToDict(record)
         response = {
             "fields": pickle.dumps(fields),
@@ -277,12 +282,15 @@ class DirectoryProxyAMPProtocol(amp.AMP):
 
     @RecordsWithRecordTypeCommand.responder
     @inlineCallbacks
-    def recordsWithRecordType(self, recordType):
+    def recordsWithRecordType(
+        self, recordType, limitResults=None, timeoutSeconds=None
+    ):
         recordType = recordType  # as bytes
         log.debug("RecordsWithRecordType: {r}", r=recordType)
         records = (yield self._directory.recordsWithRecordType(
-            self._directory.recordType.lookupByName(recordType))
-        )
+            self._directory.recordType.lookupByName(recordType),
+            limitResults=limitResults, timeoutSeconds=timeoutSeconds
+        ))
         response = self._recordsToResponse(records)
         # log.debug("Responding with: {response}", response=response)
         returnValue(response)
@@ -290,10 +298,15 @@ class DirectoryProxyAMPProtocol(amp.AMP):
 
     @RecordsWithEmailAddressCommand.responder
     @inlineCallbacks
-    def recordsWithEmailAddress(self, emailAddress):
+    def recordsWithEmailAddress(
+        self, emailAddress, limitResults=None, timeoutSeconds=None
+    ):
         emailAddress = emailAddress.decode("utf-8")
         log.debug("RecordsWithEmailAddress: {e}", e=emailAddress)
-        records = (yield self._directory.recordsWithEmailAddress(emailAddress))
+        records = (yield self._directory.recordsWithEmailAddress(
+            emailAddress,
+            limitResults=limitResults, timeoutSeconds=timeoutSeconds
+        ))
         response = self._recordsToResponse(records)
         # log.debug("Responding with: {response}", response=response)
         returnValue(response)
@@ -301,11 +314,14 @@ class DirectoryProxyAMPProtocol(amp.AMP):
 
     @RecordsMatchingTokensCommand.responder
     @inlineCallbacks
-    def recordsMatchingTokens(self, tokens, context=None):
+    def recordsMatchingTokens(
+        self, tokens, context=None, limitResults=None, timeoutSeconds=None
+    ):
         tokens = [t.decode("utf-8") for t in tokens]
         log.debug("RecordsMatchingTokens: {t}", t=(", ".join(tokens)))
         records = yield self._directory.recordsMatchingTokens(
-            tokens, context=context
+            tokens, context=context,
+            limitResults=limitResults, timeoutSeconds=timeoutSeconds
         )
         response = self._recordsToResponse(records)
         # log.debug("Responding with: {response}", response=response)
@@ -314,7 +330,10 @@ class DirectoryProxyAMPProtocol(amp.AMP):
 
     @RecordsMatchingFieldsCommand.responder
     @inlineCallbacks
-    def recordsMatchingFields(self, fields, operand="OR", recordType=None):
+    def recordsMatchingFields(
+        self, fields, operand="OR", recordType=None,
+        limitResults=None, timeoutSeconds=None
+    ):
         log.debug("RecordsMatchingFields")
         newFields = []
         for fieldName, searchTerm, matchFlags, matchType in fields:
@@ -345,7 +364,8 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         if recordType:
             recordType = self._directory.recordType.lookupByName(recordType)
         records = yield self._directory.recordsMatchingFields(
-            newFields, operand=operand, recordType=recordType
+            newFields, operand=operand, recordType=recordType,
+            limitResults=limitResults, timeoutSeconds=timeoutSeconds
         )
         response = self._recordsToResponse(records)
         # log.debug("Responding with: {response}", response=response)

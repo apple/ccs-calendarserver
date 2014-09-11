@@ -121,19 +121,22 @@ class DirectoryService(BaseDirectoryService):
         return succeed(None)
 
 
-    def recordWithUID(self, uid):
+    def recordWithUID(self, uid, timeoutSeconds=None):
         if uid.startswith(self.uidPrefix):
             return self._recordWithName(uid[len(self.uidPrefix):])
         return succeed(None)
 
 
-    def recordWithShortName(self, recordType, shortName):
+    def recordWithShortName(self, recordType, shortName, timeoutSeconds=None):
         if recordType is RecordType.macOSXServerWiki:
             return self._recordWithName(shortName)
         return succeed(None)
 
 
-    def recordsFromExpression(self, expression, recordTypes=None, records=None):
+    def recordsFromExpression(
+        self, expression, recordTypes=None, records=None,
+        limitResults=None, timeoutSeconds=None
+    ):
         return succeed(())
 
 

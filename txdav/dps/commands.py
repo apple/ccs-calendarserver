@@ -21,6 +21,7 @@ class RecordWithShortNameCommand(amp.Command):
     arguments = [
         ('recordType', amp.String()),
         ('shortName', amp.String()),
+        ('timeoutSeconds', amp.Integer(optional=True)),
     ]
     response = [
         ('fields', amp.String()),
@@ -31,6 +32,7 @@ class RecordWithShortNameCommand(amp.Command):
 class RecordWithUIDCommand(amp.Command):
     arguments = [
         ('uid', amp.String()),
+        ('timeoutSeconds', amp.Integer(optional=True)),
     ]
     response = [
         ('fields', amp.String()),
@@ -41,6 +43,7 @@ class RecordWithUIDCommand(amp.Command):
 class RecordWithGUIDCommand(amp.Command):
     arguments = [
         ('guid', amp.String()),
+        ('timeoutSeconds', amp.Integer(optional=True)),
     ]
     response = [
         ('fields', amp.String()),
@@ -51,6 +54,8 @@ class RecordWithGUIDCommand(amp.Command):
 class RecordsWithRecordTypeCommand(amp.Command):
     arguments = [
         ('recordType', amp.String()),
+        ('limitResults', amp.Integer(optional=True)),
+        ('timeoutSeconds', amp.Integer(optional=True)),
     ]
     response = [
         ('items', amp.ListOf(amp.String())),
@@ -62,6 +67,8 @@ class RecordsWithRecordTypeCommand(amp.Command):
 class RecordsWithEmailAddressCommand(amp.Command):
     arguments = [
         ('emailAddress', amp.String()),
+        ('limitResults', amp.Integer(optional=True)),
+        ('timeoutSeconds', amp.Integer(optional=True)),
     ]
     response = [
         ('items', amp.ListOf(amp.String())),
@@ -85,6 +92,8 @@ class RecordsMatchingTokensCommand(amp.Command):
     arguments = [
         ('tokens', amp.ListOf(amp.String())),
         ('context', amp.String(optional=True)),
+        ('limitResults', amp.Integer(optional=True)),
+        ('timeoutSeconds', amp.Integer(optional=True)),
     ]
     response = [
         ('items', amp.ListOf(amp.String())),
@@ -98,6 +107,8 @@ class RecordsMatchingFieldsCommand(amp.Command):
         ('fields', amp.ListOf(amp.ListOf(amp.String()))),
         ('operand', amp.String()),
         ('recordType', amp.String(optional=True)),
+        ('limitResults', amp.Integer(optional=True)),
+        ('timeoutSeconds', amp.Integer(optional=True)),
     ]
     response = [
         ('items', amp.ListOf(amp.String())),

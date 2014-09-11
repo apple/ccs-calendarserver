@@ -230,7 +230,9 @@ class DirectoryPrincipalPropertySearchMixIn(object):
                 yield dir.recordsMatchingFields(
                     fields,
                     operand=operand,
-                    recordType=recordType
+                    recordType=recordType,
+                    limitResults=clientLimit,
+                    timeoutSeconds=10
                 )
             )
 
@@ -329,7 +331,12 @@ class DirectoryPrincipalPropertySearchMixIn(object):
         matchingResources = []
         matchcount = 0
 
-        records = (yield dir.recordsMatchingTokens(tokens, context=context))
+        records = (yield dir.recordsMatchingTokens(
+            tokens,
+            context=context,
+            limitResults=clientLimit,
+            timeoutSeconds=10
+        ))
 
         for record in records:
             resource = yield principalCollection.principalForRecord(record)

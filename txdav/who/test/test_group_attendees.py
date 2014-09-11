@@ -1459,7 +1459,7 @@ END:VCALENDAR"""
         unpatchedRecordWithUID = DirectoryService.recordWithUID
 
         @inlineCallbacks
-        def recordWithUID(self, uid):
+        def recordWithUID(self, uid, timeoutSeconds=None):
 
             if uid == "group02":
                 result = None

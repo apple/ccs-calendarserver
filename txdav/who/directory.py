@@ -71,13 +71,17 @@ class CalendarDirectoryServiceMixin(object):
 
 
     @inlineCallbacks
-    def recordWithCalendarUserAddress(self, address):
+    def recordWithCalendarUserAddress(
+        self, address, timeoutSeconds=None
+    ):
         address = normalizeCUAddr(address)
         record = None
 
         if address.startswith("urn:x-uid:"):
             uid = address[10:]
-            record = yield self.recordWithUID(uid)
+            record = yield self.recordWithUID(
+                uid, timeoutSeconds=timeoutSeconds
+            )
 
         elif address.startswith("urn:uuid:"):
             try:
@@ -85,10 +89,14 @@ class CalendarDirectoryServiceMixin(object):
             except ValueError:
                 log.info("Invalid GUID: {guid}", guid=address[9:])
                 returnValue(None)
-            record = yield self.recordWithGUID(guid)
+            record = yield self.recordWithGUID(
+                guid, timeoutSeconds=timeoutSeconds
+            )
 
         elif address.startswith("mailto:"):
-            records = yield self.recordsWithEmailAddress(address[7:])
+            records = yield self.recordsWithEmailAddress(
+                address[7:], limitResults=1, timeoutSeconds=timeoutSeconds
+            )
             record = records[0] if records else None
 
         elif address.startswith("/principals/"):
@@ -96,10 +104,14 @@ class CalendarDirectoryServiceMixin(object):
             if len(parts) == 4:
                 if parts[2] == "__uids__":
                     uid = parts[3]
-                    record = yield self.recordWithUID(uid)
+                    record = yield self.recordWithUID(
+                        uid, timeoutSeconds=timeoutSeconds
+                    )
                 else:
                     recordType = self.oldNameToRecordType(parts[2])
-                    record = yield self.recordWithShortName(recordType, parts[3])
+                    record = yield self.recordWithShortName(
+                        recordType, parts[3], timeoutSeconds=timeoutSeconds
+                    )
 
         if record:
             if record.hasCalendars or (
@@ -146,8 +158,8 @@ class CalendarDirectoryServiceMixin(object):
 
 
     @inlineCallbacks
-    def recordsMatchingTokens(self, tokens, context=None, limitResults=50,
-                              timeoutSeconds=10):
+    def recordsMatchingTokens(self, tokens, context=None, limitResults=None,
+                              timeoutSeconds=None):
         fields = [
             ("fullNames", MatchType.contains),
             ("emailAddresses", MatchType.startsWith),
@@ -183,7 +195,8 @@ class CalendarDirectoryServiceMixin(object):
             recordTypes = None
 
         results = yield self.recordsFromExpression(
-            expression, recordTypes=recordTypes
+            expression, recordTypes=recordTypes, limitResults=limitResults,
+            timeoutSeconds=timeoutSeconds
         )
         log.debug(
             "Tokens ({t}) matched {n} records",
@@ -193,7 +206,10 @@ class CalendarDirectoryServiceMixin(object):
         returnValue(results)
 
 
-    def recordsMatchingFields(self, fields, operand=Operand.OR, recordType=None):
+    def recordsMatchingFields(
+        self, fields, operand=Operand.OR, recordType=None,
+        limitResults=None, timeoutSeconds=None
+    ):
         """
         @param fields: a iterable of tuples, each tuple consisting of:
             directory field name (C{unicode})
@@ -228,7 +244,10 @@ class CalendarDirectoryServiceMixin(object):
             recordTypes = [recordType]
         else:
             recordTypes = None
-        return self.recordsFromExpression(expression, recordTypes=recordTypes)
+        return self.recordsFromExpression(
+            expression, recordTypes=recordTypes,
+            limitResults=limitResults, timeoutSeconds=timeoutSeconds
+        )
 
 
     _oldRecordTypeNames = {
@@ -282,11 +301,7 @@ class CalendarDirectoryServiceMixin(object):
 
         records = yield self.recordsFromExpression(
             expression,
-            recordTypes=(self.recordType.location,)
-            # FIXME, commenting out resources for the moment since it's
-            # super slow:
-            # recordTypes=(self.recordType.location, self.recordType.resource)
-
+            recordTypes=(self.recordType.location, self.recordType.resource)
         )
         returnValue(records)
 

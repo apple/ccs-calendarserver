@@ -242,7 +242,7 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
         returnValue(postProcess(results))
 
 
-    def recordWithShortName(self, recordType, shortName):
+    def recordWithShortName(self, recordType, shortName, timeoutSeconds=None):
         # MOVE2WHO
         # temporary hack until we can fix all callers not to pass strings:
         if isinstance(recordType, (str, unicode)):
@@ -253,64 +253,110 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
             # log.warn("Need to change shortName to unicode")
             shortName = shortName.decode("utf-8")
 
+        kwds = {
+            "recordType": recordType.name.encode("utf-8"),
+            "shortName": shortName.encode("utf-8")
+        }
+        if timeoutSeconds is not None:
+            kwds["timeoutSeconds"] = timeoutSeconds
+
         return self._call(
             RecordWithShortNameCommand,
             self._processSingleRecord,
-            recordType=recordType.name.encode("utf-8"),
-            shortName=shortName.encode("utf-8")
+            **kwds
         )
 
 
-    def recordWithUID(self, uid):
+    def recordWithUID(self, uid, timeoutSeconds=None):
         # MOVE2WHO, REMOVE THIS:
         if not isinstance(uid, unicode):
             # log.warn("Need to change uid to unicode")
             uid = uid.decode("utf-8")
 
+        kwds = {
+            "uid": uid.encode("utf-8"),
+        }
+        if timeoutSeconds is not None:
+            kwds["timeoutSeconds"] = timeoutSeconds
+
         return self._call(
             RecordWithUIDCommand,
             self._processSingleRecord,
-            uid=uid.encode("utf-8")
+            **kwds
         )
 
 
-    def recordWithGUID(self, guid):
+    def recordWithGUID(self, guid, timeoutSeconds=None):
+        kwds = {
+            "guid": str(guid),
+        }
+        if timeoutSeconds is not None:
+            kwds["timeoutSeconds"] = timeoutSeconds
+
         return self._call(
             RecordWithGUIDCommand,
             self._processSingleRecord,
-            guid=str(guid)
+            **kwds
         )
 
 
-    def recordsWithRecordType(self, recordType):
+    def recordsWithRecordType(
+        self, recordType, limitResults=None, timeoutSeconds=None
+    ):
+        kwds = {
+            "recordType": recordType.name.encode("utf-8")
+        }
+        if limitResults is not None:
+            kwds["limitResults"] = limitResults
+        if timeoutSeconds is not None:
+            kwds["timeoutSeconds"] = timeoutSeconds
         return self._call(
             RecordsWithRecordTypeCommand,
             self._processMultipleRecords,
-            recordType=recordType.name.encode("utf-8")
+            **kwds
         )
 
 
-    def recordsWithEmailAddress(self, emailAddress):
+    def recordsWithEmailAddress(
+        self, emailAddress, limitResults=None, timeoutSeconds=None
+    ):
+        kwds = {
+            "emailAddress": emailAddress.encode("utf-8")
+        }
+        if limitResults is not None:
+            kwds["limitResults"] = limitResults
+        if timeoutSeconds is not None:
+            kwds["timeoutSeconds"] = timeoutSeconds
+
         return self._call(
             RecordsWithEmailAddressCommand,
             self._processMultipleRecords,
-            emailAddress=emailAddress.encode("utf-8")
+            **kwds
         )
 
 
     def recordsMatchingTokens(
-        self, tokens, context=None, limitResults=50, timeoutSeconds=10
+        self, tokens, context=None, limitResults=None, timeoutSeconds=None
     ):
+        kwds = {
+            "tokens": [t.encode("utf-8") for t in tokens],
+            "context": context
+        }
+        if limitResults is not None:
+            kwds["limitResults"] = limitResults
+        if timeoutSeconds is not None:
+            kwds["timeoutSeconds"] = timeoutSeconds
+
         return self._call(
             RecordsMatchingTokensCommand,
             self._processMultipleRecords,
-            tokens=[t.encode("utf-8") for t in tokens],
-            context=context
+            **kwds
         )
 
 
     def recordsMatchingFields(
-        self, fields, operand=Operand.OR, recordType=None
+        self, fields, operand=Operand.OR, recordType=None,
+        limitResults=None, timeoutSeconds=None
     ):
         newFields = []
         for fieldName, searchTerm, matchFlags, matchType in fields:
@@ -329,12 +375,21 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
         if recordType is not None:
             recordType = recordType.name.encode("utf-8")
 
+        kwds = {
+            "fields": newFields,
+            "operand": operand.name.encode("utf-8"),
+            "recordType": recordType
+        }
+        if limitResults is not None:
+            kwds["limitResults"] = limitResults
+        if timeoutSeconds is not None:
+            kwds["timeoutSeconds"] = timeoutSeconds
+
+
         return self._call(
             RecordsMatchingFieldsCommand,
             self._processMultipleRecords,
-            fields=newFields,
-            operand=operand.name.encode("utf-8"),
-            recordType=recordType
+            **kwds
         )
 
 

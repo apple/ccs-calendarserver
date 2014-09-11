@@ -523,6 +523,11 @@ def action_listProxies(store, record, *proxyTypes):
 @inlineCallbacks
 def action_listProxyFor(store, record, *proxyTypes):
     directory = store.directoryService()
+
+    if record.recordType != directory.recordType.user:
+        print("You must pass a user principal to this command")
+        returnValue(None)
+
     for proxyType in proxyTypes:
 
         groupRecordType = {

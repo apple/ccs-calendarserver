@@ -151,9 +151,13 @@ class AugmentedDirectoryService(
 
 
     @inlineCallbacks
-    def recordsFromExpression(self, expression, recordTypes=None):
+    def recordsFromExpression(
+        self, expression, recordTypes=None,
+        limitResults=None, timeoutSeconds=None
+    ):
         records = yield self._directory.recordsFromExpression(
-            expression, recordTypes=recordTypes
+            expression, recordTypes=recordTypes,
+            limitResults=limitResults, timeoutSeconds=timeoutSeconds
         )
         augmented = []
         for record in records:
@@ -163,9 +167,12 @@ class AugmentedDirectoryService(
 
 
     @inlineCallbacks
-    def recordsWithFieldValue(self, fieldName, value):
+    def recordsWithFieldValue(
+        self, fieldName, value, limitResults=None, timeoutSeconds=None
+    ):
         records = yield self._directory.recordsWithFieldValue(
-            fieldName, value
+            fieldName, value,
+            limitResults=limitResults, timeoutSeconds=timeoutSeconds
         )
         augmented = []
         for record in records:
@@ -176,29 +183,37 @@ class AugmentedDirectoryService(
 
     @timed
     @inlineCallbacks
-    def recordWithUID(self, uid):
+    def recordWithUID(self, uid, timeoutSeconds=None):
         # MOVE2WHO, REMOVE THIS:
         if not isinstance(uid, unicode):
             # log.warn("Need to change uid to unicode")
             uid = uid.decode("utf-8")
 
-        record = yield self._directory.recordWithUID(uid)
+        record = yield self._directory.recordWithUID(
+            uid, timeoutSeconds=timeoutSeconds
+        )
         record = yield self._augment(record)
         returnValue(record)
 
 
     @timed
     @inlineCallbacks
-    def recordWithGUID(self, guid):
-        record = yield self._directory.recordWithGUID(guid)
+    def recordWithGUID(self, guid, timeoutSeconds=None):
+        record = yield self._directory.recordWithGUID(
+            guid, timeoutSeconds=timeoutSeconds
+        )
         record = yield self._augment(record)
         returnValue(record)
 
 
     @timed
     @inlineCallbacks
-    def recordsWithRecordType(self, recordType):
-        records = yield self._directory.recordsWithRecordType(recordType)
+    def recordsWithRecordType(
+        self, recordType, limitResults=None, timeoutSeconds=None
+    ):
+        records = yield self._directory.recordsWithRecordType(
+            recordType, limitResults=limitResults, timeoutSeconds=timeoutSeconds
+        )
         augmented = []
         for record in records:
             record = yield self._augment(record)
@@ -208,14 +223,14 @@ class AugmentedDirectoryService(
 
     @timed
     @inlineCallbacks
-    def recordWithShortName(self, recordType, shortName):
+    def recordWithShortName(self, recordType, shortName, timeoutSeconds=None):
         # MOVE2WHO, REMOVE THIS:
         if not isinstance(shortName, unicode):
             # log.warn("Need to change shortName to unicode")
             shortName = shortName.decode("utf-8")
 
         record = yield self._directory.recordWithShortName(
-            recordType, shortName
+            recordType, shortName, timeoutSeconds=timeoutSeconds
         )
         record = yield self._augment(record)
         returnValue(record)
@@ -223,13 +238,18 @@ class AugmentedDirectoryService(
 
     @timed
     @inlineCallbacks
-    def recordsWithEmailAddress(self, emailAddress):
+    def recordsWithEmailAddress(
+        self, emailAddress, limitResults=None, timeoutSeconds=None
+    ):
         # MOVE2WHO, REMOVE THIS:
         if not isinstance(emailAddress, unicode):
             # log.warn("Need to change emailAddress to unicode")
             emailAddress = emailAddress.decode("utf-8")
 
-        records = yield self._directory.recordsWithEmailAddress(emailAddress)
+        records = yield self._directory.recordsWithEmailAddress(
+            emailAddress,
+            limitResults=limitResults, timeoutSeconds=timeoutSeconds
+        )
         augmented = []
         for record in records:
             record = yield self._augment(record)

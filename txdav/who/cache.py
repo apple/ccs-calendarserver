@@ -232,51 +232,13 @@ class CachingDirectoryService(
     # Cached methods:
 
     @inlineCallbacks
-    def recordWithUID(self, uid):
+    def recordWithUID(self, uid, timeoutSeconds=None):
 
         # First check our cache
         record = self.lookupRecord(IndexType.uid, uid, "recordWithUID")
         if record is None:
-            record = yield self._directory.recordWithUID(uid)
-            if record is not None:
-                # Note we do not index on email address; see below.
-                self.cacheRecord(
-                    record,
-                    (IndexType.uid, IndexType.guid, IndexType.shortName)
-                )
-
-        returnValue(record)
-
-
-    @inlineCallbacks
-    def recordWithGUID(self, guid):
-
-        # First check our cache
-        record = self.lookupRecord(IndexType.guid, guid, "recordWithGUID")
-        if record is None:
-            record = yield self._directory.recordWithGUID(guid)
-            if record is not None:
-                # Note we do not index on email address; see below.
-                self.cacheRecord(
-                    record,
-                    (IndexType.uid, IndexType.guid, IndexType.shortName)
-                )
-
-        returnValue(record)
-
-
-    @inlineCallbacks
-    def recordWithShortName(self, recordType, shortName):
-
-        # First check our cache
-        record = self.lookupRecord(
-            IndexType.shortName,
-            (recordType.name, shortName),
-            "recordWithShortName"
-        )
-        if record is None:
-            record = yield self._directory.recordWithShortName(
-                recordType, shortName
+            record = yield self._directory.recordWithUID(
+                uid, timeoutSeconds=timeoutSeconds
             )
             if record is not None:
                 # Note we do not index on email address; see below.
@@ -289,7 +251,51 @@ class CachingDirectoryService(
 
 
     @inlineCallbacks
-    def recordsWithEmailAddress(self, emailAddress):
+    def recordWithGUID(self, guid, timeoutSeconds=None):
+
+        # First check our cache
+        record = self.lookupRecord(IndexType.guid, guid, "recordWithGUID")
+        if record is None:
+            record = yield self._directory.recordWithGUID(
+                guid, timeoutSeconds=timeoutSeconds
+            )
+            if record is not None:
+                # Note we do not index on email address; see below.
+                self.cacheRecord(
+                    record,
+                    (IndexType.uid, IndexType.guid, IndexType.shortName)
+                )
+
+        returnValue(record)
+
+
+    @inlineCallbacks
+    def recordWithShortName(self, recordType, shortName, timeoutSeconds=None):
+
+        # First check our cache
+        record = self.lookupRecord(
+            IndexType.shortName,
+            (recordType.name, shortName),
+            "recordWithShortName"
+        )
+        if record is None:
+            record = yield self._directory.recordWithShortName(
+                recordType, shortName, timeoutSeconds=timeoutSeconds
+            )
+            if record is not None:
+                # Note we do not index on email address; see below.
+                self.cacheRecord(
+                    record,
+                    (IndexType.uid, IndexType.guid, IndexType.shortName)
+                )
+
+        returnValue(record)
+
+
+    @inlineCallbacks
+    def recordsWithEmailAddress(
+        self, emailAddress, limitResults=None, timeoutSeconds=None
+    ):
 
         # First check our cache
         record = self.lookupRecord(
@@ -298,7 +304,10 @@ class CachingDirectoryService(
             "recordsWithEmailAddress"
         )
         if record is None:
-            records = yield self._directory.recordsWithEmailAddress(emailAddress)
+            records = yield self._directory.recordsWithEmailAddress(
+                emailAddress,
+                limitResults=limitResults, timeoutSeconds=timeoutSeconds
+            )
             if len(records) == 1:
                 # Only cache if there was a single match (which is the most
                 # common scenario).  Caching multiple records for the exact
@@ -335,17 +344,25 @@ class CachingDirectoryService(
         return self._directory.recordTypes()
 
 
-    def recordsFromExpression(self, expression, recordTypes=None):
+    def recordsFromExpression(
+        self, expression, recordTypes=None,
+        limitResults=None, timeoutSeconds=None
+    ):
         # Defer to the directory service we're caching
         return self._directory.recordsFromExpression(
-            expression, recordTypes=recordTypes
+            expression, recordTypes=recordTypes,
+            limitResults=limitResults, timeoutSeconds=timeoutSeconds
         )
 
 
-    def recordsWithFieldValue(self, fieldName, value):
+    def recordsWithFieldValue(
+        self, fieldName, value,
+        limitResults=None, timeoutSeconds=None
+    ):
         # Defer to the directory service we're caching
         return self._directory.recordsWithFieldValue(
-            fieldName, value
+            fieldName, value,
+            limitResults=limitResults, timeoutSeconds=timeoutSeconds
         )
 
 
@@ -359,22 +376,31 @@ class CachingDirectoryService(
         return self._directory.removeRecords(uids)
 
 
-    def recordsWithRecordType(self, recordType):
+    def recordsWithRecordType(
+        self, recordType, limitResults=None, timeoutSeconds=None
+    ):
         # Defer to the directory service we're caching
-        return self._directory.recordsWithRecordType(recordType)
-
-
-    def recordsMatchingTokens(self, tokens, context=None, limitResults=50,
-                              timeoutSeconds=10):
-        return self._directory.recordsMatchingTokens(
-            tokens, context=context, limitResults=limitResults,
-            timeoutSeconds=timeoutSeconds
+        return self._directory.recordsWithRecordType(
+            recordType, limitResults=limitResults, timeoutSeconds=timeoutSeconds
         )
 
 
-    def recordsMatchingFields(self, fields, operand, recordType):
+    def recordsMatchingTokens(
+        self, tokens, context=None, limitResults=None, timeoutSeconds=None
+    ):
+        return self._directory.recordsMatchingTokens(
+            tokens, context=context,
+            limitResults=limitResults, timeoutSeconds=timeoutSeconds
+        )
+
+
+    def recordsMatchingFields(
+        self, fields, operand, recordType,
+        limitResults=None, timeoutSeconds=None
+    ):
         return self._directory.recordsMatchingFields(
-            fields, operand, recordType
+            fields, operand, recordType,
+            limitResults=limitResults, timeoutSeconds=timeoutSeconds
         )
 
 
@@ -382,10 +408,10 @@ class CachingDirectoryService(
         return self._directory.recordsWithDirectoryBasedDelegates()
 
 
-    def recordWithCalendarUserAddress(self, cua):
+    def recordWithCalendarUserAddress(self, cua, timeoutSeconds=None):
         # This will get cached by the underlying recordWith... call
         return CalendarDirectoryServiceMixin.recordWithCalendarUserAddress(
-            self, cua
+            self, cua, timeoutSeconds=timeoutSeconds
         )
 
 

@@ -115,7 +115,7 @@ class DirectoryRecord(BaseDirectoryRecord):
         parentUID, _ignore_proxyType = self.uid.split(u"#")
         readWrite = (self.recordType is RecordType.writeDelegateGroup)
 
-        log.debug(
+        log.info(
             "Setting delegate assignments for {u} ({rw}) to {m}",
             u=parentUID, rw=("write" if readWrite else "read"),
             m=[r.uid for r in memberRecords]
@@ -177,7 +177,7 @@ class DirectoryService(BaseDirectoryService):
         self._masterDirectory = masterDirectory
 
 
-    def recordWithShortName(self, recordType, shortName):
+    def recordWithShortName(self, recordType, shortName, timeoutSeconds=None):
         uid = shortName + "#" + recordTypeToProxyType(recordType)
 
         record = DirectoryRecord(self, {
@@ -188,18 +188,23 @@ class DirectoryService(BaseDirectoryService):
         return succeed(record)
 
 
-    def recordWithUID(self, uid):
+    def recordWithUID(self, uid, timeoutSeconds=None):
         if "#" not in uid:  # Not a delegate group uid
             return succeed(None)
         uid, proxyType = uid.split("#")
         recordType = proxyTypeToRecordType(proxyType)
         if recordType is None:
             return succeed(None)
-        return self.recordWithShortName(recordType, uid)
+        return self.recordWithShortName(
+            recordType, uid, timeoutSeconds=timeoutSeconds
+        )
 
 
     @inlineCallbacks
-    def recordsFromExpression(self, expression, recordTypes=None, records=None):
+    def recordsFromExpression(
+        self, expression, recordTypes=None, records=None,
+        limitResults=None, timeoutSeconds=None
+    ):
         """
         It's only ever appropriate to look up delegate group record by
         shortName or uid.  When wrapped by an aggregate directory, looking up
@@ -213,7 +218,9 @@ class DirectoryService(BaseDirectoryService):
                 (expression.matchType is MatchType.equals) and
                 ("#" in expression.fieldValue)
             ):
-                record = yield self.recordWithUID(expression.fieldValue)
+                record = yield self.recordWithUID(
+                    expression.fieldValue, timeoutSeconds=timeoutSeconds
+                )
                 if record is not None:
                     returnValue((record,))
 
