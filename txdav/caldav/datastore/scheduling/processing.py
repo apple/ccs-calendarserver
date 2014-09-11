@@ -30,7 +30,8 @@ from twistedcaldav.ical import Property
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 
 from txdav.caldav.datastore.scheduling.freebusy import generateFreeBusyInfo
-from txdav.caldav.datastore.scheduling.itip import iTipProcessing, iTIPRequestStatus
+from txdav.caldav.datastore.scheduling.itip import iTipProcessing, iTIPRequestStatus, \
+    iTipGenerator
 from txdav.caldav.datastore.scheduling.utils import getCalendarObjectForRecord
 from txdav.caldav.datastore.scheduling.utils import normalizeCUAddr
 from txdav.caldav.datastore.scheduling.work import ScheduleRefreshWork, \
@@ -992,7 +993,8 @@ class ImplicitProcessor(object):
         originator_calendar = (yield calendar_resource.componentForUser(self.originator.record.uid))
 
         # Get attendee's view of that
-        originator_calendar.attendeesView((self.recipient.cuaddr,))
+        originator_calendar = originator_calendar.duplicate()
+        iTipGenerator.generateAttendeeView(originator_calendar, (self.recipient.cuaddr,), None)
 
         # Locate the attendee's copy of the event if it exists.
         recipient_resource = (yield getCalendarObjectForRecord(self.txn, self.recipient.record, self.uid))
