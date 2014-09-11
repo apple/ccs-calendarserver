@@ -354,6 +354,32 @@ class GroupCacherTest(StoreTestCase):
             )
         )
 
+        #
+        # Say somebody messed up and stuck a non-existent group UID in
+        # as a delegate
+        #
+        newAssignments = {
+            u"__wsanchez1__":
+            (
+                u"__sub_group_1__",
+                u"__non_existent_group__",
+            ),
+        }
+        yield self.groupCacher.scheduleExternalAssignments(
+            txn, newAssignments, immediately=True
+        )
+        oldExternalAssignments = (yield txn.externalDelegates())
+        self.assertEquals(
+            oldExternalAssignments,
+            {
+                u"__wsanchez1__":
+                (
+                    u"__sub_group_1__",
+                    None  # <--- (not __non_existent_group__)
+                ),
+            }
+        )
+
         yield txn.commit()
 
 

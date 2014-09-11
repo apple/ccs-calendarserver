@@ -385,6 +385,7 @@ class GroupCacher(object):
             uid=delegatorUID
         )
         readDelegateGroupID = writeDelegateGroupID = None
+
         if readDelegateUID:
             (
                 readDelegateGroupID, _ignore_name, _ignore_hash,
@@ -392,6 +393,10 @@ class GroupCacher(object):
             ) = (
                 yield txn.groupByUID(readDelegateUID)
             )
+            if readDelegateGroupID is None:
+                # The group record does not actually exist
+                readDelegateUID = None
+
         if writeDelegateUID:
             (
                 writeDelegateGroupID, _ignore_name, _ignore_hash,
@@ -399,6 +404,10 @@ class GroupCacher(object):
             ) = (
                 yield txn.groupByUID(writeDelegateUID)
             )
+            if writeDelegateGroupID is None:
+                # The group record does not actually exist
+                writeDelegateUID = None
+
         yield txn.assignExternalDelegates(
             delegatorUID, readDelegateGroupID, writeDelegateGroupID,
             readDelegateUID, writeDelegateUID

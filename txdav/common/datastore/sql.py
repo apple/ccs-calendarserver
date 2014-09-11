@@ -1099,6 +1099,10 @@ class CommonStoreTransaction(object):
         @type name: C{unicode}
         @type membershipHash: C{str}
         """
+        record = yield self.directoryService().recordWithUID(groupUID)
+        if record is None:
+            returnValue(None)
+
         groupID = yield self._addGroupQuery.on(
             self,
             name=name.encode("utf-8"),
@@ -1106,7 +1110,6 @@ class CommonStoreTransaction(object):
             membershipHash=membershipHash
         )
 
-        record = yield self.directoryService().recordWithUID(groupUID)
         yield self.refreshGroup(
             groupUID, record, groupID, name.encode("utf-8"), membershipHash, True
         )
@@ -1159,7 +1162,12 @@ class CommonStoreTransaction(object):
             savepoint = SavepointAction("groupByUID")
             yield savepoint.acquire(self)
             try:
-                yield self.addGroup(groupUID, u"", "")
+                groupID = yield self.addGroup(groupUID, u"", "")
+                if groupID is None:
+                    # The record does not actually exist within the directory
+                    yield savepoint.release(self)
+                    returnValue((None, None, None, None, None))
+
             except Exception:
                 yield savepoint.rollback(self)
                 results = (
