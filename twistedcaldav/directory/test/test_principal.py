@@ -942,14 +942,6 @@ class ProvisionedPrincipals(StoreTestCase):
                 "emailAddresses", "example@example.com"
             ),
             (
-                "http://calendarserver.org/ns/", "first-name",
-                "morgen", "firstName", "morgen"
-            ),
-            (
-                "http://calendarserver.org/ns/", "last-name",
-                "sagen", "lastName", "sagen"
-            ),
-            (
                 "http://calendarserver.org/ns/", "email-address-set",
                 "example@example.com", "emailAddresses", "example@example.com"
             ),

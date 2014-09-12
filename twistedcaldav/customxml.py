@@ -817,15 +817,6 @@ class RecordType (WebDAVTextElement):
 
 
 
-@registerElement
-class AutoSchedule (WebDAVTextElement):
-    """
-    Whether the principal automatically accepts invitations
-    """
-    namespace = calendarserver_namespace
-    name = "auto-schedule"
-
-
 
 @registerElement
 class AutoScheduleMode (WebDAVTextElement):

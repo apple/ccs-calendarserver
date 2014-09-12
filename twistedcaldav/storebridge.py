@@ -4015,8 +4015,6 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
                     customxml.InviteSummary.fromString(jsondata["summary"]) if jsondata["summary"] else None,
                     customxml.CommonName.fromString(commonName) if commonName else None,
                     **typeAttr
-                    # customxml.FirstNameProperty(record.firstName) if record.firstName else None,
-                    # customxml.LastNameProperty(record.lastName) if record.lastName else None,
                 ),
             )
         else:

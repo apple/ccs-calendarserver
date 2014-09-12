@@ -233,10 +233,6 @@ class DirectoryProvisioningResource (
             ("", cuTypeConverter, "Calendar User Type", caldavxml.CalendarUserType),
         ("urn:ietf:params:xml:ns:caldav" , "calendar-user-address-set") :
             ("", cuAddressConverter, "Calendar User Address Set", caldavxml.CalendarUserAddressSet),
-        (_cs_ns, "first-name") :
-            ("firstName", None, "First Name", customxml.FirstNameProperty),
-        (_cs_ns, "last-name") :
-            ("lastName", None, "Last Name", customxml.LastNameProperty),
         (_cs_ns, "email-address-set") :
             ("emailAddresses", None, "Email Addresses", customxml.EmailAddressSet),
     }
@@ -787,8 +783,6 @@ class DirectoryPrincipalResource (
     def liveProperties(self):
 
         return super(DirectoryPrincipalResource, self).liveProperties() + (
-            (calendarserver_namespace, "first-name"),
-            (calendarserver_namespace, "last-name"),
             (calendarserver_namespace, "email-address-set"),
             davxml.ResourceID.qname(),
         )
@@ -863,22 +857,6 @@ class DirectoryPrincipalResource (
             returnValue(davxml.ResourceID(davxml.HRef.fromString("urn:x-uid:%s" % (self.record.uid,))))
 
         elif namespace == calendarserver_namespace:
-
-            # MOVE2WHO
-            # if name == "first-name":
-            #     firstName = self.record.firstName
-            #     if firstName is not None:
-            #         returnValue(customxml.FirstNameProperty(firstName))
-            #     else:
-            #         returnValue(None)
-
-            # elif name == "last-name":
-            #     lastName = self.record.lastName
-            #     if lastName is not None:
-            #         returnValue(customxml.LastNameProperty(lastName))
-            #     else:
-            #         returnValue(None)
-
             if name == "email-address-set":
                 try:
                     emails = self.record.emailAddresses

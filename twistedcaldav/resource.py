@@ -1672,7 +1672,6 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
                 (caldav_namespace, "calendar-user-type"),
                 (calendarserver_namespace, "calendar-proxy-read-for"),
                 (calendarserver_namespace, "calendar-proxy-write-for"),
-                (calendarserver_namespace, "auto-schedule"),
                 (calendarserver_namespace, "auto-schedule-mode"),
             )
 
@@ -1769,10 +1768,6 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
                 returnValue(customxml.CalendarProxyWriteFor(
                     *[element.HRef(principal.principalURL()) for principal in results]
                 ))
-
-            # elif name == "auto-schedule" and self.calendarsEnabled():
-            #     autoSchedule = yield self.getAutoSchedule()
-            #     returnValue(customxml.AutoSchedule("true" if autoSchedule else "false"))
 
             elif name == "auto-schedule-mode" and self.calendarsEnabled():
                 autoScheduleMode = yield self.getAutoScheduleMode()
