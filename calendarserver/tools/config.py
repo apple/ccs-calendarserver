@@ -25,6 +25,7 @@ from getopt import getopt, GetoptError
 import os
 import plistlib
 import signal
+import subprocess
 import sys
 import xml
 
@@ -78,6 +79,8 @@ WRITABLE_CONFIG_KEYS = [
 ]
 
 
+
+
 def usage(e=None):
     if e:
         print(e)
@@ -90,6 +93,9 @@ def usage(e=None):
     print("options:")
     print("  -h --help: print this help and exit")
     print("  -f --config: Specify caldavd.plist configuration path")
+    print("  -r --restart: Restart the calendar service")
+    print("  --start: Start the calendar service and agent")
+    print("  --stop: Stop the calendar service and agent")
     print("  -w --writeconfig: Specify caldavd.plist configuration path for writing")
 
     if e:
@@ -102,10 +108,13 @@ def usage(e=None):
 def main():
     try:
         (optargs, args) = getopt(
-            sys.argv[1:], "hf:w:", [
+            sys.argv[1:], "hf:rw:", [
                 "help",
                 "config=",
                 "writeconfig=",
+                "restart",
+                "start",
+                "stop",
             ],
         )
     except GetoptError, e:
@@ -113,6 +122,9 @@ def main():
 
     configFileName = DEFAULT_CONFIG_FILE
     writeConfigFileName = ""
+    doStop = False
+    doStart = False
+    doRestart = False
 
     for opt, arg in optargs:
         if opt in ("-h", "--help"):
@@ -123,6 +135,15 @@ def main():
 
         elif opt in ("-w", "--writeconfig"):
             writeConfigFileName = arg
+
+        if opt == "--stop":
+            doStop = True
+
+        if opt == "--start":
+            doStart = True
+
+        if opt in ("-r", "--restart"):
+            doRestart = True
 
     try:
         config.load(configFileName)
@@ -139,10 +160,73 @@ def main():
     if not writeConfigFileName:
         writeConfigFileName = configFileName
 
+    if doStop:
+        setServiceState("org.calendarserver.agent", "disable")
+        setServiceState("org.calendarserver.calendarserver", "disable")
+        setEnabled(False)
+
+    if doStart:
+        setServiceState("org.calendarserver.agent", "enable")
+        setServiceState("org.calendarserver.calendarserver", "enable")
+        setEnabled(True)
+
+    if doStart or doStop:
+        setReverseProxies()
+        sys.exit(0)
+
+    if doRestart:
+        restartService(config.PIDFile)
+        sys.exit(0)
+
     writable = WritableConfig(config, writeConfigFileName)
     writable.read()
 
     processArgs(writable, args)
+
+
+def setServiceState(service, state):
+    """
+    Invoke serverctl to enable/disable a service
+    """
+    SERVERCTL = "/Applications/Server.app/Contents/ServerRoot/usr/sbin/serverctl"
+    child = subprocess.Popen(
+        args=[SERVERCTL, state, "service={}".format(service)],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    output, error = child.communicate()
+    if child.returncode:
+        sys.stdout.write(
+            "Error from serverctl: %d, %s" % (child.returncode, error)
+        )
+
+
+def setEnabled(enabled):
+    command = {
+        "command": "writeConfig",
+        "Values": {
+            "EnableCalDAV": enabled,
+            "EnableCardDAV": enabled,
+        },
+    }
+
+    runner = Runner([command], quiet=True)
+    runner.run()
+
+
+def setReverseProxies():
+    """
+    Invoke calendarserver_reverse_proxies
+    """
+    SERVERCTL = "/Applications/Server.app/Contents/ServerRoot/usr/libexec/calendarserver_reverse_proxies"
+    child = subprocess.Popen(
+        args=[SERVERCTL, ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    child.communicate()
 
 
 
@@ -207,12 +291,13 @@ class Runner(object):
     dictionaries with a "command" key, plus command-specific data.
     """
 
-    def __init__(self, commands):
+    def __init__(self, commands, quiet=False):
         """
         @param commands: the commands to run
         @type commands: list of plist strings
         """
         self.commands = commands
+        self.quiet = quiet
 
 
     def validate(self):
@@ -291,7 +376,8 @@ class Runner(object):
             respond(command, {"error": str(e)})
         else:
             config.reload()
-            self.command_readConfig(command)
+            if not self.quiet:
+                self.command_readConfig(command)
 
 
 
