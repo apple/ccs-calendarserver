@@ -271,8 +271,8 @@ create table CALENDAR_OBJECT (
 create index CALENDAR_OBJECT_CALENDAR_RESOURCE_ID_AND_ICALENDAR_UID on
   CALENDAR_OBJECT(CALENDAR_RESOURCE_ID, ICALENDAR_UID);
 
-create index CALENDAR_OBJECT_CALENDAR_RESOURCE_ID_RECURRANCE_MAX_MIN on
-  CALENDAR_OBJECT(CALENDAR_RESOURCE_ID, RECURRANCE_MAX, RECURRANCE_MIN);
+create index CALENDAR_OBJECT_CALENDAR_RESOURCE_ID_RECURRANCE_MAX on
+  CALENDAR_OBJECT(CALENDAR_RESOURCE_ID, RECURRANCE_MAX);
 
 create index CALENDAR_OBJECT_ICALENDAR_UID on
   CALENDAR_OBJECT(ICALENDAR_UID);
@@ -593,9 +593,6 @@ create index CALENDAR_OBJECT_REVISIONS_RESOURCE_ID_RESOURCE_NAME_DELETED_REVISIO
 create index CALENDAR_OBJECT_REVISIONS_RESOURCE_ID_REVISION
   on CALENDAR_OBJECT_REVISIONS(CALENDAR_RESOURCE_ID, REVISION);
 
-create index CALENDAR_OBJECT_REVISIONS_HOME_RESOURCE_ID_REVISION
-  on CALENDAR_OBJECT_REVISIONS(CALENDAR_HOME_RESOURCE_ID, REVISION);
-
 
 ----------------------------------
 -- AddressBook Object Revisions --
@@ -740,8 +737,6 @@ create table PUSH_NOTIFICATION_WORK (
 
 create index PUSH_NOTIFICATION_WORK_JOB_ID on
   PUSH_NOTIFICATION_WORK(JOB_ID);
-create index PUSH_NOTIFICATION_WORK_PUSH_ID on
-  PUSH_NOTIFICATION_WORK(PUSH_ID);
 
 -----------------
 -- GroupCacher --
@@ -763,8 +758,6 @@ create table GROUP_REFRESH_WORK (
 
 create index GROUP_REFRESH_WORK_JOB_ID on
   GROUP_REFRESH_WORK(JOB_ID);
-create index GROUP_REFRESH_WORK_GROUP_UID on
-  GROUP_REFRESH_WORK(GROUP_UID);
 
 create table GROUP_DELEGATE_CHANGES_WORK (
   WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
@@ -776,8 +769,6 @@ create table GROUP_DELEGATE_CHANGES_WORK (
 
 create index GROUP_DELEGATE_CHANGES_WORK_JOB_ID on
   GROUP_DELEGATE_CHANGES_WORK(JOB_ID);
-create index GROUP_DELEGATE_CHANGES_WORK_DELEGATOR_UID on
-  GROUP_DELEGATE_CHANGES_WORK(DELEGATOR_UID);
 
 create table GROUPS (
   GROUP_ID                      integer      primary key default nextval('RESOURCE_ID_SEQ'),    -- implicit index
@@ -936,7 +927,7 @@ create index INBOX_CLEANUP_WORK_JOB_ID on
 create table CLEANUP_ONE_INBOX_WORK (
   WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   JOB_ID                        integer      references JOB not null,
-  HOME_ID                       integer      not null unique references CALENDAR_HOME on delete cascade -- implicit index
+  HOME_ID                       integer      not null unique references CALENDAR_HOME on delete cascade
 );
 
 create index CLEANUP_ONE_INBOX_WORK_JOB_ID on
@@ -1008,7 +999,7 @@ create table SCHEDULE_ORGANIZER_WORK (
   WORK_ID                       integer      primary key references SCHEDULE_WORK on delete cascade, -- implicit index
   SCHEDULE_ACTION               integer      not null, -- Enum SCHEDULE_ACTION
   HOME_RESOURCE_ID              integer      not null references CALENDAR_HOME on delete cascade,
-  RESOURCE_ID                   integer,     -- this references a possibly non-existent CALENDAR_OBJECT
+  RESOURCE_ID                   integer,     -- this references a possibly non-existent CALENDR_OBJECT
   ICALENDAR_TEXT_OLD            text,
   ICALENDAR_TEXT_NEW            text,
   ATTENDEE_COUNT                integer,
@@ -1104,8 +1095,6 @@ create table PRINCIPAL_PURGE_CHECK_WORK (
 
 create index PRINCIPAL_PURGE_CHECK_WORK_JOB_ID on
   PRINCIPAL_PURGE_CHECK_WORK(JOB_ID);
-create index PRINCIPAL_PURGE_CHECK_WORK_UID on
-  PRINCIPAL_PURGE_CHECK_WORK(UID);
 
 --------------------------
 -- Principal Purge Work --
@@ -1119,8 +1108,6 @@ create table PRINCIPAL_PURGE_WORK (
 
 create index PRINCIPAL_PURGE_WORK_JOB_ID on
   PRINCIPAL_PURGE_WORK(JOB_ID);
-create index PRINCIPAL_PURGE_WORK_UID on
-  PRINCIPAL_PURGE_WORK(UID);
 
 
 --------------------------------
@@ -1148,7 +1135,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '49');
+insert into CALENDARSERVER values ('VERSION', '48');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');
