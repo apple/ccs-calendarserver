@@ -428,15 +428,6 @@ class CalDAVOptions (Options):
 
     def checkConfiguration(self):
 
-        # Having CalDAV *and* CardDAV both disabled is an illegal configuration
-        # for a running server (but is fine for command-line utilities)
-        if config.ProcessType not in ["Agent", "Utility"]:
-            if not config.EnableCalDAV and not config.EnableCardDAV:
-                print(
-                    "Neither EnableCalDAV nor EnableCardDAV are set to True."
-                )
-                sys.exit(1)
-
         uid, gid = None, None
 
         if self.parent["uid"] or self.parent["gid"]:

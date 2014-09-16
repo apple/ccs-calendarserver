@@ -1147,7 +1147,13 @@ def preFlightChecks(config):
     Otherwise exits.
     """
 
-    success, reason = verifyTLSCertificate(config)
+    success, reason = verifyConfig(config)
+
+    if success:
+        success, reason = verifyTLSCertificate(config)
+
+    if success:
+        success, reason = verifyAPNSCertificate(config)
 
     if not success:
         if config.ServiceDisablingProgram:
@@ -1168,6 +1174,17 @@ def preFlightChecks(config):
             sys.exit(1)
 
     return True
+
+
+def verifyConfig(config):
+    """
+    At least one of EnableCalDAV or EnableCardDAV must be True
+    """
+
+    if config.EnableCalDAV or config.EnableCardDAV:
+        return True, "A protocol is enabled"
+
+    return False, "Neither CalDAV nor CardDAV are enabled"
 
 
 def verifyTLSCertificate(config):
@@ -1215,6 +1232,54 @@ def verifyTLSCertificate(config):
         return False, message
 
     return True, "TLS enabled"
+
+
+def verifyAPNSCertificate(config):
+    """
+    If APNS certificates are configured, make sure they're valid.
+    """
+
+    if config.Notifications.Services.APNS.Enabled:
+
+        for protocol in ("CalDAV", "CardDAV"):
+            protoConfig = config.Notifications.Services.APNS[protocol]
+
+            if not os.path.exists(protoConfig.CertificatePath):
+                message = (
+                    "The {proto} APNS certificate ({cert}) is missing".format(
+                        proto=protocol,
+                        cert=protoConfig.CertificatePath
+                    )
+                )
+                return False, message
+
+            try:
+                if protoConfig.Passphrase:
+                    passwdCallback = lambda *ignored: protoConfig.Passphrase
+                else:
+                    passwdCallback = None
+
+                ChainingOpenSSLContextFactory(
+                    protoConfig.PrivateKeyPath,
+                    protoConfig.CertificatePath,
+                    certificateChainFile=protoConfig.AuthorityChainPath,
+                    passwdCallback=passwdCallback,
+                    sslmethod=getattr(OpenSSL.SSL, "TLSv1_METHOD"),
+                )
+            except Exception as e:
+                message = (
+                    "The {proto} APNS certificate ({cert}) cannot be used: {reason}".format(
+                        proto=protocol,
+                        cert=protoConfig.CertificatePath,
+                        reason=str(e)
+                    )
+                )
+                return False, message
+
+        return True, "APNS enabled"
+
+    else:
+        return True, "APNS disabled"
 
 
 def getSSLPassphrase(*ignored):
