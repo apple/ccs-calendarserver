@@ -93,7 +93,7 @@ parse_options () {
   OPTIND=1;
   print_path="false";
   print_environment="false";
-  while getopts "ahsfnpedkrK:i:I:b:t:S:P:R:" option; do
+  while getopts "ahsfnpedkrc:K:i:I:b:t:S:P:R:" option; do
     case "${option}" in
       '?') usage; ;;
       'h') usage -; exit 0; ;;
@@ -102,6 +102,7 @@ parse_options () {
       'r')      restart="true"; do_setup="false"; ;;
       'd')    daemonize=""; ;;
       'P')  plugin_name="${OPTARG}"; ;;
+      'c')       config="${OPTARG}"; ;;
       'R')      reactor="-R ${OPTARG}"; ;;
       't') service_type="${OPTARG}"; ;;
       'K')     read_key="${OPTARG}"; ;;

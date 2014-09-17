@@ -60,7 +60,7 @@ usage ()
 }
 
 while getopts 'hvrozt:s:d:x:' option; do
-  case "$option" in 
+  case "$option" in
     '?') usage; ;;
     'h') usage -; exit 0; ;;
     't') cdt="${OPTARG}"; serverinfo="${OPTARG}/scripts/server/serverinfo.xml"; ;;
@@ -87,5 +87,45 @@ fi;
 do_setup="false";
 develop > /dev/null;
 
+# Set up sandbox
+
+sandboxdir="/tmp/cdt_server_sandbox"
+
+if [ -d "${sandboxdir}" ]; then
+  rm -rf "${sandboxdir}"
+fi;
+
+mkdir -p "${sandboxdir}/Config" "${sandboxdir}/Data" "${sandboxdir}/Logs" "${sandboxdir}/Run"
+
+cp conf/caldavd-test.plist "${sandboxdir}/Config/caldavd-cdt.plist"
+cp conf/auth/proxies-test.xml "${sandboxdir}/Data/proxies-cdt.xml"
+cp conf/auth/resources-test.xml "${sandboxdir}/Data/resources-cdt.xml"
+cp conf/auth/augments-test.xml "${sandboxdir}/Data/augments-cdt.xml"
+cp conf/auth/accounts-test.xml "${sandboxdir}/Data/accounts-cdt.xml"
+
+# Modify the plist
+
+plutil -replace ServerRoot -string "${sandboxdir}" "${sandboxdir}/Config/caldavd-cdt.plist"
+plutil -replace ConfigRoot -string "Config" "${sandboxdir}/Config/caldavd-cdt.plist"
+plutil -replace ProxyLoadFromFile -string "${sandboxdir}/Data/proxies-cdt.xml" "${sandboxdir}/Config/caldavd-cdt.plist"
+plutil -replace ResourceService.params.xmlFile -string "${sandboxdir}/Data/resources-cdt.xml" "${sandboxdir}/Config/caldavd-cdt.plist"
+plutil -replace DirectoryService.params.xmlFile -string "${sandboxdir}/Data/accounts-cdt.xml" "${sandboxdir}/Config/caldavd-cdt.plist"
+plutil -replace AugmentService.params.xmlFile -xml "<array><string>${sandboxdir}/Data/augments-cdt.xml</string></array>" "${sandboxdir}/Config/caldavd-cdt.plist"
+
+# Start the server
+
+"${wd}/bin/run" -nd -c /tmp/cdt_server_sandbox/Config/caldavd-cdt.plist
+
+echo "Waiting 10 seconds for server to start up"
+sleep 10
+
+# Run CDT
+
+echo "Starting CDT run"
 cd "${cdt}" && "${python}" testcaldav.py ${random} ${seed} ${ssl} --print-details-onfail ${printres} -s "${serverinfo}" ${subdir} "$@";
 
+# Stop the server  -- FIXME:  if the CDT test fails, for some reason the
+# following lines don't execute...
+
+echo "Stopping server"
+"${wd}/bin/run" -nk -c /tmp/cdt_server_sandbox/Config/caldavd-cdt.plist
