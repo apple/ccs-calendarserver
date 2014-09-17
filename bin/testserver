@@ -119,13 +119,15 @@ plutil -replace AugmentService.params.xmlFile -xml "<array><string>${sandboxdir}
 echo "Waiting 10 seconds for server to start up"
 sleep 10
 
+
+# Don't exit if testcaldav.py fails
+set +e
+
 # Run CDT
 
 echo "Starting CDT run"
-cd "${cdt}" && "${python}" testcaldav.py ${random} ${seed} ${ssl} --print-details-onfail ${printres} -s "${serverinfo}" ${subdir} "$@";
 
-# Stop the server  -- FIXME:  if the CDT test fails, for some reason the
-# following lines don't execute...
+cd "${cdt}" && "${python}" testcaldav.py ${random} ${seed} ${ssl} --print-details-onfail ${printres} -s "${serverinfo}" ${subdir} "$@";
 
 echo "Stopping server"
 "${wd}/bin/run" -nk -c /tmp/cdt_server_sandbox/Config/caldavd-cdt.plist
