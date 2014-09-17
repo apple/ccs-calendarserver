@@ -877,6 +877,7 @@ class _CommonHomeChildCollectionMixin(object):
                     raise HTTPError(PRECONDITION_FAILED)
 
                 changedComponent = yield self.storeResourceData(updateResource, component, returnChangedData=return_changed)
+                etag = (yield updateResource.etag())
 
             except HTTPError, e:
                 # Extract the pre-condition
@@ -905,7 +906,7 @@ class _CommonHomeChildCollectionMixin(object):
                         davxml.PropertyStatus(
                             davxml.PropertyContainer(
                                 davxml.GETETag.fromString(etag.generate()),
-                                self.xmlDataElementType().fromComponentData(changedComponent, format),
+                                self.xmlDataElementType().fromComponent(changedComponent, format),
                             ),
                             davxml.Status.fromResponseCode(OK),
                         )
