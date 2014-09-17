@@ -107,14 +107,15 @@ cp conf/auth/augments-test.xml "${datadir}/augments-cdt.xml"
 cp conf/auth/accounts-test.xml "${datadir}/accounts-cdt.xml"
 
 # Modify the plist
+pb="/usr/libexec/PlistBuddy"
 
-plutil -replace ServerRoot -string "${sandboxdir}" "${configdir}/caldavd-cdt.plist"
-plutil -replace ConfigRoot -string "Config" "${configdir}/caldavd-cdt.plist"
-plutil -replace RunRoot -string "Run" "${configdir}/caldavd-cdt.plist"
-plutil -replace ProxyLoadFromFile -string "${datadir}/proxies-cdt.xml" "${configdir}/caldavd-cdt.plist"
-plutil -replace ResourceService.params.xmlFile -string "${datadir}/resources-cdt.xml" "${configdir}/caldavd-cdt.plist"
-plutil -replace DirectoryService.params.xmlFile -string "${datadir}/accounts-cdt.xml" "${configdir}/caldavd-cdt.plist"
-plutil -replace AugmentService.params.xmlFile -xml "<array><string>${datadir}/augments-cdt.xml</string></array>" "${configdir}/caldavd-cdt.plist"
+"${pb}" -c "Set :ServerRoot ${sandboxdir}" "${configdir}/caldavd-cdt.plist"
+"${pb}" -c "Set :ConfigRoot Config" "${configdir}/caldavd-cdt.plist"
+"${pb}" -c "Set :RunRoot Run" "${configdir}/caldavd-cdt.plist"
+"${pb}" -c "Set :ProxyLoadFromFile ${datadir}/proxies-cdt.xml" "${configdir}/caldavd-cdt.plist"
+"${pb}" -c "Set :ResourceService:params:xmlFile ${datadir}/resources-cdt.xml" "${configdir}/caldavd-cdt.plist"
+"${pb}" -c "Set :DirectoryService:params:xmlFile ${datadir}/accounts-cdt.xml" "${configdir}/caldavd-cdt.plist"
+"${pb}" -c "Set :AugmentService:params:xmlFiles:0 ${datadir}/augments-cdt.xml" "${configdir}/caldavd-cdt.plist"
 
 # Start the server
 
