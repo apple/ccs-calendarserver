@@ -817,7 +817,6 @@ class RecordType (WebDAVTextElement):
 
 
 
-
 @registerElement
 class AutoScheduleMode (WebDAVTextElement):
     """

@@ -44,6 +44,7 @@ class FileNotFound(Exception):
     """
 
 
+
 def usage(e=None):
     if e:
         print(e)
@@ -60,13 +61,14 @@ def usage(e=None):
         sys.exit(0)
 
 
+
 def main():
 
     if os.getuid() != 0:
         usage("This program must be run as root")
 
     try:
-        (optargs, args) = getopt(
+        optargs, _ignore_args = getopt(
             sys.argv[1:], "h", [
                 "help",
             ],
@@ -146,12 +148,13 @@ def main():
     showWebApps()
 
 
+
 def showProcesses():
 
     print()
     print("Calendar and Contacts service processes:")
 
-    code, stdout, stderr = runCommand(
+    _ignore_code, stdout, _ignore_stderr = runCommand(
         "/bin/ps", "ax",
         "-o user",
         "-o pid",
@@ -167,12 +170,13 @@ def showProcesses():
             print(line)
 
 
+
 def showServerctlStatus():
 
     print()
     print("Serverd status:")
 
-    code, stdout, stderr = runCommand(
+    _ignore_code, stdout, _ignore_stderr = runCommand(
         "/Applications/Server.app/Contents/ServerRoot/usr/sbin/serverctl",
         "list",
     )
@@ -203,12 +207,13 @@ def showServerctlStatus():
         )
 
 
+
 def showDiskSpace(serverRoot):
 
     print()
     print("Disk space on boot volume:")
 
-    code, stdout, stderr = runCommand(
+    _ignore_code, stdout, _ignore_stderr = runCommand(
         "/bin/df",
         "-H",
         "/",
@@ -217,7 +222,7 @@ def showDiskSpace(serverRoot):
 
     print("Disk space on service data volume:")
 
-    code, stdout, stderr = runCommand(
+    _ignore_code, stdout, _ignore_stderr = runCommand(
         "/bin/df",
         "-H",
         serverRoot
@@ -225,7 +230,7 @@ def showDiskSpace(serverRoot):
     print(stdout)
 
     print("Disk space used by Calendar and Contacts service:")
-    code, stdout, stderr = runCommand(
+    _ignore_code, stdout, _ignore_stderr = runCommand(
         "/usr/bin/du",
         "-sh",
         os.path.join(serverRoot, "Config"),
@@ -233,6 +238,7 @@ def showDiskSpace(serverRoot):
         os.path.join(serverRoot, "Logs"),
     )
     print(stdout)
+
 
 
 def showPostgresStatus(serverRoot):
@@ -260,9 +266,10 @@ def showPostgresStatus(serverRoot):
     return True
 
 
+
 def runSQLQuery(query):
 
-    code, stdout, stderr = runCommand(
+    _ignore_code, stdout, stderr = runCommand(
         "/Applications/Server.app/Contents/ServerRoot/usr/bin/psql",
         "-h",
         "/var/run/caldavd/PostgresSocket",
@@ -276,9 +283,10 @@ def runSQLQuery(query):
         print(stderr)
 
 
+
 def countFromSQLQuery(query):
 
-    code, stdout, stderr = runCommand(
+    _ignore_code, stdout, _ignore_stderr = runCommand(
         "/Applications/Server.app/Contents/ServerRoot/usr/bin/psql",
         "-h",
         "/var/run/caldavd/PostgresSocket",
@@ -291,9 +299,10 @@ def countFromSQLQuery(query):
     return count
 
 
+
 def listDatabases():
 
-    code, stdout, stderr = runCommand(
+    _ignore_code, stdout, stderr = runCommand(
         "/Applications/Server.app/Contents/ServerRoot/usr/bin/psql",
         "-h",
         "/var/run/caldavd/PostgresSocket",
@@ -305,6 +314,7 @@ def listDatabases():
         print(stdout)
     if stderr:
         print(stderr)
+
 
 
 def showPostgresContent():
@@ -337,12 +347,13 @@ def showPostgresContent():
     print("Number of group delegate assignments: {}".format(count))
 
 
+
 def showConfigKeys():
 
     print()
     print("Configuration:")
 
-    code, stdout, stderr = runCommand(
+    _ignore_code, stdout, _ignore_stderr = runCommand(
         "/Applications/Server.app/Contents/ServerRoot/usr/sbin/calendarserver_config",
         "EnableCalDAV",
         "EnableCardDAV",
@@ -409,23 +420,26 @@ def runCommand(commandPath, *args):
     return child.returncode, output, error
 
 
+
 def getOSBuild():
     try:
-        code, stdout, stderr = runCommand("/usr/bin/sw_vers", "-buildVersion")
+        code, stdout, _ignore_stderr = runCommand("/usr/bin/sw_vers", "-buildVersion")
         if not code:
             return stdout.strip()
     except:
         return "Unknown"
 
 
+
 def getServerBuild():
     try:
-        code, stdout, stderr = runCommand("/usr/sbin/serverinfo", "--buildversion")
+        code, stdout, _ignore_stderr = runCommand("/usr/sbin/serverinfo", "--buildversion")
         if not code:
             return stdout.strip()
     except:
         pass
     return "Unknown"
+
 
 
 def getServerRoot():
@@ -447,6 +461,7 @@ def getServerRoot():
         return "Unknown"
 
 
+
 def checkPlist(plistPath):
     if not os.path.exists(plistPath):
         raise FileNotFound
@@ -459,11 +474,12 @@ def checkPlist(plistPath):
     return True
 
 
+
 def showWebApps():
     print()
     print("Web apps:")
 
-    code, stdout, stderr = runCommand(
+    _ignore_code, stdout, _ignore_stderr = runCommand(
         "/Applications/Server.app/Contents/ServerRoot/usr/sbin/webappctl",
         "status",
         "-"
@@ -479,7 +495,7 @@ passwordRegExp = re.compile(r'password: "(.*)"')
 
 
 def getPasswordFromKeychain(account):
-    code, stdout, stderr = runCommand(
+    code, _ignore_stdout, stderr = runCommand(
         "/usr/bin/security",
         "find-generic-password",
         "-a",
@@ -561,6 +577,7 @@ def connectToAgent(password):
         )
 
     return True
+
 
 
 def connectToCaldavd(keys):

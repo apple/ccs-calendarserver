@@ -31,5 +31,6 @@ class DiagnoseTestCase(TestCase):
         self.assertEquals(stderr, "")
         self.assertTrue("total" in stdout)
 
+
     def test_runCommand_nonExistent(self):
         self.assertRaises(FileNotFound, runCommand, "/xyzzy/plugh/notthere")
