@@ -117,6 +117,9 @@ pb="/usr/libexec/PlistBuddy"
 "${pb}" -c "Set :DirectoryService:params:xmlFile ${datadir}/accounts-cdt.xml" "${configdir}/caldavd-cdt.plist"
 "${pb}" -c "Set :AugmentService:params:xmlFiles:0 ${datadir}/augments-cdt.xml" "${configdir}/caldavd-cdt.plist"
 
+# For now, disable Kerberos since it's crashing in getServerPrincipalDetails when run with -d
+"${pb}" -c "Set :Authentication:Kerberos:Enabled False" "${configdir}/caldavd-cdt.plist"
+
 # Start the server
 
 "${wd}/bin/run" -nd -c "${configdir}/caldavd-cdt.plist"
