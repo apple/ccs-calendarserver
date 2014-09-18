@@ -235,13 +235,14 @@ class StepperTestCase(TestCase):
             ['one success', 'two failure', 'three success', 'four failure'])
 
 
+
 class PreFlightChecksTestCase(TestCase):
     """
     Verify that missing, empty, or bogus TLS Certificates are detected
     """
 
     def test_missingCertificate(self):
-        success, reason = verifyTLSCertificate(
+        success, _ignore_reason = verifyTLSCertificate(
             ConfigDict(
                 {
                     "SSLCertificate": "missing",
@@ -254,7 +255,7 @@ class PreFlightChecksTestCase(TestCase):
     def test_emptyCertificate(self):
         certFilePath = FilePath(self.mktemp())
         certFilePath.setContent("")
-        success, reason = verifyTLSCertificate(
+        success, _ignore_reason = verifyTLSCertificate(
             ConfigDict(
                 {
                     "SSLCertificate": certFilePath.path,
@@ -269,7 +270,7 @@ class PreFlightChecksTestCase(TestCase):
         certFilePath.setContent("bogus")
         keyFilePath = FilePath(self.mktemp())
         keyFilePath.setContent("bogus")
-        success, reason = verifyTLSCertificate(
+        success, _ignore_reason = verifyTLSCertificate(
             ConfigDict(
                 {
                     "SSLCertificate": certFilePath.path,

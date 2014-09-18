@@ -1115,6 +1115,7 @@ class Stepper(object):
         return self.deferred
 
 
+
 def requestShutdown(programPath, reason):
     """
     Log the shutdown reason and call the shutdown-requesting program.
@@ -1138,6 +1139,7 @@ def requestShutdown(programPath, reason):
         stdout=PIPE,
         stderr=PIPE,
     ).communicate()
+
 
 
 def preFlightChecks(config):
@@ -1176,6 +1178,7 @@ def preFlightChecks(config):
     return True
 
 
+
 def verifyConfig(config):
     """
     At least one of EnableCalDAV or EnableCardDAV must be True
@@ -1185,6 +1188,7 @@ def verifyConfig(config):
         return True, "A protocol is enabled"
 
     return False, "Neither CalDAV nor CardDAV are enabled"
+
 
 
 def verifyTLSCertificate(config):
@@ -1234,6 +1238,7 @@ def verifyTLSCertificate(config):
     return True, "TLS enabled"
 
 
+
 def verifyAPNSCertificate(config):
     """
     If APNS certificates are configured, make sure they're valid.
@@ -1280,6 +1285,7 @@ def verifyAPNSCertificate(config):
 
     else:
         return True, "APNS disabled"
+
 
 
 def getSSLPassphrase(*ignored):
