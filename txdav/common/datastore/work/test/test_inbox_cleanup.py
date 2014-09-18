@@ -162,12 +162,12 @@ END:VCALENDAR
         self.patch(config.InboxCleanup, "ItemLifeBeyondEventEndDays", -1)
 
         # create orphans by deleting events
-        inbox = yield self.calendarUnderTest(home="user01", name="inbox")
-        for item in (yield inbox.objectResourcesWithNames(["cal1.ics", "cal3.ics"])):
+        cal = yield self.calendarUnderTest(home="user01", name="calendar")
+        for item in (yield cal.objectResourcesWithNames(["cal1.ics", "cal3.ics"])):
             yield item.remove()
 
         # do cleanup
-        yield self.transactionUnderTest().enqueue(CleanupOneInboxWork, homeID=inbox.ownerHome()._resourceID, notBefore=datetime.datetime.utcnow())
+        yield self.transactionUnderTest().enqueue(CleanupOneInboxWork, homeID=cal.ownerHome()._resourceID, notBefore=datetime.datetime.utcnow())
         yield self.commit()
         yield JobItem.waitEmpty(self.storeUnderTest().newTransaction, reactor, 60)
 
