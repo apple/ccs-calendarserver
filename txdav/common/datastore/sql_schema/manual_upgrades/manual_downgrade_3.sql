@@ -21,34 +21,30 @@
 
 -- Downgrade from hash partitioned indexes
 
--- CALENDAR_OBJECT Table
-
--- Disable the pkey and foreign key constraints
-ALTER TABLE CALENDAR_OBJECT DISABLE CONSTRAINT SYS_C004279 CASCADE;
-
--- Hash partition the primary key index
-ALTER TABLE CALENDAR_OBJECT ENABLE CONSTRAINT SYS_C004279 USING INDEX TABLESPACE DATA_TS;
-
--- Enable the foreign key constraints
-ALTER TABLE TIME_RANGE ENABLE CONSTRAINT SYS_C004296;
-ALTER TABLE ATTACHMENT_CALENDAR_OBJECT ENABLE CONSTRAINT SYS_C0065636;
-ALTER TABLE CALENDAR_OBJECT_SPLITTER_WORK ENABLE CONSTRAINT SYS_C0089711;
-
-
--- TIME_RANGE Table
-
--- Disable the pkey and foreign key constraints
-ALTER TABLE TIME_RANGE DISABLE CONSTRAINT SYS_C004294 CASCADE;
-
--- Hash partition the primary key index
-ALTER TABLE TIME_RANGE ENABLE CONSTRAINT SYS_C004294 USING INDEX TABLESPACE DATA_TS;
-
--- Enable the foreign key constraints
-ALTER TABLE TRANSPARENCY ENABLE CONSTRAINT SYS_C004301;
-
-
--- PUSH_NOTIFICATION_WORK Table
-
--- Hash partition the primary key index
-ALTER TABLE PUSH_NOTIFICATION_WORK DISABLE CONSTRAINT SYS_C0013546 CASCADE;
-ALTER TABLE PUSH_NOTIFICATION_WORK ENABLE CONSTRAINT SYS_C0013546 USING INDEX TABLESPACE DATA_TS;
+DECLARE  
+  PROCEDURE hash_undo_partition(PKEY_TABLE_NAME in VARCHAR2) IS
+    PKEY_NAME VARCHAR(255);
+  BEGIN
+    -- Find pkey constraint names
+    select CONSTRAINT_NAME into PKEY_NAME from USER_CONSTRAINTS where table_name = PKEY_TABLE_NAME and CONSTRAINT_TYPE = 'P';
+  
+    -- Disable the pkey and foreign key constraints
+    execute immediate 'ALTER TABLE ' || PKEY_TABLE_NAME || ' DISABLE CONSTRAINT ' || PKEY_NAME || ' CASCADE';
+  
+    -- Hash partition the primary key index
+    execute immediate 'ALTER TABLE ' || PKEY_TABLE_NAME || ' ENABLE CONSTRAINT ' || PKEY_NAME || ' USING INDEX';
+  
+    -- Enable the foreign key constraints
+    FOR item in (
+      SELECT TABLE_NAME, CONSTRAINT_NAME from USER_CONSTRAINTS where R_CONSTRAINT_NAME = PKEY_NAME
+    )
+    LOOP
+      execute immediate 'ALTER TABLE ' || item.TABLE_NAME || ' ENABLE CONSTRAINT ' || item.CONSTRAINT_NAME;
+    END LOOP;
+  END;
+  
+BEGIN
+  hash_undo_partition('CALENDAR_OBJECT');
+  hash_undo_partition('TIME_RANGE');
+  hash_undo_partition('PUSH_NOTIFICATION_WORK');
+END;

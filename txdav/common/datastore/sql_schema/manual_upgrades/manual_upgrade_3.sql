@@ -18,39 +18,32 @@
 -- Upgrade database schema from VERSION XX to YY --
 ---------------------------------------------------
 
-
--- Update to hash partitioned indexes
-
--- CALENDAR_OBJECT Table
-
--- Disable the pkey and foreign key constraints
-ALTER TABLE CALENDAR_OBJECT DISABLE CONSTRAINT SYS_C004279 CASCADE;
-
--- Hash partition the primary key index
-ALTER TABLE CALENDAR_OBJECT ENABLE CONSTRAINT SYS_C004279 USING INDEX TABLESPACE DATA_TS GLOBAL PARTITION BY HASH (RESOURCE_ID) PARTITIONS 32;
-
--- Enable the foreign key constraints
-ALTER TABLE TIME_RANGE ENABLE CONSTRAINT SYS_C004296;
-ALTER TABLE ATTACHMENT_CALENDAR_OBJECT ENABLE CONSTRAINT SYS_C0065636;
-ALTER TABLE CALENDAR_OBJECT_SPLITTER_WORK ENABLE CONSTRAINT SYS_C0089711;
-
-
--- TIME_RANGE Table
-
--- Disable the pkey and foreign key constraints
-ALTER TABLE TIME_RANGE DISABLE CONSTRAINT SYS_C004294 DISABLE CASCADE;
-
--- Hash partition the primary key index
-ALTER TABLE TIME_RANGE ENABLE CONSTRAINT SYS_C004294 USING INDEX TABLESPACE DATA_TS GLOBAL PARTITION BY HASH (INSTANCE_ID) PARTITIONS 32;
-
--- Enable the foreign key constraints
-ALTER TABLE TRANSPARENCY ENABLE CONSTRAINT SYS_C004301;
-
-
--- PUSH_NOTIFICATION_WORK Table
-
--- Disable the pkey and foreign key constraints
-ALTER TABLE PUSH_NOTIFICATION_WORK DISABLE CONSTRAINT SYS_C0013546 CASCADE;
-
--- Hash partition the primary key index
-ALTER TABLE PUSH_NOTIFICATION_WORK ENABLE CONSTRAINT SYS_C0013546 USING INDEX TABLESPACE DATA_TS GLOBAL PARTITION BY HASH (WORK_ID) PARTITIONS 32;
+DECLARE  
+  PROCEDURE hash_partition(PKEY_TABLE_NAME in VARCHAR2) IS
+    PKEY_NAME VARCHAR(255);
+    PKEY_COLUMN VARCHAR(255);
+  BEGIN
+    -- Find pkey constraint name and column name
+    select CONSTRAINT_NAME into PKEY_NAME from USER_CONSTRAINTS where table_name = PKEY_TABLE_NAME and CONSTRAINT_TYPE = 'P';
+    select COLUMN_NAME into PKEY_COLUMN from USER_IND_COLUMNS where index_name = PKEY_NAME;
+  
+    -- Disable the pkey and foreign key constraints
+    execute immediate 'ALTER TABLE ' || PKEY_TABLE_NAME || ' DISABLE CONSTRAINT ' || PKEY_NAME || ' CASCADE';
+  
+    -- Hash partition the primary key index
+    execute immediate 'ALTER TABLE ' || PKEY_TABLE_NAME || ' ENABLE CONSTRAINT ' || PKEY_NAME || ' USING INDEX GLOBAL PARTITION BY HASH (' || PKEY_COLUMN || ') PARTITIONS 32';
+  
+    -- Enable the foreign key constraints that depend on the pkey
+    FOR item in (
+      SELECT TABLE_NAME, CONSTRAINT_NAME from USER_CONSTRAINTS where R_CONSTRAINT_NAME = PKEY_NAME
+    )
+    LOOP
+      execute immediate 'ALTER TABLE ' || item.TABLE_NAME || ' ENABLE CONSTRAINT ' || item.CONSTRAINT_NAME;
+    END LOOP;
+  END;
+  
+BEGIN
+  hash_partition('CALENDAR_OBJECT');
+  hash_partition('TIME_RANGE');
+  hash_partition('PUSH_NOTIFICATION_WORK');
+END;
