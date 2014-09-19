@@ -2526,7 +2526,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 break_point = DateTime.getToday() + Duration(seconds=config.GroupAttendees.AutoUpdateSecondsFromNow)
                 rid = splitter.whereSplit(component, break_point=break_point)
                 if rid is not None:
-                    yield self.split(onlyThis=True, rid=rid)
+                    yield self.split(onlyThis=False, rid=rid)
 
                     # remove group link to ensure update (update to unknown hash would work too)
                     # FIXME: its possible that more than one group id gets updated during this single work item, so we
