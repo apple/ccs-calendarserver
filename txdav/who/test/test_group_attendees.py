@@ -1099,6 +1099,26 @@ END:VEVENT
 END:VCALENDAR
 """
 
+        data_get_1_user01 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:event1@ninevah.local
+DTSTART:20120101T100000Z
+DURATION:PT1H
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com:urn:x-uid:group01
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE:urn:x-uid:user01
+CREATED:20060101T150000Z
+ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:x-uid:user02
+RRULE:FREQ=DAILY;UNTIL=20240101T100000
+SUMMARY:event 1
+TRANSP:TRANSPARENT
+END:VEVENT
+END:VCALENDAR
+"""
+
         data_get_2 = """BEGIN:VCALENDAR
 VERSION:2.0
 CALSCALE:GREGORIAN
@@ -1134,6 +1154,45 @@ END:VEVENT
 END:VCALENDAR
 """
 
+        data_get_2_user01 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:event1@ninevah.local
+{start}DURATION:PT1H
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com:urn:x-uid:group01
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE:urn:x-uid:user01
+CREATED:20060101T150000Z
+ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:x-uid:user02
+{relatedTo}RRULE:FREQ=DAILY;UNTIL=20240101T100000
+SEQUENCE:2
+STATUS:CANCELLED
+SUMMARY:event 1
+TRANSP:TRANSPARENT
+END:VEVENT
+END:VCALENDAR
+"""
+        data_get_3_user01 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+{uid}DTSTART:20120101T100000Z
+DURATION:PT1H
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com:urn:x-uid:group01
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE:urn:x-uid:user01
+CREATED:20060101T150000Z
+ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:x-uid:user02
+{relatedTo}{rule}SEQUENCE:1
+SUMMARY:event 1
+TRANSP:TRANSPARENT
+END:VEVENT
+END:VCALENDAR
+"""
+
         @inlineCallbacks
         def expandedMembers(self, records=None, seen=None):
             yield None
@@ -1150,7 +1209,12 @@ END:VCALENDAR
         vcalendar = yield cobj.component()
         self.assertEqual(normalize_iCalStr(vcalendar), normalize_iCalStr(data_get_1))
 
-        yield self._verifyObjectResourceCount("user01", 1)
+        cal = yield self.calendarUnderTest(name="calendar", home="user01")
+        cobjs = yield cal.objectResources()
+        self.assertEqual(len(cobjs), 1)
+        vcalendar = yield cobjs[0].componentForUser()
+        self.assertEqual(normalize_iCalStr(vcalendar), normalize_iCalStr(data_get_1_user01))
+        user01_cname = cobjs[0].name()
 
         self.patch(CalendarDirectoryRecordMixin, "expandedMembers", expandedMembers)
 
@@ -1166,42 +1230,50 @@ END:VCALENDAR
             for component in vcalendar.subcomponents():
                 if component.name() in ignoredComponents:
                     continue
-                relatedTo = component.getProperty("RELATED-TO")
-                start = component.getProperty("DTSTART")
-                rule = component.getProperty("RRULE")
-                uid = component.getProperty("UID")
+                props = {
+                    "relatedTo": component.getProperty("RELATED-TO"),
+                    "start": component.getProperty("DTSTART"),
+                    "rule": component.getProperty("RRULE"),
+                    "uid": component.getProperty("UID"),
+                }
                 break
 
             if cobj.name() == "data1.ics":
                 self.assertEqual(
                     normalize_iCalStr(vcalendar),
                     normalize_iCalStr(
-                        data_get_2.format(
-                            start=start,
-                            relatedTo=relatedTo,
-                        )
+                        data_get_2.format(**props)
+                    )
+                )
+                props_orig = props
+            else:
+                self.assertEqual(
+                    normalize_iCalStr(vcalendar),
+                    normalize_iCalStr(
+                        data_get_3.format(**props)
+                    )
+                )
+                props_new = props
+
+        cal = yield self.calendarUnderTest(name="calendar", home="user01")
+        cobjs = yield cal.objectResources()
+        for cobj in cobjs:
+            vcalendar = yield cobj.componentForUser()
+            if cobj.name() == user01_cname:
+                self.assertEqual(
+                    normalize_iCalStr(vcalendar),
+                    normalize_iCalStr(
+                        data_get_2_user01.format(**props_orig)
                     )
                 )
             else:
                 self.assertEqual(
                     normalize_iCalStr(vcalendar),
                     normalize_iCalStr(
-                        data_get_3.format(
-                            relatedTo=relatedTo,
-                            rule=rule,
-                            uid=uid
-                        )
+                        data_get_3_user01.format(**props_new)
                     )
                 )
 
-        # TODO: add some meaningful test
-        '''
-        cal = yield self.calendarUnderTest(name="calendar", home="user01")
-        cobjs = yield cal.objectResources()
-        for cobj in cobjs:
-            vcalendar = yield cobj.component()
-            print("vcalendar = %s" % (vcalendar,))
-        '''
 
     @inlineCallbacks
     def test_groupChangeLargerSpanningEvent(self):
@@ -1263,6 +1335,7 @@ SUMMARY:event 1
 END:VEVENT
 END:VCALENDAR
 """
+
         data_get_3 = """BEGIN:VCALENDAR
 VERSION:2.0
 CALSCALE:GREGORIAN
@@ -1279,6 +1352,27 @@ SUMMARY:event 1
 END:VEVENT
 END:VCALENDAR
 """
+
+        data_get_2_user01 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:event1@ninevah.local
+{start}DURATION:PT1H
+ATTENDEE;CN=User 02;EMAIL=user02@example.com;RSVP=TRUE:urn:x-uid:user02
+ATTENDEE;CN=Group 01;CUTYPE=X-SERVER-GROUP;EMAIL=group01@example.com:urn:x-uid:group01
+ATTENDEE;CN=User 01;EMAIL=user01@example.com;MEMBER="urn:x-uid:group01";PARTSTAT=NEEDS-ACTION;RSVP=TRUE:urn:x-uid:user01
+CREATED:20060101T150000Z
+ORGANIZER;CN=User 02;EMAIL=user02@example.com:urn:x-uid:user02
+{relatedTo}RRULE:FREQ=DAILY;UNTIL=20240101T100000
+SEQUENCE:2
+SUMMARY:event 1
+TRANSP:TRANSPARENT
+END:VEVENT
+END:VCALENDAR
+"""
+
 
         @inlineCallbacks
         def expandedMembers(self, records=None, seen=None):
@@ -1315,43 +1409,39 @@ END:VCALENDAR
             for component in vcalendar.subcomponents():
                 if component.name() in ignoredComponents:
                     continue
-                relatedTo = component.getProperty("RELATED-TO")
-                start = component.getProperty("DTSTART")
-                rule = component.getProperty("RRULE")
-                uid = component.getProperty("UID")
+                props = {
+                    "relatedTo": component.getProperty("RELATED-TO"),
+                    "start": component.getProperty("DTSTART"),
+                    "rule": component.getProperty("RRULE"),
+                    "uid": component.getProperty("UID"),
+                }
                 break
 
             if cobj.name() == "data1.ics":
                 self.assertEqual(
                     normalize_iCalStr(vcalendar),
                     normalize_iCalStr(
-                        data_get_2.format(
-                            start=start,
-                            relatedTo=relatedTo,
-                        )
+                        data_get_2.format(**props)
                     )
                 )
+                props_orig = props
             else:
                 self.assertEqual(
                     normalize_iCalStr(vcalendar),
                     normalize_iCalStr(
-                        data_get_3.format(
-                            relatedTo=relatedTo,
-                            rule=rule,
-                            uid=uid
-                        )
+                        data_get_3.format(**props)
                     )
                 )
 
-        yield self._verifyObjectResourceCount("user01", 1)
-        # TODO: add some meaningful test
-        '''
         cal = yield self.calendarUnderTest(name="calendar", home="user01")
         cobjs = yield cal.objectResources()
-        for cobj in cobjs:
-            vcalendar = yield cobj.component()
-            print("vcalendar = %s" % (vcalendar,))
-        '''
+        self.assertEqual(len(cobjs), 1)
+        vcalendar = yield cobjs[0].componentForUser()
+        self.assertEqual(
+            normalize_iCalStr(vcalendar),
+            normalize_iCalStr(data_get_2_user01.format(**props_orig))
+        )
+
 
     @inlineCallbacks
     def test_groupRemovalFromDirectory(self):
