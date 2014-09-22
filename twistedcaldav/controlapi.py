@@ -15,14 +15,15 @@
 ##
 
 """
-Timezone service resource and operations.
+Control API resource.
 
-This is based on http://tools.ietf.org/html/draft-douglass-timezone-service which is the CalConnect
-proposal for a standard timezone service.
+This provides an HTTP API to allow an admin to trigger various "internal" actions on the server.
+The intent of this is to primarily support automated testing tools that may need to alter
+server behavior during tests via an HTTP-only API.
 """
 
 __all__ = [
-    "TimezoneStdServiceResource",
+    "ControlAPIResource",
 ]
 
 from calendarserver.tools.util import recordForPrincipalID
