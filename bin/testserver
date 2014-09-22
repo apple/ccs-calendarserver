@@ -123,7 +123,8 @@ done;
 
 echo "Server has started"
 
-# Don't exit if testcaldav.py fails
+# Don't exit if testcaldav.py fails, because we need to clean up afterwards.
+
 set +e
 
 # Run CDT
@@ -132,5 +133,17 @@ echo "Starting CDT run"
 
 cd "${cdt}" && "${python}" testcaldav.py ${random} ${seed} ${ssl} --print-details-onfail ${printres} -s "${serverinfo}" ${subdir} "$@";
 
+# Capture exit status of testcaldav.py to use as this script's exit status.
+
+STATUS=$?
+
+# Re-enable exit on failure incase run -nk fails
+
+set -e
+
 echo "Stopping server"
 "${wd}/bin/run" -nk -c "${configdir}/caldavd-cdt.plist"
+
+# Exit with the exit status of testcaldav.py, to reflect the test suite's result
+
+exit $STATUS
