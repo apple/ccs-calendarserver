@@ -96,7 +96,7 @@ class CleanupOneInboxWork(WorkItem, fromTable(schema.CLEANUP_ONE_INBOX_WORK)):
         if orphanNames:
             home = yield self.transaction.calendarHomeWithResourceID(self.homeID)
             log.info("Inbox cleanup work in home: {homeUID}, deleting orphaned items: {orphanNames}".format(
-                homeID=self.uid(), orphanNames=orphanNames))
+                homeUID=home.uid(), orphanNames=orphanNames))
 
         # get old item names
         if float(config.InboxCleanup.ItemLifetimeDays) >= 0: # use -1 to disable; 0 is test case
