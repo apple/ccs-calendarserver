@@ -107,18 +107,8 @@ cp conf/auth/augments-test.xml "${datadir}/augments-cdt.xml"
 cp conf/auth/accounts-test.xml "${datadir}/accounts-cdt.xml"
 
 # Modify the plist
-pb="/usr/libexec/PlistBuddy"
 
-"${pb}" -c "Set :ServerRoot ${sandboxdir}" "${configdir}/caldavd-cdt.plist"
-"${pb}" -c "Set :ConfigRoot Config" "${configdir}/caldavd-cdt.plist"
-"${pb}" -c "Set :RunRoot Run" "${configdir}/caldavd-cdt.plist"
-"${pb}" -c "Set :ProxyLoadFromFile ${datadir}/proxies-cdt.xml" "${configdir}/caldavd-cdt.plist"
-"${pb}" -c "Set :ResourceService:params:xmlFile ${datadir}/resources-cdt.xml" "${configdir}/caldavd-cdt.plist"
-"${pb}" -c "Set :DirectoryService:params:xmlFile ${datadir}/accounts-cdt.xml" "${configdir}/caldavd-cdt.plist"
-"${pb}" -c "Set :AugmentService:params:xmlFiles:0 ${datadir}/augments-cdt.xml" "${configdir}/caldavd-cdt.plist"
-
-# For now, disable Kerberos since it's crashing in getServerPrincipalDetails when run with -d
-"${pb}" -c "Set :Authentication:Kerberos:Enabled False" "${configdir}/caldavd-cdt.plist"
+python -c "import plistlib; f=plistlib.readPlist('${configdir}/caldavd-cdt.plist'); f['ServerRoot'] = '${sandboxdir}'; f['ConfigRoot'] = 'Config'; f['RunRoot'] = 'Run'; f['ProxyLoadFromFile'] = '${datadir}/proxies-cdt.xml'; f['ResourceService']['params']['xmlFile'] = '${datadir}/resources-cdt.xml'; f['DirectoryService']['params']['xmlFile'] = '${datadir}/accounts-cdt.xml'; f['AugmentService']['params']['xmlFiles'] = ['${datadir}/augments-cdt.xml']; f['Authentication']['Kerberos']['Enabled'] = False; plistlib.writePlist(f, '${configdir}/caldavd-cdt.plist');"
 
 # Start the server
 
