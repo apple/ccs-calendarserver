@@ -119,7 +119,7 @@ class RecordsMatchingFieldsCommand(amp.Command):
 
 class UpdateRecordsCommand(amp.Command):
     arguments = [
-        ('items', amp.ListOf(amp.String())),
+        ('uids', amp.ListOf(amp.String())),
         ('create', amp.Boolean(optional=True)),
     ]
     response = [
@@ -156,6 +156,28 @@ class GroupsCommand(amp.Command):
     response = [
         ('items', amp.ListOf(amp.String())),
         ('continuation', amp.String(optional=True)),
+    ]
+
+
+
+class AddMembersCommand(amp.Command):
+    arguments = [
+        ('uid', amp.String()),
+        ('memberUIDs', amp.ListOf(amp.String())),
+    ]
+    response = [
+        ('success', amp.Boolean()),
+    ]
+
+
+
+class RemoveMembersCommand(amp.Command):
+    arguments = [
+        ('uid', amp.String()),
+        ('memberUIDs', amp.ListOf(amp.String())),
+    ]
+    response = [
+        ('success', amp.Boolean()),
     ]
 
 

@@ -186,3 +186,13 @@ class DirectoryService(BaseDirectoryService):
     recordTypeValue = ConstantsContainer(
         (BaseDirectoryService.recordTypeValue, RecordTypeValue)
     )
+
+
+    xmlFieldOrder = BaseDirectoryService.xmlFieldOrder + (
+        FieldName.capacity,
+        FieldName.floor,
+        FieldName.associatedAddress,
+        FieldName.abbreviatedName,
+        FieldName.streetAddress,
+        FieldName.geographicLocation,
+    )

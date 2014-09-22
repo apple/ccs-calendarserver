@@ -38,8 +38,9 @@ from txdav.dps.commands import (
     MembersCommand, GroupsCommand, SetMembersCommand,
     VerifyPlaintextPasswordCommand, VerifyHTTPDigestCommand,
     WikiAccessForUIDCommand, ContinuationCommand,
-    ExternalDelegatesCommand, StatsCommand, ExpandedMemberUIDsCommand
-    # UpdateRecordsCommand, RemoveRecordsCommand
+    ExternalDelegatesCommand, StatsCommand, ExpandedMemberUIDsCommand,
+    AddMembersCommand, RemoveMembersCommand,
+    UpdateRecordsCommand, # RemoveRecordsCommand,
 )
 from txdav.who.cache import CachingDirectoryService
 from txdav.who.util import directoryFromConfig
@@ -396,6 +397,66 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         returnValue(response)
 
 
+    @AddMembersCommand.responder
+    @inlineCallbacks
+    def addMembers(self, uid, memberUIDs):
+        uid = uid.decode("utf-8")
+        memberUIDs = [m.decode("utf-8") for m in memberUIDs]
+        log.debug("Add Members: {u} -> {m}", u=uid, m=memberUIDs)
+        try:
+            record = (yield self._directory.recordWithUID(uid))
+        except Exception as e:
+            log.error("Failed in addMembers", error=e)
+            record = None
+
+        if record is not None:
+            memberRecords = []
+            for memberUID in memberUIDs:
+                memberRecord = yield self._directory.recordWithUID(memberUID)
+                if memberRecord is not None:
+                    memberRecords.append(memberRecord)
+            yield record.addMembers(memberRecords)
+            success = True
+        else:
+            success = False
+
+        response = {
+            "success": success,
+        }
+        # log.debug("Responding with: {response}", response=response)
+        returnValue(response)
+
+
+    @RemoveMembersCommand.responder
+    @inlineCallbacks
+    def removeMembers(self, uid, memberUIDs):
+        uid = uid.decode("utf-8")
+        memberUIDs = [m.decode("utf-8") for m in memberUIDs]
+        log.debug("Remove Members: {u} -> {m}", u=uid, m=memberUIDs)
+        try:
+            record = (yield self._directory.recordWithUID(uid))
+        except Exception as e:
+            log.error("Failed in removeMembers", error=e)
+            record = None
+
+        if record is not None:
+            memberRecords = []
+            for memberUID in memberUIDs:
+                memberRecord = yield self._directory.recordWithUID(memberUID)
+                if memberRecord is not None:
+                    memberRecords.append(memberRecord)
+            yield record.removeMembers(memberRecords)
+            success = True
+        else:
+            success = False
+
+        response = {
+            "success": success,
+        }
+        # log.debug("Responding with: {response}", response=response)
+        returnValue(response)
+
+
     @SetMembersCommand.responder
     @inlineCallbacks
     def setMembers(self, uid, memberUIDs):
@@ -417,6 +478,31 @@ class DirectoryProxyAMPProtocol(amp.AMP):
             yield record.setMembers(memberRecords)
             success = True
         else:
+            success = False
+
+        response = {
+            "success": success,
+        }
+        # log.debug("Responding with: {response}", response=response)
+        returnValue(response)
+
+
+    @UpdateRecordsCommand.responder
+    @inlineCallbacks
+    def updateRecords(self, uids, create):
+        # FIXME: does not support creation right now
+        if not create:
+            recordUIDs = [m.decode("utf-8") for m in uids]
+            log.debug("Update Records: {u} create:{c}", u=recordUIDs, c=create)
+            records = []
+            for uid in recordUIDs:
+                record = yield self._directory.recordWithUID(uid)
+                if record is not None:
+                    records.append(record)
+            yield self._directory.updateRecords(records, create=False)
+            success = True
+        else:
+            log.debug("Update Records - cannot create")
             success = False
 
         response = {

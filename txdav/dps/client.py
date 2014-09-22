@@ -42,7 +42,9 @@ from txdav.dps.commands import (
     MembersCommand, GroupsCommand, SetMembersCommand,
     VerifyPlaintextPasswordCommand, VerifyHTTPDigestCommand,
     WikiAccessForUIDCommand, ContinuationCommand,
-    StatsCommand, ExternalDelegatesCommand, ExpandedMemberUIDsCommand
+    StatsCommand, ExternalDelegatesCommand, ExpandedMemberUIDsCommand,
+    AddMembersCommand, RemoveMembersCommand,
+    UpdateRecordsCommand
 )
 from txdav.who.delegates import RecordType as DelegatesRecordType
 from txdav.who.directory import (
@@ -407,6 +409,19 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
         )
 
 
+    def updateRecords(self, records, create=False):
+        # FIXME: cannot create right now
+        if create:
+            raise ValueError("Cannot create records using DPS")
+
+        recordUIDs = [r.uid.encode("utf-8") for r in records]
+        return self._sendCommand(
+            UpdateRecordsCommand,
+            uids=recordUIDs,
+            create=False,
+        )
+
+
     @inlineCallbacks
     def stats(self):
         try:
@@ -473,6 +488,28 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
             GroupsCommand,
             self.service._processMultipleRecords,
             uid=self.uid.encode("utf-8")
+        )
+
+
+    def addMembers(self, members):
+        log.debug("DPS Client addMembers")
+        memberUIDs = [m.uid.encode("utf-8") for m in members]
+        return self.service._call(
+            AddMembersCommand,
+            lambda x: x['success'],
+            uid=self.uid.encode("utf-8"),
+            memberUIDs=memberUIDs
+        )
+
+
+    def removeMembers(self, members):
+        log.debug("DPS Client removeMembers")
+        memberUIDs = [m.uid.encode("utf-8") for m in members]
+        return self.service._call(
+            RemoveMembersCommand,
+            lambda x: x['success'],
+            uid=self.uid.encode("utf-8"),
+            memberUIDs=memberUIDs
         )
 
 

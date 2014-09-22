@@ -61,6 +61,7 @@ from twext.enterprise.ienterprise import ORACLE_DIALECT
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
 from twistedcaldav.bind import doBind
 from twistedcaldav.cache import CacheStoreNotifierFactory
+from twistedcaldav.controlapi import ControlAPIResource
 from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeProvisioningResource
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
@@ -380,6 +381,7 @@ def getRootResource(config, newStore, resources=None):
     directoryBackedAddressBookResourceClass = DirectoryBackedAddressBookResource
     apnSubscriptionResourceClass = APNSubscriptionResource
     principalResourceClass = DirectoryPrincipalProvisioningResource
+    controlResourceClass = ControlAPIResource
 
     directory = newStore.directoryService()
     principalCollection = principalResourceClass("/principals/", directory)
@@ -667,6 +669,19 @@ def getRootResource(config, newStore, resources=None):
             principalCollections=(principalCollection,),
         )
         root.putChild("admin", webAdmin)
+
+    #
+    # Control API
+    #
+    if config.EnableControlAPI:
+        log.info("Setting up Control API resource")
+        controlAPI = controlResourceClass(
+            root,
+            directory,
+            newStore,
+            principalCollections=(principalCollection,),
+        )
+        root.putChild("control", controlAPI)
 
     #
     # Apple Push Notification Subscriptions

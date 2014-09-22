@@ -823,6 +823,10 @@
     <key>EnableWebAdmin</key>
     <true/>
 
+    <!-- JSON Control API - only for testing -->
+	<key>EnableControlAPI</key>
+	<true/>
+
     <!-- Support for Content-Encoding compression -->
     <key>ResponseCompression</key>
     <false/>  <!-- Off for testing, as debugging is easier that way. -->

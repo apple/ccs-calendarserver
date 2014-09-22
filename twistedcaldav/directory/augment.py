@@ -469,13 +469,11 @@ class AugmentXMLDB(AugmentDB):
     def _updateRecordInXMLDB(self, record, recordNode):
         del recordNode[:]
         addSubElement(recordNode, xmlaugmentsparser.ELEMENT_UID, record.uid)
-        addSubElement(recordNode, xmlaugmentsparser.ELEMENT_ENABLE, "true" if record.enabled else "false")
         if record.serverID:
             addSubElement(recordNode, xmlaugmentsparser.ELEMENT_SERVERID, record.serverID)
         addSubElement(recordNode, xmlaugmentsparser.ELEMENT_ENABLECALENDAR, "true" if record.enabledForCalendaring else "false")
         addSubElement(recordNode, xmlaugmentsparser.ELEMENT_ENABLEADDRESSBOOK, "true" if record.enabledForAddressBooks else "false")
         addSubElement(recordNode, xmlaugmentsparser.ELEMENT_ENABLELOGIN, "true" if record.enabledForLogin else "false")
-        addSubElement(recordNode, xmlaugmentsparser.ELEMENT_AUTOSCHEDULE, "true" if record.autoSchedule else "false")
         if record.autoScheduleMode:
             addSubElement(recordNode, xmlaugmentsparser.ELEMENT_AUTOSCHEDULE_MODE, record.autoScheduleMode)
         if record.autoAcceptGroup:

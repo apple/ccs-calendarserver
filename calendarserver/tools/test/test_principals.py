@@ -293,6 +293,65 @@ class ManagePrincipalsTestCase(TestCase):
             self.fail("Expected command failure")
 
 
+    @inlineCallbacks
+    def test_groupChanges(self):
+        results = yield self.runCommand(
+            "--list-group-members", "groups:testgroup1"
+        )
+        self.assertTrue("user01" in results)
+        self.assertTrue("user02" in results)
+        self.assertTrue("user03" not in results)
+
+        results = yield self.runCommand(
+            "--add-group-member", "users:user03", "groups:testgroup1"
+        )
+        self.assertTrue("Added" in results)
+        self.assertTrue("Existing" not in results)
+        self.assertTrue("Invalid" not in results)
+
+        results = yield self.runCommand(
+            "--list-group-members", "groups:testgroup1"
+        )
+        self.assertTrue("user01" in results)
+        self.assertTrue("user02" in results)
+        self.assertTrue("user03" in results)
+
+        results = yield self.runCommand(
+            "--add-group-member", "users:user03", "groups:testgroup1"
+        )
+        self.assertTrue("Added" not in results)
+        self.assertTrue("Existing" in results)
+        self.assertTrue("Invalid" not in results)
+
+        results = yield self.runCommand(
+            "--add-group-member", "users:bogus", "groups:testgroup1"
+        )
+        self.assertTrue("Added" not in results)
+        self.assertTrue("Existing" not in results)
+        self.assertTrue("Invalid" in results)
+
+        results = yield self.runCommand(
+            "--remove-group-member", "users:user03", "groups:testgroup1"
+        )
+        self.assertTrue("Removed" in results)
+        self.assertTrue("Missing" not in results)
+        self.assertTrue("Invalid" not in results)
+
+        results = yield self.runCommand(
+            "--list-group-members", "groups:testgroup1"
+        )
+        self.assertTrue("user01" in results)
+        self.assertTrue("user02" in results)
+        self.assertTrue("user03" not in results)
+
+        results = yield self.runCommand(
+            "--remove-group-member", "users:user03", "groups:testgroup1"
+        )
+        self.assertTrue("Removed" not in results)
+        self.assertTrue("Missing" in results)
+        self.assertTrue("Invalid" not in results)
+
+
 
 class SetProxiesTestCase(StoreTestCase):
 

@@ -81,8 +81,11 @@ class DPSClientSingleDirectoryTest(unittest.TestCase):
 
         # The "remote" directory service
         if testMode == "xml":
-            path = os.path.join(os.path.dirname(__file__), "test.xml")
-            remoteDirectory = CalendarXMLDirectoryService(FilePath(path))
+            # Need a copy as it might change
+            path = FilePath(os.path.join(os.path.dirname(__file__), "test.xml"))
+            copy = FilePath(self.mktemp())
+            path.copyTo(copy)
+            remoteDirectory = CalendarXMLDirectoryService(copy)
         elif testMode == "od":
             remoteDirectory = CalendarODDirectoryService()
 
@@ -95,16 +98,16 @@ class DPSClientSingleDirectoryTest(unittest.TestCase):
         # actual networking
         self.patch(self.directory, "_getConnection", lambda: succeed(client))
 
-        # Wrap the normal _call method with one that flushes the IOPump
+        # Wrap the normal _sendCommand method with one that flushes the IOPump
         # afterwards
-        origCall = self.directory._call
+        origCall = self.directory._sendCommand
 
         def newCall(*args, **kwds):
             d = origCall(*args, **kwds)
             pump.flush()
             return d
 
-        self.patch(self.directory, "_call", newCall)
+        self.patch(self.directory, "_sendCommand", newCall)
 
 
     @inlineCallbacks
@@ -286,6 +289,53 @@ class DPSClientSingleDirectoryTest(unittest.TestCase):
 
 
     @inlineCallbacks
+    def test_group_changes(self):
+        group = yield self.directory.recordWithUID(u"__twisted__")
+        members = yield group.members()
+        self.assertEquals(len(members), 5)
+
+        # Add new member
+        group = yield self.directory.recordWithUID(u"__twisted__")
+        user = yield self.directory.recordWithUID(u"__cdaboo__")
+        yield group.addMembers((user,))
+        yield self.directory.updateRecords((group,), False)
+
+        group = yield self.directory.recordWithUID(u"__twisted__")
+        members = yield group.members()
+        self.assertEquals(len(members), 6)
+
+        # Add existing member
+        group = yield self.directory.recordWithUID(u"__twisted__")
+        user = yield self.directory.recordWithUID(u"__wsanchez__")
+        yield group.addMembers((user,))
+        yield self.directory.updateRecords((group,), False)
+
+        group = yield self.directory.recordWithUID(u"__twisted__")
+        members = yield group.members()
+        self.assertEquals(len(members), 6)
+
+        # Remove existing member
+        group = yield self.directory.recordWithUID(u"__twisted__")
+        user = yield self.directory.recordWithUID(u"__cdaboo__")
+        yield group.removeMembers((user,))
+        yield self.directory.updateRecords((group,), False)
+
+        group = yield self.directory.recordWithUID(u"__twisted__")
+        members = yield group.members()
+        self.assertEquals(len(members), 5)
+
+        # Remove missing member
+        group = yield self.directory.recordWithUID(u"__twisted__")
+        user = yield self.directory.recordWithUID(u"__cdaboo__")
+        yield group.removeMembers((user,))
+        yield self.directory.updateRecords((group,), False)
+
+        group = yield self.directory.recordWithUID(u"__twisted__")
+        members = yield group.members()
+        self.assertEquals(len(members), 5)
+
+
+    @inlineCallbacks
     def test_verifyPlaintextPassword(self):
         expectations = (
             (testPassword, True),  # Correct
@@ -369,16 +419,16 @@ class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
         # actual networking
         self.patch(self.client, "_getConnection", lambda: succeed(client))
 
-        # Wrap the normal _call method with one that flushes the IOPump
+        # Wrap the normal _sendCommand method with one that flushes the IOPump
         # afterwards
-        origCall = self.client._call
+        origCall = self.client._sendCommand
 
         def newCall(*args, **kwds):
             d = origCall(*args, **kwds)
             pump.flush()
             return d
 
-        self.patch(self.client, "_call", newCall)
+        self.patch(self.client, "_sendCommand", newCall)
 
 
     def configure(self):
@@ -617,6 +667,53 @@ class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
         # self.assertEquals(len(groups), 1)
 
     test_groups.todo = "Figure out why this hangs"
+
+
+    @inlineCallbacks
+    def test_group_changes(self):
+        group = yield self.directory.recordWithUID(u"__top_group_1__")
+        members = yield group.members()
+        self.assertEquals(len(members), 3)
+
+        # Add new member
+        group = yield self.directory.recordWithUID(u"__top_group_1__")
+        user = yield self.directory.recordWithUID(u"__cdaboo1__")
+        yield group.addMembers((user,))
+        yield self.directory.updateRecords((group,), False)
+
+        group = yield self.directory.recordWithUID(u"__top_group_1__")
+        members = yield group.members()
+        self.assertEquals(len(members), 4)
+
+        # Add existing member
+        group = yield self.directory.recordWithUID(u"__top_group_1__")
+        user = yield self.directory.recordWithUID(u"__wsanchez1__")
+        yield group.addMembers((user,))
+        yield self.directory.updateRecords((group,), False)
+
+        group = yield self.directory.recordWithUID(u"__top_group_1__")
+        members = yield group.members()
+        self.assertEquals(len(members), 4)
+
+        # Remove existing member
+        group = yield self.directory.recordWithUID(u"__top_group_1__")
+        user = yield self.directory.recordWithUID(u"__cdaboo1__")
+        yield group.removeMembers((user,))
+        yield self.directory.updateRecords((group,), False)
+
+        group = yield self.directory.recordWithUID(u"__top_group_1__")
+        members = yield group.members()
+        self.assertEquals(len(members), 3)
+
+        # Remove missing member
+        group = yield self.directory.recordWithUID(u"__top_group_1__")
+        user = yield self.directory.recordWithUID(u"__cdaboo1__")
+        yield group.removeMembers((user,))
+        yield self.directory.updateRecords((group,), False)
+
+        group = yield self.directory.recordWithUID(u"__top_group_1__")
+        members = yield group.members()
+        self.assertEquals(len(members), 3)
 
 
     @inlineCallbacks

@@ -621,6 +621,11 @@ DEFAULT_CONFIG = {
     "EnableWebAdmin"          : True,
 
     #
+    # JSON control API - only for testing
+    #
+    "EnableControlAPI"        : False,
+
+    #
     # Scheduling related options
     #
 

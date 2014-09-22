@@ -294,7 +294,8 @@ class AugmentedDirectoryService(
             # Split out the base fields from the augment fields
             baseFields, augmentFields = self._splitFields(record)
 
-            if augmentFields:
+            # Ignore groups for now
+            if augmentFields and record.recordType != RecordType.group:
                 # Create an AugmentRecord
                 autoScheduleMode = {
                     AutoScheduleMode.none: "none",
@@ -324,7 +325,7 @@ class AugmentedDirectoryService(
                 augmentRecords.append(augmentRecord)
 
             # Create new base records:
-            baseRecords.append(DirectoryRecord(self._directory, baseFields))
+            baseRecords.append(DirectoryRecord(self._directory, record._baseRecord.fields if hasattr(record, "_baseRecord") else baseFields))
 
         # Apply the augment records
         if augmentRecords:
@@ -492,6 +493,18 @@ class AugmentedDirectoryRecord(DirectoryRecord, CalendarDirectoryRecordMixin):
             augmented.append((yield self.service._augment(record)))
 
         returnValue(augmented)
+
+
+    def addMembers(self, memberRecords):
+        return self._baseRecord.addMembers(memberRecords)
+
+
+    def removeMembers(self, memberRecords):
+        return self._baseRecord.removeMembers(memberRecords)
+
+
+    def setMembers(self, memberRecords):
+        return self._baseRecord.setMembers(memberRecords)
 
 
     @timed

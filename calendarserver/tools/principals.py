@@ -133,8 +133,9 @@ def main():
                 "remove",
                 "search=",
                 "list-principal-types",
-                "print-group-info",
                 "list-principals=",
+
+                # Proxies
                 "list-read-proxies",
                 "list-write-proxies",
                 "list-proxies",
@@ -142,17 +143,27 @@ def main():
                 "add-read-proxy=",
                 "add-write-proxy=",
                 "remove-proxy=",
+
+                # Groups
+                "list-group-members",
+                "add-group-member=",
+                "remove-group-member=",
+                "print-group-info",
+                "refresh-groups",
+
+                # Scheduling
                 "set-auto-schedule-mode=",
                 "get-auto-schedule-mode",
                 "set-auto-accept-group=",
                 "get-auto-accept-group",
+
+                # Principal details
                 "set-geo=",
                 "get-geo",
                 "set-address=",
                 "get-address",
                 "set-street-address=",
                 "get-street-address",
-                "refresh-groups",
                 "verbose",
             ],
         )
@@ -195,12 +206,6 @@ def main():
         elif opt in ("", "--list-principal-types"):
             listPrincipalTypes = True
 
-        elif opt in ("", "--print-group-info"):
-            printGroupInfo = True
-
-        elif opt in ("", "--refresh-groups"):
-            scheduleGroupRefresh = True
-
         elif opt in ("", "--list-principals"):
             listPrincipals = arg
 
@@ -230,6 +235,21 @@ def main():
 
         elif opt in ("", "--remove-proxy"):
             principalActions.append((action_removeProxy, arg))
+
+        elif opt in ("", "--list-group-members"):
+            principalActions.append((action_listGroupMembers,))
+
+        elif opt in ("--add-group-member"):
+            principalActions.append((action_addGroupMember, arg))
+
+        elif opt in ("", "--remove-group-member"):
+            principalActions.append((action_removeGroupMember, arg))
+
+        elif opt in ("", "--print-group-info"):
+            printGroupInfo = True
+
+        elif opt in ("", "--refresh-groups"):
+            scheduleGroupRefresh = True
 
         elif opt in ("", "--set-auto-schedule-mode"):
             try:
@@ -658,6 +678,128 @@ def getProxies(record):
 
 
 
+@inlineCallbacks
+def action_listGroupMembers(store, record):
+    members = yield record.members()
+    if members:
+        print("Group members for %s:\n" % (
+            prettyRecord(record)
+        ))
+        printRecordList(members)
+        print("")
+    else:
+        print("No group members for %s" % (prettyRecord(record),))
+
+
+
+@inlineCallbacks
+def action_addGroupMember(store, record, *memberIDs):
+    directory = store.directoryService()
+    existingMembers = yield record.members()
+    existingMemberUIDs = set([member.uid for member in existingMembers])
+    add = set()
+    for memberID in memberIDs:
+        memberRecord = yield recordForPrincipalID(directory, memberID)
+        if memberRecord is None:
+            print("Invalid member ID: %s" % (memberID,))
+        elif memberRecord.uid in existingMemberUIDs:
+            print("Existing member ID: %s" % (memberID,))
+        else:
+            add.add(memberRecord)
+
+    if add:
+        yield record.addMembers(add)
+        for memberRecord in add:
+            print(
+                "Added {member} for {record}".format(
+                    member=prettyRecord(memberRecord),
+                    record=prettyRecord(record)
+                )
+            )
+        yield record.service.updateRecords([record], create=False)
+
+
+
+@inlineCallbacks
+def action_removeGroupMember(store, record, *memberIDs):
+    directory = store.directoryService()
+    existingMembers = yield record.members()
+    existingMemberUIDs = set([member.uid for member in existingMembers])
+    remove = set()
+    for memberID in memberIDs:
+        memberRecord = yield recordForPrincipalID(directory, memberID)
+        if memberRecord is None:
+            print("Invalid member ID: %s" % (memberID,))
+        elif memberRecord.uid not in existingMemberUIDs:
+            print("Missing member ID: %s" % (memberID,))
+        else:
+            remove.add(memberRecord)
+
+    if remove:
+        yield record.removeMembers(remove)
+        for memberRecord in remove:
+            print(
+                "Removed {member} for {record}".format(
+                    member=prettyRecord(memberRecord),
+                    record=prettyRecord(record)
+                )
+            )
+        yield record.service.updateRecords([record], create=False)
+
+
+
+@inlineCallbacks
+def printGroupCacherInfo(service, store):
+    """
+    Print all groups that have been delegated to, their cached members, and
+    who delegated to those groups.
+    """
+    directory = store.directoryService()
+    txn = store.newTransaction()
+    groupUIDs = yield txn.allGroupDelegates()
+    for groupUID in groupUIDs:
+        (
+            groupID, name, _ignore_membershipHash, modified, _ignore_extant
+        ) = yield txn.groupByUID(
+            groupUID
+        )
+        print("Group: \"{name}\" ({uid})".format(name=name, uid=groupUID))
+
+        for txt, readWrite in (("read-only", False), ("read-write", True)):
+            delegatorUIDs = yield txn.delegatorsToGroup(groupID, readWrite)
+            for delegatorUID in delegatorUIDs:
+                delegator = yield directory.recordWithUID(delegatorUID)
+                print(
+                    "...has {rw} access to {rec}".format(
+                        rw=txt, rec=prettyRecord(delegator)
+                    )
+                )
+
+        print("Group members:")
+        memberUIDs = yield txn.groupMemberUIDs(groupID)
+        for memberUID in memberUIDs:
+            record = yield directory.recordWithUID(memberUID)
+            print(prettyRecord(record))
+
+        print("Last cached: {} GMT".format(modified))
+        print()
+
+    yield txn.commit()
+
+
+
+@inlineCallbacks
+def scheduleGroupRefreshJob(service, store):
+    """
+    Schedule GroupCacherPollingWork
+    """
+    txn = store.newTransaction()
+    print("Scheduling a group refresh")
+    yield GroupCacherPollingWork.reschedule(txn, 0, force=True)
+    yield txn.commit()
+
+
+
 def action_getAutoScheduleMode(store, record):
     print(
         "Auto-schedule mode for {record} is {mode}".format(
@@ -809,58 +951,6 @@ def action_getValue(store, record, name):
                 name=name, record=prettyRecord(record),
             )
         )
-
-
-
-@inlineCallbacks
-def printGroupCacherInfo(service, store):
-    """
-    Print all groups that have been delegated to, their cached members, and
-    who delegated to those groups.
-    """
-    directory = store.directoryService()
-    txn = store.newTransaction()
-    groupUIDs = yield txn.allGroupDelegates()
-    for groupUID in groupUIDs:
-        (
-            groupID, name, _ignore_membershipHash, modified, _ignore_extant
-        ) = yield txn.groupByUID(
-            groupUID
-        )
-        print("Group: \"{name}\" ({uid})".format(name=name, uid=groupUID))
-
-        for txt, readWrite in (("read-only", False), ("read-write", True)):
-            delegatorUIDs = yield txn.delegatorsToGroup(groupID, readWrite)
-            for delegatorUID in delegatorUIDs:
-                delegator = yield directory.recordWithUID(delegatorUID)
-                print(
-                    "...has {rw} access to {rec}".format(
-                        rw=txt, rec=prettyRecord(delegator)
-                    )
-                )
-
-        print("Group members:")
-        memberUIDs = yield txn.groupMemberUIDs(groupID)
-        for memberUID in memberUIDs:
-            record = yield directory.recordWithUID(memberUID)
-            print(prettyRecord(record))
-
-        print("Last cached: {} GMT".format(modified))
-        print()
-
-    yield txn.commit()
-
-
-
-@inlineCallbacks
-def scheduleGroupRefreshJob(service, store):
-    """
-    Schedule GroupCacherPollingWork
-    """
-    txn = store.newTransaction()
-    print("Scheduling a group refresh")
-    yield GroupCacherPollingWork.reschedule(txn, 0, force=True)
-    yield txn.commit()
 
 
 
