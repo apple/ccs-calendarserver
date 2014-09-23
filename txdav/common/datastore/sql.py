@@ -4889,6 +4889,10 @@ class SharingMixIn(object):
         the per-user properties for the sharee.
         """
 
+        # Never return the owner's own resource
+        if self._home.uid() == shareeUID:
+            returnValue(None)
+
         # Get the child of the sharee home that has the same resource id as the owned one
         shareeHome = yield self._txn.homeWithUID(self._home._homeType, shareeUID, authzUID=shareeUID)
         shareeView = (yield shareeHome.allChildWithID(self.id())) if shareeHome is not None else None
