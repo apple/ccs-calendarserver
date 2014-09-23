@@ -763,7 +763,7 @@ END:VCARD
 
         @inlineCallbacks
         def _defer2():
-            yield ab2.directShareWithUser("uid1")
+            yield ab2.directShareWithUser("uid2")
             yield txn2.commit()
         d2 = _defer2()
 
