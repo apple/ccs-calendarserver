@@ -528,7 +528,7 @@ DEFAULT_CONFIG = {
                 ],
             },
             "Groups" : {
-                "Enabled"     : True, # Calendar sharing to groups on/off switch
+                "Enabled"     : False, # Calendar sharing to groups on/off switch
                 "ReconciliationDelaySeconds" : 5,
             },
         },

@@ -792,7 +792,7 @@
     	<key>Groups</key>
     	<dict>
 	    	<key>Enabled</key>
-	    	<true/>
+	    	<false/>
     	</dict>
       </dict>
       <key>AddressBooks</key>
