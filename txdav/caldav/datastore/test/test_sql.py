@@ -1010,7 +1010,7 @@ END:VCALENDAR
 
         @inlineCallbacks
         def _defer2():
-            yield cal2.directShareWithUser("uid1")
+            yield cal2.directShareWithUser("uid2")
             yield txn2.commit()
         d2 = _defer2()
 
