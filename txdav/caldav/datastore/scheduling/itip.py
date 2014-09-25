@@ -157,7 +157,7 @@ class iTipProcessing(object):
             # Copy over master alarms, comments etc
             master_component = new_calendar.masterComponent()
             transfer_partstat = None not in needs_action_rids and not reschedule
-            seq_change = Component.compareComponentsForITIP(master_component, current_master, use_dtstamp=False) <= 0
+            seq_change = Component.compareComponentsForITIP(master_component, current_master, use_dtstamp=False) <= 0 if current_master is not None else False
             iTipProcessing._transferItems(master_component, transfer_partstat and seq_change, valarms, private_comments, transps, completeds, organizer_schedule_status, attendee, attendee_dtstamp, other_props, recipient)
 
             # Now try to match recurrences in the new calendar
