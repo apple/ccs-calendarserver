@@ -881,7 +881,7 @@ class GroupSharing(BaseSharingTests):
         yield self.commit()
 
         # Uninvite other
-        group = yield self.addressbookObjectUnderTest(home="user02", addressbook_name="user01", name="group2.vcf")
+        group = yield self.addressbookObjectUnderTest(home="user01", addressbook_name="addressbook", name="group2.vcf")
         yield group.uninviteUIDFromShare("user02")
         invites = yield group.sharingInvites()
         self.assertEqual(len(invites), 0)
