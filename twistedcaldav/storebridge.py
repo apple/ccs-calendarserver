@@ -3914,6 +3914,14 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
 
         if qname == customxml.NotificationType.qname():
             jsontype = self._newStoreObject.notificationType()
+
+            # FIXME: notificationType( ) does not always return json; it can
+            # currently return a utf-8 encoded str of XML
+            if isinstance(jsontype, str):
+                returnValue(
+                    davxml.WebDAVDocument.fromString(jsontype).root_element
+                )
+
             if jsontype["notification-type"] == "invite-notification":
                 typeAttr = {"shared-type": jsontype["shared-type"]}
                 xmltype = customxml.InviteNotification(**typeAttr)
@@ -3938,6 +3946,12 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
     def text(self, ignored=None):
         assert ignored is None, "This is a notification object, not a notification"
         jsondata = (yield self._newStoreObject.notificationData())
+
+        # FIXME: notificationData( ) does not always return json; it can
+        # currently return a utf-8 encoded str of XML
+        if isinstance(jsondata, str):
+            returnValue(jsondata)
+
         if jsondata["notification-type"] == "invite-notification":
             ownerPrincipal = yield self.principalForUID(jsondata["owner"])
             ownerCN = ownerPrincipal.displayName()
