@@ -7800,6 +7800,8 @@ class GroupExpand(CommonCommonTests, unittest.TestCase):
             "now2": now2,
         }
 
+        self.patch(config.GroupAttendees, "Enabled", True)
+
 
     @inlineCallbacks
     def populate(self):

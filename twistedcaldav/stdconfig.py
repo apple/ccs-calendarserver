@@ -972,7 +972,7 @@ DEFAULT_CONFIG = {
     },
 
     "GroupAttendees" : {
-        "Enabled": True,
+        "Enabled": False,
         "ReconciliationDelaySeconds" : 5,
         "AutoUpdateSecondsFromNow" : 60 * 60,   # 1 hour
     },

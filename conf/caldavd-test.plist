@@ -892,7 +892,7 @@
     <key>GroupAttendees</key>
     <dict>
       <key>Enabled</key>
-      <true/>
+      <false/>
 
       <key>ReconciliationDelaySeconds</key>
       <integer>5</integer>
