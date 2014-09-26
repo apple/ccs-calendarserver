@@ -483,11 +483,12 @@ DEFAULT_CONFIG = {
     "TimezoneService"         : {    # New standard timezone service
         "Enabled"       : False, # Overall on/off switch
         "Mode"          : "primary", # Can be "primary" or "secondary"
-        "BasePath"      : "", # Path to directory containing a zoneinfo - if None use default package path
+        "BasePath"      : "",        # Path to directory containing a zoneinfo - if None use default package path
                                      # secondary service MUST define its own writable path
-        "XMLInfoPath"   : "", # Path to db cache info - if None use default package path
+        "XMLInfoPath"   : "",        # Path to db cache info - if None use default package path
                                      # secondary service MUST define its own writable path if
                                      # not None
+        "PrettyPrintJSON" : True,    # User friendly JSON output
 
         "SecondaryService" : {
             # Only one of these should be used when a secondary service is used

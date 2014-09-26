@@ -225,6 +225,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
                         "error": "invalid-action",
                         "description": "Invalid action query parameter",
                     },
+                    pretty=config.TimezoneService.PrettyPrintJSON,
                 ))
             action = action[0]
 
@@ -242,6 +243,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
                         "error": "invalid-action",
                         "description": "Unknown action query parameter",
                     },
+                    pretty=config.TimezoneService.PrettyPrintJSON,
                 ))
 
             return action(request)
@@ -290,7 +292,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
                 },
             ]
         }
-        return JSONResponse(responsecode.OK, result)
+        return JSONResponse(responsecode.OK, result, pretty=config.TimezoneService.PrettyPrintJSON)
 
 
     def doList(self, request):
@@ -306,6 +308,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
                     "error": "invalid-changedsince",
                     "description": "Invalid changedsince query parameter",
                 },
+                pretty=config.TimezoneService.PrettyPrintJSON,
             ))
         if len(changedsince) == 1:
             # Validate a date-time stamp
@@ -319,11 +322,16 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
                         "error": "invalid-changedsince",
                         "description": "Invalid changedsince query parameter",
                     },
+                    pretty=config.TimezoneService.PrettyPrintJSON,
                 ))
             if not dt.utc():
                 raise HTTPError(JSONResponse(
                     responsecode.BAD_REQUEST,
-                    "Invalid changedsince query parameter value",
+                    {
+                        "error": "invalid-changedsince",
+                        "description": "Invalid changedsince query parameter - not UTC",
+                    },
+                    pretty=config.TimezoneService.PrettyPrintJSON,
                 ))
 
         timezones = []
@@ -337,7 +345,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
             "dtstamp": self.timezones.dtstamp,
             "timezones": timezones,
         }
-        return JSONResponse(responsecode.OK, result)
+        return JSONResponse(responsecode.OK, result, pretty=config.TimezoneService.PrettyPrintJSON)
 
 
     def doGet(self, request):
@@ -353,6 +361,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
                     "error": "invalid-tzid",
                     "description": "Invalid tzid query parameter",
                 },
+                pretty=config.TimezoneService.PrettyPrintJSON,
             ))
 
         format = request.args.get("format", ("text/calendar",))
@@ -363,6 +372,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
                     "error": "invalid-format",
                     "description": "Invalid format query parameter",
                 },
+                pretty=config.TimezoneService.PrettyPrintJSON,
             ))
         format = format[0]
 
@@ -373,7 +383,8 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
                 {
                     "error": "tzid-not-found",
                     "description": "Tzid could not be found",
-                }
+                },
+                pretty=config.TimezoneService.PrettyPrintJSON,
             ))
 
         tzdata = calendar.getText(format=format if format != "text/plain" else None)
@@ -397,6 +408,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
                     "error": "invalid-tzid",
                     "description": "Invalid tzid query parameter",
                 },
+                pretty=config.TimezoneService.PrettyPrintJSON,
             ))
 
         try:
@@ -415,7 +427,8 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
                 {
                     "error": "invalid-start",
                     "description": "Invalid start query parameter",
-                }
+                },
+                pretty=config.TimezoneService.PrettyPrintJSON,
             ))
 
         try:
@@ -437,7 +450,8 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
                 {
                     "error": "invalid-end",
                     "description": "Invalid end query parameter",
-                }
+                },
+                pretty=config.TimezoneService.PrettyPrintJSON,
             ))
 
         tzid = tzids[0]
@@ -448,7 +462,8 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
                 {
                     "error": "tzid-not-found",
                     "description": "Tzid could not be found",
-                }
+                },
+                pretty=config.TimezoneService.PrettyPrintJSON,
             ))
 
         # Now do the expansion (but use a cache to avoid re-calculating TZs)
@@ -469,7 +484,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
                 } for onset, utc_offset_from, utc_offset_to, name in observances
             ],
         }
-        return JSONResponse(responsecode.OK, result)
+        return JSONResponse(responsecode.OK, result, pretty=config.TimezoneService.PrettyPrintJSON)
 
 
 

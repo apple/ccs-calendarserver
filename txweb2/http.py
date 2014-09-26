@@ -556,11 +556,15 @@ class JSONResponse (Response):
     JSON L{Response} object.
     Renders itself as an JSON document.
     """
-    def __init__(self, code, jobj):
+    def __init__(self, code, jobj, pretty=False):
         """
         @param jobj: a Python object that can be serialized to JSON.
         """
-        Response.__init__(self, code, stream=json.dumps(jobj))
+        kwargs = {}
+        if pretty:
+            kwargs["indent"] = 2
+            kwargs["separators"] = (',', ':')
+        Response.__init__(self, code, stream=json.dumps(jobj, **kwargs))
         self.headers.setHeader("content-type", http_headers.MimeType("application", "json"))
 
 
