@@ -429,9 +429,6 @@ class ProvisionedPrincipals(StoreTestCase):
                 yield hasProperty(
                     (calendarserver_namespace, "calendar-proxy-write-for")
                 )
-                # yield hasProperty(
-                #     (calendarserver_namespace, "auto-schedule")
-                # )
             else:
                 yield doesNotHaveProperty(
                     (caldav_namespace, "calendar-home-set")
@@ -454,9 +451,6 @@ class ProvisionedPrincipals(StoreTestCase):
                 yield doesNotHaveProperty(
                     (calendarserver_namespace, "calendar-proxy-write-for")
                 )
-                # yield doesNotHaveProperty(
-                #     (calendarserver_namespace, "auto-schedule")
-                # )
 
             if record.hasContacts:
                 yield hasProperty(carddavxml.AddressBookHomeSet.qname())

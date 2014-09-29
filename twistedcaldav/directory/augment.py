@@ -596,11 +596,11 @@ class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
         """
 
         # Query for the record information
-        results = (yield self.query("select UID, ENABLED, SERVERID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE, AUTOSCHEDULEMODE, AUTOACCEPTGROUP, LOGINENABLED from AUGMENTS where UID = :1", (uid,)))
+        results = (yield self.query("select UID, ENABLED, SERVERID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULEMODE, AUTOACCEPTGROUP, LOGINENABLED from AUGMENTS where UID = :1", (uid,)))
         if not results:
             returnValue(None)
         else:
-            uid, enabled, serverid, enabledForCalendaring, enabledForAddressBooks, autoSchedule, autoScheduleMode, autoAcceptGroup, enabledForLogin = results[0]
+            uid, enabled, serverid, enabledForCalendaring, enabledForAddressBooks, autoScheduleMode, autoAcceptGroup, enabledForLogin = results[0]
 
             record = AugmentRecord(
                 uid=uid,
@@ -609,7 +609,6 @@ class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
                 enabledForCalendaring=enabledForCalendaring == "T",
                 enabledForAddressBooks=enabledForAddressBooks == "T",
                 enabledForLogin=enabledForLogin == "T",
-                autoSchedule=autoSchedule == "T",
                 autoScheduleMode=autoScheduleMode,
                 autoAcceptGroup=autoAcceptGroup,
             )
@@ -685,7 +684,6 @@ class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
                 ("SERVERID", "text"),
                 ("CALENDARING", "text(1)"),
                 ("ADDRESSBOOKS", "text(1)"),
-                ("AUTOSCHEDULE", "text(1)"),
                 ("AUTOSCHEDULEMODE", "text"),
                 ("AUTOACCEPTGROUP", "text"),
                 ("LOGINENABLED", "text(1)"),
@@ -715,15 +713,14 @@ class AugmentSqliteDB(ADBAPISqliteMixin, AugmentADAPI):
     def _addRecord(self, record):
         yield self.execute(
             """insert or replace into AUGMENTS
-            (UID, ENABLED, SERVERID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE, AUTOSCHEDULEMODE, AUTOACCEPTGROUP, LOGINENABLED)
-            values (:1, :2, :3, :4, :5, :6, :7, :8, :9)""",
+            (UID, ENABLED, SERVERID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULEMODE, AUTOACCEPTGROUP, LOGINENABLED)
+            values (:1, :2, :3, :4, :5, :6, :7, :8)""",
             (
                 record.uid,
                 "T" if record.enabled else "F",
                 record.serverID,
                 "T" if record.enabledForCalendaring else "F",
                 "T" if record.enabledForAddressBooks else "F",
-                "T" if record.autoSchedule else "F",
                 record.autoScheduleMode if record.autoScheduleMode else "",
                 record.autoAcceptGroup,
                 "T" if record.enabledForLogin else "F",
@@ -751,15 +748,14 @@ class AugmentPostgreSQLDB(ADBAPIPostgreSQLMixin, AugmentADAPI):
     def _addRecord(self, record):
         yield self.execute(
             """insert into AUGMENTS
-            (UID, ENABLED, SERVERID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE, AUTOSCHEDULEMODE, AUTOACCEPTGROUP, LOGINENABLED)
-            values (:1, :2, :3, :4, :5, :6, :7, :8, :9)""",
+            (UID, ENABLED, SERVERID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULEMODE, AUTOACCEPTGROUP, LOGINENABLED)
+            values (:1, :2, :3, :4, :5, :6, :7, :8)""",
             (
                 record.uid,
                 "T" if record.enabled else "F",
                 record.serverID,
                 "T" if record.enabledForCalendaring else "F",
                 "T" if record.enabledForAddressBooks else "F",
-                "T" if record.autoSchedule else "F",
                 record.autoScheduleMode if record.autoScheduleMode else "",
                 record.autoAcceptGroup,
                 "T" if record.enabledForLogin else "F",
@@ -771,15 +767,14 @@ class AugmentPostgreSQLDB(ADBAPIPostgreSQLMixin, AugmentADAPI):
     def _modifyRecord(self, record):
         yield self.execute(
             """update AUGMENTS set
-            (UID, ENABLED, SERVERID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE, AUTOSCHEDULEMODE, AUTOACCEPTGROUP, LOGINENABLED) =
-            (:1, :2, :3, :4, :5, :6, :7, :8, :9) where UID = :10""",
+            (UID, ENABLED, SERVERID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULEMODE, AUTOACCEPTGROUP, LOGINENABLED) =
+            (:1, :2, :3, :4, :5, :6, :7, :8) where UID = :9""",
             (
                 record.uid,
                 "T" if record.enabled else "F",
                 record.serverID,
                 "T" if record.enabledForCalendaring else "F",
                 "T" if record.enabledForAddressBooks else "F",
-                "T" if record.autoSchedule else "F",
                 record.autoScheduleMode if record.autoScheduleMode else "",
                 record.autoAcceptGroup,
                 "T" if record.enabledForLogin else "F",
