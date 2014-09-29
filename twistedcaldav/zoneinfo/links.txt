@@ -3,14 +3,32 @@ AUS Eastern Standard Time	Australia/Sydney
 Afghanistan Standard Time	Asia/Kabul
 Africa/Asmera	Africa/Asmara
 Africa/Bamako	Africa/Abidjan
+Africa/Bangui	Africa/Lagos
 Africa/Banjul	Africa/Abidjan
+Africa/Blantyre	Africa/Maputo
+Africa/Brazzaville	Africa/Lagos
+Africa/Bujumbura	Africa/Maputo
 Africa/Conakry	Africa/Abidjan
 Africa/Dakar	Africa/Abidjan
+Africa/Douala	Africa/Lagos
 Africa/Freetown	Africa/Abidjan
+Africa/Gaborone	Africa/Maputo
+Africa/Harare	Africa/Maputo
 Africa/Juba	Africa/Khartoum
+Africa/Kigali	Africa/Maputo
+Africa/Kinshasa	Africa/Lagos
+Africa/Libreville	Africa/Lagos
 Africa/Lome	Africa/Abidjan
+Africa/Luanda	Africa/Lagos
+Africa/Lubumbashi	Africa/Maputo
+Africa/Lusaka	Africa/Maputo
+Africa/Malabo	Africa/Lagos
+Africa/Maseru	Africa/Johannesburg
+Africa/Mbabane	Africa/Johannesburg
+Africa/Niamey	Africa/Lagos
 Africa/Nouakchott	Africa/Abidjan
 Africa/Ouagadougou	Africa/Abidjan
+Africa/Porto-Novo	Africa/Lagos
 Africa/Sao_Tome	Africa/Abidjan
 Africa/Timbuktu	Africa/Abidjan
 Alaskan Standard Time	America/Anchorage
@@ -178,6 +196,7 @@ Korea Standard Time	Asia/Seoul
 Kwajalein	Pacific/Kwajalein
 Libya	Africa/Tripoli
 Libya Standard Time	Africa/Tripoli
+Line Islands Standard Time	Pacific/Kiritimati
 Magadan Standard Time	Asia/Magadan
 Mauritius Standard Time	Indian/Mauritius
 Mexico/BajaNorte	America/Tijuana
