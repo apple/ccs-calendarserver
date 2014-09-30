@@ -15,8 +15,7 @@
 ##
 
 from twistedcaldav.test.util import TestCase
-from twistedcaldav.directory.augment import AugmentXMLDB, AugmentSqliteDB, \
-    AugmentPostgreSQLDB, AugmentRecord
+from twistedcaldav.directory.augment import AugmentXMLDB, AugmentRecord
 from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.directory.xmlaugmentsparser import XMLAugmentsParser
 import cStringIO
@@ -342,26 +341,3 @@ class AugmentXMLTests(AugmentTests):
         uids = list(self.uidsFromFile(newxmlfile.path))
         self.assertEquals(uids, ['AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA'])
 
-
-
-class AugmentSqliteTests(AugmentTests, AugmentTestsMixin):
-
-    def _db(self, dbpath=None):
-        return AugmentSqliteDB(dbpath if dbpath else os.path.abspath(self.mktemp()))
-
-
-
-class AugmentPostgreSQLTests(AugmentTests, AugmentTestsMixin):
-
-    def _db(self, dbpath=None):
-        return AugmentPostgreSQLDB("localhost", "augments")
-
-try:
-    import pgdb
-except ImportError:
-    AugmentPostgreSQLTests.skip = True
-else:
-    try:
-        db = pgdb.connect(host="localhost", database="augments")
-    except:
-        AugmentPostgreSQLTests.skip = True

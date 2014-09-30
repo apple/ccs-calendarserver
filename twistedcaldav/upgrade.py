@@ -707,6 +707,47 @@ def upgradeResourcesXML(resourcesFilePath):
     resourcesFilePath.setContent(etreeToString(directoryNode, "utf-8"))
 
 
+def upgradeAugmentsXML(augmentsFilePath):
+    """
+    Convert the old augments XML auto-schedule related elements to the twext.who.xml format
+
+    @param augmentsFilePath: the file to convert
+    @type augmentsFilePath: L{FilePath}
+    """
+    try:
+        with augmentsFilePath.open() as fh:
+            try:
+                etree = parseXML(fh)
+            except XMLParseError:
+                log.error("Cannot parse {path}", path=augmentsFilePath.path)
+                return
+    except (OSError, IOError):
+        # Can't read the file
+        log.error("Cannot read {path}", path=augmentsFilePath.path)
+        return
+
+    augmentsNode = etree.getroot()
+    if augmentsNode.tag != "augments":
+        return
+
+    log.info("Converting augments.xml")
+    for recordNode in augmentsNode:
+
+        autoScheduleElement = recordNode.find("auto-schedule")
+        if autoScheduleElement is not None:
+            if autoScheduleElement.text == "false":
+                autoScheduleModeElement = recordNode.find("auto-schedule-mode")
+                if autoScheduleModeElement is not None:
+                    autoScheduleModeElement.text = "none"
+            recordNode.remove(autoScheduleElement)
+
+        enableElement = recordNode.find("enable")
+        if enableElement is not None:
+            recordNode.remove(enableElement)
+
+    augmentsFilePath.setContent(etreeToString(augmentsNode, "utf-8"))
+
+
 # The on-disk version number (which defaults to zero if .calendarserver_version
 # doesn't exist), is compared with each of the numbers in the upgradeMethods
 # array.  If it is less than the number, the associated method is called.
@@ -727,6 +768,14 @@ def upgradeData(config, directory):
         resourcesFilePath = FilePath(resourcesFileName)
         if resourcesFilePath.exists():
             upgradeResourcesXML(resourcesFilePath)
+
+    if config.AugmentService.type == "twistedcaldav.directory.augment.AugmentXMLDB":
+        for fileName in config.AugmentService.params.xmlFiles:
+            if fileName[0] not in ("/", "."):
+                fileName = os.path.join(config.DataRoot, fileName)
+            filePath = FilePath(fileName)
+            if filePath.exists():
+                upgradeAugmentsXML(filePath)
 
     triggerPath = os.path.join(config.ServerRoot, TRIGGER_FILE)
     if os.path.exists(triggerPath):

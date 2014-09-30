@@ -28,7 +28,7 @@ from twistedcaldav.upgrade import (
     xattrname, upgradeData, updateFreeBusySet,
     removeIllegalCharacters, normalizeCUAddrs,
     loadDelegatesFromXMLintoProxyDB, migrateDelegatesToStore,
-    upgradeResourcesXML
+    upgradeResourcesXML, upgradeAugmentsXML
 )
 from txdav.caldav.datastore.index_file import db_basename
 from txdav.caldav.datastore.scheduling.imip.mailgateway import MailGatewayTokensDatabase
@@ -1514,6 +1514,17 @@ class UpgradeTests(StoreTestCase):
         self.assertEquals(fp.getContent(), newResourcesFormat)
 
 
+    def test_augmentsXML(self):
+        """
+        Verify conversion of old augments.xml auto-schedule related elements to twext.who format
+        """
+        fileName = self.mktemp()
+        fp = FilePath(fileName)
+        fp.setContent(oldAugmentsFormat)
+        upgradeAugmentsXML(fp)
+        self.assertEquals(fp.getContent(), newAugmentsFormat)
+
+
 oldResourcesFormat = """<accounts realm="/Search">
   <location>
     <uid>location1</uid>
@@ -1534,6 +1545,58 @@ oldResourcesFormat = """<accounts realm="/Search">
 """
 
 newResourcesFormat = """<directory realm="/Search"><record type="location"><short-name>location1</short-name><guid>C4F46062-9094-4D34-8591-61A42D993FAA</guid><uid>C4F46062-9094-4D34-8591-61A42D993FAA</uid><full-name>location name</full-name></record><record type="location"><short-name>5456580A-08EE-4288-8A87-2B4204A62A12</short-name><guid>5456580A-08EE-4288-8A87-2B4204A62A12</guid><uid>5456580A-08EE-4288-8A87-2B4204A62A12</uid><full-name>Fake Room</full-name></record><record type="resource"><short-name>resource1</short-name><guid>60B771CC-D727-4453-ACE0-0FE13CD7445A</guid><uid>60B771CC-D727-4453-ACE0-0FE13CD7445A</uid><full-name>resource name</full-name></record></directory>"""
+
+
+
+
+oldAugmentsFormat = """<augments>
+  <record>
+    <uid>9F3603DD-65D0-480D-A1D1-5D33CAC41A13</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <enable-login>true</enable-login>
+    <auto-schedule>false</auto-schedule>
+    <auto-schedule-mode>default</auto-schedule-mode>
+  </record>
+  <record>
+    <uid>6A49C436-4CDB-4184-AD87-6F945040E37A</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <enable-login>true</enable-login>
+    <auto-schedule>true</auto-schedule>
+  </record>
+  <record>
+    <uid>60B771CC-D727-4453-ACE0-0FE13CD7445A</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <enable-login>true</enable-login>
+    <auto-schedule-mode>none</auto-schedule-mode>
+  </record>
+  <record>
+    <uid>E173AADC-4642-43CB-9745-8CE436A6FE4A</uid>
+    <enable>false</enable>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <enable-login>true</enable-login>
+    <auto-schedule>false</auto-schedule>
+    <auto-schedule-mode>automatic</auto-schedule-mode>
+  </record>
+    <record>
+    <uid>FC9A7F56-CCCA-4401-9160-903902880A37</uid>
+    <enable>false</enable>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <enable-login>true</enable-login>
+    <auto-schedule>true</auto-schedule>
+    <auto-schedule-mode>accept-if-free</auto-schedule-mode>
+  </record>
+</augments>
+"""
+
+newAugmentsFormat = """<augments>\n  <record>\n    <uid>9F3603DD-65D0-480D-A1D1-5D33CAC41A13</uid>\n    <enable-calendar>true</enable-calendar>\n    <enable-addressbook>true</enable-addressbook>\n    <enable-login>true</enable-login>\n    <auto-schedule-mode>none</auto-schedule-mode>\n  </record>\n  <record>\n    <uid>6A49C436-4CDB-4184-AD87-6F945040E37A</uid>\n    <enable-calendar>true</enable-calendar>\n    <enable-addressbook>true</enable-addressbook>\n    <enable-login>true</enable-login>\n    </record>\n  <record>\n    <uid>60B771CC-D727-4453-ACE0-0FE13CD7445A</uid>\n    <enable-calendar>true</enable-calendar>\n    <enable-addressbook>true</enable-addressbook>\n    <enable-login>true</enable-login>\n    <auto-schedule-mode>none</auto-schedule-mode>\n  </record>\n  <record>\n    <uid>E173AADC-4642-43CB-9745-8CE436A6FE4A</uid>\n    <enable-calendar>true</enable-calendar>\n    <enable-addressbook>true</enable-addressbook>\n    <enable-login>true</enable-login>\n    <auto-schedule-mode>none</auto-schedule-mode>\n  </record>\n    <record>\n    <uid>FC9A7F56-CCCA-4401-9160-903902880A37</uid>\n    <enable-calendar>true</enable-calendar>\n    <enable-addressbook>true</enable-addressbook>\n    <enable-login>true</enable-login>\n    <auto-schedule-mode>accept-if-free</auto-schedule-mode>\n  </record>\n</augments>"""
 
 
 normalizeEvent = """BEGIN:VCALENDAR

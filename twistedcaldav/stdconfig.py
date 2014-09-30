@@ -101,15 +101,6 @@ DEFAULT_AUGMENT_PARAMS = {
         "xmlFiles": ["augments.xml", ],
         "statSeconds": 15,
     },
-    "twistedcaldav.directory.augment.AugmentSqliteDB": {
-        "dbpath": "augments.sqlite",
-    },
-    "twistedcaldav.directory.augment.AugmentPostgreSQLDB": {
-        "host": "localhost",
-        "database": "augments",
-        "user": "",
-        "password": "",
-    },
 }
 
 
