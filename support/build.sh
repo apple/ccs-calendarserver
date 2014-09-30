@@ -670,14 +670,14 @@ dependencies () {
   if type -P memcached > /dev/null; then
     using_system "memcached";
   else
-    local le="libevent-2.0.17-stable";
-    local mc="memcached-1.4.13";
-    c_dependency -m "dad64aaaaff16b5fbec25160c06fee9a" \
+    local le="libevent-2.0.21-stable";
+    local mc="memcached-1.4.20";
+    c_dependency -m "b2405cc9ebf264aa47ff615d9de527a2" \
       "libevent" "${le}" \
       "https://github.com/downloads/libevent/libevent/${le}.tar.gz";
-    c_dependency -m "6d18c6d25da945442fcc1187b3b63b7f" \
+    c_dependency -m "92f702bcb28d7bec8fdf9418360fc062" \
       "memcached" "${mc}" \
-      "http://memcached.googlecode.com/files/${mc}.tar.gz";
+      "http://memcached.org/files/${mc}.tar.gz";
   fi;
 
   if type -P postgres > /dev/null; then
