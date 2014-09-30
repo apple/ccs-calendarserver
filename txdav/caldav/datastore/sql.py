@@ -81,7 +81,7 @@ from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObjec
     AttachmentSizeTooLarge, UnknownTimezone
 from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
-    CommonObjectResource, ECALENDARTYPE
+    CommonObjectResource, ECALENDARTYPE, SharingInvitation
 from txdav.common.datastore.sql_tables import _ATTACHMENTS_MODE_NONE, \
     _ATTACHMENTS_MODE_READ, _ATTACHMENTS_MODE_WRITE, _BIND_MODE_DIRECT, \
     _BIND_MODE_GROUP, _BIND_MODE_GROUP_READ, _BIND_MODE_GROUP_WRITE, \
@@ -1752,17 +1752,47 @@ class Calendar(CommonHomeChild):
             resourceID=child._resourceID
         )
 
+
     # ===============================================================================
     # Group sharing
     # ===============================================================================
 
+    # We need to handle the case where a sharee is added directly or as a member of one
+    # or more groups. In order to do that we distinguish those cases via the BIND_MODE:
+    #
+    # BIND_MODE_READ, BIND_MODE_WRITE - an individual sharee only (i.e., not a member of
+    #    a group also being shared to).
+    #
+    # BIND_MODE_GROUP - a sharee added solely as a member of one or more groups (i.e., not
+    #    an individual).
+    #
+    # BIND_MODE_GROUP_READ, BIND_MODE_GROUP_WRITE - a sharee added as both an individual
+    #    and as a member of a group). The READ/WRITE state reflects the individual
+    #    access granted).
+    #
+    # For the BIND_MODE_GROUP* variants the actual access level is determined by the
+    #    max of all the group access levels and the individual access level. That
+    #    that is determined by the L{effectiveShareMode} method.
+    #
+    # When adding/removing an individual or reconciling group membership changes, the
+    #    actual BIND_MODE in the bind table is determined by one of the _groupModeAfter*
+    #    methods.
 
     @inlineCallbacks
     def reconcileGroupSharee(self, groupUID):
         """
-        reconcile bind table with group members
+        Reconcile bind table with group members. Note that when this is called, changes have
+        already been made to the group being refreshed. So members that have been removed
+        won't appear as a member of the group but will still have an associated bind row.
+
+        What we need to do is get the list of all existing group binds and diff that with the
+        list of expected group binds from all groups shared to this calendar. This means we will
+        end up also reconciling other shared groups that changed. There is no way to prevent that
+        short of recording in the bind table, which groups caused a member to be bound.
         """
         changed = False
+
+        # First check that the actual group membership has changed
         if (yield self.updateShareeGroupLink(groupUID)):
             groupID = (yield self._txn.groupByUID(groupUID))[0]
             memberUIDs = yield self._txn.groupMemberUIDs(groupID)
@@ -1874,7 +1904,7 @@ class Calendar(CommonHomeChild):
         rows = yield Select(
             [Count(gs.GROUP_ID)],
             From=gs,
-            Where=(
+            Where=(gs.CALENDAR_ID == self._resourceID).And(
                 gs.GROUP_ID.In(
                     Select(
                         [gm.GROUP_ID],
@@ -1886,7 +1916,7 @@ class Calendar(CommonHomeChild):
                 )
             )
         ).on(self._txn, uid=self.viewerHome().uid())
-        if rows[0][0] > 1:
+        if rows[0][0] > 0:
             # no mode change for group shares
             result = {
                 _BIND_MODE_GROUP: _BIND_MODE_GROUP,
@@ -1949,9 +1979,8 @@ class Calendar(CommonHomeChild):
         returnValue(changed)
 
 
-    @classmethod
     @inlineCallbacks
-    def _effectiveShareMode(cls, bindMode, viewerUID, txn):
+    def _effectiveShareMode(self, bindMode, viewerUID, txn):
         """
         Get the effective share mode without a calendar object
         """
@@ -1963,7 +1992,7 @@ class Calendar(CommonHomeChild):
             rows = yield Select(
                 [Max(gs.GROUP_BIND_MODE)], # _BIND_MODE_WRITE > _BIND_MODE_READ
                 From=gs,
-                Where=(
+                Where=(gs.CALENDAR_ID == self._resourceID).And(
                     gs.GROUP_ID.In(
                         Select(
                             [gm.GROUP_ID],
@@ -1975,7 +2004,11 @@ class Calendar(CommonHomeChild):
                     )
                 )
             ).on(txn, uid=viewerUID)
-            returnValue(rows[0][0])
+
+            # The result might be empty if the sharee has been removed from the group, but reconciliation has not
+            # yet occurred, so cope with that by giving them the lowest mode since we don't know what the last valid
+            # mode was.
+            returnValue(rows[0][0] if rows[0][0] else _BIND_MODE_READ)
         else:
             returnValue(bindMode)
 
@@ -2004,6 +2037,7 @@ class Calendar(CommonHomeChild):
         @type summary: C{str}
         """
 
+        # Go direct to individual sharing API if groups are disabled
         if not (
                 config.Sharing.Enabled and
                 config.Sharing.Calendars.Enabled and
@@ -2072,22 +2106,29 @@ class Calendar(CommonHomeChild):
         @type shareeUID: C{str}
         """
 
-        rows = None
-        groupID = (yield self._txn.groupByUID(shareeUID, create=False))[0]
-        if groupID is not None:
-            gs = schema.GROUP_SHAREE
-            rows = yield Select(
-                [gs.GROUP_ID],
-                From=gs,
-                Where=(gs.CALENDAR_ID == self._resourceID).And(
-                    gs.GROUP_ID == groupID
-                ),
-            ).on(self._txn)
+        # Go direct to individual sharing API if groups are disabled
+        if not (
+                config.Sharing.Enabled and
+                config.Sharing.Calendars.Enabled and
+                config.Sharing.Calendars.Groups.Enabled
+        ):
+            returnValue((yield super(Calendar, self).uninviteUIDFromShare(shareeUID)))
+
+        # Check if the sharee is a group
+        gr = schema.GROUPS
+        gs = schema.GROUP_SHAREE
+        rows = yield Select(
+            [gs.GROUP_ID],
+            From=gs.join(gr, gs.GROUP_ID == gr.GROUP_ID),
+            Where=gr.GROUP_UID == shareeUID
+        ).on(self._txn)
 
         if rows:
+            groupID = rows[0][0]
             reinvites = []
-            # uninvite each member of group
-            memberUIDs = yield self._txn.groupMemberUIDs(rows[0][0])
+
+            # Uninvite each member of group
+            memberUIDs = yield self._txn.groupMemberUIDs(groupID)
             for memberUID in memberUIDs:
                 if memberUID != self._home.uid():
                     shareeView = yield self.shareeView(memberUID)
@@ -2123,6 +2164,40 @@ class Calendar(CommonHomeChild):
                 else:
                     # multiple groups or group and individual was shared, update to new mode
                     yield super(Calendar, self).inviteUIDToShare(shareeUID, newMode)
+
+
+    @inlineCallbacks
+    def allInvitations(self):
+        """
+        Get list of all invitations (non-direct) to this object.
+        """
+        user_invitations = yield super(Calendar, self).allInvitations()
+
+        # Add groups (before the individuals)
+        gs = schema.GROUP_SHAREE
+        gr = schema.GROUPS
+        rows = yield Select(
+            [gr.GROUP_UID, gs.GROUP_BIND_MODE],
+            From=gs.join(gr, gs.GROUP_ID == gr.GROUP_ID),
+            Where=(gs.CALENDAR_ID == self._resourceID),
+        ).on(self._txn)
+
+        invitations = []
+        for guid, gmode in rows:
+            invite = SharingInvitation(
+                guid,
+                self.ownerHome().name(),
+                self.ownerHome().id(),
+                guid,
+                0,
+                gmode,
+                _BIND_STATUS_ACCEPTED,
+                "",
+            )
+            invitations.append(invite)
+
+        invitations.extend(user_invitations)
+        returnValue(invitations)
 
 
 icalfbtype_to_indexfbtype = {

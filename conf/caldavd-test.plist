@@ -793,6 +793,10 @@
     	<dict>
 	    	<key>Enabled</key>
 	    	<true/>
+
+			<!-- Make these short for testing -->
+	    	<key>ReconciliationDelaySeconds</key>
+	    	<real>0.1</real>
     	</dict>
       </dict>
       <key>AddressBooks</key>

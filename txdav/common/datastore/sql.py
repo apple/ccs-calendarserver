@@ -5294,8 +5294,7 @@ class SharingMixIn(object):
         return self._bindMode
 
 
-    @classmethod
-    def _effectiveShareMode(cls, bindMode, viewerUID, txn):
+    def _effectiveShareMode(self, bindMode, viewerUID, txn):
         """
         Get the effective share mode without a calendar object
         """

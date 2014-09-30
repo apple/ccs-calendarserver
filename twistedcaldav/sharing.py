@@ -416,8 +416,10 @@ class SharedResourceMixin(object):
             userid is not allowed.
         """
 
-        # First try to resolve as a principal
+        # First try to resolve as a calendar principal
         principal = yield self.principalForCalendarUserAddress(userid)
+        if principal is None:
+            principal = yield self.principalForCalendarGroupAddress(userid)
         if principal:
             if request:
                 ownerPrincipal = (yield self.ownerPrincipal(request))
