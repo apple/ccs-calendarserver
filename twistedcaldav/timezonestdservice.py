@@ -255,8 +255,8 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
         """
 
         result = {
+            "version": "1",
             "info" : {
-                "version": "1",
                 "primary-source" if self.primary else "secondary_source": self.info_source,
                 "contacts" : [],
             },
@@ -415,17 +415,12 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
 
         try:
             start = request.args.get("start", ())
-            if len(start) > 1:
+            if len(start) != 1:
                 raise ValueError()
             elif len(start) == 1:
                 if len(start[0]) != 20:
                     raise ValueError()
                 start = DateTime.parseText(start[0], fullISO=True)
-            else:
-                start = DateTime.getNowUTC()
-                start.setDay(1)
-                start.setMonth(1)
-                start.setHHMMSS(0, 0, 0)
         except ValueError:
             raise HTTPError(JSONResponse(
                 responsecode.BAD_REQUEST,
