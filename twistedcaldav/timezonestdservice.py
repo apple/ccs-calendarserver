@@ -17,7 +17,7 @@
 """
 Timezone service resource and operations.
 
-This is based on http://tools.ietf.org/html/draft-douglass-timezone-service which is the CalConnect
+This is based on http://tools.ietf.org/html/draft-ietf-tzdist-service which is the IETF
 proposal for a standard timezone service.
 """
 
@@ -29,7 +29,7 @@ from twext.python.log import Logger
 from txweb2 import responsecode
 from txweb2.dav.method.propfind import http_PROPFIND
 from txweb2.dav.noneprops import NonePropertyStore
-from txweb2.http import HTTPError, JSONResponse
+from txweb2.http import HTTPError, JSONResponse, StatusResponse
 from txweb2.http import Response
 from txweb2.http_headers import MimeType
 from txweb2.stream import MemoryStream
@@ -196,18 +196,13 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
 
     http_PROPFIND = http_PROPFIND
 
+    def http_POST(self, request):
+        raise HTTPError(StatusResponse(responsecode.NOT_ALLOWED, "Method not allowed"))
+
+
     def http_GET(self, request):
         """
-        The timezone service POST method.
-        """
-
-        # GET and POST do the same thing
-        return self.http_POST(request)
-
-
-    def http_POST(self, request):
-        """
-        The timezone service POST method.
+        The timezone service GET method.
         """
 
         # Check authentication and access controls
@@ -234,6 +229,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
                 "list"          : self.doList,
                 "get"           : self.doGet,
                 "expand"        : self.doExpand,
+                "find"          : self.doFind,
             }.get(action, None)
 
             if action is None:
@@ -288,6 +284,12 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
                         {"name": "tzid", "required": True, "multi": False, },
                         {"name": "start", "required": False, "multi": False, },
                         {"name": "end", "required": False, "multi": False, },
+                    ],
+                },
+                {
+                    "name": "find",
+                    "parameters": [
+                        {"name": "pattern", "required": True, "multi": False, },
                     ],
                 },
             ]
@@ -416,11 +418,14 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
             if len(start) > 1:
                 raise ValueError()
             elif len(start) == 1:
-                start = DateTime.parseText("{}0101".format(int(start[0])))
+                if len(start[0]) != 20:
+                    raise ValueError()
+                start = DateTime.parseText(start[0], fullISO=True)
             else:
-                start = DateTime.getToday()
+                start = DateTime.getNowUTC()
                 start.setDay(1)
                 start.setMonth(1)
+                start.setHHMMSS(0, 0, 0)
         except ValueError:
             raise HTTPError(JSONResponse(
                 responsecode.BAD_REQUEST,
@@ -436,11 +441,14 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
             if len(end) > 1:
                 raise ValueError()
             elif len(end) == 1:
-                end = DateTime.parseText("{}0101".format(int(end[0])))
+                if len(end[0]) != 20:
+                    raise ValueError()
+                end = DateTime.parseText(end[0], fullISO=True)
             else:
-                end = DateTime.getToday()
+                end = DateTime.getNowUTC()
                 end.setDay(1)
                 end.setMonth(1)
+                start.setHHMMSS(0, 0, 0)
                 end.offsetYear(10)
             if end <= start:
                 raise ValueError()
@@ -469,12 +477,13 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
         # Now do the expansion (but use a cache to avoid re-calculating TZs)
         observances = self.expandcache.get((tzid, start, end), None)
         if observances is None:
-            observances = tzexpandlocal(tzdata, start, end)
+            observances = tzexpandlocal(tzdata, start, end, utc_onset=True)
             self.expandcache[(tzid, start, end)] = observances
 
         # Turn into JSON
         result = {
             "dtstamp": self.timezones.dtstamp,
+            "tzid": tzid,
             "observances": [
                 {
                     "name": name,
@@ -483,6 +492,80 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
                     "utc-offset-to": utc_offset_to,
                 } for onset, utc_offset_from, utc_offset_to, name in observances
             ],
+        }
+        return JSONResponse(responsecode.OK, result, pretty=config.TimezoneService.PrettyPrintJSON)
+
+
+    def doFind(self, request):
+        """
+        Return a list of all timezones matching a pattern.
+        """
+
+        pattern = request.args.get("pattern", ())
+        if len(pattern) != 1:
+            raise HTTPError(JSONResponse(
+                responsecode.BAD_REQUEST,
+                {
+                    "error": "invalid-pattern",
+                    "description": "Invalid pattern query parameter",
+                },
+                pretty=config.TimezoneService.PrettyPrintJSON,
+            ))
+        pattern = pattern[0]
+
+        def _comp_is(pattern, s):
+            return pattern == s
+        def _comp_startswith(pattern, s):
+            return s.startswith(pattern)
+        def _comp_endswith(pattern, s):
+            return s.endswith(pattern)
+        def _comp_contains(pattern, s):
+            return pattern in s
+
+        def _normalize(s):
+            return s.replace("_", " ").lower()
+
+        if pattern.startswith("*") and pattern.endswith("*"):
+            pattern = pattern[1:-1]
+            comparator = _comp_contains
+        elif pattern.endswith("*"):
+            pattern = pattern[:-1]
+            comparator = _comp_startswith
+        elif pattern.startswith("*"):
+            pattern = pattern[1:]
+            comparator = _comp_endswith
+        else:
+            comparator = _comp_is
+        pattern = _normalize(pattern)
+
+        if not pattern:
+            raise HTTPError(JSONResponse(
+                responsecode.BAD_REQUEST,
+                {
+                    "error": "invalid-pattern",
+                    "description": "Invalid pattern query parameter",
+                },
+                pretty=config.TimezoneService.PrettyPrintJSON,
+            ))
+
+        timezones = []
+        for tz in self.timezones.listTimezones(None):
+            matched = comparator(pattern, _normalize(tz.tzid))
+            if not matched:
+                for alias in tz.aliases:
+                    if comparator(pattern, _normalize(alias)):
+                        matched = True
+                        break
+            if matched:
+                timezones.append({
+                    "tzid": tz.tzid,
+                    "last-modified": tz.dtstamp,
+                    "aliases": tz.aliases,
+                })
+
+        result = {
+            "dtstamp": self.timezones.dtstamp,
+            "timezones": timezones,
         }
         return JSONResponse(responsecode.OK, result, pretty=config.TimezoneService.PrettyPrintJSON)
 

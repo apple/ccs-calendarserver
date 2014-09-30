@@ -3733,7 +3733,7 @@ def tzexpand(tzdata, start, end):
 
 
 
-def tzexpandlocal(tzdata, start, end):
+def tzexpandlocal(tzdata, start, end, utc_onset=False):
     """
     Expand a timezone to get onset(local)/utc-offset-from/utc-offset-to/name observance tuples within the specified
     time range.
@@ -3744,6 +3744,8 @@ def tzexpandlocal(tzdata, start, end):
     @type start: C{date}
     @param end: date for the end of the expansion.
     @type end: C{date}
+    @param utc_onset: whether or not onset values are in UTC.
+    @type utc_onset: C{bool}
 
     @return: a C{list} of tuples
     """
@@ -3778,9 +3780,9 @@ def tzexpandlocal(tzdata, start, end):
             tzcomp._pycalendar.getTimezoneOffsetSeconds(start),
             tzcomp._pycalendar.getTimezoneDescriptor(start),
         ))
-    for tzstart, _ignore_utctzstart, tzoffsetfrom, tzoffsetto, name in tzexpanded:
+    for tzstart, utctzstart, tzoffsetfrom, tzoffsetto, name in tzexpanded:
         results.append((
-            tzstart,
+            utctzstart if utc_onset else tzstart,
             tzoffsetfrom,
             tzoffsetto,
             name,
