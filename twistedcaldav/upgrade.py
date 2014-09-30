@@ -732,6 +732,7 @@ def upgradeAugmentsXML(augmentsFilePath):
 
     log.info("Converting augments.xml")
     for recordNode in augmentsNode:
+
         autoScheduleElement = recordNode.find("auto-schedule")
         if autoScheduleElement is not None:
             if autoScheduleElement.text == "false":
@@ -739,6 +740,10 @@ def upgradeAugmentsXML(augmentsFilePath):
                 if autoScheduleModeElement is not None:
                     autoScheduleModeElement.text = "none"
             recordNode.remove(autoScheduleElement)
+
+        enableElement = recordNode.find("enable")
+        if enableElement is not None:
+            recordNode.remove(enableElement)
 
     augmentsFilePath.setContent(etreeToString(augmentsNode, "utf-8"))
 
