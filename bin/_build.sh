@@ -530,11 +530,11 @@ c_dependencies () {
       "libevent" "${p}" \
       "http://github.com/downloads/libevent/libevent/${p}.tar.gz";
 
-    local v="1.4.16";
+    local v="1.4.20";
     local n="memcached";
     local p="${n}-${v}";
 
-    c_dependency -m "1c5781fecb52d70b615c6d0c9c140c9c" \
+    c_dependency -m "92f702bcb28d7bec8fdf9418360fc062" \
       "memcached" "${p}" \
       "http://www.memcached.org/files/${p}.tar.gz";
   fi;
