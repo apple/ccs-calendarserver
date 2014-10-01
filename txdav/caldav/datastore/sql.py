@@ -1896,7 +1896,9 @@ class Calendar(CommonHomeChild):
     @inlineCallbacks
     def _groupModeAfterRemovingOneGroupSharee(self):
         """
-        return group mode after removing one group sharee or None
+        Return group mode after removing one group sharee or None.
+        Note that the group sharee entry still exists in the GROUP_SHAREE table when
+        this method is called.
         """
         # count group sharees that self is member of
         gs = schema.GROUP_SHAREE
@@ -1916,7 +1918,10 @@ class Calendar(CommonHomeChild):
                 )
             )
         ).on(self._txn, uid=self.viewerHome().uid())
-        if rows[0][0] > 0:
+
+        # Count greater than one means we will have at least one remaining group
+        # sharee after the one being removed is gone.
+        if rows[0][0] > 1:
             # no mode change for group shares
             result = {
                 _BIND_MODE_GROUP: _BIND_MODE_GROUP,
