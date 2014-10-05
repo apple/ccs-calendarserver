@@ -475,6 +475,7 @@ class PostgresService(MultiService):
                 pgCtl,
                 "start",
                 "-l", self.logFile,
+                "-t 86400",  # Give plenty of time for a long cluster upgrade
                 "-w",
                 # XXX what are the quoting rules for '-o'?  do I need to repr()
                 # the path here?
