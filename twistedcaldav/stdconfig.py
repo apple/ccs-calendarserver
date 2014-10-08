@@ -251,7 +251,7 @@ DEFAULT_CONFIG = {
     "SSLPort" : 0, # SSL port (0 to disable HTTPS)
     "EnableSSL" : False, # Whether to listen on SSL port(s)
     "RedirectHTTPToHTTPS" : False, # If True, all nonSSL requests redirected to an SSL Port
-    "SSLMethod" : "SSLv23_METHOD", # SSLv2_METHOD, SSLv3_METHOD, SSLv23_METHOD, TLSv1_METHOD
+    "SSLMethod" : "SSLv3_METHOD", # SSLv2_METHOD, SSLv3_METHOD, SSLv23_METHOD, TLSv1_METHOD
     "SSLCiphers" : "ALL:!aNULL:!ADH:!eNULL:!LOW:!EXP:RC4+RSA:+HIGH:+MEDIUM",
     "StrictTransportSecuritySeconds" : 7 * 24 * 60 * 60, # max-age value for
         # Strict-Transport-Security header; set to 0 to disable header.
