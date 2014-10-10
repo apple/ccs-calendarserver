@@ -39,6 +39,7 @@ serverinfo="${cdt}/scripts/server/serverinfo.xml";
     random="--random";
       seed="";
        ssl="";
+  cdtdebug="";
 
 usage ()
 {
@@ -54,12 +55,13 @@ usage ()
   echo "        -x  Random seed to use.";
   echo "        -v  Verbose.";
   echo "        -z  Use SSL.";
+  echo "        -D  Turn on CalDAVTester debugging";
 
   if [ "${1-}" == "-" ]; then return 0; fi;
   exit 64;
 }
 
-while getopts 'hvrozt:s:d:x:' option; do
+while getopts 'Dhvrozt:s:d:x:' option; do
   case "$option" in
     '?') usage; ;;
     'h') usage -; exit 0; ;;
@@ -71,6 +73,7 @@ while getopts 'hvrozt:s:d:x:' option; do
     'o') random=""; ;;
     'x') seed="--random-seed ${OPTARG}"; ;;
     'z') ssl="--ssl"; ;;
+    'D') cdtdebug="--debug"; ;;
   esac;
 done;
 
@@ -131,7 +134,7 @@ set +e
 
 echo "Starting CDT run"
 
-cd "${cdt}" && "${python}" testcaldav.py ${random} ${seed} ${ssl} --print-details-onfail ${printres} -s "${serverinfo}" ${subdir} "$@";
+cd "${cdt}" && "${python}" testcaldav.py ${random} ${seed} ${ssl} ${cdtdebug} --print-details-onfail ${printres} -s "${serverinfo}" ${subdir} "$@";
 
 # Capture exit status of testcaldav.py to use as this script's exit status.
 
