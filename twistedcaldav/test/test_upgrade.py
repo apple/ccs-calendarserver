@@ -1548,7 +1548,6 @@ newResourcesFormat = """<directory realm="/Search"><record type="location"><shor
 
 
 
-
 oldAugmentsFormat = """<augments>
   <record>
     <uid>9F3603DD-65D0-480D-A1D1-5D33CAC41A13</uid>

@@ -707,6 +707,7 @@ def upgradeResourcesXML(resourcesFilePath):
     resourcesFilePath.setContent(etreeToString(directoryNode, "utf-8"))
 
 
+
 def upgradeAugmentsXML(augmentsFilePath):
     """
     Convert the old augments XML auto-schedule related elements to the twext.who.xml format
