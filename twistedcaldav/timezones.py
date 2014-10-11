@@ -19,6 +19,7 @@ import os
 from twext.python.log import Logger
 
 from twisted.python.filepath import FilePath
+from twisted.python.lockfile import FilesystemLock
 
 from twistedcaldav.config import config
 
@@ -143,7 +144,7 @@ class TimezoneCache(object):
     @staticmethod
     def copyPackage(title):
         """
-        Copy package directory to db path using a temporary sibling to avoid potential
+        Copy package directory to db path using a file lock to avoid potential
         concurrency race conditions.
 
         @param title: string to use in log entry
@@ -151,22 +152,23 @@ class TimezoneCache(object):
         """
         dbpath = FilePath(TimezoneCache.getDBPath())
         pkgpath = TimezoneCache.FilteredFilePath(TimezoneCache._getPackageDBPath())
-        log.info(
-            "{title} timezones from {pkg} to {to}",
-            title=title,
-            pkg=pkgpath.path,
-            to=dbpath.path
-        )
 
-        # Use temp directory to copy to first
-        temp = dbpath.temporarySibling()
-        pkgpath.copyFilteredDirectoryTo(temp)
+        lockfile = FilesystemLock(dbpath.path + ".lock")
+        result = lockfile.lock()
+        try:
+            if result and not dbpath.exists():
+                log.info(
+                    "{title} timezones from {pkg} to {to}",
+                    title=title,
+                    pkg=pkgpath.path,
+                    to=dbpath.path
+                )
 
-        # Move to actual path if it stll does not exist
-        if not dbpath.exists():
-            temp.moveTo(dbpath)
-        else:
-            temp.remove()
+                # Copy over the entire package
+                pkgpath.copyFilteredDirectoryTo(dbpath)
+        finally:
+            if result:
+                lockfile.unlock()
 
 
     @staticmethod
