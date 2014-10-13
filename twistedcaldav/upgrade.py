@@ -36,19 +36,26 @@ from xml.etree.ElementTree import (
     tostring as etreeToString, Element as XMLElement
 )
 
-from twext.python.log import Logger
-from txdav.xml import element
 from txweb2.dav.fileop import rmdir
 
 from twistedcaldav import caldavxml
+from twistedcaldav.directory.calendaruserproxy import ProxySqliteDB
 from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
 from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
+from twistedcaldav.directory.xmlaugmentsparser import ELEMENT_AUGMENTS
 from twistedcaldav.ical import Component
+from twistedcaldav.xmlutil import readXML, writeXML
+
+from txdav.caldav.datastore.index_file import db_basename
 from txdav.caldav.datastore.scheduling.cuaddress import LocalCalendarUser
 from txdav.caldav.datastore.scheduling.imip.mailgateway import MailGatewayTokensDatabase
+from txdav.caldav.datastore.scheduling.imip.mailgateway import migrateTokensToStore
 from txdav.caldav.datastore.scheduling.scheduler import DirectScheduler
 from txdav.caldav.datastore.util import normalizationLookup
+from txdav.who.delegates import addDelegate
+from txdav.who.idirectory import RecordType as CalRecordType
+from txdav.xml import element
 
 from twisted.internet.defer import (
     inlineCallbacks, succeed, returnValue
@@ -57,16 +64,10 @@ from twisted.python.filepath import FilePath
 from twisted.python.reflect import namedAny
 from twisted.python.reflect import namedClass
 
-from txdav.caldav.datastore.index_file import db_basename
-
 from calendarserver.tap.util import getRootResource, FakeRequest
 
-from txdav.caldav.datastore.scheduling.imip.mailgateway import migrateTokensToStore
-
+from twext.python.log import Logger
 from twext.who.idirectory import RecordType
-from txdav.who.idirectory import RecordType as CalRecordType
-from txdav.who.delegates import addDelegate
-from twistedcaldav.directory.calendaruserproxy import ProxySqliteDB
 
 
 deadPropertyXattrPrefix = namedAny(
@@ -715,24 +716,16 @@ def upgradeAugmentsXML(augmentsFilePath):
     @param augmentsFilePath: the file to convert
     @type augmentsFilePath: L{FilePath}
     """
+    # Read in XML
     try:
-        with augmentsFilePath.open() as fh:
-            try:
-                etree = parseXML(fh)
-            except XMLParseError:
-                log.error("Cannot parse {path}", path=augmentsFilePath.path)
-                return
-    except (OSError, IOError):
-        # Can't read the file
-        log.error("Cannot read {path}", path=augmentsFilePath.path)
-        return
-
-    augmentsNode = etree.getroot()
-    if augmentsNode.tag != "augments":
+        _ignore_tree, augments_node = readXML(augmentsFilePath.path, ELEMENT_AUGMENTS)
+    except ValueError:
+        log.error("Cannot parse {path}", path=augmentsFilePath.path)
         return
 
     log.info("Converting augments.xml")
-    for recordNode in augmentsNode:
+    changed = False
+    for recordNode in augments_node:
 
         autoScheduleElement = recordNode.find("auto-schedule")
         if autoScheduleElement is not None:
@@ -741,12 +734,15 @@ def upgradeAugmentsXML(augmentsFilePath):
                 if autoScheduleModeElement is not None:
                     autoScheduleModeElement.text = "none"
             recordNode.remove(autoScheduleElement)
+            changed = True
 
         enableElement = recordNode.find("enable")
         if enableElement is not None:
             recordNode.remove(enableElement)
+            changed = True
 
-    augmentsFilePath.setContent(etreeToString(augmentsNode, "utf-8"))
+    if changed:
+        writeXML(augmentsFilePath.path, augments_node)
 
 
 # The on-disk version number (which defaults to zero if .calendarserver_version

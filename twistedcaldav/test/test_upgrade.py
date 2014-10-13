@@ -1548,7 +1548,9 @@ newResourcesFormat = """<directory realm="/Search"><record type="location"><shor
 
 
 
-oldAugmentsFormat = """<augments>
+oldAugmentsFormat = """<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE augments SYSTEM "augments.dtd">
+<augments>
   <record>
     <uid>9F3603DD-65D0-480D-A1D1-5D33CAC41A13</uid>
     <enable>true</enable>
@@ -1583,7 +1585,7 @@ oldAugmentsFormat = """<augments>
     <auto-schedule>false</auto-schedule>
     <auto-schedule-mode>automatic</auto-schedule-mode>
   </record>
-    <record>
+  <record>
     <uid>FC9A7F56-CCCA-4401-9160-903902880A37</uid>
     <enable>false</enable>
     <enable-calendar>true</enable-calendar>
@@ -1595,7 +1597,46 @@ oldAugmentsFormat = """<augments>
 </augments>
 """
 
-newAugmentsFormat = """<augments>\n  <record>\n    <uid>9F3603DD-65D0-480D-A1D1-5D33CAC41A13</uid>\n    <enable-calendar>true</enable-calendar>\n    <enable-addressbook>true</enable-addressbook>\n    <enable-login>true</enable-login>\n    <auto-schedule-mode>none</auto-schedule-mode>\n  </record>\n  <record>\n    <uid>6A49C436-4CDB-4184-AD87-6F945040E37A</uid>\n    <enable-calendar>true</enable-calendar>\n    <enable-addressbook>true</enable-addressbook>\n    <enable-login>true</enable-login>\n    </record>\n  <record>\n    <uid>60B771CC-D727-4453-ACE0-0FE13CD7445A</uid>\n    <enable-calendar>true</enable-calendar>\n    <enable-addressbook>true</enable-addressbook>\n    <enable-login>true</enable-login>\n    <auto-schedule-mode>none</auto-schedule-mode>\n  </record>\n  <record>\n    <uid>E173AADC-4642-43CB-9745-8CE436A6FE4A</uid>\n    <enable-calendar>true</enable-calendar>\n    <enable-addressbook>true</enable-addressbook>\n    <enable-login>true</enable-login>\n    <auto-schedule-mode>none</auto-schedule-mode>\n  </record>\n    <record>\n    <uid>FC9A7F56-CCCA-4401-9160-903902880A37</uid>\n    <enable-calendar>true</enable-calendar>\n    <enable-addressbook>true</enable-addressbook>\n    <enable-login>true</enable-login>\n    <auto-schedule-mode>accept-if-free</auto-schedule-mode>\n  </record>\n</augments>"""
+newAugmentsFormat = """<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE augments SYSTEM "augments.dtd">
+
+<augments>
+  <record>
+    <uid>9F3603DD-65D0-480D-A1D1-5D33CAC41A13</uid>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <enable-login>true</enable-login>
+    <auto-schedule-mode>none</auto-schedule-mode>
+  </record>
+  <record>
+    <uid>6A49C436-4CDB-4184-AD87-6F945040E37A</uid>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <enable-login>true</enable-login>
+  </record>
+  <record>
+    <uid>60B771CC-D727-4453-ACE0-0FE13CD7445A</uid>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <enable-login>true</enable-login>
+    <auto-schedule-mode>none</auto-schedule-mode>
+  </record>
+  <record>
+    <uid>E173AADC-4642-43CB-9745-8CE436A6FE4A</uid>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <enable-login>true</enable-login>
+    <auto-schedule-mode>none</auto-schedule-mode>
+  </record>
+  <record>
+    <uid>FC9A7F56-CCCA-4401-9160-903902880A37</uid>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <enable-login>true</enable-login>
+    <auto-schedule-mode>accept-if-free</auto-schedule-mode>
+  </record>
+</augments>
+"""
 
 
 normalizeEvent = """BEGIN:VCALENDAR
