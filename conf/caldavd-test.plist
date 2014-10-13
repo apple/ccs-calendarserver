@@ -690,9 +690,9 @@
             <key>RequestDelaySeconds</key>
             <real>0.1</real>
             <key>ReplyDelaySeconds</key>
-            <integer>1</integer>
+            <real>0.5</real>
             <key>AutoReplyDelaySeconds</key>
-            <real>0.1</real>
+            <real>1.0</real>
             <key>AttendeeRefreshBatchDelaySeconds</key>
             <real>0.1</real>
             <key>AttendeeRefreshBatchIntervalSeconds</key>
