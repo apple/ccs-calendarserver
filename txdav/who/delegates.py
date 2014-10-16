@@ -20,7 +20,10 @@ Delegate assignments
 """
 
 from twisted.python.constants import Names, NamedConstant
-from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed, \
+    DeferredList
+
+from twistedcaldav.config import config
 
 from twext.python.log import Logger
 from twext.who.idirectory import (
@@ -67,6 +70,7 @@ class DirectoryRecord(BaseDirectoryRecord):
         this record.
         """
         parentUID, _ignore_proxyType = self.uid.split(u"#")
+        parentRecord = yield self.service._masterDirectory.recordWithUID(parentUID)
 
         @inlineCallbacks
         def _members(txn):
@@ -74,15 +78,11 @@ class DirectoryRecord(BaseDirectoryRecord):
                 RecordType.readDelegateGroup, RecordType.writeDelegateGroup
             ):  # Members are delegates of this record
                 readWrite = (self.recordType is RecordType.writeDelegateGroup)
-                delegateUIDs = (
-                    yield txn.delegates(parentUID, readWrite, expanded=expanded)
-                )
+                delegateUIDs = yield _delegatesOfUIDs(txn, parentRecord, readWrite, expanded=expanded)
 
             else:  # Members have delegated to this record
                 readWrite = (self.recordType is RecordType.writeDelegatorGroup)
-                delegateUIDs = (
-                    yield txn.delegators(parentUID, readWrite)
-                )
+                delegateUIDs = yield _delegatedToUIDs(txn, parentRecord, readWrite)
             returnValue(delegateUIDs)
 
         delegateUIDs = yield self.service._store.inTransaction(
@@ -121,17 +121,12 @@ class DirectoryRecord(BaseDirectoryRecord):
             m=[r.uid for r in memberRecords]
         )
 
-        @inlineCallbacks
+        delegator = (
+            yield self.service._masterDirectory.recordWithUID(parentUID)
+        )
+
         def _setMembers(txn):
-            yield txn.removeDelegates(parentUID, readWrite)
-            yield txn.removeDelegateGroups(parentUID, readWrite)
-
-            delegator = (
-                yield self.service._masterDirectory.recordWithUID(parentUID)
-            )
-
-            for delegate in memberRecords:
-                yield addDelegate(txn, delegator, delegate, readWrite)
+            return setDelegates(txn, delegator, memberRecords, readWrite)
 
         yield self.service._store.inTransaction(
             "DirectoryRecord.setMembers", _setMembers
@@ -229,6 +224,32 @@ class DirectoryService(BaseDirectoryService):
 
 
 @inlineCallbacks
+def setDelegates(txn, delegator, delegates, readWrite):
+    """
+    Sets the full set of delegates for a delegator.
+
+    We need to take multiple pods into account by re-directing this request
+    to the cross-pod conduit if the delegator is not local to this pod.
+
+    @param delegator: the delegator's directory record
+    @type delegator: L{IDirectoryRecord}
+    @param delegates: the delegates directory records
+    @type delegates: L{list}} of L{IDirectoryRecord}
+    @param readWrite: if True, read and write access is granted; read-only
+        access otherwise
+    """
+    if delegator.thisServer():
+        yield txn.removeDelegates(delegator.uid, readWrite)
+        yield txn.removeDelegateGroups(delegator.uid, readWrite)
+
+        for delegate in delegates:
+            yield addDelegate(txn, delegator, delegate, readWrite)
+    else:
+        yield _podSetDelegates(txn, delegator, delegates, readWrite)
+
+
+
+@inlineCallbacks
 def addDelegate(txn, delegator, delegate, readWrite):
     """
     Adds "delegate" as a delegate of "delegator".  The type of access is
@@ -295,11 +316,10 @@ def delegatesOf(txn, delegator, readWrite, expanded=False):
     @return: the set of directory records
     @rtype: a Deferred which fires a set of L{IDirectoryRecord}
     """
+    delegateUIDs = yield _delegatesOfUIDs(txn, delegator, readWrite, expanded)
+
     records = []
     directory = delegator.service
-    delegateUIDs = (
-        yield txn.delegates(delegator.uid, readWrite, expanded=expanded)
-    )
     for uid in delegateUIDs:
         if uid != delegator.uid:
             record = (yield directory.recordWithUID(uid))
@@ -322,12 +342,126 @@ def delegatedTo(txn, delegate, readWrite):
     @return: the set of directory records
     @rtype: a Deferred which fires a set of L{IDirectoryRecord}
     """
+    delegatorUIDs = yield _delegatedToUIDs(txn, delegate, readWrite)
+
     records = []
     directory = delegate.service
-    delegatorUIDs = (yield txn.delegators(delegate.uid, readWrite))
     for uid in delegatorUIDs:
         if uid != delegate.uid:
             record = (yield directory.recordWithUID(uid))
             if record is not None:
                 records.append(record)
     returnValue(records)
+
+
+
+@inlineCallbacks
+def _delegatesOfUIDs(txn, delegator, readWrite, expanded=False):
+    """
+    Return the UIDs of the delegates of "delegator".  The type of access
+    is specified by the "readWrite" parameter.
+
+    We need to take multiple pods into account by re-directing this request
+    to the cross-pod conduit if the delegator is not local to this pod.
+
+    @param delegator: the delegator's directory record
+    @type delegator: L{IDirectoryRecord}
+    @param readWrite: if True, read and write access delegates are returned;
+        read-only access otherwise
+    @return: the set of directory record uids
+    @rtype: a Deferred which fires a set of L{str}
+    """
+
+    if delegator.thisServer():
+        delegateUIDs = yield txn.delegates(delegator.uid, readWrite, expanded=expanded)
+    else:
+        delegateUIDs = yield _podDelegates(txn, delegator, readWrite, expanded=expanded)
+    returnValue(delegateUIDs)
+
+
+
+@inlineCallbacks
+def _delegatedToUIDs(txn, delegate, readWrite, onlyThisServer=False):
+    """
+    Return the UIDs of those who have delegated to "delegate".  The type of
+    access is specified by the "readWrite" parameter.
+
+    We need to take multiple pods into account by re-directing this request
+    to the cross-pod conduit if the delegate is not local to this pod.
+
+    @param delegate: the delegate's directory record
+    @type delegate: L{IDirectoryRecord}
+    @param readWrite: if True, read and write access delegators are returned;
+        read-only access otherwise
+    @param onlyThisServer: used when doing the query as part of a cross-pod request since that
+        should only returns results for this server
+    @type onlyThisServer: L{bool}
+    @return: the set of directory record uids
+    @rtype: a Deferred which fires a set of L{str}
+    """
+
+
+    delegatorUIDs = (yield txn.delegators(delegate.uid, readWrite))
+    if not onlyThisServer and config.Servers.Enabled:
+        delegatorUIDs.update((yield _podDelegators(txn, delegate, readWrite)))
+    returnValue(delegatorUIDs)
+
+
+
+def _podSetDelegates(txn, delegator, delegates, readWrite):
+    """
+    Sets the full set of delegates for a delegator.
+
+    We need to take multiple pods into account by re-directing this request
+    to the cross-pod conduit if the delegator is not local to this pod.
+
+    @param delegator: the delegator's directory record
+    @type delegator: L{IDirectoryRecord}
+    @param delegates: the delegates directory records
+    @type delegates: L{list}} of L{IDirectoryRecord}
+    @param readWrite: if True, read and write access is granted; read-only
+        access otherwise
+    """
+    return txn.store().conduit.send_set_delegates(txn, delegator, delegates, readWrite)
+
+
+
+def _podDelegates(txn, delegator, readWrite, expanded=False):
+    """
+    Do a cross-pod request to get the delegates for this delegator.
+
+    @param delegator: the delegator's directory record
+    @type delegator: L{IDirectoryRecord}
+    @param readWrite: if True, read and write access delegates are returned;
+        read-only access otherwise
+    @return: the set of directory record uids
+    @rtype: a Deferred which fires a set of L{str}
+    """
+
+    return txn.store().conduit.send_get_delegates(txn, delegator, readWrite, expanded)
+
+
+
+@inlineCallbacks
+def _podDelegators(txn, delegate, readWrite):
+    """
+    Do a cross-pod request to get the delegators for this delegate. We need to iterate over all
+    other pod servers to get results from each one.
+
+    @param delegate: the delegate's directory record
+    @type delegate: L{IDirectoryRecord}
+    @param readWrite: if True, read and write access delegates are returned;
+        read-only access otherwise
+    @return: the set of directory record uids
+    @rtype: a Deferred which fires a set of L{str}
+    """
+
+    results = yield DeferredList([
+        txn.store().conduit.send_get_delegators(txn, server, delegate, readWrite) for
+        server in txn.directoryService().serversDB.allServersExceptThis()
+    ], consumeErrors=True)
+    delegators = set()
+    for result in results:
+        if result and result[0]:
+            delegators.update(result[1])
+    returnValue(delegators)

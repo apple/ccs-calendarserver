@@ -1,0 +1,173 @@
+#!/bin/sh
+# -*- sh-basic-offset: 2 -*-
+
+##
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+##
+
+set -e;
+set -u;
+
+wd="$(cd "$(dirname "$0")/.." && pwd -L)";
+
+. "${wd}/bin/_build.sh";
+
+init_build > /dev/null;
+
+cdt="${py_virtualenv}/src/caldavtester";
+
+##
+# Command line handling
+##
+
+   verbose="";
+serverinfo="${cdt}/scripts/server/serverinfo-pod.xml";
+  printres="";
+    subdir="";
+    random="--random";
+      seed="";
+       ssl="";
+  cdtdebug="";
+
+usage ()
+{
+  program="$(basename "$0")";
+  echo "Usage: ${program} [-v] [-s serverinfo]";
+  echo "Options:";
+  echo "        -d  Set the script subdirectory";
+  echo "        -h  Print this help and exit";
+  echo "        -o  Execute tests in order";
+  echo "        -r  Print request and response";
+  echo "        -s  Set the serverinfo.xml";
+  echo "        -t  Set the CalDAVTester directory";
+  echo "        -x  Random seed to use.";
+  echo "        -v  Verbose.";
+  echo "        -z  Use SSL.";
+  echo "        -D  Turn on CalDAVTester debugging";
+
+  if [ "${1-}" == "-" ]; then return 0; fi;
+  exit 64;
+}
+
+while getopts 'Dhvrozt:s:d:x:' option; do
+  case "$option" in
+    '?') usage; ;;
+    'h') usage -; exit 0; ;;
+    't') cdt="${OPTARG}"; serverinfo="${OPTARG}/scripts/server/serverinfo-pod.xml"; ;;
+    'd') subdir="--subdir=${OPTARG}"; ;;
+    's') serverinfo="${OPTARG}"; ;;
+    'r') printres="--always-print-request --always-print-response"; ;;
+    'v') verbose="v"; ;;
+    'o') random=""; ;;
+    'x') seed="--random-seed ${OPTARG}"; ;;
+    'z') ssl="--ssl"; ;;
+    'D') cdtdebug="--debug"; ;;
+  esac;
+done;
+
+shift $((${OPTIND} - 1));
+
+if [ $# == 0 ]; then
+  set - "--all";
+fi;
+
+##
+# Do The Right Thing
+##
+
+do_setup="false";
+develop > /dev/null;
+
+# Set up sandbox
+
+sandboxdir="/tmp/cdt_server_sandbox"
+
+if [ -d "${sandboxdir}" ]; then
+  rm -rf "${sandboxdir}"
+fi;
+
+configdir="${sandboxdir}/Config"
+serverrootA="${sandboxdir}/podA"
+serverrootB="${sandboxdir}/podB"
+
+mkdir -p "${configdir}/auth"
+mkdir -p "${serverrootA}/Logs" "${serverrootA}/Run" "${serverrootA}/Data/Documents"
+mkdir -p "${serverrootB}/Logs" "${serverrootB}/Run" "${serverrootB}/Data/Documents"
+
+cp conf/caldavd-test.plist "${configdir}/caldavd-cdt.plist"
+cp conf/caldavd-test-podA.plist "${configdir}/caldavd-cdt-podA.plist"
+cp conf/caldavd-test-podB.plist "${configdir}/caldavd-cdt-podB.plist"
+cp conf/auth/proxies-test-pod.xml "${configdir}/auth/proxies-cdt.xml"
+cp conf/auth/resources-test-pod.xml "${configdir}/auth/resources-cdt.xml"
+cp conf/auth/augments-test-pod.xml "${configdir}/auth/augments-cdt.xml"
+cp conf/auth/accounts-test-pod.xml "${configdir}/auth/accounts-cdt.xml"
+
+# Modify the plists
+
+python -c "import plistlib; f=plistlib.readPlist('${configdir}/caldavd-cdt.plist'); f['ConfigRoot'] = '${configdir}'; f['RunRoot'] = 'Run'; f['Authentication']['Kerberos']['Enabled'] = False; plistlib.writePlist(f, '${configdir}/caldavd-cdt.plist');"
+python -c "import plistlib; f=plistlib.readPlist('${configdir}/caldavd-cdt-podA.plist'); f['ImportConfig'] = '${configdir}/caldavd-cdt.plist'; f['ServerRoot'] = '${serverrootA}'; f['ProxyLoadFromFile'] = '${configdir}/auth/proxies-cdt.xml'; f['ResourceService']['params']['xmlFile'] = '${configdir}/auth/resources-cdt.xml'; f['DirectoryService']['params']['xmlFile'] = '${configdir}/auth/accounts-cdt.xml'; f['AugmentService']['params']['xmlFiles'] = ['${configdir}/auth/augments-cdt.xml']; plistlib.writePlist(f, '${configdir}/caldavd-cdt-podA.plist');"
+python -c "import plistlib; f=plistlib.readPlist('${configdir}/caldavd-cdt-podB.plist'); f['ImportConfig'] = '${configdir}/caldavd-cdt.plist'; f['ServerRoot'] = '${serverrootB}'; f['ProxyLoadFromFile'] = '${configdir}/auth/proxies-cdt.xml'; f['ResourceService']['params']['xmlFile'] = '${configdir}/auth/resources-cdt.xml'; f['DirectoryService']['params']['xmlFile'] = '${configdir}/auth/accounts-cdt.xml'; f['AugmentService']['params']['xmlFiles'] = ['${configdir}/auth/augments-cdt.xml']; plistlib.writePlist(f, '${configdir}/caldavd-cdt-podB.plist');"
+
+runpod() {
+	local podsuffix="$1"; shift;
+
+	# Start the server
+	
+	"${wd}/bin/run" -nd -c "${configdir}/caldavd-cdt-${podsuffix}.plist"
+	
+	/bin/echo -n "Waiting for server ${podsuffix} to start up..."
+	
+	while [ ! -f "${sandboxdir}/${podsuffix}/Run/caldav-instance-0.pid" ]; do
+	  sleep 1
+	  /bin/echo -n "."
+	done;
+	
+	echo "Server ${podsuffix} has started"
+}
+
+stoppod() {
+	local podsuffix="$1"; shift;
+
+	echo "Stopping server ${podsuffix}"
+	"${wd}/bin/run" -nk -c "${configdir}/caldavd-cdt-${podsuffix}.plist"
+}
+
+runpod "podA";
+runpod "podB";
+
+# Don't exit if testcaldav.py fails, because we need to clean up afterwards.
+
+set +e
+
+# Run CDT
+
+echo "Starting CDT run"
+
+cd "${cdt}" && "${python}" testcaldav.py ${random} ${seed} ${ssl} ${cdtdebug} --print-details-onfail ${printres} -s "${serverinfo}" -x scripts/tests-pod ${subdir} "$@";
+
+# Capture exit status of testcaldav.py to use as this script's exit status.
+
+STATUS=$?
+
+# Re-enable exit on failure incase run -nk fails
+
+set -e
+
+stoppod "podA";
+stoppod "podB";
+
+# Exit with the exit status of testcaldav.py, to reflect the test suite's result
+
+exit $STATUS

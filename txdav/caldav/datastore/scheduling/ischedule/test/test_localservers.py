@@ -93,6 +93,7 @@ class ServerTests(unittest.TestCase):
 
         self.assertTrue(servers.getServerById("00001").thisServer)
         self.assertFalse(servers.getServerById("00002").thisServer)
+        self.assertEqual(servers.getThisServer(), servers.getServerById("00001"))
 
         self.patch(config, "ServerHostName", "caldav2.example.com")
         self.patch(config, "SSLPort", 8443)
@@ -104,6 +105,28 @@ class ServerTests(unittest.TestCase):
 
         self.assertFalse(servers.getServerById("00001").thisServer)
         self.assertTrue(servers.getServerById("00002").thisServer)
+        self.assertEqual(servers.getThisServer(), servers.getServerById("00002"))
+
+
+    def test_all_except_this_server(self):
+
+        servers = self._setupServers()
+
+        self.assertTrue(servers.getServerById("00001").thisServer)
+        self.assertFalse(servers.getServerById("00002").thisServer)
+        self.assertEqual(servers.allServersExceptThis(), [servers.getServerById("00002"), ])
+
+        self.patch(config, "ServerHostName", "caldav2.example.com")
+        self.patch(config, "SSLPort", 8443)
+        self.patch(config, "BindSSLPorts", [8843])
+
+        xmlFile = StringIO.StringIO(ServerTests.data1)
+        servers = ServersDB()
+        servers.load(xmlFile, ignoreIPLookupFailures=True)
+
+        self.assertFalse(servers.getServerById("00001").thisServer)
+        self.assertTrue(servers.getServerById("00002").thisServer)
+        self.assertEqual(servers.allServersExceptThis(), [servers.getServerById("00001"), ])
 
 
     def test_check_this_ip(self):

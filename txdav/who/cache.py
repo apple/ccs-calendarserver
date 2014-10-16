@@ -82,6 +82,7 @@ class CachingDirectoryService(
     def __init__(self, directory, expireSeconds=30):
         BaseDirectoryService.__init__(self, directory.realmName)
         self._directory = directory
+        self.serversDB = directory.serversDB
         self._directoryTiming = hasattr(self._directory, "_addTiming")
         self._expireSeconds = expireSeconds
         self.resetCache()

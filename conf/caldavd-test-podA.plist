@@ -55,7 +55,7 @@
     <key>DirectoryService</key>
     <dict>
       <key>type</key>
-      <string>twistedcaldav.directory.xmlfile.XMLDirectoryService</string>
+      <string>xml</string>
       
       <key>params</key>
       <dict>
@@ -70,7 +70,7 @@
       <key>Enabled</key>
       <true/>
       <key>type</key>
-      <string>twistedcaldav.directory.xmlfile.XMLDirectoryService</string>
+      <string>xml</string>
       
       <key>params</key>
       <dict>
@@ -202,8 +202,6 @@
 		</dict>
       <key>MaxClients</key>
       <integer>5</integer>
-      <key>memcached</key>
-      <string>../memcached/_root/bin/memcached</string> <!-- Find in PATH -->
       <key>Options</key>
       <array>
         <!--<string>-vv</string>-->

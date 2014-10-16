@@ -105,6 +105,10 @@ class ServersDB(object):
         return self._thisServer
 
 
+    def allServersExceptThis(self):
+        return filter(lambda x: x != self._thisServer, self._servers.values())
+
+
     def installReverseProxies(self, maxClients):
         """
         Install a reverse proxy for each of the other servers in the "pod".
