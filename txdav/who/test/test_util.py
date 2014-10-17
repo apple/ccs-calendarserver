@@ -28,7 +28,7 @@ from twisted.internet.defer import inlineCallbacks
 from twisted.python.filepath import FilePath
 from twisted.trial.unittest import TestCase
 from twistedcaldav.config import ConfigDict
-import twistedcaldav.stdconfig #@UnusedImport
+from twistedcaldav.stdconfig import config as stdconfig
 from txdav.who.augment import AugmentedDirectoryService
 from txdav.who.delegates import (
     DirectoryService as DelegateDirectoryService,
@@ -42,6 +42,7 @@ from txdav.who.wiki import (
     RecordType as WikiRecordType,
 )
 
+hasattr(stdconfig, "Servers")   # Quell pyflakes
 
 class StubStore(object):
     pass
