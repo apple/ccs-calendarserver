@@ -15,7 +15,6 @@
 ##
 
 
-from calendarserver.tap.util import getDBPool, storeFromConfig
 from twext.python.log import Logger
 from twext.python.types import MappingProxyType
 from twext.who.aggregate import DirectoryService as AggregateDirectoryService
@@ -40,12 +39,13 @@ from txdav.who.idirectory import (
 )
 from txdav.who.wiki import DirectoryService as WikiDirectoryService
 from txdav.who.xml import DirectoryService as XMLDirectoryService
+from txdav.caldav.datastore.scheduling.ischedule.localservers import buildServersDB
 
 
 log = Logger()
 
 
-def directoryFromConfig(config, store=None, serversDB=None):
+def directoryFromConfig(config, store):
     """
     Return a directory service based on the config.  If you want to go through
     AMP to talk to one of these as a client, instantiate
@@ -62,9 +62,9 @@ def directoryFromConfig(config, store=None, serversDB=None):
 
     # TODO: use proxyForInterface to ensure we're only using the DPS related
     # store API.  Also define an IDirectoryProxyStore Interface
-    if store is None:
-        _ignore_pool, txnFactory = getDBPool(config)
-        store = storeFromConfig(config, txnFactory, None)
+    assert store is not None
+
+    serversDB = buildServersDB(config.Servers.MaxClients) if config.Servers.Enabled else None
 
     return buildDirectory(
         store,

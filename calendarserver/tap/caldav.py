@@ -82,9 +82,6 @@ from txweb2.server import Site
 
 from txdav.caldav.datastore.scheduling.imip.inbound import MailRetriever
 from txdav.caldav.datastore.scheduling.imip.inbound import scheduleNextMailPoll
-from txdav.caldav.datastore.scheduling.ischedule.localservers import (
-    buildServersDB
-)
 from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseStep
 from txdav.common.datastore.upgrade.sql.upgrade import (
     UpgradeDatabaseCalendarDataStep, UpgradeDatabaseOtherStep,
@@ -94,10 +91,7 @@ from txdav.common.datastore.upgrade.sql.upgrade import (
 )
 from txdav.common.datastore.work.inbox_cleanup import InboxCleanupWork
 from txdav.common.datastore.work.revision_cleanup import FindMinValidRevisionWork
-from txdav.dps.client import DirectoryService as DirectoryProxyClientService
-from txdav.who.cache import CachingDirectoryService
 from txdav.who.groups import GroupCacher
-from txdav.who.util import directoryFromConfig
 
 from twistedcaldav import memcachepool
 from twistedcaldav.config import ConfigurationError
@@ -127,7 +121,8 @@ from calendarserver.tap.util import (
     checkDirectories, getRootResource,
     oracleConnectorFromConfig, pgConnectorFromConfig,
     pgServiceFromConfig, getDBPool, MemoryLimitService,
-    storeFromConfig, getSSLPassphrase, preFlightChecks
+    storeFromConfig, getSSLPassphrase, preFlightChecks,
+    storeFromConfigWithDPSClient, storeFromConfigWithoutDPS,
 )
 try:
     from calendarserver.version import version
@@ -846,15 +841,8 @@ class CalDAVServiceMaker (object):
         CalDAV and CardDAV requests.
         """
         pool, txnFactory = getDBPool(config)
-        directory = DirectoryProxyClientService(config.DirectoryRealmName)
-        if config.Servers.Enabled:
-            directory.setServersDB(buildServersDB(config.Servers.MaxClients))
-        if config.DirectoryProxy.InProcessCachingSeconds:
-            directory = CachingDirectoryService(
-                directory,
-                expireSeconds=config.DirectoryProxy.InProcessCachingSeconds
-            )
-        store = storeFromConfig(config, txnFactory, directory)
+        store = storeFromConfigWithDPSClient(config, txnFactory)
+        directory = store.directoryService()
         logObserver = AMPCommonAccessLoggingObserver()
         result = self.requestProcessingService(options, store, logObserver)
 
@@ -1380,7 +1368,7 @@ class CalDAVServiceMaker (object):
                 Popen(memcachedArgv)
 
         return self.storageService(
-            slaveSvcCreator, logObserver, uid=uid, gid=gid, directory=None
+            slaveSvcCreator, logObserver, uid=uid, gid=gid
         )
 
 
@@ -1397,7 +1385,7 @@ class CalDAVServiceMaker (object):
 
         uid, gid = getSystemIDs(config.UserName, config.GroupName)
         return self.storageService(
-            toolServiceCreator, None, uid=uid, gid=gid, directory=None
+            toolServiceCreator, None, uid=uid, gid=gid
         )
 
 
@@ -1448,7 +1436,7 @@ class CalDAVServiceMaker (object):
 
 
     def storageService(
-        self, createMainService, logObserver, uid=None, gid=None, directory=None
+        self, createMainService, logObserver, uid=None, gid=None
     ):
         """
         If necessary, create a service to be started used for storage; for
@@ -1492,23 +1480,7 @@ class CalDAVServiceMaker (object):
                     maxConnections=config.MaxDBConnectionsPerPool
                 )
                 cp.setServiceParent(ms)
-                store = storeFromConfig(config, cp.connection, directory)
-                if directory is None:
-                    # Create a Directory Proxy "Server" service and hand it to
-                    # the store.
-                    if config.Servers.Enabled:
-                        serversDB = buildServersDB(config.Servers.MaxClients)
-                    else:
-                        serversDB = None
-                    directorySvc = directoryFromConfig(
-                        config, store=store, serversDB=serversDB
-                    )
-                    if config.DirectoryProxy.InProcessCachingSeconds:
-                        directorySvc = CachingDirectoryService(
-                            directorySvc,
-                            expireSeconds=config.DirectoryProxy.InProcessCachingSeconds
-                        )
-                    store.setDirectoryService(directorySvc)
+                store = storeFromConfigWithoutDPS(config, cp.connection)
 
                 pps = PreProcessingService(
                     createMainService, cp, store, logObserver, storageService
@@ -1625,7 +1597,7 @@ class CalDAVServiceMaker (object):
                     "Unknown database type {}".format(config.DBType)
                 )
         else:
-            store = storeFromConfig(config, None, directory)
+            store = storeFromConfig(config, None, None)
             return createMainService(None, store, logObserver, None)
 
 
@@ -1920,15 +1892,8 @@ class CalDAVServiceMaker (object):
 
             return multi
 
-        # The master will use its own directory.  We could switch this
-        # service out for a DirectoryProxyClientService once the DPS
-        # sidecar is running, but not sure that's necessary as the master
-        # is likely not doing much directory-related activity once it
-        # spawns the caldavd workers.
-        directory = None
-
         ssvc = self.storageService(
-            spawnerSvcCreator, None, uid, gid, directory=directory
+            spawnerSvcCreator, None, uid, gid
         )
         ssvc.setServiceParent(s)
         return s

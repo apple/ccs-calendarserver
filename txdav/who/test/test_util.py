@@ -20,22 +20,23 @@ txdav.who.util tests
 
 import os
 
-from txdav.who.util import directoryFromConfig
-from txdav.who.test.support import InMemoryDirectoryService
+from twext.who.aggregate import DirectoryService as AggregateDirectoryService
+from twext.who.directory import DirectoryRecord
+from twext.who.idirectory import RecordType, NoSuchRecordError
+from twext.who.xml import DirectoryService as XMLDirectoryService
 from twisted.internet.defer import inlineCallbacks
+from twisted.python.filepath import FilePath
 from twisted.trial.unittest import TestCase
 from twistedcaldav.config import ConfigDict
-from twisted.python.filepath import FilePath
+import twistedcaldav.stdconfig #@UnusedImport
 from txdav.who.augment import AugmentedDirectoryService
-from twext.who.aggregate import DirectoryService as AggregateDirectoryService
-from twext.who.xml import DirectoryService as XMLDirectoryService
 from txdav.who.delegates import (
     DirectoryService as DelegateDirectoryService,
     RecordType as DelegateRecordType
 )
-from twext.who.directory import DirectoryRecord
-from twext.who.idirectory import RecordType, NoSuchRecordError
 from txdav.who.idirectory import RecordType as CalRecordType
+from txdav.who.test.support import InMemoryDirectoryService
+from txdav.who.util import directoryFromConfig
 from txdav.who.wiki import (
     DirectoryService as WikiDirectoryService,
     RecordType as WikiRecordType,
@@ -103,11 +104,14 @@ class UtilTest(TestCase):
                         "xmlFiles": ["augments.xml"],
                     },
                 },
+                "Servers": {
+                    "Enabled": False,
+                },
             }
         )
 
         store = StubStore()
-        service = directoryFromConfig(config, store=store)
+        service = directoryFromConfig(config, store)
 
         # Make sure XML files were created
         dataRoot = FilePath(self.dataRoot)

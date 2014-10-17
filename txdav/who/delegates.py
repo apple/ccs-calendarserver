@@ -372,6 +372,7 @@ def _delegatesOfUIDs(txn, delegator, readWrite, expanded=False):
     @rtype: a Deferred which fires a set of L{str}
     """
 
+    log.debug("_delegatesOfUIDs for: {} and read-write = {} and expanded = {}".format(delegator.uid, readWrite, expanded,))
     if delegator.thisServer():
         delegateUIDs = yield txn.delegates(delegator.uid, readWrite, expanded=expanded)
     else:
@@ -401,6 +402,7 @@ def _delegatedToUIDs(txn, delegate, readWrite, onlyThisServer=False):
     """
 
 
+    log.debug("_delegatedToUIDs for: {} and read-write = {}".format(delegate.uid, readWrite,))
     delegatorUIDs = (yield txn.delegators(delegate.uid, readWrite))
     if not onlyThisServer and config.Servers.Enabled:
         delegatorUIDs.update((yield _podDelegators(txn, delegate, readWrite)))
@@ -438,6 +440,7 @@ def _podDelegates(txn, delegator, readWrite, expanded=False):
     @rtype: a Deferred which fires a set of L{str}
     """
 
+    log.debug("_podDelegates for: {} and read-write = {} and expanded = {}".format(delegator.uid, readWrite, expanded,))
     return txn.store().conduit.send_get_delegates(txn, delegator, readWrite, expanded)
 
 
@@ -456,6 +459,7 @@ def _podDelegators(txn, delegate, readWrite):
     @rtype: a Deferred which fires a set of L{str}
     """
 
+    log.debug("_podDelegators for: {} and read-write = {}".format(delegate.uid, readWrite,))
     results = yield DeferredList([
         txn.store().conduit.send_get_delegators(txn, server, delegate, readWrite) for
         server in txn.directoryService().serversDB.allServersExceptThis()

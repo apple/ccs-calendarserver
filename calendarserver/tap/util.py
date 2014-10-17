@@ -28,39 +28,40 @@ __all__ = [
     "preFlightChecks",
 ]
 
-import errno
-import OpenSSL
-import os
-import psutil
-from socket import fromfd, AF_UNIX, SOCK_STREAM, socketpair
-from subprocess import Popen, PIPE
-import sys
-
-
-from twext.internet.ssl import ChainingOpenSSLContextFactory
-from twext.python.filepath import CachingFilePath as FilePath
-from twext.python.log import Logger
-from txweb2.auth.basic import BasicCredentialFactory
-from txweb2.dav import auth
-from txweb2.dav.util import joinURL
-from txweb2.http_headers import Headers
-from txweb2.resource import Resource
-from txweb2.static import File as FileResource
-
-from twisted.application.service import Service
-from twisted.cred.portal import Portal
-from twisted.internet.defer import inlineCallbacks, returnValue, Deferred, succeed
-from twisted.internet import reactor as _reactor
-from twisted.internet.reactor import addSystemEventTrigger
-from twisted.internet.tcp import Connection
-
+from calendarserver.accesslog import DirectoryLogWrapperResource
+from calendarserver.provision.root import RootResource
 from calendarserver.push.applepush import APNSubscriptionResource
 from calendarserver.push.notifier import NotifierFactory
+from calendarserver.tools.util import checkDirectory
+from calendarserver.webadmin.landing import WebAdminLandingResource
+from calendarserver.webcal.resource import WebCalendarResource
+
+from socket import fromfd, AF_UNIX, SOCK_STREAM, socketpair
+from subprocess import Popen, PIPE
+
 from twext.enterprise.adbapi2 import ConnectionPool, ConnectionPoolConnection
+from twext.enterprise.adbapi2 import ConnectionPoolClient
 from twext.enterprise.ienterprise import ORACLE_DIALECT
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
+from twext.internet.ssl import ChainingOpenSSLContextFactory
+from twext.python.filepath import CachingFilePath
+from twext.python.filepath import CachingFilePath as FilePath
+from twext.python.log import Logger
+from twext.who.checker import HTTPDigestCredentialChecker
+from twext.who.checker import UsernamePasswordCredentialChecker
+
+from twisted.application.service import Service
+from twisted.cred.error import UnauthorizedLogin
+from twisted.cred.portal import Portal
+from twisted.internet import reactor as _reactor
+from twisted.internet.defer import inlineCallbacks, returnValue, Deferred, succeed
+from twisted.internet.reactor import addSystemEventTrigger
+from twisted.internet.tcp import Connection
+from twisted.python.usage import UsageError
+
 from twistedcaldav.bind import doBind
 from twistedcaldav.cache import CacheStoreNotifierFactory
+from twistedcaldav.config import ConfigurationError
 from twistedcaldav.controlapi import ControlAPIResource
 from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeProvisioningResource
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
@@ -69,46 +70,46 @@ from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningReso
 from twistedcaldav.directorybackedaddressbook import DirectoryBackedAddressBookResource
 from twistedcaldav.resource import AuthenticationWrapper
 from twistedcaldav.simpleresource import SimpleResource, SimpleRedirectResource
+from twistedcaldav.stdconfig import config
 from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav.timezoneservice import TimezoneServiceResource
 from twistedcaldav.timezonestdservice import TimezoneStdServiceResource
-from txdav.caldav.datastore.scheduling.ischedule.dkim import DKIMUtils, DomainKeyResource
-from txdav.caldav.datastore.scheduling.ischedule.resource import IScheduleInboxResource
 
+from txdav.base.datastore.dbapiclient import DBAPIConnector, OracleConnector
+from txdav.base.datastore.dbapiclient import postgresPreflight
+from txdav.base.datastore.subpostgres import PostgresService
+from txdav.caldav.datastore.scheduling.ischedule.dkim import DKIMUtils, DomainKeyResource
+from txdav.caldav.datastore.scheduling.ischedule.localservers import buildServersDB
+from txdav.caldav.datastore.scheduling.ischedule.resource import IScheduleInboxResource
+from txdav.common.datastore.file import CommonDataStore as CommonFileDataStore
+from txdav.common.datastore.podding.resource import ConduitResource
+from txdav.common.datastore.sql import CommonDataStore as CommonSQLDataStore
+from txdav.common.datastore.sql import current_sql_schema
+from txdav.common.datastore.upgrade.sql.upgrade import NotAllowedToUpgrade
+from txdav.dps.client import DirectoryService as DirectoryProxyClientService
+from txdav.who.cache import CachingDirectoryService
+from txdav.who.util import directoryFromConfig
+
+from txweb2.auth.basic import BasicCredentialFactory
+from txweb2.dav import auth
+from txweb2.dav.auth import IPrincipalCredentials
+from txweb2.dav.util import joinURL
+from txweb2.http_headers import Headers
+from txweb2.resource import Resource
+from txweb2.static import File as FileResource
+
+from urllib import quote
+import OpenSSL
+import errno
+import os
+import psutil
+import sys
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
     NegotiateCredentialFactory  # pacify pyflakes
 except ImportError:
     NegotiateCredentialFactory = None
-
-from twext.enterprise.adbapi2 import ConnectionPoolClient
-from txdav.base.datastore.dbapiclient import DBAPIConnector, OracleConnector
-from txdav.base.datastore.dbapiclient import postgresPreflight
-from txdav.base.datastore.subpostgres import PostgresService
-
-from calendarserver.accesslog import DirectoryLogWrapperResource
-from calendarserver.provision.root import RootResource
-from calendarserver.tools.util import checkDirectory
-from calendarserver.webadmin.landing import WebAdminLandingResource
-from calendarserver.webcal.resource import WebCalendarResource
-
-from txdav.common.datastore.podding.resource import ConduitResource
-from txdav.common.datastore.sql import CommonDataStore as CommonSQLDataStore
-from txdav.common.datastore.file import CommonDataStore as CommonFileDataStore
-from txdav.common.datastore.sql import current_sql_schema
-from txdav.common.datastore.upgrade.sql.upgrade import NotAllowedToUpgrade
-from twext.python.filepath import CachingFilePath
-from urllib import quote
-from twisted.python.usage import UsageError
-
-from twext.who.checker import UsernamePasswordCredentialChecker
-from twext.who.checker import HTTPDigestCredentialChecker
-from twisted.cred.error import UnauthorizedLogin
-from txweb2.dav.auth import IPrincipalCredentials
-
-from twistedcaldav.config import ConfigurationError
-from twistedcaldav.stdconfig import config
 
 
 log = Logger()
@@ -226,6 +227,47 @@ class ConnectionDispenser(object):
         protocol.makeConnection(transport)
         transport.startReading()
         return c
+
+
+
+def storeFromConfigWithoutDPS(config, txnFactory):
+    store = storeFromConfig(config, txnFactory, None)
+    directory = directoryFromConfig(config, store)
+    if config.DirectoryProxy.InProcessCachingSeconds:
+        directory = CachingDirectoryService(
+            directory,
+            expireSeconds=config.DirectoryProxy.InProcessCachingSeconds
+        )
+    store.setDirectoryService(directory)
+    return store
+
+
+
+def storeFromConfigWithDPSClient(config, txnFactory):
+    store = storeFromConfig(config, txnFactory, None)
+    directory = DirectoryProxyClientService(config.DirectoryRealmName)
+    if config.Servers.Enabled:
+        directory.setServersDB(buildServersDB(config.Servers.MaxClients))
+    if config.DirectoryProxy.InProcessCachingSeconds:
+        directory = CachingDirectoryService(
+            directory,
+            expireSeconds=config.DirectoryProxy.InProcessCachingSeconds
+        )
+    store.setDirectoryService(directory)
+    return store
+
+
+
+def storeFromConfigWithDPSServer(config, txnFactory):
+    store = storeFromConfig(config, txnFactory, None)
+    directory = directoryFromConfig(config, store)
+    if config.DirectoryProxy.InSidecarCachingSeconds:
+        directory = CachingDirectoryService(
+            directory,
+            expireSeconds=config.DirectoryProxy.InSidecarCachingSeconds
+        )
+    store.setDirectoryService(directory)
+    return store
 
 
 

@@ -117,8 +117,8 @@ cp conf/auth/accounts-test-pod.xml "${configdir}/auth/accounts-cdt.xml"
 # Modify the plists
 
 python -c "import plistlib; f=plistlib.readPlist('${configdir}/caldavd-cdt.plist'); f['ConfigRoot'] = '${configdir}'; f['RunRoot'] = 'Run'; f['Authentication']['Kerberos']['Enabled'] = False; plistlib.writePlist(f, '${configdir}/caldavd-cdt.plist');"
-python -c "import plistlib; f=plistlib.readPlist('${configdir}/caldavd-cdt-podA.plist'); f['ImportConfig'] = '${configdir}/caldavd-cdt.plist'; f['ServerRoot'] = '${serverrootA}'; f['ProxyLoadFromFile'] = '${configdir}/auth/proxies-cdt.xml'; f['ResourceService']['params']['xmlFile'] = '${configdir}/auth/resources-cdt.xml'; f['DirectoryService']['params']['xmlFile'] = '${configdir}/auth/accounts-cdt.xml'; f['AugmentService']['params']['xmlFiles'] = ['${configdir}/auth/augments-cdt.xml']; plistlib.writePlist(f, '${configdir}/caldavd-cdt-podA.plist');"
-python -c "import plistlib; f=plistlib.readPlist('${configdir}/caldavd-cdt-podB.plist'); f['ImportConfig'] = '${configdir}/caldavd-cdt.plist'; f['ServerRoot'] = '${serverrootB}'; f['ProxyLoadFromFile'] = '${configdir}/auth/proxies-cdt.xml'; f['ResourceService']['params']['xmlFile'] = '${configdir}/auth/resources-cdt.xml'; f['DirectoryService']['params']['xmlFile'] = '${configdir}/auth/accounts-cdt.xml'; f['AugmentService']['params']['xmlFiles'] = ['${configdir}/auth/augments-cdt.xml']; plistlib.writePlist(f, '${configdir}/caldavd-cdt-podB.plist');"
+python -c "import plistlib; f=plistlib.readPlist('${configdir}/caldavd-cdt-podA.plist'); f['ImportConfig'] = '${configdir}/caldavd-cdt.plist'; f['ServerRoot'] = '${serverrootA}'; f['ConfigRoot'] = '${configdir}'; f['ProxyLoadFromFile'] = '${configdir}/auth/proxies-cdt.xml'; f['ResourceService']['params']['xmlFile'] = '${configdir}/auth/resources-cdt.xml'; f['DirectoryService']['params']['xmlFile'] = '${configdir}/auth/accounts-cdt.xml'; f['AugmentService']['params']['xmlFiles'] = ['${configdir}/auth/augments-cdt.xml']; plistlib.writePlist(f, '${configdir}/caldavd-cdt-podA.plist');"
+python -c "import plistlib; f=plistlib.readPlist('${configdir}/caldavd-cdt-podB.plist'); f['ImportConfig'] = '${configdir}/caldavd-cdt.plist'; f['ServerRoot'] = '${serverrootB}'; f['ConfigRoot'] = '${configdir}'; f['ProxyLoadFromFile'] = '${configdir}/auth/proxies-cdt.xml'; f['ResourceService']['params']['xmlFile'] = '${configdir}/auth/resources-cdt.xml'; f['DirectoryService']['params']['xmlFile'] = '${configdir}/auth/accounts-cdt.xml'; f['AugmentService']['params']['xmlFiles'] = ['${configdir}/auth/augments-cdt.xml']; plistlib.writePlist(f, '${configdir}/caldavd-cdt-podB.plist');"
 
 runpod() {
 	local podsuffix="$1"; shift;
@@ -153,6 +153,7 @@ set +e
 
 # Run CDT
 
+echo ""
 echo "Starting CDT run"
 
 cd "${cdt}" && "${python}" testcaldav.py ${random} ${seed} ${ssl} ${cdtdebug} --print-details-onfail ${printres} -s "${serverinfo}" -x scripts/tests-pod ${subdir} "$@";
