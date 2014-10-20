@@ -35,7 +35,7 @@ from txdav.dps.commands import (
     RecordWithShortNameCommand, RecordWithUIDCommand, RecordWithGUIDCommand,
     RecordsWithRecordTypeCommand, RecordsWithEmailAddressCommand,
     RecordsMatchingTokensCommand, RecordsMatchingFieldsCommand,
-    MembersCommand, GroupsCommand, SetMembersCommand,
+    MembersCommand, ExpandedMembersCommand, GroupsCommand, SetMembersCommand,
     VerifyPlaintextPasswordCommand, VerifyHTTPDigestCommand,
     WikiAccessForUIDCommand, ContinuationCommand,
     ExternalDelegatesCommand, StatsCommand, ExpandedMemberUIDsCommand,
@@ -387,8 +387,27 @@ class DirectoryProxyAMPProtocol(amp.AMP):
 
         records = []
         if record is not None:
-            for member in (yield record.members()):
-                records.append(member)
+            records = (yield record.members())
+
+        response = self._recordsToResponse(records)
+        # log.debug("Responding with: {response}", response=response)
+        returnValue(response)
+
+
+    @ExpandedMembersCommand.responder
+    @inlineCallbacks
+    def expandedMembers(self, uid):
+        uid = uid.decode("utf-8")
+        log.debug("ExpandedMembers: {u}", u=uid)
+        try:
+            record = (yield self._directory.recordWithUID(uid))
+        except Exception as e:
+            log.error("Failed in members", error=e)
+            record = None
+
+        records = []
+        if record is not None:
+            records = (yield record.members(expanded=True))
 
         response = self._recordsToResponse(records)
         # log.debug("Responding with: {response}", response=response)

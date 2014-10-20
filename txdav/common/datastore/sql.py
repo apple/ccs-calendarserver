@@ -1813,7 +1813,7 @@ class CommonStoreTransaction(object):
         """
         Returns the UIDs of all delegates for the given delegator.  If
         expanded is False, only the direct delegates (users and groups)
-        are returned.  If expanded is True, the expanded membmership is
+        are returned.  If expanded is True, the expanded membership is
         returned, not including the groups themselves.
 
         @param delegator: the UID of the delegator

@@ -149,6 +149,17 @@ class MembersCommand(amp.Command):
 
 
 
+class ExpandedMembersCommand(amp.Command):
+    arguments = [
+        ('uid', amp.String()),
+    ]
+    response = [
+        ('items', amp.ListOf(amp.String())),
+        ('continuation', amp.String(optional=True)),
+    ]
+
+
+
 class GroupsCommand(amp.Command):
     arguments = [
         ('uid', amp.String()),

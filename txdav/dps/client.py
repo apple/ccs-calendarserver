@@ -44,7 +44,7 @@ from txdav.dps.commands import (
     WikiAccessForUIDCommand, ContinuationCommand,
     StatsCommand, ExternalDelegatesCommand, ExpandedMemberUIDsCommand,
     AddMembersCommand, RemoveMembersCommand,
-    UpdateRecordsCommand
+    UpdateRecordsCommand, ExpandedMembersCommand
 )
 from txdav.who.delegates import RecordType as DelegatesRecordType
 from txdav.who.directory import (
@@ -476,6 +476,25 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
         ):
             return self.service._call(
                 MembersCommand,
+                self.service._processMultipleRecords,
+                uid=self.uid.encode("utf-8")
+            )
+        else:
+            return succeed([])
+
+
+    def expandedMembers(self):
+        """
+        Only allowed for delegates - not regular groups.
+        """
+        if self.recordType in (
+            DelegatesRecordType.readDelegateGroup,
+            DelegatesRecordType.writeDelegateGroup,
+            DelegatesRecordType.readDelegatorGroup,
+            DelegatesRecordType.writeDelegatorGroup,
+        ):
+            return self.service._call(
+                ExpandedMembersCommand,
                 self.service._processMultipleRecords,
                 uid=self.uid.encode("utf-8")
             )

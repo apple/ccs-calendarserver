@@ -373,36 +373,6 @@ class CalendarUserProxyPrincipalResource (
         return self.parent.principalCollections()
 
 
-    @inlineCallbacks
-    def _expandMemberPrincipals(self, uid=None, relatives=None, uids=None, infinity=False):
-        if uid is None:
-            uid = self.principalUID()
-        if relatives is None:
-            relatives = set()
-        if uids is None:
-            uids = set()
-
-        if uid not in uids:
-            from twistedcaldav.directory.principal import DirectoryPrincipalResource
-            uids.add(uid)
-            principal = yield self.pcollection.principalForUID(uid)
-            if isinstance(principal, CalendarUserProxyPrincipalResource):
-                members = yield self._directGroupMembers()
-                for member in members:
-                    if member.principalUID() not in uids:
-                        relatives.add(member)
-                        if infinity:
-                            yield self._expandMemberPrincipals(member.principalUID(), relatives, uids, infinity=infinity)
-            elif isinstance(principal, DirectoryPrincipalResource):
-                if infinity:
-                    members = yield principal.expandedGroupMembers()
-                else:
-                    members = yield principal.groupMembers()
-                relatives.update(members)
-
-        returnValue(relatives)
-
-
     def _recordTypeFromProxyType(self):
         return {
             "calendar-proxy-read": DelegateRecordType.readDelegateGroup,
@@ -413,7 +383,7 @@ class CalendarUserProxyPrincipalResource (
 
 
     @inlineCallbacks
-    def _directGroupMembers(self):
+    def _directGroupMembers(self, expanded=False):
         """
         Fault in the record representing the sub principal for this proxy type
         (either read-only or read-write), then fault in the direct members of
@@ -425,32 +395,28 @@ class CalendarUserProxyPrincipalResource (
             self.parent.principalUID()
         )
         if record is not None:
-            memberRecords = yield record.members()
+            if expanded:
+                memberRecords = yield record.expandedMembers()
+            else:
+                memberRecords = yield record.members()
             for record in memberRecords:
-                if record is not None:
-                    principal = yield self.pcollection.principalForRecord(
-                        record
-                    )
+                if record is not None and (record.loginAllowed or record.recordType is BaseRecordType.group):
+                    principal = yield self.pcollection.principalForRecord(record)
                     if principal is not None:
-                        if (
-                            principal.record.loginAllowed or
-                            principal.record.recordType is BaseRecordType.group
-                        ):
-                            memberPrincipals.append(principal)
+                        memberPrincipals.append(principal)
         returnValue(memberPrincipals)
 
 
     def groupMembers(self):
-        return self._expandMemberPrincipals()
+        return self._directGroupMembers(expanded=False)
 
 
-    @inlineCallbacks
     def expandedGroupMembers(self):
         """
         Return the complete, flattened set of principals belonging to this
         group.
         """
-        returnValue((yield self._expandMemberPrincipals(infinity=True)))
+        return self._directGroupMembers(expanded=True)
 
 
     def groupMemberships(self):
