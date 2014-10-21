@@ -332,7 +332,7 @@ class CalendarDirectoryRecordMixin(object):
             log.debug("DigestedCredentials")
             returnValue(
                 (yield self.verifyHTTPDigest(
-                    self.shortNames[0],
+                    credentials.username,
                     self.service.realmName,
                     credentials.fields["uri"],
                     credentials.fields["nonce"],
