@@ -424,23 +424,21 @@ class CalendarUserProxyPrincipalResource (
         return succeed([])
 
 
-    @inlineCallbacks
     def containsPrincipal(self, principal):
         """
-        Uses proxyFor information to turn the "contains principal" question around;
-        rather than expanding this principal's groups to see if the other principal
-        is a member, ask the other principal if they are a proxy for this principal's
-        parent resource, since this principal is a proxy principal.
+        Optimize this to ignore the owner principal when doing this test. This is a common occurrence as the owner
+        is the one most likely to be looking at their own resources, each of which will have the owner's two proxy
+        principals listed in the ACLs (and this method is called during each ACL L{checkPrivileges} call.
 
         @param principal: The principal to check
         @type principal: L{DirectoryCalendarPrincipalResource}
-        @return: True if principal is a proxy (of the correct type) of our parent
+        @return: L{True} if principal is a proxy (of the correct type) of our parent
         @rtype: C{boolean}
         """
-        readWrite = self.isProxyType(True)  # is read-write
-        if principal and self.parent in (yield principal.proxyFor(readWrite)):
-            returnValue(True)
-        returnValue(False)
+
+        if principal == self.parent:
+            return succeed(False)
+        return super(CalendarUserProxyPrincipalResource, self).containsPrincipal(principal)
 
 
 

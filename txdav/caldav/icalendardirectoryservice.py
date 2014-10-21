@@ -116,3 +116,27 @@ class ICalendarStoreDirectoryRecord(IStoreDirectoryRecord):
         @return: C{True} if it is a proxy.
         @rtype: C{bool}
         """
+
+    def proxyMode(other): #@NoSelf
+        """
+        Determine the proxy mode this record has in relation to the one specified.
+
+        @param other: record for the possible user proxying to this record
+        @type other: L{CalendarDirectoryRecordMixin}
+        """
+
+    def proxyFor(readWrite, ignoreDisabled=True): #@NoSelf
+        """
+        Returns the set of records currently delegating to this record
+        with the access indicated by the readWrite argument.  If readWrite is
+        True, then write-access delegators are returned, otherwise the read-
+        only-access delegators are returned.
+
+        @param readWrite: Whether to look up read-write delegators, or
+            read-only delegators
+        @type readWrite: L{bool}
+        @param ignoreDisabled: If L{True} disabled delegators are not returned
+        @type ignoreDisabled: L{bool}
+
+        @return: A Deferred firing with a set of records
+        """

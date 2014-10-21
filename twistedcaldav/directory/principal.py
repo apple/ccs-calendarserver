@@ -55,7 +55,6 @@ from twistedcaldav.extensions import (
 from twistedcaldav.extensions import DirectoryElement
 from twistedcaldav.resource import CalendarPrincipalCollectionResource, CalendarPrincipalResource
 from txdav.caldav.datastore.scheduling.utils import normalizeCUAddr
-from txdav.who.delegates import RecordType as DelegateRecordType
 from txdav.who.directory import CalendarDirectoryRecordMixin
 from txdav.xml import element as davxml
 from txweb2 import responsecode
@@ -936,39 +935,25 @@ class DirectoryPrincipalResource (
         return self.principalURL()
 
 
-    @inlineCallbacks
     def isProxyFor(self, principal):
         """
         Determine whether this principal is a read-only or read-write proxy for the
         specified principal.
+
+        @param principal: principal resource for the possible user proxying to this principal
+        @type principal: L{DirectoryPrincipalResource}
         """
-
-        read_uids = (yield self.proxyFor(False))
-        if principal in read_uids:
-            returnValue(True)
-
-        write_uids = (yield self.proxyFor(True))
-        if principal in write_uids:
-            returnValue(True)
-
-        returnValue(False)
+        return self.record.isProxyFor(principal.record)
 
 
-    @inlineCallbacks
     def proxyMode(self, principal):
         """
-        Determine whether what proxy mode this principal has in relation to the one specified.
+        Determine whether proxy mode this principal has in relation to the one specified.
+
+        @param principal: principal resource for the possible user proxying to this principal
+        @type principal: L{DirectoryPrincipalResource}
         """
-
-        read_uids = (yield self.proxyFor(False))
-        if principal in read_uids:
-            returnValue("read")
-
-        write_uids = (yield self.proxyFor(True))
-        if principal in write_uids:
-            returnValue("write")
-
-        returnValue("none")
+        return self.record.proxyMode(principal.record)
 
 
     @inlineCallbacks
@@ -990,27 +975,12 @@ class DirectoryPrincipalResource (
         proxyFors = set()
 
         if config.EnableProxyPrincipals:
-            proxyRecordType = (
-                DelegateRecordType.writeDelegatorGroup if readWrite else
-                DelegateRecordType.readDelegatorGroup
-            )
-            proxyGroupRecord = yield self.record.service.recordWithShortName(
-                proxyRecordType, self.record.uid
-            )
-            if proxyGroupRecord is not None:
-                proxyForRecords = yield proxyGroupRecord.members()
+            proxyForRecords = yield self.record.proxyFor(readWrite, ignoreDisabled)
 
-                uids = set()
-                for record in tuple(proxyForRecords):
-                    if record.uid in uids:
-                        proxyForRecords.remove(record)
-                    else:
-                        uids.add(record.uid)
-
-                for record in proxyForRecords:
-                    principal = yield self.parent.principalForRecord(record)
-                    if principal is not None and (not ignoreDisabled or principal.record.hasCalendars):
-                        proxyFors.add(principal)
+            for record in proxyForRecords:
+                principal = yield self.parent.principalForRecord(record)
+                if principal is not None:
+                    proxyFors.add(principal)
 
         returnValue(proxyFors)
 

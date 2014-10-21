@@ -1096,3 +1096,118 @@ class ProxyPrincipals(StoreTestCase):
 
         self.assertTrue(len((yield principal01.proxyFor(False))) == 1)
         self.assertTrue(len((yield principal01.proxyFor(True))) == 0)
+
+
+    @inlineCallbacks
+    def test_isProxyFor(self):
+        """
+        Test that L{DirectoryPrincipalResource.proxyFor} returns the correct results.
+        """
+        principal01 = yield self.principalRootResource.principalForUID((yield self.userUIDFromShortName("user01")))
+        principal02 = yield self.principalRootResource.principalForUID((yield self.userUIDFromShortName("user02")))
+        principal03 = yield self.principalRootResource.principalForUID((yield self.userUIDFromShortName("user03")))
+
+        # Check proxy for
+        self.assertFalse((yield principal01.isProxyFor(principal01)))
+        self.assertFalse((yield principal01.isProxyFor(principal02)))
+        self.assertFalse((yield principal01.isProxyFor(principal03)))
+        self.assertFalse((yield principal02.isProxyFor(principal01)))
+        self.assertFalse((yield principal02.isProxyFor(principal02)))
+        self.assertFalse((yield principal02.isProxyFor(principal03)))
+        self.assertFalse((yield principal03.isProxyFor(principal01)))
+        self.assertFalse((yield principal03.isProxyFor(principal02)))
+        self.assertFalse((yield principal03.isProxyFor(principal03)))
+
+        # Make user02 a read-only proxy for user01, and user03 a read-write proxy for user01
+        yield addDelegate(self.transactionUnderTest(), principal01.record, principal02.record, False)
+        yield addDelegate(self.transactionUnderTest(), principal01.record, principal03.record, True)
+        yield self.commit()
+
+        # Check proxy for
+        self.assertFalse((yield principal01.isProxyFor(principal01)))
+        self.assertFalse((yield principal01.isProxyFor(principal02)))
+        self.assertFalse((yield principal01.isProxyFor(principal03)))
+        self.assertTrue((yield principal02.isProxyFor(principal01)))
+        self.assertFalse((yield principal02.isProxyFor(principal02)))
+        self.assertFalse((yield principal02.isProxyFor(principal03)))
+        self.assertTrue((yield principal03.isProxyFor(principal01)))
+        self.assertFalse((yield principal03.isProxyFor(principal02)))
+        self.assertFalse((yield principal03.isProxyFor(principal03)))
+
+
+    @inlineCallbacks
+    def test_proxyMode(self):
+        """
+        Test that L{DirectoryPrincipalResource.proxyMode} returns the correct results.
+        """
+        principal01 = yield self.principalRootResource.principalForUID((yield self.userUIDFromShortName("user01")))
+        principal02 = yield self.principalRootResource.principalForUID((yield self.userUIDFromShortName("user02")))
+        principal03 = yield self.principalRootResource.principalForUID((yield self.userUIDFromShortName("user03")))
+
+        # Check proxy mode
+        mode = yield principal02.proxyMode(principal01)
+        self.assertEqual(mode, "none")
+        mode = yield principal01.proxyMode(principal02)
+        self.assertEqual(mode, "none")
+        mode = yield principal03.proxyMode(principal01)
+        self.assertEqual(mode, "none")
+        mode = yield principal01.proxyMode(principal03)
+        self.assertEqual(mode, "none")
+
+        # Make user02 a read-only proxy for user01, and user03 a read-write proxy for user01
+        yield addDelegate(self.transactionUnderTest(), principal01.record, principal02.record, False)
+        yield addDelegate(self.transactionUnderTest(), principal01.record, principal03.record, True)
+        yield self.commit()
+
+        # Check proxy mode
+        mode = yield principal02.proxyMode(principal01)
+        self.assertEqual(mode, "read")
+        mode = yield principal01.proxyMode(principal02)
+        self.assertEqual(mode, "none")
+        mode = yield principal03.proxyMode(principal01)
+        self.assertEqual(mode, "write")
+        mode = yield principal01.proxyMode(principal03)
+        self.assertEqual(mode, "none")
+
+
+    @inlineCallbacks
+    def test_proxyFor(self):
+        """
+        Test that L{DirectoryPrincipalResource.proxyFor} returns the correct results.
+        """
+        principal01 = yield self.principalRootResource.principalForUID((yield self.userUIDFromShortName("user01")))
+        principal02 = yield self.principalRootResource.principalForUID((yield self.userUIDFromShortName("user02")))
+        principal03 = yield self.principalRootResource.principalForUID((yield self.userUIDFromShortName("user03")))
+
+        # Check proxy for
+        proxies = yield principal01.proxyFor(False)
+        self.assertEqual(proxies, set())
+        proxies = yield principal01.proxyFor(True)
+        self.assertEqual(proxies, set())
+        proxies = yield principal02.proxyFor(False)
+        self.assertEqual(proxies, set())
+        proxies = yield principal02.proxyFor(True)
+        self.assertEqual(proxies, set())
+        proxies = yield principal03.proxyFor(False)
+        self.assertEqual(proxies, set())
+        proxies = yield principal03.proxyFor(True)
+        self.assertEqual(proxies, set())
+
+        # Make user02 a read-only proxy for user01, and user03 a read-write proxy for user01
+        yield addDelegate(self.transactionUnderTest(), principal01.record, principal02.record, False)
+        yield addDelegate(self.transactionUnderTest(), principal01.record, principal03.record, True)
+        yield self.commit()
+
+        # Check proxy for
+        proxies = yield principal01.proxyFor(False)
+        self.assertEqual(proxies, set())
+        proxies = yield principal01.proxyFor(True)
+        self.assertEqual(proxies, set())
+        proxies = yield principal02.proxyFor(False)
+        self.assertEqual(proxies, set((principal01,)))
+        proxies = yield principal02.proxyFor(True)
+        self.assertEqual(proxies, set())
+        proxies = yield principal03.proxyFor(False)
+        self.assertEqual(proxies, set())
+        proxies = yield principal03.proxyFor(True)
+        self.assertEqual(proxies, set((principal01,)))

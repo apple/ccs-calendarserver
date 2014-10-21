@@ -630,16 +630,68 @@ class CalendarDirectoryRecordMixin(object):
     # For scheduling/freebusy
     @inlineCallbacks
     def isProxyFor(self, other):
-        for recordType in (
-            DelegateRecordType.readDelegatorGroup,
-            DelegateRecordType.writeDelegatorGroup,
+        proxymode = yield self.proxyMode(other)
+        returnValue(proxymode != "none")
+
+
+    @inlineCallbacks
+    def proxyMode(self, other):
+        """
+        Determine the proxy mode this record has in relation to the one specified. Note that L{proxyFor} is
+        expensive when there are multiple server pods, so we should expand the proxy record members instead
+        (and that is cheaper).
+
+        @param other: record for the possible user proxying to this record
+        @type other: L{CalendarDirectoryRecordMixin}
+        """
+
+        for recordType, result in (
+            (DelegateRecordType.writeDelegateGroup, "write",),
+            (DelegateRecordType.readDelegateGroup, "read", ),
         ):
-            delegatorGroup = yield self.service.recordWithShortName(
-                recordType, self.uid
+            delegateGroup = yield other.service.recordWithShortName(
+                recordType, other.uid
             )
-            if delegatorGroup:
-                if other in (yield delegatorGroup.members()):
-                    returnValue(True)
+            if delegateGroup:
+                if self in (yield delegateGroup.expandedMembers()):
+                    returnValue(result)
+
+        returnValue("none")
+
+
+    @inlineCallbacks
+    def proxyFor(self, readWrite, ignoreDisabled=True):
+        """
+        Returns the set of records currently delegating to this record
+        with the access indicated by the readWrite argument.  If readWrite is
+        True, then write-access delegators are returned, otherwise the read-
+        only-access delegators are returned.
+
+        @param readWrite: Whether to look up read-write delegators, or
+            read-only delegators
+        @type readWrite: L{bool}
+        @param ignoreDisabled: If L{True} disabled delegators are not returned
+        @type ignoreDisabled: L{bool}
+
+        @return: A Deferred firing with a set of records
+        """
+        proxyFors = set()
+
+        proxyRecordType = (
+            DelegateRecordType.writeDelegatorGroup if readWrite else
+            DelegateRecordType.readDelegatorGroup
+        )
+        proxyGroupRecord = yield self.service.recordWithShortName(
+            proxyRecordType, self.uid
+        )
+        if proxyGroupRecord is not None:
+            proxyForRecords = yield proxyGroupRecord.members()
+
+            for record in proxyForRecords:
+                if not ignoreDisabled or record.hasCalendars:
+                    proxyFors.add(record)
+
+        returnValue(proxyFors)
 
 
     def attendeeProperty(self, params={}):

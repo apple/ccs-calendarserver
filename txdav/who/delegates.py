@@ -99,6 +99,10 @@ class DirectoryRecord(BaseDirectoryRecord):
         returnValue(records)
 
 
+    def expandedMembers(self):
+        return self.members(expanded=True)
+
+
     @inlineCallbacks
     def setMembers(self, memberRecords):
         """
