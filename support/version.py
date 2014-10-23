@@ -26,7 +26,7 @@ def version():
     # Compute the version number.
     #
 
-    base_version = "5.2.1"
+    base_version = "5.2.2"
 
     branches = tuple(
         branch.format(version=base_version)
