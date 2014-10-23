@@ -366,8 +366,12 @@ class AugmentedDirectoryService(
 
 
     def _assignToField(self, fields, name, value):
+        """
+        Assign a value to a field only if not already present in fields.
+        """
         field = self.fieldName.lookupByName(name)
-        fields[field] = value
+        if field not in fields:
+            fields[field] = value
 
 
     @inlineCallbacks
