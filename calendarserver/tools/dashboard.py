@@ -22,6 +22,7 @@ server as exposed by the L{DashboardProtocol} stats socket.
 from getopt import getopt, GetoptError
 
 import curses
+import curses.panel
 import json
 import os
 import sched
@@ -29,6 +30,9 @@ import sys
 import time
 import socket
 import errno
+import logging
+LOG_FILENAME = 'db.log'
+#logging.basicConfig(filename=LOG_FILENAME,level=logging.DEBUG)
 
 
 
@@ -152,27 +156,55 @@ class Dashboard(object):
         self.sched.enter(self.seconds, 0, self.updateDisplay, ())
         self.sched.run()
 
+    def terminal_size(self):
+        import fcntl, termios, struct
+        h, w, hp, wp = struct.unpack('HHHH',
+            fcntl.ioctl(0, termios.TIOCGWINSZ,
+            struct.pack('HHHH', 0, 0, 0, 0)))
+        return w, h
 
     def displayWindow(self, wtype):
         """
-        Display a new window type, clearing out the old one first.
+        Toggle the specified window, or reset to launch state if None.
         """
-        if self.windows:
-            for window in self.windows:
-                window.deactivate()
-            self.windows = []
 
+        # Toggle a specific window on or off
         if wtype is not None:
-            self.windows.append(wtype(self.usesCurses, self.client).makeWindow())
-            self.windows[-1].activate()
+            if wtype not in [type(w) for w in self.windows]:
+                self.windows.append(wtype(self.usesCurses, self.client).makeWindow())
+                self.windows[-1].activate()
+            else:
+                for window in self.windows:
+                    if type(window) == wtype:
+                        window.deactivate()
+                        self.windows.remove(window)
+                    if len(self.windows) == 0:
+                        self.displayWindow(self.registered_windows["h"])
+
+            self.resetWindows()
+        # Reset the screen to the default config
         else:
+            if self.windows:
+                for window in self.windows:
+                    window.deactivate()
+                self.windows = []
             top = 0
             ordered_windows = [self.registered_windows[i] for i in self.registered_order]
             for wtype in filter(lambda x: x.all, ordered_windows):
+                new_win = wtype(self.usesCurses, self.client).makeWindow(top=top)
+                logging.debug('created %r at panel level %r' % (new_win,new_win.z_order))
                 self.windows.append(wtype(self.usesCurses, self.client).makeWindow(top=top))
                 self.windows[-1].activate()
                 top += self.windows[-1].nlines + 1
+            # Don't display help panel if the window is too narrow
+            term_w, term_h = self.terminal_size()
+            logging.debug("logger displayWindow: rows: %s  cols: %s" % (term_h, term_w))
+            if int(term_w) > 100:
+                logging.debug('term_w > 100, making window with top at %d' % (top))
+                self.windows.append(HelpWindow(self.usesCurses, self.client).makeWindow(top=top))
+                self.windows[-1].activate()
 
+        curses.panel.update_panels()
         self.updateDisplay(True)
 
 
@@ -181,15 +213,19 @@ class Dashboard(object):
         Reset the current set of windows.
         """
         if self.windows:
+            logging.debug('resetting windows: %r' % (self.windows))
             for window in self.windows:
                 window.deactivate()
             old_windows = self.windows
             self.windows = []
             top = 0
             for old in old_windows:
+                logging.debug('processing window of type %r' % (type(old)))
                 self.windows.append(old.__class__(self.usesCurses, self.client).makeWindow(top=top))
                 self.windows[-1].activate()
-                top += self.windows[-1].nlines + 1
+                # Allow the help window to float on the right edge
+                if old.__class__.__name__ != "HelpWindow":
+                    top += self.windows[-1].nlines + 1
 
 
     def updateDisplay(self, initialUpdate=False):
@@ -231,6 +267,12 @@ class Dashboard(object):
                 self.seconds = 1.0 if self.seconds == 0.1 else 0.1
             elif c == "a":
                 self.displayWindow(None)
+            elif c == "n":
+                if self.windows:
+                    for window in self.windows:
+                        window.deactivate()
+                    self.windows = []
+                    self.displayWindow(self.registered_windows["h"])
             elif c in self.registered_windows:
                 self.displayWindow(self.registered_windows[c])
 
@@ -331,6 +373,15 @@ class BaseWindow(object):
         self.client = client
         self.rowCount = 0
         self.needsReset = False
+        self.z_order = 'bottom'
+
+
+    def terminal_size(self):
+        import fcntl, termios, struct
+        h, w, hp, wp = struct.unpack('HHHH',
+            fcntl.ioctl(0, termios.TIOCGWINSZ,
+            struct.pack('HHHH', 0, 0, 0, 0)))
+        return w, h
 
 
     def makeWindow(self, top=0, left=0):
@@ -346,6 +397,8 @@ class BaseWindow(object):
         if self.usesCurses:
             self.window = curses.newwin(nlines, ncols, begin_y, begin_x)
             self.window.nodelay(1)
+            self.panel = curses.panel.new_panel(self.window)
+            eval("self.panel.%s()" % (self.z_order,))
         else:
             self.window = None
         self.title = title
@@ -412,11 +465,12 @@ class HelpWindow(BaseWindow):
     Display help for the dashboard.
     """
 
-    help = "display dashboard help"
+    help = "dashboard help"
     all = False
     helpItems = (
         "",
         "a - all windows",
+        "n - no windows",
         "  - (space) pause dashboard polling",
         "t - toggle update between 0.1 and 1.0 seconds",
         "",
@@ -424,10 +478,14 @@ class HelpWindow(BaseWindow):
     )
 
     def makeWindow(self, top=0, left=0):
+        term_w, term_h = self.terminal_size()
+        help_x_offset = term_w - BOX_WIDTH + 4
         self._createWindow(
             "Help",
             len(self.helpItems) + len(Dashboard.registered_windows) + 2,
-            begin_y=top, begin_x=left
+            ncols=BOX_WIDTH-4,
+            begin_y=0,
+            begin_x=help_x_offset,
         )
         return self
 
@@ -441,7 +499,7 @@ class HelpWindow(BaseWindow):
         if self.usesCurses:
             self.window.erase()
             self.window.border()
-            self.window.addstr(0, 2, "Help for Dashboard")
+            self.window.addstr(0, 2, "Hotkeys")
 
         x = 1
         y = 1
@@ -469,7 +527,7 @@ class JobsWindow(BaseWindow):
     Display the status of the server's job queue.
     """
 
-    help = "display server jobs"
+    help = "server jobs"
     clientItem = "jobs"
     FORMAT_WIDTH = 98
 
@@ -580,7 +638,7 @@ class AssignmentsWindow(BaseWindow):
     Displays the status of the server's master process worker slave slots.
     """
 
-    help = "display server child job assignments"
+    help = "server child job assignments"
     clientItem = "job_assignments"
     FORMAT_WIDTH = 40
 
@@ -674,7 +732,7 @@ class HTTPSlotsWindow(BaseWindow):
     Displays the status of the server's master process worker slave slots.
     """
 
-    help = "display server child slots"
+    help = "server child slots"
     clientItem = "slots"
     FORMAT_WIDTH = 72
 
@@ -784,7 +842,7 @@ class SystemWindow(BaseWindow):
     Displays the system information provided by the server.
     """
 
-    help = "display system details"
+    help = "system details"
     clientItem = "stats_system"
 
     def makeWindow(self, top=0, left=0):
@@ -862,7 +920,7 @@ class RequestStatsWindow(BaseWindow):
     Displays the status of the server's master process worker slave slots.
     """
 
-    help = "display server request stats"
+    help = "server request stats"
     clientItem = "stats"
     FORMAT_WIDTH = 84
 
@@ -937,7 +995,7 @@ class DirectoryStatsWindow(BaseWindow):
     Displays the status of the server's directory service calls
     """
 
-    help = "display directory service stats"
+    help = "directory service stats"
     clientItem = "directory"
     FORMAT_WIDTH = 89
 
@@ -1051,13 +1109,13 @@ class DirectoryStatsWindow(BaseWindow):
 
 
 
+Dashboard.registerWindow(HelpWindow, "h")
 Dashboard.registerWindow(SystemWindow, "s")
+Dashboard.registerWindow(AssignmentsWindow, "w")
 Dashboard.registerWindow(RequestStatsWindow, "r")
 Dashboard.registerWindow(JobsWindow, "j")
-Dashboard.registerWindow(AssignmentsWindow, "w")
 Dashboard.registerWindow(HTTPSlotsWindow, "c")
 Dashboard.registerWindow(DirectoryStatsWindow, "d")
-Dashboard.registerWindow(HelpWindow, "h")
 
 
 if __name__ == "__main__":
