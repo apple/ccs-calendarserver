@@ -32,7 +32,7 @@ from twistedcaldav.directory.principal import (
 )
 from twistedcaldav.test.util import StoreTestCase
 
-from txdav.who.delegates import addDelegate
+from txdav.who.delegates import Delegates
 from txdav.who.idirectory import AutoScheduleMode, RecordType as CalRecordType
 from txdav.xml import element as davxml
 
@@ -1072,8 +1072,8 @@ class ProxyPrincipals(StoreTestCase):
         self.assertTrue(len((yield principal03.proxyFor(True))) == 0)
 
         # Make user01 a read-only proxy for user02 and user03
-        yield addDelegate(self.transactionUnderTest(), principal02.record, principal01.record, False)
-        yield addDelegate(self.transactionUnderTest(), principal03.record, principal01.record, False)
+        yield Delegates.addDelegate(self.transactionUnderTest(), principal02.record, principal01.record, False)
+        yield Delegates.addDelegate(self.transactionUnderTest(), principal03.record, principal01.record, False)
         yield self.commit()
 
         self.assertTrue(len((yield principal01.proxyFor(False))) == 2)
@@ -1095,6 +1095,14 @@ class ProxyPrincipals(StoreTestCase):
         yield self.directory.removeRecords((principal02.record.uid,))
 
         self.assertTrue(len((yield principal01.proxyFor(False))) == 1)
+        self.assertTrue(len((yield principal01.proxyFor(True))) == 0)
+
+        # Remove user01 as read-only proxy for user02 and user03
+        yield Delegates.removeDelegate(self.transactionUnderTest(), principal02.record, principal01.record, False)
+        yield Delegates.removeDelegate(self.transactionUnderTest(), principal03.record, principal01.record, False)
+        yield self.commit()
+
+        self.assertTrue(len((yield principal01.proxyFor(False))) == 0)
         self.assertTrue(len((yield principal01.proxyFor(True))) == 0)
 
 
@@ -1119,8 +1127,8 @@ class ProxyPrincipals(StoreTestCase):
         self.assertFalse((yield principal03.isProxyFor(principal03)))
 
         # Make user02 a read-only proxy for user01, and user03 a read-write proxy for user01
-        yield addDelegate(self.transactionUnderTest(), principal01.record, principal02.record, False)
-        yield addDelegate(self.transactionUnderTest(), principal01.record, principal03.record, True)
+        yield Delegates.addDelegate(self.transactionUnderTest(), principal01.record, principal02.record, False)
+        yield Delegates.addDelegate(self.transactionUnderTest(), principal01.record, principal03.record, True)
         yield self.commit()
 
         # Check proxy for
@@ -1133,6 +1141,25 @@ class ProxyPrincipals(StoreTestCase):
         self.assertTrue((yield principal03.isProxyFor(principal01)))
         self.assertFalse((yield principal03.isProxyFor(principal02)))
         self.assertFalse((yield principal03.isProxyFor(principal03)))
+
+        # Remove user02 as read-only proxy for user01, and user03 as read-write proxy for user01
+        yield Delegates.removeDelegate(self.transactionUnderTest(), principal01.record, principal02.record, False)
+        yield Delegates.removeDelegate(self.transactionUnderTest(), principal01.record, principal03.record, True)
+        yield self.commit()
+
+        # Check proxy for
+        proxies = yield principal01.proxyFor(False)
+        self.assertEqual(proxies, set())
+        proxies = yield principal01.proxyFor(True)
+        self.assertEqual(proxies, set())
+        proxies = yield principal02.proxyFor(False)
+        self.assertEqual(proxies, set())
+        proxies = yield principal02.proxyFor(True)
+        self.assertEqual(proxies, set())
+        proxies = yield principal03.proxyFor(False)
+        self.assertEqual(proxies, set())
+        proxies = yield principal03.proxyFor(True)
+        self.assertEqual(proxies, set())
 
 
     @inlineCallbacks
@@ -1155,8 +1182,8 @@ class ProxyPrincipals(StoreTestCase):
         self.assertEqual(mode, "none")
 
         # Make user02 a read-only proxy for user01, and user03 a read-write proxy for user01
-        yield addDelegate(self.transactionUnderTest(), principal01.record, principal02.record, False)
-        yield addDelegate(self.transactionUnderTest(), principal01.record, principal03.record, True)
+        yield Delegates.addDelegate(self.transactionUnderTest(), principal01.record, principal02.record, False)
+        yield Delegates.addDelegate(self.transactionUnderTest(), principal01.record, principal03.record, True)
         yield self.commit()
 
         # Check proxy mode
@@ -1168,6 +1195,25 @@ class ProxyPrincipals(StoreTestCase):
         self.assertEqual(mode, "write")
         mode = yield principal01.proxyMode(principal03)
         self.assertEqual(mode, "none")
+
+        # Remove user02 as read-only proxy for user01, and user03 as read-write proxy for user01
+        yield Delegates.removeDelegate(self.transactionUnderTest(), principal01.record, principal02.record, False)
+        yield Delegates.removeDelegate(self.transactionUnderTest(), principal01.record, principal03.record, True)
+        yield self.commit()
+
+        # Check proxy for
+        proxies = yield principal01.proxyFor(False)
+        self.assertEqual(proxies, set())
+        proxies = yield principal01.proxyFor(True)
+        self.assertEqual(proxies, set())
+        proxies = yield principal02.proxyFor(False)
+        self.assertEqual(proxies, set())
+        proxies = yield principal02.proxyFor(True)
+        self.assertEqual(proxies, set())
+        proxies = yield principal03.proxyFor(False)
+        self.assertEqual(proxies, set())
+        proxies = yield principal03.proxyFor(True)
+        self.assertEqual(proxies, set())
 
 
     @inlineCallbacks
@@ -1194,8 +1240,8 @@ class ProxyPrincipals(StoreTestCase):
         self.assertEqual(proxies, set())
 
         # Make user02 a read-only proxy for user01, and user03 a read-write proxy for user01
-        yield addDelegate(self.transactionUnderTest(), principal01.record, principal02.record, False)
-        yield addDelegate(self.transactionUnderTest(), principal01.record, principal03.record, True)
+        yield Delegates.addDelegate(self.transactionUnderTest(), principal01.record, principal02.record, False)
+        yield Delegates.addDelegate(self.transactionUnderTest(), principal01.record, principal03.record, True)
         yield self.commit()
 
         # Check proxy for
@@ -1211,3 +1257,22 @@ class ProxyPrincipals(StoreTestCase):
         self.assertEqual(proxies, set())
         proxies = yield principal03.proxyFor(True)
         self.assertEqual(proxies, set((principal01,)))
+
+        # Remove user02 as read-only proxy for user01, and user03 as read-write proxy for user01
+        yield Delegates.removeDelegate(self.transactionUnderTest(), principal01.record, principal02.record, False)
+        yield Delegates.removeDelegate(self.transactionUnderTest(), principal01.record, principal03.record, True)
+        yield self.commit()
+
+        # Check proxy for
+        proxies = yield principal01.proxyFor(False)
+        self.assertEqual(proxies, set())
+        proxies = yield principal01.proxyFor(True)
+        self.assertEqual(proxies, set())
+        proxies = yield principal02.proxyFor(False)
+        self.assertEqual(proxies, set())
+        proxies = yield principal02.proxyFor(True)
+        self.assertEqual(proxies, set())
+        proxies = yield principal03.proxyFor(False)
+        self.assertEqual(proxies, set())
+        proxies = yield principal03.proxyFor(True)
+        self.assertEqual(proxies, set())

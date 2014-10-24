@@ -821,8 +821,12 @@ class DirectoryPrincipalResource (
         ])
 
 
+    def __repr__(self):
+        return "<{}: {}>".format(self.__class__.__name__, str(self))
+
+
     def __str__(self):
-        return "(%s)%s" % (self.record.recordType, self.record.uid)
+        return "({}){}".format(self.record.recordType, self.record.uid)
 
 
     def __eq__(self, other):

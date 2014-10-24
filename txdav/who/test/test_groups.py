@@ -277,7 +277,6 @@ class GroupCacherTest(StoreTestCase):
             delegates,
             set(
                 [
-                    u"__wsanchez1__",
                     u"__sagen1__",
                     u"__cdaboo1__",
                     u"__glyph1__"

@@ -48,9 +48,7 @@ from twistedcaldav.config import config, ConfigDict
 from txdav.who.idirectory import RecordType as CalRecordType
 from twext.who.idirectory import FieldName
 from twisted.python.constants import Names, NamedConstant
-from txdav.who.delegates import (
-    addDelegate, removeDelegate, RecordType as DelegateRecordType
-)
+from txdav.who.delegates import Delegates, RecordType as DelegateRecordType
 
 
 attrMap = {
@@ -529,7 +527,7 @@ class Runner(object):
             returnValue(None)
 
         txn = self.store.newTransaction()
-        yield addDelegate(txn, record, proxyRecord, (proxyType == "write"))
+        yield Delegates.addDelegate(txn, record, proxyRecord, (proxyType == "write"))
         yield txn.commit()
         yield self.respondWithProxies(command, record, proxyType)
 
@@ -555,7 +553,7 @@ class Runner(object):
             returnValue(None)
 
         txn = self.store.newTransaction()
-        yield removeDelegate(txn, record, proxyRecord, (proxyType == "write"))
+        yield Delegates.removeDelegate(txn, record, proxyRecord, (proxyType == "write"))
         yield txn.commit()
         yield self.respondWithProxies(command, record, proxyType)
 

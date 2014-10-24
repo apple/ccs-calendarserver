@@ -53,7 +53,7 @@ from txdav.caldav.datastore.scheduling.imip.mailgateway import MailGatewayTokens
 from txdav.caldav.datastore.scheduling.imip.mailgateway import migrateTokensToStore
 from txdav.caldav.datastore.scheduling.scheduler import DirectScheduler
 from txdav.caldav.datastore.util import normalizationLookup
-from txdav.who.delegates import addDelegate
+from txdav.who.delegates import Delegates
 from txdav.who.idirectory import RecordType as CalRecordType
 from txdav.xml import element
 
@@ -1078,7 +1078,7 @@ def migrateDelegatesToStore(store):
             continue
 
         readWrite = (groupType == "calendar-proxy-write")
-        yield addDelegate(txn, delegatorRecord, delegateRecord, readWrite)
+        yield Delegates.addDelegate(txn, delegatorRecord, delegateRecord, readWrite)
 
     yield txn.commit()
 

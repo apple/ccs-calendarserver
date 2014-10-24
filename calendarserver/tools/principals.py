@@ -32,9 +32,7 @@ from twext.who.idirectory import RecordType, InvalidDirectoryRecordError
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twistedcaldav.config import config
-from txdav.who.delegates import (
-    addDelegate, removeDelegate, RecordType as DelegateRecordType
-)
+from txdav.who.delegates import Delegates, RecordType as DelegateRecordType
 from txdav.who.idirectory import AutoScheduleMode
 from txdav.who.groups import GroupCacherPollingWork
 
@@ -608,7 +606,7 @@ def action_addProxy(store, record, proxyType, *proxyIDs):
             print("You are not allowed to add proxies for locations or resources via command line when their proxy assignments come from the directory service.")
             returnValue(None)
 
-    yield _addRemoveProxy("Added", addDelegate, store, record, proxyType, *proxyIDs)
+    yield _addRemoveProxy("Added", Delegates.addDelegate, store, record, proxyType, *proxyIDs)
 
 
 
@@ -623,9 +621,9 @@ def action_removeProxy(store, record, *proxyIDs):
             returnValue(None)
 
     # Write
-    yield _addRemoveProxy("Removed", removeDelegate, store, record, "write", *proxyIDs)
+    yield _addRemoveProxy("Removed", Delegates.removeDelegate, store, record, "write", *proxyIDs)
     # Read
-    yield _addRemoveProxy("Removed", removeDelegate, store, record, "read", *proxyIDs)
+    yield _addRemoveProxy("Removed", Delegates.removeDelegate, store, record, "read", *proxyIDs)
 
 
 

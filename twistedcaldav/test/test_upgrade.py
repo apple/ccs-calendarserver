@@ -32,7 +32,7 @@ from twistedcaldav.upgrade import (
 )
 from txdav.caldav.datastore.index_file import db_basename
 from txdav.caldav.datastore.scheduling.imip.mailgateway import MailGatewayTokensDatabase
-from txdav.who.delegates import delegatesOf
+from txdav.who.delegates import Delegates
 from txdav.xml.parser import WebDAVDocument
 
 
@@ -1470,7 +1470,7 @@ class UpgradeTests(StoreTestCase):
         store = self.storeUnderTest()
         record = yield self.directory.recordWithUID(u"mercury")
         txn = store.newTransaction()
-        writeDelegates = yield delegatesOf(txn, record, True)
+        writeDelegates = yield Delegates.delegatesOf(txn, record, True)
         self.assertEquals(len(writeDelegates), 0)
         yield txn.commit()
 
@@ -1484,7 +1484,7 @@ class UpgradeTests(StoreTestCase):
 
         # Check delegates in store
         txn = store.newTransaction()
-        writeDelegates = yield delegatesOf(txn, record, True)
+        writeDelegates = yield Delegates.delegatesOf(txn, record, True)
         self.assertEquals(len(writeDelegates), 1)
         self.assertEquals(
             set([d.uid for d in writeDelegates]),
@@ -1493,7 +1493,7 @@ class UpgradeTests(StoreTestCase):
 
         record = yield self.directory.recordWithUID(u"non_calendar_proxy")
 
-        readDelegates = yield delegatesOf(txn, record, False)
+        readDelegates = yield Delegates.delegatesOf(txn, record, False)
         self.assertEquals(len(readDelegates), 1)
         self.assertEquals(
             set([d.uid for d in readDelegates]),

@@ -930,6 +930,7 @@ DEFAULT_CONFIG = {
             #     "Port": 11211,
             #     "HandleCacheTypes": [
             #         "ProxyDB",
+            #         "DelegatesDB",
             #         "PrincipalToken",
             #     ]
             # },

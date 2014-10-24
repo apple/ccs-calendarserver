@@ -18,10 +18,8 @@
 Delegates implementation tests
 """
 
-from txdav.who.delegates import (
-    addDelegate, removeDelegate, delegatesOf, delegatedTo,
-    RecordType as DelegateRecordType
-)
+from txdav.common.datastore.sql import CommonStoreTransaction
+from txdav.who.delegates import Delegates, RecordType as DelegateRecordType
 from txdav.who.groups import GroupCacher
 from twext.who.idirectory import RecordType
 from twisted.internet.defer import inlineCallbacks
@@ -46,10 +44,10 @@ class DelegationTest(StoreTestCase):
         delegate2 = yield self.directory.recordWithUID(u"__cdaboo1__")
 
         # Add 1 delegate
-        yield addDelegate(txn, delegator, delegate1, True)
-        delegates = (yield delegatesOf(txn, delegator, True))
+        yield Delegates.addDelegate(txn, delegator, delegate1, True)
+        delegates = (yield Delegates.delegatesOf(txn, delegator, True))
         self.assertEquals([u"__sagen1__"], [d.uid for d in delegates])
-        delegators = (yield delegatedTo(txn, delegate1, True))
+        delegators = (yield Delegates.delegatedTo(txn, delegate1, True))
         self.assertEquals([u"__wsanchez1__"], [d.uid for d in delegators])
 
         yield txn.commit()  # So delegateService will see the changes
@@ -97,27 +95,27 @@ class DelegationTest(StoreTestCase):
         )
 
         # Add another delegate
-        yield addDelegate(txn, delegator, delegate2, True)
-        delegates = (yield delegatesOf(txn, delegator, True))
+        yield Delegates.addDelegate(txn, delegator, delegate2, True)
+        delegates = (yield Delegates.delegatesOf(txn, delegator, True))
         self.assertEquals(
             set([u"__sagen1__", u"__cdaboo1__"]),
             set([d.uid for d in delegates])
         )
-        delegators = (yield delegatedTo(txn, delegate2, True))
+        delegators = (yield Delegates.delegatedTo(txn, delegate2, True))
         self.assertEquals([u"__wsanchez1__"], [d.uid for d in delegators])
 
         # Remove 1 delegate
-        yield removeDelegate(txn, delegator, delegate1, True)
-        delegates = (yield delegatesOf(txn, delegator, True))
+        yield Delegates.removeDelegate(txn, delegator, delegate1, True)
+        delegates = (yield Delegates.delegatesOf(txn, delegator, True))
         self.assertEquals([u"__cdaboo1__"], [d.uid for d in delegates])
-        delegators = (yield delegatedTo(txn, delegate1, True))
+        delegators = (yield Delegates.delegatedTo(txn, delegate1, True))
         self.assertEquals(0, len(delegators))
 
         # Remove the other delegate
-        yield removeDelegate(txn, delegator, delegate2, True)
-        delegates = (yield delegatesOf(txn, delegator, True))
+        yield Delegates.removeDelegate(txn, delegator, delegate2, True)
+        delegates = (yield Delegates.delegatesOf(txn, delegator, True))
         self.assertEquals(0, len(delegates))
-        delegators = (yield delegatedTo(txn, delegate2, True))
+        delegators = (yield Delegates.delegatedTo(txn, delegate2, True))
         self.assertEquals(0, len(delegators))
 
         yield txn.commit()  # So delegateService will see the changes
@@ -131,7 +129,7 @@ class DelegationTest(StoreTestCase):
 
         # Verify the assignments were made
         txn = self.store.newTransaction(label="test_directDelegation")
-        delegates = (yield delegatesOf(txn, delegator, True))
+        delegates = (yield Delegates.delegatesOf(txn, delegator, True))
         self.assertEquals(
             set([u"__sagen1__", u"__cdaboo1__"]),
             set([d.uid for d in delegates])
@@ -143,7 +141,7 @@ class DelegationTest(StoreTestCase):
 
         # Verify the assignments were made
         txn = self.store.newTransaction(label="test_directDelegation")
-        delegates = (yield delegatesOf(txn, delegator, True))
+        delegates = (yield Delegates.delegatesOf(txn, delegator, True))
         self.assertEquals(
             set([u"__cdaboo1__"]),
             set([d.uid for d in delegates])
@@ -161,31 +159,31 @@ class DelegationTest(StoreTestCase):
         group2 = yield self.directory.recordWithUID(u"__sub_group_1__")
 
         # Add group delegate
-        yield addDelegate(txn, delegator, group1, True)
+        yield Delegates.addDelegate(txn, delegator, group1, True)
         # Passing expanded=False will return the group
-        delegates = (yield delegatesOf(txn, delegator, True, expanded=False))
+        delegates = (yield Delegates.delegatesOf(txn, delegator, True, expanded=False))
         self.assertEquals(1, len(delegates))
         self.assertEquals(delegates[0].uid, u"__top_group_1__")
         # Passing expanded=True will return not the group -- it only returns
         # non-groups
-        delegates = (yield delegatesOf(txn, delegator, True, expanded=True))
+        delegates = (yield Delegates.delegatesOf(txn, delegator, True, expanded=True))
         self.assertEquals(
             set([u"__sagen1__", u"__cdaboo1__", u"__glyph1__"]),
             set([d.uid for d in delegates])
         )
-        delegators = (yield delegatedTo(txn, delegate1, True))
+        delegators = (yield Delegates.delegatedTo(txn, delegate1, True))
         self.assertEquals([u"__wsanchez1__"], [d.uid for d in delegators])
 
         # Verify we can ask for all delegated-to groups
-        yield addDelegate(txn, delegator, group2, True)
+        yield Delegates.addDelegate(txn, delegator, group2, True)
         groups = (yield txn.allGroupDelegates())
         self.assertEquals(
             set([u'__sub_group_1__', u'__top_group_1__']), set(groups)
         )
 
         # Delegate to a user who is already indirectly delegated-to
-        yield addDelegate(txn, delegator, delegate1, True)
-        delegates = (yield delegatesOf(txn, delegator, True, expanded=True))
+        yield Delegates.addDelegate(txn, delegator, delegate1, True)
+        delegates = (yield Delegates.delegatesOf(txn, delegator, True, expanded=True))
         self.assertEquals(
             set([u"__sagen1__", u"__cdaboo1__", u"__glyph1__"]),
             set([d.uid for d in delegates])
@@ -205,23 +203,23 @@ class DelegationTest(StoreTestCase):
         _ignore_numAdded, _ignore_numRemoved = (
             yield self.groupCacher.synchronizeMembers(txn, groupID, newSet)
         )
-        delegates = (yield delegatesOf(txn, delegator, True, expanded=True))
+        delegates = (yield Delegates.delegatesOf(txn, delegator, True, expanded=True))
         self.assertEquals(
             set([u"__sagen1__", u"__cdaboo1__", u"__glyph1__", u"__dre1__"]),
             set([d.uid for d in delegates])
         )
 
         # Remove delegate access from the top group
-        yield removeDelegate(txn, delegator, group1, True)
-        delegates = (yield delegatesOf(txn, delegator, True, expanded=True))
+        yield Delegates.removeDelegate(txn, delegator, group1, True)
+        delegates = (yield Delegates.delegatesOf(txn, delegator, True, expanded=True))
         self.assertEquals(
             set([u"__sagen1__", u"__cdaboo1__"]),
             set([d.uid for d in delegates])
         )
 
         # Remove delegate access from the sub group
-        yield removeDelegate(txn, delegator, group2, True)
-        delegates = (yield delegatesOf(txn, delegator, True, expanded=True))
+        yield Delegates.removeDelegate(txn, delegator, group2, True)
+        delegates = (yield Delegates.delegatesOf(txn, delegator, True, expanded=True))
         self.assertEquals(
             set([u"__sagen1__"]),
             set([d.uid for d in delegates])
@@ -240,11 +238,11 @@ class DelegationTest(StoreTestCase):
         delegate1 = yield self.directory.recordWithUID(u"__sagen1__")
 
         txn = self.store.newTransaction(label="test_noDuplication")
-        yield addDelegate(txn, delegator, delegate1, True)
+        yield Delegates.addDelegate(txn, delegator, delegate1, True)
         yield txn.commit()
 
         txn = self.store.newTransaction(label="test_noDuplication")
-        yield addDelegate(txn, delegator, delegate1, True)
+        yield Delegates.addDelegate(txn, delegator, delegate1, True)
         yield txn.commit()
 
         txn = self.store.newTransaction(label="test_noDuplication")
@@ -262,11 +260,11 @@ class DelegationTest(StoreTestCase):
         group1 = yield self.directory.recordWithUID(u"__top_group_1__")
 
         txn = self.store.newTransaction(label="test_noDuplication")
-        yield addDelegate(txn, delegator, group1, True)
+        yield Delegates.addDelegate(txn, delegator, group1, True)
         yield txn.commit()
 
         txn = self.store.newTransaction(label="test_noDuplication")
-        yield addDelegate(txn, delegator, group1, True)
+        yield Delegates.addDelegate(txn, delegator, group1, True)
         yield txn.commit()
 
         txn = self.store.newTransaction(label="test_noDuplication")
@@ -279,3 +277,572 @@ class DelegationTest(StoreTestCase):
         )
         yield txn.commit()
         self.assertEquals([["__top_group_1__"]], results)
+
+
+
+class DelegationCachingTest(StoreTestCase):
+
+    @inlineCallbacks
+    def setUp(self):
+        yield super(DelegationCachingTest, self).setUp()
+        self.store = self.storeUnderTest()
+        self.groupCacher = GroupCacher(self.directory)
+
+
+    @inlineCallbacks
+    def _memcacherMemberResults(self, delegate, readWrite, expanded, results):
+        delegateUIDs = yield Delegates._memcacher.getMembers(delegate.uid, readWrite, expanded)
+        self.assertEqual(
+            set(delegateUIDs) if delegateUIDs is not None else None,
+            set([delegate.uid for delegate in results]) if results is not None else None,
+            msg="uid:{}, rw={}, expanded={}".format(delegate.uid, readWrite, expanded)
+        )
+
+
+    @inlineCallbacks
+    def _memcacherAllMemberResults(self, delegate, results1, results2, results3, results4):
+        for readWrite, expanded, results in (
+            (True, False, results1),
+            (True, True, results2),
+            (False, False, results3),
+            (False, True, results4),
+        ):
+            yield self._memcacherMemberResults(delegate, readWrite, expanded, results)
+
+
+    @inlineCallbacks
+    def _memcacherMembershipResults(self, delegate, readWrite, results):
+        delegatorUIDs = yield Delegates._memcacher.getMemberships(delegate.uid, readWrite)
+        self.assertEqual(
+            set(delegatorUIDs) if delegatorUIDs is not None else None,
+            set([delegator.uid for delegator in results]) if results is not None else None,
+            msg="uid:{}, rw={}".format(delegate.uid, readWrite)
+        )
+
+
+    @inlineCallbacks
+    def _memcacherAllMembershipResults(self, delegate, results1, results2):
+        for readWrite, results in (
+            (True, results1),
+            (False, results2),
+        ):
+            yield self._memcacherMembershipResults(delegate, readWrite, results)
+
+
+    @inlineCallbacks
+    def _delegatesOfResults(self, delegator, readWrite, expanded, results):
+        delegates = (yield Delegates.delegatesOf(self.transactionUnderTest(), delegator, readWrite, expanded))
+        self.assertEquals(
+            set([d.uid for d in delegates]),
+            set([delegate.uid for delegate in results]),
+            msg="uid:{}, rw={}, expanded={}".format(delegator.uid, readWrite, expanded)
+        )
+
+
+    @inlineCallbacks
+    def _delegatesOfAllResults(self, delegator, results1, results2, results3, results4):
+        for readWrite, expanded, results in (
+            (True, False, results1),
+            (True, True, results2),
+            (False, False, results3),
+            (False, True, results4),
+        ):
+            yield self._delegatesOfResults(delegator, readWrite, expanded, results)
+
+
+    @inlineCallbacks
+    def _delegatedToResults(self, delegate, readWrite, results):
+        delegators = (yield Delegates.delegatedTo(self.transactionUnderTest(), delegate, readWrite))
+        self.assertEquals(
+            set([d.uid for d in delegators]),
+            set([delegator.uid for delegator in results]),
+            msg="uid:{}, rw={}".format(delegate.uid, readWrite)
+        )
+
+
+    @inlineCallbacks
+    def _delegatedToAllResults(self, delegator, results1, results2):
+        for readWrite, results in (
+            (True, results1),
+            (False, results2),
+        ):
+            yield self._delegatedToResults(delegator, readWrite, results)
+
+
+    @inlineCallbacks
+    def test_cacheUsed(self):
+
+        yield Delegates._memcacher.flushAll()
+
+        delegator = yield self.directory.recordWithUID(u"__wsanchez1__")
+        delegate1 = yield self.directory.recordWithUID(u"__sagen1__")
+
+        # Patch transaction so we can monitor whether cache is being used
+        original_delegates = CommonStoreTransaction.delegates
+        delegates_query = [0]
+        def _delegates(self, delegator, readWrite, expanded=False):
+            delegates_query[0] += 1
+            return original_delegates(self, delegator, readWrite, expanded)
+        self.patch(CommonStoreTransaction, "delegates", _delegates)
+
+        original_delegators = CommonStoreTransaction.delegators
+        delegators_query = [0]
+        def _delegators(self, delegate, readWrite):
+            delegators_query[0] += 1
+            return original_delegators(self, delegate, readWrite)
+        self.patch(CommonStoreTransaction, "delegators", _delegators)
+
+        # Not used
+        yield Delegates.delegatesOf(self.transactionUnderTest(), delegator, True, False)
+        self.assertEqual(delegates_query[0], 1)
+
+        # Used
+        yield Delegates.delegatesOf(self.transactionUnderTest(), delegator, True, False)
+        self.assertEqual(delegates_query[0], 1)
+
+        # Not used
+        yield Delegates.delegatesOf(self.transactionUnderTest(), delegator, False, False)
+        self.assertEqual(delegates_query[0], 2)
+
+        # Used
+        yield Delegates.delegatesOf(self.transactionUnderTest(), delegator, False, False)
+        self.assertEqual(delegates_query[0], 2)
+
+        # Not used
+        yield Delegates.delegatedTo(self.transactionUnderTest(), delegate1, True)
+        self.assertEqual(delegators_query[0], 1)
+
+        # Used
+        yield Delegates.delegatedTo(self.transactionUnderTest(), delegate1, True)
+        self.assertEqual(delegators_query[0], 1)
+
+        # Not used
+        yield Delegates.delegatedTo(self.transactionUnderTest(), delegate1, False)
+        self.assertEqual(delegators_query[0], 2)
+
+        # Used
+        yield Delegates.delegatedTo(self.transactionUnderTest(), delegate1, False)
+        self.assertEqual(delegators_query[0], 2)
+
+
+    @inlineCallbacks
+    def test_addRemoveDelegation(self):
+
+        yield Delegates._memcacher.flushAll()
+
+        delegator = yield self.directory.recordWithUID(u"__wsanchez1__")
+        delegate1 = yield self.directory.recordWithUID(u"__sagen1__")
+        delegate2 = yield self.directory.recordWithUID(u"__cdaboo1__")
+
+        # Add delegate
+        yield Delegates.addDelegate(self.transactionUnderTest(), delegator, delegate1, True)
+        yield self.commit()
+
+        # Some cache entries invalid
+        yield self._memcacherAllMemberResults(delegator, None, [delegate1], None, None)
+        yield self._memcacherAllMemberResults(delegate1, None, None, None, None)
+        yield self._memcacherAllMemberResults(delegate2, None, None, None, None)
+        yield self._memcacherAllMembershipResults(delegator, None, None)
+        yield self._memcacherAllMembershipResults(delegate1, None, None)
+        yield self._memcacherAllMembershipResults(delegate2, None, None)
+
+        # Read the delegate information twice - first time should be without cache, second with
+        for _ignore in range(2):
+            yield self._delegatesOfAllResults(
+                delegator,
+                [delegate1], [delegate1], [], [],
+            )
+
+            yield self._delegatesOfAllResults(
+                delegate1,
+                [], [], [], [],
+            )
+
+            yield self._delegatesOfAllResults(
+                delegate2,
+                [], [], [], [],
+            )
+
+            yield self._delegatedToAllResults(
+                delegator,
+                [], [],
+            )
+
+            yield self._delegatedToAllResults(
+                delegate1,
+                [delegator], [],
+            )
+
+            yield self._delegatedToAllResults(
+                delegate2,
+                [], [],
+            )
+
+            # Check cache
+            yield self._memcacherAllMemberResults(delegator, [delegate1], [delegate1], [], [])
+            yield self._memcacherAllMemberResults(delegate1, [], [], [], [])
+            yield self._memcacherAllMemberResults(delegate2, [], [], [], [])
+            yield self._memcacherAllMembershipResults(delegator, [], [])
+            yield self._memcacherAllMembershipResults(delegate1, [delegator], [])
+            yield self._memcacherAllMembershipResults(delegate2, [], [])
+
+        # Remove delegate
+        yield Delegates.removeDelegate(self.transactionUnderTest(), delegator, delegate1, True)
+        yield self.commit()
+
+        # Some cache entries invalid
+        yield self._memcacherAllMemberResults(delegator, None, [], [], [])
+        yield self._memcacherAllMemberResults(delegate1, [], [], [], [])
+        yield self._memcacherAllMemberResults(delegate2, [], [], [], [])
+        yield self._memcacherAllMembershipResults(delegator, [], [])
+        yield self._memcacherAllMembershipResults(delegate1, None, [])
+        yield self._memcacherAllMembershipResults(delegate2, [], [])
+
+        # Read the delegate information twice - first time should be without cache, second with
+        for _ignore in range(2):
+            yield self._delegatesOfAllResults(
+                delegator,
+                [], [], [], [],
+            )
+
+            yield self._delegatesOfAllResults(
+                delegate1,
+                [], [], [], [],
+            )
+
+            yield self._delegatesOfAllResults(
+                delegate2,
+                [], [], [], [],
+            )
+
+            yield self._delegatedToAllResults(
+                delegator,
+                [], [],
+            )
+
+            yield self._delegatedToAllResults(
+                delegate1,
+                [], [],
+            )
+
+            yield self._delegatedToAllResults(
+                delegate2,
+                [], [],
+            )
+
+            # Check cache
+            yield self._memcacherAllMemberResults(delegator, [], [], [], [])
+            yield self._memcacherAllMemberResults(delegate1, [], [], [], [])
+            yield self._memcacherAllMemberResults(delegate2, [], [], [], [])
+            yield self._memcacherAllMembershipResults(delegator, [], [])
+            yield self._memcacherAllMembershipResults(delegate1, [], [])
+            yield self._memcacherAllMembershipResults(delegate2, [], [])
+
+
+    @inlineCallbacks
+    def test_setDelegation(self):
+
+        yield Delegates._memcacher.flushAll()
+
+        delegator = yield self.directory.recordWithUID(u"__wsanchez1__")
+        delegates = [
+            (yield self.directory.recordWithUID(u"__sagen1__")),
+            (yield self.directory.recordWithUID(u"__cdaboo1__")),
+            (yield self.directory.recordWithUID(u"__dre1__")),
+        ]
+
+        # Add delegates
+        yield Delegates.setDelegates(self.transactionUnderTest(), delegator, [delegates[0], delegates[1]], True)
+        yield self.commit()
+
+        # Some cache entries invalid
+        yield self._memcacherAllMemberResults(delegator, None, [delegates[0], delegates[1]], None, None)
+        yield self._memcacherAllMembershipResults(delegator, None, None)
+        for delegate in delegates:
+            yield self._memcacherAllMemberResults(delegate, None, None, None, None)
+            yield self._memcacherAllMembershipResults(delegate, None, None)
+
+        # Read the delegate information twice - first time should be without cache, second with
+        for _ignore in range(2):
+            yield self._delegatesOfAllResults(delegator, [delegates[0], delegates[1]], [delegates[0], delegates[1]], [], [])
+            for delegate in delegates:
+                yield self._delegatesOfAllResults(delegate, [], [], [], [])
+
+            yield self._delegatedToAllResults(delegator, [], [])
+            yield self._delegatedToAllResults(delegates[0], [delegator], [])
+            yield self._delegatedToAllResults(delegates[1], [delegator], [])
+            yield self._delegatedToAllResults(delegates[2], [], [])
+
+            # Check cache
+            yield self._memcacherAllMemberResults(delegator, [delegates[0], delegates[1]], [delegates[0], delegates[1]], [], [])
+            for delegate in delegates:
+                yield self._memcacherAllMemberResults(delegate, [], [], [], [])
+            yield self._memcacherAllMembershipResults(delegator, [], [])
+            yield self._memcacherAllMembershipResults(delegates[0], [delegator], [])
+            yield self._memcacherAllMembershipResults(delegates[1], [delegator], [])
+            yield self._memcacherAllMembershipResults(delegates[2], [], [])
+
+        # Remove delegate
+        yield Delegates.setDelegates(self.transactionUnderTest(), delegator, [delegates[1], delegates[2]], True)
+        yield self.commit()
+
+        # Some cache entries invalid
+        yield self._memcacherAllMemberResults(delegator, None, [delegates[1], delegates[2]], [], [])
+        for delegate in delegates:
+            yield self._memcacherAllMemberResults(delegate, [], [], [], [])
+        yield self._memcacherAllMembershipResults(delegator, [], [])
+        yield self._memcacherAllMembershipResults(delegates[0], None, [])
+        yield self._memcacherAllMembershipResults(delegates[1], [delegator], [])
+        yield self._memcacherAllMembershipResults(delegates[2], None, [])
+
+        # Read the delegate information twice - first time should be without cache, second with
+        for _ignore in range(2):
+            yield self._delegatesOfAllResults(delegator, [delegates[1], delegates[2]], [delegates[1], delegates[2]], [], [])
+            for delegate in delegates:
+                yield self._delegatesOfAllResults(delegate, [], [], [], [])
+
+            yield self._delegatedToAllResults(delegator, [], [])
+            yield self._delegatedToAllResults(delegates[0], [], [])
+            yield self._delegatedToAllResults(delegates[1], [delegator], [])
+            yield self._delegatedToAllResults(delegates[2], [delegator], [])
+
+            # Check cache
+            yield self._memcacherAllMemberResults(delegator, [delegates[1], delegates[2]], [delegates[1], delegates[2]], [], [])
+            for delegate in delegates:
+                yield self._memcacherAllMemberResults(delegate, [], [], [], [])
+            yield self._memcacherAllMembershipResults(delegator, [], [])
+            yield self._memcacherAllMembershipResults(delegates[0], [], [])
+            yield self._memcacherAllMembershipResults(delegates[1], [delegator], [])
+            yield self._memcacherAllMembershipResults(delegates[2], [delegator], [])
+
+        # Add delegate with other mode
+        yield Delegates.setDelegates(self.transactionUnderTest(), delegator, [delegates[0]], False)
+        yield self.commit()
+
+        # Some cache entries invalid
+        yield self._memcacherAllMemberResults(delegator, [delegates[1], delegates[2]], [delegates[1], delegates[2]], None, [delegates[0]])
+        for delegate in delegates:
+            yield self._memcacherAllMemberResults(delegate, [], [], [], [])
+        yield self._memcacherAllMembershipResults(delegator, [], [])
+        yield self._memcacherAllMembershipResults(delegates[0], [], None)
+        yield self._memcacherAllMembershipResults(delegates[1], [delegator], [])
+        yield self._memcacherAllMembershipResults(delegates[2], [delegator], [])
+
+        # Read the delegate information twice - first time should be without cache, second with
+        for _ignore in range(2):
+            yield self._delegatesOfAllResults(delegator, [delegates[1], delegates[2]], [delegates[1], delegates[2]], [delegates[0]], [delegates[0]])
+            for delegate in delegates:
+                yield self._delegatesOfAllResults(delegate, [], [], [], [])
+
+            yield self._delegatedToAllResults(delegator, [], [])
+            yield self._delegatedToAllResults(delegates[0], [], [delegator])
+            yield self._delegatedToAllResults(delegates[1], [delegator], [])
+            yield self._delegatedToAllResults(delegates[2], [delegator], [])
+
+            # Check cache
+            yield self._memcacherAllMemberResults(delegator, [delegates[1], delegates[2]], [delegates[1], delegates[2]], [delegates[0]], [delegates[0]])
+            for delegate in delegates:
+                yield self._memcacherAllMemberResults(delegate, [], [], [], [])
+            yield self._memcacherAllMembershipResults(delegator, [], [])
+            yield self._memcacherAllMembershipResults(delegates[0], [], [delegator])
+            yield self._memcacherAllMembershipResults(delegates[1], [delegator], [])
+            yield self._memcacherAllMembershipResults(delegates[2], [delegator], [])
+
+
+    @inlineCallbacks
+    def test_setGroupDelegation(self):
+
+        yield Delegates._memcacher.flushAll()
+
+        delegator = yield self.directory.recordWithUID(u"__wsanchez1__")
+        delegates = [
+            (yield self.directory.recordWithUID(u"__sagen1__")),
+            (yield self.directory.recordWithUID(u"__cdaboo1__")),
+            (yield self.directory.recordWithUID(u"__glyph1__")),
+            (yield self.directory.recordWithUID(u"__dre1__")),
+        ]
+        group1 = yield self.directory.recordWithUID(u"__top_group_1__")
+        group2 = yield self.directory.recordWithUID(u"__sub_group_1__")
+        yield self.transactionUnderTest().groupByUID(u"__top_group_1__")
+        yield self.transactionUnderTest().groupByUID(u"__sub_group_1__")
+        yield self.commit()
+
+        def delegateMatch(*args):
+            return [delegates[i] for i in args]
+
+        # Add group delegate
+        yield Delegates.setDelegates(self.transactionUnderTest(), delegator, [group1], True)
+        yield self.commit()
+
+        # Some cache entries invalid
+        yield self._memcacherAllMemberResults(delegator, None, delegateMatch(0, 1, 2), None, None)
+        yield self._memcacherAllMembershipResults(delegator, None, None)
+        for delegate in delegates:
+            yield self._memcacherAllMemberResults(delegate, None, None, None, None)
+            yield self._memcacherAllMembershipResults(delegate, None, None)
+
+        # Read the delegate information twice - first time should be without cache, second with
+        for _ignore in range(2):
+            yield self._delegatesOfAllResults(delegator, [group1], delegateMatch(0, 1, 2), [], [])
+            for delegate in delegates:
+                yield self._delegatesOfAllResults(delegate, [], [], [], [])
+
+            yield self._delegatedToAllResults(delegator, [], [])
+            yield self._delegatedToAllResults(delegates[0], [delegator], [])
+            yield self._delegatedToAllResults(delegates[1], [delegator], [])
+            yield self._delegatedToAllResults(delegates[2], [delegator], [])
+            yield self._delegatedToAllResults(delegates[3], [], [])
+
+            # Check cache
+            yield self._memcacherAllMemberResults(delegator, [group1], delegateMatch(0, 1, 2), [], [])
+            for delegate in delegates:
+                yield self._memcacherAllMemberResults(delegate, [], [], [], [])
+            yield self._memcacherAllMembershipResults(delegator, [], [])
+            yield self._memcacherAllMembershipResults(delegates[0], [delegator], [])
+            yield self._memcacherAllMembershipResults(delegates[1], [delegator], [])
+            yield self._memcacherAllMembershipResults(delegates[2], [delegator], [])
+            yield self._memcacherAllMembershipResults(delegates[3], [], [])
+
+        # Add individual delegate
+        yield Delegates.setDelegates(self.transactionUnderTest(), delegator, [group1, delegates[3]], True)
+        yield self.commit()
+
+        # Some cache entries invalid
+        yield self._memcacherAllMemberResults(delegator, None, delegateMatch(0, 1, 2, 3), [], [])
+        for delegate in delegates:
+            yield self._memcacherAllMemberResults(delegate, [], [], [], [])
+        yield self._memcacherAllMembershipResults(delegator, [], [])
+        yield self._memcacherAllMembershipResults(delegates[0], [delegator], [])
+        yield self._memcacherAllMembershipResults(delegates[1], [delegator], [])
+        yield self._memcacherAllMembershipResults(delegates[2], [delegator], [])
+        yield self._memcacherAllMembershipResults(delegates[3], None, [])
+
+        # Read the delegate information twice - first time should be without cache, second with
+        for _ignore in range(2):
+            yield self._delegatesOfAllResults(delegator, [group1, delegates[3]], delegateMatch(0, 1, 2, 3), [], [])
+            for delegate in delegates:
+                yield self._delegatesOfAllResults(delegate, [], [], [], [])
+
+            yield self._delegatedToAllResults(delegator, [], [])
+            yield self._delegatedToAllResults(delegates[0], [delegator], [])
+            yield self._delegatedToAllResults(delegates[1], [delegator], [])
+            yield self._delegatedToAllResults(delegates[2], [delegator], [])
+            yield self._delegatedToAllResults(delegates[3], [delegator], [])
+
+            # Check cache
+            yield self._memcacherAllMemberResults(delegator, [group1, delegates[3]], delegateMatch(0, 1, 2, 3), [], [])
+            for delegate in delegates:
+                yield self._memcacherAllMemberResults(delegate, [], [], [], [])
+            yield self._memcacherAllMembershipResults(delegator, [], [])
+            yield self._memcacherAllMembershipResults(delegates[0], [delegator], [])
+            yield self._memcacherAllMembershipResults(delegates[1], [delegator], [])
+            yield self._memcacherAllMembershipResults(delegates[2], [delegator], [])
+            yield self._memcacherAllMembershipResults(delegates[3], [delegator], [])
+
+        # Switch to sub-group
+        yield Delegates.setDelegates(self.transactionUnderTest(), delegator, [group2, delegates[3]], True)
+        yield self.commit()
+
+        # Some cache entries invalid
+        yield self._memcacherAllMemberResults(delegator, None, delegateMatch(0, 1, 3), [], [])
+        for delegate in delegates:
+            yield self._memcacherAllMemberResults(delegate, [], [], [], [])
+        yield self._memcacherAllMembershipResults(delegator, [], [])
+        yield self._memcacherAllMembershipResults(delegates[0], None, [])
+        yield self._memcacherAllMembershipResults(delegates[1], None, [])
+        yield self._memcacherAllMembershipResults(delegates[2], None, [])
+        yield self._memcacherAllMembershipResults(delegates[3], [delegator], [])
+
+        # Read the delegate information twice - first time should be without cache, second with
+        for _ignore in range(2):
+            yield self._delegatesOfAllResults(delegator, [group2, delegates[3]], delegateMatch(0, 1, 3), [], [])
+            for delegate in delegates:
+                yield self._delegatesOfAllResults(delegate, [], [], [], [])
+
+            yield self._delegatedToAllResults(delegator, [], [])
+            yield self._delegatedToAllResults(delegates[0], [delegator], [])
+            yield self._delegatedToAllResults(delegates[1], [delegator], [])
+            yield self._delegatedToAllResults(delegates[2], [], [])
+            yield self._delegatedToAllResults(delegates[3], [delegator], [])
+
+            # Check cache
+            yield self._memcacherAllMemberResults(delegator, [group2, delegates[3]], delegateMatch(0, 1, 3), [], [])
+            for delegate in delegates:
+                yield self._memcacherAllMemberResults(delegate, [], [], [], [])
+            yield self._memcacherAllMembershipResults(delegator, [], [])
+            yield self._memcacherAllMembershipResults(delegates[0], [delegator], [])
+            yield self._memcacherAllMembershipResults(delegates[1], [delegator], [])
+            yield self._memcacherAllMembershipResults(delegates[2], [], [])
+            yield self._memcacherAllMembershipResults(delegates[3], [delegator], [])
+
+        # Add member of existing group
+        yield Delegates.setDelegates(self.transactionUnderTest(), delegator, [group2, delegates[0], delegates[3]], True)
+        yield self.commit()
+
+        # Some cache entries invalid
+        yield self._memcacherAllMemberResults(delegator, None, delegateMatch(0, 1, 3), [], [])
+        for delegate in delegates:
+            yield self._memcacherAllMemberResults(delegate, [], [], [], [])
+        yield self._memcacherAllMembershipResults(delegator, [], [])
+        yield self._memcacherAllMembershipResults(delegates[0], [delegator], [])
+        yield self._memcacherAllMembershipResults(delegates[1], [delegator], [])
+        yield self._memcacherAllMembershipResults(delegates[2], [], [])
+        yield self._memcacherAllMembershipResults(delegates[3], [delegator], [])
+
+        # Read the delegate information twice - first time should be without cache, second with
+        for _ignore in range(2):
+            yield self._delegatesOfAllResults(delegator, [group2, delegates[0], delegates[3]], delegateMatch(0, 1, 3), [], [])
+            for delegate in delegates:
+                yield self._delegatesOfAllResults(delegate, [], [], [], [])
+
+            yield self._delegatedToAllResults(delegator, [], [])
+            yield self._delegatedToAllResults(delegates[0], [delegator], [])
+            yield self._delegatedToAllResults(delegates[1], [delegator], [])
+            yield self._delegatedToAllResults(delegates[2], [], [])
+            yield self._delegatedToAllResults(delegates[3], [delegator], [])
+
+            # Check cache
+            yield self._memcacherAllMemberResults(delegator, [group2, delegates[0], delegates[3]], delegateMatch(0, 1, 3), [], [])
+            for delegate in delegates:
+                yield self._memcacherAllMemberResults(delegate, [], [], [], [])
+            yield self._memcacherAllMembershipResults(delegator, [], [])
+            yield self._memcacherAllMembershipResults(delegates[0], [delegator], [])
+            yield self._memcacherAllMembershipResults(delegates[1], [delegator], [])
+            yield self._memcacherAllMembershipResults(delegates[2], [], [])
+            yield self._memcacherAllMembershipResults(delegates[3], [delegator], [])
+
+        # Remove group
+        yield Delegates.setDelegates(self.transactionUnderTest(), delegator, [delegates[0], delegates[3]], True)
+        yield self.commit()
+
+        # Some cache entries invalid
+        yield self._memcacherAllMemberResults(delegator, None, delegateMatch(0, 3), [], [])
+        for delegate in delegates:
+            yield self._memcacherAllMemberResults(delegate, [], [], [], [])
+        yield self._memcacherAllMembershipResults(delegator, [], [])
+        yield self._memcacherAllMembershipResults(delegates[0], [delegator], [])
+        yield self._memcacherAllMembershipResults(delegates[1], None, [])
+        yield self._memcacherAllMembershipResults(delegates[2], [], [])
+        yield self._memcacherAllMembershipResults(delegates[3], [delegator], [])
+
+        # Read the delegate information twice - first time should be without cache, second with
+        for _ignore in range(2):
+            yield self._delegatesOfAllResults(delegator, [delegates[0], delegates[3]], delegateMatch(0, 3), [], [])
+            for delegate in delegates:
+                yield self._delegatesOfAllResults(delegate, [], [], [], [])
+
+            yield self._delegatedToAllResults(delegator, [], [])
+            yield self._delegatedToAllResults(delegates[0], [delegator], [])
+            yield self._delegatedToAllResults(delegates[1], [], [])
+            yield self._delegatedToAllResults(delegates[2], [], [])
+            yield self._delegatedToAllResults(delegates[3], [delegator], [])
+
+            # Check cache
+            yield self._memcacherAllMemberResults(delegator, [delegates[0], delegates[3]], delegateMatch(0, 3), [], [])
+            for delegate in delegates:
+                yield self._memcacherAllMemberResults(delegate, [], [], [], [])
+            yield self._memcacherAllMembershipResults(delegator, [], [])
+            yield self._memcacherAllMembershipResults(delegates[0], [delegator], [])
+            yield self._memcacherAllMembershipResults(delegates[1], [], [])
+            yield self._memcacherAllMembershipResults(delegates[2], [], [])
+            yield self._memcacherAllMembershipResults(delegates[3], [delegator], [])

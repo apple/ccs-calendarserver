@@ -31,7 +31,7 @@ from twext.python.log import Logger
 from twistedcaldav.config import config, fullServerPath
 from twistedcaldav.xmlutil import readXML
 
-from txdav.who.delegates import addDelegate
+from txdav.who.delegates import Delegates
 
 log = Logger()
 
@@ -160,13 +160,13 @@ class XMLCalendarUserProxyLoader(object):
                 if delegateRecord is None:
                     continue
 
-                yield addDelegate(txn, delegatorRecord, delegateRecord, True)
+                yield Delegates.addDelegate(txn, delegatorRecord, delegateRecord, True)
 
             for proxy in read_proxies:
                 delegateRecord = yield directory.recordWithUID(proxy)
                 if delegateRecord is None:
                     continue
 
-                yield addDelegate(txn, delegatorRecord, delegateRecord, False)
+                yield Delegates.addDelegate(txn, delegatorRecord, delegateRecord, False)
 
         yield txn.commit()

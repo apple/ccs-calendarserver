@@ -17,7 +17,7 @@
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.reflect import namedClass
 from txdav.common.datastore.podding.base import FailedCrossPodRequestError
-from txdav.who.delegates import _delegatesOfUIDs, _delegatedToUIDs, setDelegates
+from txdav.who.delegates import Delegates
 
 
 class DirectoryPoddingConduitMixin(object):
@@ -81,7 +81,7 @@ class DirectoryPoddingConduitMixin(object):
                     raise FailedCrossPodRequestError("Cross-pod delegate missing on this server: {}".format(uid))
                 delegates.append(delegate)
 
-            yield setDelegates(txn, delegator, delegates, request["read-write"])
+            yield Delegates.setDelegates(txn, delegator, delegates, request["read-write"])
         except Exception as e:
             returnValue({
                 "result": "exception",
@@ -140,7 +140,7 @@ class DirectoryPoddingConduitMixin(object):
             if delegator is None or not delegator.thisServer():
                 raise FailedCrossPodRequestError("Cross-pod delegate not on this server: {}".format(delegator.uid))
 
-            delegates = yield _delegatesOfUIDs(txn, delegator, request["read-write"], request["expanded"])
+            delegates = yield Delegates._delegatesOfUIDs(txn, delegator, request["read-write"], request["expanded"])
         except Exception as e:
             returnValue({
                 "result": "exception",
@@ -201,7 +201,7 @@ class DirectoryPoddingConduitMixin(object):
             if delegate is None or delegate.thisServer():
                 raise FailedCrossPodRequestError("Cross-pod delegate missing or on this server: {}".format(delegate.uid))
 
-            delegateors = yield _delegatedToUIDs(txn, delegate, request["read-write"], onlyThisServer=True)
+            delegateors = yield Delegates._delegatedToUIDs(txn, delegate, request["read-write"], onlyThisServer=True)
         except Exception as e:
             returnValue({
                 "result": "exception",

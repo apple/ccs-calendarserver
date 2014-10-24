@@ -80,6 +80,7 @@ from txdav.common.idirectoryservice import IStoreDirectoryService, \
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
 from txdav.idav import ChangeCategory
+from txdav.who.delegates import Delegates
 from txdav.xml import element
 
 from uuid import uuid4, UUID
@@ -1103,12 +1104,12 @@ class CommonStoreTransaction(object):
         if record is None:
             returnValue(None)
 
-        groupID = yield self._addGroupQuery.on(
+        groupID = (yield self._addGroupQuery.on(
             self,
             name=name.encode("utf-8"),
             groupUID=groupUID.encode("utf-8"),
             membershipHash=membershipHash
-        )
+        ))[0][0]
 
         yield self.refreshGroup(
             groupUID, record, groupID, name.encode("utf-8"), membershipHash, True
@@ -1184,7 +1185,7 @@ class CommonStoreTransaction(object):
                         bool(results[0][4]),  # extant
                     ))
                 else:
-                    raise
+                    returnValue((None, None, None, None, None))
             else:
                 yield savepoint.release(self)
                 results = (
@@ -1201,7 +1202,7 @@ class CommonStoreTransaction(object):
                         bool(results[0][4]),  # extant
                     ))
                 else:
-                    raise
+                    returnValue((None, None, None, None, None))
         else:
             returnValue((None, None, None, None, None))
 
@@ -1375,30 +1376,55 @@ class CommonStoreTransaction(object):
             )
 
         if membershipChanged:
-            newMemberUIDs = set()
-            for memberUID in memberUIDs:
-                newMemberUIDs.add(memberUID)
-            yield self.synchronizeMembers(groupID, newMemberUIDs)
+            yield self.synchronizeMembers(groupID, set(memberUIDs))
 
         returnValue(membershipChanged)
 
 
     @inlineCallbacks
     def synchronizeMembers(self, groupID, newMemberUIDs):
+        """
+        Update the group membership table in the database to match the new membership list. This
+        method will diff the existing set with the new set and apply the changes. It also calls out
+        to a groupChanged() method with the set of added and removed members so that other modules
+        that depend on groups can monitor the changes.
+
+        @param groupID: group id of group to update
+        @type groupID: L{str}
+        @param newMemberUIDs: set of new member UIDs in the group
+        @type newMemberUIDs: L{set} of L{str}
+        """
         numRemoved = numAdded = 0
         cachedMemberUIDs = (yield self.groupMemberUIDs(groupID))
 
-        for memberUID in cachedMemberUIDs:
-            if memberUID not in newMemberUIDs:
-                numRemoved += 1
-                yield self.removeMemberFromGroup(memberUID, groupID)
+        removed = cachedMemberUIDs - newMemberUIDs
+        for memberUID in removed:
+            numRemoved += 1
+            yield self.removeMemberFromGroup(memberUID, groupID)
 
-        for memberUID in newMemberUIDs:
-            if memberUID not in cachedMemberUIDs:
-                numAdded += 1
-                yield self.addMemberToGroup(memberUID, groupID)
+        added = newMemberUIDs - cachedMemberUIDs
+        for memberUID in added:
+            numAdded += 1
+            yield self.addMemberToGroup(memberUID, groupID)
+
+        yield self.groupChanged(groupID, added, removed)
 
         returnValue((numAdded, numRemoved))
+
+
+    @inlineCallbacks
+    def groupChanged(self, groupID, addedUIDs, removedUIDs):
+        """
+        Called when membership of a group changes.
+
+        @param groupID: group id of group that changed
+        @type groupID: L{str}
+        @param addedUIDs: set of new member UIDs added to the group
+        @type addedUIDs: L{set} of L{str}
+        @param removedUIDs: set of old member UIDs removed from the group
+        @type removedUIDs: L{set} of L{str}
+        """
+        yield Delegates.groupChanged(self, groupID, addedUIDs, removedUIDs)
 
 
     @inlineCallbacks
@@ -1826,41 +1852,40 @@ class CommonStoreTransaction(object):
         @rtype: a Deferred resulting in a set
         """
         delegates = set()
+        delegatorU = delegator.encode("utf-8")
 
         # First get the direct delegates
         results = (
             yield self._selectDelegatesQuery.on(
                 self,
-                delegator=delegator.encode("utf-8"),
+                delegator=delegatorU,
                 readWrite=1 if readWrite else 0
             )
         )
-        for row in results:
-            delegates.add(row[0].decode("utf-8"))
+        delegates.update([row[0].decode("utf-8") for row in results])
 
         if expanded:
             # Get those who are in groups which have been delegated to
             results = (
                 yield self._selectIndirectDelegatesQuery.on(
                     self,
-                    delegator=delegator.encode("utf-8"),
+                    delegator=delegatorU,
                     readWrite=1 if readWrite else 0
                 )
             )
-            for row in results:
-                delegates.add(row[0].decode("utf-8"))
+            # Skip the delegator if they are in one of the groups
+            delegates.update([row[0].decode("utf-8") for row in results if row[0] != delegatorU])
 
         else:
             # Get the directly-delegated-to groups
             results = (
                 yield self._selectDelegateGroupsQuery.on(
                     self,
-                    delegator=delegator.encode("utf-8"),
+                    delegator=delegatorU,
                     readWrite=1 if readWrite else 0
                 )
             )
-            for row in results:
-                delegates.add(row[0].decode("utf-8"))
+            delegates.update([row[0].decode("utf-8") for row in results])
 
         returnValue(delegates)
 
@@ -1881,29 +1906,29 @@ class CommonStoreTransaction(object):
         @rtype: a Deferred resulting in a set
         """
         delegators = set()
+        delegateU = delegate.encode("utf-8")
 
         # First get the direct delegators
         results = (
             yield self._selectDirectDelegatorsQuery.on(
                 self,
-                delegate=delegate.encode("utf-8"),
+                delegate=delegateU,
                 readWrite=1 if readWrite else 0
             )
         )
-        for row in results:
-            delegators.add(row[0].decode("utf-8"))
+        delegators.update([row[0].decode("utf-8") for row in results])
 
         # Finally get those who have delegated to groups the delegate
         # is a member of
         results = (
             yield self._selectIndirectDelegatorsQuery.on(
                 self,
-                delegate=delegate.encode("utf-8"),
+                delegate=delegateU,
                 readWrite=1 if readWrite else 0
             )
         )
-        for row in results:
-            delegators.add(row[0].decode("utf-8"))
+        # Skip the delegator if they are in one of the groups
+        delegators.update([row[0].decode("utf-8") for row in results if row[0] != delegateU])
 
         returnValue(delegators)
 
@@ -1924,7 +1949,6 @@ class CommonStoreTransaction(object):
         @rtype: a Deferred resulting in a set
 
         """
-        delegators = set()
         results = (
             yield self._selectDelegatorsToGroupQuery.on(
                 self,
@@ -1932,8 +1956,7 @@ class CommonStoreTransaction(object):
                 readWrite=1 if readWrite else 0
             )
         )
-        for row in results:
-            delegators.add(row[0].decode("utf-8"))
+        delegators = set([row[0].decode("utf-8") for row in results])
         returnValue(delegators)
 
 

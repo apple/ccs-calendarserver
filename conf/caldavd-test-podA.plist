@@ -140,7 +140,7 @@
 		    <key>Port</key>
 		    <integer>11211</integer>
 		  </dict>
-		  <key>ProxyDB</key>
+		  <key>AllPods</key>
 		  <dict>
 		    <key>ClientEnabled</key>
 		    <true/>
@@ -153,6 +153,7 @@
 		    <key>HandleCacheTypes</key>
 		    <array>
 		      <string>ProxyDB</string>
+		      <string>DelegatesDB</string>
 		      <string>PrincipalToken</string>
 		      <string>DIGESTCREDENTIALS</string>
 		    </array>

@@ -29,6 +29,7 @@ from twisted.plugin import IPlugin
 from twisted.protocols import amp
 from twisted.python.constants import Names, NamedConstant
 from twisted.python.usage import Options, UsageError
+from twistedcaldav import memcachepool
 from twistedcaldav.config import config
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from txdav.dps.commands import (
@@ -795,6 +796,14 @@ class DirectoryProxyServiceMaker(object):
             log.error("Failed to create directory service", error=e)
             raise
 
+
+        #
+        # Configure Memcached Client Pool
+        #
+        memcachepool.installPools(
+            config.Memcached.Pools,
+            config.Memcached.MaxClients,
+        )
 
         log.info("Created directory service")
 
