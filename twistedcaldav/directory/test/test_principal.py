@@ -604,7 +604,9 @@ class ProvisionedPrincipals(StoreTestCase):
                 )
 
                 # Verify that if not enabled for calendaring, no CUAs:
-                record.hasCalendars = False
+                record.fields[
+                    record.service.fieldName.lookupByName(u"hasCalendars")
+                ] = False
                 self.failIf(recordResource.calendarUserAddresses())
 
 
@@ -638,9 +640,13 @@ class ProvisionedPrincipals(StoreTestCase):
 
                 # Turn off hasContacts and addressBookHomeURLs
                 # should be empty
-                record.hasContacts = False
+                record.fields[
+                    record.service.fieldName.lookupByName(u"hasContacts")
+                ] = False
                 self.failIf(tuple(recordResource.addressBookHomeURLs()))
-                record.hasContacts = True
+                record.fields[
+                    record.service.fieldName.lookupByName(u"hasContacts")
+                ] = True
 
                 addressBookRootResource = yield self.actualRoot.getChild("addressbooks")
                 addressBookRootURL = addressBookRootResource.url()
@@ -697,9 +703,13 @@ class ProvisionedPrincipals(StoreTestCase):
 
                 # Turn off hasCalendars and calendarHomeURLs should
                 # be empty
-                record.hasCalendars = False
+                record.fields[
+                    record.service.fieldName.lookupByName(u"hasCalendars")
+                ] = False
                 self.failIf(tuple(recordResource.calendarHomeURLs()))
-                record.hasCalendars = True
+                record.fields[
+                    record.service.fieldName.lookupByName(u"hasCalendars")
+                ] = True
 
                 calendarRootResource = yield self.rootResource.getChild("calendars")
                 calendarRootURL = calendarRootResource.url()

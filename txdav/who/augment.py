@@ -390,19 +390,21 @@ class AugmentedDirectoryService(
 
         fields = record.fields.copy()
 
-        # print("Got augment record", augmentRecord)
-
         if augmentRecord:
 
-            self._assignToField(
-                fields, "hasCalendars",
-                augmentRecord.enabledForCalendaring
-            )
+            if record.recordType == RecordType.group:
+                self._assignToField(fields, "hasCalendars", False)
+                self._assignToField(fields, "hasContacts", False)
+            else:
+                self._assignToField(
+                    fields, "hasCalendars",
+                    augmentRecord.enabledForCalendaring
+                )
 
-            self._assignToField(
-                fields, "hasContacts",
-                augmentRecord.enabledForAddressBooks
-            )
+                self._assignToField(
+                    fields, "hasContacts",
+                    augmentRecord.enabledForAddressBooks
+                )
 
             autoScheduleMode = {
                 "none": AutoScheduleMode.none,
@@ -442,28 +444,6 @@ class AugmentedDirectoryService(
                 augmentRecord.serverID.decode("utf-8")
             )
 
-            if (
-                (
-                    fields.get(
-                        self.fieldName.lookupByName("hasCalendars"), False
-                    ) or
-                    fields.get(
-                        self.fieldName.lookupByName("hasContacts"), False
-                    )
-                ) and
-                record.recordType == RecordType.group
-            ):
-                self._assignToField(fields, "hasCalendars", False)
-                self._assignToField(fields, "hasContacts", False)
-
-                # For augment records cloned from the Default augment record,
-                # don't emit this message:
-                if not augmentRecord.clonedFromDefault:
-                    log.error(
-                        "Group {record} cannot be enabled for "
-                        "calendaring or address books",
-                        record=record
-                    )
 
         else:
             self._assignToField(fields, "hasCalendars", False)
