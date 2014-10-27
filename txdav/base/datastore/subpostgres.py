@@ -604,7 +604,6 @@ class PostgresService(MultiService):
             self.startDatabase()
 
 
-
     def stopService(self):
         """
         Stop all child services, then stop the subprocess, if it's running.

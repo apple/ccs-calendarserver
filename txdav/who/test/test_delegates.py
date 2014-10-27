@@ -294,7 +294,7 @@ class DelegationCachingTest(StoreTestCase):
         delegateUIDs = yield Delegates._memcacher.getMembers(delegate.uid, readWrite, expanded)
         self.assertEqual(
             set(delegateUIDs) if delegateUIDs is not None else None,
-            set([delegate.uid for delegate in results]) if results is not None else None,
+            set([result.uid for result in results]) if results is not None else None,
             msg="uid:{}, rw={}, expanded={}".format(delegate.uid, readWrite, expanded)
         )
 
