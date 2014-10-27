@@ -81,7 +81,8 @@ DEFAULT_SERVICE_PARAMS = {
             "memberDNs": ["uniqueMember", ],
             "readWriteProxy": ["icsContact", ],
             "readOnlyProxy": ["icsSecondaryOwners", ],
-        }
+        },
+        "extra": None,
     },
 }
 

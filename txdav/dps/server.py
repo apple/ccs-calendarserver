@@ -217,8 +217,8 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         if record is not None:
             for field, value in record.fields.iteritems():
                 # FIXME: need to sort out dealing with enormous groups
-                # if field.name == u"memberDNs":
-                #     continue
+                if field.name == u"memberDNs":
+                    continue
                 valueType = record.service.fieldName.valueType(field)
                 if valueType in (unicode, bool):
                     fields[field.name] = value

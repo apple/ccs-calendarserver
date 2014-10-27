@@ -169,7 +169,8 @@ def buildDirectory(
                         relativeDN=params.rdnSchema.addresses,
                         attributes=(),
                     ),
-                })
+                }),
+                extraFilter=params.extra
             )
 
         elif "inmemory" in directoryType:
