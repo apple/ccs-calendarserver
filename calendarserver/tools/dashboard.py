@@ -21,18 +21,21 @@ server as exposed by the L{DashboardProtocol} stats socket.
 
 from getopt import getopt, GetoptError
 
-import curses
 import curses.panel
+import errno
+import fcntl
 import json
+import logging
 import os
 import sched
-import sys
-import time
 import socket
-import errno
-import logging
+import struct
+import sys
+import termios
+import time
+
 LOG_FILENAME = 'db.log'
-#logging.basicConfig(filename=LOG_FILENAME,level=logging.DEBUG)
+# logging.basicConfig(filename=LOG_FILENAME,level=logging.DEBUG)
 
 
 
@@ -115,6 +118,18 @@ def defaultIfNone(x, default):
 
 
 
+def terminal_size():
+    h, w, _ignore_hp, _ignore_wp = struct.unpack(
+        'HHHH',
+        fcntl.ioctl(
+            0, termios.TIOCGWINSZ,
+            struct.pack('HHHH', 0, 0, 0, 0)
+        )
+    )
+    return w, h
+
+
+
 class Dashboard(object):
     """
     Main dashboard controller. Use Python's L{sched} feature to schedule
@@ -156,12 +171,6 @@ class Dashboard(object):
         self.sched.enter(self.seconds, 0, self.updateDisplay, ())
         self.sched.run()
 
-    def terminal_size(self):
-        import fcntl, termios, struct
-        h, w, hp, wp = struct.unpack('HHHH',
-            fcntl.ioctl(0, termios.TIOCGWINSZ,
-            struct.pack('HHHH', 0, 0, 0, 0)))
-        return w, h
 
     def displayWindow(self, wtype):
         """
@@ -192,12 +201,12 @@ class Dashboard(object):
             ordered_windows = [self.registered_windows[i] for i in self.registered_order]
             for wtype in filter(lambda x: x.all, ordered_windows):
                 new_win = wtype(self.usesCurses, self.client).makeWindow(top=top)
-                logging.debug('created %r at panel level %r' % (new_win,new_win.z_order))
+                logging.debug('created %r at panel level %r' % (new_win, new_win.z_order))
                 self.windows.append(wtype(self.usesCurses, self.client).makeWindow(top=top))
                 self.windows[-1].activate()
                 top += self.windows[-1].nlines + 1
             # Don't display help panel if the window is too narrow
-            term_w, term_h = self.terminal_size()
+            term_w, term_h = terminal_size()
             logging.debug("logger displayWindow: rows: %s  cols: %s" % (term_h, term_w))
             if int(term_w) > 100:
                 logging.debug('term_w > 100, making window with top at %d' % (top))
@@ -376,14 +385,6 @@ class BaseWindow(object):
         self.z_order = 'bottom'
 
 
-    def terminal_size(self):
-        import fcntl, termios, struct
-        h, w, hp, wp = struct.unpack('HHHH',
-            fcntl.ioctl(0, termios.TIOCGWINSZ,
-            struct.pack('HHHH', 0, 0, 0, 0)))
-        return w, h
-
-
     def makeWindow(self, top=0, left=0):
         raise NotImplementedError()
 
@@ -478,12 +479,12 @@ class HelpWindow(BaseWindow):
     )
 
     def makeWindow(self, top=0, left=0):
-        term_w, term_h = self.terminal_size()
+        term_w, _ignore_term_h = terminal_size()
         help_x_offset = term_w - BOX_WIDTH + 4
         self._createWindow(
             "Help",
             len(self.helpItems) + len(Dashboard.registered_windows) + 2,
-            ncols=BOX_WIDTH-4,
+            ncols=BOX_WIDTH - 4,
             begin_y=0,
             begin_x=help_x_offset,
         )
