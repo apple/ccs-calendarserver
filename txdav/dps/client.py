@@ -573,7 +573,7 @@ class DirectoryRecord(BaseDirectoryRecord, CalendarDirectoryRecordMixin):
             WikiAccessForUIDCommand,
             self._convertAccess,
             wikiUID=self.uid.encode("utf-8"),
-            uid=record.uid.encode("utf-8")
+            uid=record.uid.encode("utf-8") if record else ""
         )
 
 

@@ -26,7 +26,9 @@ from twisted.trial import unittest
 from twisted.internet.defer import inlineCallbacks, succeed
 from twistedcaldav.test.util import StoreTestCase
 
-from ..wiki import DirectoryService, WikiAccessLevel
+from ..wiki import (
+    DirectoryService, WikiAccessLevel, getWikiACL, RecordType, DirectoryRecord
+)
 import txdav.who.wiki
 
 
@@ -95,6 +97,7 @@ class AccessForRecordTestCase(StoreTestCase):
         return succeed(self.access)
 
 
+
     @inlineCallbacks
     def test_accessForRecord(self):
         record = yield self.directory.recordWithUID(u"wiki-test")
@@ -114,3 +117,63 @@ class AccessForRecordTestCase(StoreTestCase):
         self.access = "admin"
         access = yield record.accessForRecord(None)
         self.assertEquals(access, WikiAccessLevel.write)
+
+
+
+# Test getWikiACL()
+# Currently stubs out enough functionality to test that an unauthenticated
+# request can support read access when generating an ACL element
+# TODO: add tests which have auth'd principals in the request
+
+class FakeRequest(object):
+
+    def __init__(self):
+        self.authnUser = None
+
+
+class FakeResource(object):
+
+    def __init__(self, record):
+        self.record = record
+
+
+def stubAccessForRecord(self, record):
+    return succeed(self.access)
+
+
+class GetWikiACLTestCase(StoreTestCase):
+    """
+    Exercise getWikiACL
+    """
+
+    def configure(self):
+        """
+        Override configuration hook to turn on wiki service.
+        """
+        from twistedcaldav.config import config
+
+        super(GetWikiACLTestCase, self).configure()
+        self.patch(config.Authentication.Wiki, "Enabled", True)
+        self.patch(
+            txdav.who.wiki.DirectoryRecord,
+            "accessForRecord",
+            stubAccessForRecord
+        )
+
+    @inlineCallbacks
+    def test_getWikiACL(self):
+        fields = {
+            self.directory.fieldName.uid: u"wiki-1",
+            self.directory.fieldName.shortNames: [u"wiki-one",],
+            self.directory.fieldName.recordType: RecordType.macOSXServerWiki,
+        }
+        record = DirectoryRecord(self.directory, fields)
+        resource = FakeResource(record)
+        request = FakeRequest()
+
+        record.access = WikiAccessLevel.read
+        result = yield getWikiACL(resource, request)
+        self.assertEqual(
+            result.children[0].children[0].children[0].name,
+            "unauthenticated"
+        )

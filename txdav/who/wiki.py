@@ -282,7 +282,11 @@ def getWikiACL(resource, request):
         if access == WikiAccessLevel.read:
             request.wikiACL = davxml.ACL(
                 davxml.ACE(
-                    request.authnUser.principalElement(),
+                    (
+                        request.authnUser.principalElement() if
+                        request.authnUser is not None else
+                        davxml.Principal(davxml.Unauthenticated())
+                    ),
                     davxml.Grant(
                         davxml.Privilege(davxml.Read()),
                         davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
@@ -311,7 +315,11 @@ def getWikiACL(resource, request):
         elif access == WikiAccessLevel.write:
             request.wikiACL = davxml.ACL(
                 davxml.ACE(
-                    request.authnUser.principalElement(),
+                    (
+                        request.authnUser.principalElement() if
+                        request.authnUser is not None else
+                        davxml.Principal(davxml.Unauthenticated())
+                    ),
                     davxml.Grant(
                         davxml.Privilege(davxml.Read()),
                         davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
