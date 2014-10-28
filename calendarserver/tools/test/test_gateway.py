@@ -99,7 +99,7 @@ class RunCommandTestCase(TestCase):
         config.Memcached.Pools.Default.ServerEnabled = False
         ClientFactory.allowTestCache = True
         memcacher.Memcacher.allowTestCache = True
-        memcacher.Memcacher.memoryCacheInstance = None
+        memcacher.Memcacher.reset()
         config.DirectoryAddressBook.Enabled = False
         config.UsePackageTimezones = True
 

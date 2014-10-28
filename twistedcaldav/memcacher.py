@@ -38,7 +38,10 @@ class Memcacher(CachePoolUserMixIn):
     keyNormalizeTranslateTable = string.maketrans("".join([chr(i) for i in range(33)]) + chr(0x7F), "_" * 33 + "_")
 
     allowTestCache = False
-    memoryCacheInstance = None
+    memoryCacheInstance = {
+        True: None,
+        False: None,
+    }
 
     class memoryCacher():
         """
@@ -48,11 +51,23 @@ class Memcacher(CachePoolUserMixIn):
         memcached may not be running.
         """
 
-        def __init__(self):
+        def __init__(self, pickle=False):
             self._cache = {} # (value, expireTime, check-and-set identifier)
             self._clock = 0
+            self._pickle = pickle
+
+        def _check_key(self, key):
+            if not isinstance(key, str):
+                raise ValueError("memcache keys must be str type")
+
+        def _check_value(self, value):
+            if not self._pickle and not isinstance(value, str):
+                raise ValueError("memcache values must be str type")
 
         def add(self, key, value, expireTime=0):
+            self._check_key(key)
+            self._check_value(value)
+
             if len(key) > Memcacher.MEMCACHE_KEY_LIMIT or len(str(value)) > Memcacher.MEMCACHE_VALUE_LIMIT:
                 return succeed(False)
             if key not in self._cache:
@@ -64,6 +79,9 @@ class Memcacher(CachePoolUserMixIn):
                 return succeed(False)
 
         def set(self, key, value, expireTime=0):
+            self._check_key(key)
+            self._check_value(value)
+
             if len(key) > Memcacher.MEMCACHE_KEY_LIMIT or len(str(value)) > Memcacher.MEMCACHE_VALUE_LIMIT:
                 return succeed(False)
             if not expireTime:
@@ -77,6 +95,9 @@ class Memcacher(CachePoolUserMixIn):
             return succeed(True)
 
         def checkAndSet(self, key, value, cas, flags=0, expireTime=0):
+            self._check_key(key)
+            self._check_value(value)
+
             if len(key) > Memcacher.MEMCACHE_KEY_LIMIT or len(str(value)) > Memcacher.MEMCACHE_VALUE_LIMIT:
                 return succeed(False)
             if not expireTime:
@@ -92,6 +113,8 @@ class Memcacher(CachePoolUserMixIn):
             return succeed(True)
 
         def get(self, key, withIdentifier=False):
+            self._check_key(key)
+
             if len(key) > Memcacher.MEMCACHE_KEY_LIMIT:
                 value, expires, identifier = (None, 0, "")
             else:
@@ -106,6 +129,8 @@ class Memcacher(CachePoolUserMixIn):
                 return succeed((0, value,))
 
         def delete(self, key):
+            self._check_key(key)
+
             if len(key) > Memcacher.MEMCACHE_KEY_LIMIT:
                 return succeed(False)
             try:
@@ -115,6 +140,8 @@ class Memcacher(CachePoolUserMixIn):
                 return succeed(False)
 
         def incr(self, key, delta=1):
+            self._check_key(key)
+
             if len(key) > Memcacher.MEMCACHE_KEY_LIMIT:
                 return succeed(False)
             value = self._cache.get(key, None)
@@ -130,6 +157,8 @@ class Memcacher(CachePoolUserMixIn):
             return succeed(value)
 
         def decr(self, key, delta=1):
+            self._check_key(key)
+
             if len(key) > Memcacher.MEMCACHE_KEY_LIMIT:
                 return succeed(False)
             value = self._cache.get(key, None)
@@ -224,11 +253,11 @@ class Memcacher(CachePoolUserMixIn):
             self._memcacheProtocol = self.getCachePool()
 
         elif config.ProcessType == "Single" or self._noInvalidation or self.allowTestCache:
-            # NB no need to pickle the memory cacher as it handles python types natively
-            if Memcacher.memoryCacheInstance is None:
-                Memcacher.memoryCacheInstance = Memcacher.memoryCacher()
-            self._memcacheProtocol = Memcacher.memoryCacheInstance
-            self._pickle = False
+            # The memory cacher handles python types natively, but we need to treat non-str types as an error
+            # if pickling is off, so we use two global memory cachers for each pickle state
+            if Memcacher.memoryCacheInstance[self._pickle] is None:
+                Memcacher.memoryCacheInstance[self._pickle] = Memcacher.memoryCacher(self._pickle)
+            self._memcacheProtocol = Memcacher.memoryCacheInstance[self._pickle]
 
         else:
             # NB no need to pickle the null cacher as it handles python types natively
@@ -321,3 +350,11 @@ class Memcacher(CachePoolUserMixIn):
     def flushAll(self):
         self.log.debug("Flushing All Cache Tokens")
         return self._getMemcacheProtocol().flushAll()
+
+
+    @classmethod
+    def reset(cls):
+        """
+        Reset the memory cachers
+        """
+        cls.memoryCacheInstance = {True: None, False: None}

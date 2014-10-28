@@ -136,7 +136,7 @@ class StoreTestCase(CommonCommonTests, txweb2.dav.test.util.TestCase):
         config.Memcached.Pools.Default.ServerEnabled = False
         ClientFactory.allowTestCache = True
         memcacher.Memcacher.allowTestCache = True
-        memcacher.Memcacher.memoryCacheInstance = None
+        memcacher.Memcacher.reset()
         config.DirectoryAddressBook.Enabled = False
         config.UsePackageTimezones = True
 
@@ -352,7 +352,7 @@ class TestCase(txweb2.dav.test.util.TestCase):
         config.Memcached.Pools.Default.ServerEnabled = False
         ClientFactory.allowTestCache = True
         memcacher.Memcacher.allowTestCache = True
-        memcacher.Memcacher.memoryCacheInstance = None
+        memcacher.Memcacher.reset()
         config.DirectoryAddressBook.Enabled = False
         config.UsePackageTimezones = True
 

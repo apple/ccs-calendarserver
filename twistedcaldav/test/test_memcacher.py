@@ -100,7 +100,7 @@ class MemcacherTestCase(TestCase):
         for processType in ("Single", "Combined",):
             config.ProcessType = processType
 
-            cacher = Memcacher("testing", no_invalidation=True)
+            cacher = Memcacher("testing", pickle=True, no_invalidation=True)
 
             result = yield cacher.set("akey", ["1", "2", "3", ])
             self.assertTrue(result)
@@ -130,6 +130,15 @@ class MemcacherTestCase(TestCase):
             self.assertTrue("\n" not in key)
             self.assertTrue("\t" not in key)
             self.assertTrue("\r" not in key)
+
+
+    def test_key_value_str(self):
+
+        config.ProcessType = "Single"
+
+        cacher = Memcacher("testing", pickle=False)
+        self.failUnlessRaises(ValueError, cacher.set, "akey", ["1", "2", "3", ])
+        self.failUnlessRaises(ValueError, cacher.set, "akey", u"abc")
 
 
     @inlineCallbacks

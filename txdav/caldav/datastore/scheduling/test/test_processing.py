@@ -83,7 +83,7 @@ class BatchRefresh (unittest.TestCase):
         config.Memcached.Pools.Default.ClientEnabled = False
         config.Memcached.Pools.Default.ServerEnabled = False
         memcacher.Memcacher.allowTestCache = True
-        memcacher.Memcacher.memoryCacheInstance = None
+        memcacher.Memcacher.reset()
 
 
     @inlineCallbacks

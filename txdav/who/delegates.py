@@ -242,7 +242,7 @@ class CachingDelegates(object):
             return "{}{}:{}#{}".format(
                 keyname,
                 "-expanded" if expanded else "",
-                uid,
+                uid.encode("utf-8"),
                 "write" if readWrite else "read",
             )
 
@@ -255,19 +255,19 @@ class CachingDelegates(object):
         def setMembers(self, uid, readWrite, members, expanded):
             return self.set(
                 self._membersKey(uid, readWrite, expanded),
-                ",".join(members),
+                ",".join(members).encode("utf-8"),
             )
 
         def setMemberships(self, uid, readWrite, memberships):
             return self.set(
                 self._membershipsKey(uid, readWrite),
-                ",".join(memberships),
+                ",".join(memberships).encode("utf-8"),
             )
 
         @staticmethod
         def _value_decode(value):
             if value:
-                return set(value.split(","))
+                return set(value.decode("utf-8").split(","))
             elif value is None:
                 return None
             else:
