@@ -132,6 +132,7 @@ def buildDirectory(
             else:
                 creds = None
             mapping = params.mapping
+            extraFilters = params.extraFilters
             directory = LDAPDirectoryService(
                 params.uri,
                 params.rdnSchema.base,
@@ -170,7 +171,13 @@ def buildDirectory(
                         attributes=(),
                     ),
                 }),
-                extraFilter=params.extra
+                extraFilters={
+                    RecordType.user: extraFilters.get("users", ""),
+                    RecordType.group: extraFilters.get("groups", ""),
+                    CalRecordType.location: extraFilters.get("locations", ""),
+                    CalRecordType.resource: extraFilters.get("resources", ""),
+                    CalRecordType.address: extraFilters.get("addresses", ""),
+                }
             )
 
         elif "inmemory" in directoryType:

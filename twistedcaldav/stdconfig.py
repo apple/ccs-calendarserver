@@ -82,7 +82,13 @@ DEFAULT_SERVICE_PARAMS = {
             "readWriteProxy": ["icsContact", ],
             "readOnlyProxy": ["icsSecondaryOwners", ],
         },
-        "extra": None,
+        "extraFilters": {
+            "users": "",
+            "groups": "",
+            "locations": "",
+            "resources": "",
+            "addresses": "",
+        },
     },
 }
 
