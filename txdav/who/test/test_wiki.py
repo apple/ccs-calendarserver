@@ -97,7 +97,6 @@ class AccessForRecordTestCase(StoreTestCase):
         return succeed(self.access)
 
 
-
     @inlineCallbacks
     def test_accessForRecord(self):
         record = yield self.directory.recordWithUID(u"wiki-test")
@@ -131,14 +130,17 @@ class FakeRequest(object):
         self.authnUser = None
 
 
+
 class FakeResource(object):
 
     def __init__(self, record):
         self.record = record
 
 
+
 def stubAccessForRecord(self, record):
     return succeed(self.access)
+
 
 
 class GetWikiACLTestCase(StoreTestCase):
@@ -160,11 +162,12 @@ class GetWikiACLTestCase(StoreTestCase):
             stubAccessForRecord
         )
 
+
     @inlineCallbacks
     def test_getWikiACL(self):
         fields = {
             self.directory.fieldName.uid: u"wiki-1",
-            self.directory.fieldName.shortNames: [u"wiki-one",],
+            self.directory.fieldName.shortNames: [u"wiki-one", ],
             self.directory.fieldName.recordType: RecordType.macOSXServerWiki,
         }
         record = DirectoryRecord(self.directory, fields)

@@ -155,7 +155,7 @@ class IRequest(Interface):
 
 
 
-# from twisted.web.iweb import IRequest as IOldRequest
+from twisted.web.iweb import IRequest as IOldRequest #@UnusedImport
 
 
 class IChanRequestCallbacks(Interface):
