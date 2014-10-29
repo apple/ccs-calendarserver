@@ -446,7 +446,7 @@ class GroupCacher(object):
             )
 
             if membershipChanged:
-                self.log.debug(
+                self.log.info(
                     "Membership changed for group {uid} {name}",
                     uid=groupUID,
                     name=cachedName

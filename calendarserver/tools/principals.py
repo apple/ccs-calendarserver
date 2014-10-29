@@ -71,7 +71,8 @@ def usage(e=None):
     print("  -v --verbose: print debugging information")
     print("")
     print("actions:")
-    print("  --search <search-string>: search for matching principals")
+    print("  --context <search-context>: {user|group|location|resource|attendee}; must be used in conjunction with --search")
+    print("  --search <search-tokens>: search using one or more tokens")
     print("  --list-principal-types: list all of the known principal types")
     print("  --list-principals type: list all principals of the given type")
     print("  --list-read-proxies: list proxies with read-only access")
@@ -129,7 +130,8 @@ def main():
                 "config=",
                 "add=",
                 "remove",
-                "search=",
+                "context=",
+                "search",
                 "list-principal-types",
                 "list-principals=",
 
@@ -175,7 +177,8 @@ def main():
     addType = None
     listPrincipalTypes = False
     listPrincipals = None
-    searchPrincipals = None
+    searchContext = None
+    searchTokens = None
     printGroupInfo = False
     scheduleGroupRefresh = False
     principalActions = []
@@ -207,8 +210,11 @@ def main():
         elif opt in ("", "--list-principals"):
             listPrincipals = arg
 
+        elif opt in ("", "--context"):
+            searchContext = arg
+
         elif opt in ("", "--search"):
-            searchPrincipals = arg
+            searchTokens = args
 
         elif opt in ("", "--list-read-proxies"):
             principalActions.append((action_listProxies, "read"))
@@ -356,9 +362,10 @@ def main():
         function = runListPrincipals
         params = (listPrincipals,)
 
-    elif searchPrincipals:
+    elif searchTokens:
         function = runSearch
-        params = (searchPrincipals,)
+        searchTokens = [t.decode("utf-8") for t in searchTokens]
+        params = (searchTokens, searchContext)
 
     else:
         if not args:
@@ -420,13 +427,16 @@ def runPrincipalActions(service, store, principalIDs, actions):
 
 
 @inlineCallbacks
-def runSearch(service, store, searchTerm):
+def runSearch(service, store, tokens, context=None):
     directory = store.directoryService()
-    fields = []
-    for fieldName in ("fullNames", "emailAddresses"):
-        fields.append((fieldName, searchTerm, True, "contains"))
 
-    records = list((yield directory.recordsMatchingTokens(searchTerm.strip().split())))
+    records = list(
+        (
+            yield directory.recordsMatchingTokens(
+                tokens, context=context
+            )
+        )
+    )
     if records:
         records.sort(key=operator.attrgetter('fullNames'))
         print("{n} matches found:".format(n=len(records)))

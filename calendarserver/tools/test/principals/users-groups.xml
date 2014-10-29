@@ -99,6 +99,14 @@ limitations under the License.
     <email>user10@example.com</email>
   </record>
 
+  <record type="user">
+    <short-name>testuser1</short-name>
+    <uid>testuser1</uid>
+    <password>testuser1</password>
+    <full-name>Test User One</full-name>
+    <email>testuser10@example.com</email>
+  </record>
+
   <record type="group">
     <uid>e5a6142c-4189-4e9e-90b0-9cd0268b314b</uid>
     <short-name>testgroup1</short-name>
@@ -106,6 +114,20 @@ limitations under the License.
       <member-uid type="users">user01</member-uid>
       <member-uid type="users">user02</member-uid>
   </record>
+
+  <record type="group">
+    <uid>group2</uid>
+    <short-name>group2</short-name>
+    <full-name>Test Group Two</full-name>
+  </record>
+
+  <record type="group">
+    <uid>group3</uid>
+    <short-name>group3</short-name>
+    <full-name>Test Group Three</full-name>
+  </record>
+
+
   <!--
   <user repeat="10">
     <uid>user%02d</uid>

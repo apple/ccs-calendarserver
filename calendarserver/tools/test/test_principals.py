@@ -35,9 +35,6 @@ class ManagePrincipalsTestCase(TestCase):
     def setUp(self):
         super(ManagePrincipalsTestCase, self).setUp()
 
-        # # Since this test operates on proxy db, we need to assign the service:
-        # calendaruserproxy.ProxyDBService = calendaruserproxy.ProxySqliteDB(os.path.abspath(self.mktemp()))
-
         testRoot = os.path.join(os.path.dirname(__file__), "principals")
         templateName = os.path.join(testRoot, "caldavd.plist")
         templateFile = open(templateName)
@@ -138,11 +135,25 @@ class ManagePrincipalsTestCase(TestCase):
 
     @inlineCallbacks
     def test_search(self):
-        results = yield self.runCommand("--search=user")
-        self.assertTrue("10 matches found" in results)
+        results = yield self.runCommand("--search", "user")
+        self.assertTrue("11 matches found" in results)
         for i in xrange(1, 10):
             self.assertTrue("user%02d" % (i,) in results)
 
+        results = yield self.runCommand("--search", "user", "04")
+        self.assertTrue("1 matches found" in results)
+        self.assertTrue("user04" in results)
+
+        results = yield self.runCommand("--context=group", "--search", "test")
+        self.assertTrue("2 matches found" in results)
+        self.assertTrue("group2" in results)
+        self.assertTrue("group3" in results)
+
+        results = yield self.runCommand("--context=attendee", "--search", "test")
+        self.assertTrue("3 matches found" in results)
+        self.assertTrue("testuser1" in results)
+        self.assertTrue("group2" in results)
+        self.assertTrue("group3" in results)
 
     @inlineCallbacks
     def test_addRemove(self):
