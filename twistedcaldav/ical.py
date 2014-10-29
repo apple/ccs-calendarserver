@@ -3606,11 +3606,7 @@ END:VCALENDAR
                             instancerid = subcomponent.propertyValue("RECURRENCE-ID")
                             transp = subcomponent.propertyValue("TRANSP") == "TRANSPARENT"
                             adjusted_start = subcomponent.propertyValue("X-APPLE-TRAVEL-DURATION")
-                            if adjusted_start is None:
-                                adjusted_start = subcomponent.propertyValue("X-APPLE-TRAVEL-START")
                             adjusted_end = subcomponent.propertyValue("X-APPLE-TRAVEL-RETURN-DURATION")
-                            if adjusted_end is None:
-                                adjusted_end = subcomponent.propertyValue("X-APPLE-TRAVEL-RETURN")
                             self._perUserData.setdefault(uid, {})[instancerid] = (transp, adjusted_start, adjusted_end,)
                 elif component.name() not in ignoredComponents:
                     instancerid = component.propertyValue("RECURRENCE-ID")
