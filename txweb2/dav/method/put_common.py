@@ -55,7 +55,7 @@ def storeResource(
 ):
     """
     Function that does common PUT/COPY/MOVE behaviour.
-    
+
     @param request:           the L{txweb2.server.Request} for the current HTTP request.
     @param source:            the L{DAVFile} for the source resource to copy from, or None if source data
                               is to be read from the request.
@@ -67,7 +67,7 @@ def storeResource(
     @param depth:             a C{str} containing the COPY/MOVE Depth header value.
     @return:                  status response.
     """
-    
+
     try:
         assert request is not None and destination is not None and destination_uri is not None
         assert (source is None) or (source is not None and source_uri is not None)
@@ -84,20 +84,22 @@ def storeResource(
         log.error("depth=%s\n" % (depth,))
         raise
 
+
     class RollbackState(object):
         """
         This class encapsulates the state needed to rollback the entire PUT/COPY/MOVE
         transaction, leaving the server state the same as it was before the request was
         processed. The DoRollback method will actually execute the rollback operations.
         """
-        
+
         def __init__(self):
             self.active = True
             self.source_copy = None
             self.destination_copy = None
             self.destination_created = False
             self.source_deleted = False
-        
+
+
         def Rollback(self):
             """
             Rollback the server state. Do not allow this to raise another exception. If
@@ -142,7 +144,7 @@ def storeResource(
                     self.destination_copy = None
                 self.destination_created = False
                 self.source_deleted = False
-    
+
     rollback = RollbackState()
 
     try:
@@ -164,7 +166,7 @@ def storeResource(
             old_dest_size = old_dest_size.getResult()
         else:
             old_dest_size = 0
-            
+
         if source is not None:
             sourcequota = waitForDeferred(source.quota(request))
             yield sourcequota
@@ -193,7 +195,7 @@ def storeResource(
             rollback.source_copy = FilePath(source.fp.path)
             rollback.source_copy.path += ".rollback"
             source.fp.copyTo(rollback.source_copy)
-    
+
         """
         Handle actual store operations here.
         """
@@ -231,7 +233,7 @@ def storeResource(
                 destination.writeDeadProperty(davxml.GETContentType.fromString(generateContentType(content_type)))
 
         response = IResponse(response)
-        
+
         # Do quota check on destination
         if destquota is not None:
             # Get size of new/old resources
@@ -265,7 +267,7 @@ def storeResource(
 
         yield response
         return
-        
+
     except:
         # Roll back changes to original server state. Note this may do nothing
         # if the rollback has already ocurred or changes already committed.

@@ -27,6 +27,7 @@ class NotResource(object):
     """
 
 
+
 @implementer(iweb.IResource)
 class ResourceAdapter(object):
     """
@@ -54,6 +55,7 @@ class NotOldResource(object):
     registered, first that adapter is used, then the included adapter from
     IOldNevowResource to IResource is used.
     """
+
 
 
 @implementer(iweb.IOldNevowResource)
@@ -99,7 +101,8 @@ class AdaptionTestCase(unittest.TestCase):
         IResource returns the same object.
         """
         @implementer(iweb.IResource)
-        class Resource(object): ""
+        class Resource(object):
+            ""
         resource = Resource()
         self.assertIdentical(iweb.IResource(resource), resource)
 
@@ -123,7 +126,7 @@ class TestChanRequest:
 
 
     def __init__(self, site, method, prepath, uri, length=None,
-                 headers=None, version=(1,1), content=None):
+                 headers=None, version=(1, 1), content=None):
         self.producer = None
         self.site = site
         self.method = method
@@ -152,37 +155,47 @@ class TestChanRequest:
         self.data = ''
         self.deferredFinish = defer.Deferred()
 
+
     def writeIntermediateResponse(code, headers=None):
         pass
+
 
     def writeHeaders(self, code, headers):
         self.responseHeaders = headers
         self.code = code
 
+
     def write(self, data):
         self.data += data
+
 
     def finish(self, failed=False):
         result = self.code, self.responseHeaders, self.data, failed
         self.finished = True
         self.deferredFinish.callback(result)
 
+
     def abortConnection(self):
         self.finish(failed=True)
+
 
     def registerProducer(self, producer, streaming):
         if self.producer is not None:
             raise ValueError("Producer still set: " + repr(self.producer))
         self.producer = producer
 
+
     def unregisterProducer(self):
         self.producer = None
+
 
     def getHostInfo(self):
         return self.hostInfo
 
+
     def getRemoteHost(self):
         return self.remoteHost
+
 
 
 class BaseTestResource(resource.Resource):
@@ -199,16 +212,20 @@ class BaseTestResource(resource.Resource):
         for i in children:
             self.putChild(i[0], i[1])
 
+
     def render(self, req):
         return http.Response(self.responseCode, headers=self.responseHeaders,
                              stream=self.responseStream())
+
 
     def responseStream(self):
         return stream.MemoryStream(self.responseText)
 
 
+
 class MyRenderError(Exception):
     ""
+
 
 
 class ErrorWithProducerResource(BaseTestResource):
@@ -222,7 +239,6 @@ class ErrorWithProducerResource(BaseTestResource):
 
     def child_(self, request):
         return self
-
 
 
 
@@ -240,6 +256,7 @@ class BaseCase(unittest.TestCase):
     def chanrequest(self, root, uri, length, headers, method, version, prepath, content):
         site = server.Site(root)
         return TestChanRequest(site, method, prepath, uri, length, headers, version, content)
+
 
     def getResponseFor(self, root, uri, headers={},
                        method=None, version=None, prepath='', content=None, length=_unset):
@@ -260,6 +277,7 @@ class BaseCase(unittest.TestCase):
         cr.request.process()
         return cr.deferredFinish
 
+
     def assertResponse(self, request_data, expected_response, failure=False):
         """
         @type request_data: C{tuple}
@@ -276,6 +294,7 @@ class BaseCase(unittest.TestCase):
 
         return d
 
+
     def _cbGotResponse(self, (code, headers, data, failed), expected_response, expectedfailure=False):
         expected_code, expected_headers, expected_data = expected_response
         self.assertEquals(code, expected_code)
@@ -284,6 +303,7 @@ class BaseCase(unittest.TestCase):
         for key, value in expected_headers.iteritems():
             self.assertEquals(headers.getHeader(key), value)
         self.assertEquals(failed, expectedfailure)
+
 
 
 class ErrorHandlingTest(BaseCase):
@@ -299,10 +319,10 @@ class ErrorHandlingTest(BaseCase):
         root = ErrorWithProducerResource()
         site = server.Site(root)
         tcr = TestChanRequest(site, "GET", "/", "http://localhost/")
-        request = server.Request(tcr, "GET", "/", (1, 1),
-                                 0, http_headers.Headers(
-                                        {"host": "localhost"}),
-                                        site=site)
+        request = server.Request(
+            tcr, "GET", "/", (1, 1),
+            0, http_headers.Headers({"host": "localhost"}),
+            site=site)
         proc = request.process()
         done = []
         proc.addBoth(done.append)
@@ -336,39 +356,46 @@ class SampleWebTest(BaseCase):
             f.responseText = 'Remote Addr: %r' % req.remoteAddr.host
             return f
 
+
     def setUp(self):
         self.root = self.SampleTestResource()
+
 
     def test_root(self):
         return self.assertResponse(
             (self.root, 'http://host/'),
             (200, {}, 'This is a fake resource.'))
 
+
     def test_validChild(self):
         return self.assertResponse(
             (self.root, 'http://host/validChild'),
             (200, {}, 'This is a valid child resource.'))
+
 
     def test_invalidChild(self):
         return self.assertResponse(
             (self.root, 'http://host/invalidChild'),
             (404, {}, None))
 
+
     def test_remoteAddrExposure(self):
         return self.assertResponse(
             (self.root, 'http://host/remoteAddr'),
             (200, {}, "Remote Addr: 'remotehost'"))
 
+
     def test_leafresource(self):
         class TestResource(resource.LeafResource):
             def render(self, req):
                 return http.Response(stream="prepath:%s postpath:%s" % (
-                        req.prepath,
-                        req.postpath))
+                    req.prepath,
+                    req.postpath))
 
         return self.assertResponse(
             (TestResource(), 'http://host/consumed/path/segments'),
             (200, {}, "prepath:[] postpath:['consumed', 'path', 'segments']"))
+
 
     def test_redirectResource(self):
         """
@@ -384,6 +411,7 @@ class SampleWebTest(BaseCase):
             (redirectResource, 'http://localhost/'),
             (301, {'location': 'https://localhost/foo?bar=baz'}, None))
 
+
     def test_redirectResourceWithSchemeRemapping(self):
         """
         Make sure a redirect response has the correct status and Location header, when
@@ -396,7 +424,7 @@ class SampleWebTest(BaseCase):
             site.SSLPort = 8443
             site.BindSSLPorts = []
             return TestChanRequest(site, method, prepath, uri, length, headers, version, content)
-    
+
         self.patch(self, "chanrequest", chanrequest2)
 
         redirectResource = resource.RedirectResource(path='/foo')
@@ -404,6 +432,7 @@ class SampleWebTest(BaseCase):
         return self.assertResponse(
             (redirectResource, 'http://localhost:8443/'),
             (301, {'location': 'https://localhost:8443/foo'}, None))
+
 
     def test_redirectResourceWithoutSchemeRemapping(self):
         """
@@ -417,7 +446,7 @@ class SampleWebTest(BaseCase):
             site.SSLPort = 8443
             site.BindSSLPorts = []
             return TestChanRequest(site, method, prepath, uri, length, headers, version, content)
-    
+
         self.patch(self, "chanrequest", chanrequest2)
 
         redirectResource = resource.RedirectResource(path='/foo')
@@ -425,6 +454,7 @@ class SampleWebTest(BaseCase):
         return self.assertResponse(
             (redirectResource, 'http://localhost:8008/'),
             (301, {'location': 'http://localhost:8008/foo'}, None))
+
 
     def test_redirectResourceWithoutSSLSchemeRemapping(self):
         """
@@ -438,7 +468,7 @@ class SampleWebTest(BaseCase):
             site.SSLPort = 8443
             site.BindSSLPorts = []
             return TestChanRequest(site, method, prepath, uri, length, headers, version, content)
-    
+
         self.patch(self, "chanrequest", chanrequest2)
 
         redirectResource = resource.RedirectResource(path='/foo')
@@ -448,29 +478,35 @@ class SampleWebTest(BaseCase):
             (301, {'location': 'http://localhost:8443/foo'}, None))
 
 
+
 class URLParsingTest(BaseCase):
     class TestResource(resource.LeafResource):
         def render(self, req):
-            return http.Response(stream="Host:%s, Path:%s"%(req.host, req.path))
+            return http.Response(stream="Host:%s, Path:%s" % (req.host, req.path))
+
 
     def setUp(self):
         self.root = self.TestResource()
 
+
     def test_normal(self):
         return self.assertResponse(
-            (self.root, '/path', {'Host':'host'}),
+            (self.root, '/path', {'Host': 'host'}),
             (200, {}, 'Host:host, Path:/path'))
+
 
     def test_fullurl(self):
         return self.assertResponse(
             (self.root, 'http://host/path'),
             (200, {}, 'Host:host, Path:/path'))
 
+
     def test_strangepath(self):
         # Ensure that the double slashes don't confuse it
         return self.assertResponse(
-            (self.root, '//path', {'Host':'host'}),
+            (self.root, '//path', {'Host': 'host'}),
             (200, {}, 'Host:host, Path://path'))
+
 
     def test_strangepathfull(self):
         return self.assertResponse(
@@ -481,7 +517,7 @@ class URLParsingTest(BaseCase):
 
 class TestDeferredRendering(BaseCase):
     class ResourceWithDeferreds(BaseTestResource):
-        addSlash=True
+        addSlash = True
         responseText = 'I should be wrapped in a Deferred.'
         def render(self, req):
             d = defer.Deferred()
@@ -494,10 +530,12 @@ class TestDeferredRendering(BaseCase):
             reactor.callLater(0, d.callback, BaseTestResource())
             return d
 
+
     def test_deferredRootResource(self):
         return self.assertResponse(
             (self.ResourceWithDeferreds(), 'http://host/'),
             (200, {}, 'I should be wrapped in a Deferred.'))
+
 
     def test_deferredChild(self):
         return self.assertResponse(
@@ -521,6 +559,7 @@ class RedirectResourceTest(BaseCase):
             ))
         return defer.DeferredList(ds, fireOnOneErrback=True)
 
+
     def test_hostRedirect(self):
         ds = []
         for url1, url2 in (
@@ -532,6 +571,7 @@ class RedirectResourceTest(BaseCase):
                 (301, {"location": url2}, self.html(url2))
             ))
         return defer.DeferredList(ds, fireOnOneErrback=True)
+
 
     def test_pathRedirect(self):
         root = BaseTestResource()
@@ -554,6 +594,7 @@ class RedirectResourceTest(BaseCase):
 class EmptyResource(resource.Resource):
     def __init__(self, test):
         self.test = test
+
 
     def render(self, request):
         self.test.assertEquals(request.urlForResource(self), self.expectedURI)
@@ -589,11 +630,12 @@ class RememberURIs(BaseCase):
 
         for uri in (foo.expectedURI, bar.expectedURI, baz.expectedURI):
             ds.append(self.assertResponse(
-                (root, uri, {'Host':'host'}),
+                (root, uri, {'Host': 'host'}),
                 (201, {}, None),
             ))
 
         return defer.DeferredList(ds, fireOnOneErrback=True)
+
 
     def test_urlEncoding(self):
         """
@@ -608,9 +650,10 @@ class RememberURIs(BaseCase):
         root.putChild("foo bar", child)
 
         return self.assertResponse(
-            (root, child.expectedURI, {'Host':'host'}),
+            (root, child.expectedURI, {'Host': 'host'}),
             (201, {}, None)
         )
+
 
     def test_locateResource(self):
         """
@@ -629,6 +672,7 @@ class RememberURIs(BaseCase):
         d.addCallback(gotResource)
         return d
 
+
     def test_unknownResource(self):
         """
         Test urlForResource() on unknown resource.
@@ -638,6 +682,7 @@ class RememberURIs(BaseCase):
         request = SimpleRequest(server.Site(root), "GET", "/")
 
         self.assertRaises(server.NoURLForResourceError, request.urlForResource, child)
+
 
     def test_locateChildResource(self):
         """
@@ -676,6 +721,7 @@ class RememberURIs(BaseCase):
         d = request.locateResource(bar.expectedURI)
         d.addCallback(gotResource)
         return d
+
 
     def test_deferredLocateChild(self):
         """
@@ -742,11 +788,13 @@ class ParsePostDataTests(unittest.TestCase):
         ctype = http_headers.MimeType('application', 'x-www-form-urlencoded')
         content = "key=value&multiple=two+words&multiple=more%20words"
         root = resource.Resource()
-        request = SimpleRequest(server.Site(root), "GET", "/",
-                http_headers.Headers({'content-type': ctype}), content)
+        request = SimpleRequest(
+            server.Site(root), "GET", "/",
+            http_headers.Headers({'content-type': ctype}), content)
         def cb(ign):
             self.assertEquals(request.files, {})
-            self.assertEquals(request.args,
+            self.assertEquals(
+                request.args,
                 {'multiple': ['two words', 'more words'], 'key': ['value']})
         return server.parsePOSTData(request).addCallback(cb)
 
@@ -758,7 +806,7 @@ class ParsePostDataTests(unittest.TestCase):
         """
         ctype = http_headers.MimeType('multipart', 'form-data',
                                       (('boundary', '---weeboundary'),))
-        content="""-----weeboundary\r
+        content = """-----weeboundary\r
 Content-Disposition: form-data; name="FileNameOne"; filename="myfilename"\r
 Content-Type: text/html\r
 \r
@@ -766,13 +814,15 @@ my great content wooo\r
 -----weeboundary--\r
 """
         root = resource.Resource()
-        request = SimpleRequest(server.Site(root), "GET", "/",
-                http_headers.Headers({'content-type': ctype}), content)
+        request = SimpleRequest(
+            server.Site(root), "GET", "/",
+            http_headers.Headers({'content-type': ctype}), content)
         def cb(ign):
             self.assertEquals(request.args, {})
             self.assertEquals(request.files.keys(), ['FileNameOne'])
-            self.assertEquals(request.files.values()[0][0][:2],
-                  ('myfilename', http_headers.MimeType('text', 'html', {})))
+            self.assertEquals(
+                request.files.values()[0][0][:2],
+                ('myfilename', http_headers.MimeType('text', 'html', {})))
             f = request.files.values()[0][0][2]
             self.assertEquals(f.read(), "my great content wooo")
         return server.parsePOSTData(request).addCallback(cb)
@@ -784,7 +834,7 @@ my great content wooo\r
         C{http.HTTPError}.
         """
         ctype = http_headers.MimeType('multipart', 'form-data')
-        content="""-----weeboundary\r
+        content = """-----weeboundary\r
 Content-Disposition: form-data; name="FileNameOne"; filename="myfilename"\r
 Content-Type: text/html\r
 \r
@@ -792,10 +842,10 @@ my great content wooo\r
 -----weeboundary--\r
 """
         root = resource.Resource()
-        request = SimpleRequest(server.Site(root), "GET", "/",
-                http_headers.Headers({'content-type': ctype}), content)
-        return self.assertFailure(server.parsePOSTData(request),
-            http.HTTPError)
+        request = SimpleRequest(
+            server.Site(root), "GET", "/",
+            http_headers.Headers({'content-type': ctype}), content)
+        return self.assertFailure(server.parsePOSTData(request), http.HTTPError)
 
 
     def test_wrongContentType(self):
@@ -805,21 +855,21 @@ my great content wooo\r
         ctype = http_headers.MimeType('application', 'foobar')
         content = "key=value&multiple=two+words&multiple=more%20words"
         root = resource.Resource()
-        request = SimpleRequest(server.Site(root), "GET", "/",
-                http_headers.Headers({'content-type': ctype}), content)
-        return self.assertFailure(server.parsePOSTData(request),
-            http.HTTPError)
+        request = SimpleRequest(
+            server.Site(root), "GET", "/",
+            http_headers.Headers({'content-type': ctype}), content)
+        return self.assertFailure(server.parsePOSTData(request), http.HTTPError)
 
 
     def test_mimeParsingError(self):
         """
         A malformed content should result in a C{http.HTTPError}.
-        
+
         The tested content has an invalid closing boundary.
         """
         ctype = http_headers.MimeType('multipart', 'form-data',
                                       (('boundary', '---weeboundary'),))
-        content="""-----weeboundary\r
+        content = """-----weeboundary\r
 Content-Disposition: form-data; name="FileNameOne"; filename="myfilename"\r
 Content-Type: text/html\r
 \r
@@ -827,10 +877,10 @@ my great content wooo\r
 -----weeoundary--\r
 """
         root = resource.Resource()
-        request = SimpleRequest(server.Site(root), "GET", "/",
-                http_headers.Headers({'content-type': ctype}), content)
-        return self.assertFailure(server.parsePOSTData(request),
-            http.HTTPError)
+        request = SimpleRequest(
+            server.Site(root), "GET", "/",
+            http_headers.Headers({'content-type': ctype}), content)
+        return self.assertFailure(server.parsePOSTData(request), http.HTTPError)
 
 
     def test_multipartMaxMem(self):
@@ -840,7 +890,7 @@ my great content wooo\r
         """
         ctype = http_headers.MimeType('multipart', 'form-data',
                                       (('boundary', '---weeboundary'),))
-        content="""-----weeboundary\r
+        content = """-----weeboundary\r
 Content-Disposition: form-data; name="FileNameOne"\r
 Content-Type: text/html\r
 \r
@@ -849,12 +899,15 @@ and even more and more\r
 -----weeboundary--\r
 """
         root = resource.Resource()
-        request = SimpleRequest(server.Site(root), "GET", "/",
-                http_headers.Headers({'content-type': ctype}), content)
+        request = SimpleRequest(
+            server.Site(root), "GET", "/",
+            http_headers.Headers({'content-type': ctype}), content)
         def cb(res):
-            self.assertEquals(res.response.description,
+            self.assertEquals(
+                res.response.description,
                 "Maximum length of 10 bytes exceeded.")
-        return self.assertFailure(server.parsePOSTData(request, maxMem=10),
+        return self.assertFailure(
+            server.parsePOSTData(request, maxMem=10),
             http.HTTPError).addCallback(cb)
 
 
@@ -865,7 +918,7 @@ and even more and more\r
         """
         ctype = http_headers.MimeType('multipart', 'form-data',
                                       (('boundary', '---weeboundary'),))
-        content="""-----weeboundary\r
+        content = """-----weeboundary\r
 Content-Disposition: form-data; name="FileNameOne"; filename="myfilename"\r
 Content-Type: text/html\r
 \r
@@ -874,12 +927,15 @@ and even more and more\r
 -----weeboundary--\r
 """
         root = resource.Resource()
-        request = SimpleRequest(server.Site(root), "GET", "/",
-                http_headers.Headers({'content-type': ctype}), content)
+        request = SimpleRequest(
+            server.Site(root), "GET", "/",
+            http_headers.Headers({'content-type': ctype}), content)
         def cb(res):
-            self.assertEquals(res.response.description,
+            self.assertEquals(
+                res.response.description,
                 "Maximum length of 10 bytes exceeded.")
-        return self.assertFailure(server.parsePOSTData(request, maxSize=10),
+        return self.assertFailure(
+            server.parsePOSTData(request, maxSize=10),
             http.HTTPError).addCallback(cb)
 
 
@@ -911,12 +967,15 @@ bleh\r
 -----xyz--\r
 """
         root = resource.Resource()
-        request = SimpleRequest(server.Site(root), "GET", "/",
-                http_headers.Headers({'content-type': ctype}), content)
+        request = SimpleRequest(
+            server.Site(root), "GET", "/",
+            http_headers.Headers({'content-type': ctype}), content)
         def cb(res):
-            self.assertEquals(res.response.description,
+            self.assertEquals(
+                res.response.description,
                 "Maximum number of fields 3 exceeded")
-        return self.assertFailure(server.parsePOSTData(request, maxFields=3),
+        return self.assertFailure(
+            server.parsePOSTData(request, maxFields=3),
             http.HTTPError).addCallback(cb)
 
 
@@ -929,13 +988,12 @@ bleh\r
                                       (('boundary', '---weeboundary'),))
         # XXX: maybe this is not a good example
         # parseContentDispositionFormData could handle this problem
-        content="""-----weeboundary\r
+        content = """-----weeboundary\r
 Content-Disposition: form-data; name="FileNameOne"; filename="myfilename and invalid data \r
 -----weeboundary--\r
 """
         root = resource.Resource()
-        request = SimpleRequest(server.Site(root), "GET", "/",
-                http_headers.Headers({'content-type': ctype}), content)
-        return self.assertFailure(server.parsePOSTData(request),
-            ValueError)
-
+        request = SimpleRequest(
+            server.Site(root), "GET", "/",
+            http_headers.Headers({'content-type': ctype}), content)
+        return self.assertFailure(server.parsePOSTData(request), ValueError)

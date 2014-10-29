@@ -16,6 +16,8 @@ class BufferingLogObserver(BaseCommonAccessLoggingObserver):
     def logMessage(self, message):
         self.messages.append(message)
 
+
+
 class SetDateWrapperResource(WrapperResource):
     """
     A resource wrapper which sets the date header.
@@ -28,12 +30,16 @@ class SetDateWrapperResource(WrapperResource):
 
         req.addResponseFilter(_filter, atEnd=True)
 
+
+
 class NoneStreamResource(Resource):
     """
     A basic empty resource.
     """
     def render(self, req):
         return Response(200)
+
+
 
 class TestLogging(BaseCase):
     def setUp(self):
@@ -46,6 +52,7 @@ class TestLogging(BaseCase):
         self.resrc.child_emptystream = NoneStreamResource()
 
         self.root = SetDateWrapperResource(LogWrapperResource(self.resrc))
+
 
     def assertLogged(self, **expected):
         """
@@ -84,6 +91,7 @@ class TestLogging(BaseCase):
         else:
             self.assertEquals(len(messages), 0, "len(%r) != 0" % (messages, ))
 
+
     def test_logSimpleRequest(self):
         """
         Check the log for a simple request.
@@ -99,6 +107,7 @@ class TestLogging(BaseCase):
         d.addCallback(_cbCheckLog)
 
         return d
+
 
     def test_logErrors(self):
         """
@@ -130,6 +139,7 @@ class TestLogging(BaseCase):
 
         return d
 
+
     def test_logNoneResponseStream(self):
         """
         Test the log of an empty resource.
@@ -145,4 +155,3 @@ class TestLogging(BaseCase):
         d.addCallback(_cbCheckLog)
 
         return d
-

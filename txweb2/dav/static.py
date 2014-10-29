@@ -8,10 +8,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -51,6 +51,8 @@ except ImportError:
     log.info("Setting of dead properties will not be allowed.")
     from txweb2.dav.noneprops import NonePropertyStore as DeadPropertyStore
 
+
+
 class DAVFile (DAVResource, File):
     """
     WebDAV-accessible File resource.
@@ -71,34 +73,40 @@ class DAVFile (DAVResource, File):
         """
         File.__init__(
             self, path,
-            defaultType = defaultType,
-            ignoredExts = (),
-            processors = None,
-            indexNames = indexNames,
+            defaultType=defaultType,
+            ignoredExts=(),
+            processors=None,
+            indexNames=indexNames,
         )
         DAVResource.__init__(self, principalCollections=principalCollections)
 
+
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self.fp.path)
+
 
     ##
     # WebDAV
     ##
 
     def etag(self):
-        if not self.fp.exists(): return succeed(None)
+        if not self.fp.exists():
+            return succeed(None)
         if self.hasDeadProperty(TwistedGETContentMD5):
             return succeed(http_headers.ETag(str(self.readDeadProperty(TwistedGETContentMD5))))
         else:
             return super(DAVFile, self).etag()
 
+
     def davComplianceClasses(self):
         return ("1", "access-control") # Add "2" when we have locking
+
 
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
             self._dead_properties = DeadPropertyStore(self)
         return self._dead_properties
+
 
     def isCollection(self):
         """
@@ -106,12 +114,14 @@ class DAVFile (DAVResource, File):
         """
         return self.fp.isdir()
 
+
     ##
     # ACL
     ##
 
     def supportedPrivileges(self, request):
         return succeed(davPrivilegeSet)
+
 
     ##
     # Quota
@@ -130,10 +140,10 @@ class DAVFile (DAVResource, File):
                 """
                 Recursively descend the directory tree rooted at top,
                 calling the callback function for each regular file
-                
+
                 @param top: L{FilePath} for the directory to walk.
                 """
-            
+
                 total = 0
                 for f in top.listdir():
                     child = top.child(f)
@@ -148,14 +158,15 @@ class DAVFile (DAVResource, File):
                     else:
                         # Unknown file type, print a message
                         pass
-            
+
                 yield total
-            
+
             walktree = deferredGenerator(walktree)
-    
+
             return walktree(self.fp)
         else:
             return succeed(self.fp.getsize())
+
 
     ##
     # Workarounds for issues with File
@@ -166,6 +177,7 @@ class DAVFile (DAVResource, File):
         Does nothing; doesn't apply to this subclass.
         """
         pass
+
 
     def locateChild(self, req, segments):
         """
@@ -178,7 +190,7 @@ class DAVFile (DAVResource, File):
                 return (child, segments[1:])
         except InsecurePath:
             raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Invalid URL path"))
-        
+
         # If we're not backed by a directory, we have no children.
         # But check for existance first; we might be a collection resource
         # that the request wants created.
@@ -188,12 +200,13 @@ class DAVFile (DAVResource, File):
 
         # OK, we need to return a child corresponding to the first segment
         path = segments[0]
-        
+
         if path == "":
             # Request is for a directory (collection) resource
             return (self, ())
 
         return (self.createSimilarFile(self.fp.child(path).path), segments[1:])
+
 
     def createSimilarFile(self, path):
         return self.__class__(

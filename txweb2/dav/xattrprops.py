@@ -64,6 +64,8 @@ _ATTR_MISSING = (93,)
 if hasattr(errno, "ENODATA"):
     _ATTR_MISSING += (errno.ENODATA,)
 
+
+
 class xattrPropertyStore (object):
     """
 
@@ -86,12 +88,14 @@ class xattrPropertyStore (object):
     if sys.platform == "linux2":
         deadPropertyXattrPrefix = "user."
 
+
     def _encode(clazz, name, uid=None):
         result = urllib.quote(encodeXMLName(*name), safe='{}:')
         if uid:
             result = uid + result
         r = clazz.deadPropertyXattrPrefix + result
         return r
+
 
     def _decode(clazz, name):
         name = urllib.unquote(name[len(clazz.deadPropertyXattrPrefix):])
@@ -105,8 +109,8 @@ class xattrPropertyStore (object):
             uid = None
         else:
             uid = name[:index1]
-        propnamespace = name[index1+1:index2]
-        propname = name[index2+1:]
+        propnamespace = name[index1 + 1:index2]
+        propname = name[index2 + 1:]
 
         return (propnamespace, propname, uid)
 
@@ -134,7 +138,7 @@ class xattrPropertyStore (object):
         @return: A L{WebDAVDocument} representing the value associated with the
             given property.
         """
-        
+
         try:
             data = self.attrs.get(self._encode(qname, uid))
         except KeyError:
@@ -247,7 +251,7 @@ class xattrPropertyStore (object):
 
         @return: C{True} if the property exists, C{False} otherwise.
         """
-            
+
         key = self._encode(qname, uid)
         try:
             self.attrs.get(key)
@@ -274,7 +278,7 @@ class xattrPropertyStore (object):
         @return: A C{list} of property names as two-tuples of namespace URI and
             local name.
         """
-            
+
         prefix = self.deadPropertyXattrPrefix
         try:
             attrs = iter(self.attrs)
@@ -292,7 +296,7 @@ class xattrPropertyStore (object):
                 if name.startswith(prefix)
             ]
             if filterByUID:
-                return [ 
+                return [
                     (namespace, name)
                     for namespace, name, propuid in results
                     if propuid == uid

@@ -34,9 +34,9 @@ from txweb2.stream import generatorToStream, readAndDiscard
 from txweb2 import http_headers
 from cStringIO import StringIO
 
-###################################
-#####  Multipart MIME Reader  #####
-###################################
+#
+# Multipart MIME Reader
+#
 
 class MimeFormatError(Exception):
     pass
@@ -52,21 +52,22 @@ cd_regexp = re.compile(
 def parseContentDispositionFormData(value):
     match = cd_regexp.match(value)
     if not match:
-        # Error parsing. 
+        # Error parsing.
         raise ValueError("Unknown content-disposition format.")
-    name=match.group(1)
-    filename=match.group(2)
+    name = match.group(1)
+    filename = match.group(2)
     return name, filename
 
 
-#@defer.deferredGenerator
+
+# @defer.deferredGenerator
 def _readHeaders(stream):
     """Read the MIME headers. Assumes we've just finished reading in the
     boundary string."""
 
     ctype = fieldname = filename = None
     headers = []
-    
+
     # Now read headers
     while 1:
         line = stream.readline(size=1024)
@@ -74,7 +75,7 @@ def _readHeaders(stream):
             line = defer.waitForDeferred(line)
             yield line
             line = line.getResult()
-        #print("GOT", line)
+        # print("GOT", line)
         if not line.endswith('\r\n'):
             if line == "":
                 raise MimeFormatError("Unexpected end of stream.")
@@ -84,21 +85,21 @@ def _readHeaders(stream):
         line = line[:-2] # strip \r\n
         if line == "":
             break # End of headers
-        
+
         parts = line.split(':', 1)
         if len(parts) != 2:
             raise MimeFormatError("Header did not have a :")
         name, value = parts
         name = name.lower()
         headers.append((name, value))
-        
+
         if name == "content-type":
             ctype = http_headers.parseContentType(http_headers.tokenize((value,), foldCase=False))
         elif name == "content-disposition":
             fieldname, filename = parseContentDispositionFormData(value)
-        
+
     if ctype is None:
-        ctype == http_headers.MimeType('application', 'octet-stream')
+        ctype = http_headers.MimeType('application', 'octet-stream')
     if fieldname is None:
         raise MimeFormatError('Content-disposition invalid or omitted.')
 
@@ -114,7 +115,7 @@ class _BoundaryWatchingStream(object):
         self.boundary = boundary
         self.data = ''
         self.deferred = defer.Deferred()
-        
+
     length = None # unknown
     def read(self):
         if self.stream is None:
@@ -128,6 +129,7 @@ class _BoundaryWatchingStream(object):
             return newdata.addCallbacks(self._gotRead, self._gotError)
         return self._gotRead(newdata)
 
+
     def _gotRead(self, newdata):
         if not newdata:
             raise MimeFormatError("Unexpected EOF")
@@ -136,10 +138,10 @@ class _BoundaryWatchingStream(object):
         data = self.data
         boundary = self.boundary
         off = data.find(boundary)
-        
+
         if off == -1:
             # No full boundary, check for the first character
-            off = data.rfind(boundary[0], max(0, len(data)-len(boundary)))
+            off = data.rfind(boundary[0], max(0, len(data) - len(boundary)))
             if off != -1:
                 # We could have a partial boundary, store it for next time
                 self.data = data[off:]
@@ -148,9 +150,10 @@ class _BoundaryWatchingStream(object):
                 self.data = ''
                 return data
         else:
-            self.stream.pushback(data[off+len(boundary):])
+            self.stream.pushback(data[off + len(boundary):])
             self.stream = None
             return data[:off]
+
 
     def _gotError(self, err):
         # Propogate error back to MultipartMimeStream also
@@ -159,26 +162,30 @@ class _BoundaryWatchingStream(object):
             self.deferred = None
             deferred.errback(err)
         return err
-    
+
+
     def close(self):
         # Assume error will be raised again and handled by MMS?
         readAndDiscard(self).addErrback(lambda _: None)
-        
+
+
+
 class MultipartMimeStream(object):
     implements(IStream)
     def __init__(self, stream, boundary):
         self.stream = BufferedStream(stream)
-        self.boundary = "--"+boundary
+        self.boundary = "--" + boundary
         self.first = True
-        
+
+
     def read(self):
         """
         Return a deferred which will fire with a tuple of:
         (fieldname, filename, ctype, dataStream)
         or None when all done.
-        
+
         Format errors will be sent to the errback.
-        
+
         Returns None when all done.
 
         IMPORTANT: you *must* exhaust dataStream returned by this call
@@ -193,8 +200,9 @@ class MultipartMimeStream(object):
         d.addCallback(self._gotHeaders)
         return d
 
+
     def _readFirstBoundary(self):
-        #print("_readFirstBoundary")
+        # print("_readFirstBoundary")
         line = self.stream.readline(size=1024)
         if isinstance(line, defer.Deferred):
             line = defer.waitForDeferred(line)
@@ -202,20 +210,21 @@ class MultipartMimeStream(object):
             line = line.getResult()
         if line != self.boundary + '\r\n':
             raise MimeFormatError("Extra data before first boundary: %r looking for: %r" % (line, self.boundary + '\r\n'))
-        
-        self.boundary = "\r\n"+self.boundary
+
+        self.boundary = "\r\n" + self.boundary
         yield True
         return
     _readFirstBoundary = defer.deferredGenerator(_readFirstBoundary)
 
+
     def _readBoundaryLine(self):
-        #print("_readBoundaryLine")
+        # print("_readBoundaryLine")
         line = self.stream.readline(size=1024)
         if isinstance(line, defer.Deferred):
             line = defer.waitForDeferred(line)
             yield line
             line = line.getResult()
-        
+
         if line == "--\r\n":
             # THE END!
             yield False
@@ -226,20 +235,23 @@ class MultipartMimeStream(object):
         return
     _readBoundaryLine = defer.deferredGenerator(_readBoundaryLine)
 
+
     def _doReadHeaders(self, morefields):
-        #print("_doReadHeaders", morefields)
+        # print("_doReadHeaders", morefields)
         if not morefields:
             return None
         return _readHeaders(self.stream)
-    
+
+
     def _gotHeaders(self, headers):
         if headers is None:
             return None
         bws = _BoundaryWatchingStream(self.stream, self.boundary)
         self.deferred = bws.deferred
-        ret=list(headers)
+        ret = list(headers)
         ret.append(bws)
         return tuple(ret)
+
 
 
 def readIntoFile(stream, outFile, maxlen):
@@ -249,29 +261,32 @@ def readIntoFile(stream, outFile, maxlen):
     curlen = [0]
     def done(_):
         return _
+
+
     def write(data):
         curlen[0] += len(data)
         if curlen[0] > maxlen:
             raise MimeFormatError("Maximum length of %d bytes exceeded." %
                                   maxlen)
-        
+
         outFile.write(data)
     return readStream(stream, write).addBoth(done)
 
-#@defer.deferredGenerator
+
+
+# @defer.deferredGenerator
 def parseMultipartFormData(stream, boundary,
-                           maxMem=100*1024, maxFields=1024, maxSize=10*1024*1024):
+                           maxMem=100 * 1024, maxFields=1024, maxSize=10 * 1024 * 1024):
     # If the stream length is known to be too large upfront, abort immediately
-    
+
     if stream.length is not None and stream.length > maxSize:
-        raise MimeFormatError("Maximum length of %d bytes exceeded." %
-                                  maxSize)
-    
+        raise MimeFormatError("Maximum length of %d bytes exceeded." % maxSize)
+
     mms = MultipartMimeStream(stream, boundary)
     numFields = 0
     args = {}
     files = {}
-    
+
     while 1:
         datas = mms.read()
         if isinstance(datas, defer.Deferred):
@@ -280,11 +295,11 @@ def parseMultipartFormData(stream, boundary,
             datas = datas.getResult()
         if datas is None:
             break
-        
-        numFields+=1
+
+        numFields += 1
         if numFields == maxFields:
-            raise MimeFormatError("Maximum number of fields %d exceeded"%maxFields)
-        
+            raise MimeFormatError("Maximum number of fields %d exceeded" % maxFields)
+
         # Parse data
         fieldname, filename, ctype, stream = datas
         if filename is None:
@@ -311,29 +326,32 @@ def parseMultipartFormData(stream, boundary,
             maxSize -= outfile.tell()
             outfile.seek(0)
             files.setdefault(fieldname, []).append((filename, ctype, outfile))
-        
-        
+
+
     yield args, files
     return
 parseMultipartFormData = defer.deferredGenerator(parseMultipartFormData)
 
-###################################
-##### x-www-urlencoded reader #####
-###################################
+#
+# x-www-urlencoded reader
+#
 
 
-def parse_urlencoded_stream(input, maxMem=100*1024,
-                     keep_blank_values=False, strict_parsing=False):
+def parse_urlencoded_stream(
+    input, maxMem=100 * 1024,
+    keep_blank_values=False, strict_parsing=False
+):
+
     lastdata = ''
-    still_going=1
-    
+    still_going = 1
+
     while still_going:
         try:
             yield input.wait
             data = input.next()
         except StopIteration:
             pairs = [lastdata]
-            still_going=0
+            still_going = 0
         else:
             maxMem -= len(data)
             if maxMem < 0:
@@ -341,13 +359,13 @@ def parse_urlencoded_stream(input, maxMem=100*1024,
                                       maxMem)
             pairs = str(data).split('&')
             pairs[0] = lastdata + pairs[0]
-            lastdata=pairs.pop()
-        
+            lastdata = pairs.pop()
+
         for name_value in pairs:
             nv = name_value.split('=', 1)
             if len(nv) != 2:
                 if strict_parsing:
-                    raise MimeFormatError("bad query field: %s") % `name_value`
+                    raise MimeFormatError("bad query field: %s") % repr(name_value)
                 continue
             if len(nv[1]) or keep_blank_values:
                 name = urllib.unquote(nv[0].replace('+', ' '))
@@ -355,13 +373,13 @@ def parse_urlencoded_stream(input, maxMem=100*1024,
                 yield name, value
 parse_urlencoded_stream = generatorToStream(parse_urlencoded_stream)
 
-def parse_urlencoded(stream, maxMem=100*1024, maxFields=1024,
+def parse_urlencoded(stream, maxMem=100 * 1024, maxFields=1024,
                      keep_blank_values=False, strict_parsing=False):
     d = {}
     numFields = 0
 
-    s=parse_urlencoded_stream(stream, maxMem, keep_blank_values, strict_parsing)
-    
+    s = parse_urlencoded_stream(stream, maxMem, keep_blank_values, strict_parsing)
+
     while 1:
         datas = s.read()
         if isinstance(datas, defer.Deferred):
@@ -371,11 +389,11 @@ def parse_urlencoded(stream, maxMem=100*1024, maxFields=1024,
         if datas is None:
             break
         name, value = datas
-        
+
         numFields += 1
         if numFields == maxFields:
-            raise MimeFormatError("Maximum number of fields %d exceeded"%maxFields)
-        
+            raise MimeFormatError("Maximum number of fields %d exceeded" % maxFields)
+
         if name in d:
             d[name].append(value)
         else:

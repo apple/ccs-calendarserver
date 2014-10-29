@@ -8,10 +8,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -39,15 +39,21 @@ def http_OPTIONS(self, request):
     d.addCallback(lambda _: super(txweb2.dav.resource.DAVResource, self).http_OPTIONS(request))
     return d
 
+
+
 def http_HEAD(self, request):
     d = authorize(self, request)
     d.addCallback(lambda _: super(txweb2.dav.resource.DAVResource, self).http_HEAD(request))
     return d
 
+
+
 def http_GET(self, request):
     d = authorize(self, request)
     d.addCallback(lambda _: super(txweb2.dav.resource.DAVResource, self).http_GET(request))
     return d
+
+
 
 def authorize(self, request):
     if self.exists():

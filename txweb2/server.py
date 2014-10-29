@@ -29,7 +29,9 @@ infrastructure.
 """
 from __future__ import print_function
 
-import cgi, time, urlparse
+import cgi
+import time
+import urlparse
 from urllib import quote, unquote
 from urlparse import urlsplit
 import weakref
@@ -67,12 +69,14 @@ def preconditionfilter(request, response):
         http.checkPreconditions(request, response)
     return response
 
+
+
 def doTrace(request):
     request = iweb.IRequest(request)
     txt = "%s %s HTTP/%d.%d\r\n" % (request.method, request.uri,
                                     request.clientproto[0], request.clientproto[1])
 
-    l=[]
+    l = []
     for name, valuelist in request.headers.getAllRawHeaders():
         for value in valuelist:
             l.append("%s: %s\r\n" % (name, value))
@@ -84,8 +88,9 @@ def doTrace(request):
         txt)
 
 
-def parsePOSTData(request, maxMem=100*1024, maxFields=1024,
-                  maxSize=10*1024*1024):
+
+def parsePOSTData(request, maxMem=100 * 1024, maxFields=1024,
+                  maxSize=10 * 1024 * 1024):
     """
     Parse data of a POST request.
 
@@ -110,22 +115,27 @@ def parsePOSTData(request, maxMem=100*1024, maxFields=1024,
     if ctype is None:
         return defer.succeed(None)
 
+
     def updateArgs(data):
         args = data
         request.args.update(args)
+
 
     def updateArgsAndFiles(data):
         args, files = data
         request.args.update(args)
         request.files.update(files)
 
+
     def error(f):
         f.trap(fileupload.MimeFormatError)
         raise http.HTTPError(
             http.StatusResponse(responsecode.BAD_REQUEST, str(f.value)))
 
-    if (ctype.mediaType == 'application'
-        and ctype.mediaSubtype == 'x-www-form-urlencoded'):
+    if (
+        ctype.mediaType == 'application'
+        and ctype.mediaSubtype == 'x-www-form-urlencoded'
+    ):
         d = fileupload.parse_urlencoded(request.stream)
         d.addCallbacks(updateArgs, error)
         return d
@@ -134,9 +144,9 @@ def parsePOSTData(request, maxMem=100*1024, maxFields=1024,
         boundary = ctype.params.get('boundary')
         if boundary is None:
             return defer.fail(http.HTTPError(
-                    http.StatusResponse(
-                        responsecode.BAD_REQUEST,
-                        "Boundary not specified in Content-Type.")))
+                http.StatusResponse(
+                    responsecode.BAD_REQUEST,
+                    "Boundary not specified in Content-Type.")))
         d = fileupload.parseMultipartFormData(request.stream, boundary,
                                               maxMem, maxFields, maxSize)
         d.addCallbacks(updateArgsAndFiles, error)
@@ -149,12 +159,14 @@ def parsePOSTData(request, maxMem=100*1024, maxFields=1024,
                     ctype.mediaType, ctype.mediaSubtype))))
 
 
+
 class StopTraversal(object):
     """
     Indicates to Request._handleSegment that it should stop handling
     path segments.
     """
     pass
+
 
 
 class Request(http.Request):
@@ -195,10 +207,10 @@ class Request(http.Request):
 
         self.timeStamps = [("t", time.time(),)]
 
-        if kw.has_key('site'):
+        if 'site' in kw:
             self.site = kw['site']
             del kw['site']
-        if kw.has_key('prepathuri'):
+        if 'prepathuri' in kw:
             self._initialprepath = kw['prepathuri']
             del kw['prepathuri']
 
@@ -215,8 +227,10 @@ class Request(http.Request):
         except AttributeError:
             self.serverInstance = "Unknown"
 
+
     def timeStamp(self, tag):
         self.timeStamps.append((tag, time.time(),))
+
 
     def addResponseFilter(self, filter, atEnd=False, onlyOnce=False):
         """
@@ -236,6 +250,7 @@ class Request(http.Request):
         else:
             self.responseFilters.insert(0, filter)
 
+
     def unparseURL(self, scheme=None, host=None, port=None,
                    path=None, params=None, querystring=None, fragment=None):
         """Turn the request path into a url string. For any pieces of
@@ -243,13 +258,20 @@ class Request(http.Request):
         request. The arguments have the same meaning as the same named
         attributes of Request."""
 
-        if scheme is None: scheme = self.scheme
-        if host is None: host = self.host
-        if port is None: port = self.port
-        if path is None: path = self.path
-        if params is None: params = self.params
-        if querystring is None: querystring = self.querystring
-        if fragment is None: fragment = ''
+        if scheme is None:
+            scheme = self.scheme
+        if host is None:
+            host = self.host
+        if port is None:
+            port = self.port
+        if path is None:
+            path = self.path
+        if params is None:
+            params = self.params
+        if querystring is None:
+            querystring = self.querystring
+        if fragment is None:
+            fragment = ''
 
         if port == http.defaultPortForScheme.get(scheme, 0):
             hostport = host
@@ -259,6 +281,7 @@ class Request(http.Request):
         return urlparse.urlunparse((
             scheme, hostport, path,
             params, querystring, fragment))
+
 
     def _parseURL(self):
         if self.uri[0] == '/':
@@ -275,7 +298,7 @@ class Request(http.Request):
         else:
             # It is an absolute uri, use standard urlparse
             (self.scheme, self.host, self.path,
-             self.params, self.querystring, fragment) = urlparse.urlparse(self.uri)
+             self.params, self.querystring, _ignore_fragment) = urlparse.urlparse(self.uri)
 
         if self.querystring:
             self.args = cgi.parse_qs(self.querystring, True)
@@ -298,7 +321,8 @@ class Request(http.Request):
         else:
             self.prepath = []
             self.postpath = path
-        #print("_parseURL", self.uri, (self.uri, self.scheme, self.host, self.path, self.params, self.querystring))
+        # print("_parseURL", self.uri, (self.uri, self.scheme, self.host, self.path, self.params, self.querystring))
+
 
     def _schemeFromPort(self, port):
         """
@@ -316,7 +340,7 @@ class Request(http.Request):
         @rtype: C{bool}
         """
 
-        #from twistedcaldav.config import config
+        # from twistedcaldav.config import config
         if hasattr(self.site, "EnableSSL") and self.site.EnableSSL:
             if port == self.site.SSLPort:
                 return True
@@ -324,6 +348,7 @@ class Request(http.Request):
                 return True
 
         return False
+
 
     def _fixupURLParts(self):
         hostaddr, secure = self.chanRequest.getHostInfo()
@@ -343,7 +368,7 @@ class Request(http.Request):
                 # When no hostname specified anywhere, either raise an
                 # error, or use the interface hostname, depending on
                 # protocol version
-                if self.clientproto >= (1,1):
+                if self.clientproto >= (1, 1):
                     raise http.HTTPError(responsecode.BAD_REQUEST)
                 self.host = hostaddr.host
                 self.port = hostaddr.port
@@ -380,9 +405,11 @@ class Request(http.Request):
         d.callback(None)
         return d
 
+
     def _processTimeStamp(self, res):
         self.timeStamp("t-req-proc")
         return res
+
 
     def preprocessRequest(self):
         """Do any request processing that doesn't follow the normal
@@ -399,13 +426,14 @@ class Request(http.Request):
             # Allow other methods to tunnel through using POST and a request header.
             # See http://code.google.com/apis/gdata/docs/2.0/basics.html
             if self.headers.hasHeader("X-HTTP-Method-Override"):
-                intendedMethod = self.headers.getRawHeaders("X-HTTP-Method-Override")[0];
+                intendedMethod = self.headers.getRawHeaders("X-HTTP-Method-Override")[0]
                 if intendedMethod:
                     self.originalMethod = self.method
                     self.method = intendedMethod
 
         # This is where CONNECT would go if we wanted it
         return None
+
 
     def _getChild(self, _, res, path, updatepaths=True):
         """Call res.locateChild, and pass the result on to _handleSegment."""
@@ -421,6 +449,7 @@ class Request(http.Request):
         else:
             return self._handleSegment(result, res, path, updatepaths)
 
+
     def _handleSegment(self, result, res, path, updatepaths):
         """Handle the result of a locateChild call done in _getChild."""
 
@@ -435,7 +464,7 @@ class Request(http.Request):
             return newres.addCallback(
                 lambda actualRes: self._handleSegment(
                     (actualRes, newpath), res, path, updatepaths)
-                )
+            )
 
         if path:
             url = quote("/" + "/".join(path))
@@ -444,19 +473,19 @@ class Request(http.Request):
 
         if newpath is StopTraversal:
             # We need to rethink how to do this.
-            #if newres is res:
+            # if newres is res:
                 return res
-            #else:
+            # else:
             #    raise ValueError("locateChild must not return StopTraversal with a resource other than self.")
 
         newres = iweb.IResource(newres)
         if newres is res:
-            assert not newpath is path, "URL traversal cycle detected when attempting to locateChild %r from resource %r." % (path, res)
+            assert newpath is not path, "URL traversal cycle detected when attempting to locateChild %r from resource %r." % (path, res)
             assert len(newpath) < len(path), "Infinite loop impending..."
 
         if updatepaths:
             # We found a Resource... update the request.prepath and postpath
-            for x in xrange(len(path) - len(newpath)):
+            for _ in xrange(len(path) - len(newpath)):
                 self.prepath.append(self.postpath.pop(0))
             url = quote("/" + "/".join(self.prepath) + ("/" if self.prepath and self.prepath[-1] else ""))
             self._rememberResource(newres, url)
@@ -474,6 +503,7 @@ class Request(http.Request):
 
     _urlsByResource = weakref.WeakKeyDictionary()
 
+
     def _rememberResource(self, resource, url):
         """
         Remember the URL of a visited resource.
@@ -482,12 +512,14 @@ class Request(http.Request):
         self._urlsByResource[resource] = url
         return resource
 
+
     def _forgetResource(self, resource, url):
         """
         Remember the URL of a visited resource.
         """
         del self._resourcesByURL[url]
         del self._urlsByResource[resource]
+
 
     def urlForResource(self, resource):
         """
@@ -512,6 +544,7 @@ class Request(http.Request):
             raise NoURLForResourceError(resource)
         return url
 
+
     def locateResource(self, url):
         """
         Looks up the resource with the given URL.
@@ -531,7 +564,7 @@ class Request(http.Request):
         #
         # Parse the URL
         #
-        (scheme, host, path, query, fragment) = urlsplit(url)
+        (_ignore_scheme, _ignore_host, path, query, fragment) = urlsplit(url)
 
         if query or fragment:
             raise http.HTTPError(http.StatusResponse(
@@ -574,6 +607,7 @@ class Request(http.Request):
         d.addErrback(notFound)
         return d
 
+
     def locateChildResource(self, parent, childName):
         """
         Looks up the child resource with the given name given the parent
@@ -612,6 +646,7 @@ class Request(http.Request):
         d.addErrback(notFound)
         return d
 
+
     def _processingFailed(self, reason):
         if reason.check(http.HTTPError) is not None:
             # If the exception was an HTTPError, leave it alone
@@ -647,7 +682,7 @@ class Request(http.Request):
             )
             response = http.Response(
                 responsecode.INTERNAL_SERVER_ERROR,
-                {'content-type': http_headers.MimeType('text','html')},
+                {'content-type': http_headers.MimeType('text', 'html')},
                 body
             )
             self.writeResponse(response)
@@ -664,8 +699,10 @@ class Request(http.Request):
 
     def _cbFinishRender(self, result):
         def filterit(response, f):
-            if (hasattr(f, 'handleErrors') or
-                (response.code >= 200 and response.code < 300)):
+            if (
+                hasattr(f, 'handleErrors') or
+                (response.code >= 200 and response.code < 300)
+            ):
                 return f(self, response)
             else:
                 return response
@@ -688,6 +725,7 @@ class Request(http.Request):
 
         raise TypeError("html is not a resource or a response")
 
+
     def renderHTTP_exception(self, req, reason):
         log.failure("Exception rendering request: {request}", reason, request=req)
 
@@ -696,8 +734,10 @@ class Request(http.Request):
 
         return http.Response(
             responsecode.INTERNAL_SERVER_ERROR,
-            {'content-type': http_headers.MimeType('text','html')},
+            {'content-type': http_headers.MimeType('text', 'html')},
             body)
+
+
 
 class Site(object):
     def __init__(self, resource):
@@ -705,8 +745,10 @@ class Site(object):
         """
         self.resource = iweb.IResource(resource)
 
+
     def __call__(self, *args, **kwargs):
         return Request(site=self, *args, **kwargs)
+
 
 
 class NoURLForResourceError(RuntimeError):

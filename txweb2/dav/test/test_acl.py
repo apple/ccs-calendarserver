@@ -7,10 +7,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -54,9 +54,13 @@ class ACL(txweb2.dav.test.util.TestCase):
 
         principalCollection = TestPrincipalsCollection(
             "/principals/",
-            children={"users": TestPrincipalsCollection(
+            children={
+                "users": TestPrincipalsCollection(
                     "/principals/users/",
-                    children={"user01": userResource})})
+                    children={"user01": userResource}
+                )
+            }
+        )
 
         rootResource = self.resource_class(
             docroot, principalCollections=(principalCollection,))
@@ -112,6 +116,7 @@ class ACL(txweb2.dav.test.util.TestCase):
             rmdir(self._docroot)
             del self._docroot
 
+
     def test_COPY_MOVE_source(self):
         """
         Verify source access controls during COPY and MOVE.
@@ -122,7 +127,7 @@ class ACL(txweb2.dav.test.util.TestCase):
 
             for src, status in (
                 ("nobind", responsecode.FORBIDDEN),
-                ("bind",   responsecode.FORBIDDEN),
+                ("bind", responsecode.FORBIDDEN),
                 ("unbind", responsecode.CREATED),
             ):
                 src_path = os.path.join(self.docroot, "src_" + src)
@@ -149,29 +154,30 @@ class ACL(txweb2.dav.test.util.TestCase):
 
                 for method in ("COPY", "MOVE"):
                     for name, code in (
-                        ("none"       , {"COPY": responsecode.FORBIDDEN, "MOVE": status}[method]),
-                        ("read"       , {"COPY": responsecode.CREATED,   "MOVE": status}[method]),
-                        ("read-write" , {"COPY": responsecode.CREATED,   "MOVE": status}[method]),
-                        ("unlock"     , {"COPY": responsecode.FORBIDDEN, "MOVE": status}[method]),
-                        ("all"        , {"COPY": responsecode.CREATED,   "MOVE": status}[method]),
+                        ("none", {"COPY": responsecode.FORBIDDEN, "MOVE": status}[method]),
+                        ("read", {"COPY": responsecode.CREATED, "MOVE": status}[method]),
+                        ("read-write" , {"COPY": responsecode.CREATED, "MOVE": status}[method]),
+                        ("unlock", {"COPY": responsecode.FORBIDDEN, "MOVE": status}[method]),
+                        ("all", {"COPY": responsecode.CREATED, "MOVE": status}[method]),
                     ):
                         path = os.path.join(src_path, name)
                         uri = src_uri + "/" + name
-    
+
                         request = SimpleRequest(self.site, method, uri)
                         request.headers.setHeader("destination", dst_uri)
                         _add_auth_header(request)
-    
+
                         def test(response, code=code, path=path):
                             if os.path.isfile(dst_path):
                                 os.remove(dst_path)
-    
+
                             if response.code != code:
                                 return self.oops(request, response, code, method, name)
-    
+
                         yield (request, test)
 
         return serialize(self.send, work())
+
 
     def test_COPY_MOVE_dest(self):
         """
@@ -206,6 +212,7 @@ class ACL(txweb2.dav.test.util.TestCase):
 
         return serialize(self.send, work())
 
+
     def test_DELETE(self):
         """
         Verify access controls during DELETE.
@@ -231,6 +238,7 @@ class ACL(txweb2.dav.test.util.TestCase):
                 yield (request, test)
 
         return serialize(self.send, work())
+
 
     def test_UNLOCK(self):
         """
@@ -270,6 +278,7 @@ class ACL(txweb2.dav.test.util.TestCase):
 
         return serialize(self.send, work())
 
+
     def test_PUT_exists(self):
         """
         Verify access controls during PUT of existing file.
@@ -294,6 +303,7 @@ class ACL(txweb2.dav.test.util.TestCase):
                 yield (request, test)
 
         return serialize(self.send, work())
+
 
     def test_PROPFIND(self):
         """
@@ -331,6 +341,7 @@ class ACL(txweb2.dav.test.util.TestCase):
 
         return serialize(self.send, work())
 
+
     def test_GET_REPORT(self):
         """
         Verify access controls during GET and REPORT.
@@ -367,13 +378,14 @@ class ACL(txweb2.dav.test.util.TestCase):
 
         return serialize(self.send, work())
 
+
     def oops(self, request, response, code, method, name):
         def gotResponseData(doc):
             if doc is None:
                 doc_xml = None
             else:
                 doc_xml = doc.toxml()
-    
+
             def fail(acl):
                 self.fail("Incorrect status code %s (!= %s) for %s of resource %s with %s ACL: %s\nACL: %s"
                           % (response.code, code, method, request.uri, name, doc_xml, acl.toxml()))
@@ -390,6 +402,8 @@ class ACL(txweb2.dav.test.util.TestCase):
         d = davXMLFromStream(response.stream)
         d.addCallback(gotResponseData)
         return d
+
+
 
 def _add_auth_header(request):
     request.headers.setHeader(

@@ -148,8 +148,8 @@ class DAVPropertyMixIn (MetaDataMixin):
             (dav_namespace, "displayname"),
             (dav_namespace, "supportedlock"),
             (dav_namespace, "supported-report-set"), # RFC 3253, section 3.1.5
-           #(dav_namespace, "owner"                     ), # RFC 3744, section 5.1
-           #(dav_namespace, "group"                     ), # RFC 3744, section 5.2
+            # (dav_namespace, "owner"                     ), # RFC 3744, section 5.1
+            # (dav_namespace, "group"                     ), # RFC 3744, section 5.2
             (dav_namespace, "supported-privilege-set"), # RFC 3744, section 5.3
             (dav_namespace, "current-user-privilege-set"), # RFC 3744, section 5.4
             (dav_namespace, "current-user-principal"), # RFC 5397, Section 3
@@ -752,8 +752,8 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             for name in names:
                 (names1 if name.rstrip("/").find("/") == -1 else namesDeep).append(name.rstrip("/"))
 
-        #children = []
-        #yield self.findChildren("1", request, lambda x, y: children.append((x, y)), privileges=None, inherited_aces=None)
+        # children = []
+        # yield self.findChildren("1", request, lambda x, y: children.append((x, y)), privileges=None, inherited_aces=None)
 
         children = []
         basepath = request.urlForResource(self)
@@ -794,7 +794,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             )[2].append((resource, url))
 
         # Now determine whether each ace satisfies privileges
-        #print(aclmap)
+        # print(aclmap)
         for items in aclmap.itervalues():
             checked = (yield self.checkACLPrivilege(
                 request, items[0], items[1], privileges, inherited_aces
@@ -1237,7 +1237,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                     #
                     # Otherwise, we'd use this logic:
                     #
-                    #elif old_ace.inherited:
+                    # elif old_ace.inherited:
                     #    log.error("Attempt to overwrite inherited ace %r "
                     #              "on resource %r" % (old_ace, self))
                     #    returnValue((
@@ -1273,8 +1273,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                 returnValue((element.dav_namespace, "no-ace-conflict"))
 
             if ace.inherited:
-                log.error("Attempt to create inherited ace %r on resource %r"
-                        % (ace, self))
+                log.error("Attempt to create inherited ace %r on resource %r" % (ace, self))
                 returnValue((element.dav_namespace, "no-ace-conflict"))
 
             # Step 6
@@ -1381,8 +1380,8 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             )
 
         for resource, uri in resources:
-            acl = (yield
-                resource.accessControlList(
+            acl = (
+                yield resource.accessControlList(
                     request,
                     inherited_aces=inherited_aces
                 )
@@ -1404,8 +1403,8 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                     ):
                         continue
 
-                    match = (yield
-                        self.matchPrincipal(principal, ace.principal, request)
+                    match = (
+                        yield self.matchPrincipal(principal, ace.principal, request)
                     )
 
                     if match:
@@ -1525,8 +1524,8 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                     parent = (yield request.locateResource(parentURL))
 
                     if parent:
-                        parent_acl = (yield
-                            parent.accessControlList(
+                        parent_acl = (
+                            yield parent.accessControlList(
                                 request, inheritance=True, expanding=True
                             )
                         )
@@ -1989,15 +1988,15 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             # First see if the ace's principal affects the principal
             # being tested.  FIXME: support the DAV:invert operation
 
-            match = (yield
-                self.matchPrincipal(principal, ace.principal, request)
+            match = (
+                yield self.matchPrincipal(principal, ace.principal, request)
             )
 
             if match:
                 # Expand aggregate privileges
                 ps = []
-                supportedPrivs = (yield
-                    self.supportedPrivileges(request)
+                supportedPrivs = (
+                    yield self.supportedPrivileges(request)
                 )
                 for p in ace.privileges:
                     ps.extend(p.expandAggregate(supportedPrivs))
@@ -2319,8 +2318,8 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
     def renderHTTP(self, request):
         # FIXME: This is for testing with litmus; comment out when not in use
-        #litmus = request.headers.getRawHeaders("x-litmus")
-        #if litmus: log.info("*** Litmus test: %s ***" % (litmus,))
+        # litmus = request.headers.getRawHeaders("x-litmus")
+        # if litmus: log.info("*** Litmus test: %s ***" % (litmus,))
 
         #
         # If this is a collection and the URI doesn't end in "/", redirect.

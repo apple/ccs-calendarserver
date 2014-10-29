@@ -8,10 +8,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -52,14 +52,17 @@ log = Logger()
 max_number_of_matches = 500
 
 class NumberOfMatchesWithinLimits(Exception):
-    
+
     def __init__(self, limit):
-        
+
         super(NumberOfMatchesWithinLimits, self).__init__()
         self.limit = limit
-        
+
+
     def maxLimit(self):
         return self.limit
+
+
 
 def http_REPORT(self, request):
     """
@@ -124,7 +127,7 @@ def http_REPORT(self, request):
 
     try:
         method = getattr(self, method_name)
-        
+
         # Also double-check via supported-reports property
         reports = self.supportedReports()
         test = lookupElement((namespace, name))

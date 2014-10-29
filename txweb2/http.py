@@ -236,7 +236,8 @@ def NotModifiedResponse(oldResponse=None):
             'date', 'etag', 'content-location', 'expires',
             'cache-control', 'vary',
             # Others:
-            'server', 'proxy-authenticate', 'www-authenticate', 'warning'):
+            'server', 'proxy-authenticate', 'www-authenticate', 'warning'
+        ):
             value = oldResponse.headers.getRawHeaders(header)
             if value is not None:
                 headers.setRawHeaders(header, value)

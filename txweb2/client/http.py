@@ -104,6 +104,7 @@ class HTTPClientChannelRequest(HTTPParser):
         self.transport = self.channel.transport
         self.responseDefer = Deferred()
 
+
     def submit(self):
         l = []
         request = self.request
@@ -138,14 +139,17 @@ class HTTPClientChannelRequest(HTTPParser):
         d = StreamProducer(request.stream).beginProducing(self)
         d.addCallback(self._finish).addErrback(self._error)
 
+
     def registerProducer(self, producer, streaming):
         """
         Register a producer.
         """
         self.transport.registerProducer(producer, streaming)
 
+
     def unregisterProducer(self):
         self.transport.unregisterProducer()
+
 
     def write(self, data):
         if not data:
@@ -154,6 +158,7 @@ class HTTPClientChannelRequest(HTTPParser):
             self.transport.writeSequence(("%X\r\n" % len(data), data, "\r\n"))
         else:
             self.transport.write(data)
+
 
     def _finish(self, x):
         """
@@ -167,6 +172,7 @@ class HTTPClientChannelRequest(HTTPParser):
         self.channel.requestWriteFinished(self)
         del self.transport
 
+
     def _error(self, err):
         """
         Abort parsing, and depending of the status of the request, either fire
@@ -179,14 +185,17 @@ class HTTPClientChannelRequest(HTTPParser):
         else:
             self.responseDefer.errback(err)
 
+
     def _abortWithError(self, errcode, text):
         """
         Abort parsing by forwarding a C{ProtocolError} to C{_error}.
         """
         self._error(ProtocolError(text))
 
+
     def connectionLost(self, reason):
         self._error(reason)
+
 
     def gotInitialLine(self, initialLine):
         parts = initialLine.split(' ', 2)
@@ -197,7 +206,7 @@ class HTTPClientChannelRequest(HTTPParser):
                                  "Bad response line: %s" % (initialLine,))
             return
 
-        strversion, self.code, message = parts
+        strversion, self.code, _ignore_message = parts
 
         try:
             protovers = parseVersion(strversion)
@@ -216,7 +225,8 @@ class HTTPClientChannelRequest(HTTPParser):
                                  'Only HTTP 1.x is supported.')
             return
 
-    ## FIXME: Actually creates Response, function is badly named!
+
+    # FIXME: Actually creates Response, function is badly named!
     def createRequest(self):
         self.stream = ProducerStream(self.length)
         self.response = Response(self.code, self.inHeaders, self.stream)
@@ -224,12 +234,15 @@ class HTTPClientChannelRequest(HTTPParser):
 
         del self.inHeaders
 
-    ## FIXME: Actually processes Response, function is badly named!
+
+    # FIXME: Actually processes Response, function is badly named!
     def processRequest(self):
         self.responseDefer.callback(self.response)
 
+
     def handleContentChunk(self, data):
         self.stream.write(data)
+
 
     def handleContentComplete(self):
         self.stream.finish()
@@ -247,11 +260,14 @@ class EmptyHTTPClientManager(object):
     def clientBusy(self, proto):
         pass
 
+
     def clientIdle(self, proto):
         pass
 
+
     def clientPipelining(self, proto):
         pass
+
 
     def clientGone(self, proto):
         pass
@@ -285,6 +301,7 @@ class HTTPClientProtocol(LineReceiver, TimeoutMixin, object):
             manager = EmptyHTTPClientManager()
         self.manager = manager
 
+
     def lineReceived(self, line):
         if not self.inRequests:
             # server sending random unrequested data.
@@ -301,6 +318,7 @@ class HTTPClientProtocol(LineReceiver, TimeoutMixin, object):
         else:
             self.inRequests[0].lineReceived(line)
 
+
     def rawDataReceived(self, data):
         if not self.inRequests:
             # Server sending random unrequested data.
@@ -312,6 +330,7 @@ class HTTPClientProtocol(LineReceiver, TimeoutMixin, object):
             self.setTimeout(self.inputTimeOut)
 
         self.inRequests[0].rawDataReceived(data)
+
 
     def submitRequest(self, request, closeAfter=True):
         """
@@ -337,12 +356,12 @@ class HTTPClientProtocol(LineReceiver, TimeoutMixin, object):
         if closeAfter:
             self.readPersistent = False
 
-        self.outRequest = chanRequest = HTTPClientChannelRequest(self,
-                                            request, closeAfter)
+        self.outRequest = chanRequest = HTTPClientChannelRequest(self, request, closeAfter)
         self.inRequests.append(chanRequest)
 
         chanRequest.submit()
         return chanRequest.responseDefer
+
 
     def requestWriteFinished(self, request):
         assert request is self.outRequest
@@ -352,6 +371,7 @@ class HTTPClientProtocol(LineReceiver, TimeoutMixin, object):
         self.setTimeout(self.inputTimeOut)
         if self.readPersistent is PERSIST_PIPELINE:
             self.manager.clientPipelining(self)
+
 
     def requestReadFinished(self, request):
         assert self.inRequests[0] is request
@@ -366,6 +386,7 @@ class HTTPClientProtocol(LineReceiver, TimeoutMixin, object):
             else:
                 self.transport.loseConnection()
 
+
     def setReadPersistent(self, persist):
         self.readPersistent = persist
         if not persist:
@@ -373,6 +394,7 @@ class HTTPClientProtocol(LineReceiver, TimeoutMixin, object):
             for request in self.inRequests[1:]:
                 request.connectionLost(None)
             del self.inRequests[1:]
+
 
     def connectionLost(self, reason):
         self.readPersistent = False
@@ -382,4 +404,3 @@ class HTTPClientProtocol(LineReceiver, TimeoutMixin, object):
         for request in self.inRequests:
             if request is not None:
                 request.connectionLost(reason)
-

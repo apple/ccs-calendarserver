@@ -20,6 +20,7 @@ class TestData(BaseCase):
         self.text = "Hello, World\n"
         self.data = static.Data(self.text, "text/plain")
 
+
     def test_dataState(self):
         """
         Test the internal state of the Data object
@@ -67,10 +68,12 @@ class TestFileSaver(BaseCase):
         self.tempdir = self.mktemp()
         os.mkdir(self.tempdir)
 
-        self.root = static.FileSaver(self.tempdir,
-                              expectedFields=['FileNameOne'],
-                              maxBytes=16)
+        self.root = static.FileSaver(
+            self.tempdir,
+            expectedFields=['FileNameOne'],
+            maxBytes=16)
         self.root.addSlash = True
+
 
     def uploadFile(self, fieldname, filename, mimetype, content, resrc=None,
                    host='foo', path='/'):
@@ -80,18 +83,19 @@ class TestFileSaver(BaseCase):
         ctype = http_headers.MimeType('multipart', 'form-data',
                                       (('boundary', '---weeboundary'),))
 
-        return self.getResponseFor(resrc, '/',
-                            headers={'host': 'foo',
-                                     'content-type': ctype },
-                            length=len(content),
-                            method='POST',
-                            content="""-----weeboundary\r
+        return self.getResponseFor(
+            resrc, '/',
+            headers={'host': 'foo', 'content-type': ctype},
+            length=len(content),
+            method='POST',
+            content="""-----weeboundary\r
 Content-Disposition: form-data; name="%s"; filename="%s"\r
 Content-Type: %s\r
 \r
 %s\r
 -----weeboundary--\r
 """ % (fieldname, filename, mimetype, content))
+
 
     def _CbAssertInResponse(self, (code, headers, data, failed),
                             expected_response, expectedFailure=False):
@@ -107,19 +111,23 @@ Content-Type: %s\r
 
         self.assertEquals(failed, expectedFailure)
 
+
     def fileNameFromResponse(self, response):
-        (code, headers, data, failure) = response
-        return data[data.index('Saved file')+11:data.index('<br />')]
+        (_ignore_code, _ignore_headers, data, _ignore_failure) = response
+        return data[data.index('Saved file') + 11:data.index('<br />')]
+
 
     def assertInResponse(self, response, expected_response, failure=False):
         d = response
         d.addCallback(self._CbAssertInResponse, expected_response, failure)
         return d
 
+
     def test_enforcesMaxBytes(self):
         return self.assertInResponse(
-            self.uploadFile('FileNameOne', 'myfilename', 'text/html', 'X'*32),
+            self.uploadFile('FileNameOne', 'myfilename', 'text/html', 'X' * 32),
             (200, {}, 'exceeds maximum length'))
+
 
     def test_enforcesMimeType(self):
         return self.assertInResponse(
@@ -127,15 +135,18 @@ Content-Type: %s\r
                             'application/x-python', 'X'),
             (200, {}, 'type not allowed'))
 
+
     def test_invalidField(self):
         return self.assertInResponse(
             self.uploadFile('NotARealField', 'myfilename', 'text/html', 'X'),
             (200, {}, 'not a valid field'))
 
+
     def test_reportFileSave(self):
         return self.assertInResponse(
             self.uploadFile('FileNameOne', 'myfilename', 'text/plain', 'X'),
             (200, {}, 'Saved file'))
+
 
     def test_compareFileContents(self):
         def gotFname(fname):

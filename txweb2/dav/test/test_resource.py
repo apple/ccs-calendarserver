@@ -215,10 +215,11 @@ class AccessTests(TestCase):
         baduser.writeDeadProperty(TwistedPasswordProperty("badpass"))
 
         rootresource = TestPrincipalsCollection("/", {
-                "users": TestResource("/users/",
-                                      {"gooduser": gooduser,
-                                       "baduser": baduser})
-            })
+            "users": TestResource(
+                "/users/",
+                {"gooduser": gooduser,
+                 "baduser": baduser})
+        })
 
         protected = TestResource(
             "/protected", principalCollections=[rootresource])

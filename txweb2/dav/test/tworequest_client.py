@@ -33,8 +33,8 @@ print >> sys.stderr, ">> Sending lots of data"
 send("Content-Length: 100\r\n\r\n")
 send("X" * 100)
 
-#import time
-#time.sleep(5)
+# import time
+# time.sleep(5)
 print >> sys.stderr, ">> Getting data"
 data = ''
 while len(data) < 299999:

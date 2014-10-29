@@ -244,7 +244,7 @@ class GeneralHeaderParsingTests(HeaderParsingTestBase):
              {'private': ['set-cookie', 'set-cookie2'],
               'no-cache': ['proxy-authenticate']},
              ['private="Set-Cookie, Set-Cookie2"', 'no-cache="Proxy-Authenticate"']),
-            )
+        )
         self.runRoundtripTest("Cache-Control", table)
 
 
@@ -252,7 +252,7 @@ class GeneralHeaderParsingTests(HeaderParsingTestBase):
         table = (
             ("close", ['close', ]),
             ("close, foo-bar", ['close', 'foo-bar'])
-            )
+        )
         self.runRoundtripTest("Connection", table)
 
 
@@ -271,7 +271,7 @@ class GeneralHeaderParsingTests(HeaderParsingTestBase):
         table = (
             ('chunked', ['chunked']),
             ('gzip, chunked', ['gzip', 'chunked'])
-            )
+        )
         self.runRoundtripTest("Transfer-Encoding", table)
 
 #     def testUpgrade(self):
@@ -305,13 +305,13 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
               http_headers.MimeType('text', 'html', (('level', '1'),)): 1.0,
               http_headers.MimeType('*', '*'): 1.0}),
 
-       ("text/*;q=0.3, text/html;q=0.7, text/html;level=1, text/html;level=2;q=0.4, */*;q=0.5",
+            ("text/*;q=0.3, text/html;q=0.7, text/html;level=1, text/html;level=2;q=0.4, */*;q=0.5",
              {http_headers.MimeType('text', '*'): 0.3,
               http_headers.MimeType('text', 'html'): 0.7,
               http_headers.MimeType('text', 'html', (('level', '1'),)): 1.0,
               http_headers.MimeType('text', 'html', (('level', '2'),)): 0.4,
               http_headers.MimeType('*', '*'): 0.5}),
-            )
+        )
 
         self.runRoundtripTest("Accept", table)
 
@@ -329,7 +329,7 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
             ("",
              {'iso-8859-1': 1.0},
              ["iso-8859-1"]), # Yes this is an actual change -- we'll say that's okay. :)
-            )
+        )
         self.runRoundtripTest("Accept-Charset", table)
 
 
@@ -347,7 +347,7 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
             ("gzip;q=1.0, identity;q=0.5, *;q=0",
              {'gzip': 1.0, 'identity': 0.5, '*': 0},
              ["gzip", "identity;q=0.5", "*;q=0"]),
-            )
+        )
         self.runRoundtripTest("Accept-Encoding", table)
 
 
@@ -357,7 +357,7 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
              {'da': 1.0, 'en-gb': 0.8, 'en': 0.7}),
             ("*",
              {'*': 1}),
-            )
+        )
         self.runRoundtripTest("Accept-Language", table)
 
 
@@ -369,7 +369,7 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
             ('Digest nonce="bar", realm="foo", username="baz", response="bax"',
              ('digest', 'nonce="bar", realm="foo", username="baz", response="bax"'),
              ['digest', 'nonce="bar"', 'realm="foo"', 'username="baz"', 'response="bax"'])
-            )
+        )
 
         self.runRoundtripTest("Authorization", table)
 
@@ -381,10 +381,12 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
             ('name,"blah=value,"', [Cookie('name,"blah', 'value,"')]),
             ('name,"blah  = value,"  ', [Cookie('name,"blah', 'value,"')], ['name,"blah=value,"']),
             ("`~!@#$%^&*()-_+[{]}\\|:'\",<.>/?=`~!@#$%^&*()-_+[{]}\\|:'\",<.>/?", [Cookie("`~!@#$%^&*()-_+[{]}\\|:'\",<.>/?", "`~!@#$%^&*()-_+[{]}\\|:'\",<.>/?")]),
-            ('name,"blah  = value,"  ; name2=val2',
-               [Cookie('name,"blah', 'value,"'), Cookie('name2', 'val2')],
-               ['name,"blah=value,"', 'name2=val2']),
-            )
+            (
+                'name,"blah  = value,"  ; name2=val2',
+                [Cookie('name,"blah', 'value,"'), Cookie('name2', 'val2')],
+                ['name,"blah=value,"', 'name2=val2']
+            ),
+        )
         self.runRoundtripTest("Cookie", table)
 
         # newstyle RFC2965 Cookie
@@ -399,7 +401,7 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
             ('$Version = 1, NAME = "qq\\"qq",Frob=boo',
              [Cookie('name', 'qq"qq', version=1), Cookie('frob', 'boo', version=1)],
              ['$Version="1";name="qq\\"qq";frob="boo"']),
-            )
+        )
         self.runRoundtripTest("Cookie", table2)
 
         # Generate only!
@@ -413,7 +415,7 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
              '$Version="1";name2="value2"'),
             ([Cookie('name', 'qq"qq'), Cookie('name2', 'value2', version=1)],
              '$Version="1";name="qq\\"qq";name2="value2"'),
-            )
+        )
         for row in table3:
             self.assertEquals(generateHeader("Cookie", row[0]), [row[1], ])
 
@@ -425,7 +427,7 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
             ('name,"blah = value, ; expires="Sun, 09 Sep 2001 01:46:40 GMT"',
              [Cookie('name,"blah', 'value,', expires=1000000000)],
              ['name,"blah=value,', 'expires=Sun, 09 Sep 2001 01:46:40 GMT']),
-            )
+        )
         self.runRoundtripTest("Set-Cookie", table)
 
 
@@ -433,7 +435,7 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
         table = (
             ('name="value"; Comment="YadaYada"; CommentURL="http://frobnotz/"; Discard; Domain="blah.blah"; Max-Age=10; Path="/foo"; Port="80,8080"; Secure; Version="1"',
              [Cookie("name", "value", comment="YadaYada", commenturl="http://frobnotz/", discard=True, domain="blah.blah", expires=1000000000, path="/foo", ports=(80, 8080), secure=True, version=1)]),
-            )
+        )
         self.runRoundtripTest("Set-Cookie2", table)
 
 
@@ -445,7 +447,7 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
              {'foobar': ('twiddle',)}),
             ("foo=bar;a=b;c",
              {'foo': ('bar', ('a', 'b'), ('c', None))})
-            )
+        )
         self.runRoundtripTest("Expect", table)
 
 
@@ -457,7 +459,7 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
              [("return", "representation", [])]),
             ("return =minimal;arg1;arg2=val2",
              [("return", "minimal", [("arg1", None), ("arg2", "val2")])]),
-            )
+        )
         self.runRoundtripTest("Prefer", table)
 
 
@@ -473,10 +475,10 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
         table = (
             ('"xyzzy"', [http_headers.ETag('xyzzy')]),
             ('"xyzzy", "r2d2xxxx", "c3piozzzz"', [http_headers.ETag('xyzzy'),
-                                                    http_headers.ETag('r2d2xxxx'),
-                                                    http_headers.ETag('c3piozzzz')]),
+                                                  http_headers.ETag('r2d2xxxx'),
+                                                  http_headers.ETag('c3piozzzz')]),
             ('*', ['*']),
-            )
+        )
         self.runRoundtripTest("If-Match", table)
 
 
@@ -486,7 +488,7 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
         table = (
             ("Sun, 09 Sep 2001 01:46:40 GMT", 1000000000),
             ("Sun, 09 Sep 2001 01:46:40 GMT; length=500", 1000000000, ["Sun, 09 Sep 2001 01:46:40 GMT"]),
-            )
+        )
 
         self.runRoundtripTest("If-Modified-Since", table)
 
@@ -501,7 +503,7 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
                                                         http_headers.ETag('r2d2xxxx', weak=True),
                                                         http_headers.ETag('c3piozzzz', weak=True)]),
             ('*', ['*']),
-            )
+        )
         self.runRoundtripTest("If-None-Match", table)
 
 
@@ -511,7 +513,7 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
             ('W/"xyzzy"', http_headers.ETag('xyzzy', weak=True)),
             ('W/"xyzzy"', http_headers.ETag('xyzzy', weak=True)),
             ("Sun, 09 Sep 2001 01:46:40 GMT", 1000000000),
-            )
+        )
         self.runRoundtripTest("If-Range", table)
 
 
@@ -534,7 +536,7 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
             ("bytes=-500", ('bytes', [(None, 500), ])),
             ("bytes=9500-", ('bytes', [(9500, None), ])),
             ("bytes=0-0,-1", ('bytes', [(0, 0), (None, 1)])),
-            )
+        )
         self.runRoundtripTest("Range", table)
 
 
@@ -548,7 +550,7 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
             ("deflate", {'deflate': 1}),
             ("", {}),
             ("trailers, deflate;q=0.5", {'trailers': 1, 'deflate': 0.5}),
-            )
+        )
         self.runRoundtripTest("TE", table)
 
 
@@ -571,7 +573,7 @@ class ResponseHeaderParsingTests(HeaderParsingTestBase):
             ('"xyzzy"', http_headers.ETag('xyzzy')),
             ('W/"xyzzy"', http_headers.ETag('xyzzy', weak=True)),
             ('""', http_headers.ETag('')),
-            )
+        )
         self.runRoundtripTest("ETag", table)
 
 
@@ -589,7 +591,7 @@ class ResponseHeaderParsingTests(HeaderParsingTestBase):
         table = (
             ("Sun, 09 Sep 2001 01:46:40 GMT", 1000000000, ["10"]),
             ("120", 999999990 + 120),
-            )
+        )
         self.runRoundtripTest("Retry-After", table)
 
 
@@ -601,7 +603,7 @@ class ResponseHeaderParsingTests(HeaderParsingTestBase):
         table = (
             ("*", ["*"]),
             ("Accept, Accept-Encoding", ["accept", "accept-encoding"], ["accept", "accept-encoding"])
-            )
+        )
         self.runRoundtripTest("Vary", table)
 
 
@@ -685,14 +687,14 @@ class EntityHeaderParsingTests(HeaderParsingTestBase):
         table = (
             ("GET", ['GET', ]),
             ("GET, HEAD, PUT", ['GET', 'HEAD', 'PUT']),
-            )
+        )
         self.runRoundtripTest("Allow", table)
 
 
     def testContentEncoding(self):
         table = (
             ("gzip", ['gzip', ]),
-            )
+        )
         self.runRoundtripTest("Content-Encoding", table)
 
 
@@ -700,7 +702,7 @@ class EntityHeaderParsingTests(HeaderParsingTestBase):
         table = (
             ("da", ['da', ]),
             ("mi, en", ['mi', 'en']),
-            )
+        )
         self.runRoundtripTest("Content-Language", table)
 
 
@@ -729,7 +731,7 @@ class EntityHeaderParsingTests(HeaderParsingTestBase):
             ("bytes 734-1233/*", ("bytes", 734, 1233, None)),
             ("bytes */1234", ("bytes", None, None, 1234)),
             ("bytes */*", ("bytes", None, None, None))
-            )
+        )
         self.runRoundtripTest("Content-Range", table)
 
 
@@ -737,7 +739,7 @@ class EntityHeaderParsingTests(HeaderParsingTestBase):
         table = (
             ("text/html;charset=iso-8859-4", http_headers.MimeType('text', 'html', (('charset', 'iso-8859-4'),))),
             ("text/html", http_headers.MimeType('text', 'html')),
-            )
+        )
         self.runRoundtripTest("Content-Type", table)
 
 
@@ -745,7 +747,7 @@ class EntityHeaderParsingTests(HeaderParsingTestBase):
         table = (
             ("attachment;filename=foo.txt", http_headers.MimeDisposition('attachment', (('filename', 'foo.txt'),))),
             ("inline", http_headers.MimeDisposition('inline')),
-            )
+        )
         self.runRoundtripTest("Content-Disposition", table)
 
 
@@ -837,12 +839,9 @@ class TestMimeDisposition(unittest.TestCase):
         """Test that various uses of the constructer are equal
         """
 
-        kwargMime = http_headers.MimeDisposition('attachment',
-                                          key='value')
-        dictMime = http_headers.MimeDisposition('attachment',
-                                         {'key': 'value'})
-        tupleMime = http_headers.MimeDisposition('attachment',
-                                          (('key', 'value'),))
+        kwargMime = http_headers.MimeDisposition('attachment', key='value')
+        dictMime = http_headers.MimeDisposition('attachment', {'key': 'value'})
+        tupleMime = http_headers.MimeDisposition('attachment', (('key', 'value'),))
 
         stringMime = http_headers.MimeDisposition.fromString('attachment;key=value')
 

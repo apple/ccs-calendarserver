@@ -7,10 +7,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -77,16 +77,19 @@ class PUT(txweb2.dav.test.util.TestCase):
                 path = os.path.join(self.docroot, name)
 
                 # Can't really PUT something you can't read
-                if not os.path.isfile(path): continue
-    
-                def do_test(response): checkResult(response, path)
-    
+                if not os.path.isfile(path):
+                    continue
+
+                def do_test(response):
+                    checkResult(response, path)
+
                 request = SimpleRequest(self.site, "PUT", dst_uri)
                 request.stream = FileStream(file(path, "rb"))
-    
+
                 yield (request, do_test)
 
         return serialize(self.send, work())
+
 
     def test_PUT_again(self):
         """
@@ -117,17 +120,18 @@ class PUT(txweb2.dav.test.util.TestCase):
 
                 request = SimpleRequest(self.site, "PUT", dst_uri)
                 request.stream = FileStream(file(__file__, "rb"))
-    
+
                 if code == responsecode.CREATED:
                     if os.path.isfile(dst_path):
                         os.remove(dst_path)
                     request.headers.setHeader("if-none-match", ("*",))
                 elif code == responsecode.PRECONDITION_FAILED:
                     request.headers.setHeader("if-none-match", ("*",))
-    
+
                 yield (request, (checkResult, onError))
 
         return serialize(self.send, work())
+
 
     def test_PUT_no_parent(self):
         """

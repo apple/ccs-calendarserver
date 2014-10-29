@@ -55,6 +55,7 @@ class RenderMixin(object):
             )
         return self._allowed_methods
 
+
     def checkPreconditions(self, request):
         """
         Checks all preconditions imposed by this resource upon a request made
@@ -148,6 +149,7 @@ class RenderMixin(object):
 #        """
 #        return server.doTrace(request)
 
+
     def http_HEAD(self, request):
         """
         Respond to a HEAD request.
@@ -155,6 +157,7 @@ class RenderMixin(object):
         @return: an object adaptable to L{iweb.IResponse}.
         """
         return self.http_GET(request)
+
 
     def http_GET(self, request):
         """
@@ -170,6 +173,7 @@ class RenderMixin(object):
             return responsecode.REQUEST_ENTITY_TOO_LARGE
 
         return self.render(request)
+
 
     def render(self, request):
         """
@@ -216,6 +220,7 @@ class Resource(RenderMixin):
 
         return None, []
 
+
     def child_(self, request):
         """
         This method locates a child with a trailing C{"/"} in the URL.
@@ -224,6 +229,7 @@ class Resource(RenderMixin):
         if self.addSlash and len(request.postpath) == 1:
             return self
         return None
+
 
     def getChild(self, path):
         """
@@ -252,6 +258,7 @@ class Resource(RenderMixin):
         @param child: an object adaptable to L{iweb.IResource}.
         """
         setattr(self, 'child_%s' % (path,), child)
+
 
     def http_GET(self, request):
         if self.addSlash and request.prepath[-1] != '':
@@ -320,6 +327,7 @@ class RedirectResource(LeafResource):
         self._args = args
         self._kwargs = kwargs
 
+
     def renderHTTP(self, request):
         return http.RedirectResponse(
             request.unparseURL(*self._args, **self._kwargs)
@@ -338,6 +346,7 @@ class WrapperResource(object):
     def __init__(self, resource):
         self.resource = resource
 
+
     def hook(self, request):
         """
         Override this method in order to do something before passing control on
@@ -348,17 +357,20 @@ class WrapperResource(object):
         """
         raise NotImplementedError()
 
+
     def locateChild(self, request, segments):
         x = self.hook(request)
         if x is not None:
             return x.addCallback(lambda data: (self.resource, segments))
         return self.resource, segments
 
+
     def renderHTTP(self, request):
         x = self.hook(request)
         if x is not None:
             return x.addCallback(lambda data: self.resource)
         return self.resource
+
 
     def getChild(self, name):
         return self.resource.getChild(name)

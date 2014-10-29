@@ -162,11 +162,12 @@ class ResponseQueue(object):
         @param success_response: the response to return in lieu of a
             L{MultiStatusResponse} if no responses are added to this queue.
         """
-        self.responses         = []
-        self.path_basename     = path_basename
+        self.responses = []
+        self.path_basename = path_basename
         self.path_basename_len = len(path_basename)
-        self.method            = method
-        self.success_response  = success_response
+        self.method = method
+        self.success_response = success_response
+
 
     def add(self, path, what):
         """
@@ -178,12 +179,12 @@ class ResponseQueue(object):
         assert path.startswith(self.path_basename), "%s does not start with %s" % (path, self.path_basename)
 
         if type(what) is int:
-            code    = what
-            error   = None
+            code = what
+            error = None
             message = responsecode.RESPONSES[code]
         elif isinstance(what, Failure):
-            code    = statusForFailure(what)
-            error   = errorForFailure(what)
+            code = statusForFailure(what)
+            error = errorForFailure(what)
             message = messageForFailure(what)
         else:
             raise AssertionError("Unknown data type: %r" % (what,))
@@ -204,6 +205,7 @@ class ResponseQueue(object):
         if message is not None:
             children.append(element.ResponseDescription(message))
         self.responses.append(element.StatusResponse(*children))
+
 
     def response(self):
         """
@@ -231,10 +233,11 @@ class PropertyStatusResponseQueue(object):
         @param success_response: the status to return if no
             L{PropertyStatus} are added to this queue.
         """
-        self.method            = method
-        self.uri               = uri
-        self.propstats         = []
-        self.success_response  = success_response
+        self.method = method
+        self.uri = uri
+        self.propstats = []
+        self.success_response = success_response
+
 
     def add(self, what, property):
         """
@@ -243,12 +246,12 @@ class PropertyStatusResponseQueue(object):
         @param property: the property whose status is being reported.
         """
         if type(what) is int:
-            code    = what
-            error   = None
+            code = what
+            error = None
             message = responsecode.RESPONSES[code]
         elif isinstance(what, Failure):
-            code    = statusForFailure(what)
-            error   = errorForFailure(what)
+            code = statusForFailure(what)
+            error = errorForFailure(what)
             message = messageForFailure(what)
         else:
             raise AssertionError("Unknown data type: %r" % (what,))
@@ -274,6 +277,7 @@ class PropertyStatusResponseQueue(object):
             children.append(element.ResponseDescription(message))
         self.propstats.append(element.PropertyStatus(*children))
 
+
     def error(self):
         """
         Convert any 2xx codes in the propstat responses to 424 Failed
@@ -294,6 +298,7 @@ class PropertyStatusResponseQueue(object):
                     newchildren.append(child)
             self.propstats[index] = element.PropertyStatus(*newchildren)
 
+
     def response(self):
         """
         Generate a response from the responses contained in the queue or, if
@@ -311,6 +316,7 @@ class PropertyStatusResponseQueue(object):
                 element.HRef(self.uri),
                 element.Status.fromResponseCode(self.success_response)
             )
+
 
 
 ##
@@ -355,11 +361,13 @@ def statusForFailure(failure, what=None):
         failure.raiseException()
 
 
+
 def errorForFailure(failure):
     if failure.check(HTTPError) and isinstance(failure.value.response, ErrorResponse):
         return element.Error(failure.value.response.error)
     else:
         return None
+
 
 
 def messageForFailure(failure):

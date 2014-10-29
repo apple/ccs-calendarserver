@@ -45,6 +45,7 @@ class UnauthorizedResponse(http.StatusResponse):
             responsecode.UNAUTHORIZED,
             "You are not authorized to access this resource.")
 
+
     def _generateHeaders(self, factories, remoteAddr=None):
         """
         Set up the response's headers.
@@ -76,7 +77,7 @@ class UnauthorizedResponse(http.StatusResponse):
         """
         response = UnauthorizedResponse()
         d = response._generateHeaders(factories, remoteAddr)
-        d.addCallback(lambda _:response)
+        d.addCallback(lambda _: response)
         return d
 
 
@@ -114,6 +115,7 @@ class HTTPAuthResource(object):
                                          for factory in credentialFactories])
         self.portal = portal
         self.interfaces = interfaces
+
 
     def _loginSucceeded(self, avatar, request):
         """
@@ -238,6 +240,7 @@ class HTTPAuthResource(object):
         and the unmodified segments.
         """
         return self.authenticate(request), seg
+
 
     def renderHTTP(self, request):
         """

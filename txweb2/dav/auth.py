@@ -37,9 +37,11 @@ from txdav.xml.element import WebDAVTextElement
 
 
 class AuthenticationWrapper(WrapperResource):
-    def __init__(self, resource, portal,
+    def __init__(
+        self, resource, portal,
         wireEncryptedCredentialFactories, wireUnencryptedCredentialFactories,
-        loginInterfaces):
+        loginInterfaces
+    ):
         """
         Wrap the given resource and use the parameters to set up the request
         to allow anyone to challenge and handle authentication.
@@ -58,10 +60,14 @@ class AuthenticationWrapper(WrapperResource):
         super(AuthenticationWrapper, self).__init__(resource)
 
         self.portal = portal
-        self.wireEncryptedCredentialFactories = dict([(factory.scheme, factory)
-                                         for factory in wireEncryptedCredentialFactories])
-        self.wireUnencryptedCredentialFactories = dict([(factory.scheme, factory)
-                                         for factory in wireUnencryptedCredentialFactories])
+        self.wireEncryptedCredentialFactories = dict([
+            (factory.scheme, factory)
+            for factory in wireEncryptedCredentialFactories
+        ])
+        self.wireUnencryptedCredentialFactories = dict([
+            (factory.scheme, factory)
+            for factory in wireUnencryptedCredentialFactories
+        ])
         self.loginInterfaces = loginInterfaces
 
         # FIXME: some unit tests access self.credentialFactories, so assigning here

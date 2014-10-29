@@ -186,10 +186,11 @@ class DefaultErrorElement(Element):
 
 
     def loadMessage(self, code):
-        tag = XMLString(('<t:transparent xmlns:t="http://twistedmatrix.com/'
-                   'ns/twisted.web.template/0.1">') +
-                  ERROR_MESSAGES.get(code, "") +
-                    '</t:transparent>').load()[0]
+        tag = XMLString(
+            ('<t:transparent xmlns:t="http://twistedmatrix.com/'
+             'ns/twisted.web.template/0.1">') +
+            ERROR_MESSAGES.get(code, "") +
+            '</t:transparent>').load()[0]
         return tag
 
 
@@ -234,7 +235,7 @@ def defaultErrorHandler(request, response):
         subtype = 'error'
         body = 'Error in default error handler:\n' + error[0].getTraceback()
 
-    ctype = http_headers.MimeType('text', subtype, {'charset':'utf-8'})
+    ctype = http_headers.MimeType('text', subtype, {'charset': 'utf-8'})
     response.headers.setHeader("content-type", ctype)
     response.stream = stream.MemoryStream(body)
     return response
@@ -242,5 +243,4 @@ def defaultErrorHandler(request, response):
 defaultErrorHandler.handleErrors = True
 
 
-__all__ = ['defaultErrorHandler',]
-
+__all__ = ['defaultErrorHandler', ]

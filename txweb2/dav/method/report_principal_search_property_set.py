@@ -8,10 +8,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -54,13 +54,13 @@ def report_DAV__principal_search_property_set(self, request, principal_search_pr
     if depth != "0":
         log.error("Error in principal-search-property-set REPORT, Depth set to %s" % (depth,))
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Depth %s not allowed" % (depth,)))
-    
+
     # Get details from the resource
     result = self.principalSearchPropertySet()
     if result is None:
         log.error("Error in principal-search-property-set REPORT not supported on: %s" % (self,))
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Not allowed on this resource"))
-        
+
     yield Response(code=responsecode.OK, stream=MemoryStream(result.toxml()))
 
 report_DAV__principal_search_property_set = deferredGenerator(report_DAV__principal_search_property_set)

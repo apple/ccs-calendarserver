@@ -22,12 +22,15 @@ class TestServer(protocol.Protocol):
     def dataReceived(self, data):
         self.data += data
 
+
     def write(self, data):
         self.transport.write(data)
+
 
     def connectionLost(self, reason):
         self.done = True
         self.transport.loseConnection()
+
 
     def loseConnection(self):
         self.done = True
@@ -52,15 +55,20 @@ class ClientTests(HTTPTests):
 
         return cxn
 
+
     def writeToClient(self, cxn, data):
         cxn.server.write(data)
         self.iterate(cxn)
 
+
     def writeLines(self, cxn, lines):
         self.writeToClient(cxn, '\r\n'.join(lines))
 
-    def assertReceived(self, cxn, expectedStatus, expectedHeaders,
-                       expectedContent=None):
+
+    def assertReceived(
+        self, cxn, expectedStatus, expectedHeaders,
+        expectedContent=None
+    ):
         self.iterate(cxn)
 
         headers, content = cxn.server.data.split('\r\n\r\n', 1)
@@ -80,14 +88,17 @@ class ClientTests(HTTPTests):
 
         self.assertEquals(content, expectedContent)
 
+
     def assertDone(self, cxn):
         self.iterate(cxn)
         self.assertEquals(cxn.server.done, True, 'Connection not closed.')
+
 
     def assertHeaders(self, resp, expectedHeaders):
         headers = list(resp.headers.getAllRawHeaders())
         headers.sort()
         self.assertEquals(headers, expectedHeaders)
+
 
     def checkResponse(self, resp, code, headers, length, data):
         """
@@ -130,6 +141,7 @@ class TestHTTPClient(ClientTests):
 
         return d.addCallback(lambda _: self.assertDone(cxn))
 
+
     def test_delayedContent(self):
         """
         Make sure that the client returns the response object as soon as the
@@ -164,6 +176,7 @@ class TestHTTPClient(ClientTests):
 
         return d.addCallback(lambda _: self.assertDone(cxn))
 
+
     def test_prematurePipelining(self):
         """
         Ensure that submitting a second request before it's allowed results
@@ -188,6 +201,7 @@ class TestHTTPClient(ClientTests):
                               '\r\n'))
 
         return d
+
 
     def test_userHeaders(self):
         """
@@ -237,6 +251,7 @@ class TestHTTPClient(ClientTests):
 
         return d.addCallback(lambda _: self.assertDone(cxn))
 
+
     def test_streamedUpload(self):
         """
         Make sure that sending request content works.
@@ -260,6 +275,7 @@ class TestHTTPClient(ClientTests):
 
         return d.addCallback(lambda _: self.assertDone(cxn))
 
+
     def test_sentHead(self):
         """
         Ensure that HEAD requests work, and return Content-Length.
@@ -281,6 +297,7 @@ class TestHTTPClient(ClientTests):
                               'Pants')) # bad server
 
         return d.addCallback(lambda _: self.assertDone(cxn))
+
 
     def test_sentHeadKeepAlive(self):
         """
@@ -309,9 +326,9 @@ class TestHTTPClient(ClientTests):
             didIt[0] = second
 
             if second:
-                keepAlive='close'
+                keepAlive = 'close'
             else:
-                keepAlive='Keep-Alive'
+                keepAlive = 'Keep-Alive'
 
             cxn.server.data = ''
 
@@ -319,10 +336,10 @@ class TestHTTPClient(ClientTests):
                 self.checkResponse, 200, [('Content-Length', ['5'])], 0, None)
 
             self.assertReceived(cxn, 'HEAD / HTTP/1.1',
-                                ['Connection: '+ keepAlive])
+                                ['Connection: ' + keepAlive])
 
             self.writeLines(cxn, ('HTTP/1.1 200 OK',
-                                  'Connection: '+ keepAlive,
+                                  'Connection: ' + keepAlive,
                                   'Content-Length: 5',
                                   '\r\n'))
 
@@ -331,6 +348,7 @@ class TestHTTPClient(ClientTests):
         d = submitRequest(0)
 
         return d.addCallback(lambda _: self.assertDone(cxn))
+
 
     def test_chunkedUpload(self):
         """
@@ -385,6 +403,7 @@ class TestEdgeCases(ClientTests):
 
         return d.addCallback(lambda _: self.assertDone(cxn))
 
+
     def test_serverIsntHttp(self):
         """
         Check that an error is returned if the server doesn't talk HTTP.
@@ -434,6 +453,7 @@ class TestEdgeCases(ClientTests):
 
         self.writeLines(cxn, ('HTTP/1.1 200',
                               '\r\n'))
+
 
     def test_errorReadingRequestStream(self):
         """
@@ -492,4 +512,3 @@ class TestEdgeCases(ClientTests):
             return self.assertFailure(response.stream.read(), ValueError)
         d.addCallback(cb)
         return d
-

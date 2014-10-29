@@ -7,10 +7,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -50,6 +50,7 @@ class REPORT(txweb2.dav.test.util.TestCase):
 
         return self.send(request, do_test)
 
+
     def test_REPORT_unknown(self):
         """
         Unknown/bogus report type
@@ -62,8 +63,9 @@ class REPORT(txweb2.dav.test.util.TestCase):
                           % (response.code,))
         class GoofyReport (davxml.WebDAVUnknownElement):
             namespace = "GOOFY:"
-            name      = "goofy-report"
-            def __init__(self): super(GoofyReport, self).__init__()
+            name = "goofy-report"
+            def __init__(self):
+                super(GoofyReport, self).__init__()
 
         request = SimpleRequest(self.site, "REPORT", "/")
         request.stream = MemoryStream(GoofyReport().toxml())

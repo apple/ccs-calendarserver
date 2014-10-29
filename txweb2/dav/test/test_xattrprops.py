@@ -24,12 +24,15 @@ except ImportError:
 else:
     from xattr import xattr
 
+
+
 class ExtendedAttributesPropertyStoreTests(TestCase):
     """
     Tests for L{xattrPropertyStore}.
     """
     if xattrPropertyStore is None:
         skip = "xattr package missing, cannot test xattr property store"
+
 
     def setUp(self):
         """
@@ -71,6 +74,7 @@ class ExtendedAttributesPropertyStoreTests(TestCase):
         # of the EPERM failure.
         self.assertEquals(error.response.code, FORBIDDEN)
 
+
     def _missingTest(self, method):
         # Remove access to the directory containing the file so that getting
         # extended attributes from it fails with EPERM.
@@ -99,6 +103,7 @@ class ExtendedAttributesPropertyStoreTests(TestCase):
         """
         self._forbiddenTest('get')
 
+
     def test_getMissing(self):
         """
         Test missing file.
@@ -117,6 +122,7 @@ class ExtendedAttributesPropertyStoreTests(TestCase):
 
         # Make sure that the status is NOT FOUND.
         self.assertEquals(error.response.code, NOT_FOUND)
+
 
     def _makeValue(self, uid=None):
         """
@@ -324,6 +330,7 @@ class ExtendedAttributesPropertyStoreTests(TestCase):
         document = self._makeValue()
         self.assertFalse(propertyStore.contains(document.root_element.qname()))
 
+
     def test_list(self):
         """
         L{xattrPropertyStore.list} returns a C{list} of property names
@@ -359,6 +366,7 @@ class ExtendedAttributesPropertyStoreTests(TestCase):
         # of the EPERM failure.
         self.assertEquals(error.response.code, FORBIDDEN)
 
+
     def test_listMissing(self):
         """
         Test missing file.
@@ -371,12 +379,13 @@ class ExtendedAttributesPropertyStoreTests(TestCase):
         # Try to get a property from it - and fail.
         self.assertEqual(propertyStore.list(), [])
 
+
     def test_get_uids(self):
         """
         L{xattrPropertyStore.get} accepts a L{WebDAVElement} and stores a
         compressed XML document representing it in an extended attribute.
         """
-        
+
         for uid in (None, "123", "456",):
             document = self._makeValue(uid)
             self._setValue(document, document.toxml(), uid=uid)
@@ -391,19 +400,20 @@ class ExtendedAttributesPropertyStoreTests(TestCase):
         L{xattrPropertyStore.set} accepts a L{WebDAVElement} and stores a
         compressed XML document representing it in an extended attribute.
         """
-        
+
         for uid in (None, "123", "456",):
             document = self._makeValue(uid)
             self.propertyStore.set(document.root_element, uid=uid)
             self.assertEquals(
                 decompress(self._getValue(document, uid)), document.root_element.toxml(pretty=False))
 
+
     def test_delete_uids(self):
         """
         L{xattrPropertyStore.set} accepts a L{WebDAVElement} and stores a
         compressed XML document representing it in an extended attribute.
         """
-        
+
         for delete_uid in (None, "123", "456",):
             for uid in (None, "123", "456",):
                 document = self._makeValue(uid)
@@ -416,7 +426,8 @@ class ExtendedAttributesPropertyStoreTests(TestCase):
                 document = self._makeValue(uid)
                 self.assertEquals(
                     decompress(self._getValue(document, uid)), document.root_element.toxml(pretty=False))
-        
+
+
     def test_contains_uids(self):
         """
         L{xattrPropertyStore.contains} returns C{True} if the given property
@@ -429,6 +440,7 @@ class ExtendedAttributesPropertyStoreTests(TestCase):
             self._setValue(document, document.toxml(), uid=uid)
             self.assertTrue(
                 self.propertyStore.contains(document.root_element.qname(), uid=uid))
+
 
     def test_list_uids(self):
         """
@@ -465,4 +477,3 @@ class ExtendedAttributesPropertyStoreTests(TestCase):
                 (u'bar', u'baz', "456"),
                 (u'moo', u'mar456', "456"),
             ]))
-

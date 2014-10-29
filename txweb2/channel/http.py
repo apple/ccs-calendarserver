@@ -53,6 +53,7 @@ class OverloadedLoggingServerProtocol (protocol.Protocol):
         self.retryAfter = retryAfter
         self.outstandingRequests = outstandingRequests
 
+
     def connectionMade(self):
         log.info(overloaded=self)
 
@@ -74,6 +75,7 @@ class OverloadedLoggingServerProtocol (protocol.Protocol):
             "please try again later.</body></html>"
         )
         self.transport.loseConnection()
+
 
 
 class SSLRedirectRequest(Request):
@@ -103,7 +105,7 @@ class SSLRedirectRequest(Request):
 
 # >%
 
-PERSIST_NO_PIPELINE, PERSIST_PIPELINE = (1,2)
+PERSIST_NO_PIPELINE, PERSIST_PIPELINE = (1, 2)
 
 _cachedHostNames = {}
 def _cachedGetHostByAddr(hostaddr):
@@ -113,8 +115,10 @@ def _cachedGetHostByAddr(hostaddr):
             hostname = socket.gethostbyaddr(hostaddr)[0]
         except socket.herror:
             hostname = hostaddr
-        _cachedHostNames[hostaddr]=hostname
+        _cachedHostNames[hostaddr] = hostname
     return hostname
+
+
 
 class StringTransport(object):
     """
@@ -123,13 +127,20 @@ class StringTransport(object):
     """
     def __init__(self):
         self.s = StringIO()
+
+
     def writeSequence(self, seq):
         self.s.write(''.join(seq))
+
+
     def __getattr__(self, attr):
         return getattr(self.__dict__['s'], attr)
 
+
+
 class AbortedException(Exception):
     pass
+
 
 
 class HTTPParser(object):
@@ -178,6 +189,7 @@ class HTTPParser(object):
     def __init__(self, channel):
         self.inHeaders = http_headers.Headers()
         self.channel = channel
+
 
     def lineReceived(self, line):
         if self.chunkedIn:
@@ -246,6 +258,7 @@ class HTTPParser(object):
                     self.headerReceived(self.partialHeader)
                 self.partialHeader = line
 
+
     def rawDataReceived(self, data):
         """Handle incoming content."""
         datalen = len(data)
@@ -293,6 +306,7 @@ class HTTPParser(object):
         # Set connection parameters from headers
         self.setConnectionParams(connHeaders)
         self.connHeaders = connHeaders
+
 
     def allContentReceived(self):
         self.finishedReading = True
@@ -342,7 +356,7 @@ class HTTPParser(object):
         connHeaders = http_headers.Headers()
 
         move('connection')
-        if self.version < (1,1):
+        if self.version < (1, 1):
             # Remove all headers mentioned in Connection, because a HTTP 1.0
             # proxy might have erroneously forwarded it from a 1.1 client.
             for name in connHeaders.getHeader('connection', ()):
@@ -366,9 +380,10 @@ class HTTPParser(object):
 
         return connHeaders
 
+
     def setConnectionParams(self, connHeaders):
         # Figure out persistent connection stuff
-        if self.version >= (1,1):
+        if self.version >= (1, 1):
             if 'close' in connHeaders.getHeader('connection', ()):
                 readPersistent = False
             else:
@@ -424,6 +439,7 @@ class HTTPParser(object):
         # Set the calculated persistence
         self.channel.setReadPersistent(readPersistent)
 
+
     def abortParse(self):
         # If we're erroring out while still reading the request
         if not self.finishedReading:
@@ -431,18 +447,23 @@ class HTTPParser(object):
             self.channel.setReadPersistent(False)
             self.channel.requestReadFinished(self)
 
+
     # producer interface
     def pauseProducing(self):
         if not self.finishedReading:
             self.channel.pauseProducing()
 
+
     def resumeProducing(self):
         if not self.finishedReading:
             self.channel.resumeProducing()
 
+
     def stopProducing(self):
         if not self.finishedReading:
             self.channel.stopProducing()
+
+
 
 class HTTPChannelRequest(HTTPParser):
     """This class handles the state and parsing for one HTTP request.
@@ -458,7 +479,7 @@ class HTTPChannelRequest(HTTPParser):
 
     def __init__(self, channel, queued=0):
         HTTPParser.__init__(self, channel)
-        self.queued=queued
+        self.queued = queued
 
         # Buffer writes to a string until we're first in line
         # to write a response
@@ -468,7 +489,7 @@ class HTTPChannelRequest(HTTPParser):
             self.transport = self.channel.transport
 
         # set the version to a fallback for error generation
-        self.version = (1,0)
+        self.version = (1, 0)
 
 
     def gotInitialLine(self, initialLine):
@@ -501,35 +522,43 @@ class HTTPChannelRequest(HTTPParser):
             # simulate end of headers, as HTTP 0 doesn't have headers.
             self.lineReceived('')
 
+
     def lineLengthExceeded(self, line, wasFirst=False):
         code = wasFirst and responsecode.REQUEST_URI_TOO_LONG or responsecode.BAD_REQUEST
         self._abortWithError(code, 'Header line too long.')
+
 
     def createRequest(self):
         self.request = self.channel.requestFactory(self, self.command, self.path, self.version, self.length, self.inHeaders)
         del self.inHeaders
 
+
     def processRequest(self):
         self.request.process()
+
 
     def handleContentChunk(self, data):
         self.request.handleContentChunk(data)
 
+
     def handleContentComplete(self):
         self.request.handleContentComplete()
 
-############## HTTPChannelRequest *RESPONSE* methods #############
+    #  HTTPChannelRequest *RESPONSE* methods #
     producer = None
     chunkedOut = False
     finished = False
 
-    ##### Request Callbacks #####
+
+    # Request Callbacks #
     def writeIntermediateResponse(self, code, headers=None):
-        if self.version >= (1,1):
+        if self.version >= (1, 1):
             self._writeHeaders(code, headers, False)
+
 
     def writeHeaders(self, code, headers):
         self._writeHeaders(code, headers, True)
+
 
     def _writeHeaders(self, code, headers, addConnectionHeaders):
         # HTTP 0.9 doesn't have headers.
@@ -549,9 +578,11 @@ class HTTPChannelRequest(HTTPParser):
         if addConnectionHeaders:
             # if we don't have a content length, we send data in
             # chunked mode, so that we can support persistent connections.
-            if (headers.getHeader('content-length') is None and
-                self.command != "HEAD" and code not in http.NO_BODY_CODES):
-                if self.version >= (1,1):
+            if (
+                headers.getHeader('content-length') is None and
+                self.command != "HEAD" and code not in http.NO_BODY_CODES
+            ):
+                if self.version >= (1, 1):
                     l.append("%s: %s\r\n" % ('Transfer-Encoding', 'chunked'))
                     self.chunkedOut = True
                 else:
@@ -560,7 +591,7 @@ class HTTPChannelRequest(HTTPParser):
 
             if self.channel.isLastRequest(self):
                 l.append("%s: %s\r\n" % ('Connection', 'close'))
-            elif self.version < (1,1):
+            elif self.version < (1, 1):
                 l.append("%s: %s\r\n" % ('Connection', 'Keep-Alive'))
 
         l.append("\r\n")
@@ -574,6 +605,7 @@ class HTTPChannelRequest(HTTPParser):
             self.transport.writeSequence(("%X\r\n" % len(data), data, "\r\n"))
         else:
             self.transport.write(data)
+
 
     def finish(self):
         """We are finished writing data."""
@@ -612,18 +644,21 @@ class HTTPChannelRequest(HTTPParser):
             else:
                 self._cleanup()
 
+
     def getHostInfo(self):
         return self.channel._host, self.channel._secure
+
 
     def getRemoteHost(self):
         return self.channel.transport.getPeer()
 
-    ##### End Request Callbacks #####
+    # End Request Callbacks #
+
 
     def _abortWithError(self, errorcode, text=''):
         """Handle low level protocol errors."""
         headers = http_headers.Headers()
-        headers.setHeader('content-length', len(text)+1)
+        headers.setHeader('content-length', len(text) + 1)
 
         self.abortConnection(closeWrite=False)
         self.writeHeaders(errorcode, headers)
@@ -633,6 +668,7 @@ class HTTPChannelRequest(HTTPParser):
         log.warn("Aborted request (%d) %s" % (errorcode, text))
         raise AbortedException
 
+
     def _cleanup(self):
         """Called when have finished responding and are no longer queued."""
         if self.producer:
@@ -640,6 +676,7 @@ class HTTPChannelRequest(HTTPParser):
             self.unregisterProducer()
         self.channel.requestWriteFinished(self)
         del self.transport
+
 
     # methods for channel - end users should not use these
 
@@ -685,11 +722,13 @@ class HTTPChannelRequest(HTTPParser):
         else:
             self.transport.registerProducer(producer, streaming)
 
+
     def unregisterProducer(self):
         """Unregister the producer."""
         if not self.queued:
             self.transport.unregisterProducer()
         self.producer = None
+
 
     def connectionLost(self, reason):
         """connection was lost"""
@@ -698,6 +737,8 @@ class HTTPChannelRequest(HTTPParser):
             self.producer = None
         if self.request:
             self.request.connectionLost(reason)
+
+
 
 class HTTPChannel(basic.LineReceiver, policies.TimeoutMixin, object):
     """A receiver for HTTP requests. Handles splitting up the connection
@@ -717,7 +758,7 @@ class HTTPChannel(basic.LineReceiver, policies.TimeoutMixin, object):
 
     implements(interfaces.IHalfCloseableProtocol)
 
-    ## Configuration parameters. Set in instances or subclasses.
+    # Configuration parameters. Set in instances or subclasses.
 
     # How many simultaneous requests to handle.
     maxPipeline = 4
@@ -754,9 +795,11 @@ class HTTPChannel(basic.LineReceiver, policies.TimeoutMixin, object):
     def _callLater(self, secs, fun):
         reactor.callLater(secs, fun)
 
+
     def __init__(self):
         # the request queue
         self.requests = []
+
 
     def connectionMade(self):
         self._secure = interfaces.ISSLTransport(self.transport, None) is not None
@@ -764,6 +807,7 @@ class HTTPChannel(basic.LineReceiver, policies.TimeoutMixin, object):
         self._host = _cachedGetHostByAddr(address.host)
         self.setTimeout(self.inputTimeOut)
         self.factory.addConnectedChannel(self)
+
 
     def lineReceived(self, line):
         if self._first_line:
@@ -798,6 +842,7 @@ class HTTPChannel(basic.LineReceiver, policies.TimeoutMixin, object):
             except AbortedException:
                 pass
 
+
     def lineLengthExceeded(self, line):
         if self._first_line:
             # Fabricate a request object to respond to the line length violation.
@@ -810,12 +855,14 @@ class HTTPChannel(basic.LineReceiver, policies.TimeoutMixin, object):
         except AbortedException:
             pass
 
+
     def rawDataReceived(self, data):
         self.setTimeout(self.inputTimeOut)
         try:
             self.chanRequest.rawDataReceived(data)
         except AbortedException:
             pass
+
 
     def requestReadFinished(self, request):
         if(self.readPersistent is PERSIST_NO_PIPELINE or
@@ -831,6 +878,7 @@ class HTTPChannel(basic.LineReceiver, policies.TimeoutMixin, object):
         # time to finish generating output.
         if len(self.requests) > 0:
             self.setTimeout(self.idleTimeOut)
+
 
     def _startNextRequest(self):
         # notify next request, if present, it can start writing
@@ -854,10 +902,12 @@ class HTTPChannel(basic.LineReceiver, policies.TimeoutMixin, object):
             self.setTimeout(self.betweenRequestsTimeOut)
             self.resumeProducing()
 
+
     def setReadPersistent(self, persistent):
         if self.readPersistent:
             # only allow it to be set if it's not currently False
             self.readPersistent = persistent
+
 
     def dropQueuedRequests(self):
         """Called when a response is written that forces a connection close."""
@@ -867,13 +917,16 @@ class HTTPChannel(basic.LineReceiver, policies.TimeoutMixin, object):
             request.connectionLost(None)
         del self.requests[1:]
 
+
     def isLastRequest(self, request):
         # Is this channel handling the last possible request
         return not self.readPersistent and self.requests[-1] == request
 
+
     def requestWriteFinished(self, request):
         """Called by first request in queue when it is done."""
-        if request != self.requests[0]: raise TypeError
+        if request != self.requests[0]:
+            raise TypeError
 
         # Don't del because we haven't finished cleanup, so,
         # don't want queue len to be 0 yet.
@@ -888,19 +941,22 @@ class HTTPChannel(basic.LineReceiver, policies.TimeoutMixin, object):
             # Set an abort timer in case an orderly close hangs
             self.setTimeout(None)
             self._abortTimer = reactor.callLater(self.closeTimeOut, self._abortTimeout)
-            #reactor.callLater(0.1, self.transport.loseConnection)
+            # eactor.callLater(0.1, self.transport.loseConnection)
             self.transport.loseConnection()
 
+
     def timeoutConnection(self):
-        #log.info("Timing out client: %s" % str(self.transport.getPeer()))
+        # log.info("Timing out client: %s" % str(self.transport.getPeer()))
         # Set an abort timer in case an orderly close hangs
         self._abortTimer = reactor.callLater(self.closeTimeOut, self._abortTimeout)
         policies.TimeoutMixin.timeoutConnection(self)
+
 
     def _abortTimeout(self):
         log.error("Connection aborted - took too long to close: {c}", c=str(self.transport.getPeer()))
         self._abortTimer = None
         self.transport.abortConnection()
+
 
     def readConnectionLost(self):
         """Read connection lost"""
@@ -923,6 +979,7 @@ class HTTPChannel(basic.LineReceiver, policies.TimeoutMixin, object):
         if self.chanRequest:
             self.transport.loseConnection()
 
+
     def connectionLost(self, reason):
         self.factory.removeConnectedChannel(self)
 
@@ -934,6 +991,8 @@ class HTTPChannel(basic.LineReceiver, policies.TimeoutMixin, object):
         for request in self.requests:
             if request is not None:
                 request.connectionLost(reason)
+
+
 
 class OverloadedServerProtocol(protocol.Protocol):
     def connectionMade(self):
@@ -980,7 +1039,7 @@ class HTTPFactory(protocol.ServerFactory):
 
         p = protocol.ServerFactory.buildProtocol(self, addr)
 
-        for arg,value in self.protocolArgs.iteritems():
+        for arg, value in self.protocolArgs.iteritems():
             setattr(p, arg, value)
         return p
 
@@ -1006,6 +1065,7 @@ class HTTPFactory(protocol.ServerFactory):
         if self.allConnectionsClosedDeferred is not None:
             if self.outstandingRequests == 0:
                 self.allConnectionsClosedDeferred.callback(None)
+
 
     @property
     def outstandingRequests(self):
@@ -1033,9 +1093,10 @@ class HTTP503LoggingFactory (HTTPFactory):
         self.vary = vary
         HTTPFactory.__init__(self, requestFactory, maxRequests, **kwargs)
 
+
     def buildProtocol(self, addr):
         if self.vary:
-            retryAfter = randint(int(self.retryAfter * 1/2), int(self.retryAfter * 3/2))
+            retryAfter = randint(int(self.retryAfter * 1 / 2), int(self.retryAfter * 3 / 2))
         else:
             retryAfter = self.retryAfter
 
@@ -1044,10 +1105,12 @@ class HTTP503LoggingFactory (HTTPFactory):
 
         p = protocol.ServerFactory.buildProtocol(self, addr)
 
-        for arg,value in self.protocolArgs.iteritems():
+        for arg, value in self.protocolArgs.iteritems():
             setattr(p, arg, value)
 
         return p
+
+
 
 class HTTPLoggingChannelRequest(HTTPChannelRequest):
 
@@ -1071,10 +1134,12 @@ class HTTPLoggingChannelRequest(HTTPChannelRequest):
         def __getattr__(self, attr):
             return getattr(self.__dict__['transport'], attr)
 
+
     class LogData(object):
         def __init__(self):
             self.request = []
             self.response = []
+
 
     def __init__(self, channel, queued=0):
         super(HTTPLoggingChannelRequest, self).__init__(channel, queued)
@@ -1085,12 +1150,14 @@ class HTTPLoggingChannelRequest(HTTPChannelRequest):
         else:
             self.logData = None
 
+
     def gotInitialLine(self, initialLine):
         if self.logData is not None:
             self.startTime = time.time()
             self.logData.request.append(">>>> Request starting at: %.3f\r\n\r\n" % (self.startTime,))
             self.logData.request.append("%s\r\n" % (initialLine,))
         super(HTTPLoggingChannelRequest, self).gotInitialLine(initialLine)
+
 
     def lineReceived(self, line):
 
@@ -1104,11 +1171,13 @@ class HTTPLoggingChannelRequest(HTTPChannelRequest):
             self.logData.request.append("%s\r\n" % (loggedLine,))
         super(HTTPLoggingChannelRequest, self).lineReceived(line)
 
+
     def handleContentChunk(self, data):
 
         if self.logData is not None:
             self.logData.request.append(data)
         super(HTTPLoggingChannelRequest, self).handleContentChunk(data)
+
 
     def handleContentComplete(self):
 
@@ -1117,11 +1186,13 @@ class HTTPLoggingChannelRequest(HTTPChannelRequest):
             self.logData.request.append("\r\n\r\n>>>> Request complete at: %.3f (elapsed: %.1f ms)" % (doneTime, 1000 * (doneTime - self.startTime),))
         super(HTTPLoggingChannelRequest, self).handleContentComplete()
 
+
     def writeHeaders(self, code, headers):
         if self.logData is not None:
             doneTime = time.time()
             self.logData.response.append("\r\n\r\n<<<< Response sending at: %.3f (elapsed: %.1f ms)\r\n\r\n" % (doneTime, 1000 * (doneTime - self.startTime),))
         super(HTTPLoggingChannelRequest, self).writeHeaders(code, headers)
+
 
     def finish(self):
 
@@ -1144,10 +1215,10 @@ class LimitingHTTPFactory(HTTPFactory):
         L{LimitingHTTPFactory} will limit.  This must be set externally.
     """
 
-    def __init__(self, requestFactory, maxRequests=600, maxAccepts=100,
-        **kwargs):
+    def __init__(self, requestFactory, maxRequests=600, maxAccepts=100, **kwargs):
         HTTPFactory.__init__(self, requestFactory, maxRequests, **kwargs)
         self.maxAccepts = maxAccepts
+
 
     def buildProtocol(self, addr):
         """
@@ -1158,6 +1229,7 @@ class LimitingHTTPFactory(HTTPFactory):
         for arg, value in self.protocolArgs.iteritems():
             setattr(p, arg, value)
         return p
+
 
     def addConnectedChannel(self, channel):
         """

@@ -243,7 +243,7 @@ def parseDateTime(dateString):
 
 
 
-##### HTTP tokenizer
+# HTTP tokenizer
 class Token(str):
     __slots__ = []
     tokens = {}
@@ -385,7 +385,7 @@ def filterTokens(seq):
 
 
 
-##### parser utilities:
+# parser utilities:
 def checkSingleToken(tokens):
     if len(tokens) != 1:
         raise ValueError("Expected single token, not %s." % (tokens,))
@@ -430,7 +430,7 @@ def last(seq):
 
 
 
-##### Generation utilities
+# Generation utilities
 def quoteString(s):
     """
     Quote a string according to the rules for the I{quoted-string} production
@@ -589,7 +589,7 @@ class MimeDisposition(object):
 
 
 
-##### Specific header parsers.
+# Specific header parsers.
 def parseAccept(field):
     atype, args = parseArgs(field)
 
@@ -863,7 +863,7 @@ def parsePrefer(field):
 
 
 
-#### Header generators
+# Header generators
 def generateAccept(accept):
     mimeType, q = accept
 
@@ -1126,7 +1126,7 @@ def generateStarOrETag(etag):
 
 
 
-#### Cookies. Blech!
+# Cookies. Blech!
 class Cookie(object):
     # __slots__ = ['name', 'value', 'path', 'domain', 'ports', 'expires', 'discard', 'secure', 'comment', 'commenturl', 'version']
 
@@ -1501,7 +1501,7 @@ def generateBrief(brief):
     # MS definition uses lower case
     return "t" if brief else "f"
 
-##### Random stuff that looks useful.
+# Random stuff that looks useful.
 # def sortMimeQuality(s):
 #     def sorter(item1, item2):
 #         if item1[0] == '*':
@@ -1716,24 +1716,24 @@ parser_general_headers = {
     'Cache-Control': (tokenize, listParser(parseCacheControl), dict),
     'Connection': (tokenize, filterTokens),
     'Date': (last, parseDateTime),
-#    'Pragma': tokenize
-#    'Trailer': tokenize
+    # 'Pragma': tokenize
+    # 'Trailer': tokenize
     'Transfer-Encoding': (tokenize, filterTokens),
-#    'Upgrade': tokenize
-#    'Via': tokenize,stripComment
-#    'Warning': tokenize
+    # 'Upgrade': tokenize
+    # 'Via': tokenize,stripComment
+    # 'Warning': tokenize
 }
 
 generator_general_headers = {
     'Cache-Control': (iteritems, listGenerator(generateCacheControl), singleHeader),
     'Connection': (generateList, singleHeader),
     'Date': (generateDateTime, singleHeader),
-#    'Pragma':
-#    'Trailer':
+    # 'Pragma':
+    # 'Trailer':
     'Transfer-Encoding': (generateList, singleHeader),
-#    'Upgrade':
-#    'Via':
-#    'Warning':
+    # 'Upgrade':
+    # 'Via':
+    # 'Warning':
 }
 
 parser_request_headers = {
@@ -1753,7 +1753,7 @@ parser_request_headers = {
     'If-Unmodified-Since': (last, parseDateTime),
     'Max-Forwards': (last, int),
     'Prefer': (tokenize, listParser(parsePrefer), list),
-#    'Proxy-Authorization': str, # what is "credentials"
+    # 'Proxy-Authorization': str, # what is "credentials"
     'Range': (tokenize, parseRange),
     'Referer': (last, str), # TODO: URI object?
     'TE': (tokenize, listParser(parseAcceptQvalue), dict),
@@ -1777,7 +1777,7 @@ generator_request_headers = {
     'If-Unmodified-Since': (generateDateTime, singleHeader),
     'Max-Forwards': (str, singleHeader),
     'Prefer': (listGenerator(generatePrefer), singleHeader),
-#    'Proxy-Authorization': str, # what is "credentials"
+    # 'Proxy-Authorization': str, # what is "credentials"
     'Range': (generateRange, singleHeader),
     'Referer': (str, singleHeader),
     'TE': (iteritems, listGenerator(generateAcceptQvalue), singleHeader),
@@ -1789,7 +1789,7 @@ parser_response_headers = {
     'Age': (last, int),
     'ETag': (tokenize, ETag.parse),
     'Location': (last,), # TODO: URI object?
-#    'Proxy-Authenticate'
+    # 'Proxy-Authenticate'
     'Retry-After': (last, parseRetryAfter),
     'Server': (last,),
     'Set-Cookie': (parseSetCookie,),
@@ -1804,7 +1804,7 @@ generator_response_headers = {
     'Age': (str, singleHeader),
     'ETag': (ETag.generate, singleHeader),
     'Location': (str, singleHeader),
-#    'Proxy-Authenticate'
+    # 'Proxy-Authenticate'
     'Retry-After': (generateRetryAfter, singleHeader),
     'Server': (str, singleHeader),
     'Set-Cookie': (generateSetCookie,),
@@ -1825,7 +1825,7 @@ parser_entity_headers = {
     'Content-Type': (lambda hdr: tokenize(hdr, foldCase=False), parseContentType),
     'Expires': (last, parseExpires),
     'Last-Modified': (last, parseDateTime),
-    }
+}
 
 generator_entity_headers = {
     'Allow': (generateList, singleHeader),
@@ -1839,18 +1839,18 @@ generator_entity_headers = {
     'Content-Type': (generateContentType, singleHeader),
     'Expires': (generateDateTime, singleHeader),
     'Last-Modified': (generateDateTime, singleHeader),
-    }
+}
 
 parser_dav_headers = {
     'Brief'       : (last, parseBrief),
     'DAV'         : (tokenize, list),
     'Depth'       : (last, parseDepth),
     'Destination' : (last,), # TODO: URI object?
-   # 'If'          : (),
-   # 'Lock-Token'  : (),
+    # 'If'          : (),
+    # 'Lock-Token'  : (),
     'Overwrite'   : (last, parseOverWrite),
-   # 'Status-URI'  : (),
-   # 'Timeout'     : (),
+    # 'Status-URI'  : (),
+    # 'Timeout'     : (),
 }
 
 generator_dav_headers = {
@@ -1858,11 +1858,11 @@ generator_dav_headers = {
     'DAV'         : (generateList, singleHeader),
     'Depth'       : (singleHeader),
     'Destination' : (singleHeader),
-   # 'If'          : (),
-   # 'Lock-Token'  : (),
+    # 'If'          : (),
+    # 'Lock-Token'  : (),
     'Overwrite'   : (),
-   # 'Status-URI'  : (),
-   # 'Timeout'     : (),
+    # 'Status-URI'  : (),
+    # 'Timeout'     : (),
 }
 
 DefaultHTTPHandler.updateParsers(parser_general_headers)

@@ -7,10 +7,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -62,6 +62,7 @@ class MOVE(txweb2.dav.test.util.TestCase):
 
         return serialize(self.send, work(self, test))
 
+
     def test_MOVE_exists(self):
         """
         MOVE to existing resource.
@@ -75,6 +76,7 @@ class MOVE(txweb2.dav.test.util.TestCase):
                 pass
 
         return serialize(self.send, work(self, test, overwrite=False))
+
 
     def test_MOVE_overwrite(self):
         """
@@ -90,6 +92,7 @@ class MOVE(txweb2.dav.test.util.TestCase):
 
         return serialize(self.send, work(self, test, overwrite=True))
 
+
     def test_MOVE_no_parent(self):
         """
         MOVE to resource with no parent.
@@ -103,6 +106,8 @@ class MOVE(txweb2.dav.test.util.TestCase):
                 pass
 
         return serialize(self.send, work(self, test, dst=os.path.join(self.docroot, "elvislives!")))
+
+
 
 def work(self, test, overwrite=None, dst=None):
     return txweb2.dav.test.test_copy.work(self, test, overwrite, dst, depths=(None,))

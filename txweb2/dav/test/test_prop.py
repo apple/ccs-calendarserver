@@ -7,10 +7,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -37,8 +37,8 @@ import txweb2.dav.test.util
 
 # Remove dynamic live properties that exist
 dynamicLiveProperties = (
-    (dav_namespace, "quota-available-bytes"     ),
-    (dav_namespace, "quota-used-bytes"          ),
+    (dav_namespace, "quota-available-bytes"),
+    (dav_namespace, "quota-used-bytes"),
 )
 
 
@@ -49,6 +49,7 @@ class PROP(txweb2.dav.test.util.TestCase):
 
     def liveProperties(self):
         return [lookupElement(qname)() for qname in self.site.resource.liveProperties() if (qname[0] == dav_namespace) and qname not in dynamicLiveProperties]
+
 
     def test_PROPFIND_basic(self):
         """
@@ -114,6 +115,7 @@ class PROP(txweb2.dav.test.util.TestCase):
         request.stream = MemoryStream(query.toxml())
 
         return self.send(request, check_result)
+
 
     def test_PROPFIND_list(self):
         """
@@ -196,6 +198,7 @@ class PROP(txweb2.dav.test.util.TestCase):
 
         return serialize(self.send, work())
 
+
     def test_PROPPATCH_basic(self):
         """
         PROPPATCH
@@ -268,6 +271,7 @@ class PROP(txweb2.dav.test.util.TestCase):
         request.stream = MemoryStream(patch.toxml())
         return self.send(request, check_patch_response)
 
+
     def test_PROPPATCH_liveprop(self):
         """
         PROPPATCH on a live property
@@ -277,6 +281,7 @@ class PROP(txweb2.dav.test.util.TestCase):
 
         return self._simple_PROPPATCH(patch, prop, responsecode.FORBIDDEN, "edit of live property")
 
+
     def test_PROPPATCH_exists_not(self):
         """
         PROPPATCH remove a non-existant property
@@ -285,6 +290,7 @@ class PROP(txweb2.dav.test.util.TestCase):
         patch = davxml.PropertyUpdate(davxml.Remove(davxml.PropertyContainer(prop)))
 
         return self._simple_PROPPATCH(patch, prop, responsecode.OK, "remove of non-existant property")
+
 
     def _simple_PROPPATCH(self, patch, prop, expected_code, what):
         def check_result(response):
@@ -319,6 +325,8 @@ class PROP(txweb2.dav.test.util.TestCase):
         request = SimpleRequest(self.site, "PROPPATCH", "/")
         request.stream = MemoryStream(patch.toxml())
         return self.send(request, check_result)
+
+
 
 class SpiffyProperty (davxml.WebDAVTextElement):
     namespace = "http://twistedmatrix.com/ns/private/tests"

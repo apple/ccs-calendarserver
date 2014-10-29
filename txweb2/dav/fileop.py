@@ -7,10 +7,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -170,6 +170,8 @@ def delete(uri, filepath, depth="infinity"):
 
     return succeed(response)
 
+
+
 def copy(source_filepath, destination_filepath, destination_uri, depth):
     """
     Perform a X{COPY} from the given source and destination filepaths.
@@ -203,7 +205,7 @@ def copy(source_filepath, destination_filepath, destination_uri, depth):
                 Failure(),
                 "opening file for reading: %s" % (source_filepath.path,)
             ))
-    
+
         source_stream = FileStream(source_file)
         response = waitForDeferred(put(source_stream, destination_filepath, destination_uri))
         yield response
@@ -257,7 +259,7 @@ def copy(source_filepath, destination_filepath, destination_uri, depth):
                         "creating directory %s" % (destination_basename,)
                     ))
 
-                if depth == "0": 
+                if depth == "0":
                     yield success_code
                     return
         else:
@@ -279,7 +281,7 @@ def copy(source_filepath, destination_filepath, destination_uri, depth):
         def paths(basepath, subpath):
             source_path = os.path.join(basepath, subpath)
             assert source_path.startswith(source_basename)
-            destination_path = os.path.join(destination_basename, source_path[source_basename_len+1:])
+            destination_path = os.path.join(destination_basename, source_path[source_basename_len + 1:])
             return source_path, destination_path
 
         for dir, subdirs, files in os.walk(source_filepath.path, topdown=True):
@@ -493,6 +495,8 @@ def mkcollection(filepath):
 
     return succeed(responsecode.CREATED)
 
+
+
 def rmdir(dirname):
     """
     Removes the directory with the given name, as well as its contents.
@@ -510,6 +514,8 @@ def rmdir(dirname):
 
     os.rmdir(dirname)
 
+
+
 def checkResponse(response, method, *codes):
-    assert  response in codes, \
+    assert response in codes, \
         "%s() returned %r, but should have returned one of %r instead" % (method, response, codes)

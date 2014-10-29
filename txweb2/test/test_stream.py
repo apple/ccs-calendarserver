@@ -5,7 +5,9 @@
 Tests for the stream implementations in L{txweb2}.
 """
 
-import tempfile, sys, os
+import os
+import sys
+import tempfile
 
 from zope.interface import implements
 
@@ -22,6 +24,7 @@ def bufstr(data):
         return str(buffer(data))
     except TypeError:
         raise TypeError("%s doesn't conform to the buffer interface" % (data,))
+
 
 
 class SimpleStreamTests:
@@ -48,6 +51,7 @@ class SimpleStreamTests:
                 self.assertEquals(bufstr(b.read()), self.text[point + 2:8])
             self.assertEquals(b.read(), None)
 
+
     def test_read(self):
         s = self.makeStream()
         self.assertEquals(s.length, len(self.text))
@@ -66,9 +70,12 @@ class SimpleStreamTests:
         self.assertEquals(s.read(), None)
         self.assertEquals(s.length, 0)
 
+
+
 class FileStreamTest(SimpleStreamTests, unittest.TestCase):
     def makeStream(self, *args, **kw):
         return stream.FileStream(self.f, *args, **kw)
+
 
     def setUp(self):
         """
@@ -79,6 +86,7 @@ class FileStreamTest(SimpleStreamTests, unittest.TestCase):
         f.seek(0, 0)
         self.f = f
 
+
     def test_close(self):
         s = self.makeStream()
         s.close()
@@ -87,6 +95,7 @@ class FileStreamTest(SimpleStreamTests, unittest.TestCase):
         # Make sure close doesn't close file
         # would raise exception if f is closed
         self.f.seek(0, 0)
+
 
     def test_read2(self):
         s = self.makeStream(0)
@@ -108,12 +117,15 @@ class FileStreamTest(SimpleStreamTests, unittest.TestCase):
         self.assertEquals(bufstr(s.read()), self.text)
         self.assertRaises(RuntimeError, s.read) # ran out of data
 
+
+
 class MMapFileStreamTest(SimpleStreamTests, unittest.TestCase):
     text = SimpleStreamTests.text
     text = text * (stream.MMAP_THRESHOLD // len(text) + 1)
 
     def makeStream(self, *args, **kw):
         return stream.FileStream(self.f, *args, **kw)
+
 
     def setUp(self):
         """
@@ -125,6 +137,7 @@ class MMapFileStreamTest(SimpleStreamTests, unittest.TestCase):
         f.seek(0, 0)
         self.f = f
 
+
     def test_mmapwrapper(self):
         self.assertRaises(TypeError, stream.mmapwrapper)
         self.assertRaises(TypeError, stream.mmapwrapper, offset=0)
@@ -133,14 +146,18 @@ class MMapFileStreamTest(SimpleStreamTests, unittest.TestCase):
     if not stream.mmap:
         test_mmapwrapper.skip = 'mmap not supported here'
 
+
+
 class MemoryStreamTest(SimpleStreamTests, unittest.TestCase):
     def makeStream(self, *args, **kw):
         return stream.MemoryStream(self.text, *args, **kw)
+
 
     def test_close(self):
         s = self.makeStream()
         s.close()
         self.assertEquals(s.length, 0)
+
 
     def test_read2(self):
         self.assertRaises(ValueError, self.makeStream, 0, 20)
@@ -174,8 +191,10 @@ class TestBufferedStream(unittest.TestCase):
         s = stream.MemoryStream(self.data)
         self.s = stream.BufferedStream(s)
 
+
     def _cbGotData(self, data, expected):
         self.assertEqual(data, expected)
+
 
     def test_readline(self):
         """Test that readline reads a line."""
@@ -183,11 +202,13 @@ class TestBufferedStream(unittest.TestCase):
         d.addCallback(self._cbGotData, 'I was angry with my friend:\r\n')
         return d
 
+
     def test_readlineWithSize(self):
         """Test the size argument to readline"""
         d = self.s.readline(size=5)
         d.addCallback(self._cbGotData, 'I was')
         return d
+
 
     def test_readlineWithBigSize(self):
         """Test the size argument when it's bigger than the length of the line."""
@@ -195,24 +216,28 @@ class TestBufferedStream(unittest.TestCase):
         d.addCallback(self._cbGotData, 'I was angry with my friend:\r\n')
         return d
 
+
     def test_readlineWithZero(self):
         """Test readline with size = 0."""
         d = self.s.readline(size=0)
         d.addCallback(self._cbGotData, '')
         return d
 
+
     def test_readlineFinished(self):
         """Test readline on a finished stream."""
         nolines = len(self.data.split('\r\n'))
-        for i in range(nolines):
+        for _ in range(nolines):
             self.s.readline()
         d = self.s.readline()
         d.addCallback(self._cbGotData, '')
         return d
 
+
     def test_readlineNegSize(self):
         """Ensure that readline with a negative size raises an exception."""
         self.assertRaises(ValueError, self.s.readline, size=-1)
+
 
     def test_readlineSizeInDelimiter(self):
         """
@@ -224,11 +249,13 @@ class TestBufferedStream(unittest.TestCase):
         d.addCallback(lambda _: self.s.readline())
         d.addCallback(self._cbGotData, "\nI told my wrath, my wrath did end.\r\n")
 
+
     def test_readExactly(self):
         """Make sure readExactly with no arg reads all the data."""
         d = self.s.readExactly()
         d.addCallback(self._cbGotData, self.data)
         return d
+
 
     def test_readExactlyLimited(self):
         """
@@ -237,6 +264,7 @@ class TestBufferedStream(unittest.TestCase):
         d = self.s.readExactly(10)
         d.addCallback(self._cbGotData, self.data[:10])
         return d
+
 
     def test_readExactlyBig(self):
         """
@@ -247,6 +275,7 @@ class TestBufferedStream(unittest.TestCase):
         d.addCallback(self._cbGotData, self.data)
         return d
 
+
     def test_read(self):
         """
         Make sure read() also functions. (note that this test uses
@@ -254,6 +283,8 @@ class TestBufferedStream(unittest.TestCase):
         isn't guaranteed to return self.data on all streams.)
         """
         self.assertEqual(str(self.s.read()), self.data)
+
+
 
 class TestStreamer:
     implements(stream.IStream, stream.IByteStream)
@@ -266,17 +297,22 @@ class TestStreamer:
     def __init__(self, list):
         self.list = list
 
+
     def read(self):
         self.readCalled += 1
         if self.list:
             return self.list.pop(0)
         return None
 
+
     def close(self):
         self.closeCalled += 1
         self.list = []
 
+
+
 class FallbackSplitTest(unittest.TestCase):
+
     def test_split(self):
         s = TestStreamer(['abcd', defer.succeed('efgh'), 'ijkl'])
         left, right = stream.fallbackSplit(s, 5)
@@ -287,6 +323,7 @@ class FallbackSplitTest(unittest.TestCase):
         d.addCallback(self._cbSplit, left, right)
         return d
 
+
     def _cbSplit(self, result, left, right):
         self.assertEquals(bufstr(result), 'e')
         self.assertEquals(left.read(), None)
@@ -294,6 +331,7 @@ class FallbackSplitTest(unittest.TestCase):
         self.assertEquals(bufstr(right.read().result), 'fgh')
         self.assertEquals(bufstr(right.read()), 'ijkl')
         self.assertEquals(right.read(), None)
+
 
     def test_split2(self):
         s = TestStreamer(['abcd', defer.succeed('efgh'), 'ijkl'])
@@ -308,6 +346,7 @@ class FallbackSplitTest(unittest.TestCase):
         self.assertEquals(bufstr(right.read().result), 'efgh')
         self.assertEquals(bufstr(right.read()), 'ijkl')
         self.assertEquals(right.read(), None)
+
 
     def test_splitsplit(self):
         s = TestStreamer(['abcd', defer.succeed('efgh'), 'ijkl'])
@@ -329,6 +368,7 @@ class FallbackSplitTest(unittest.TestCase):
         self.assertEquals(bufstr(right.read()), 'ijkl')
         self.assertEquals(right.read(), None)
 
+
     def test_closeboth(self):
         s = TestStreamer(['abcd', defer.succeed('efgh'), 'ijkl'])
         left, right = stream.fallbackSplit(s, 5)
@@ -339,6 +379,7 @@ class FallbackSplitTest(unittest.TestCase):
         # Make sure nothing got read
         self.assertEquals(s.readCalled, 0)
         self.assertEquals(s.closeCalled, 1)
+
 
     def test_closeboth_rev(self):
         s = TestStreamer(['abcd', defer.succeed('efgh'), 'ijkl'])
@@ -351,6 +392,7 @@ class FallbackSplitTest(unittest.TestCase):
         self.assertEquals(s.readCalled, 0)
         self.assertEquals(s.closeCalled, 1)
 
+
     def test_closeleft(self):
         s = TestStreamer(['abcd', defer.succeed('efgh'), 'ijkl'])
         left, right = stream.fallbackSplit(s, 5)
@@ -359,10 +401,12 @@ class FallbackSplitTest(unittest.TestCase):
         d.addCallback(self._cbCloseleft, right)
         return d
 
+
     def _cbCloseleft(self, result, right):
         self.assertEquals(bufstr(result), 'fgh')
         self.assertEquals(bufstr(right.read()), 'ijkl')
         self.assertEquals(right.read(), None)
+
 
     def test_closeright(self):
         s = TestStreamer(['abcd', defer.succeed('efgh'), 'ijkl'])
@@ -375,10 +419,12 @@ class FallbackSplitTest(unittest.TestCase):
         self.assertEquals(s.closeCalled, 1)
 
 
+
 class ProcessStreamerTest(unittest.TestCase):
 
     if interfaces.IReactorProcess(reactor, None) is None:
         skip = "Platform lacks spawnProcess support, can't test process streaming."
+
 
     def runCode(self, code, inputStream=None):
         if inputStream is None:
@@ -386,6 +432,7 @@ class ProcessStreamerTest(unittest.TestCase):
         return stream.ProcessStreamer(inputStream, sys.executable,
                                       [sys.executable, "-u", "-c", code],
                                       os.environ)
+
 
     def test_output(self):
         p = self.runCode("import sys\nfor i in range(100): sys.stdout.write('x' * 1000)")
@@ -396,6 +443,7 @@ class ProcessStreamerTest(unittest.TestCase):
         d2 = p.run()
         return d.addCallback(verify).addCallback(lambda _: d2)
 
+
     def test_errouput(self):
         p = self.runCode("import sys\nfor i in range(100): sys.stderr.write('x' * 1000)")
         l = []
@@ -404,6 +452,7 @@ class ProcessStreamerTest(unittest.TestCase):
             self.assertEquals("".join(l), ("x" * 1000) * 100)
         p.run()
         return d.addCallback(verify)
+
 
     def test_input(self):
         p = self.runCode("import sys\nsys.stdout.write(sys.stdin.read())",
@@ -416,6 +465,7 @@ class ProcessStreamerTest(unittest.TestCase):
             return d2
         return d.addCallback(verify)
 
+
     def test_badexit(self):
         p = self.runCode("raise ValueError")
         l = []
@@ -425,6 +475,7 @@ class ProcessStreamerTest(unittest.TestCase):
             self.assert_(p.outStream.closed)
             self.assert_(p.errStream.closed)
         return p.run().addErrback(lambda _: _.trap(ProcessTerminated) and l.append(1)).addCallback(verify)
+
 
     def test_inputerror(self):
         p = self.runCode("import sys\nsys.stdout.write(sys.stdin.read())",
@@ -440,6 +491,7 @@ class ProcessStreamerTest(unittest.TestCase):
             self.assertEqual(len(excs), 1)
         return d.addCallback(verify).addCallback(cbVerified)
 
+
     def test_processclosedinput(self):
         p = self.runCode("import sys; sys.stdout.write(sys.stdin.read(3));" +
                          "sys.stdin.close(); sys.stdout.write('def')",
@@ -450,6 +502,7 @@ class ProcessStreamerTest(unittest.TestCase):
             self.assertEquals("".join(l), "abcdef")
         d2 = p.run()
         return d.addCallback(verify).addCallback(lambda _: d2)
+
 
 
 class AdapterTestCase(unittest.TestCase):
@@ -465,13 +518,16 @@ class AdapterTestCase(unittest.TestCase):
             self.assertEquals(s.read(), None)
 
 
+
 class ReadStreamTestCase(unittest.TestCase):
+
 
     def test_pull(self):
         l = []
         s = TestStreamer(['abcd', defer.succeed('efgh'), 'ijkl'])
         return stream.readStream(s, l.append).addCallback(
             lambda _: self.assertEquals(l, ["abcd", "efgh", "ijkl"]))
+
 
     def test_pullFailure(self):
         l = []
@@ -481,11 +537,14 @@ class ReadStreamTestCase(unittest.TestCase):
             self.assertEquals(l, ["abcd"])
         return stream.readStream(s, l.append).addErrback(test)
 
+
     def test_pullException(self):
         class Failer:
-            def read(self): raise RuntimeError
+            def read(self):
+                raise RuntimeError
         return stream.readStream(Failer(), lambda _: None).addErrback(
             lambda _: _.trap(RuntimeError))
+
 
     def test_processingException(self):
         s = TestStreamer(['abcd', defer.succeed('efgh'), 'ijkl'])
@@ -506,6 +565,7 @@ class ProducerStreamTestCase(unittest.TestCase):
         d.addErrback(lambda _: (l.append(1), _.trap(RuntimeError))).addCallback(
             lambda _: self.assertEquals(l, [1]))
         return d
+
 
 
 class CompoundStreamTest:
@@ -583,6 +643,7 @@ class CompoundStreamTest:
     """
 
 
+
 class AsynchronousDummyStream(object):
     """
     An L{IByteStream} implementation which always returns a
@@ -592,13 +653,17 @@ class AsynchronousDummyStream(object):
     def __init__(self):
         self._readResults = []
 
+
     def read(self):
         result = defer.Deferred()
         self._readResults.append(result)
         return result
 
+
     def _write(self, bytes):
         self._readResults.pop(0).callback(bytes)
+
+
 
 class MD5StreamTest(unittest.TestCase):
     """
@@ -621,6 +686,7 @@ class MD5StreamTest(unittest.TestCase):
         md5Stream.close()
 
         self.assertEquals(self.digest, md5Stream.getMD5())
+
 
     def test_asynchronous(self):
         """
@@ -648,6 +714,7 @@ class MD5StreamTest(unittest.TestCase):
 
         return result
 
+
     def test_getMD5FailsBeforeClose(self):
         """
         L{stream.MD5Stream.getMD5} raises L{RuntimeError} if called before
@@ -657,12 +724,14 @@ class MD5StreamTest(unittest.TestCase):
         md5Stream = stream.MD5Stream(dataStream)
         self.assertRaises(RuntimeError, md5Stream.getMD5)
 
+
     def test_initializationFailsWithoutStream(self):
         """
         L{stream.MD5Stream.__init__} raises L{ValueError} if passed C{None} as
         the stream to wrap.
         """
         self.assertRaises(ValueError, stream.MD5Stream, None)
+
 
     def test_readAfterClose(self):
         """

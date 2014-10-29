@@ -16,13 +16,13 @@ def addLocation(request, location):
             # Check to see whether we have an absolute URI or not.
             # If not, have the request turn it into an absolute URI.
             #
-            (scheme, host, path, params, querystring, fragment) = urlparse.urlparse(location)
+            (scheme, _ignore_host, _ignore_path, _ignore_params, _ignore_querystring, _ignore_fragment) = urlparse.urlparse(location)
 
             if scheme == "":
                 uri = request.unparseURL(path=location)
             else:
                 uri = location
-        
+
             response.headers.setHeader("location", uri)
 
         return response

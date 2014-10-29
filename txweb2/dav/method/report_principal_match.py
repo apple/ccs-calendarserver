@@ -8,10 +8,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -60,7 +60,7 @@ def report_DAV__principal_match(self, request, principal_match):
     if depth != "0":
         log.error("Non-zero depth is not allowed: %s" % (depth,))
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Depth %s not allowed" % (depth,)))
-    
+
     # Get a single DAV:prop element from the REPORT request body
     propertiesForResource = None
     propElement = None
@@ -98,19 +98,19 @@ def report_DAV__principal_match(self, request, principal_match):
         if lookForPrincipals:
 
             # Find the set of principals that represent "self".
-            
+
             # First add "self"
             principal = waitForDeferred(request.locateResource(str(myPrincipalURL)))
             yield principal
             principal = principal.getResult()
-            selfItems = [principal,]
-            
+            selfItems = [principal, ]
+
             # Get group memberships for "self" and add each of those
             d = waitForDeferred(principal.groupMemberships())
             yield d
             memberships = d.getResult()
             selfItems.extend(memberships)
-            
+
             # Now add each principal found to the response provided the principal resource is a child of
             # the current resource.
             for principal in selfItems:
@@ -118,7 +118,7 @@ def report_DAV__principal_match(self, request, principal_match):
                 # FIXME: making the assumption that the principalURL() is the URL of the resource we found
                 principal_uris = [principal.principalURL()]
                 principal_uris.extend(principal.alternateURIs())
-                
+
                 # Compare each one to the request URI and return at most one that matches
                 for uri in principal_uris:
                     if uri.startswith(request.uri):
@@ -126,7 +126,7 @@ def report_DAV__principal_match(self, request, principal_match):
                         matchcount += 1
                         if matchcount > max_number_of_matches:
                             raise NumberOfMatchesWithinLimits(max_number_of_matches)
-        
+
                         d = waitForDeferred(prop_common.responseForHref(
                             request,
                             responses,
@@ -144,9 +144,9 @@ def report_DAV__principal_match(self, request, principal_match):
             filteredaces = waitForDeferred(self.inheritedACEsforChildren(request))
             yield filteredaces
             filteredaces = filteredaces.getResult()
-        
+
             children = []
-            d = waitForDeferred(self.findChildren("infinity", request, lambda x, y: children.append((x,y)),
+            d = waitForDeferred(self.findChildren("infinity", request, lambda x, y: children.append((x, y)),
                                                   privileges=(element.Read(),), inherited_aces=filteredaces))
             yield d
             d.getResult()
@@ -157,7 +157,8 @@ def report_DAV__principal_match(self, request, principal_match):
                     prop = waitForDeferred(child.readProperty(principalPropElement.qname(), request))
                     yield prop
                     prop = prop.getResult()
-                    if prop: prop.removeWhitespaceNodes()
+                    if prop:
+                        prop.removeWhitespaceNodes()
 
                     if prop and len(prop.children) == 1 and isinstance(prop.children[0], element.HRef):
                         # Find principal associated with this property and test it

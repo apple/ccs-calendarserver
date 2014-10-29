@@ -22,6 +22,8 @@ from txweb2.test.test_server import SimpleRequest
 class PreconditionError (Exception):
     "Precondition Failure"
 
+
+
 class TestResource (RenderMixin):
     implements(IResource)
 
@@ -38,11 +40,14 @@ class TestResource (RenderMixin):
     def preconditions_BLEARGH(self, request):
         raise PreconditionError()
 
+
     def precondition_HUCKHUCKBLORP(self, request):
         return fail(None)
 
+
     def preconditions_SWEETHOOKUPS(self, request):
         return None
+
 
     def preconditions_HOOKUPS(self, request):
         return succeed(None)
@@ -54,10 +59,14 @@ class TestResource (RenderMixin):
         response.stream = MemoryStream(self.renderOutput)
         return response
 
+
+
 def generateResponse(method):
     resource = TestResource()
     method = getattr(resource, "http_" + method)
     return method(SimpleRequest(Site(resource), method, "/"))
+
+
 
 class RenderMixInTestCase (unittest.TestCase):
     """
@@ -130,6 +139,7 @@ class RenderMixInTestCase (unittest.TestCase):
         d = resource.renderHTTP(request)
         d.addCallback(checkResponse)
 
+
     def test_OPTIONS_status(self):
         """
         RenderMixin.http_OPTIONS()
@@ -137,6 +147,7 @@ class RenderMixInTestCase (unittest.TestCase):
         """
         response = generateResponse("OPTIONS")
         self.assertEquals(response.code, responsecode.OK)
+
 
     def test_OPTIONS_allow(self):
         """
@@ -148,6 +159,7 @@ class RenderMixInTestCase (unittest.TestCase):
             set(response.headers.getHeader("allow")),
             self._my_allowed_methods
         )
+
 
     def test_TRACE_status(self):
         """
@@ -177,6 +189,7 @@ class RenderMixInTestCase (unittest.TestCase):
         response = generateResponse("HEAD")
         self.assertEquals(response.code, responsecode.OK)
 
+
     def test_HEAD_body(self):
         """
         RenderMixin.http_HEAD()
@@ -198,6 +211,7 @@ class RenderMixInTestCase (unittest.TestCase):
         response = generateResponse("GET")
         self.assertEquals(response.code, responsecode.OK)
 
+
     def test_GET_body(self):
         """
         RenderMixin.http_GET()
@@ -208,6 +222,8 @@ class RenderMixInTestCase (unittest.TestCase):
             str(response.stream.read()),
             TestResource.renderOutput
         )
+
+
 
 class ResourceTestCase (unittest.TestCase):
     """
@@ -226,6 +242,8 @@ class ResourceTestCase (unittest.TestCase):
         raise NotImplementedError()
     test_child_nonsense.todo = "Someone should write this test"
 
+
+
 class PostableResourceTestCase (unittest.TestCase):
     """
     Test PostableResource.
@@ -233,6 +251,8 @@ class PostableResourceTestCase (unittest.TestCase):
     def test_POST(self):
         raise NotImplementedError()
     test_POST.todo = "Someone should write this test"
+
+
 
 class LeafResourceTestCase (unittest.TestCase):
     """
@@ -248,6 +268,8 @@ class LeafResourceTestCase (unittest.TestCase):
         )
         self.assertEquals(child, resource)
         self.assertEquals(segments, StopTraversal)
+
+
 
 class WrapperResourceTestCase (unittest.TestCase):
     """

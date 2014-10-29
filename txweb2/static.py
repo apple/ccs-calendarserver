@@ -29,8 +29,9 @@ I deal with static resources.
 """
 
 # System Imports
-import os, time
+import os
 import tempfile
+import time
 
 # Sibling Imports
 from txweb2 import http_headers, resource
@@ -53,11 +54,13 @@ class MetaDataMixin(object):
         """
         return succeed(None)
 
+
     def lastModified(self):
         """
         @return: The last modified time of the resource if available, None otherwise.
         """
         return None
+
 
     def creationDate(self):
         """
@@ -65,11 +68,13 @@ class MetaDataMixin(object):
         """
         return None
 
+
     def contentLength(self):
         """
         @return: The size in bytes of the resource if available, None otherwise.
         """
         return None
+
 
     def contentType(self):
         """
@@ -77,11 +82,13 @@ class MetaDataMixin(object):
         """
         return None
 
+
     def contentEncoding(self):
         """
         @return: The encoding of the resource if available, None otherwise.
         """
         return None
+
 
     def displayName(self):
         """
@@ -89,11 +96,14 @@ class MetaDataMixin(object):
         """
         return None
 
+
     def exists(self):
         """
         @return: True if the resource exists on the server, False otherwise.
         """
         return True
+
+
 
 class StaticRenderMixin(resource.RenderMixin, MetaDataMixin):
 
@@ -105,9 +115,9 @@ class StaticRenderMixin(resource.RenderMixin, MetaDataMixin):
             etag = (yield self.etag())
             http.checkPreconditions(
                 request,
-                entityExists = self.exists(),
-                etag = etag,
-                lastModified = self.lastModified(),
+                entityExists=self.exists(),
+                etag=etag,
+                lastModified=self.lastModified(),
             )
 
         # Check per-method preconditions
@@ -155,28 +165,36 @@ class Data(resource.Resource):
         self.type = http_headers.MimeType.fromString(type)
         self.created_time = time.time()
 
+
     def etag(self):
         lastModified = self.lastModified()
-        return succeed(http_headers.ETag("%X-%X" % (lastModified, hash(self.data)),
-                                            weak=(time.time() - lastModified <= 1)))
+        return succeed(http_headers.ETag(
+            "%X-%X" % (lastModified, hash(self.data)),
+            weak=(time.time() - lastModified <= 1)))
+
 
     def lastModified(self):
         return self.creationDate()
 
+
     def creationDate(self):
         return self.created_time
+
 
     def contentLength(self):
         return len(self.data)
 
+
     def contentType(self):
         return self.type
+
 
     def render(self, req):
         return http.Response(
             responsecode.OK,
             http_headers.Headers({'content-type': self.contentType()}),
             stream=self.data)
+
 
 
 class File(StaticRenderMixin):
@@ -207,7 +225,7 @@ class File(StaticRenderMixin):
     contentEncodings = {
         ".gz" : "gzip",
         ".bz2": "bzip2"
-        }
+    }
 
     processors = {}
 
@@ -233,23 +251,27 @@ class File(StaticRenderMixin):
             self.processors = dict([
                 (key.lower(), value)
                 for key, value in processors.items()
-                ])
+            ])
 
         if indexNames is not None:
             self.indexNames = indexNames
 
+
     def comparePath(self, path):
-        
+
         if isinstance(path, FilePath):
             return path.path == self.fp.path
         else:
             return path == self.fp.path
 
+
     def exists(self):
         return self.fp.exists()
 
+
     def etag(self):
-        if not self.fp.exists(): return succeed(None)
+        if not self.fp.exists():
+            return succeed(None)
 
         st = self.fp.statinfo
 
@@ -265,17 +287,20 @@ class File(StaticRenderMixin):
             weak=weak
         ))
 
+
     def lastModified(self):
         if self.fp.exists():
             return self.fp.getmtime()
         else:
             return None
 
+
     def creationDate(self):
         if self.fp.exists():
             return self.fp.getmtime()
         else:
             return None
+
 
     def contentLength(self):
         if self.fp.exists():
@@ -288,6 +313,7 @@ class File(StaticRenderMixin):
         else:
             return None
 
+
     def _initTypeAndEncoding(self):
         self._type, self._encoding = getTypeAndEncoding(
             self.fp.basename(),
@@ -297,23 +323,28 @@ class File(StaticRenderMixin):
         )
 
         # Handle cases not covered by getTypeAndEncoding()
-        if self.fp.isdir(): self._type = "httpd/unix-directory"
+        if self.fp.isdir():
+            self._type = "httpd/unix-directory"
+
 
     def contentType(self):
         if not hasattr(self, "_type"):
             self._initTypeAndEncoding()
         return http_headers.MimeType.fromString(self._type)
 
+
     def contentEncoding(self):
         if not hasattr(self, "_encoding"):
             self._initTypeAndEncoding()
         return self._encoding
+
 
     def displayName(self):
         if self.fp.exists():
             return self.fp.basename()
         else:
             return None
+
 
     def ignoreExt(self, ext):
         """Ignore the given extension.
@@ -331,6 +362,7 @@ class File(StaticRenderMixin):
         """
         self.putChildren[name] = child
 
+
     def getChild(self, name):
         """
         Look up a child resource.
@@ -340,7 +372,8 @@ class File(StaticRenderMixin):
             return self
 
         child = self.putChildren.get(name, None)
-        if child: return child
+        if child:
+            return child
 
         child_fp = self.fp.child(name)
         if hasattr(self, "knownChildren"):
@@ -350,6 +383,7 @@ class File(StaticRenderMixin):
             return self.createSimilarFile(child_fp)
         else:
             return None
+
 
     def listChildren(self):
         """
@@ -361,19 +395,22 @@ class File(StaticRenderMixin):
             self.knownChildren = set(children)
         return children
 
+
     def locateChild(self, req, segments):
         """
         See L{IResource}C{.locateChild}.
         """
         # If getChild() finds a child resource, return it
         child = self.getChild(segments[0])
-        if child is not None: return (child, segments[1:])
+        if child is not None:
+            return (child, segments[1:])
 
         # If we're not backed by a directory, we have no children.
         # But check for existance first; we might be a collection resource
         # that the request wants created.
         self.fp.restat(False)
-        if self.fp.exists() and not self.fp.isdir(): return (None, ())
+        if self.fp.exists() and not self.fp.isdir():
+            return (None, ())
 
         # OK, we need to return a child corresponding to the first segment
         path = segments[0]
@@ -400,9 +437,11 @@ class File(StaticRenderMixin):
 
         return self.createSimilarFile(fpath.path), segments[1:]
 
+
     def renderHTTP(self, req):
         self.fp.changed()
         return super(File, self).renderHTTP(req)
+
 
     def render(self, req):
         """You know what you doing."""
@@ -412,7 +451,7 @@ class File(StaticRenderMixin):
         if self.fp.isdir():
             if req.path[-1] != "/":
                 # Redirect to include trailing '/' in URI
-                return http.RedirectResponse(req.unparseURL(path=req.path+'/'))
+                return http.RedirectResponse(req.unparseURL(path=req.path + '/'))
             else:
                 ifp = self.fp.childSearchPreauth(*self.indexNames)
                 if ifp:
@@ -450,9 +489,11 @@ class File(StaticRenderMixin):
 
         return response
 
+
     def createSimilarFile(self, path):
         return self.__class__(path, self.defaultType, self.ignoredExts,
                               self.processors, self.indexNames[:])
+
 
 
 class FileSaver(resource.PostableResource):
@@ -467,6 +508,7 @@ class FileSaver(resource.PostableResource):
         self.expectedFields = expectedFields
         self.permissions = permissions
 
+
     def makeUniqueName(self, filename):
         """Called when a unique filename is needed.
 
@@ -477,6 +519,7 @@ class FileSaver(resource.PostableResource):
         """
 
         return tempfile.mktemp(suffix=os.path.splitext(filename)[1], dir=self.destination)
+
 
     def isSafeToWrite(self, filename, mimetype, filestream):
         """Returns True if it's "safe" to write this file,
@@ -493,6 +536,7 @@ class FileSaver(resource.PostableResource):
 
         return True
 
+
     def writeFile(self, filename, mimetype, fileobject):
         """Does the I/O dirty work after it calls isSafeToWrite to make
         sure it's safe to write this file.
@@ -505,10 +549,11 @@ class FileSaver(resource.PostableResource):
             flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
 
             fileobject = os.fdopen(os.open(outname, flags, self.permissions), 'wb', 0)
-                
+
             stream.readIntoFile(filestream, fileobject)
 
         return outname
+
 
     def render(self, req):
         content = ["<html><body>"]
@@ -560,11 +605,15 @@ dangerousPathError = http.HTTPError(responsecode.NOT_FOUND) #"Invalid request UR
 def isDangerous(path):
     return path == '..' or '/' in path or os.sep in path
 
+
+
 def addSlash(request):
     return "http%s://%s%s/" % (
         request.isSecure() and 's' or '',
         request.getHeader("host"),
         (request.uri.split('?')[0]))
+
+
 
 def loadMimeTypes(mimetype_locations=['/etc/mime.types']):
     """
@@ -580,18 +629,18 @@ def loadMimeTypes(mimetype_locations=['/etc/mime.types']):
     # usual suspects.
     contentTypes.update(
         {
-            '.conf':  'text/plain',
-            '.diff':  'text/plain',
-            '.exe':   'application/x-executable',
-            '.flac':  'audio/x-flac',
-            '.java':  'text/plain',
-            '.ogg':   'application/ogg',
-            '.oz':    'text/x-oz',
-            '.swf':   'application/x-shockwave-flash',
-            '.tgz':   'application/x-gtar',
-            '.wml':   'text/vnd.wap.wml',
-            '.xul':   'application/vnd.mozilla.xul+xml',
-            '.py':    'text/plain',
+            '.conf': 'text/plain',
+            '.diff': 'text/plain',
+            '.exe': 'application/x-executable',
+            '.flac': 'audio/x-flac',
+            '.java': 'text/plain',
+            '.ogg': 'application/ogg',
+            '.oz': 'text/x-oz',
+            '.swf': 'application/x-shockwave-flash',
+            '.tgz': 'application/x-gtar',
+            '.wml': 'text/vnd.wap.wml',
+            '.xul': 'application/vnd.mozilla.xul+xml',
+            '.py': 'text/plain',
             '.patch': 'text/plain',
         }
     )
@@ -603,10 +652,12 @@ def loadMimeTypes(mimetype_locations=['/etc/mime.types']):
 
     return contentTypes
 
+
+
 def getTypeAndEncoding(filename, types, encodings, defaultType):
     p, ext = os.path.splitext(filename)
     ext = ext.lower()
-    if encodings.has_key(ext):
+    if ext in encodings:
         enc = encodings[ext]
         ext = os.path.splitext(p)[1].lower()
     else:

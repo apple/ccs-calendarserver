@@ -7,10 +7,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -70,7 +70,8 @@ class COPY(txweb2.dav.test.util.TestCase):
                     for filename in os.listdir(dst_path):
                         self.fail("COPY %s (depth=%r) shouldn't copy directory contents (eg. %s)" % (uri, depth, filename))
 
-                else: raise AssertionError("Unknown depth: %r" % (depth,))
+                else:
+                    raise AssertionError("Unknown depth: %r" % (depth,))
 
                 rmdir(dst_path)
 
@@ -79,6 +80,7 @@ class COPY(txweb2.dav.test.util.TestCase):
                           % (path,))
 
         return serialize(self.send, work(self, test))
+
 
     def test_COPY_exists(self):
         """
@@ -93,6 +95,7 @@ class COPY(txweb2.dav.test.util.TestCase):
                 pass
 
         return serialize(self.send, work(self, test, overwrite=False))
+
 
     def test_COPY_overwrite(self):
         """
@@ -110,6 +113,7 @@ class COPY(txweb2.dav.test.util.TestCase):
 
         return serialize(self.send, work(self, test, overwrite=True))
 
+
     def test_COPY_no_parent(self):
         """
         COPY to resource with no parent.
@@ -124,13 +128,16 @@ class COPY(txweb2.dav.test.util.TestCase):
 
         return serialize(self.send, work(self, test, dst=os.path.join(self.docroot, "elvislives!")))
 
+
+
 def work(self, test, overwrite=None, dst=None, depths=("0", "infinity", None)):
     if dst is None:
         dst = os.path.join(self.docroot, "dst")
         os.mkdir(dst)
 
     for basename in os.listdir(self.docroot):
-        if basename == "dst": continue
+        if basename == "dst":
+            continue
 
         uri = urllib.quote("/" + basename)
         path = os.path.join(self.docroot, basename)
@@ -159,6 +166,8 @@ def work(self, test, overwrite=None, dst=None, depths=("0", "infinity", None)):
                 request.headers.setHeader("overwrite", overwrite)
 
             yield (request, do_test)
+
+
 
 def sumFile(path):
     m = md5()

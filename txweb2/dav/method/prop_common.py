@@ -59,8 +59,10 @@ def propertyListForResource(request, prop, resource):
     @param resource: the L{DAVFile} for the targetted resource.
     @return: a map of OK and NOT FOUND property values.
     """
-    
+
     return _namedPropertiesForResource(request, prop.children, resource)
+
+
 
 def _namedPropertiesForResource(request, props, resource):
     """
@@ -74,13 +76,13 @@ def _namedPropertiesForResource(request, props, resource):
         responsecode.OK        : [],
         responsecode.NOT_FOUND : [],
     }
-    
+
     for property in props:
         if isinstance(property, element.WebDAVElement):
             qname = property.qname()
         else:
             qname = property
-    
+
         props = waitForDeferred(resource.listProperties(request))
         yield props
         props = props.getResult()
@@ -96,11 +98,12 @@ def _namedPropertiesForResource(request, props, resource):
                 if status != responsecode.NOT_FOUND:
                     log.error("Error reading property %r for resource %s: %s" %
                               (qname, request.uri, f.value))
-                if status not in properties_by_status: properties_by_status[status] = []
+                if status not in properties_by_status:
+                    properties_by_status[status] = []
                 properties_by_status[status].append(propertyName(qname))
         else:
             properties_by_status[responsecode.NOT_FOUND].append(propertyName(qname))
-    
+
     yield properties_by_status
 
 _namedPropertiesForResource = deferredGenerator(_namedPropertiesForResource)

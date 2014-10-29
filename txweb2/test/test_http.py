@@ -1,7 +1,9 @@
 
 from __future__ import nested_scopes
 
-import time, sys, os
+import os
+import sys
+import time
 
 from zope.interface import implements
 
@@ -20,6 +22,7 @@ from twisted.internet.task import deferLater
 
 class RedirectResponseTestCase(unittest.TestCase):
 
+
     def testTemporary(self):
         """
         Verify the "temporary" parameter sets the appropriate response code
@@ -28,6 +31,8 @@ class RedirectResponseTestCase(unittest.TestCase):
         self.assertEquals(req.code, responsecode.MOVED_PERMANENTLY)
         req = http.RedirectResponse("http://example.com/", temporary=True)
         self.assertEquals(req.code, responsecode.TEMPORARY_REDIRECT)
+
+
 
 class PreconditionTestCase(unittest.TestCase):
     def checkPreconditions(self, request, response, expectedResult, expectedCode,
@@ -40,6 +45,7 @@ class PreconditionTestCase(unittest.TestCase):
             preconditionsPass = False
             self.assertEquals(e.response.code, expectedCode)
         self.assertEquals(preconditionsPass, expectedResult)
+
 
     def testWithoutHeaders(self):
         request = http.Request(None, "GET", "/", "HTTP/1.1", 0, http_headers.Headers())
@@ -58,6 +64,7 @@ class PreconditionTestCase(unittest.TestCase):
         out_headers.setHeader("ETag", http_headers.ETag('foo'))
         self.checkPreconditions(request, response, True, responsecode.OK)
 
+
     def testIfMatch(self):
         request = http.Request(None, "GET", "/", "HTTP/1.1", 0, http_headers.Headers())
         out_headers = http_headers.Headers()
@@ -72,7 +79,7 @@ class PreconditionTestCase(unittest.TestCase):
         request.headers.setRawHeaders("If-Match", ('"frob"',))
         self.checkPreconditions(request, response, False, responsecode.PRECONDITION_FAILED)
 
-        ## Actually set the ETag header
+        # Actually set the ETag header
         out_headers.setHeader("ETag", http_headers.ETag('foo'))
         out_headers.setHeader("Last-Modified", 946771200) # Sun, 02 Jan 2000 00:00:00 GMT
 
@@ -98,6 +105,7 @@ class PreconditionTestCase(unittest.TestCase):
         out_headers.setHeader("ETag", http_headers.ETag('foo', weak=True))
         request.headers.setRawHeaders("If-Match", ('W/"foo"',))
         self.checkPreconditions(request, response, False, responsecode.PRECONDITION_FAILED)
+
 
     def testIfUnmodifiedSince(self):
         request = http.Request(None, "GET", "/", "HTTP/1.1", 0, http_headers.Headers())
@@ -149,9 +157,9 @@ class PreconditionTestCase(unittest.TestCase):
         self.checkPreconditions(request, response, False, responsecode.NOT_MODIFIED)
 
         # With a non-GET method
-        request.method="PUT"
+        request.method = "PUT"
         self.checkPreconditions(request, response, False, responsecode.NOT_MODIFIED)
-        request.method="GET"
+        request.method = "GET"
 
         request.headers.setRawHeaders("If-Modified-Since", ('Sat, 01 Jan 2000 00:00:00 GMT',))
         self.checkPreconditions(request, response, True, responsecode.OK)
@@ -169,6 +177,7 @@ class PreconditionTestCase(unittest.TestCase):
         request.headers.setHeader("If-Modified-Since", time.time() + 500)
         self.checkPreconditions(request, response, True, responsecode.OK)
 
+
     def testIfNoneMatch(self):
         request = http.Request(None, "GET", "/", "HTTP/1.1", 0, http_headers.Headers())
         out_headers = http_headers.Headers()
@@ -182,24 +191,24 @@ class PreconditionTestCase(unittest.TestCase):
 
         # behavior of entityExists
         request.headers.setRawHeaders("If-None-Match", ('*',))
-        request.method="PUT"
+        request.method = "PUT"
         self.checkPreconditions(request, response, False, responsecode.PRECONDITION_FAILED)
-        request.method="GET"
+        request.method = "GET"
         self.checkPreconditions(request, response, False, responsecode.NOT_MODIFIED)
         self.checkPreconditions(request, response, True, responsecode.OK, entityExists=False)
 
         # tag matches
         request.headers.setRawHeaders("If-None-Match", ('"frob", "foo"',))
-        request.method="PUT"
+        request.method = "PUT"
         self.checkPreconditions(request, response, False, responsecode.PRECONDITION_FAILED)
-        request.method="GET"
+        request.method = "GET"
         self.checkPreconditions(request, response, False, responsecode.NOT_MODIFIED)
 
         # now with IMS, also:
         request.headers.setRawHeaders("If-Modified-Since", ('Mon, 03 Jan 2000 00:00:00 GMT',))
-        request.method="PUT"
+        request.method = "PUT"
         self.checkPreconditions(request, response, False, responsecode.PRECONDITION_FAILED)
-        request.method="GET"
+        request.method = "GET"
         self.checkPreconditions(request, response, False, responsecode.NOT_MODIFIED)
 
         request.headers.setRawHeaders("If-Modified-Since", ('Sat, 01 Jan 2000 00:00:00 GMT',))
@@ -232,15 +241,16 @@ class PreconditionTestCase(unittest.TestCase):
         self.checkPreconditions(request, response, False, responsecode.NOT_MODIFIED)
 
         # Weak tags not okay for other methods
-        request.method="PUT"
+        request.method = "PUT"
         out_headers.setHeader("ETag", http_headers.ETag('foo', weak=True))
         request.headers.setRawHeaders("If-None-Match", ('W/"foo"',))
         self.checkPreconditions(request, response, True, responsecode.OK)
 
+
     def testNoResponse(self):
         # Ensure that passing etag/lastModified arguments instead of response works.
         request = http.Request(None, "GET", "/", "HTTP/1.1", 0, http_headers.Headers())
-        request.method="PUT"
+        request.method = "PUT"
         request.headers.setRawHeaders("If-None-Match", ('"foo"',))
 
         self.checkPreconditions(request, None, True, responsecode.OK)
@@ -249,9 +259,11 @@ class PreconditionTestCase(unittest.TestCase):
                                 lastModified=946771200)
 
         # Make sure that, while you shoudn't do this, that it doesn't cause an error
-        request.method="GET"
+        request.method = "GET"
         self.checkPreconditions(request, None, False, responsecode.NOT_MODIFIED,
                                 etag=http_headers.ETag('foo'))
+
+
 
 class IfRangeTestCase(unittest.TestCase):
     def testIfRange(self):
@@ -302,6 +314,7 @@ class IfRangeTestCase(unittest.TestCase):
 class LoopbackRelay(loopback.LoopbackRelay):
     implements(interfaces.IProducer)
 
+
     def pauseProducing(self):
         self.paused = True
 
@@ -330,6 +343,7 @@ class LoopbackRelay(loopback.LoopbackRelay):
         return address.IPv4Address('TCP', 'localhost', 4321)
 
 
+
 class TestRequestMixin(object):
     def __init__(self, *args, **kwargs):
         super(TestRequestMixin, self).__init__(*args, **kwargs)
@@ -338,19 +352,26 @@ class TestRequestMixin(object):
         headers.sort()
         self.cmds.append(('init', self.method, self.uri, self.clientproto, self.stream.length, tuple(headers)))
 
+
     def process(self):
         pass
+
+
     def handleContentChunk(self, data):
         self.cmds.append(('contentChunk', data))
+
 
     def handleContentComplete(self):
         self.cmds.append(('contentComplete',))
 
+
     def connectionLost(self, reason):
         self.cmds.append(('connectionLost', reason))
 
+
     def _finished(self, x):
         self._reallyFinished(x)
+
 
 
 class TestRequest(TestRequestMixin, http.Request):
@@ -359,10 +380,12 @@ class TestRequest(TestRequestMixin, http.Request):
     """
 
 
+
 class TestSSLRedirectRequest(TestRequestMixin, SSLRedirectRequest):
     """
     Stub request for HSTS testing.
     """
+
 
 
 class TestResponse(object):
@@ -371,33 +394,44 @@ class TestResponse(object):
     code = responsecode.OK
     headers = None
 
+
     def __init__(self):
         self.headers = http_headers.Headers()
         self.stream = stream.ProducerStream()
 
+
     def write(self, data):
         self.stream.write(data)
 
+
     def finish(self):
         self.stream.finish()
+
+
 
 class TestClient(protocol.Protocol):
     data = ""
     done = False
 
+
     def dataReceived(self, data):
-        self.data+=data
+        self.data += data
+
 
     def write(self, data):
         self.transport.write(data)
+
 
     def connectionLost(self, reason):
         self.done = True
         self.transport.loseConnection()
 
+
     def loseConnection(self):
         self.done = True
         self.transport.loseConnection()
+
+
 
 class TestConnection:
     def __init__(self):
@@ -405,13 +439,17 @@ class TestConnection:
         self.client = None
         self.callLaters = []
 
+
     def fakeCallLater(self, secs, f):
         assert secs == 0
         self.callLaters.append(f)
 
+
+
 class HTTPTests(unittest.TestCase):
 
     requestClass = TestRequest
+
 
     def setUp(self):
         super(HTTPTests, self).setUp()
@@ -441,6 +479,7 @@ class HTTPTests(unittest.TestCase):
 
         return cxn
 
+
     def iterate(self, cxn):
         callLaters = cxn.callLaters
         cxn.callLaters = []
@@ -452,6 +491,7 @@ class HTTPTests(unittest.TestCase):
             cxn.serverToClient.clearBuffer()
         if cxn.clientToServer.shouldLose:
             cxn.clientToServer.clearBuffer()
+
 
     def compareResult(self, cxn, cmds, data):
         self.iterate(cxn)
@@ -467,15 +507,19 @@ class HTTPTests(unittest.TestCase):
             self.assertEquals(receivedRequest.cmds, sortedHeaderCommands)
         self.assertEquals(cxn.client.data, data)
 
+
     def assertDone(self, cxn, done=True):
         self.iterate(cxn)
         self.assertEquals(cxn.client.done, done)
 
 
+
 class GracefulShutdownTestCase(HTTPTests):
+
 
     def _callback(self, result):
         self.callbackFired = True
+
 
     def testAllConnectionsClosedWithoutConnectedChannels(self):
         """
@@ -486,6 +530,7 @@ class GracefulShutdownTestCase(HTTPTests):
         factory = HTTPFactory(None)
         factory.allConnectionsClosed().addCallback(self._callback)
         self.assertTrue(self.callbackFired)  # now!
+
 
     def testallConnectionsClosedWithConnectedChannels(self):
         """
@@ -511,10 +556,12 @@ class GracefulShutdownTestCase(HTTPTests):
         self.assertTrue(self.callbackFired)  # now!
 
 
+
 class CoreHTTPTestCase(HTTPTests):
     # Note: these tests compare the client output using string
     #       matching. It is acceptable for this to change and break
     #       the test if you know what you are doing.
+
 
     def testHTTP0_9(self, nouri=False):
         cxn = self.connect()
@@ -528,7 +575,7 @@ class CoreHTTPTestCase(HTTPTests):
         # Second request which should not be handled
         cxn.client.write("GET /two\r\n")
 
-        cmds[0] += [('init', 'GET', '/', (0,9), 0, ()), ('contentComplete',)]
+        cmds[0] += [('init', 'GET', '/', (0, 9), 0, ()), ('contentComplete',)]
         self.compareResult(cxn, cmds, data)
 
         response = TestResponse()
@@ -547,8 +594,10 @@ class CoreHTTPTestCase(HTTPTests):
 
         self.assertDone(cxn)
 
+
     def testHTTP0_9_nouri(self):
         self.testHTTP0_9(True)
+
 
     def testHTTP1_0(self):
         cxn = self.connect()
@@ -559,7 +608,7 @@ class CoreHTTPTestCase(HTTPTests):
         # Second request which should not be handled
         cxn.client.write("GET /two HTTP/1.0\r\n\r\n")
 
-        cmds[0] += [('init', 'GET', '/', (1,0), 5,
+        cmds[0] += [('init', 'GET', '/', (1, 0), 5,
                      (('Host', ['localhost']),)),
                     ('contentChunk', 'Input'),
                     ('contentComplete',)]
@@ -582,6 +631,7 @@ class CoreHTTPTestCase(HTTPTests):
 
         self.assertDone(cxn)
 
+
     def testHTTP1_0_keepalive(self):
         cxn = self.connect()
         cmds = [[]]
@@ -592,14 +642,14 @@ class CoreHTTPTestCase(HTTPTests):
         # Third request shouldn't be handled
         cxn.client.write("GET /three HTTP/1.0\r\n\r\n")
 
-        cmds[0] += [('init', 'GET', '/', (1,0), 5,
+        cmds[0] += [('init', 'GET', '/', (1, 0), 5,
                      (('Host', ['localhost']),)),
                     ('contentChunk', 'Input'),
                     ('contentComplete',)]
         self.compareResult(cxn, cmds, data)
 
         response0 = TestResponse()
-        response0.headers.setRawHeaders("Content-Length", ("6", ))
+        response0.headers.setRawHeaders("Content-Length", ("6",))
         response0.headers.setRawHeaders("Yo", ("One", "Two"))
         cxn.requests[0].writeResponse(response0)
         response0.write("")
@@ -615,13 +665,13 @@ class CoreHTTPTestCase(HTTPTests):
 
         # Now for second request:
         cmds.append([])
-        cmds[1] += [('init', 'GET', '/two', (1,0), 0, ()), 
+        cmds[1] += [('init', 'GET', '/two', (1, 0), 0, ()),
                     ('contentComplete',)]
         self.compareResult(cxn, cmds, data)
 
 
         response1 = TestResponse()
-        response1.headers.setRawHeaders("Content-Length", ("0", ))
+        response1.headers.setRawHeaders("Content-Length", ("0",))
         cxn.requests[1].writeResponse(response1)
         response1.write("")
 
@@ -630,6 +680,7 @@ class CoreHTTPTestCase(HTTPTests):
         response1.finish()
 
         self.assertDone(cxn)
+
 
     def testHTTP1_1_pipelining(self):
         cxn = self.connect(maxPipeline=2)
@@ -645,19 +696,19 @@ class CoreHTTPTestCase(HTTPTests):
         cxn.client.write("GET /four HTTP/1.1\r\nHost: localhost\r\n\r\n")
 
         cmds.append([])
-        cmds[0] += [('init', 'GET', '/', (1,1), 5, 
+        cmds[0] += [('init', 'GET', '/', (1, 1), 5,
                      (('Host', ['localhost']),)),
                     ('contentChunk', 'Input'),
                     ('contentComplete',)]
         cmds.append([])
-        cmds[1] += [('init', 'GET', '/two', (1,1), 0, 
+        cmds[1] += [('init', 'GET', '/two', (1, 1), 0,
                      (('Host', ['localhost']),)),
                     ('contentComplete',)]
 
         self.compareResult(cxn, cmds, data)
 
         response0 = TestResponse()
-        response0.headers.setRawHeaders("Content-Length", ("6", ))
+        response0.headers.setRawHeaders("Content-Length", ("6",))
         cxn.requests[0].writeResponse(response0)
         response0.write("")
 
@@ -672,7 +723,7 @@ class CoreHTTPTestCase(HTTPTests):
 
         # Now the third request gets read:
         cmds.append([])
-        cmds[2] += [('init', 'GET', '/three', (1,1), 0,
+        cmds[2] += [('init', 'GET', '/three', (1, 1), 0,
                      (('Host', ['localhost']),)),
                     ('contentComplete',)]
         self.compareResult(cxn, cmds, data)
@@ -680,7 +731,7 @@ class CoreHTTPTestCase(HTTPTests):
         # Let's write out the third request before the second.
         # This should not cause anything to be written to the client.
         response2 = TestResponse()
-        response2.headers.setRawHeaders("Content-Length", ("5", ))
+        response2.headers.setRawHeaders("Content-Length", ("5",))
         cxn.requests[2].writeResponse(response2)
 
         response2.write("Three")
@@ -689,7 +740,7 @@ class CoreHTTPTestCase(HTTPTests):
         self.compareResult(cxn, cmds, data)
 
         response1 = TestResponse()
-        response1.headers.setRawHeaders("Content-Length", ("3", ))
+        response1.headers.setRawHeaders("Content-Length", ("3",))
         cxn.requests[1].writeResponse(response1)
         response1.write("Two")
 
@@ -700,7 +751,7 @@ class CoreHTTPTestCase(HTTPTests):
 
         # Fourth request shows up
         cmds.append([])
-        cmds[3] += [('init', 'GET', '/four', (1,1), 0,
+        cmds[3] += [('init', 'GET', '/four', (1, 1), 0,
                      (('Host', ['localhost']),)),
                     ('contentComplete',)]
         data += "HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nThree"
@@ -718,20 +769,21 @@ class CoreHTTPTestCase(HTTPTests):
         cxn.client.loseConnection()
         self.assertDone(cxn)
 
+
     def testHTTP1_1_chunking(self, extraHeaders=""):
         cxn = self.connect()
         cmds = [[]]
         data = ""
         cxn.client.write("GET / HTTP/1.1\r\nTransfer-Encoding: chunked\r\nHost: localhost\r\n\r\n5\r\nInput\r\n")
 
-        cmds[0] += [('init', 'GET', '/', (1,1), None,
+        cmds[0] += [('init', 'GET', '/', (1, 1), None,
                      (('Host', ['localhost']),)),
                     ('contentChunk', 'Input')]
 
         self.compareResult(cxn, cmds, data)
 
         cxn.client.write("1; blahblahblah\r\na\r\n10\r\nabcdefghijklmnop\r\n")
-        cmds[0] += [('contentChunk', 'a'),('contentChunk', 'abcdefghijklmnop')]
+        cmds[0] += [('contentChunk', 'a'), ('contentChunk', 'abcdefghijklmnop')]
         self.compareResult(cxn, cmds, data)
 
         cxn.client.write("0\r\nRandom-Ignored-Trailer: foo\r\n\r\n")
@@ -765,12 +817,13 @@ class CoreHTTPTestCase(HTTPTests):
         cxn.client.loseConnection()
         self.assertDone(cxn)
 
+
     def testHTTP1_1_expect_continue(self):
         cxn = self.connect()
         cmds = [[]]
         data = ""
         cxn.client.write("GET / HTTP/1.1\r\nContent-Length: 5\r\nHost: localhost\r\nExpect: 100-continue\r\n\r\n")
-        cmds[0] += [('init', 'GET', '/', (1,1), 5,
+        cmds[0] += [('init', 'GET', '/', (1, 1), 5,
                      (('Expect', ['100-continue']), ('Host', ['localhost'])))]
         self.compareResult(cxn, cmds, data)
 
@@ -795,12 +848,13 @@ class CoreHTTPTestCase(HTTPTests):
         cxn.client.loseConnection()
         self.assertDone(cxn)
 
+
     def testHTTP1_1_expect_continue_early_reply(self):
         cxn = self.connect()
         cmds = [[]]
         data = ""
         cxn.client.write("GET / HTTP/1.1\r\nContent-Length: 5\r\nHost: localhost\r\nExpect: 100-continue\r\n\r\n")
-        cmds[0] += [('init', 'GET', '/', (1,1), 5,
+        cmds[0] += [('init', 'GET', '/', (1, 1), 5,
                      (('Host', ['localhost']), ('Expect', ['100-continue'])))]
         self.compareResult(cxn, cmds, data)
 
@@ -817,13 +871,14 @@ class CoreHTTPTestCase(HTTPTests):
         cxn.client.loseConnection()
         self.assertDone(cxn)
 
+
     def testHeaderContinuation(self):
         cxn = self.connect()
         cmds = [[]]
         data = ""
 
         cxn.client.write("GET / HTTP/1.1\r\nHost: localhost\r\nFoo: yada\r\n yada\r\n\r\n")
-        cmds[0] += [('init', 'GET', '/', (1,1), 0,
+        cmds[0] += [('init', 'GET', '/', (1, 1), 0,
                      (('Host', ['localhost']), ('Foo', ['yada yada']),)),
                     ('contentComplete',)]
         self.compareResult(cxn, cmds, data)
@@ -831,23 +886,26 @@ class CoreHTTPTestCase(HTTPTests):
         cxn.client.loseConnection()
         self.assertDone(cxn)
 
+
     def testTimeout_immediate(self):
         # timeout 0 => timeout on first iterate call
-        cxn = self.connect(inputTimeOut = 0)
+        cxn = self.connect(inputTimeOut=0)
         return deferLater(reactor, 0, self.assertDone, cxn)
 
+
     def testTimeout_inRequest(self):
-        cxn = self.connect(inputTimeOut = 0.3)
+        cxn = self.connect(inputTimeOut=0.3)
         cxn.client.write("GET / HTTP/1.1\r\n")
         return deferLater(reactor, 0.5, self.assertDone, cxn)
 
+
     def testTimeout_betweenRequests(self):
-        cxn = self.connect(betweenRequestsTimeOut = 0.3)
+        cxn = self.connect(betweenRequestsTimeOut=0.3)
         cmds = [[]]
         data = ""
 
         cxn.client.write("GET / HTTP/1.1\r\n\r\n")
-        cmds[0] += [('init', 'GET', '/', (1,1), 0, ()),
+        cmds[0] += [('init', 'GET', '/', (1, 1), 0, ()),
                     ('contentComplete',)]
         self.compareResult(cxn, cmds, data)
 
@@ -861,6 +919,7 @@ class CoreHTTPTestCase(HTTPTests):
         self.compareResult(cxn, cmds, data)
         return deferLater(reactor, 0.5, self.assertDone, cxn) # Wait for timeout
 
+
     def testTimeout_idleRequest(self):
         cxn = self.connect(idleTimeOut=0.3)
         cmds = [[]]
@@ -872,6 +931,7 @@ class CoreHTTPTestCase(HTTPTests):
         self.compareResult(cxn, cmds, data)
 
         return deferLater(reactor, 0.5, self.assertDone, cxn) # Wait for timeout
+
 
     def testTimeout_abortRequest(self):
         cxn = self.connect(allowPersistentConnections=False, closeTimeOut=0.3)
@@ -897,19 +957,20 @@ class CoreHTTPTestCase(HTTPTests):
             self.assertTrue(cxn.serverToClient.aborted)
         return deferLater(reactor, 0.5, self.assertDone, cxn) # Wait for timeout
 
+
     def testConnectionCloseRequested(self):
         cxn = self.connect()
         cmds = [[]]
         data = ""
 
         cxn.client.write("GET / HTTP/1.1\r\n\r\n")
-        cmds[0] += [('init', 'GET', '/', (1,1), 0, ()),
+        cmds[0] += [('init', 'GET', '/', (1, 1), 0, ()),
                     ('contentComplete',)]
         self.compareResult(cxn, cmds, data)
 
         cxn.client.write("GET / HTTP/1.1\r\nConnection: close\r\n\r\n")
         cmds.append([])
-        cmds[1] += [('init', 'GET', '/', (1,1), 0, ()),
+        cmds[1] += [('init', 'GET', '/', (1, 1), 0, ()),
                     ('contentComplete',)]
         self.compareResult(cxn, cmds, data)
 
@@ -929,6 +990,7 @@ class CoreHTTPTestCase(HTTPTests):
 
         self.compareResult(cxn, cmds, data)
         self.assertDone(cxn)
+
 
     def testConnectionKeepAliveOff(self):
         cxn = self.connect(allowPersistentConnections=False)
@@ -950,6 +1012,7 @@ class CoreHTTPTestCase(HTTPTests):
         self.compareResult(cxn, cmds, data)
         self.assertDone(cxn)
 
+
     def testExtraCRLFs(self):
         cxn = self.connect()
         cmds = [[]]
@@ -957,7 +1020,7 @@ class CoreHTTPTestCase(HTTPTests):
 
         # Some broken clients (old IEs) send an extra CRLF after post
         cxn.client.write("POST / HTTP/1.1\r\nContent-Length: 5\r\nHost: localhost\r\n\r\nInput\r\n")
-        cmds[0] += [('init', 'POST', '/', (1,1), 5,
+        cmds[0] += [('init', 'POST', '/', (1, 1), 5,
                      (('Host', ['localhost']),)),
                     ('contentChunk', 'Input'),
                     ('contentComplete',)]
@@ -966,12 +1029,13 @@ class CoreHTTPTestCase(HTTPTests):
 
         cxn.client.write("GET /two HTTP/1.1\r\n\r\n")
         cmds.append([])
-        cmds[1] += [('init', 'GET', '/two', (1,1), 0, ()),
+        cmds[1] += [('init', 'GET', '/two', (1, 1), 0, ()),
                     ('contentComplete',)]
         self.compareResult(cxn, cmds, data)
 
         cxn.client.loseConnection()
         self.assertDone(cxn)
+
 
     def testDisallowPersistentConnections(self):
         cxn = self.connect(allowPersistentConnections=False)
@@ -979,7 +1043,7 @@ class CoreHTTPTestCase(HTTPTests):
         data = ""
 
         cxn.client.write("GET / HTTP/1.1\r\nHost: localhost\r\n\r\nGET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
-        cmds[0] += [('init', 'GET', '/', (1,1), 0,
+        cmds[0] += [('init', 'GET', '/', (1, 1), 0,
                      (('Host', ['localhost']),)),
                     ('contentComplete',)]
         self.compareResult(cxn, cmds, data)
@@ -991,6 +1055,7 @@ class CoreHTTPTestCase(HTTPTests):
         self.compareResult(cxn, cmds, data)
         self.assertDone(cxn)
 
+
     def testIgnoreBogusContentLength(self):
         # Ensure that content-length is ignored when transfer-encoding
         # is also specified.
@@ -999,7 +1064,7 @@ class CoreHTTPTestCase(HTTPTests):
         data = ""
         cxn.client.write("GET / HTTP/1.1\r\nContent-Length: 100\r\nTransfer-Encoding: chunked\r\nHost: localhost\r\n\r\n5\r\nInput\r\n")
 
-        cmds[0] += [('init', 'GET', '/', (1,1), None,
+        cmds[0] += [('init', 'GET', '/', (1, 1), None,
                      (('Host', ['localhost']),)),
                     ('contentChunk', 'Input')]
 
@@ -1018,17 +1083,22 @@ class CoreHTTPTestCase(HTTPTests):
         cxn.client.loseConnection()
         self.assertDone(cxn)
 
+
+
 class ErrorTestCase(HTTPTests):
+
     def assertStartsWith(self, first, second, msg=None):
         self.assert_(first.startswith(second), '%r.startswith(%r)' % (first, second))
 
+
     def checkError(self, cxn, code):
         self.iterate(cxn)
-        self.assertStartsWith(cxn.client.data, "HTTP/1.1 %d "%code)
+        self.assertStartsWith(cxn.client.data, "HTTP/1.1 %d " % code)
         self.assertIn("\r\nConnection: close\r\n", cxn.client.data)
         # Ensure error messages have a defined content-length.
         self.assertIn("\r\nContent-Length:", cxn.client.data)
         self.assertDone(cxn)
+
 
     def testChunkingError1(self):
         cxn = self.connect()
@@ -1036,11 +1106,13 @@ class ErrorTestCase(HTTPTests):
 
         self.checkError(cxn, 400)
 
+
     def testChunkingError2(self):
         cxn = self.connect()
         cxn.client.write("GET / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n1\r\nblahblah\r\n")
 
         self.checkError(cxn, 400)
+
 
     def testChunkingError3(self):
         cxn = self.connect()
@@ -1048,25 +1120,29 @@ class ErrorTestCase(HTTPTests):
 
         self.checkError(cxn, 400)
 
+
     def testTooManyHeaders(self):
         cxn = self.connect()
         cxn.client.write("GET / HTTP/1.1\r\n")
-        cxn.client.write("Foo: Bar\r\n"*5000)
+        cxn.client.write("Foo: Bar\r\n" * 5000)
 
         self.checkError(cxn, 400)
+
 
     def testLineTooLong(self):
         cxn = self.connect()
         cxn.client.write("GET / HTTP/1.1\r\n")
-        cxn.client.write("Foo: "+("Bar"*10000))
+        cxn.client.write("Foo: " + ("Bar" * 10000))
 
         self.checkError(cxn, 400)
 
+
     def testLineTooLong2(self):
         cxn = self.connect()
-        cxn.client.write("GET "+("/Bar")*10000 +" HTTP/1.1\r\n")
+        cxn.client.write("GET " + ("/Bar") * 10000 + " HTTP/1.1\r\n")
 
         self.checkError(cxn, 414)
+
 
     def testNoColon(self):
         cxn = self.connect()
@@ -1096,11 +1172,13 @@ class ErrorTestCase(HTTPTests):
 
         self.checkError(cxn, 400)
 
+
     def testWrongProtocol(self):
         cxn = self.connect()
         cxn.client.write("GET / Foobar/1.0\r\n")
 
         self.checkError(cxn, 400)
+
 
     def testBadProtocolVersion(self):
         cxn = self.connect()
@@ -1108,11 +1186,13 @@ class ErrorTestCase(HTTPTests):
 
         self.checkError(cxn, 400)
 
+
     def testBadProtocolVersion2(self):
         cxn = self.connect()
         cxn.client.write("GET / HTTP/-1.0\r\n")
 
         self.checkError(cxn, 400)
+
 
     def testWrongProtocolVersion(self):
         cxn = self.connect()
@@ -1120,11 +1200,13 @@ class ErrorTestCase(HTTPTests):
 
         self.checkError(cxn, 505)
 
+
     def testUnsupportedTE(self):
         cxn = self.connect()
         cxn.client.write("GET / HTTP/1.1\r\n")
         cxn.client.write("Transfer-Encoding: blahblahblah, chunked\r\n\r\n")
         self.checkError(cxn, 501)
+
 
     def testTEWithoutChunked(self):
         cxn = self.connect()
@@ -1132,20 +1214,24 @@ class ErrorTestCase(HTTPTests):
         cxn.client.write("Transfer-Encoding: gzip\r\n\r\n")
         self.checkError(cxn, 400)
 
+
+
 class PipelinedErrorTestCase(ErrorTestCase):
     # Make sure that even low level reading errors don't corrupt the data stream,
     # but always wait until their turn to respond.
+
 
     def connect(self):
         cxn = ErrorTestCase.connect(self)
         cxn.client.write("GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
 
-        cmds = [[('init', 'GET', '/', (1,1), 0,
+        cmds = [[('init', 'GET', '/', (1, 1), 0,
                  (('Host', ['localhost']),)),
-                ('contentComplete', )]]
+                ('contentComplete',)]]
         data = ""
         self.compareResult(cxn, cmds, data)
         return cxn
+
 
     def checkError(self, cxn, code):
         self.iterate(cxn)
@@ -1167,7 +1253,9 @@ class PipelinedErrorTestCase(ErrorTestCase):
         ErrorTestCase.checkError(self, cxn, code)
 
 
+
 class SimpleFactory(channel.HTTPFactory):
+
     def buildProtocol(self, addr):
         # Do a bunch of crazy crap just so that the test case can know when the
         # connection is done.
@@ -1180,21 +1268,28 @@ class SimpleFactory(channel.HTTPFactory):
         self.conn = p
         return p
 
+
+
 class SimpleRequest(http.Request):
+
     def process(self):
         response = TestResponse()
         if self.uri == "/error":
-            response.code=402
+            response.code = 402
         elif self.uri == "/forbidden":
-            response.code=403
+            response.code = 403
         else:
-            response.code=404
+            response.code = 404
             response.write("URI %s unrecognized." % self.uri)
         response.finish()
         self.writeResponse(response)
 
+
+
 class AbstractServerTestMixin:
+
     type = None
+
     def testBasicWorkingness(self):
         args = ('-u', util.sibpath(__file__, "simple_client.py"), "basic",
                 str(self.port), self.type)
@@ -1202,11 +1297,13 @@ class AbstractServerTestMixin:
             utils.getProcessOutputAndValue(sys.executable, args=args,
                                            env=os.environ)
         )
-        yield d; out,err,code = d.getResult()
+        yield d
+        out, err, code = d.getResult()
 
         self.assertEquals(code, 0, "Error output:\n%s" % (err,))
         self.assertEquals(out, "HTTP/1.1 402 Payment Required\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
     testBasicWorkingness = deferredGenerator(testBasicWorkingness)
+
 
     def testLingeringClose(self):
         args = ('-u', util.sibpath(__file__, "simple_client.py"),
@@ -1215,15 +1312,20 @@ class AbstractServerTestMixin:
             utils.getProcessOutputAndValue(sys.executable, args=args,
                                            env=os.environ)
         )
-        yield d; out,err,code = d.getResult()
+        yield d
+        out, err, code = d.getResult()
         self.assertEquals(code, 0, "Error output:\n%s" % (err,))
         self.assertEquals(out, "HTTP/1.1 402 Payment Required\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
     testLingeringClose = deferredGenerator(testLingeringClose)
 
+
+
 class TCPServerTest(unittest.TestCase, AbstractServerTestMixin):
+
     type = 'tcp'
+
     def setUp(self):
-        factory=SimpleFactory(requestFactory=SimpleRequest)
+        factory = SimpleFactory(requestFactory=SimpleRequest)
 
         factory.testcase = self
         self.factory = factory
@@ -1231,6 +1333,7 @@ class TCPServerTest(unittest.TestCase, AbstractServerTestMixin):
 
         self.socket = reactor.listenTCP(0, factory)
         self.port = self.socket.getHost().port
+
 
     def tearDown(self):
         # Make sure the listening port is closed
@@ -1260,7 +1363,7 @@ class SSLServerTest(unittest.TestCase, AbstractServerTestMixin):
     def setUp(self):
         HTTPChannel.allowPersistentConnections = True
         sCTX = ssl.DefaultOpenSSLContextFactory(certPath, certPath)
-        factory=SimpleFactory(requestFactory=SimpleRequest)
+        factory = SimpleFactory(requestFactory=SimpleRequest)
 
         factory.testcase = self
         self.factory = factory
@@ -1268,6 +1371,7 @@ class SSLServerTest(unittest.TestCase, AbstractServerTestMixin):
 
         self.socket = reactor.listenSSL(0, factory, sCTX)
         self.port = self.socket.getHost().port
+
 
     def tearDown(self):
         # Make sure the listening port is closed
@@ -1278,6 +1382,7 @@ class SSLServerTest(unittest.TestCase, AbstractServerTestMixin):
             self.factory.conn.transport.loseConnection()
             return self.connlost
         return d.addCallback(finish)
+
 
     def testLingeringClose(self):
         return super(SSLServerTest, self).testLingeringClose()

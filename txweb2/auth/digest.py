@@ -81,6 +81,8 @@ def calcHA1(pszAlg, pszUserName, pszRealm, pszPassword, pszNonce, pszCNonce,
     return _origCalcHA1(pszAlg, pszUserName, pszRealm, pszPassword, pszNonce,
                         pszCNonce, preHA1)
 
+
+
 # DigestCalcResponse
 def calcResponse(
     HA1,

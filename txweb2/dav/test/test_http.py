@@ -7,10 +7,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -40,12 +40,13 @@ class HTTP(txweb2.dav.test.util.TestCase):
         """
         for ex_class in (IOError, OSError):
             for exception, result in (
-                (ex_class(errno.EACCES, "Permission denied" ), responsecode.FORBIDDEN),
-                (ex_class(errno.EPERM , "Permission denied" ), responsecode.FORBIDDEN),
+                (ex_class(errno.EACCES, "Permission denied"), responsecode.FORBIDDEN),
+                (ex_class(errno.EPERM , "Permission denied"), responsecode.FORBIDDEN),
                 (ex_class(errno.ENOSPC, "No space available"), responsecode.INSUFFICIENT_STORAGE_SPACE),
-                (ex_class(errno.ENOENT, "No such file"      ), responsecode.NOT_FOUND),
+                (ex_class(errno.ENOENT, "No such file"), responsecode.NOT_FOUND),
             ):
                 self._check_exception(exception, result)
+
 
     def test_statusForFailure_HTTPError(self):
         """
@@ -54,6 +55,7 @@ class HTTP(txweb2.dav.test.util.TestCase):
         for code in responsecode.RESPONSES:
             self._check_exception(HTTPError(code), code)
             self._check_exception(HTTPError(ErrorResponse(code, ("http://twistedmatrix.com/", "bar"))), code)
+
 
     def test_statusForFailure_exception(self):
         """
@@ -73,6 +75,7 @@ class HTTP(txweb2.dav.test.util.TestCase):
             pass
         else:
             self.fail("Unknown exception should have re-raised.")
+
 
     def _check_exception(self, exception, result):
         try:

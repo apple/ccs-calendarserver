@@ -6,4 +6,3 @@
 txweb2.test: unittests for the Twext.Web2, Web Server Framework
 
 """
-

@@ -7,10 +7,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -48,8 +48,10 @@ class NonePropertyStore (object):
             NonePropertyStore.__singleton = object.__new__(clazz)
         return NonePropertyStore.__singleton
 
+
     def __init__(self, resource):
         pass
+
 
     def get(self, qname, uid=None):
         raise HTTPError(StatusResponse(
@@ -57,19 +59,23 @@ class NonePropertyStore (object):
             "No such property: %s" % (encodeXMLName(*qname),)
         ))
 
+
     def set(self, property, uid=None):
         raise HTTPError(StatusResponse(
             responsecode.FORBIDDEN,
             "Permission denied for setting property: %s" % (property,)
         ))
 
+
     def delete(self, qname, uid=None):
         # RFC 2518 Section 12.13.1 says that removal of
         # non-existing property is not an error.
         pass
 
+
     def contains(self, qname, uid=None):
         return False
+
 
     def list(self, uid=None):
         return ()

@@ -8,10 +8,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -61,7 +61,7 @@ def report_DAV__principal_property_search(self, request, principal_property_sear
     if depth != "0":
         log.error("Error in prinicpal-property-search REPORT, Depth set to %s" % (depth,))
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Depth %s not allowed" % (depth,)))
-    
+
     # Get a single DAV:prop element from the REPORT request body
     propertiesForResource = None
     propElement = None
@@ -78,7 +78,8 @@ def report_DAV__principal_property_search(self, request, principal_property_sear
             props.removeWhitespaceNodes()
             match = child.childOfType(element.Match)
             propertySearches.append((props.children, str(match).lower()))
-    
+
+
     def nodeMatch(node, match):
         """
         See if the content of the supplied node matches the supplied text.
@@ -97,7 +98,8 @@ def report_DAV__principal_property_search(self, request, principal_property_sear
                 return nodeMatch(child, match)
         else:
             return False
-        
+
+
     def propertySearch(resource, request):
         """
         Test the resource to see if it contains properties matching the
@@ -120,7 +122,7 @@ def report_DAV__principal_property_search(self, request, principal_property_sear
                     # No property => no match
                     yield False
                     return
-        
+
         yield True
 
     propertySearch = deferredGenerator(propertySearch)
@@ -143,7 +145,7 @@ def report_DAV__principal_property_search(self, request, principal_property_sear
             resources.append((self, request.uri))
 
         # Loop over all collections and principal resources within
-        for resource, ruri in resources:
+        for resource, _ignore_ruri in resources:
 
             # Do some optimisation of access control calculation by determining any inherited ACLs outside of
             # the child resource loop and supply those to the checkPrivileges on each child.
@@ -152,7 +154,7 @@ def report_DAV__principal_property_search(self, request, principal_property_sear
             filteredaces = filteredaces.getResult()
 
             children = []
-            d = waitForDeferred(resource.findChildren("infinity", request, lambda x, y: children.append((x,y)),
+            d = waitForDeferred(resource.findChildren("infinity", request, lambda x, y: children.append((x, y)),
                                                       privileges=(element.Read(),), inherited_aces=filteredaces))
             yield d
             d.getResult()
@@ -167,7 +169,7 @@ def report_DAV__principal_property_search(self, request, principal_property_sear
                         matchcount += 1
                         if matchcount > max_number_of_matches:
                             raise NumberOfMatchesWithinLimits(max_number_of_matches)
-    
+
                         d = waitForDeferred(prop_common.responseForHref(
                             request,
                             responses,
