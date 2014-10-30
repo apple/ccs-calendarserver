@@ -167,22 +167,24 @@ class CalendarDirectoryServiceMixin(object):
 
         outer = []
         for token in tokens:
-            inner = []
-            for name, matchType in fields:
-                inner.append(
-                    MatchExpression(
-                        self.fieldName.lookupByName(name),
-                        token,
-                        matchType,
-                        MatchFlags.caseInsensitive
+            if token:
+                token = token.strip()
+                inner = []
+                for name, matchType in fields:
+                    inner.append(
+                        MatchExpression(
+                            self.fieldName.lookupByName(name),
+                            token,
+                            matchType,
+                            MatchFlags.caseInsensitive
+                        )
+                    )
+                outer.append(
+                    CompoundExpression(
+                        inner,
+                        Operand.OR
                     )
                 )
-            outer.append(
-                CompoundExpression(
-                    inner,
-                    Operand.OR
-                )
-            )
 
         if len(outer) == 1:
             expression = outer[0]
