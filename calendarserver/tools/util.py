@@ -439,10 +439,10 @@ def prettyRecord(record):
     except AttributeError:
         shortNames = []
     return "\"{d}\" {uid} ({rt}) {sn}".format(
-        d=record.displayName,
+        d=record.displayName.encode("utf-8"),
         rt=record.recordType.name,
         uid=record.uid,
-        sn=(", ".join(shortNames))
+        sn=(", ".join([sn.encode("utf-8") for sn in shortNames]))
     )
 
 

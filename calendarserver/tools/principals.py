@@ -95,6 +95,7 @@ def usage(e=None):
     print("  --set-address=guid: associate principal with an address (by guid)")
     print("  --get-address: get the associated address's guid")
     print("  --refresh-groups: schedule a group membership refresh")
+    print("  --print-group-info <group principals>: prints group delegation and membership")
 
     if e:
         sys.exit(64)
@@ -308,7 +309,7 @@ def main():
 
     elif printGroupInfo:
         function = printGroupCacherInfo
-        params = ()
+        params = (args,)
 
     elif scheduleGroupRefresh:
         function = scheduleGroupRefreshJob
@@ -757,14 +758,22 @@ def action_removeGroupMember(store, record, *memberIDs):
 
 
 @inlineCallbacks
-def printGroupCacherInfo(service, store):
+def printGroupCacherInfo(service, store, principalIDs):
     """
     Print all groups that have been delegated to, their cached members, and
     who delegated to those groups.
     """
     directory = store.directoryService()
     txn = store.newTransaction()
-    groupUIDs = yield txn.allGroupDelegates()
+    if not principalIDs:
+        groupUIDs = yield txn.allGroupDelegates()
+    else:
+        groupUIDs = []
+        for principalID in principalIDs:
+            record = yield recordForPrincipalID(directory, principalID)
+            if record:
+                groupUIDs.append(record.uid)
+
     for groupUID in groupUIDs:
         (
             groupID, name, _ignore_membershipHash, modified, _ignore_extant
