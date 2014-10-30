@@ -296,7 +296,13 @@ class DirectoryPrincipalPropertySearchMixIn(object):
         matchingResources = []
         matchcount = 0
 
-        records = (yield dir.recordsMatchingTokens(tokens, context=context))
+        # Remove empty tokens
+        newTokens = []
+        for token in tokens:
+            if token:
+                newTokens.append(token.strip())
+
+        records = (yield dir.recordsMatchingTokens(newTokens, context=context))
 
         for record in records:
             resource = principalCollection.principalForRecord(record)

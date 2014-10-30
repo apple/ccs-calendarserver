@@ -315,7 +315,7 @@ class LdapDirectoryService(CachingDirectoryService):
 
         # Query the LDAP server
         self.log.debug("Querying ldap for records matching base {base} and "
-            "filter {filter} for attributes {attrs}.", 
+            "filter {filter} for attributes {attrs}.",
             base=ldap.dn.dn2str(base), filter=filterstr, attrs=self.attrlist)
 
         # This takes a while, so if you don't want to have a "long request"
@@ -548,10 +548,10 @@ class LdapDirectoryService(CachingDirectoryService):
             except ldap.NO_SUCH_OBJECT:
                 return []
             except ldap.FILTER_ERROR, e:
-                self.log.error("LDAP filter error: %s %s" % (e, filterstr))
+                self.log.error("LDAP filter error: {err} {filter}", err=e, filter=filterstr)
                 return []
             except ldap.INVALID_SYNTAX, e:
-                self.log.error("LDAP invalid syntax: %s %s" % (e, filterstr))
+                self.log.error("LDAP invalid syntax: {err} {filter}", err=e, filter=filterstr)
                 return []
             except ldap.SIZELIMIT_EXCEEDED, e:
                 self.log.debug("LDAP result limit exceeded: %d" % (resultLimit,))
