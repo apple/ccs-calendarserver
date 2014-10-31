@@ -1,61 +1,30 @@
-
-
-
-Calendar Server Extension                                       M. Sagen
+                                                                M. Sagen
                                                                    Apple
-                                                            June 5, 2009
+                                                        October 30, 2014
 
 
              Discovery of CalDAV Push-Notification Settings
+                       caldav-pubsubdiscovery-02
 
 Abstract
 
-   This specification defines three new WebDAV properties that allow
-   clients to discover push-notification subscription information,
-   eliminating the need for polling.
-
+   This specification defines new WebDAV properties that allow clients
+   to discover and subscribe to change notifications, eliminating the
+   need for polling.
 
 Table of Contents
 
-   1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . . . 2
-   2.  Conventions Used in This Document . . . . . . . . . . . . . . . 2
-   3.  New Properties  . . . . . . . . . . . . . . . . . . . . . . . . 3
-     3.1.  XMPP Server Property  . . . . . . . . . . . . . . . . . . . 3
-     3.2.  XMPP URI Property . . . . . . . . . . . . . . . . . . . . . 3
-     3.3.  XMPP Heartbeat Property . . . . . . . . . . . . . . . . . . 4
-   4.  Normative References  . . . . . . . . . . . . . . . . . . . . . 6
-   Author's Address  . . . . . . . . . . . . . . . . . . . . . . . . . 7
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Sagen                                                           [Page 1]
-
-                         CalDAV PubSub Discovery               June 2009
-
+   1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   1
+   2.  Conventions Used in This Document . . . . . . . . . . . . . .   2
+   3.  New Properties  . . . . . . . . . . . . . . . . . . . . . . .   2
+     3.1.  Push Transports Property  . . . . . . . . . . . . . . . .   2
+     3.2.  Push Key Property . . . . . . . . . . . . . . . . . . . .   3
+   4.  Subscription Process  . . . . . . . . . . . . . . . . . . . .   4
+     4.1.  Discovery . . . . . . . . . . . . . . . . . . . . . . . .   4
+     4.2.  Subscription  . . . . . . . . . . . . . . . . . . . . . .   4
+     4.3.  Payload . . . . . . . . . . . . . . . . . . . . . . . . .   5
+   5.  Normative References  . . . . . . . . . . . . . . . . . . . .   5
+   Author's Address  . . . . . . . . . . . . . . . . . . . . . . . .   5
 
 1.  Introduction
 
@@ -66,28 +35,27 @@ Sagen                                                           [Page 1]
    notifications would allow near real time propagation of updates and
    potentially reduce the number of requests.
 
-   XMPP [RFC3920], the Extensible Messaging and Presence Protocol,
-   allows close to real time exchange of structured information.  The
-   XEP-0060 specification defines an XMPP protocol extension for
-   publish-subscribe ("pubsub") functionality, allowing clients to
-   subscribe to "topics" or "nodes" and receive notifications whenever
-   another client publishes to those nodes.
+   The Apple Push Notification Service [APPLE.APNS] (APNs for short) is
+   a service for propagating information to iOS and OS X devices in an
+   efficient manner.
 
-   A push-notification-capable CalDAV server can create and advertise a
-   pubsub node for each calendar home collection and publish to those
-   nodes whenever any resource within a calendar home is modified.  A
-   calendar client interested in receiving updates can subscribe using
-   XMPP/pubsub to one or more of these nodes.  Upon receiving a
-   notification, the client then queries the CalDAV server to determine
-   which resources have changed.
+   A push-notification-capable CalDAV/CardDAV server advertises the
+   capability via a DAV property ("push-transports") on calendar and
+   addressbook home resources.  Each calendar and addressbook collection
+   resource has another DAV property ("pushkey") which is an opaque
+   token a client can use to subscribe to change notifications for that
+   collection.  When the client receives such a notification, the client
 
-   This specification defines three new WebDAV properties on calendar
-   home collections: 1) the XMPP server the client should connect to, 2)
-   the pubsub node corresponding to the calendar home, and 3) a pubsub
-   "heartbeat" node which the CalDAV server publishes to at regular
-   intervals so clients know that push notifications are functioning
-   properly.
 
+
+
+Sagen                      Expires May 3, 2015                  [Page 1]
+
+                         CalDAV PubSub Discovery            October 2014
+
+
+   queries the CalDAV/CardDAV server to see which resources have
+   changed.
 
 2.  Conventions Used in This Document
 
@@ -106,23 +74,16 @@ Sagen                                                           [Page 1]
    of an XML fragment, the string "CS:" will be prefixed to the element
    type names respectively.
 
-
-
-Sagen                                                           [Page 2]
-
-                         CalDAV PubSub Discovery               June 2009
-
-
 3.  New Properties
 
-3.1.  XMPP Server Property
+3.1.  Push Transports Property
 
-   Name:  xmpp-server
+   Name:  push-transports
 
    Namespace:  http://calendarserver.org/ns/
 
-   Purpose:  Provides the hostname of the XMPP server a client should
-      connect to for subscribing to notifications.
+   Purpose:  Advertises the list of push transports supported by the
+      server.
 
    Protected:  This property MUST be protected and SHOULD NOT be
       returned by a PROPFIND allprop request (as defined in Section 14.2
@@ -132,167 +93,167 @@ Sagen                                                           [Page 2]
       operation, but is normally re-initialized when a resource is
       created with a COPY.  It should not be set in a COPY.
 
-   Description:  This property MUST be defined on a calendar home
-      collection.  Its value is the hostname of the XMPP server the
-      CalDAV server is using to publish change notifications to.
-      Clients wanting to receive notifications must make an XMPP
-      connection to the host specified in this property.
+   Description:  This property MUST be defined on a calendar or
+      addressbook home collection and MUST NOT be defined on a calendar
+      or addressbook collection.  Its value is an XML element whose
+      child elements each represent a supported push transport protocol.
 
    Definition:
 
-   <!ELEMENT xmpp-server (#PCDATA) >
 
-   Example:  This example indicates that the CalDAV server is using host
-      notifications.example.com for sending push notifications.
 
-   <CS:xmpp-server
-        xmlns:CS="http://calendarserver.org/ns/">
-        notifications.example.com
-   </CS:xmpp-server>
 
-3.2.  XMPP URI Property
 
-   Name:  xmpp-uri
+
+Sagen                      Expires May 3, 2015                  [Page 2]
+
+                         CalDAV PubSub Discovery            October 2014
+
+
+<!ELEMENT push-transports (transport) >
+
+<!ELEMENT transport (subscription-url, apsbundleid, env, refresh-interval) >
+<!-- The transport element must have a 'type' attribute identifying the transport type.  For Apple Push the attribute value should be 'APSD'. -->
+
+<!ELEMENT subscription-url (DAV:href) >
+<!-- The URL clients should send their subscription requests to.  -->
+
+<!ELEMENT apsbundleid (CDATA) >
+<!-- The Apple Push "topic", which is extracted from the UID portion of the subject of the certificate acquired from Apple.  The topic is currently the bundle identifier of the target app. -->
+
+<!ELEMENT env (CDATA) >
+<!-- "PRODUCTION" if the clients should talk to the production APNs servers or "SANDBOX" if the clients should talk to the sandbox APNs servers -->
+
+<!ELEMENT refresh-interval (CDATA) >
+<!-- An integer value indicating how often (in seconds) the client should refresh their subscriptions, since the server will remove subscriptions that are not refreshed within this time period -->
+
+
+   Example:  This example indicates the CalDAV/CardDAV server is using
+      the production APNs service and clients should send their
+      subscription requests to https://server.example.com:8443/apns at
+      least every 172800 seconds (2 days).
+
+<push-transports xmlns='http://calendarserver.org/ns/'>
+  <transport type='APSD'>
+    <subscription-url>
+      <href xmlns='DAV:'>https://server.example.com:8443/apns</href>
+    </subscription-url>
+    <apsbundleid>com.apple.calendar.XServer.934668ca-125e-4246-afee-8cf2df37aab8</apsbundleid>
+    <env>PRODUCTION</env>
+    <refresh-interval>172800</refresh-interval>
+  </transport>
+</push-transports>
+
+3.2.  Push Key Property
+
+   Name:  pushkey
 
    Namespace:  http://calendarserver.org/ns/
 
-   Purpose:  Provides the URI of the pubsub node to subscribe to in
-      order to receive a notification whenever a resource within this
-      calendar home has changed.
-
-
-
-
-
-Sagen                                                           [Page 3]
-
-                         CalDAV PubSub Discovery               June 2009
-
+   Purpose:  Provides the push key to subscribe to in order to receive a
+      notification whenever a resource within this collection has
+      changed.
 
    Protected:  This property MUST be protected and SHOULD NOT be
       returned by a PROPFIND allprop request (as defined in Section 14.2
       of [RFC4918]).
 
-   COPY/MOVE behavior:  This property value SHOULD be kept during a MOVE
-      operation, but is normally re-initialized when a resource is
-      created with a COPY.  It should not be set in a COPY.
 
-   Description:  This property MUST be defined on a calendar home
-      collection.  Its value is the XMPP URI [RFC4622] of the pubsub
-      node the CalDAV server will publish to whenever any change is made
-      within the calendar home collection.  Clients wanting to receive
-      notifications for this calendar home must subscribe to this node.
 
-   Definition:
 
-   <!ELEMENT xmpp-uri (#PCDATA) >
+Sagen                      Expires May 3, 2015                  [Page 3]
+
+                         CalDAV PubSub Discovery            October 2014
 
-   Example:  This example describes an XMPP URI which is comprised of
-      the CalDAV server's hostname and port, so that multiple CalDAV
-      servers can share the same notification server.
-
-   <CS:xmpp-uri
-        xmlns:CS="http://calendarserver.org/ns/">
-        xmpp:pubsub.notifications.example.com?pubsub;
-         node=/Public/CalDAV/notifications.example.com/443/
-         calendars/users/sagen/
-   </CS:xmpp-uri>
-
-3.3.  XMPP Heartbeat Property
-
-   Name:  xmpp-heartbeat
-
-   Namespace:  http://calendarserver.org/ns/
-
-   Purpose:  Provides the URI of the heartbeat pubsub node and the
-      frequency at which it is published.
-
-   Protected:  This property MUST be protected and SHOULD NOT be
-      returned by a PROPFIND allprop request (as defined in Section 14.2
-      of [RFC4918]).
 
    COPY/MOVE behavior:  This property value SHOULD be kept during a MOVE
       operation, but is normally re-initialized when a resource is
       created with a COPY.  It should not be set in a COPY.
 
-
-
-
-
-
-Sagen                                                           [Page 4]
-
-                         CalDAV PubSub Discovery               June 2009
-
-
-   Description:  This property MAY be defined on a calendar home
-      collection.  If it's not defined, then the server does not support
-      heartbeats for this calendar home.  Its value is comprised of two
-      elements: the XMPP URI [RFC4622] of the heartbeat pubsub node the
-      CalDAV server will publish to periodically, and the frequency (in
-      minutes) at which this heartbeat is published.  Clients may
-      monitor updates to this heartbeat node to determine whether the
-      push notification system is functioning.  If no update is received
-      for this node for a period exceeding xmpp-heartbeat-minutes, the
-      client can assume that notifications are not working and may fall
-      back to polling.
+   Description:  This property MUST be defined on calendar and
+      addressbook home collections as well as calendar and addressbook
+      collections.  Its value is a server-generated string associated
+      with a collection.  The client must send a subscription request
+      containing the "push key" string to subscribe to change
+      notifications for the collection.  The push key for a calendar or
+      addressbook collection will normally be the same value as the
+      containing home collection.  However, there are circumstances
+      (such as shared collections) where the push keys for collections
+      are not the same as the containing home, and thus clients should
+      subscribe to the push keys for the home collection and each
+      contained collection.
 
    Definition:
 
-   <!ELEMENT xmpp-hearbeat CS:xmpp-heartbeat-uri,
-                           CS:xmpp-heartbeat-minutes>
+   <!ELEMENT pushkey (CDATA) >
 
-   <!ELEMENT xmpp-hearbeat-uri (#PCDATA) >
+   Example:  This example indicates the push key for a collection is the
+      UUID '6D6241DC-5981-4D87-9B71-672203E81ACB'.
 
-   <!ELEMENT xmpp-hearbeat-minutes (#PCDATA) >
+<pushkey xmlns='http://calendarserver.org/ns/'>6D6241DC-5981-4D87-9B71-672203E81ACB/</pushkey>
 
+4.  Subscription Process
 
-   Example:
+4.1.  Discovery
 
-   <CS:xmpp-heartbeat>
-     <CS:xmpp-heartbeat-uri>
-        xmlns:CS="http://calendarserver.org/ns/">
-        xmpp:pubsub.notifications.example.com?pubsub;
-         node=/Public/CalDAV/notifications.example.com/443/
-     </CS:xmpp-heartbeat-uri>
-     <CS:xmpp-heartbeat-minutes>30</CS:xmpp-heartbeat-minutes>
-   </CS:xmpp-heartbeat>
+   To subscribe to change notifications, the client must first fetch the
+   "push-transports" property for the principal's calendar or
+   addressbook home.  The "transport" child element with type set to
+   "APSD" identifies the APNs configuration.  The "subscription-url"
+   element identifies the URL clients will need to send subscription
+   requests to.  Next, for each home and collection the client is
+   interested in receiving change notifications for, the client should
+   fetch the "pushkey" property.  Some collections' push keys will be
+   the same as their parent collection, but not always.  Each unique
+   push key the client finds should be subscribed to at least every
+   "refresh-interval" seconds.
 
+4.2.  Subscription
 
-
-
-
-
-
-
-
-
-
-
-
+   As per the APNs documentation, the client must acquire a "device
+   token" identifying the device to the APNs servers.  Next, for each
+   unique push key the client wants to subscribe to, the client must
+   send an authenticated HTTP request including the device token and
 
 
 
-
-
-
-Sagen                                                           [Page 5]
+Sagen                      Expires May 3, 2015                  [Page 4]
 
-                         CalDAV PubSub Discovery               June 2009
+                         CalDAV PubSub Discovery            October 2014
 
 
-4.  Normative References
+   push key values to the URL identified by subscription-url.  The field
+   names to use are "token" and "key", respectively.  If the client uses
+   GET, the token and key can be passed as query string parameters; if
+   using POST they can be sent as form fields.  The server will return
+   an HTTP status code OK (200) if the subscription was successful, or
+   BAD_REQUEST (400) with an explanation message in the response body
+   otherwise.
+
+4.3.  Payload
+
+   The payload of each push notification will contain:
+
+      "key" - the push key of the collection
+
+      "dataChangedTimestamp" - the unix epoch time (in seconds) when the
+      change that triggered this notification took place
+
+      "pushRequestSubmittedTimestamp" - the unix epoch time (in seconds)
+      when the CalDAV/CardDAV server sent the notification to the APNs
+      servers
+
+5.  Normative References
+
+   [APPLE.APNS]
+              Apple Inc., "Apple Push Notification Service", Apple Inc
+              iOS Developer Library, October 2014, < https://developer.a
+              pple.com/library/ios/documentation/NetworkingInternet/Conc
+              eptual/RemoteNotificationsPG/Chapters/
+              ApplePushService.html>.
 
    [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
               Requirement Levels", BCP 14, RFC 2119, March 1997.
-
-   [RFC3920]  Saint-Andre, P., Ed., "Extensible Messaging and Presence
-              Protocol (XMPP): Core", RFC 3920, October 2004.
-
-   [RFC4622]  Saint-Andre, P., "Internationalized Resource Identifiers
-              (IRIs) and Uniform Resource Identifiers (URIs) for the
-              Extensible Messaging and Presence Protocol (XMPP)",
-              RFC 4622, July 2006.
 
    [RFC4791]  Daboo, C., Desruisseaux, B., and L. Dusseault,
               "Calendaring Extensions to WebDAV (CalDAV)", RFC 4791,
@@ -301,43 +262,21 @@ Sagen                                                           [Page 5]
    [RFC4918]  Dusseault, L., "HTTP Extensions for Web Distributed
               Authoring and Versioning (WebDAV)", RFC 4918, June 2007.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Sagen                                                           [Page 6]
-
-                         CalDAV PubSub Discovery               June 2009
-
-
 Author's Address
+
+
+
+
+
+
+
+
+
+
+Sagen                      Expires May 3, 2015                  [Page 5]
+
+                         CalDAV PubSub Discovery            October 2014
+
 
    Morgen Sagen
    Apple Inc.
@@ -388,5 +327,6 @@ Author's Address
 
 
 
-Sagen                                                           [Page 7]
-
+
+
+Sagen                      Expires May 3, 2015                  [Page 6]
