@@ -1,12 +1,14 @@
 
 
 
-Calendar Server Extension                                       C. Daboo
+
+                                                                C. Daboo
                                                                    Apple
-                                                        January 10, 2014
+                                                        October 30, 2014
 
 
              Smart Splitting of Recurring Events in CalDAV
+                          caldav-recursplit-01
 
 Abstract
 
@@ -15,47 +17,19 @@ Abstract
    preserve the original per-attendee data, such as alarms and
    participation status.
 
-
 Table of Contents
 
-   1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . . . 2
-   2.  Conventions Used in This Document . . . . . . . . . . . . . . . 3
-   3.  New behavior  . . . . . . . . . . . . . . . . . . . . . . . . . 3
-     3.1.  Example . . . . . . . . . . . . . . . . . . . . . . . . . . 6
-   4.  Security Considerations . . . . . . . . . . . . . . . . . . . . 8
-   5.  IANA Considerations . . . . . . . . . . . . . . . . . . . . . . 8
-   6.  Normative References  . . . . . . . . . . . . . . . . . . . . . 8
-   Appendix A.  Acknowledgments  . . . . . . . . . . . . . . . . . . . 9
-   Author's Address  . . . . . . . . . . . . . . . . . . . . . . . . . 9
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Daboo                                                           [Page 1]
-
-                       CalDAV Recurrence Splitting          January 2014
-
+   1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   1
+   2.  Conventions Used in This Document . . . . . . . . . . . . . .   2
+   3.  New behavior  . . . . . . . . . . . . . . . . . . . . . . . .   3
+     3.1.  Example . . . . . . . . . . . . . . . . . . . . . . . . .   5
+   4.  Server Initiated Splitting  . . . . . . . . . . . . . . . . .   8
+   5.  Security Considerations . . . . . . . . . . . . . . . . . . .   8
+   6.  IANA Considerations . . . . . . . . . . . . . . . . . . . . .   8
+   7.  Normative References  . . . . . . . . . . . . . . . . . . . .   8
+   Appendix A.  Acknowledgments  . . . . . . . . . . . . . . . . . .   9
+   Appendix B.  Change History . . . . . . . . . . . . . . . . . . .   9
+   Author's Address  . . . . . . . . . . . . . . . . . . . . . . . .   9
 
 1.  Introduction
 
@@ -76,6 +50,14 @@ Daboo                                                           [Page 1]
    (different UIDs and thus different calendar object resources stored
    in a CalDAV calendar).  One series contains all the instances up to
    the point where the change is made, and the other contains all the
+
+
+
+Daboo                      Expires May 3, 2015                  [Page 1]
+
+                       CalDAV Recurrence Splitting          October 2014
+
+
    instances from that point onwards.  Typically this is done by
    truncating the recurrence rule in the existing resource and creating
    a new resource for the ongoing recurrence.  However, when done that
@@ -104,15 +86,6 @@ Daboo                                                           [Page 1]
    likely resulting in loss of per-attendee data.  A future extension to
    iTIP might be possible to address that, but is not covered here.
 
-
-
-
-
-Daboo                                                           [Page 2]
-
-                       CalDAV Recurrence Splitting          January 2014
-
-
 2.  Conventions Used in This Document
 
    The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
@@ -134,6 +107,13 @@ Daboo                                                           [Page 2]
    parameters and enumerated values defined in this extension.
 
 
+
+
+Daboo                      Expires May 3, 2015                  [Page 2]
+
+                       CalDAV Recurrence Splitting          October 2014
+
+
 3.  New behavior
 
    A server supporting the features described in this specification MUST
@@ -144,51 +124,62 @@ Daboo                                                           [Page 2]
    To split an existing calendar object resource containing a recurring
    event, a client issues an HTTP POST resource with the request-uri set
    to the URI of the calendar object resource.  The client also includes
-   the following two URI query parameters:
+   the following two URI query parameters, and one optional one:
 
-   1.  "action" set to the value "split"
+   1.  "action" set to the value "split" - REQUIRED
 
    2.  "rid" set to an iCalendar format DATE-TIME value in UTC
-       ("YYYYMMDDTHHMMSSZ" style format).
+       ("YYYYMMDDTHHMMSSZ" style format) - REQUIRED
+
+   3.  "uid" set to an iCalendar UID property value - OPTIONAL
 
    The "action" parameter is used to distinguish this operation from
    others that might be defined in the future for calendar object
    resources.  The "rid" parameter specified the UTC date-time where the
    split is to occur.  The actual split occurs at the next recurrence
    instance on or after the "rid" parameter value - the "split point".
+   The optional "uid" parameter can be used by the client to specify the
+   iCalendar UID property value used in the new calendar object resource
+   created by the server.  In the absence of the "uid" parameter, the
+   server will itself generate the UID value for the new calendar object
+   resource.
 
-   Client MUST include both parameters in the POST request and MUST
-   ensure a valid date-time value is used.  The date-time value MUST NOT
-   be earlier than the start time of the first instance of the
-   recurrence set, and it MUST NOT be later than the start time of the
+   Clients MUST include both "action" and "rid" parameters in the POST
+   request and MUST ensure a valid date-time value is used.  The date-
+   time value MUST NOT be earlier than the start time of the first
+   instance of the recurrence set, and it MUST NOT be later than the
+   start time of the last instance of the recurrence set.  If the "rid"
+   parameter value is not of the correct format or missing, the server
+   MUST return a DAV:error response with the CALDAV:valid-rid-parameter
+   pre-condition code.  If the "rid" parameter is valid, but outside of
+   the allowed range, or the targeted calendar object resource is not
+   recurring, then the server MUST return a DAV:error response with the
+   CS:invalid-split pre-condition code.  The server MUST reject any
+   attempt by an attendee to split their copy of a scheduled calendar
+   object resource - only organizers are allowed to split events.  If
+   the optional "uid" parameter is used by the client, and the server
+   determines that the specified value is invalid (e.g., too short or
+   too long as per reasonable requirements), then it MUST return a
+   DAV:error response with the CS:invalid-split pre-condition code.
 
 
 
-Daboo                                                           [Page 3]
+
+Daboo                      Expires May 3, 2015                  [Page 3]
 
-                       CalDAV Recurrence Splitting          January 2014
+                       CalDAV Recurrence Splitting          October 2014
 
-
-   last instance of the recurrence set.  If the "rid" parameter value is
-   not of the correct format or missing, the server MUST return a DAV:
-   error response with the CALDAV:valid-rid-parameter pre-condition
-   code.  If the "rid" parameter is valid, but outside of the allowed
-   range, or the targeted calendar object resource is not recurring,
-   then the server MUST return a DAV:error response with the CS:invalid-
-   split pre-condition code.  The server MUST reject any attempt by an
-   attendee to split their copy of a scheduled calendar object resource
-   - only organizers are allowed to split events.
 
    Clients MAY include an HTTP "Prefer" request header including the
-   value "return=representation" (see [I-D.snell-http-prefer]).  That
-   instructs the server to return a WebDAV multistatus response
-   containing two responses: one for the targeted resource and one for
-   the new resource created as a result of the split.  The multistatus
-   response MUST include the DAV:getetag and CALDAV:calendar-data
-   properties for each resource.  In the absence of the "Prefer:
-   return=representation" request header, the server MUST return an HTTP
-   "Split-Component-URL" response header whose value is the URI of the
-   new resource created as a result of the split.
+   value "return=representation" (see [RFC7240]).  That instructs the
+   server to return a WebDAV multistatus response containing two
+   responses: one for the targeted resource and one for the new resource
+   created as a result of the split.  The multistatus response MUST
+   include the DAV:getetag and CALDAV:calendar-data properties for each
+   resource.  In the absence of the "Prefer:return=representation"
+   request header, the server MUST return an HTTP "Split-Component-URL"
+   response header whose value is the URI of the new resource created as
+   a result of the split.
 
    When a server receives a valid split request as described above, it
    does the equivalent of the following:
@@ -217,14 +208,6 @@ Daboo                                                           [Page 3]
            the split point, or, in the absence of an "RRULE", to the
            first "RDATE" property value on or after the split point.
 
-
-
-
-Daboo                                                           [Page 4]
-
-                       CalDAV Recurrence Splitting          January 2014
-
-
    3.  The calendar data in the new resource is modified as follows:
 
        A.  Any overridden components with a "RECURRENCE-ID" property
@@ -236,6 +219,13 @@ Daboo                                                           [Page 4]
        C.  Any "RRULE" property that only generates instances on or
            after the split point is removed.
 
+
+
+Daboo                      Expires May 3, 2015                  [Page 4]
+
+                       CalDAV Recurrence Splitting          October 2014
+
+
        D.  Any remaining "RRULE" property has an "UNTIL" value applied,
            with the until value being one second less than the split
            point.
@@ -245,12 +235,11 @@ Daboo                                                           [Page 4]
 
        F.  Attendee participation status MUST NOT be changed.
 
-   4.  The server MUST add a "RELATED" property, with a "RELTYPE"
-       parameter set to "X-CALENDARSERVER-RECURRENCE-SET", and with its
-       value set to the "UID" property value of the new resource to all
-       components of the existing and new resources, if the existing
-       resource does not contain a "RELATED" property with a "RELTYPE"
-       parameter value set to "X-CALENDARSERVER-RECURRENCE-SET".
+   4.  The server MUST add a "RELATED-TO" property, with a "RELTYPE"
+       parameter set to "X-CALENDARSERVER-RECURRENCE-SET", to all
+       components of the existing and new resources, if one does not
+       already exist.  The new property value is set to a new auto-
+       generated "UID" value.
 
    When an organizer splits a scheduled event, the server performs the
    following actions:
@@ -273,14 +262,6 @@ Daboo                                                           [Page 4]
    Note that, since attendees can be invited to specific instances of a
    recurring meeting (not necessarily the entire set), it is possible
    that either the old or new calendar data no longer contains any valid
-
-
-
-Daboo                                                           [Page 5]
-
-                       CalDAV Recurrence Splitting          January 2014
-
-
    components since the attendee was not invited to the corresponding
    portions of the original split recurrence.  In such cases, the server
    MUST remove the original resource, or MUST NOT create the new
@@ -290,6 +271,17 @@ Daboo                                                           [Page 5]
 
    Assume the following iCalendar data is stored in the resource with
    URI "/event.ics":
+
+
+
+
+
+
+Daboo                      Expires May 3, 2015                  [Page 5]
+
+                       CalDAV Recurrence Splitting          October 2014
+
+
    BEGIN:VCALENDAR
    PRODID:-//Example Inc.//Example Calendar//EN
    VERSION:2.0
@@ -329,14 +321,6 @@ Daboo                                                           [Page 5]
        <propstat>
          <prop>
            <getetag>"5bc9a2b55081eba0a9cd34f742aa1c11"</getetag>
-
-
-
-Daboo                                                           [Page 6]
-
-                       CalDAV Recurrence Splitting          January 2014
-
-
            <calendar-data xmlns='urn:ietf:params:xml:ns:caldav'
    >BEGIN:VCALENDAR
    VERSION:2.0
@@ -346,8 +330,16 @@ Daboo                                                           [Page 6]
    DTSTART:20140110T120000Z
    DURATION:PT1H
    DTSTAMP:20140110T135358Z
-   RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:E3B9D6D4-E19F-
-    47AA-9088-1A29A9A7030F
+
+
+
+Daboo                      Expires May 3, 2015                  [Page 6]
+
+                       CalDAV Recurrence Splitting          October 2014
+
+
+   RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:8DE45ECB-8145-
+    4AEC-B3E1-11A9DB22A578
    RRULE:FREQ=DAILY;COUNT=11
    SUMMARY:Example
    END:VEVENT
@@ -368,11 +360,11 @@ Daboo                                                           [Page 6]
    PRODID:-//Example Inc.//Example Calendar//EN
    BEGIN:VEVENT
    UID:E3B9D6D4-E19F-47AA-9088-1A29A9A7030F
-   DTSTART:20140101T120000Z
+   DTSTART:20140110T120000Z
    DURATION:PT1H
    DTSTAMP:20140110T135358Z
-   RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:E3B9D6D4-E19F-
-    47AA-9088-1A29A9A7030F
+   RELATED-TO;RELTYPE=X-CALENDARSERVER-RECURRENCE-SET:8DE45ECB-8145-
+    4AEC-B3E1-11A9DB22A578
    RRULE:FREQ=DAILY;UNTIL=20140110T115959Z
    SUMMARY:Example
    END:VEVENT
@@ -385,43 +377,47 @@ Daboo                                                           [Page 6]
    </multistatus>
 
    The original resource is changed to have a start date-time value of
-
-
-
-Daboo                                                           [Page 7]
-
-                       CalDAV Recurrence Splitting          January 2014
-
-
    "20140110T120000Z", and the "COUNT" component of the "RRULE" property
    is adjusted to the value "11" (which represents the number of
    remaining instances for that event, 9 early instances having been
    removed).  The new resource has the original start date-time value,
    and its "RRULE" property has an "UNTIL" value one second prior to the
-   split point.  Both resources have a "RELATED" property with a
+   split point.  Both resources have a "RELATED-TO" property with a
    "RELTYPE" parameter set to "X-CALENDARSERVER-RECURRENCE-SET" and a
-   value set to the "UID" property value of the new resource.
+   value set to a new "UID" value.
 
 
-4.  Security Considerations
+
+
+Daboo                      Expires May 3, 2015                  [Page 7]
+
+                       CalDAV Recurrence Splitting          October 2014
+
+
+4.  Server Initiated Splitting
+
+   Servers can automatically split events that have already been stored
+   by the client.  The trigger for such splitting is up to the server
+   (e.g., it can split when a recurring event exceeds a certain size, or
+   when a certain number of instances are now in the past).  When
+   splitting, the server MUST use the approach outlined above - namely
+   create a new calendar object resource for the past instances,
+   truncate the existing calendar data and use the "RELATED_TO" property
+   to link them.  In other words, this will look exactly like a client-
+   initiated split.
+
+5.  Security Considerations
 
    This specification does not introduce any more security
    considerations beyond those already listed in iCalendar [RFC5545],
    iTIP [RFC5546] and CalDAV Access [RFC4791] and CalDAV Scheduling
    [RFC6638].
 
-
-5.  IANA Considerations
+6.  IANA Considerations
 
    TBD: new HTTP request header registration.
 
-
-6.  Normative References
-
-   [I-D.snell-http-prefer]
-              Snell, J., "Prefer Header for HTTP",
-              draft-snell-http-prefer-18 (work in progress),
-              January 2013.
+7.  Normative References
 
    [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
               Requirement Levels", BCP 14, RFC 2119, March 1997.
@@ -435,18 +431,23 @@ Daboo                                                           [Page 7]
               September 2009.
 
    [RFC5546]  Daboo, C., "iCalendar Transport-Independent
-              Interoperability Protocol (iTIP)", RFC 5546,
-              December 2009.
+              Interoperability Protocol (iTIP)", RFC 5546, December
+              2009.
 
    [RFC6638]  Daboo, C. and B. Desruisseaux, "Scheduling Extensions to
               CalDAV", RFC 6638, June 2012.
 
+   [RFC7240]  Snell, J., "Prefer Header for HTTP", RFC 7240, June 2014.
 
 
 
-Daboo                                                           [Page 8]
+
+
+
+
+Daboo                      Expires May 3, 2015                  [Page 8]
 
-                       CalDAV Recurrence Splitting          January 2014
+                       CalDAV Recurrence Splitting          October 2014
 
 
 Appendix A.  Acknowledgments
@@ -454,6 +455,14 @@ Appendix A.  Acknowledgments
    This specification is the result of discussions between the Apple
    calendar server and client teams.
 
+Appendix B.  Change History
+
+   Changes since -01
+
+   1.  Added "uid" query parameter to POST request
+
+   2.  New "RELATED-TO" is now a new UID value not the value of the new
+       resource
 
 Author's Address
 
@@ -492,13 +501,4 @@ Author's Address
 
 
 
-
-
-
-
-
-
-
-
-Daboo                                                           [Page 9]
-
+Daboo                      Expires May 3, 2015                  [Page 9]
