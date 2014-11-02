@@ -530,8 +530,11 @@ class DirectoryProxyAMPProtocol(amp.AMP):
         log.debug("WikiAccessForUID: {w} {u}", w=wikiUID, u=uid)
         access = WikiAccessLevel.none
         wikiRecord = (yield self._directory.recordWithUID(wikiUID))
-        userRecord = (yield self._directory.recordWithUID(uid))
-        if wikiRecord is not None and userRecord is not None:
+        if uid:
+            userRecord = (yield self._directory.recordWithUID(uid))
+        else:
+            userRecord = None
+        if wikiRecord is not None:
             access = (yield wikiRecord.accessForRecord(userRecord))
         response = {
             "access": access.name.encode("utf-8"),
