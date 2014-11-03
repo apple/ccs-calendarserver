@@ -65,6 +65,7 @@ from txdav.xml.element import dav_namespace
 from txdav.xml.element import twisted_dav_namespace, twisted_private_namespace
 from txdav.xml.element import registerElement, lookupElement
 from txweb2 import responsecode
+from txweb2.auth.tls import TLSCredentialsFactory
 from txweb2.http import HTTPError, RedirectResponse, StatusResponse
 from txweb2.http_headers import generateContentType
 from txweb2.iweb import IResponse
@@ -1014,7 +1015,13 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             request.authzUser = None
             return succeed((request.authnUser, request.authzUser))
 
-        authHeader = request.headers.getHeader("authorization")
+
+        # Check for native TLS client cert
+        if request.clientCredentials() is not None:
+            # Make this look as if it is done via the usual HTTP auth header approach
+            authHeader = (TLSCredentialsFactory.scheme, request.clientCredentials())
+        else:
+            authHeader = request.headers.getHeader("authorization")
 
         if authHeader is not None:
             if authHeader[0] not in request.credentialFactories:

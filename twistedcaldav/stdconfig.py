@@ -367,6 +367,13 @@ DEFAULT_CONFIG = {
             "ServicePrincipal": "",
             "AllowedOverWireUnencrypted": True, # Advertised over non-SSL?
         },
+        "ClientCertificate": {                  # TLS Client Certificate
+            "Enabled": False,
+            "AllowedOverWireUnencrypted": True, # Advertised over non-SSL?
+            "Required": True,                   # Always require a client cert
+            "CAFiles": [],                      # Array of acceptable client cert CA file names
+            "SendCAsToClient": True,            # Send the list of acceptable CAs to the client
+        },
         "Wiki": {
             "Enabled": False,
             "Cookie": "cc.collabd_session_guid",

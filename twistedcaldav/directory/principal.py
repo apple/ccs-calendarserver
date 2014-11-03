@@ -59,6 +59,7 @@ from txdav.who.directory import CalendarDirectoryRecordMixin
 from txdav.xml import element as davxml
 from txweb2 import responsecode
 from txweb2.auth.digest import DigestedCredentials
+from txweb2.auth.tls import TLSCredentials
 from txweb2.dav.noneprops import NonePropertyStore
 from txweb2.dav.util import joinURL
 from txweb2.http import HTTPError
@@ -203,6 +204,10 @@ class DirectoryProvisioningResource (
                 returnValue(principal)
             elif user.username:
                 returnValue((yield self.principalForUser(user.username)))
+        elif isinstance(user, TLSCredentials):
+            # FIXME: for now we use the local part of the emailAddress in the certs Subject, but we may need
+            # to lookup some other attribute
+            returnValue((yield self.principalForUser(user.username)))
 
         returnValue(None)
 

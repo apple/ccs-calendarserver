@@ -232,6 +232,13 @@ class Request(http.Request):
         self.timeStamps.append((tag, time.time(),))
 
 
+    def clientCredentials(self):
+        try:
+            return self.chanRequest.channel.peerCredentials
+        except AttributeError:
+            return None
+
+
     def addResponseFilter(self, filter, atEnd=False, onlyOnce=False):
         """
         Add a response filter to this request.

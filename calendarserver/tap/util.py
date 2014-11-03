@@ -91,6 +91,7 @@ from txdav.who.cache import CachingDirectoryService
 from txdav.who.util import directoryFromConfig
 
 from txweb2.auth.basic import BasicCredentialFactory
+from txweb2.auth.tls import TLSCredentialsFactory, TLSCredentials
 from txweb2.dav import auth
 from txweb2.dav.auth import IPrincipalCredentials
 from txweb2.dav.util import joinURL
@@ -360,8 +361,7 @@ class PrincipalCredentialChecker(object):
         except ImportError:
             NegotiateCredentials = None
 
-        if NegotiateCredentials and isinstance(credentials.credentials,
-                                               NegotiateCredentials):
+        if NegotiateCredentials and isinstance(credentials.credentials, NegotiateCredentials):
             # If we get here with Kerberos, then authentication has already succeeded
             returnValue(
                 (
@@ -369,6 +369,17 @@ class PrincipalCredentialChecker(object):
                     credentials.authzPrincipal,
                 )
             )
+
+        # Handle TLS Client Certificate
+        elif isinstance(credentials.credentials, TLSCredentials):
+            # If we get here with TLS, then authentication (certificate verification) has already succeeded
+            returnValue(
+                (
+                    credentials.authnPrincipal,
+                    credentials.authzPrincipal,
+                )
+            )
+
         else:
             if (yield credentials.authnPrincipal.record.verifyCredentials(credentials.credentials)):
                 returnValue(
@@ -481,6 +492,9 @@ def getRootResource(config, newStore, resources=None):
 
             elif scheme == "basic":
                 credFactory = BasicCredentialFactory(realm)
+
+            elif scheme == TLSCredentialsFactory.scheme:
+                credFactory = TLSCredentialsFactory(realm)
 
             elif scheme == "wiki":
                 pass

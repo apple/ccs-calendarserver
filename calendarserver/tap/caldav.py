@@ -101,12 +101,6 @@ from twistedcaldav.upgrade import (
     UpgradeFileSystemFormatStep, PostDBImportStep,
 )
 
-try:
-    from twistedcaldav.authkerb import NegotiateCredentialFactory
-    NegotiateCredentialFactory  # pacify pyflakes
-except ImportError:
-    NegotiateCredentialFactory = None
-
 from calendarserver.accesslog import AMPCommonAccessLoggingObserver
 from calendarserver.accesslog import AMPLoggingFactory
 from calendarserver.accesslog import RotatingFileAccessLoggingObserver
@@ -830,7 +824,11 @@ class CalDAVServiceMaker (object):
             certificateChainFile=config.SSLAuthorityChain,
             passwdCallback=getSSLPassphrase,
             sslmethod=getattr(OpenSSL.SSL, config.SSLMethod),
-            ciphers=config.SSLCiphers.strip()
+            ciphers=config.SSLCiphers.strip(),
+            verifyClient=config.Authentication.ClientCertificate.Enabled,
+            requireClientCertificate=config.Authentication.ClientCertificate.Required,
+            clientCACertFileNames=config.Authentication.ClientCertificate.CAFiles,
+            sendCAsToClient=config.Authentication.ClientCertificate.SendCAsToClient,
         )
 
 

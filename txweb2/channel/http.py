@@ -39,11 +39,14 @@ from twext.python.log import Logger
 from txweb2 import responsecode
 from txweb2 import http_headers
 from txweb2 import http
+from txweb2.auth.tls import TLSCredentials
 from txweb2.http import RedirectResponse
 from txweb2.server import Request
 
 from twistedcaldav.config import config
 from twistedcaldav import accounting
+from twisted.internet._sslverify import Certificate
+from twisted.internet.error import CertificateError
 
 log = Logger()
 
@@ -792,6 +795,9 @@ class HTTPChannel(basic.LineReceiver, policies.TimeoutMixin, object):
     _abortTimer = None
     chanRequest = None
 
+    peerCertificateCheck = False
+    peerCredentials = None
+
     def _callLater(self, secs, fun):
         reactor.callLater(secs, fun)
 
@@ -809,7 +815,22 @@ class HTTPChannel(basic.LineReceiver, policies.TimeoutMixin, object):
         self.factory.addConnectedChannel(self)
 
 
+    def processPeerCertificate(self):
+        # Look for SSL client cert
+        if self._secure:
+            try:
+                self.peerCredentials = TLSCredentials(Certificate.peerFromTransport(self.transport))
+            except CertificateError:
+                pass
+
+        self.peerCertificateCheck = True
+
+
     def lineReceived(self, line):
+
+        if self._secure and not self.peerCertificateCheck:
+            self.processPeerCertificate()
+
         if self._first_line:
             self.setTimeout(self.inputTimeOut)
             # if this connection is not persistent, drop any data which

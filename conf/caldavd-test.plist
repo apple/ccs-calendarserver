@@ -444,6 +444,23 @@
         <string></string>
       </dict>
 
+      <!-- TLS Client Certificate -->
+      <key>ClientCertificate</key>
+      <dict>
+        <key>Enabled</key>
+        <false/>
+        <key>AllowedOverWireUnencrypted</key> <!-- advertised over non SSL? -->
+        <true/>
+        <key>Required</key>
+        <true/>
+        <key>CAFiles</key>
+        <array>
+        	<string>twistedcaldav/test/data/demoCA/cacert.pem</string>
+        </array>
+        <key>SendCAsToClient</key>
+        <true/>
+      </dict>
+
       <!-- Wikiserver authentication (Mac OS X) -->
       <key>Wiki</key>
       <dict>
