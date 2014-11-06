@@ -2825,7 +2825,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
             except ResourceDeletedError:
                 # This is OK - it just means the server deleted the resource during the PUT. We make it look
                 # like the PUT succeeded.
-                response = responsecode.CREATED if self.exists() else responsecode.NO_CONTENT
+                response = responsecode.NO_CONTENT if self.exists() else responsecode.CREATED
 
                 # Re-initialize to get stuff setup again now we have no object
                 self._initializeWithObject(None, self._newStoreParent)
@@ -3553,7 +3553,7 @@ class AddressBookObjectResource(_CommonObjectResource):
             except ResourceDeletedError:
                 # This is OK - it just means the server deleted the resource during the PUT. We make it look
                 # like the PUT succeeded.
-                response = responsecode.CREATED if self.exists() else responsecode.NO_CONTENT
+                response = responsecode.NO_CONTENT if self.exists() else responsecode.CREATED
 
                 # Re-initialize to get stuff setup again now we have no object
                 self._initializeWithObject(None, self._newStoreParent)

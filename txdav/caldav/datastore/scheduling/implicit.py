@@ -1193,9 +1193,13 @@ class ImplicitScheduler(object):
                 if doScheduling:
                     # Check to see whether all instances are CANCELLED
                     if self.calendar.hasPropertyValueInAllComponents(Property("STATUS", "CANCELLED")):
-                        log.debug("Attendee '%s' is creating CANCELLED event for missing UID: '%s' - removing entire event" % (self.attendee, self.uid,))
-                        self.return_status = ImplicitScheduler.STATUS_ORPHANED_CANCELLED_EVENT
-                        returnValue(None)
+                        if self.action == "create":
+                            log.debug("Attendee '{attendee}' is creating CANCELLED event for missing UID: '{uid}' - removing entire event", attendee=self.attendee, uid=self.uid)
+                            self.return_status = ImplicitScheduler.STATUS_ORPHANED_CANCELLED_EVENT
+                            returnValue(None)
+                        else:
+                            log.debug("Attendee '{attendee}' is modifying CANCELLED event for missing UID: '{uid}'", attendee=self.attendee, uid=self.uid)
+                            returnValue(None)
                     else:
                         # Check to see whether existing event is SCHEDULE-AGENT=CLIENT/NONE
                         if self.oldcalendar:

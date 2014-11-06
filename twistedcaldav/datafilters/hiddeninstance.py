@@ -15,7 +15,7 @@
 ##
 
 from twistedcaldav.datafilters.filter import CalendarFilter
-from twistedcaldav.ical import Component, ignoredComponents, Property
+from twistedcaldav.ical import Component, ignoredComponents
 
 __all__ = [
     "HiddenInstanceFilter",
@@ -50,10 +50,7 @@ class HiddenInstanceFilter(CalendarFilter):
 
                 # Add EXDATE and try to preserve same timezone as DTSTART
                 if master is not None:
-                    dtstart = master.getProperty("DTSTART")
-                    if dtstart is not None and not dtstart.value().isDateOnly() and dtstart.value().local():
-                        rid.adjustTimezone(dtstart.value().getTimezone())
-                    master.addProperty(Property("EXDATE", [rid, ]))
+                    master.addExdate(rid)
 
         return ical
 
