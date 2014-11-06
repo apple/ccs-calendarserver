@@ -127,9 +127,9 @@ class iTipProcessing(object):
         current_master = calendar.masterComponent()
         if current_master:
             valarms = [comp for comp in current_master.subcomponents() if comp.name() == "VALARM"]
-            private_comments = current_master.properties("X-CALENDARSERVER-PRIVATE-COMMENT")
-            transps = current_master.properties("TRANSP")
-            completeds = current_master.properties("COMPLETED")
+            private_comments = tuple(current_master.properties("X-CALENDARSERVER-PRIVATE-COMMENT"))
+            transps = tuple(current_master.properties("TRANSP"))
+            completeds = tuple(current_master.properties("COMPLETED"))
             organizer = current_master.getProperty("ORGANIZER")
             organizer_schedule_status = organizer.parameterValue("SCHEDULE-STATUS", None) if organizer else None
             attendee = current_master.getAttendeeProperty((recipient,))
@@ -137,8 +137,7 @@ class iTipProcessing(object):
             other_props = {}
             for pname in config.Scheduling.CalDAV.PerAttendeeProperties:
                 props = tuple(current_master.properties(pname))
-                if props:
-                    other_props[pname] = props
+                other_props[pname] = props
         else:
             valarms = ()
             private_comments = ()
@@ -605,9 +604,9 @@ class iTipProcessing(object):
         matched = from_calendar.overriddenComponent(rid)
         if matched:
             valarms = [comp for comp in matched.subcomponents() if comp.name() == "VALARM"]
-            private_comments = matched.properties("X-CALENDARSERVER-PRIVATE-COMMENT")
-            transps = matched.properties("TRANSP")
-            completeds = matched.properties("COMPLETED")
+            private_comments = tuple(matched.properties("X-CALENDARSERVER-PRIVATE-COMMENT"))
+            transps = tuple(matched.properties("TRANSP"))
+            completeds = tuple(matched.properties("COMPLETED"))
             organizer = matched.getProperty("ORGANIZER")
             organizer_schedule_status = organizer.parameterValue("SCHEDULE-STATUS", None) if organizer else None
             attendee = matched.getAttendeeProperty((recipient,))
@@ -615,8 +614,7 @@ class iTipProcessing(object):
             other_props = {}
             for pname in config.Scheduling.CalDAV.PerAttendeeProperties:
                 props = tuple(matched.properties(pname))
-                if props:
-                    other_props[pname] = props
+                other_props[pname] = props
 
             seq_change = Component.compareComponentsForITIP(to_component, matched, use_dtstamp=False) <= 0
             iTipProcessing._transferItems(to_component, transfer_partstat and seq_change, valarms, private_comments, transps, completeds, organizer_schedule_status, attendee, attendee_dtstamp, other_props, recipient)
@@ -638,14 +636,14 @@ class iTipProcessing(object):
                     to_attendee.setParameter("PARTSTAT", attendee.parameterValue("PARTSTAT", "NEEDS-ACTION"))
 
         else:
+            master_component = from_calendar.masterComponent()
+            seq_change = (Component.compareComponentsForITIP(to_component, master_component, use_dtstamp=False) <= 0) if master_component is not None else True
+            iTipProcessing._transferItems(to_component, transfer_partstat and seq_change, valarms, private_comments, transps, completeds, organizer_schedule_status, attendee, attendee_dtstamp, other_props, recipient)
+
             # Check for incoming DECLINED
             attendee = to_component.getAttendeeProperty((recipient,))
             if attendee and attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") == "DECLINED":
                 return True
-
-            master_component = from_calendar.masterComponent()
-            seq_change = (Component.compareComponentsForITIP(to_component, master_component, use_dtstamp=False) <= 0) if master_component is not None else True
-            iTipProcessing._transferItems(to_component, transfer_partstat and seq_change, valarms, private_comments, transps, completeds, organizer_schedule_status, attendee, attendee_dtstamp, other_props, recipient)
 
         return False
 
@@ -681,11 +679,21 @@ class iTipProcessing(object):
         """
 
         # It is a new override - copy any valarms on the existing master component
-        # into the new one.
+        # into the new one. But first remove any of the stuff we want to copy from
+        # the component being copied to.
+        to_component.removeAlarms()
+        to_component.removeProperty("X-CALENDARSERVER-PRIVATE-COMMENT")
+        to_component.removeProperty("TRANSP")
+        to_component.removeProperty("COMPLETED")
+        for propname in other_props.keys():
+            to_component.removeProperty(propname)
+
         [to_component.addComponent(alarm) for alarm in valarms]
         [to_component.addProperty(comment) for comment in private_comments]
         [to_component.replaceProperty(transp) for transp in transps]
         [to_component.replaceProperty(completed) for completed in completeds]
+        for props in other_props.values():
+            [to_component.replaceProperty(prop) for prop in props]
 
         if organizer_schedule_status:
             organizer = to_component.getProperty("ORGANIZER")
@@ -699,9 +707,6 @@ class iTipProcessing(object):
 
         if attendee_dtstamp and attendee:
             attendee.setParameter("X-CALENDARSERVER-DTSTAMP", attendee_dtstamp)
-
-        for props in other_props.values():
-            [to_component.replaceProperty(prop) for prop in props]
 
         return False
 
