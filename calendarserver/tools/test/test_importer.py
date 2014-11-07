@@ -117,6 +117,32 @@ END:VCALENDAR
 """
 
 
+DATA_WITH_ORGANIZER = """BEGIN:VCALENDAR
+VERSION:2.0
+NAME:I'm the organizer
+COLOR:#0000FFFF
+SOURCE;VALUE=URI:http://example.com/calendars/__uids__/user01/calendar/
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:AB49C0C0-4238-41A4-8B43-F3E3DDF0E59C
+DTSTART;TZID=America/Los_Angeles:20141108T053000
+DTEND;TZID=America/Los_Angeles:20141108T070000
+ATTENDEE;CN=User 01;CUTYPE=INDIVIDUAL;ROLE=CHAIR:urn:x-uid:user01
+ATTENDEE;CN=User 02;CUTYPE=INDIVIDUAL:urn:x-uid:user02
+ATTENDEE;CN=User 03;CUTYPE=INDIVIDUAL:urn:x-uid:user03
+ATTENDEE;CN=Mercury Seven;CUTYPE=ROOM:urn:x-uid:mercury
+CREATED:20141107T172645Z
+DTSTAMP:20141107T172645Z
+LOCATION:Mercury
+ORGANIZER;CN=User 01:urn:x-uid:user01
+SEQUENCE:0
+SUMMARY:I'm the organizer
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR
+"""
+
+
 class ImportTests(StoreTestCase):
     """
     Tests for importing data to a live store.
@@ -141,8 +167,8 @@ class ImportTests(StoreTestCase):
         yield importCollectionComponent(self.store, component)
 
         txn = self.store.newTransaction()
-        home = yield txn.calendarHomeWithUID(u"user01")
-        collection = yield home.childWithName(u"calendar")
+        home = yield txn.calendarHomeWithUID("user01")
+        collection = yield home.childWithName("calendar")
 
         # Verify properties have been set
         collectionProperties = collection.properties()
@@ -168,8 +194,8 @@ class ImportTests(StoreTestCase):
         yield importCollectionComponent(self.store, component)
 
         txn = self.store.newTransaction()
-        home = yield txn.calendarHomeWithUID(u"user01")
-        collection = yield home.childWithName(u"calendar")
+        home = yield txn.calendarHomeWithUID("user01")
+        collection = yield home.childWithName("calendar")
 
         # Verify properties have been changed
         collectionProperties = collection.properties()
@@ -185,5 +211,49 @@ class ImportTests(StoreTestCase):
         # Verify child objects (should be 3 now)
         objects = yield collection.listObjectResources()
         self.assertEquals(len(objects), 3)
+
+        yield txn.commit()
+
+
+    @inlineCallbacks
+    def test_ImportComponentOrganizer(self):
+
+        component = Component.allFromString(DATA_WITH_ORGANIZER)
+        yield importCollectionComponent(self.store, component)
+
+        txn = self.store.newTransaction()
+        home = yield txn.calendarHomeWithUID("user01")
+        collection = yield home.childWithName("calendar")
+
+        # Verify properties have been set
+        collectionProperties = collection.properties()
+        for element, value in (
+            (davxml.DisplayName, "I'm the organizer"),
+            (customxml.CalendarColor, "#0000FFFF"),
+        ):
+            self.assertEquals(
+                value,
+                collectionProperties[PropertyName.fromElement(element)]
+            )
+
+        # Verify the organizer's child objects
+        objects = yield collection.listObjectResources()
+        self.assertEquals(len(objects), 1)
+
+        # Verify the attendees' child objects
+        home = yield txn.calendarHomeWithUID("user02")
+        collection = yield home.childWithName("calendar")
+        objects = yield collection.listObjectResources()
+        self.assertEquals(len(objects), 1)
+
+        home = yield txn.calendarHomeWithUID("user03")
+        collection = yield home.childWithName("calendar")
+        objects = yield collection.listObjectResources()
+        self.assertEquals(len(objects), 1)
+
+        home = yield txn.calendarHomeWithUID("mercury")
+        collection = yield home.childWithName("calendar")
+        objects = yield collection.listObjectResources()
+        self.assertEquals(len(objects), 1)
 
         yield txn.commit()

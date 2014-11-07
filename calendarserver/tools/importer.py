@@ -198,11 +198,13 @@ def importCollectionComponent(store, component):
             )
         except UIDExistsError:
             # That event is already in the home
-            print(
-                "Skipping since UID already exists: {uid}".format(
-                    uid=groupedComponent.propertyValue("UID")
-                )
-            )
+            try:
+                uid = list(groupedComponent.subcomponents())[0].propertyValue("UID")
+            except:
+                uid = "unknown"
+
+            print("Skipping since UID already exists: {}".format(uid))
+
         except Exception, e:
             print(
                 "Failed to import due to: {error}\n{comp}".format(
