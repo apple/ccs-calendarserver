@@ -91,6 +91,10 @@ def lookupServerViaSRV(domain, service="_ischedules"):
         else:
             return cmp(a[1], b[1])
 
+    if not servers:
+        log.debug("DNS SRV: no matching records: {l}", l=lookup)
+        returnValue(None)
+
     servers.sort(_serverCmp)
     minPriority = servers[0][0]
 

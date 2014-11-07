@@ -78,6 +78,7 @@ class LookupService (unittest.TestCase):
                 ("example.com", "example.com", 8443,),
                 ("example.org", "example.org", 8543,),
             ),),
+            ("db.empty.zone", (("example.com", "", 0,),),),
         ):
             module = getModule(__name__)
             dataPath = module.filePath.sibling("data")
@@ -86,7 +87,12 @@ class LookupService (unittest.TestCase):
             utils.DebugResolver = None
 
             for domain, result_host, result_port in checks:
-                host, port = (yield utils.lookupServerViaSRV(domain))
+                result = (yield utils.lookupServerViaSRV(domain))
+                if result is None:
+                    host = ""
+                    port = 0
+                else:
+                    host, port = result
                 self.assertEqual(host, result_host)
                 self.assertEqual(port, result_port)
 

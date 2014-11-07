@@ -1,0 +1,12 @@
+example.com.		  10800 IN SOA	ns.example.com. 	admin.example.com. (
+                                                        2012090810 ; serial
+                                                        3600       ; refresh (1 hour)
+                                                        900        ; retry (15 minutes)
+                                                        1209600    ; expire (2 weeks)
+                                                        86400      ; minimum (1 day)
+							)
+									10800 IN NS		ns.example.com.
+									10800 IN A		127.0.0.1
+ns.example.com.						10800 IN A		127.0.0.1
+
+_ischedules._tcp.example.com.		10800 IN TXT	"empty"
