@@ -19,12 +19,14 @@ Unit tests for L{calendarsever.tools.importer}.
 """
 
 from calendarserver.tools.importer import importCollectionComponent, ImportException
+from twext.enterprise.jobqueue import JobItem
+from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
 from twistedcaldav import customxml
 from twistedcaldav.ical import Component
 from twistedcaldav.test.util import StoreTestCase
-from txdav.xml import element as davxml
 from txdav.base.propertystore.base import PropertyName
+from txdav.xml import element as davxml
 
 
 DATA_MISSING_SOURCE = """BEGIN:VCALENDAR
@@ -148,6 +150,17 @@ class ImportTests(StoreTestCase):
     Tests for importing data to a live store.
     """
 
+    def configure(self):
+        super(ImportTests, self).configure()
+        # Enable the queue and make it fast
+        self.patch(self.config.Scheduling.Options.WorkQueues, "Enabled", True)
+        self.patch(self.config.Scheduling.Options.WorkQueues, "RequestDelaySeconds", 0.1)
+        self.patch(self.config.Scheduling.Options.WorkQueues, "ReplyDelaySeconds", 0.1)
+        self.patch(self.config.Scheduling.Options.WorkQueues, "AutoReplyDelaySeconds", 0.1)
+        self.patch(self.config.Scheduling.Options.WorkQueues, "AttendeeRefreshBatchDelaySeconds", 0.1)
+        self.patch(self.config.Scheduling.Options.WorkQueues, "AttendeeRefreshBatchIntervalSeconds", 0.1)
+
+
     @inlineCallbacks
     def test_ImportComponentMissingSource(self):
 
@@ -220,6 +233,8 @@ class ImportTests(StoreTestCase):
 
         component = Component.allFromString(DATA_WITH_ORGANIZER)
         yield importCollectionComponent(self.store, component)
+
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
 
         txn = self.store.newTransaction()
         home = yield txn.calendarHomeWithUID("user01")
