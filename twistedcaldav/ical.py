@@ -29,6 +29,7 @@ __all__ = [
 ]
 
 import codecs
+import collections
 from difflib import unified_diff
 import heapq
 import itertools
@@ -69,6 +70,7 @@ iCalendarProductID = "-//CALENDARSERVER.ORG//NONSGML Version 1//EN"
 allowedStoreComponents = ("VEVENT", "VTODO", "VPOLL",)
 allowedSchedulingComponents = allowedStoreComponents + ("VFREEBUSY",)
 allowedComponents = allowedSchedulingComponents + ("VTIMEZONE",)
+
 
 def _updateAllowedComponents(allowed):
     global allowedStoreComponents, allowedSchedulingComponents, allowedComponents
@@ -162,6 +164,7 @@ ignoredComponents = ("VTIMEZONE", PERUSER_COMPONENT,)
 # Used for min/max time-range query limits
 minDateTime = DateTime(1900, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
 maxDateTime = DateTime(2100, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
+
 
 class InvalidICalendarDataError(ValueError):
     pass
@@ -506,6 +509,68 @@ class Component (object):
         def parse(data):
             return clazz.fromString(data, format)
         return allDataFromStream(IStream(stream), parse)
+
+
+    @classmethod
+    def componentsFromData(cls, data, format):
+        """
+        Need to split a single VCALENDAR in text form into separate ones based
+        on UID with the appropriate VTIEMZONES included.
+        """
+
+        # Split into components by UID and TZID
+        try:
+            vcal = cls.fromString(data, format)
+        except InvalidICalendarDataError:
+            return None
+
+        return cls.componentsFromComponent(vcal)
+
+
+    @classmethod
+    def componentsFromComponent(cls, sourceComponent):
+        """
+        Need to split a single VCALENDAR in Component form into separate ones
+        based on UID with the appropriate VTIEMZONES included.
+        """
+
+        results = []
+
+        by_uid = collections.OrderedDict()
+        by_tzid = {}
+        for subcomponent in sourceComponent.subcomponents():
+            if subcomponent.name() == "VTIMEZONE":
+                by_tzid[subcomponent.propertyValue("TZID")] = subcomponent
+            else:
+                by_uid.setdefault(subcomponent.propertyValue("UID"), []).append(subcomponent)
+
+        # Re-constitute as separate VCALENDAR objects
+        for components in by_uid.values():
+
+            newvcal = cls("VCALENDAR")
+            newvcal.addProperty(Property("VERSION", "2.0"))
+            newvcal.addProperty(Property("PRODID", sourceComponent.propertyValue("PRODID")))
+
+            # Get the set of TZIDs and include them
+            tzids = set()
+            for component in components:
+                tzids.update(component.timezoneIDs())
+            for tzid in tzids:
+                try:
+                    tz = by_tzid[tzid]
+                    newvcal.addComponent(tz.duplicate())
+                except KeyError:
+                    # We ignore the error and generate invalid ics which someone will
+                    # complain about at some point
+                    pass
+
+            # Now add each component
+            for component in components:
+                newvcal.addComponent(component.duplicate())
+
+            results.append(newvcal)
+
+        return results
 
 
     @classmethod

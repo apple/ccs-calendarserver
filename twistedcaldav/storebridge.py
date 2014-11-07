@@ -15,7 +15,6 @@
 # limitations under the License.
 ##
 
-import collections
 import hashlib
 import time
 from urlparse import urlsplit, urljoin
@@ -36,7 +35,7 @@ from twistedcaldav.carddavxml import carddav_namespace, NoUIDConflict as NovCard
 from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.ical import (
-    Component as VCalendar, Property as VProperty, InvalidICalendarDataError,
+    Component as VCalendar, Property as VProperty,
     iCalendarProductID, Component
 )
 from twistedcaldav.instance import (
@@ -1174,50 +1173,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         Need to split a single VCALENDAR into separate ones based on UID with the
         appropriate VTIEMZONES included.
         """
-
-        results = []
-
-        # Split into components by UID and TZID
-        try:
-            vcal = VCalendar.fromString(data, format)
-        except InvalidICalendarDataError:
-            return None
-
-        by_uid = collections.OrderedDict()
-        by_tzid = {}
-        for subcomponent in vcal.subcomponents():
-            if subcomponent.name() == "VTIMEZONE":
-                by_tzid[subcomponent.propertyValue("TZID")] = subcomponent
-            else:
-                by_uid.setdefault(subcomponent.propertyValue("UID"), []).append(subcomponent)
-
-        # Re-constitute as separate VCALENDAR objects
-        for components in by_uid.values():
-
-            newvcal = VCalendar("VCALENDAR")
-            newvcal.addProperty(VProperty("VERSION", "2.0"))
-            newvcal.addProperty(VProperty("PRODID", vcal.propertyValue("PRODID")))
-
-            # Get the set of TZIDs and include them
-            tzids = set()
-            for component in components:
-                tzids.update(component.timezoneIDs())
-            for tzid in tzids:
-                try:
-                    tz = by_tzid[tzid]
-                    newvcal.addComponent(tz.duplicate())
-                except KeyError:
-                    # We ignore the error and generate invalid ics which someone will
-                    # complain about at some point
-                    pass
-
-            # Now add each component
-            for component in components:
-                newvcal.addComponent(component.duplicate())
-
-            results.append(newvcal)
-
-        return results
+        return Component.componentsFromData(data, format)
 
 
     @classmethod

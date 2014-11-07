@@ -151,6 +151,7 @@ install-commands::
 	          calendarserver_command_gateway                                                                                 \
 	          calendarserver_diagnose                                                                                        \
 	          calendarserver_export                                                                                          \
+	          calendarserver_import                                                                                          \
 	          calendarserver_manage_principals                                                                               \
 	          calendarserver_purge_attachments                                                                               \
 	          calendarserver_purge_events                                                                                    \

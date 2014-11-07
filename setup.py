@@ -175,6 +175,9 @@ script_entry_points = {
     "icalendar_validate":
     ("calendarserver.tools.validcalendardata", "main"),
 
+    "import":
+    ("calendarserver.tools.importer", "main"),
+
     "manage_principals":
     ("calendarserver.tools.principals", "main"),
 
