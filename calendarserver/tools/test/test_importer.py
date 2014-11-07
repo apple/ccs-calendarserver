@@ -152,6 +152,7 @@ class ImportTests(StoreTestCase):
 
     def configure(self):
         super(ImportTests, self).configure()
+
         # Enable the queue and make it fast
         self.patch(self.config.Scheduling.Options.WorkQueues, "Enabled", True)
         self.patch(self.config.Scheduling.Options.WorkQueues, "RequestDelaySeconds", 0.1)
@@ -159,6 +160,10 @@ class ImportTests(StoreTestCase):
         self.patch(self.config.Scheduling.Options.WorkQueues, "AutoReplyDelaySeconds", 0.1)
         self.patch(self.config.Scheduling.Options.WorkQueues, "AttendeeRefreshBatchDelaySeconds", 0.1)
         self.patch(self.config.Scheduling.Options.WorkQueues, "AttendeeRefreshBatchIntervalSeconds", 0.1)
+
+        # Reschedule quickly
+        self.patch(JobItem, "failureRescheduleInterval", 1)
+        self.patch(JobItem, "lockRescheduleInterval", 1)
 
 
     @inlineCallbacks
