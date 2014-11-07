@@ -765,9 +765,7 @@ class iCalDiff(object):
         "EXDATE",
         "STATUS",
         "TRANSP",
-        "X-APPLE-TRAVEL-START",
         "X-APPLE-TRAVEL-DURATION",
-        "X-APPLE-TRAVEL-RETURN",
         "X-APPLE-TRAVEL-RETURN-DURATION",
     ))
 
