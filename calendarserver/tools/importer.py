@@ -38,6 +38,7 @@ from twisted.python.usage import Options, UsageError
 from twistedcaldav import customxml
 from twistedcaldav.ical import Component
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
+from twistedcaldav.timezones import TimezoneCache
 from txdav.base.propertystore.base import PropertyName
 from txdav.common.icommondatastore import UIDExistsError
 from txdav.xml import element as davxml
@@ -257,6 +258,9 @@ class ImporterService(WorkerService, object):
         self.reactor = reactor
         self.config = config
         self._directory = self.store.directoryService()
+
+        TimezoneCache.create()
+
 
 
     @inlineCallbacks
