@@ -97,6 +97,16 @@ class ImportOptions(Options):
     def __init__(self):
         super(ImportOptions, self).__init__()
         self.inputName = '-'
+        self.inputDirectoryName = None
+
+
+    def opt_directory(self, dirname):
+        """
+        Specify input directory path.
+        """
+        self.inputDirectoryName = dirname
+
+    opt_d = opt_directory
 
 
     def opt_input(self, filename):
@@ -253,10 +263,9 @@ class ImporterService(WorkerService, object):
     Service which runs, imports the data, then stops the reactor.
     """
 
-    def __init__(self, store, options, input, reactor, config):
+    def __init__(self, store, options, reactor, config):
         super(ImporterService, self).__init__(store)
         self.options = options
-        self.input = input
         self.reactor = reactor
         self.config = config
         self._directory = self.store.directoryService()
@@ -271,9 +280,33 @@ class ImporterService(WorkerService, object):
         Do the export, stopping the reactor when done.
         """
         try:
-            component = Component.allFromStream(self.input)
-            self.input.close()
-            yield importCollectionComponent(self.store, component)
+            if self.options.inputDirectoryName:
+                dirname = self.options.inputDirectoryName
+                if not os.path.exists(dirname):
+                    sys.stderr.write(
+                        "Directory does not exist: {}\n".format(dirname)
+                    )
+                    sys.exit(1)
+                for filename in os.listdir(dirname):
+                    fullpath = os.path.join(dirname, filename)
+                    print("Importing {}".format(fullpath))
+                    fileobj = open(fullpath, 'r')
+                    component = Component.allFromStream(fileobj)
+                    fileobj.close()
+                    yield importCollectionComponent(self.store, component)
+
+            else:
+                try:
+                    input = self.options.openInput()
+                except IOError, e:
+                    sys.stderr.write(
+                        "Unable to open input file for reading: %s\n" % (e)
+                    )
+                    sys.exit(1)
+
+                component = Component.allFromStream(input)
+                input.close()
+                yield importCollectionComponent(self.store, component)
         except:
             log.failure("doWork()")
 
@@ -297,7 +330,7 @@ class ImporterService(WorkerService, object):
 
 
 
-def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
+def main(argv=sys.argv, reactor=None):
     """
     Do the import.
     """
@@ -310,16 +343,8 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
     except UsageError, e:
         usage(e)
 
-    try:
-        input = options.openInput()
-    except IOError, e:
-        stderr.write("Unable to open input file for reading: %s\n" %
-                     (e))
-        sys.exit(1)
-
-
     def makeService(store):
         from twistedcaldav.config import config
-        return ImporterService(store, options, input, reactor, config)
+        return ImporterService(store, options, reactor, config)
 
     utilityMain(options["config"], makeService, reactor, verbose=options["debug"])

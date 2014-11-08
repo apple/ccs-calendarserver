@@ -35,19 +35,22 @@ per-user data such as alarms.
 
 from __future__ import print_function
 
-import os
-import sys
 import itertools
+import os
+import shutil
+import sys
 
+from calendarserver.tools.cmdline import utilityMain, WorkerService
+from twext.python.log import Logger
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options, UsageError
-from twisted.internet.defer import inlineCallbacks, returnValue, succeed
-
-from twext.python.log import Logger
-from twistedcaldav.ical import Component
-
+from twistedcaldav import customxml
+from twistedcaldav.ical import Component, Property
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
-from calendarserver.tools.cmdline import utilityMain, WorkerService
+from txdav.base.propertystore.base import PropertyName
+from txdav.xml import element as davxml
+
 
 log = Logger()
 
@@ -100,6 +103,7 @@ class ExportOptions(Options):
         super(ExportOptions, self).__init__()
         self.exporters = []
         self.outputName = '-'
+        self.outputDirectoryName = None
 
 
     def opt_uid(self, uid):
@@ -130,6 +134,15 @@ class ExportOptions(Options):
         self.exporters[-1].collections.append(collectionName)
 
     opt_c = opt_collection
+
+
+    def opt_directory(self, dirname):
+        """
+        Specify output directory path.
+        """
+        self.outputDirectoryName = dirname
+
+    opt_d = opt_directory
 
 
     def opt_output(self, filename):
@@ -278,7 +291,9 @@ def exportToFile(calendars, fileobj):
     for calendar in calendars:
         calendar = yield calendar
         for obj in (yield calendar.calendarObjects()):
-            evt = yield obj.filteredComponent(calendar.ownerCalendarHome().uid(), True)
+            evt = yield obj.filteredComponent(
+                calendar.ownerCalendarHome().uid(), True
+            )
             for sub in evt.subcomponents():
                 if sub.name() != 'VTIMEZONE':
                     # Omit all VTIMEZONE components here - we will include them later
@@ -286,6 +301,53 @@ def exportToFile(calendars, fileobj):
                     comp.addComponent(sub)
 
     fileobj.write(comp.getTextWithTimezones(True))
+
+
+@inlineCallbacks
+def exportToDirectory(calendars, dirname):
+    """
+    Export some calendars to a file as their owner would see them.
+
+    @param calendars: an iterable of L{ICalendar} providers (or L{Deferred}s of
+        same).
+
+    @param dirname: the path to a directory to store calendar files in; each
+        calendar being exported will have it's own .ics file
+
+    @return: a L{Deferred} which fires when the export is complete.  (Note that
+        the file will not be closed.)
+    @rtype: L{Deferred} that fires with C{None}
+    """
+
+    for calendar in calendars:
+        homeUID = calendar.ownerCalendarHome().uid()
+
+        calendarProperties = calendar.properties()
+        comp = Component.newCalendar()
+        for element, propertyName in (
+            (davxml.DisplayName, "NAME"),
+            (customxml.CalendarColor, "COLOR"),
+        ):
+
+            value = calendarProperties.get(PropertyName.fromElement(element), None)
+            if value:
+                comp.addProperty(Property(propertyName, str(value)))
+
+        source = "/calendars/__uids__/{}/{}/".format(homeUID, calendar.name())
+        comp.addProperty(Property("SOURCE", source))
+
+        for obj in (yield calendar.calendarObjects()):
+            evt = yield obj.filteredComponent(homeUID, True)
+            for sub in evt.subcomponents():
+                if sub.name() != 'VTIMEZONE':
+                    # Omit all VTIMEZONE components here - we will include them later
+                    # when we serialize the whole calendar.
+                    comp.addComponent(sub)
+
+        filename = os.path.join(dirname, "{}_{}.ics".format(homeUID, calendar.name()))
+        fileobj = open(filename, 'wb')
+        fileobj.write(comp.getTextWithTimezones(True))
+        fileobj.close()
 
 
 
@@ -310,16 +372,26 @@ class ExporterService(WorkerService, object):
         """
         txn = self.store.newTransaction()
         try:
+
             allCalendars = itertools.chain(
                 *[(yield exporter.listCalendars(txn, self)) for exporter in
                   self.options.exporters]
             )
-            yield exportToFile(allCalendars, self.output)
+
+            if self.options.outputDirectoryName:
+                dirname = self.options.outputDirectoryName
+                if os.path.exists(dirname):
+                    shutil.rmtree(dirname)
+                os.mkdir(dirname)
+                yield exportToDirectory(allCalendars, dirname)
+            else:
+                yield exportToFile(allCalendars, self.output)
+                self.output.close()
+
             yield txn.commit()
             # TODO: should be read-only, so commit/abort shouldn't make a
             # difference.  commit() for now, in case any transparent cache /
             # update stuff needed to happen, don't want to undo it.
-            self.output.close()
         except:
             log.failure("doWork()")
 
@@ -356,12 +428,16 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
     except UsageError, e:
         usage(e)
 
-    try:
-        output = options.openOutput()
-    except IOError, e:
-        stderr.write("Unable to open output file for writing: %s\n" %
-                     (e))
-        sys.exit(1)
+    if options.outputDirectoryName:
+        output = None
+    else:
+        try:
+            output = options.openOutput()
+        except IOError, e:
+            stderr.write(
+                "Unable to open output file for writing: %s\n" % (e)
+            )
+            sys.exit(1)
 
 
     def makeService(store):
