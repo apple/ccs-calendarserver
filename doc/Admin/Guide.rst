@@ -80,10 +80,7 @@ Ubuntu 13.10 server:
  sudo apt-get install build-essential subversion python-setuptools curl \
  libssl-dev libreadline6-dev python-dev libkrb5-dev
 
-The ``bin/develop`` script needs pip and virtualenv. Install these as you like,
-or use the ``bin/install_pip`` shell script to perform a system installation of
-pip and virtualenv via ``sudo``.
-
 Next, run ``bin/develop`` to get the remaining dependencies
 
 (to be continued...)
+
