@@ -18,7 +18,10 @@
 Unit tests for L{calendarsever.tools.importer}.
 """
 
-from calendarserver.tools.importer import importCollectionComponent, ImportException
+from calendarserver.tools.importer import (
+    importCollectionComponent, ImportException,
+    storeComponentInHomeAndCalendar
+)
 from twext.enterprise.jobqueue import JobItem
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
@@ -139,6 +142,54 @@ LOCATION:Mercury
 ORGANIZER;CN=User 01:urn:x-uid:user01
 SEQUENCE:0
 SUMMARY:I'm the organizer
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR
+"""
+
+
+DATA_OTHER_ORGANIZER_EVENT = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:6DB84FB1-C943-4144-BE65-9B0DD9A9E2C7
+DTSTART;TZID=America/Los_Angeles:20151008T053000
+DTEND;TZID=America/Los_Angeles:20151008T070000
+ATTENDEE;CN=User 01;CUTYPE=INDIVIDUAL:urn:x-uid:user01
+ATTENDEE;CN=User 02;CUTYPE=INDIVIDUAL;ROLE=CHAIR:urn:x-uid:user02
+ATTENDEE;CN=User 03;CUTYPE=INDIVIDUAL:urn:x-uid:user03
+ATTENDEE;CN=Mercury Seven;CUTYPE=ROOM:urn:x-uid:mercury
+CREATED:20141107T172645Z
+DTSTAMP:20141107T172645Z
+LOCATION:Mercury
+ORGANIZER;CN=User 02:urn:x-uid:user02
+SEQUENCE:0
+SUMMARY:Other organizer
+END:VEVENT
+END:VCALENDAR
+"""
+# TRANSP:OPAQUE
+
+DATA_ATTENDEE_EVENT = """BEGIN:VCALENDAR
+VERSION:2.0
+NAME:I'm an attendee
+COLOR:#0000FFFF
+SOURCE;VALUE=URI:http://example.com/calendars/__uids__/user01/calendar/
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:6DB84FB1-C943-4144-BE65-9B0DD9A9E2C7
+DTSTART;TZID=America/Los_Angeles:20151008T053000
+DTEND;TZID=America/Los_Angeles:20151008T070000
+ATTENDEE;CN=User 01;CUTYPE=INDIVIDUAL:urn:x-uid:user01
+ATTENDEE;CN=User 02;CUTYPE=INDIVIDUAL;ROLE=CHAIR:urn:x-uid:user02
+ATTENDEE;CN=User 03;CUTYPE=INDIVIDUAL:urn:x-uid:user03
+ATTENDEE;CN=Mercury Seven;CUTYPE=ROOM:urn:x-uid:mercury
+CREATED:20141107T172645Z
+DTSTAMP:20141107T172645Z
+LOCATION:Mercury
+ORGANIZER;CN=User 02:urn:x-uid:user02
+SEQUENCE:0
+SUMMARY:Other organizer
 TRANSP:OPAQUE
 END:VEVENT
 END:VCALENDAR
@@ -277,3 +328,74 @@ class ImportTests(StoreTestCase):
         self.assertEquals(len(objects), 1)
 
         yield txn.commit()
+
+
+    @inlineCallbacks
+    def test_ImportComponentAttendee(self):
+
+        # Have another principal invite this principal
+
+        yield storeComponentInHomeAndCalendar(
+            self.store,
+            Component.allFromString(DATA_OTHER_ORGANIZER_EVENT),
+            "user02",
+            "calendar",
+            "invite.ics"
+        )
+
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
+
+        # Delete the attendee's copy, thus declining the event
+        txn = self.store.newTransaction()
+        home = yield txn.calendarHomeWithUID("user01")
+        collection = yield home.childWithName("calendar")
+        objects = yield collection.objectResources()
+        self.assertEquals(len(objects), 1)
+        yield objects[0].remove()
+        yield txn.commit()
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
+
+        # Make sure attendee's copy is gone
+        txn = self.store.newTransaction()
+        home = yield txn.calendarHomeWithUID("user01")
+        collection = yield home.childWithName("calendar")
+        objects = yield collection.objectResources()
+        self.assertEquals(len(objects), 0)
+        yield txn.commit()
+
+        # Make sure attendee shows as declined to the organizer
+        txn = self.store.newTransaction()
+        home = yield txn.calendarHomeWithUID("user02")
+        collection = yield home.childWithName("calendar")
+        objects = yield collection.objectResources()
+        self.assertEquals(len(objects), 1)
+        component = yield objects[0].component()
+        prop = component.getAttendeeProperty(("urn:x-uid:user01",))
+        self.assertEquals(
+            prop.parameterValue("PARTSTAT"),
+            "DECLINED"
+        )
+        yield txn.commit()
+
+        # When importing the event again, instead trigger a re-invite
+        # from the organizer
+        component = Component.allFromString(DATA_ATTENDEE_EVENT)
+        yield importCollectionComponent(self.store, component)
+
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
+
+        # Make sure attendee now has a new invite
+        txn = self.store.newTransaction()
+        home = yield txn.calendarHomeWithUID("user01")
+        collection = yield home.childWithName("calendar")
+        objects = yield collection.objectResources()
+        self.assertEquals(len(objects), 1)
+        component = yield objects[0].component()
+        prop = component.getAttendeeProperty(("urn:x-uid:user01",))
+        self.assertEquals(
+            prop.parameterValue("PARTSTAT"),
+            "NEEDS-ACTION"
+        )
+        yield txn.commit()
+
+    test_ImportComponentAttendee.todo = "Debug"

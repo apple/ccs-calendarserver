@@ -178,8 +178,8 @@ def importCollectionComponent(store, component):
     ownerUID, collectionResourceName = sourceURI.strip("/").split("/")[-2:]
 
     dir = store.directoryService()
-    record = yield dir.recordWithUID(ownerUID)
-    if not record:
+    ownerRecord = yield dir.recordWithUID(ownerUID)
+    if not ownerRecord:
         raise ImportException("{} is not in the directory".format(ownerUID))
 
     # Set properties on the collection
@@ -201,27 +201,79 @@ def importCollectionComponent(store, component):
     # want to batch them?
     groupedComponents = Component.componentsFromComponent(component)
     for groupedComponent in groupedComponents:
-        resourceName = "{}.ics".format(str(uuid.uuid4()))
-        try:
-            yield storeComponentInHomeAndCalendar(
-                store, groupedComponent, ownerUID, collectionResourceName, resourceName
-            )
-        except UIDExistsError:
-            # That event is already in the home
+
+        # If event is unscheduled or the organizer matches homeUID, store the
+        # component
+
+        storeDirectly = True
+        organizer = groupedComponent.getOrganizer()
+        if organizer is not None:
+            organizerRecord = yield dir.recordWithCalendarUserAddress(organizer)
+            if organizerRecord is None:
+                # Organizer does not exist, so skip this event
+                continue
+            else:
+                if ownerRecord.uid != organizerRecord.uid:
+                    # Owner is not the organizer
+                    storeDirectly = False
+
+        if storeDirectly:
+            resourceName = "{}.ics".format(str(uuid.uuid4()))
             try:
-                uid = list(groupedComponent.subcomponents())[0].propertyValue("UID")
-            except:
-                uid = "unknown"
-
-            print("Skipping since UID already exists: {}".format(uid))
-
-        except Exception, e:
-            print(
-                "Failed to import due to: {error}\n{comp}".format(
-                    error=e,
-                    comp=groupedComponent
+                yield storeComponentInHomeAndCalendar(
+                    store, groupedComponent, ownerUID, collectionResourceName, resourceName
                 )
-            )
+            except UIDExistsError:
+                # That event is already in the home
+                try:
+                    uid = list(groupedComponent.subcomponents())[0].propertyValue("UID")
+                except:
+                    uid = "unknown"
+
+                print("Skipping since UID already exists: {}".format(uid))
+
+            except Exception, e:
+                print(
+                    "Failed to import due to: {error}\n{comp}".format(
+                        error=e,
+                        comp=groupedComponent
+                    )
+                )
+
+        else:
+            # Owner is not the organizer
+            print("OTHER")
+            txn = store.newTransaction()
+            organizerHome = yield txn.calendarHomeWithUID(organizerRecord.uid)
+            if organizerHome is None:
+                continue
+            # Iterate owner's calendars to find the one containing the event
+            # UID
+            uid = list(groupedComponent.subcomponents())[0].propertyValue("UID")
+            for collection in (yield organizerHome.children()):
+                if collection.name() != "inbox":
+                    resourceName = yield collection.resourceNameForUID(uid)
+                    print("Resource name", collection, resourceName)
+                    object = yield collection.objectResourceWithName(resourceName)
+                    component = yield object.component()
+                    print ("Comp", component)
+
+                    ownerCUA = ownerRecord.canonicalCalendarUserAddress()
+                    print("CUA", ownerCUA)
+                    attendeeProp = component.getAttendeeProperty((ownerCUA,))
+                    print("att prop", attendeeProp)
+                    if attendeeProp is not None:
+                        print("Before", attendeeProp)
+                        attendeeProp.setParameter("PARTSTAT", "NEEDS-ACTION")
+                        attendeeProp.removeParameter("SCHEDULE-STATUS")
+                        print("I modified", attendeeProp)
+                        result = yield object.setComponent(component)
+                        print("Set component result", result)
+
+                    break
+
+            yield txn.commit()
+
 
 
 @inlineCallbacks
