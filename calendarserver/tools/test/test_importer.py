@@ -148,7 +148,7 @@ END:VCALENDAR
 """
 
 
-DATA_OTHER_ORGANIZER_EVENT = """BEGIN:VCALENDAR
+DATA_USER02_INVITES_USER01_ORGANIZER_COPY = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
@@ -165,12 +165,12 @@ LOCATION:Mercury
 ORGANIZER;CN=User 02:urn:x-uid:user02
 SEQUENCE:0
 SUMMARY:Other organizer
+TRANSP:OPAQUE
 END:VEVENT
 END:VCALENDAR
 """
-# TRANSP:OPAQUE
 
-DATA_ATTENDEE_EVENT = """BEGIN:VCALENDAR
+DATA_USER02_INVITES_USER01_ATTENDEE_COPY = """BEGIN:VCALENDAR
 VERSION:2.0
 NAME:I'm an attendee
 COLOR:#0000FFFF
@@ -333,11 +333,10 @@ class ImportTests(StoreTestCase):
     @inlineCallbacks
     def test_ImportComponentAttendee(self):
 
-        # Have another principal invite this principal
-
+        # Have user02 invite this user01
         yield storeComponentInHomeAndCalendar(
             self.store,
-            Component.allFromString(DATA_OTHER_ORGANIZER_EVENT),
+            Component.allFromString(DATA_USER02_INVITES_USER01_ORGANIZER_COPY),
             "user02",
             "calendar",
             "invite.ics"
@@ -379,7 +378,7 @@ class ImportTests(StoreTestCase):
 
         # When importing the event again, instead trigger a re-invite
         # from the organizer
-        component = Component.allFromString(DATA_ATTENDEE_EVENT)
+        component = Component.allFromString(DATA_USER02_INVITES_USER01_ATTENDEE_COPY)
         yield importCollectionComponent(self.store, component)
 
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)

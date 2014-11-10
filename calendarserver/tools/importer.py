@@ -255,20 +255,19 @@ def importCollectionComponent(store, component):
                     resourceName = yield collection.resourceNameForUID(uid)
                     print("Resource name", collection, resourceName)
                     object = yield collection.objectResourceWithName(resourceName)
-                    component = yield object.component()
+                    component = yield object.componentForUser()
                     print ("Comp", component)
 
                     ownerCUA = ownerRecord.canonicalCalendarUserAddress()
                     print("CUA", ownerCUA)
-                    attendeeProp = component.getAttendeeProperty((ownerCUA,))
-                    print("att prop", attendeeProp)
-                    if attendeeProp is not None:
-                        print("Before", attendeeProp)
-                        attendeeProp.setParameter("PARTSTAT", "NEEDS-ACTION")
-                        attendeeProp.removeParameter("SCHEDULE-STATUS")
-                        print("I modified", attendeeProp)
-                        result = yield object.setComponent(component)
-                        print("Set component result", result)
+                    for attendeeProp in (yield component.getAttendeeProperties((ownerCUA,))):
+                        print("att prop", attendeeProp)
+                        if attendeeProp is not None:
+                            print("Before", attendeeProp)
+                            attendeeProp.setParameter("PARTSTAT", "NEEDS-ACTION")
+                            print("I modified", attendeeProp)
+                            result = yield object.setComponent(component)
+                            print("Set component result", result)
 
                     break
 
