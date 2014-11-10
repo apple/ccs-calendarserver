@@ -202,6 +202,11 @@ def importCollectionComponent(store, component):
     groupedComponents = Component.componentsFromComponent(component)
     for groupedComponent in groupedComponents:
 
+        try:
+            uid = list(groupedComponent.subcomponents())[0].propertyValue("UID")
+        except:
+            uid = "unknown"
+
         # If event is unscheduled or the organizer matches homeUID, store the
         # component
 
@@ -223,13 +228,9 @@ def importCollectionComponent(store, component):
                 yield storeComponentInHomeAndCalendar(
                     store, groupedComponent, ownerUID, collectionResourceName, resourceName
                 )
+                print("Imported: {}".format(uid))
             except UIDExistsError:
                 # That event is already in the home
-                try:
-                    uid = list(groupedComponent.subcomponents())[0].propertyValue("UID")
-                except:
-                    uid = "unknown"
-
                 print("Skipping since UID already exists: {}".format(uid))
 
             except Exception, e:
@@ -242,36 +243,8 @@ def importCollectionComponent(store, component):
 
         else:
             # Owner is not the organizer
-            print("OTHER")
-            txn = store.newTransaction()
-            organizerHome = yield txn.calendarHomeWithUID(organizerRecord.uid)
-            if organizerHome is None:
-                continue
-            # Iterate owner's calendars to find the one containing the event
-            # UID
-            uid = list(groupedComponent.subcomponents())[0].propertyValue("UID")
-            for collection in (yield organizerHome.children()):
-                if collection.name() != "inbox":
-                    resourceName = yield collection.resourceNameForUID(uid)
-                    print("Resource name", collection, resourceName)
-                    object = yield collection.objectResourceWithName(resourceName)
-                    component = yield object.componentForUser()
-                    print ("Comp", component)
-
-                    ownerCUA = ownerRecord.canonicalCalendarUserAddress()
-                    print("CUA", ownerCUA)
-                    for attendeeProp in (yield component.getAttendeeProperties((ownerCUA,))):
-                        print("att prop", attendeeProp)
-                        if attendeeProp is not None:
-                            print("Before", attendeeProp)
-                            attendeeProp.setParameter("PARTSTAT", "NEEDS-ACTION")
-                            print("I modified", attendeeProp)
-                            result = yield object.setComponent(component)
-                            print("Set component result", result)
-
-                    break
-
-            yield txn.commit()
+            ownerCUA = ownerRecord.canonicalCalendarUserAddress()
+            yield reInviteAttendee(store, organizerRecord.uid, uid, ownerCUA)
 
 
 
@@ -296,7 +269,6 @@ def storeComponentInHomeAndCalendar(
     @type collectionResourceName: C{str}
     @param objectResourceName: name of the objectresource
     @type objectResourceName: C{str}
-
     """
     txn = store.newTransaction()
     home = yield txn.calendarHomeWithUID(homeUID, create=True)
@@ -307,6 +279,45 @@ def storeComponentInHomeAndCalendar(
     yield collection.createObjectResourceWithName(objectResourceName, component)
     yield txn.commit()
 
+
+@inlineCallbacks
+def reInviteAttendee(
+    store, organizerUID, objectUID, attendeeCUA
+):
+    """
+    Force a re-invite of an attendee
+
+    Find the event with the given objectUID within the calendar home for
+    organizerUID, and update it so the attendeeCUA's PARTSTAT is set to
+    NEEDS-ACTION.
+
+    @param store: The db store to add the component to
+    @type store: L{IDataStore}
+    @param organizerUID: uid of the organizer
+    @type organizerUID: C{str}
+    @param objectUID: uid of the event
+    @type objectUID: C{str}
+    @param attendeeCUA: CUA of the attendee to re-invite
+    @type attendeeCUA: C{str}
+    """
+
+    txn = store.newTransaction()
+    organizerHome = yield txn.calendarHomeWithUID(organizerUID)
+    if organizerHome is not None:
+        for object in (yield organizerHome.getCalendarResourcesForUID(objectUID)):
+            component = yield object.componentForUser()
+
+            # duplicate() so implicit actions will trigger -- otherwise
+            # the data objects will be the same when you call setComponent
+            component = component.duplicate()
+
+            for attendeeProp in (yield component.getAttendeeProperties((attendeeCUA,))):
+                if attendeeProp is not None:
+                    attendeeProp.setParameter("PARTSTAT", "NEEDS-ACTION")
+                    yield object.setComponent(component)
+                    print("Reinviting to: {}".format(objectUID))
+
+    yield txn.commit()
 
 
 class ImporterService(WorkerService, object):

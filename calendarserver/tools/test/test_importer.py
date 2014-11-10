@@ -396,5 +396,3 @@ class ImportTests(StoreTestCase):
             "NEEDS-ACTION"
         )
         yield txn.commit()
-
-    test_ImportComponentAttendee.todo = "Debug"
