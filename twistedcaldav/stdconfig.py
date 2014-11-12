@@ -733,6 +733,7 @@ DEFAULT_CONFIG = {
             "AllowResourceWithoutOrganizer"       : True, # Allow resources to have events without an Organizer
             "TrackUnscheduledLocationData"        : True, # Track who the last modifier of an unscheduled location event is
             "TrackUnscheduledResourceData"        : True, # Track who the last modifier of an unscheduled resource event is
+            "FakeResourceLocationEmail"           : False, # Add fake email addresses to work around client bug
             "LimitFreeBusyAttendees"              : 30, # Maximum number of attendees to request freebusy for
             "AttendeeRefreshBatch"                : 5, # Number of attendees to do batched refreshes: 0 - no batching
             "AttendeeRefreshBatchDelaySeconds"    : 5, # Time after an iTIP REPLY for first batched attendee refresh

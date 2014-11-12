@@ -1164,6 +1164,37 @@ class DirectoryServiceTests(TestCase):
         self.assertTrue(record is None)
 
 
+    def test_recordWithCalendarUserAddress_fake_email(self):
+        """
+        Make sure that recordWithCalendarUserAddress handles fake emails for
+        resources and locations.
+        """
+
+        self.patch(config.Scheduling.Options, "FakeResourceLocationEmail", True)
+
+        self.service.createRecord(
+            DirectoryService.recordType_resources,
+            guid="resource01",
+            shortNames=("resource 01", "Resource 01"),
+            fullName="Resource 01",
+            enabledForCalendaring=True,
+        )
+        self.service.createRecord(
+            DirectoryService.recordType_locations,
+            guid="location02",
+            shortNames=("location02", "Location 02"),
+            fullName="Location 02",
+            enabledForCalendaring=True,
+        )
+
+        record = self.service.recordWithCalendarUserAddress("mailto:resource01@do_not_reply")
+        self.assertTrue(record is not None)
+        record = self.service.recordWithCalendarUserAddress("mailto:location02@do_not_reply")
+        self.assertTrue(record is not None)
+        record = self.service.recordWithCalendarUserAddress("mailto:location01@do_not_reply")
+        self.assertTrue(record is None)
+
+
 
 class DirectoryRecordTests(TestCase):
     """

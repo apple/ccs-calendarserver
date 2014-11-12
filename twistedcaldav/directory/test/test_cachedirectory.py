@@ -383,3 +383,20 @@ class GUIDLookups(CachingDirectoryTest):
             self.service.generateMemcacheKey(self.service.INDEX_TYPE_SHORTNAME, "foo", "users"),
             "dir|v2|20CB1593-DE3F-4422-A7D7-BA9C2099B317|users|shortname|foo",
         )
+
+
+    def test_fakeemail(self):
+
+        self.patch(config.Scheduling.Options, "FakeResourceLocationEmail", True)
+        self.dummyRecords()
+
+        self.assertTrue(self.service.recordWithCalendarUserAddress(
+            "mailto:{}@do_not_reply".format(self.guidForShortName("resource02", recordType=DirectoryService.recordType_resources))
+        ) is not None)
+        self.assertTrue(self.service.recordWithCalendarUserAddress(
+            "mailto:{}@do_not_reply".format(self.guidForShortName("location02", recordType=DirectoryService.recordType_locations))
+        ) is not None)
+        self.assertTrue(self.service.recordWithCalendarUserAddress(
+            "mailto:bogus@do_not_reply"
+        ) is None)
+        self.assertTrue(self.service.queried)

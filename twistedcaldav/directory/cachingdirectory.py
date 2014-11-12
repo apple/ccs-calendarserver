@@ -300,6 +300,11 @@ class CachingDirectoryService(DirectoryService):
     def recordWithCalendarUserAddress(self, address):
         address = normalizeCUAddr(address)
         record = None
+
+        if config.Scheduling.Options.FakeResourceLocationEmail:
+            if address.startswith("mailto:") and address.endswith("@do_not_reply"):
+                address = "urn:uuid:{}".format(address[7:-13])
+
         if address.startswith("mailto:"):
             record = self._lookupRecord(None, CachingDirectoryService.INDEX_TYPE_CUA, address)
             return record if record and record.enabledForCalendaring else None

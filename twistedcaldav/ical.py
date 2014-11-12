@@ -3248,6 +3248,10 @@ END:VCALENDAR
                 if oldemail:
                     oldemail = "mailto:%s" % (oldemail,)
 
+                    if config.Scheduling.Options.FakeResourceLocationEmail:
+                        if oldemail.endswith("@do_not_reply"):
+                            oldemail = None
+
                 # Get any CN parameter
                 oldCN = prop.parameterValue("CN")
 
@@ -3325,6 +3329,10 @@ END:VCALENDAR
                                 break
                         else:
                             email = None
+
+                    if config.Scheduling.Options.FakeResourceLocationEmail:
+                        if email.endswith("@do_not_reply"):
+                            email = ""
 
                     if email:
                         prop.setParameter("EMAIL", email)

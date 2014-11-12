@@ -225,6 +225,11 @@ class DirectoryService(object):
     def recordWithCalendarUserAddress(self, address):
         address = normalizeCUAddr(address)
         record = None
+
+        if config.Scheduling.Options.FakeResourceLocationEmail:
+            if address.startswith("mailto:") and address.endswith("@do_not_reply"):
+                address = "urn:uuid:{}".format(address[7:-13])
+
         if address.startswith("urn:uuid:"):
             guid = address[9:]
             record = self.recordWithGUID(guid)
@@ -1170,6 +1175,10 @@ class DirectoryRecord(object):
 
         if fullName is None:
             fullName = ""
+
+        if config.Scheduling.Options.FakeResourceLocationEmail:
+            if recordType in (service.recordType_locations, service.recordType_resources) and not emailAddresses:
+                emailAddresses = set(("%s@do_not_reply" % uid,))
 
         self.service = service
         self.recordType = recordType
