@@ -1376,9 +1376,11 @@ class CommonStoreTransaction(object):
             )
 
         if membershipChanged:
-            yield self.synchronizeMembers(groupID, set(memberUIDs))
+            addedUIDs, removedUIDs = yield self.synchronizeMembers(groupID, set(memberUIDs))
+        else:
+            addedUIDs = removedUIDs = None
 
-        returnValue(membershipChanged)
+        returnValue((membershipChanged, addedUIDs, removedUIDs,))
 
 
     @inlineCallbacks
@@ -1394,22 +1396,19 @@ class CommonStoreTransaction(object):
         @param newMemberUIDs: set of new member UIDs in the group
         @type newMemberUIDs: L{set} of L{str}
         """
-        numRemoved = numAdded = 0
         cachedMemberUIDs = (yield self.groupMemberUIDs(groupID))
 
         removed = cachedMemberUIDs - newMemberUIDs
         for memberUID in removed:
-            numRemoved += 1
             yield self.removeMemberFromGroup(memberUID, groupID)
 
         added = newMemberUIDs - cachedMemberUIDs
         for memberUID in added:
-            numAdded += 1
             yield self.addMemberToGroup(memberUID, groupID)
 
         yield self.groupChanged(groupID, added, removed)
 
-        returnValue((numAdded, numRemoved))
+        returnValue((added, removed,))
 
 
     @inlineCallbacks

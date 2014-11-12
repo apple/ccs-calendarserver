@@ -135,6 +135,40 @@ class MemcacheChangeNotifier(CachePoolUserMixIn):
 
 
 
+class MemcacheURLPatternChangeNotifier(CachePoolUserMixIn):
+    """
+    A change notifier used to target arbitrary tokens.
+    """
+    log = Logger()
+
+    def __init__(self, urlPattern, cachePool=None, cacheHandle="Default"):
+        self._urlPattern = urlPattern
+        self._cachePool = cachePool
+        self._cachePoolHandle = cacheHandle
+
+
+    def _newCacheToken(self):
+        return str(uuid.uuid4())
+
+
+    def changed(self, token):
+        """
+        Change the cache token for a resource
+
+        return: A L{Deferred} that fires when the token has been changed.
+        """
+
+        url = self._urlPattern.format(token=token)
+
+        self.log.debug("Changing Cache Token for {url}", url=url)
+        return self.getCachePool().set(
+            'cacheToken:{url}'.format(url=url),
+            self._newCacheToken(),
+            expireTime=config.ResponseCacheTimeout * 60,
+        )
+
+
+
 class BaseResponseCache(object):
     """
     A base class which provides some common operations

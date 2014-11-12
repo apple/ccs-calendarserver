@@ -23,11 +23,13 @@ from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.syntax import Delete, Select, Parameter
 from twext.enterprise.jobqueue import WorkItem, RegeneratingWorkItem
 from twext.python.log import Logger
-from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed, \
+    DeferredList
 from twistedcaldav.config import config
 from txdav.caldav.datastore.sql import CalendarStoreFeatures
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 import datetime
+import itertools
 import time
 
 log = Logger()
@@ -249,13 +251,15 @@ class GroupCacher(object):
         self, directory,
         updateSeconds=600,
         useDirectoryBasedDelegates=False,
-        directoryBasedDelegatesSource=None
+        directoryBasedDelegatesSource=None,
+        cacheNotifier=None,
     ):
         self.directory = directory
         self.useDirectoryBasedDelegates = useDirectoryBasedDelegates
         if useDirectoryBasedDelegates and directoryBasedDelegatesSource is None:
             directoryBasedDelegatesSource = self.directory.recordsWithDirectoryBasedDelegates
         self.directoryBasedDelegatesSource = directoryBasedDelegatesSource
+        self.cacheNotifier = cacheNotifier
         self.updateSeconds = updateSeconds
 
 
@@ -440,19 +444,30 @@ class GroupCacher(object):
         )
 
         if groupID:
-            membershipChanged = yield txn.refreshGroup(
+            membershipChanged, addedUIDs, removedUIDs = yield txn.refreshGroup(
                 groupUID, record, groupID,
                 cachedName, cachedMembershipHash, cachedExtant
             )
 
             if membershipChanged:
                 self.log.info(
-                    "Membership changed for group {uid} {name}",
+                    "Membership changed for group {uid} {name}:\n\tadded {added}\n\tremoved {removed}",
                     uid=groupUID,
-                    name=cachedName
+                    name=cachedName,
+                    added=",".join(addedUIDs),
+                    removed=",".join(removedUIDs),
                 )
+
+                # Send cache change notifications
+                if self.cacheNotifier is not None:
+                    self.cacheNotifier.changed(groupUID)
+                    for uid in itertools.chain(addedUIDs, removedUIDs):
+                        self.cacheNotifier.changed(uid)
+
+                # Notifier other store APIs of changes
                 wpsAttendee = yield self.scheduleGroupAttendeeReconciliations(txn, groupID)
                 wpsShareee = yield self.scheduleGroupShareeReconciliations(txn, groupID)
+
                 returnValue(wpsAttendee + wpsShareee)
             else:
                 self.log.debug(
@@ -536,10 +551,23 @@ class GroupCacher(object):
 
     @inlineCallbacks
     def groupsToRefresh(self, txn):
-        delegatedUIDs = frozenset((yield txn.allGroupDelegates()))
+        delegatedUIDs = set((yield txn.allGroupDelegates()))
         self.log.info(
             "There are {count} group delegates", count=len(delegatedUIDs)
         )
+
+        # Also get group delegates from other pods
+        if txn.directoryService().serversDB is not None and len(txn.directoryService().serversDB.allServersExceptThis()) != 0:
+            results = yield DeferredList([
+                txn.store().conduit.send_all_group_delegates(txn, server) for
+                server in txn.directoryService().serversDB.allServersExceptThis()
+            ], consumeErrors=True)
+            for result in results:
+                if result and result[0]:
+                    delegatedUIDs.update(result[1])
+            self.log.info(
+                "There are {count} group delegates on this and other pods", count=len(delegatedUIDs)
+            )
 
         # Get groupUIDs for all group attendees
         ga = schema.GROUP_ATTENDEE

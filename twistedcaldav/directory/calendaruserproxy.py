@@ -303,13 +303,22 @@ class CalendarUserProxyPrincipalResource (
             principals.append(principal)
             newUIDs.add(principal.principalUID())
 
-        # Get the old set of UIDs
-        # oldUIDs = (yield self._index().getMembers(self.uid))
+        # Get the old set of expanded UIDs
+        oldUIDs = set()
         oldPrincipals = yield self.groupMembers()
-        oldUIDs = [p.principalUID() for p in oldPrincipals]
+        oldUIDs.update([p.principalUID() for p in oldPrincipals])
+        oldPrincipals = yield self.expandedGroupMembers()
+        oldUIDs.update([p.principalUID() for p in oldPrincipals])
 
         # Change membership
         yield self.setGroupMemberSetPrincipals(principals)
+
+        # Get the new set of UIDs
+        newUIDs = set()
+        newPrincipals = yield self.groupMembers()
+        newUIDs.update([p.principalUID() for p in newPrincipals])
+        newPrincipals = yield self.expandedGroupMembers()
+        newUIDs.update([p.principalUID() for p in newPrincipals])
 
         # Invalidate the primary principal's cache, and any principal's whose
         # membership status changed

@@ -416,5 +416,11 @@ class CachingDirectoryService(
         )
 
 
+    @inlineCallbacks
+    def flush(self):
+        self.resetCache()
+        yield self._directory.flush()
+
+
     def stats(self):
         return self._directory.stats()

@@ -200,7 +200,7 @@ class DelegationTest(StoreTestCase):
             groupID, name, _ignore_membershipHash, _ignore_modified,
             _ignore_extant
         ) = (yield txn.groupByUID(group1.uid))
-        _ignore_numAdded, _ignore_numRemoved = (
+        _ignore_added, _ignore_removed = (
             yield self.groupCacher.synchronizeMembers(txn, groupID, newSet)
         )
         delegates = (yield Delegates.delegatesOf(txn, delegator, True, expanded=True))

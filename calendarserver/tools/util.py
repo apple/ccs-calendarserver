@@ -293,6 +293,8 @@ def recordForPrincipalID(directory, principalID, checkOnly=False):
 
         recordType, shortName = principalID.split(":", 1)
         recordType = directory.oldNameToRecordType(recordType)
+        if recordType is None:
+            returnValue(None)
 
         returnValue((yield directory.recordWithShortName(recordType, shortName)))
 

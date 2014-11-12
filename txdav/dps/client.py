@@ -44,7 +44,7 @@ from txdav.dps.commands import (
     WikiAccessForUIDCommand, ContinuationCommand,
     StatsCommand, ExternalDelegatesCommand, ExpandedMemberUIDsCommand,
     AddMembersCommand, RemoveMembersCommand,
-    UpdateRecordsCommand, ExpandedMembersCommand
+    UpdateRecordsCommand, ExpandedMembersCommand, FlushCommand
 )
 from txdav.who.delegates import RecordType as DelegatesRecordType
 from txdav.who.directory import (
@@ -420,6 +420,15 @@ class DirectoryService(BaseDirectoryService, CalendarDirectoryServiceMixin):
             uids=recordUIDs,
             create=False,
         )
+
+
+    @inlineCallbacks
+    def flush(self):
+        try:
+            yield self._sendCommand(FlushCommand)
+            returnValue(None)
+        except ConnectError:
+            returnValue(None)
 
 
     @inlineCallbacks

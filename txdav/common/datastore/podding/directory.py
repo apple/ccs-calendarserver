@@ -27,6 +27,55 @@ class DirectoryPoddingConduitMixin(object):
     """
 
     @inlineCallbacks
+    def send_all_group_delegates(self, txn, server):
+        """
+        Request all group delegates on another pod.
+
+        @param txn: transaction to use
+        @type txn: L{CommonStoreTransaction}
+        @param server: server to query
+        @type server: L{Server}
+        """
+
+        request = {
+            "action": "all-group-delegates",
+        }
+        response = yield self.sendRequestToServer(txn, server, request)
+
+        if response["result"] == "ok":
+            returnValue(set(response["value"]))
+        elif response["result"] == "exception":
+            raise namedClass(response["class"])(response["result"])
+
+
+    @inlineCallbacks
+    def recv_all_group_delegates(self, txn, request):
+        """
+        Process an all group delegates cross-pod request. Request arguments as per L{send_all_group_delegates}.
+
+        @param request: request arguments
+        @type request: C{dict}
+        """
+
+        if request["action"] != "all-group-delegates":
+            raise FailedCrossPodRequestError("Wrong action '{}' for recv_all_group_delegates".format(request["action"]))
+
+        try:
+            delegatedUIDs = yield txn.allGroupDelegates()
+        except Exception as e:
+            returnValue({
+                "result": "exception",
+                "class": ".".join((e.__class__.__module__, e.__class__.__name__,)),
+                "request": str(e),
+            })
+
+        returnValue({
+            "result": "ok",
+            "value": list(delegatedUIDs),
+        })
+
+
+    @inlineCallbacks
     def send_set_delegates(self, txn, delegator, delegates, readWrite):
         """
         Set delegates for delegator on another pod.

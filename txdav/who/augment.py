@@ -128,6 +128,10 @@ class AugmentedDirectoryService(
         cls._timings[key] = (count, timeSpent)
 
 
+    def flush(self):
+        return self._directory.flush()
+
+
     def stats(self):
         results = {}
         results.update(self._timings)

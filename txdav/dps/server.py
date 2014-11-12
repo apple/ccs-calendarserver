@@ -41,7 +41,7 @@ from txdav.dps.commands import (
     WikiAccessForUIDCommand, ContinuationCommand,
     ExternalDelegatesCommand, StatsCommand, ExpandedMemberUIDsCommand,
     AddMembersCommand, RemoveMembersCommand,
-    UpdateRecordsCommand, # RemoveRecordsCommand,
+    UpdateRecordsCommand, FlushCommand, # RemoveRecordsCommand,
 )
 from txdav.who.wiki import WikiAccessLevel
 from zope.interface import implementer
@@ -644,6 +644,16 @@ class DirectoryProxyAMPProtocol(amp.AMP):
             "access": access.name.encode("utf-8"),
         }
         # log.debug("Responding with: {response}", response=response)
+        returnValue(response)
+
+
+    @FlushCommand.responder
+    @inlineCallbacks
+    def flush(self):
+        yield self._directory.flush()
+        response = {
+            "flush": True,
+        }
         returnValue(response)
 
 

@@ -94,6 +94,7 @@ from txdav.common.datastore.work.revision_cleanup import FindMinValidRevisionWor
 from txdav.who.groups import GroupCacher
 
 from twistedcaldav import memcachepool
+from twistedcaldav.cache import MemcacheURLPatternChangeNotifier
 from twistedcaldav.config import ConfigurationError
 from twistedcaldav.localization import processLocalizationFiles
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
@@ -916,10 +917,12 @@ class CalDAVServiceMaker (object):
 
         # Optionally set up group cacher
         if config.GroupCaching.Enabled:
+            cacheNotifier = MemcacheURLPatternChangeNotifier("/principals/__uids__/{token}/", cacheHandle="PrincipalToken") if config.EnableResponseCache else None
             groupCacher = GroupCacher(
                 directory,
                 updateSeconds=config.GroupCaching.UpdateSeconds,
                 useDirectoryBasedDelegates=config.GroupCaching.UseDirectoryBasedDelegates,
+                cacheNotifier=cacheNotifier,
             )
         else:
             groupCacher = None
@@ -1285,10 +1288,12 @@ class CalDAVServiceMaker (object):
 
             # Optionally set up group cacher
             if config.GroupCaching.Enabled:
+                cacheNotifier = MemcacheURLPatternChangeNotifier("/principals/__uids__/{token}/", cacheHandle="PrincipalToken") if config.EnableResponseCache else None
                 groupCacher = GroupCacher(
                     directory,
                     updateSeconds=config.GroupCaching.UpdateSeconds,
                     useDirectoryBasedDelegates=config.GroupCaching.UseDirectoryBasedDelegates,
+                    cacheNotifier=cacheNotifier,
                 )
             else:
                 groupCacher = None
@@ -1872,10 +1877,12 @@ class CalDAVServiceMaker (object):
 
             # Optionally set up group cacher
             if config.GroupCaching.Enabled:
+                cacheNotifier = MemcacheURLPatternChangeNotifier("/principals/__uids__/{token}/", cacheHandle="PrincipalToken") if config.EnableResponseCache else None
                 groupCacher = GroupCacher(
                     directory,
                     updateSeconds=config.GroupCaching.UpdateSeconds,
                     useDirectoryBasedDelegates=config.GroupCaching.UseDirectoryBasedDelegates,
+                    cacheNotifier=cacheNotifier,
                 )
             else:
                 groupCacher = None

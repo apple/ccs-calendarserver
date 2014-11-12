@@ -325,6 +325,7 @@ class ControlAPIResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildre
     @inlineCallbacks
     def action_refreshgroups(self, j):
         txn = self._store.newTransaction()
+        yield txn.directoryService().flush()
         wp = yield GroupCacherPollingWork.reschedule(txn, 0, force=True)
         jobID = wp.workItem.jobID
         yield txn.commit()

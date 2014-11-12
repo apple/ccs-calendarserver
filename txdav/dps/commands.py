@@ -266,6 +266,14 @@ class ExternalDelegatesCommand(amp.Command):
 
 
 
+class FlushCommand(amp.Command):
+    arguments = []
+    response = [
+        ('flush', amp.Boolean()),
+    ]
+
+
+
 class StatsCommand(amp.Command):
     arguments = []
     response = [

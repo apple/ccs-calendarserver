@@ -131,13 +131,13 @@ class GroupCacherTest(StoreTestCase):
                 )
             )
             newSet.add(record.uid)
-        numAdded, numRemoved = (
+        added, removed = (
             yield self.groupCacher.synchronizeMembers(
                 txn, groupID, newSet
             )
         )
-        self.assertEquals(numAdded, 1)
-        self.assertEquals(numRemoved, 2)
+        self.assertEquals(added, set(["__dre1__", ]))
+        self.assertEquals(removed, set(["__glyph1__", "__sagen1__", ]))
         records = (yield self.groupCacher.cachedMembers(txn, groupID))
         self.assertEquals(
             set([r.shortNames[0] for r in records]),
@@ -145,11 +145,11 @@ class GroupCacherTest(StoreTestCase):
         )
 
         # Remove all members
-        numAdded, numRemoved = (
+        added, removed = (
             yield self.groupCacher.synchronizeMembers(txn, groupID, set())
         )
-        self.assertEquals(numAdded, 0)
-        self.assertEquals(numRemoved, 3)
+        self.assertEquals(added, set())
+        self.assertEquals(removed, set(["__wsanchez1__", "__cdaboo1__", "__dre1__", ]))
         records = (yield self.groupCacher.cachedMembers(txn, groupID))
         self.assertEquals(len(records), 0)
 
@@ -481,6 +481,132 @@ class GroupCacherTest(StoreTestCase):
         )
 
         yield txn.commit()
+
+
+    @inlineCallbacks
+    def test_groupChangeCacheNotification(self):
+        """
+        Verify refreshGroup() triggers a cache notification for the group and all
+        members that are added or removed
+        """
+
+        class TestNotifier(object):
+            changedTokens = []
+            def changed(self, token):
+                self.changedTokens.append(token)
+
+        self.groupCacher.cacheNotifier = TestNotifier()
+
+        # No change
+        yield self.groupCacher.refreshGroup(self.transactionUnderTest(), "__top_group_1__")
+        yield self.groupCacher.refreshGroup(self.transactionUnderTest(), "__sub_group_1__")
+        yield self.commit()
+
+        self.assertEqual(TestNotifier.changedTokens, [])
+
+        # Add member to group
+        record = yield self.directory.recordWithUID(u"__top_group_1__")
+        addrecord = yield self.directory.recordWithUID(u"__dre1__")
+        yield record.addMembers([addrecord, ])
+
+        yield self.groupCacher.refreshGroup(self.transactionUnderTest(), "__top_group_1__")
+        yield self.commit()
+
+        self.assertEqual(TestNotifier.changedTokens, [
+            "__top_group_1__",
+            "__dre1__",
+        ])
+        TestNotifier.changedTokens = []
+
+        # Remove member from group
+        record = yield self.directory.recordWithUID(u"__top_group_1__")
+        addrecord = yield self.directory.recordWithUID(u"__dre1__")
+        yield record.removeMembers([addrecord, ])
+
+        yield self.groupCacher.refreshGroup(self.transactionUnderTest(), "__top_group_1__")
+        yield self.commit()
+
+        self.assertEqual(TestNotifier.changedTokens, [
+            "__top_group_1__",
+            "__dre1__",
+        ])
+        TestNotifier.changedTokens = []
+
+        # Add member to sub-group
+        record = yield self.directory.recordWithUID(u"__sub_group_1__")
+        addrecord = yield self.directory.recordWithUID(u"__dre1__")
+        yield record.addMembers([addrecord, ])
+
+        yield self.groupCacher.refreshGroup(self.transactionUnderTest(), "__top_group_1__")
+        yield self.commit()
+
+        self.assertEqual(TestNotifier.changedTokens, [
+            "__top_group_1__",
+            "__dre1__",
+        ])
+        TestNotifier.changedTokens = []
+
+        yield self.groupCacher.refreshGroup(self.transactionUnderTest(), "__sub_group_1__")
+        yield self.commit()
+
+        self.assertEqual(TestNotifier.changedTokens, [
+            "__sub_group_1__",
+            "__dre1__",
+        ])
+        TestNotifier.changedTokens = []
+
+        # Remove member from sub-group
+        record = yield self.directory.recordWithUID(u"__sub_group_1__")
+        addrecord = yield self.directory.recordWithUID(u"__dre1__")
+        yield record.removeMembers([addrecord, ])
+
+        yield self.groupCacher.refreshGroup(self.transactionUnderTest(), "__top_group_1__")
+        yield self.commit()
+
+        self.assertEqual(TestNotifier.changedTokens, [
+            "__top_group_1__",
+            "__dre1__",
+        ])
+        TestNotifier.changedTokens = []
+
+        yield self.groupCacher.refreshGroup(self.transactionUnderTest(), "__sub_group_1__")
+        yield self.commit()
+
+        self.assertEqual(TestNotifier.changedTokens, [
+            "__sub_group_1__",
+            "__dre1__",
+        ])
+        TestNotifier.changedTokens = []
+
+        # Remove sub-group member from group
+        record = yield self.directory.recordWithUID(u"__top_group_1__")
+        addrecord = yield self.directory.recordWithUID(u"__sub_group_1__")
+        yield record.removeMembers([addrecord, ])
+
+        yield self.groupCacher.refreshGroup(self.transactionUnderTest(), "__top_group_1__")
+        yield self.commit()
+
+        self.assertEqual(TestNotifier.changedTokens, [
+            "__top_group_1__",
+            "__sagen1__",
+            "__cdaboo1__",
+        ])
+        TestNotifier.changedTokens = []
+
+        # Add sub-group member to group
+        record = yield self.directory.recordWithUID(u"__top_group_1__")
+        addrecord = yield self.directory.recordWithUID(u"__sub_group_1__")
+        yield record.addMembers([addrecord, ])
+
+        yield self.groupCacher.refreshGroup(self.transactionUnderTest(), "__top_group_1__")
+        yield self.commit()
+
+        self.assertEqual(TestNotifier.changedTokens, [
+            "__top_group_1__",
+            "__sagen1__",
+            "__cdaboo1__",
+        ])
+        TestNotifier.changedTokens = []
 
 
 
