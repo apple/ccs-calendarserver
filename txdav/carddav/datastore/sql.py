@@ -2041,7 +2041,7 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
 
 
     @inlineCallbacks
-    def remove(self):
+    def remove(self, options=None):
 
         if self.owned():
             yield self.unshare() # storebridge should already have done this
@@ -2412,7 +2412,7 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
 
 
     @inlineCallbacks
-    def setComponent(self, component, inserting=False):
+    def setComponent(self, component, inserting=False, options=None):
 
         if isinstance(component, str) or isinstance(component, unicode):
             component = self._componentClass.fromString(component)

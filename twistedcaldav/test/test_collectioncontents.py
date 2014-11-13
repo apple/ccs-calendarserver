@@ -48,7 +48,7 @@ class CollectionContents(StoreTestCase):
                    _getFakeMemcacheProtocol)
 
         # Need to not do implicit behavior during these tests
-        def _fakeDoImplicitScheduling(self, component, inserting, internal_state):
+        def _fakeDoImplicitScheduling(self, component, inserting, internal_state, options):
             return False, None, False, None
 
         self.patch(CalendarObject, "doImplicitScheduling",

@@ -950,3 +950,30 @@ class ComponentRemoveState(Names):
     NORMAL.description = "normal"
     NORMAL_NO_IMPLICIT.description = "normal-no-implicit"
     INTERNAL.description = "internal"
+
+
+
+class SetComponentOptions(Names):
+    """
+    Constants for keys used in the L{ICalendarObject.setComponent} method's
+    C{options} dict. The definitions below define the constant key name and
+    the type used for the dict entry's value.
+
+    @cvar smartMerge: Apply CalDAV smart merge to data (If-Schedule-Tag-Match)
+        Value: L{bool}
+
+    @cvar clientFixTRANSP: Apply fix for clients not setting TRANSP.
+        Value: L{bool}
+    """
+
+    smartMerge = NamedConstant()
+    smartMerge.description = u"Smart Merge: CalDAV If-Schedule-Tag-Match behavior"
+    smartMerge.defaultValue = False
+
+    clientFixTRANSP = NamedConstant()
+    clientFixTRANSP.description = u"Fix for clients not setting TRANSP"
+    clientFixTRANSP.defaultValue = False
+
+    @staticmethod
+    def value(options, key):
+        return options.get(key, key.defaultValue) if options is not None else key.defaultValue

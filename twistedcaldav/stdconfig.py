@@ -868,6 +868,16 @@ DEFAULT_CONFIG = {
     "MaxPrincipalSearchReportResults": 500,
 
     #
+    # Client fixes per user-agent match
+    #
+    "ClientFixes" : {
+        "ForceAttendeeTRANSP" : [
+            "iOS/8\\.0(\\..*)?",
+            "iOS/8\\.1(\\..*)?",
+        ],
+    },
+
+    #
     # Localization
     #
     "Localization" : {
@@ -1488,6 +1498,19 @@ def _updateRejectClients(configDict, reloading=False):
 
 
 
+def _updateClientFixes(configDict, reloading=False):
+    #
+    # Compile ClientFixes expressions for speed
+    #
+    try:
+        configDict.ClientFixesCompiled = {}
+        for key, expressions in configDict.ClientFixes.items():
+            configDict.ClientFixesCompiled[key] = [re.compile("^{}$".format(x)) for x in expressions]
+    except re.error, e:
+        raise ConfigurationError("Invalid regular expression in ClientFixes: %s" % (e,))
+
+
+
 def _updateLogLevels(configDict, reloading=False):
     log.publisher.levels.clearLogLevels()
 
@@ -1678,6 +1701,7 @@ POST_UPDATE_HOOKS = (
     _postUpdateAugmentService,
     _updateACLs,
     _updateRejectClients,
+    _updateClientFixes,
     _updateLogLevels,
     _updateNotifications,
     _updateICalendar,

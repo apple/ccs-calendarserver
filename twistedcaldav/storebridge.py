@@ -48,7 +48,7 @@ from twistedcaldav.scheduling_store.caldav.resource import ScheduleInboxResource
 from twistedcaldav.sharing import (
     invitationBindStatusToXMLMap, invitationBindModeToXMLMap
 )
-from twistedcaldav.util import bestAcceptType
+from twistedcaldav.util import bestAcceptType, matchClientFixes
 from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
 from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.icalendarstore import (
@@ -59,7 +59,7 @@ from txdav.caldav.icalendarstore import (
     InvalidPerUserDataMerge,
     AttendeeAllowedError, ResourceDeletedError, InvalidAttachmentOperation,
     ShareeAllowedError, DuplicatePrivateCommentsError, InvalidSplit,
-    AttachmentSizeTooLarge, UnknownTimezone)
+    AttachmentSizeTooLarge, UnknownTimezone, SetComponentOptions)
 from txdav.carddav.iaddressbookstore import (
     KindChangeNotAllowedError, GroupWithUnsharedAddressNotAllowedError
 )
@@ -2848,8 +2848,18 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                     "Can't parse calendar data: %s" % (str(e),)
                 ))
 
+            # Look for client fixes
+            ua = request.headers.getHeader("User-Agent")
+            client_fix_transp = matchClientFixes(config, ua)
+
+            # Setup options
+            options = {
+                SetComponentOptions.smartMerge: schedule_tag_match,
+                SetComponentOptions.clientFixTRANSP: client_fix_transp,
+            }
+
             try:
-                response = (yield self.storeComponent(component, smart_merge=schedule_tag_match))
+                response = (yield self.storeComponent(component, options=options))
             except ResourceDeletedError:
                 # This is OK - it just means the server deleted the resource during the PUT. We make it look
                 # like the PUT succeeded.
