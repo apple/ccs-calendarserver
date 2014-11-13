@@ -153,8 +153,43 @@ VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:6DB84FB1-C943-4144-BE65-9B0DD9A9E2C7
-DTSTART;TZID=America/Los_Angeles:20151008T053000
-DTEND;TZID=America/Los_Angeles:20151008T070000
+DTSTART;TZID=America/Los_Angeles:20141115T074500
+DTEND;TZID=America/Los_Angeles:20141115T091500
+RRULE:FREQ=DAILY;COUNT=20
+ATTENDEE;CN=User 01;CUTYPE=INDIVIDUAL:urn:x-uid:user01
+ATTENDEE;CN=User 02;CUTYPE=INDIVIDUAL;ROLE=CHAIR:urn:x-uid:user02
+ATTENDEE;CN=User 03;CUTYPE=INDIVIDUAL:urn:x-uid:user03
+ATTENDEE;CN=Mercury Seven;CUTYPE=ROOM:urn:x-uid:mercury
+CREATED:20141107T172645Z
+DTSTAMP:20141107T172645Z
+LOCATION:Mercury
+ORGANIZER;CN=User 02:urn:x-uid:user02
+SEQUENCE:0
+SUMMARY:Other organizer
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:6DB84FB1-C943-4144-BE65-9B0DD9A9E2C7
+RECURRENCE-ID;TZID=America/Los_Angeles:20141117T074500
+DTSTART;TZID=America/Los_Angeles:20141117T093000
+DTEND;TZID=America/Los_Angeles:20141117T110000
+ATTENDEE;CN=User 01;CUTYPE=INDIVIDUAL:urn:x-uid:user01
+ATTENDEE;CN=User 02;CUTYPE=INDIVIDUAL;ROLE=CHAIR:urn:x-uid:user02
+ATTENDEE;CN=User 03;CUTYPE=INDIVIDUAL:urn:x-uid:user03
+ATTENDEE;CN=Mercury Seven;CUTYPE=ROOM:urn:x-uid:mercury
+CREATED:20141107T172645Z
+DTSTAMP:20141107T172645Z
+LOCATION:Mercury
+ORGANIZER;CN=User 02:urn:x-uid:user02
+SEQUENCE:0
+SUMMARY:Other organizer
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:6DB84FB1-C943-4144-BE65-9B0DD9A9E2C7
+RECURRENCE-ID;TZID=America/Los_Angeles:20141119T074500
+DTSTART;TZID=America/Los_Angeles:20141119T103000
+DTEND;TZID=America/Los_Angeles:20141119T120000
 ATTENDEE;CN=User 01;CUTYPE=INDIVIDUAL:urn:x-uid:user01
 ATTENDEE;CN=User 02;CUTYPE=INDIVIDUAL;ROLE=CHAIR:urn:x-uid:user02
 ATTENDEE;CN=User 03;CUTYPE=INDIVIDUAL:urn:x-uid:user03
@@ -170,6 +205,34 @@ END:VEVENT
 END:VCALENDAR
 """
 
+# DATA_USER02_INVITES_USER01_ATTENDEE_COPY = """BEGIN:VCALENDAR
+# VERSION:2.0
+# NAME:I'm an attendee
+# COLOR:#0000FFFF
+# SOURCE;VALUE=URI:http://example.com/calendars/__uids__/user01/calendar/
+# PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+# BEGIN:VEVENT
+# UID:6DB84FB1-C943-4144-BE65-9B0DD9A9E2C7
+# DTSTART;TZID=America/Los_Angeles:20151008T053000
+# DTEND;TZID=America/Los_Angeles:20151008T070000
+# ATTENDEE;CN=User 01;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:x-uid:user01
+# ATTENDEE;CN=User 02;CUTYPE=INDIVIDUAL;ROLE=CHAIR:urn:x-uid:user02
+# ATTENDEE;CN=User 03;CUTYPE=INDIVIDUAL:urn:x-uid:user03
+# ATTENDEE;CN=Mercury Seven;CUTYPE=ROOM:urn:x-uid:mercury
+# CREATED:20141107T172645Z
+# DTSTAMP:20141107T172645Z
+# LOCATION:Mercury
+# ORGANIZER;CN=User 02:urn:x-uid:user02
+# SEQUENCE:0
+# SUMMARY:Other organizer
+# TRANSP:OPAQUE
+# END:VEVENT
+# END:VCALENDAR
+# """
+
+# FIXME: add overrides on both attendee and organizer that aren't in the other
+
+
 DATA_USER02_INVITES_USER01_ATTENDEE_COPY = """BEGIN:VCALENDAR
 VERSION:2.0
 NAME:I'm an attendee
@@ -178,9 +241,44 @@ SOURCE;VALUE=URI:http://example.com/calendars/__uids__/user01/calendar/
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:6DB84FB1-C943-4144-BE65-9B0DD9A9E2C7
-DTSTART;TZID=America/Los_Angeles:20151008T053000
-DTEND;TZID=America/Los_Angeles:20151008T070000
-ATTENDEE;CN=User 01;CUTYPE=INDIVIDUAL:urn:x-uid:user01
+DTSTART;TZID=America/Los_Angeles:20141115T074500
+DTEND;TZID=America/Los_Angeles:20141115T091500
+RRULE:FREQ=DAILY;COUNT=20
+ATTENDEE;CN=User 01;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:x-uid:user01
+ATTENDEE;CN=User 02;CUTYPE=INDIVIDUAL;ROLE=CHAIR:urn:x-uid:user02
+ATTENDEE;CN=User 03;CUTYPE=INDIVIDUAL:urn:x-uid:user03
+ATTENDEE;CN=Mercury Seven;CUTYPE=ROOM:urn:x-uid:mercury
+CREATED:20141107T172645Z
+DTSTAMP:20141107T172645Z
+LOCATION:Mercury
+ORGANIZER;CN=User 02:urn:x-uid:user02
+SEQUENCE:0
+SUMMARY:Other organizer
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:6DB84FB1-C943-4144-BE65-9B0DD9A9E2C7
+RECURRENCE-ID;TZID=America/Los_Angeles:20141117T074500
+DTSTART;TZID=America/Los_Angeles:20141117T093000
+DTEND;TZID=America/Los_Angeles:20141117T110000
+ATTENDEE;CN=User 01;CUTYPE=INDIVIDUAL;PARTSTAT=TENTATIVE:urn:x-uid:user01
+ATTENDEE;CN=User 02;CUTYPE=INDIVIDUAL;ROLE=CHAIR:urn:x-uid:user02
+ATTENDEE;CN=User 03;CUTYPE=INDIVIDUAL:urn:x-uid:user03
+ATTENDEE;CN=Mercury Seven;CUTYPE=ROOM:urn:x-uid:mercury
+CREATED:20141107T172645Z
+DTSTAMP:20141107T172645Z
+LOCATION:Mercury
+ORGANIZER;CN=User 02:urn:x-uid:user02
+SEQUENCE:0
+SUMMARY:Other organizer
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:6DB84FB1-C943-4144-BE65-9B0DD9A9E2C7
+RECURRENCE-ID;TZID=America/Los_Angeles:20141121T074500
+DTSTART;TZID=America/Los_Angeles:20141121T101500
+DTEND;TZID=America/Los_Angeles:20141121T114500
+ATTENDEE;CN=User 01;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:x-uid:user01
 ATTENDEE;CN=User 02;CUTYPE=INDIVIDUAL;ROLE=CHAIR:urn:x-uid:user02
 ATTENDEE;CN=User 03;CUTYPE=INDIVIDUAL:urn:x-uid:user03
 ATTENDEE;CN=Mercury Seven;CUTYPE=ROOM:urn:x-uid:mercury
@@ -194,6 +292,49 @@ TRANSP:OPAQUE
 END:VEVENT
 END:VCALENDAR
 """
+
+
+# """BEGIN:VCALENDAR
+# VERSION:2.0
+# PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+# X-WR-CALNAME:calendar
+# BEGIN:VEVENT
+# UID:431C4ADB-4EB3-47F6-A18B-29441E329948
+# DTSTART;TZID=America/Los_Angeles:20141115T074500
+# DTEND;TZID=America/Los_Angeles:20141115T091500
+# ATTENDEE;CN=Cyrus Daboo;CUTYPE=INDIVIDUAL;EMAIL=cdaboo@apple.com;RSVP=TRUE
+#  ;SCHEDULE-STATUS=1.2:urn:x-uid:1D8B3915-4CA4-487E-B3CC-4822D80DFC97
+# ATTENDEE;CN=Morgen Sagen;CUTYPE=INDIVIDUAL;EMAIL=sagen@apple.com;PARTSTAT=
+#  ACCEPTED;ROLE=CHAIR:urn:x-uid:D0B38B00-4166-11DD-B22C-A07C87F02F6A
+# CREATED:20141112T215051Z
+# DTSTAMP:20141112T215143Z
+# ORGANIZER;CN=Morgen Sagen;EMAIL=sagen@apple.com:urn:x-uid:D0B38B00-4166-11
+#  DD-B22C-A07C87F02F6A
+# RRULE:FREQ=DAILY;COUNT=20
+# SEQUENCE:1
+# SUMMARY:Repeating
+# TRANSP:OPAQUE
+# END:VEVENT
+# BEGIN:VEVENT
+# UID:431C4ADB-4EB3-47F6-A18B-29441E329948
+# RECURRENCE-ID;TZID=America/Los_Angeles:20141117T074500
+# DTSTART;TZID=America/Los_Angeles:20141117T093000
+# DTEND;TZID=America/Los_Angeles:20141117T110000
+# ATTENDEE;CN=Cyrus Daboo;CUTYPE=INDIVIDUAL;EMAIL=cdaboo@apple.com;PARTSTAT=
+#  NEEDS-ACTION;RSVP=TRUE;SCHEDULE-STATUS=1.2:urn:x-uid:1D8B3915-4CA4-487E-B
+#  3CC-4822D80DFC97
+# ATTENDEE;CN=Morgen Sagen;CUTYPE=INDIVIDUAL;EMAIL=sagen@apple.com;PARTSTAT=
+#  ACCEPTED;ROLE=CHAIR:urn:x-uid:D0B38B00-4166-11DD-B22C-A07C87F02F6A
+# CREATED:20141112T215051Z
+# DTSTAMP:20141112T215143Z
+# ORGANIZER;CN=Morgen Sagen;EMAIL=sagen@apple.com:urn:x-uid:D0B38B00-4166-11
+#  DD-B22C-A07C87F02F6A
+# SEQUENCE:1
+# SUMMARY:Repeating
+# TRANSP:OPAQUE
+# END:VEVENT
+# END:VCALENDAR
+# """
 
 
 class ImportTests(StoreTestCase):
@@ -376,23 +517,64 @@ class ImportTests(StoreTestCase):
         )
         yield txn.commit()
 
-        # When importing the event again, instead trigger a re-invite
-        # from the organizer
+        # When importing the event again, update through the organizer's copy
+        # of the event as if it were an iTIP reply
         component = Component.allFromString(DATA_USER02_INVITES_USER01_ATTENDEE_COPY)
         yield importCollectionComponent(self.store, component)
 
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
 
-        # Make sure attendee now has a new invite
+        # Make sure organizer now sees the right partstats
+        txn = self.store.newTransaction()
+        home = yield txn.calendarHomeWithUID("user02")
+        collection = yield home.childWithName("calendar")
+        objects = yield collection.objectResources()
+        self.assertEquals(len(objects), 1)
+        component = yield objects[0].component()
+        # print(str(component))
+        props = component.getAttendeeProperties(("urn:x-uid:user01",))
+        # The master is ACCEPTED
+        self.assertEquals(
+            props[0].parameterValue("PARTSTAT"),
+            "ACCEPTED"
+        )
+        # 2nd instance is TENTATIVE
+        self.assertEquals(
+            props[1].parameterValue("PARTSTAT"),
+            "TENTATIVE"
+        )
+        # 3rd instance is not in the attendee's copy, so remains DECLILNED
+        self.assertEquals(
+            props[2].parameterValue("PARTSTAT"),
+            "DECLINED"
+        )
+        yield txn.commit()
+
+        # Make sure attendee now sees the right partstats
         txn = self.store.newTransaction()
         home = yield txn.calendarHomeWithUID("user01")
         collection = yield home.childWithName("calendar")
         objects = yield collection.objectResources()
         self.assertEquals(len(objects), 1)
         component = yield objects[0].component()
-        prop = component.getAttendeeProperty(("urn:x-uid:user01",))
+        # print(str(component))
+        props = component.getAttendeeProperties(("urn:x-uid:user01",))
+        # The master is ACCEPTED
         self.assertEquals(
-            prop.parameterValue("PARTSTAT"),
-            "NEEDS-ACTION"
+            props[0].parameterValue("PARTSTAT"),
+            "ACCEPTED"
+        )
+        # 2nd instance is TENTATIVE
+        self.assertEquals(
+            props[1].parameterValue("PARTSTAT"),
+            "TENTATIVE"
+        )
+        # 3rd instance is not in the organizer's copy, so should inherit
+        # the value from the master, which is ACCEPTED
+        self.assertEquals(
+            props[2].parameterValue("PARTSTAT"),
+            "ACCEPTED"
         )
         yield txn.commit()
+
+    test_ImportComponentAttendee.todo = "Need to fix iTip reply processing"

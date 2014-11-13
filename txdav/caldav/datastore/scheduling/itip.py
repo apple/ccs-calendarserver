@@ -342,7 +342,7 @@ class iTipProcessing(object):
             C{tuple} of change info
         """
 
-        assert itip_message.propertyValue("METHOD") == "REPLY", "iTIP message must have METHOD:REPLY"
+        assert itip_message.propertyValue("METHOD") in ("REPLY", "X-RESTORE"), "iTIP message must have METHOD:REPLY"
         assert itip_message.resourceUID() == calendar.resourceUID(), "UIDs must be the same to process iTIP message"
 
         # Take each component in the reply and update the corresponding component
@@ -986,12 +986,12 @@ class iTipGenerator(object):
 
 
     @staticmethod
-    def generateAttendeeReply(original, attendee, changedRids=None, force_decline=False):
+    def generateAttendeeReply(original, attendee, changedRids=None, force_decline=False, method="REPLY"):
 
         # Start with a copy of the original as we may have to modify bits of it
         itip = original.duplicate()
         itip.replaceProperty(Property("PRODID", iCalendarProductID))
-        itip.addProperty(Property("METHOD", "REPLY"))
+        itip.addProperty(Property("METHOD", method))
 
         # Now filter out components except the ones specified
         itip.filterComponents(changedRids)

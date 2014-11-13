@@ -147,7 +147,7 @@ class ImplicitProcessor(object):
 
 
     def isOrganizerReceivingMessage(self):
-        return self.method in ("REPLY", "REFRESH")
+        return self.method in ("REPLY", "REFRESH", "X-RESTORE")
 
 
     def isAttendeeReceivingMessage(self):
@@ -181,7 +181,7 @@ class ImplicitProcessor(object):
             returnValue((True, True, False, None,))
 
         # Handle new items differently than existing ones.
-        if self.method == "REPLY":
+        if self.method in ("REPLY", "X-RESTORE"):
             result = (yield self.doImplicitOrganizerUpdate())
         elif self.method == "REFRESH":
             # With implicit we ignore refreshes.
@@ -213,32 +213,39 @@ class ImplicitProcessor(object):
 
             organizer = self.recipient_calendar.getOrganizer()
 
-            # Build the schedule-changes XML element
             attendeeReplying, rids = processed
-            partstatChanged = False
-            reply_details = (customxml.Attendee.fromString(attendeeReplying),)
 
-            for rid, partstatChanged, privateCommentChanged in sorted(rids):
-                recurrence = []
-                if rid == "":
-                    recurrence.append(customxml.Master())
-                else:
-                    recurrence.append(customxml.RecurrenceID.fromString(rid))
-                changes = []
-                if partstatChanged:
-                    changes.append(customxml.ChangedProperty(customxml.ChangedParameter(name="PARTSTAT"), name="ATTENDEE"))
-                    partstatChanged = True
-                if privateCommentChanged:
-                    changes.append(customxml.ChangedProperty(name="X-CALENDARSERVER-PRIVATE-COMMENT"))
-                recurrence.append(customxml.Changes(*changes))
-                reply_details += (customxml.Recurrence(*recurrence),)
+            if self.method == "X-RESTORE":
+                changes = None
+                partstatChanged = True
+                yield self._doRefresh(self.organizer_calendar_resource, only_attendees=(attendeeReplying,))
 
-            changes = customxml.ScheduleChanges(
-                customxml.DTStamp(),
-                customxml.Action(
-                    customxml.Reply(*reply_details),
-                ),
-            )
+            else:
+                # Build the schedule-changes XML element
+                partstatChanged = False
+                reply_details = (customxml.Attendee.fromString(attendeeReplying),)
+
+                for rid, partstatChanged, privateCommentChanged in sorted(rids):
+                    recurrence = []
+                    if rid == "":
+                        recurrence.append(customxml.Master())
+                    else:
+                        recurrence.append(customxml.RecurrenceID.fromString(rid))
+                    changes = []
+                    if partstatChanged:
+                        changes.append(customxml.ChangedProperty(customxml.ChangedParameter(name="PARTSTAT"), name="ATTENDEE"))
+                        partstatChanged = True
+                    if privateCommentChanged:
+                        changes.append(customxml.ChangedProperty(name="X-CALENDARSERVER-PRIVATE-COMMENT"))
+                    recurrence.append(customxml.Changes(*changes))
+                    reply_details += (customxml.Recurrence(*recurrence),)
+
+                changes = customxml.ScheduleChanges(
+                    customxml.DTStamp(),
+                    customxml.Action(
+                        customxml.Reply(*reply_details),
+                    ),
+                )
 
             # Only update other attendees when the partstat was changed by the reply,
             # and only if the request does not indicate we should skip attendee refresh
