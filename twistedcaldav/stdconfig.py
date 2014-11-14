@@ -874,6 +874,7 @@ DEFAULT_CONFIG = {
         "ForceAttendeeTRANSP" : [
             "iOS/8\\.0(\\..*)?",
             "iOS/8\\.1(\\..*)?",
+            "iOS/8\\.2(\\..*)?",
         ],
     },
 
