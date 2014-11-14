@@ -32,6 +32,7 @@ class FakeImplicitProcessor(ImplicitProcessor):
 
     def __init__(self):
         self.batches = 0
+        self.method = ""
 
 
     def _enqueueBatchRefresh(self, exclude_attendees):
