@@ -55,6 +55,7 @@ from twistedcaldav.notifications import NotificationCollectionResource, Notifica
 from twistedcaldav.resource import CalDAVResource, GlobalAddressBookResource, \
     DefaultAlarmPropertyMixin
 from twistedcaldav.scheduling_store.caldav.resource import ScheduleInboxResource
+from twistedcaldav.util import matchClientFixes
 from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
 
 from txdav.base.propertystore.base import PropertyName
@@ -2808,6 +2809,10 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                     (caldav_namespace, "valid-calendar-data"),
                     "Can't parse calendar data"
                 ))
+
+            # Look for client fixes
+            ua = request.headers.getHeader("User-Agent")
+            self._newStoreParent._txn._client_fixes = matchClientFixes(config, ua)
 
             # storeComponent needs to know who the auth'd user is for access control
             # TODO: this needs to be done in a better way - ideally when the txn is created for the request,

@@ -40,9 +40,9 @@ ffi = FFI()
 
 ffi.cdef("""
 
-static const char* LAUNCH_KEY_CHECKIN;
-static const char* LAUNCH_JOBKEY_LABEL;
-static const char* LAUNCH_JOBKEY_SOCKETS;
+static char const* const LAUNCH_KEY_CHECKIN;
+static char const* const LAUNCH_JOBKEY_LABEL;
+static char const* const LAUNCH_JOBKEY_SOCKETS;
 
 typedef enum {
     LAUNCH_DATA_DICTIONARY = 1,

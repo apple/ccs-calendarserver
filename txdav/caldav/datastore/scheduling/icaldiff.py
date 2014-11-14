@@ -27,10 +27,6 @@ from twistedcaldav.ical import Component, Property
 from txdav.caldav.datastore.scheduling.cuaddress import normalizeCUAddr
 from txdav.caldav.datastore.scheduling.itip import iTipGenerator
 
-"""
-Class that handles diff'ing two calendar objects.
-"""
-
 __all__ = [
     "iCalDiff",
 ]
@@ -38,19 +34,33 @@ __all__ = [
 log = Logger()
 
 class iCalDiff(object):
+    """
+    This object is used for doing comparisons between two calendar objects to
+    work out what the changes are, in order to determine whether a scheduling
+    operation might be needed. The behavior will varying based on whether the
+    change is being triggered by an Organizer or an Attendee.
+    """
 
-    def __init__(self, oldcalendar, newcalendar, smart_merge):
+
+    def __init__(self, oldcalendar, newcalendar, smart_merge, forceTRANSP=False):
         """
+        Note that this object will always duplicate the calendar objects when doing
+        comparisons so as not to change the calendar objects passed in.
 
-        @param oldcalendar:
-        @type oldcalendar:
-        @param newcalendar:
-        @type newcalendar:
+        @param oldcalendar: the existing calendar object to compare to
+        @type oldcalendar: L{Component}
+        @param newcalendar: the new calendar object
+        @type newcalendar: L{Component}
+        @param smart_merge: whether or not a "smart" CalDAV merge is done (If-Schedule-Tag-Match)
+        @type smart_merge: L{bool}
+        @param forceTRANSP: whether or not to apply a fix for clients failing to set TRANSP properly
+        @type forceTRANSP: L{bool}
         """
 
         self.oldcalendar = oldcalendar
         self.newcalendar = newcalendar
         self.smart_merge = smart_merge
+        self.forceTRANSP = forceTRANSP
 
 
     def organizerDiff(self):
@@ -500,6 +510,13 @@ class iCalDiff(object):
             serverAttendee.removeParameter("X-CALENDARSERVER-AUTO")
 
             replyNeeded = True
+
+            # Apply client fix only if the PARTSTAT was changed
+            if self.forceTRANSP:
+                if clientAttendee.parameterValue("PARTSTAT", "NEEDS-ACTION") in ("ACCEPTED", "TENTATIVE",):
+                    clientComponent.replaceProperty(Property("TRANSP", "OPAQUE"))
+                else:
+                    clientComponent.replaceProperty(Property("TRANSP", "TRANSPARENT"))
 
         if serverAttendee.parameterValue("RSVP", "FALSE") != clientAttendee.parameterValue("RSVP", "FALSE"):
             if clientAttendee.parameterValue("RSVP", "FALSE") == "FALSE":

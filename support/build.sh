@@ -809,7 +809,7 @@ dependencies () {
 
   # XXX actually PyCalendar should be imported in-place.
   py_dependency -fe -i "src" -r HEAD \
-    "PyCalendar" "pycalendar" "pycalendar" \
+    "PyCalendar" "pycalendar" "pycalendar-2" \
     "${svn_uri_base}/PyCalendar/branches/CalendarServer-5.2";
 
   #

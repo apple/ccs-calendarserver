@@ -1355,7 +1355,14 @@ class ImplicitScheduler(object):
                     (caldav_namespace, "valid-attendee-change"),
                     "Cannot use an event when not listed as an attendee in the organizer's copy",
                 ))
-        differ = iCalDiff(oldcalendar, self.calendar, self.do_smart_merge)
+
+        # Check for a required client fix
+        if hasattr(self.txn, "_client_fixes"):
+            forceTRANSP = "ForceAttendeeTRANSP" in self.txn._client_fixes
+        else:
+            forceTRANSP = False
+
+        differ = iCalDiff(oldcalendar, self.calendar, self.do_smart_merge, forceTRANSP=forceTRANSP)
         return differ.attendeeMerge(self.attendee)
 
 
