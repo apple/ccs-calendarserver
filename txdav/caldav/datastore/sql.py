@@ -78,7 +78,7 @@ from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObjec
     InvalidDefaultCalendar, \
     InvalidAttachmentOperation, DuplicatePrivateCommentsError, \
     TimeRangeUpperLimit, TimeRangeLowerLimit, InvalidSplit, \
-    AttachmentSizeTooLarge, UnknownTimezone
+    AttachmentSizeTooLarge, UnknownTimezone, SetComponentOptions
 from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
@@ -2961,7 +2961,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def doImplicitScheduling(self, component, inserting, internal_state, split_details=None):
+    def doImplicitScheduling(self, component, inserting, internal_state, options, split_details=None):
 
         new_component = None
         did_implicit_action = False
@@ -2983,7 +2983,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 user_uuid = self._parentCollection.viewerHome().uid()
                 component = PerUserDataFilter(user_uuid).filter(component.duplicate())
 
-            scheduler = ImplicitScheduler(logItems=self._txn.logItems)
+            scheduler = ImplicitScheduler(logItems=self._txn.logItems, options=options)
 
             # PUT
             do_implicit_action, is_scheduling_resource = (yield scheduler.testImplicitSchedulingPUT(
@@ -3120,7 +3120,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def setComponent(self, component, inserting=False, smart_merge=False):
+    def setComponent(self, component, inserting=False, options=None):
         """
         Public api for storing a component. This will do full data validation checks on the specified component.
         Scheduling will be done automatically.
@@ -3133,7 +3133,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             except InvalidICalendarDataError as e:
                 raise InvalidComponentForStoreError(str(e))
         try:
-            result = yield self._setComponentInternal(component, inserting, ComponentUpdateState.NORMAL, smart_merge)
+            result = yield self._setComponentInternal(component, inserting, ComponentUpdateState.NORMAL, options)
         except Exception:
             ex = Failure()
 
@@ -3148,7 +3148,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def _setComponentInternal(self, component, inserting=False, internal_state=ComponentUpdateState.NORMAL, smart_merge=False, split_details=None):
+    def _setComponentInternal(self, component, inserting=False, internal_state=ComponentUpdateState.NORMAL, options=None, split_details=None):
         """
         Setting the component internally to the store itself. This will bypass a whole bunch of data consistency checks
         on the assumption that those have been done prior to the component data being provided, provided the flag is set.
@@ -3156,7 +3156,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         """
 
         self._componentChanged = False
-        self.schedule_tag_match = not self.calendar().isInbox() and internal_state == ComponentUpdateState.NORMAL and smart_merge
+        self.schedule_tag_match = (
+            not self.calendar().isInbox() and
+            internal_state == ComponentUpdateState.NORMAL and
+            SetComponentOptions.value(options, SetComponentOptions.smartMerge)
+        )
         schedule_state = None
 
         if internal_state in (ComponentUpdateState.SPLIT_OWNER, ComponentUpdateState.SPLIT_ATTENDEE,):
@@ -3175,7 +3179,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
             # Do scheduling only for owner split
             if internal_state == ComponentUpdateState.SPLIT_OWNER:
-                yield self.doImplicitScheduling(component, inserting, internal_state, split_details)
+                yield self.doImplicitScheduling(component, inserting, internal_state, options, split_details)
 
             self.isScheduleObject = True
             self.processScheduleTags(component, inserting, internal_state)
@@ -3211,7 +3215,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 yield self.decorateHostedStatus(component)
 
             # Do scheduling
-            implicit_result = (yield self.doImplicitScheduling(component, inserting, internal_state))
+            implicit_result = (yield self.doImplicitScheduling(component, inserting, internal_state, options))
             if isinstance(implicit_result, int):
                 if implicit_result == ImplicitScheduler.STATUS_ORPHANED_CANCELLED_EVENT:
                     raise ResourceDeletedError("Resource created but immediately deleted by the server.")

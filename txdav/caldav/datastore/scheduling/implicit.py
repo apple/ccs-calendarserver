@@ -37,6 +37,7 @@ from txdav.caldav.datastore.scheduling.itip import iTipGenerator, iTIPRequestSta
 from txdav.caldav.datastore.scheduling.utils import getCalendarObjectForRecord
 from txdav.caldav.datastore.scheduling.work import ScheduleReplyWork, \
     ScheduleReplyCancelWork, ScheduleOrganizerWork, ScheduleOrganizerSendWork
+from txdav.caldav.icalendarstore import SetComponentOptions
 
 import collections
 
@@ -65,10 +66,11 @@ class ImplicitScheduler(object):
     STATUS_ORPHANED_CANCELLED_EVENT = 1
     STATUS_ORPHANED_EVENT = 2
 
-    def __init__(self, logItems=None):
+    def __init__(self, logItems=None, options=None):
 
         self.return_status = ImplicitScheduler.STATUS_OK
         self.logItems = logItems
+        self.options = options
         self.allowed_to_schedule = True
         self.suppress_refresh = False
 
@@ -1683,7 +1685,11 @@ class ImplicitScheduler(object):
                     (caldav_namespace, "valid-attendee-change"),
                     "Cannot use an event when not listed as an attendee in the organizer's copy",
                 ))
-        differ = iCalDiff(oldcalendar, self.calendar, self.do_smart_merge)
+
+        # Check for a required client fix
+        forceTRANSP = SetComponentOptions.value(self.options, SetComponentOptions.clientFixTRANSP)
+
+        differ = iCalDiff(oldcalendar, self.calendar, self.do_smart_merge, forceTRANSP=forceTRANSP)
         return differ.attendeeMerge(self.attendee)
 
 

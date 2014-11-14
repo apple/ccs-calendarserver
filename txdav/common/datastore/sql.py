@@ -7217,7 +7217,7 @@ class CommonObjectResource(FancyEqMixin, object):
         self._locked = True
 
 
-    def setComponent(self, component, inserting=False):
+    def setComponent(self, component, inserting=False, options=None):
         raise NotImplementedError
 
 
@@ -7264,7 +7264,7 @@ class CommonObjectResource(FancyEqMixin, object):
 
 
     @inlineCallbacks
-    def remove(self):
+    def remove(self, options=None):
         yield self._deleteQuery.on(self._txn, NoSuchObjectResourceError,
                                    resourceID=self._resourceID)
         yield self.properties()._removeResource()

@@ -171,7 +171,7 @@ class CalendarObjectExternal(CommonObjectResourceExternal, CalendarObject):
         raise AssertionError("CalendarObjectExternal: not supported")
 
 
-    def _setComponentInternal(self, component, inserting=False, internal_state=ComponentUpdateState.NORMAL, smart_merge=False, split_details=None):
+    def _setComponentInternal(self, component, inserting=False, internal_state=ComponentUpdateState.NORMAL, options=None, split_details=None):
         raise AssertionError("CalendarObjectExternal: not supported")
 
 

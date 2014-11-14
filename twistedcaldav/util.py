@@ -18,6 +18,7 @@ import os
 import re
 import sys
 import base64
+import itertools
 
 from subprocess import Popen, PIPE, STDOUT
 from hashlib import md5, sha1
@@ -541,3 +542,57 @@ def bestAcceptType(accepts, allowedTypes):
                 result_qval = qval
 
     return result
+
+
+
+def userAgentProductTokens(user_agent):
+    """
+    Parse an HTTP User-Agent header to extract the product tokens and ignore
+    any parenthesized comment strings in the header.
+
+    @param user_agent: text of User-Agent header value
+    @type user_agent: L{str}
+
+    @return: list of product tokens extracted from the header
+    @rtype: L{list}
+    """
+
+    ua_hdr = user_agent.split()
+    ua_tokens = []
+    comment = False
+    for token in ua_hdr:
+        if comment:
+            if token.endswith(")"):
+                comment = False
+        elif token.startswith("("):
+            if not token.endswith(")"):
+                comment = True
+        else:
+            ua_tokens.append(token)
+
+    return ua_tokens
+
+
+
+def matchClientFixes(config, user_agent):
+    """
+    Given a user-agent string, see if it matches any of the configured client fixes.
+
+    @param config: the L{config} to match against.
+    @type config: L{ConfigDict}
+    @param user_agent: the HTTP User-Agent header value to test.
+    @type user_agent: L{str}
+    """
+
+    if len(config.ClientFixesCompiled) == 0 or not user_agent:
+        return set()
+
+    ua_tokens = userAgentProductTokens(user_agent)
+
+    client_fixes = set()
+    for fix, patterns in config.ClientFixesCompiled.items():
+        for pattern, token in itertools.product(patterns, ua_tokens):
+            if pattern.match(token) is not None:
+                client_fixes.add(fix)
+                break
+    return client_fixes
