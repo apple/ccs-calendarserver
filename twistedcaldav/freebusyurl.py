@@ -271,7 +271,8 @@ class FreeBusyURLResource (ReadOnlyNoCopyResourceMixIn, CalDAVResource):
         scheduler.timeRange.start = self.start
         scheduler.timeRange.end = self.end
 
-        scheduler.organizer = LocalCalendarUser(cuaddr, principal, inbox, inboxURL)
+        scheduler.organizer = LocalCalendarUser(cuaddr, principal.record)
+        scheduler.organizer.inbox = inbox._newStoreObject
 
         attendeeProp = Property("ATTENDEE", scheduler.organizer.cuaddr)
 
