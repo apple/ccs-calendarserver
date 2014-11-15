@@ -38,14 +38,20 @@ class TLSCredentials(object):
 
     implements(credentials.ICredentials)
 
-    def __init__(self, certificate):
+    CERTIFICATE_HEADER = "X-TLS-Client-Certificate"
+    USERNAME_HEADER = "X-TLS-Client-User-Name"
+
+    def __init__(self, certificate, username=None):
 
         self.certificate = certificate
 
-        try:
-            self.username = self.getSubject().emailAddress.split("@")[0]
-        except KeyError:
-            self.username = None
+        if certificate is not None:
+            try:
+                self.username = self.getSubject().emailAddress.split("@")[0]
+            except KeyError:
+                self.username = None
+        else:
+            self.username = username
 
 
     def getSubject(self):

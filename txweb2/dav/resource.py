@@ -56,6 +56,7 @@ from twisted.internet.defer import (
     Deferred, maybeDeferred, succeed, inlineCallbacks, returnValue
 )
 from twisted.internet import reactor
+from twisted.internet._sslverify import Certificate
 
 from twext.python.log import Logger
 from txdav.xml import element
@@ -65,7 +66,7 @@ from txdav.xml.element import dav_namespace
 from txdav.xml.element import twisted_dav_namespace, twisted_private_namespace
 from txdav.xml.element import registerElement, lookupElement
 from txweb2 import responsecode
-from txweb2.auth.tls import TLSCredentialsFactory
+from txweb2.auth.tls import TLSCredentialsFactory, TLSCredentials
 from txweb2.http import HTTPError, RedirectResponse, StatusResponse
 from txweb2.http_headers import generateContentType
 from txweb2.iweb import IResponse
@@ -1020,8 +1021,29 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         if request.clientCredentials() is not None:
             # Make this look as if it is done via the usual HTTP auth header approach
             authHeader = (TLSCredentialsFactory.scheme, request.clientCredentials())
+
         else:
-            authHeader = request.headers.getHeader("authorization")
+            # Check for reverse proxy TLS client auth
+            rproxy_cert = request.headers.getRawHeaders(TLSCredentials.CERTIFICATE_HEADER, ["*"])[0]
+            rproxy_user = request.headers.getRawHeaders(TLSCredentials.USERNAME_HEADER, ["*"])[0]
+            if rproxy_cert != "*":
+                # Make this look as if it is done via the usual HTTP auth header approach
+                try:
+                    cert = Certificate.loadPEM(rproxy_cert.replace("\\r", "\r").replace("\\n", "\n"))
+                except:
+                    raise HTTPError(responsecode.BAD_REQUEST)
+                authHeader = (
+                    TLSCredentialsFactory.scheme,
+                    TLSCredentials(cert)
+                )
+            elif rproxy_user != "*":
+                # Make this look as if it is done via the usual HTTP auth header approach
+                authHeader = (
+                    TLSCredentialsFactory.scheme,
+                    TLSCredentials(None, username=rproxy_user)
+                )
+            else:
+                authHeader = request.headers.getHeader("authorization")
 
         if authHeader is not None:
             if authHeader[0] not in request.credentialFactories:
