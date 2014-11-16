@@ -47,6 +47,7 @@ from twistedcaldav.ical import tzexpandlocal
 from twistedcaldav.resource import ReadOnlyNoCopyResourceMixIn
 from twistedcaldav.timezones import TimezoneException, TimezoneCache, readVTZ, \
     addVTZ
+from twistedcaldav.util import bestAcceptType
 from twistedcaldav.xmlutil import addSubElement
 
 from pycalendar.icalendar.calendar import Calendar
@@ -57,6 +58,7 @@ import hashlib
 import itertools
 import json
 import os
+import urllib
 
 log = Logger()
 
@@ -91,9 +93,9 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
 
         self.formats = []
         self.formats.append("text/calendar")
-        self.formats.append("text/plain")
         if config.EnableJSONData:
             self.formats.append("application/calendar+json")
+        self.formats.append("text/plain")
 
 
     def _initPrimaryService(self):
@@ -196,68 +198,103 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
 
     http_PROPFIND = http_PROPFIND
 
+    def problemReport(self, code, description, status):
+        raise HTTPError(JSONResponse(
+            status,
+            {
+                "type": "https://datatracker.ietf.org/doc/draft-ietf-tzdist-service/",
+                "error-code": code,
+                "title": description,
+                "status": status,
+            },
+            pretty=config.TimezoneService.PrettyPrintJSON,
+        ))
+
+
     def http_POST(self, request):
         raise HTTPError(StatusResponse(responsecode.NOT_ALLOWED, "Method not allowed"))
 
 
+    @inlineCallbacks
     def http_GET(self, request):
         """
         The timezone service GET method.
         """
 
-        # Check authentication and access controls
-        def _gotResult(_):
+        yield self.authorize(request, (davxml.Read(),))
 
-            if not request.args:
-                # Do normal GET behavior
-                return self.render(request)
+        urlbits = map(urllib.unquote, request.path.strip("/").split("/")[1:])
+        child = urlbits[0] if len(urlbits) > 0 else ""
 
-            action = request.args.get("action", ("",))
-            if len(action) != 1:
-                raise HTTPError(JSONResponse(
-                    responsecode.BAD_REQUEST,
-                    {
-                        "error": "invalid-action",
-                        "description": "Invalid action query parameter",
-                    },
-                    pretty=config.TimezoneService.PrettyPrintJSON,
-                ))
-            action = action[0]
+        if not child:
+            if len(request.args) != 0:
+                self.problemReport("invalid-action", "Invalid request-URI query parameters", responsecode.BAD_REQUEST)
 
-            action = {
-                "capabilities"  : self.doCapabilities,
-                "list"          : self.doList,
-                "get"           : self.doGet,
-                "expand"        : self.doExpand,
-                "find"          : self.doFind,
-            }.get(action, None)
+            # Do normal GET behavior
+            returnValue(self.render(request))
 
-            if action is None:
-                raise HTTPError(JSONResponse(
-                    responsecode.BAD_REQUEST,
-                    {
-                        "error": "invalid-action",
-                        "description": "Unknown action query parameter",
-                    },
-                    pretty=config.TimezoneService.PrettyPrintJSON,
-                ))
+        childResponder = {
+            "capabilities"  : self.childCapabilities,
+            "zones"         : self.childZones,
+            "observances"   : self.childObservances,
+        }.get(child, None)
 
-            return action(request)
+        if childResponder is None:
+            self.problemReport("invalid-action", "Invalid action", responsecode.BAD_REQUEST)
 
-        d = self.authorize(request, (davxml.Read(),))
-        d.addCallback(_gotResult)
-        return d
+        returnValue(childResponder(request, urlbits))
 
 
-    def doCapabilities(self, request):
+    def childCapabilities(self, request, urlbits):
         """
-        Return a list of all timezones known to the server.
+        Request on {/service-prefix}/capabilities.
         """
+        if len(urlbits) != 1:
+            self.problemReport("invalid-action", "Invalid path segment", responsecode.BAD_REQUEST)
+        return self.actionCapabilities(request)
+
+
+    def childZones(self, request, urlbits):
+        """
+        Request on {/service-prefix}/zones.
+        """
+        if len(urlbits) == 2:
+            return self.actionGet(request, urlbits[1])
+        elif len(urlbits) == 1:
+            pattern = request.args.get("pattern", ())
+            if len(pattern) == 0:
+                return self.actionList(request)
+            else:
+                return self.actionFind(request)
+        else:
+            self.problemReport("invalid-action", "Invalid path segment", responsecode.BAD_REQUEST)
+
+
+    def childObservances(self, request, urlbits):
+        """
+        Request on {/service-prefix}/observances.
+        """
+        if len(urlbits) == 2:
+            return self.actionExpand(request, urlbits[1])
+        elif len(urlbits) == 1:
+            self.problemReport("invalid-action", "Missing {tzid} path segment", responsecode.BAD_REQUEST)
+        else:
+            self.problemReport("invalid-action", "Invalid path segment", responsecode.BAD_REQUEST)
+
+
+    def actionCapabilities(self, request):
+        """
+        Return the capabilities of this server.
+        """
+
+        if len(request.args) != 0:
+            self.problemReport("invalid-action", "Invalid request-URI query parameters", responsecode.BAD_REQUEST)
 
         result = {
             "version": "1",
             "info" : {
                 "primary-source" if self.primary else "secondary_source": self.info_source,
+                "formats": self.formats,
                 "contacts" : [],
             },
             "actions" : [
@@ -274,16 +311,16 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
                 {
                     "name": "get",
                     "parameters": [
-                        {"name": "format", "required": False, "multi": False, "values": self.formats, },
-                        {"name": "tzid", "required": True, "multi": False, },
+                        {"name": "start", "required": False, "multi": False},
+                        {"name": "stop", "required": False, "multi": False, },
                     ],
                 },
                 {
                     "name": "expand",
                     "parameters": [
-                        {"name": "tzid", "required": True, "multi": False, },
-                        {"name": "start", "required": False, "multi": False, },
-                        {"name": "end", "required": False, "multi": False, },
+                        {"name": "start", "required": True, "multi": False, },
+                        {"name": "end", "required": True, "multi": False, },
+                        {"name": "changedsince", "required": False, "multi": False, },
                     ],
                 },
                 {
@@ -297,44 +334,26 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
         return JSONResponse(responsecode.OK, result, pretty=config.TimezoneService.PrettyPrintJSON)
 
 
-    def doList(self, request):
+    def actionList(self, request):
         """
         Return a list of all timezones known to the server.
         """
 
+        if set(request.args.keys()) - set(("changedsince",)):
+            self.problemReport("invalid-action", "Invalid request-URI query parameters", responsecode.BAD_REQUEST)
+
         changedsince = request.args.get("changedsince", ())
         if len(changedsince) > 1:
-            raise HTTPError(JSONResponse(
-                responsecode.BAD_REQUEST,
-                {
-                    "error": "invalid-changedsince",
-                    "description": "Invalid changedsince query parameter",
-                },
-                pretty=config.TimezoneService.PrettyPrintJSON,
-            ))
+            self.problemReport("invalid-changedsince", "Too many changedsince request-URI query parameters", responsecode.BAD_REQUEST)
         if len(changedsince) == 1:
             # Validate a date-time stamp
             changedsince = changedsince[0]
             try:
-                dt = DateTime.parseText(changedsince)
+                dt = DateTime.parseText(changedsince, fullISO=True)
             except ValueError:
-                raise HTTPError(JSONResponse(
-                    responsecode.BAD_REQUEST,
-                    {
-                        "error": "invalid-changedsince",
-                        "description": "Invalid changedsince query parameter",
-                    },
-                    pretty=config.TimezoneService.PrettyPrintJSON,
-                ))
+                self.problemReport("invalid-changedsince", "Invalid changedsince request-URI query parameter value", responsecode.BAD_REQUEST)
             if not dt.utc():
-                raise HTTPError(JSONResponse(
-                    responsecode.BAD_REQUEST,
-                    {
-                        "error": "invalid-changedsince",
-                        "description": "Invalid changedsince query parameter - not UTC",
-                    },
-                    pretty=config.TimezoneService.PrettyPrintJSON,
-                ))
+                self.problemReport("invalid-changedsince", "Invalid changedsince request-URI query parameter value - not UTC", responsecode.BAD_REQUEST)
 
         timezones = []
         for tz in self.timezones.listTimezones(changedsince):
@@ -350,124 +369,69 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
         return JSONResponse(responsecode.OK, result, pretty=config.TimezoneService.PrettyPrintJSON)
 
 
-    def doGet(self, request):
+    def actionGet(self, request, tzid):
         """
         Return the specified timezone data.
         """
 
-        tzids = request.args.get("tzid", ())
-        if len(tzids) != 1:
-            raise HTTPError(JSONResponse(
-                responsecode.BAD_REQUEST,
-                {
-                    "error": "invalid-tzid",
-                    "description": "Invalid tzid query parameter",
-                },
-                pretty=config.TimezoneService.PrettyPrintJSON,
-            ))
+        if set(request.args.keys()) - set(("start", "end",)):
+            self.problemReport("invalid-action", "Invalid request-URI query parameters", responsecode.BAD_REQUEST)
 
-        format = request.args.get("format", ("text/calendar",))
-        if len(format) != 1 or format[0] not in self.formats:
-            raise HTTPError(JSONResponse(
-                responsecode.BAD_REQUEST,
-                {
-                    "error": "invalid-format",
-                    "description": "Invalid format query parameter",
-                },
-                pretty=config.TimezoneService.PrettyPrintJSON,
-            ))
-        format = format[0]
+        accepted_type = bestAcceptType(request.headers.getHeader("accept"), self.formats)
+        if accepted_type is None:
+            self.problemReport("invalid-format", "Accept header does not match available media types", responsecode.NOT_ACCEPTABLE)
 
-        calendar = self.timezones.getTimezone(tzids[0])
+        calendar = self.timezones.getTimezone(tzid)
         if calendar is None:
-            raise HTTPError(JSONResponse(
-                responsecode.NOT_FOUND,
-                {
-                    "error": "tzid-not-found",
-                    "description": "Tzid could not be found",
-                },
-                pretty=config.TimezoneService.PrettyPrintJSON,
-            ))
+            self.problemReport("tzid-not-found", "Time zone identifier not found", responsecode.NOT_FOUND)
 
-        tzdata = calendar.getText(format=format if format != "text/plain" else None)
+        tzdata = calendar.getText(format=accepted_type if accepted_type != "text/plain" else None)
 
         response = Response()
         response.stream = MemoryStream(tzdata)
-        response.headers.setHeader("content-type", MimeType.fromString("%s; charset=utf-8" % (format,)))
+        response.headers.setHeader("content-type", MimeType.fromString("%s; charset=utf-8" % (accepted_type,)))
         return response
 
 
-    def doExpand(self, request):
+    def actionExpand(self, request, tzid):
         """
         Expand a timezone within specified start/end dates.
         """
 
-        tzids = request.args.get("tzid", ())
-        if len(tzids) != 1:
-            raise HTTPError(JSONResponse(
-                responsecode.BAD_REQUEST,
-                {
-                    "error": "invalid-tzid",
-                    "description": "Invalid tzid query parameter",
-                },
-                pretty=config.TimezoneService.PrettyPrintJSON,
-            ))
+        if set(request.args.keys()) - set(("start", "end", "changedsince",)):
+            self.problemReport("invalid-action", "Invalid request-URI query parameters", responsecode.BAD_REQUEST)
 
-        try:
-            start = request.args.get("start", ())
-            if len(start) != 1:
-                raise ValueError()
-            elif len(start) == 1:
+        start = request.args.get("start", ())
+        if len(start) == 0:
+            self.problemReport("invalid-start", "Missing start request-URI query parameter", responsecode.BAD_REQUEST)
+        if len(start) > 1:
+            self.problemReport("invalid-start", "Too many start request-URI query parameters", responsecode.BAD_REQUEST)
+        elif len(start) == 1:
+            try:
                 if len(start[0]) != 20:
                     raise ValueError()
                 start = DateTime.parseText(start[0], fullISO=True)
-        except ValueError:
-            raise HTTPError(JSONResponse(
-                responsecode.BAD_REQUEST,
-                {
-                    "error": "invalid-start",
-                    "description": "Invalid start query parameter",
-                },
-                pretty=config.TimezoneService.PrettyPrintJSON,
-            ))
+            except ValueError:
+                self.problemReport("invalid-start", "Invalid start request-URI query parameter value", responsecode.BAD_REQUEST)
 
-        try:
-            end = request.args.get("end", ())
-            if len(end) > 1:
-                raise ValueError()
-            elif len(end) == 1:
+        end = request.args.get("end", ())
+        if len(end) == 0:
+            self.problemReport("invalid-end", "Missing end request-URI query parameter", responsecode.BAD_REQUEST)
+        if len(end) > 1:
+            self.problemReport("invalid-end", "Too many end request-URI query parameters", responsecode.BAD_REQUEST)
+        elif len(end) == 1:
+            try:
                 if len(end[0]) != 20:
                     raise ValueError()
                 end = DateTime.parseText(end[0], fullISO=True)
-            else:
-                end = DateTime.getNowUTC()
-                end.setDay(1)
-                end.setMonth(1)
-                start.setHHMMSS(0, 0, 0)
-                end.offsetYear(10)
+            except ValueError:
+                self.problemReport("invalid-end", "Invalid end request-URI query parameter value", responsecode.BAD_REQUEST)
             if end <= start:
-                raise ValueError()
-        except ValueError:
-            raise HTTPError(JSONResponse(
-                responsecode.BAD_REQUEST,
-                {
-                    "error": "invalid-end",
-                    "description": "Invalid end query parameter",
-                },
-                pretty=config.TimezoneService.PrettyPrintJSON,
-            ))
+                self.problemReport("invalid-end", "Invalid end request-URI query parameter value - earlier than start", responsecode.BAD_REQUEST)
 
-        tzid = tzids[0]
         tzdata = self.timezones.getTimezone(tzid)
         if tzdata is None:
-            raise HTTPError(JSONResponse(
-                responsecode.NOT_FOUND,
-                {
-                    "error": "tzid-not-found",
-                    "description": "Tzid could not be found",
-                },
-                pretty=config.TimezoneService.PrettyPrintJSON,
-            ))
+            self.problemReport("tzid-not-found", "Time zone identifier not found", responsecode.NOT_FOUND)
 
         # Now do the expansion (but use a cache to avoid re-calculating TZs)
         observances = self.expandcache.get((tzid, start, end), None)
@@ -491,21 +455,19 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
         return JSONResponse(responsecode.OK, result, pretty=config.TimezoneService.PrettyPrintJSON)
 
 
-    def doFind(self, request):
+    def actionFind(self, request):
         """
         Return a list of all timezones matching a pattern.
         """
 
+        if set(request.args.keys()) - set(("pattern",)):
+            self.problemReport("invalid-action", "Invalid request-URI query parameters", responsecode.BAD_REQUEST)
+
         pattern = request.args.get("pattern", ())
-        if len(pattern) != 1:
-            raise HTTPError(JSONResponse(
-                responsecode.BAD_REQUEST,
-                {
-                    "error": "invalid-pattern",
-                    "description": "Invalid pattern query parameter",
-                },
-                pretty=config.TimezoneService.PrettyPrintJSON,
-            ))
+        if len(pattern) == 0:
+            self.problemReport("invalid-pattern", "Missing pattern request-URI query parameter", responsecode.BAD_REQUEST)
+        elif len(pattern) > 1:
+            self.problemReport("invalid-pattern", "Too many pattern request-URI query parameters", responsecode.BAD_REQUEST)
         pattern = pattern[0]
 
         def _comp_is(pattern, s):
@@ -534,14 +496,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
         pattern = _normalize(pattern)
 
         if not pattern:
-            raise HTTPError(JSONResponse(
-                responsecode.BAD_REQUEST,
-                {
-                    "error": "invalid-pattern",
-                    "description": "Invalid pattern query parameter",
-                },
-                pretty=config.TimezoneService.PrettyPrintJSON,
-            ))
+            self.problemReport("invalid-pattern", "Invalid pattern request-URI query parameter value", responsecode.BAD_REQUEST)
 
         timezones = []
         for tz in self.timezones.listTimezones(None):
