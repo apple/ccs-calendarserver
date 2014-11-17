@@ -557,7 +557,7 @@ class JSONResponse (Response):
     JSON L{Response} object.
     Renders itself as an JSON document.
     """
-    def __init__(self, code, jobj, pretty=False):
+    def __init__(self, code, jobj, contentType="application/json", pretty=False):
         """
         @param jobj: a Python object that can be serialized to JSON.
         """
@@ -566,7 +566,7 @@ class JSONResponse (Response):
             kwargs["indent"] = 2
             kwargs["separators"] = (',', ':')
         Response.__init__(self, code, stream=json.dumps(jobj, **kwargs))
-        self.headers.setHeader("content-type", http_headers.MimeType("application", "json"))
+        self.headers.setHeader("content-type", http_headers.MimeType(*contentType.split("/")))
 
 
 components.registerAdapter(Response, int, iweb.IResponse)

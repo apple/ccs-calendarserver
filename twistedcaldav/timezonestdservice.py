@@ -207,6 +207,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
                 "title": description,
                 "status": status,
             },
+            contentType="application/problem+json",
             pretty=config.TimezoneService.PrettyPrintJSON,
         ))
 
