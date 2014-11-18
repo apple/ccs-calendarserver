@@ -258,8 +258,6 @@ create table CALENDAR_OBJECT (
   CREATED              timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED             timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   DATAVERSION          integer      default 0 not null,
-  IS_TRASH             boolean      default false not null, -- all instances are in the trash
-  HAS_TRASH            boolean      default false not null, -- has at least one instance in trash
 
   unique (CALENDAR_RESOURCE_ID, RESOURCE_NAME) -- implicit index
 
@@ -360,7 +358,7 @@ create table PERUSER (
   TRANSPARENT                 boolean      not null,
   ADJUSTED_START_DATE         timestamp    default null,
   ADJUSTED_END_DATE           timestamp    default null,
-
+  
   primary key (TIME_RANGE_INSTANCE_ID, USER_ID)    -- implicit index
 );
 
@@ -480,7 +478,6 @@ create table ADDRESSBOOK_OBJECT (
   CREATED                       timestamp       default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                      timestamp       default timezone('UTC', CURRENT_TIMESTAMP),
   DATAVERSION                   integer         default 0 not null,
-  IS_TRASH                      boolean         default false not null,
 
   unique (ADDRESSBOOK_HOME_RESOURCE_ID, RESOURCE_NAME), -- implicit index
   unique (ADDRESSBOOK_HOME_RESOURCE_ID, VCARD_UID)      -- implicit index
@@ -586,7 +583,7 @@ create table CALENDAR_OBJECT_REVISIONS (
   REVISION                  integer      default nextval('REVISION_SEQ') not null,
   DELETED                   boolean      not null,
   MODIFIED                  timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-
+  
   unique(CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_ID, CALENDAR_NAME, RESOURCE_NAME)    -- implicit index
 );
 
@@ -613,7 +610,7 @@ create table ADDRESSBOOK_OBJECT_REVISIONS (
   REVISION                      integer      default nextval('REVISION_SEQ') not null,
   DELETED                       boolean      not null,
   MODIFIED                      timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-
+  
   unique(ADDRESSBOOK_HOME_RESOURCE_ID, OWNER_HOME_RESOURCE_ID, ADDRESSBOOK_NAME, RESOURCE_NAME)    -- implicit index
 );
 
@@ -1151,7 +1148,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '50');
+insert into CALENDARSERVER values ('VERSION', '49');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');

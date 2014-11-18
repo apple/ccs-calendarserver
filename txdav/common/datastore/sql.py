@@ -6063,12 +6063,23 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         DAL query to load all object resource names for a home child.
         """
         obj = cls._objectSchema
-        return Select([obj.RESOURCE_NAME], From=obj,
-                      Where=obj.PARENT_RESOURCE_ID == Parameter('resourceID'))
+        return Select(
+            [obj.RESOURCE_NAME],
+            From=obj,
+            Where=(
+                obj.PARENT_RESOURCE_ID == Parameter('resourceID')
+            ).And(
+                obj.IS_TRASH == False
+            )
+        )
 
 
     @inlineCallbacks
     def listObjectResources(self):
+        """
+        Returns a list of names of object resources in this collection, taking
+        into account the IS_TRASH flag and skipping those in the trash.
+        """
         if self._objectNames is None:
             rows = yield self._objectResourceNamesQuery.on(
                 self._txn, resourceID=self._resourceID)
@@ -6219,10 +6230,25 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         self._objects[objectResource.name()] = objectResource
         self._objects[objectResource.uid()] = objectResource
         self._objects[objectResource.id()] = objectResource
+        self._objectNames = None
 
         # Note: create triggers a notification when the component is set, so we
         # don't need to call notify() here like we do for object removal.
         returnValue(objectResource)
+
+
+    @inlineCallbacks
+    def addedObjectResource(self, child):
+        """
+        When a resource is put back from the trash to the original collection,
+        this method updates/invalidates caches and triggers a notification.
+        """
+        self._objects[child.name()] = child
+        self._objects[child.uid()] = child
+        self._objects[child.id()] = child
+        # Invalidate _objectNames so it will get reloaded
+        self._objectNames = None
+        yield self.notifyChanged()
 
 
     @inlineCallbacks
@@ -7302,6 +7328,48 @@ class CommonObjectResource(FancyEqMixin, object):
         self._modified = None
         self._textData = None
         self._cachedComponent = None
+
+
+    @classproperty
+    def _updateIsTrashQuery(cls):
+        obj = cls._objectSchema
+        return Update(
+            {obj.IS_TRASH: Parameter("isTrash")},
+            Where=obj.RESOURCE_ID == Parameter("resourceID"),
+        )
+
+
+    @inlineCallbacks
+    def toTrash(self):
+        yield self._updateIsTrashQuery.on(
+            self._txn, isTrash=True, resourceID=self._resourceID
+        )
+        yield self._parentCollection.removedObjectResource(self)
+
+
+    @inlineCallbacks
+    def fromTrash(self):
+        yield self._updateIsTrashQuery.on(
+            self._txn, isTrash=False, resourceID=self._resourceID
+        )
+        yield self._parentCollection.addedObjectResource(self)
+
+
+    @classproperty
+    def _selectIsTrashQuery(cls):
+        obj = cls._objectSchema
+        return Select((obj.IS_TRASH,), From=obj, Where=obj.RESOURCE_ID == Parameter("resourceID"))
+
+
+    @inlineCallbacks
+    def isTrash(self):
+        returnValue(
+            (
+                yield self._selectIsTrashQuery.on(
+                    self._txn, resourceID=self._resourceID
+                )
+            )[0][0]
+        )
 
 
     def removeNotifyCategory(self):

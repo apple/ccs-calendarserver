@@ -18,23 +18,28 @@
 Tests for L{txdav.common.datastore.sql}.
 """
 
-from twext.enterprise.dal.syntax import Select
-from twext.enterprise.dal.syntax import Insert
+from uuid import UUID
 
+from twext.enterprise.dal.syntax import Insert
+from twext.enterprise.dal.syntax import Select
+from twisted.internet.defer import Deferred
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.internet.task import Clock
 from twisted.trial.unittest import TestCase
-from twisted.internet.defer import Deferred
-
-from txdav.common.datastore.sql import log, CommonStoreTransactionMonitor, \
+from twistedcaldav.test.util import StoreTestCase
+from txdav.common.datastore.sql import fixUUIDNormalization
+from txdav.common.datastore.sql import (
+    log, CommonStoreTransactionMonitor,
     CommonHome, CommonHomeChild, ECALENDARTYPE
+)
 from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.test.util import CommonCommonTests
 from txdav.common.icommondatastore import AllRetriesFailed
-from txdav.common.datastore.sql import fixUUIDNormalization
 from txdav.xml import element as davxml
+from twistedcaldav.ical import Component
+from twistedcaldav.vcard import Component as VCard
 
-from uuid import UUID
+
 
 exampleUID = UUID("a" * 32)
 denormalizedUID = unicode(exampleUID)
@@ -463,6 +468,145 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         self.assertEquals(self.txn.action, "aborted")
         self.assertEquals(self.txn.label, "bad")
 
+
+
+
+VCALENDAR_DATA_NO_SCHEDULING = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:5CE3B280-DBC9-4E8E-B0B2-996754020E5F
+DTSTART;TZID=America/Los_Angeles:20141108T093000
+DTEND;TZID=America/Los_Angeles:20141108T103000
+CREATED:20141106T192546Z
+DTSTAMP:20141106T192546Z
+RRULE:FREQ=DAILY
+SEQUENCE:0
+SUMMARY:repeating event
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:5CE3B280-DBC9-4E8E-B0B2-996754020E5F
+RECURRENCE-ID;TZID=America/Los_Angeles:20141111T093000
+DTSTART;TZID=America/Los_Angeles:20141111T110000
+DTEND;TZID=America/Los_Angeles:20141111T120000
+CREATED:20141106T192546Z
+DTSTAMP:20141106T192546Z
+SEQUENCE:0
+SUMMARY:repeating event
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR
+"""
+
+VCARD_DATA = """BEGIN:VCARD
+VERSION:3.0
+PRODID:-//Apple Inc.//iOS 6.0//EN
+UID:41425f1b-b831-40f2-b0bb-e70ec0938afd
+FN:Test User
+N:User;Test;;;
+REV:20120613T002007Z
+TEL;type=CELL;type=VOICE;type=pref:(408) 555-1212
+END:VCARD
+"""
+
+
+class CommonTrashTests(StoreTestCase):
+
+    @inlineCallbacks
+    def test_isTrash(self):
+        """
+        Verify the "resource is entirely in the trash" flag
+        """
+
+        txn = self.store.newTransaction()
+
+        #
+        # First, use a calendar object
+        #
+
+        home = yield txn.calendarHomeWithUID("user01", create=True)
+        collection = yield home.childWithName("calendar")
+
+        # No objects
+        objects = yield collection.listObjectResources()
+        self.assertEquals(len(objects), 0)
+
+        # Create an object
+        resource = yield collection.createObjectResourceWithName(
+            "test.ics",
+            Component.allFromString(VCALENDAR_DATA_NO_SCHEDULING)
+        )
+
+        # One object
+        objects = yield collection.listObjectResources()
+        self.assertEquals(len(objects), 1)
+
+        # Verify it's not in the trash
+        self.assertFalse((yield resource.isTrash()))
+
+        # Move object to trash
+        yield resource.toTrash()
+
+        # Verify it's in the trash
+        self.assertTrue((yield resource.isTrash()))
+
+        # No objects
+        objects = yield collection.listObjectResources()
+        self.assertEquals(len(objects), 0)
+
+        # Put back from trash
+        yield resource.fromTrash()
+
+        # Not in trash
+        self.assertFalse((yield resource.isTrash()))
+
+        # One object
+        objects = yield collection.listObjectResources()
+        self.assertEquals(len(objects), 1)
+
+
+        #
+        # Now with addressbook
+        #
+
+        home = yield txn.addressbookHomeWithUID("user01", create=True)
+        collection = yield home.childWithName("addressbook")
+
+        # Create an object
+        resource = yield collection.createObjectResourceWithName(
+            "test.vcf",
+            VCard.fromString(VCARD_DATA)
+        )
+
+        # One object
+        objects = yield collection.listObjectResources()
+        self.assertEquals(len(objects), 1)
+
+        # Verify it's not in the trash
+        self.assertFalse((yield resource.isTrash()))
+
+        # Move object to trash
+        yield resource.toTrash()
+
+        # Verify it's in the trash
+        self.assertTrue((yield resource.isTrash()))
+
+        # No objects
+        objects = yield collection.listObjectResources()
+        self.assertEquals(len(objects), 0)
+
+        # Put back from trash
+        yield resource.fromTrash()
+
+        # Not in trash
+        self.assertFalse((yield resource.isTrash()))
+
+        # One object
+        objects = yield collection.listObjectResources()
+        self.assertEquals(len(objects), 1)
+
+        yield txn.commit()
 
 
 class StubTransaction(object):
