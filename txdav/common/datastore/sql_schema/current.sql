@@ -92,8 +92,7 @@ insert into HOME_STATUS values (2, 'purging');
 --------------
 
 create table CALENDAR (
-  RESOURCE_ID integer   primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
-  COLLECTION_TYPE       varchar(10) default null -- None, inbox, trash (FIXME: convert this to enumeration)
+  RESOURCE_ID integer   primary key default nextval('RESOURCE_ID_SEQ') -- implicit index
 );
 
 
@@ -132,7 +131,9 @@ create table CALENDAR_METADATA (
   RESOURCE_ID           integer      primary key references CALENDAR on delete cascade, -- implicit index
   SUPPORTED_COMPONENTS  varchar(255) default null,
   CREATED               timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  MODIFIED              timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
+  MODIFIED              timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+  CHILD_TYPE            varchar(10)  default null -- None, inbox, trash (FIXME: convert this to enumeration)
+
 );
 
 

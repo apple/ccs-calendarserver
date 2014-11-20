@@ -3443,11 +3443,7 @@ class CommonHome(SharingHomeMixIn):
         @param name: a string.
         @return: an L{ICalendar} or C{None} if no such child exists.
         """
-        # FIXME: should determine the class from the collection_type column
-        if name == "trash":
-            return self._trashClass.objectWithName(self, name)
-        else:
-            return self._childClass.objectWithName(self, name)
+        return self._childClass.objectWithName(self, name)
 
 
     def anyObjectWithShareUID(self, shareUID):
@@ -5569,6 +5565,11 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         else:
             ownerName = None
 
+        if metadataData:
+            collectionType = metadataData[3]
+            if collectionType == "trash":  # FIXME: make this an enumeration
+                cls = home._trashClass
+
         c = cls._externalClass if ownerHome.external() else cls
         child = c(
             home=home,
@@ -5829,7 +5830,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         return Insert(
             {
                 child.RESOURCE_ID: schema.RESOURCE_ID_SEQ,
-                child.COLLECTION_TYPE: Parameter("childType"),
             },
             Return=(child.RESOURCE_ID)
         )
@@ -5844,6 +5844,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         return Insert(
             {
                 child.RESOURCE_ID: Parameter("resourceID"),
+                child.CHILD_TYPE: Parameter("childType"),
             },
             Return=(child.CREATED, child.MODIFIED)
         )
@@ -5860,10 +5861,14 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             raise HomeChildNameNotAllowedError(name)
 
         # Create this object
-        resourceID = (yield cls._insertHomeChild.on(home._txn, childType=cls._childType))[0][0]
+        resourceID = (yield cls._insertHomeChild.on(home._txn))[0][0]
 
         # Initialize this object
-        _created, _modified = (yield cls._insertHomeChildMetaData.on(home._txn, resourceID=resourceID))[0]
+        _created, _modified = (
+            yield cls._insertHomeChildMetaData.on(
+                home._txn, resourceID=resourceID, childType=cls._childType
+            )
+        )[0]
         # Bind table needs entry
         yield cls._bindInsertQuery.on(
             home._txn, homeID=home._resourceID, resourceID=resourceID, externalID=externalID,

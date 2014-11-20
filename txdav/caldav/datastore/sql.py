@@ -995,6 +995,7 @@ class Calendar(CommonHomeChild):
             cls._homeChildMetaDataSchema.SUPPORTED_COMPONENTS,
             cls._homeChildMetaDataSchema.CREATED,
             cls._homeChildMetaDataSchema.MODIFIED,
+            cls._homeChildMetaDataSchema.CHILD_TYPE,
         )
 
 
@@ -1012,6 +1013,7 @@ class Calendar(CommonHomeChild):
             "_supportedComponents",
             "_created",
             "_modified",
+            "_childType",
         )
 
 
