@@ -7337,6 +7337,18 @@ class CommonObjectResource(FancyEqMixin, object):
 
     @inlineCallbacks
     def remove(self, options=None):
+        """
+        Just moves the object to the trash
+        """
+        yield self.toTrash()
+
+
+    @inlineCallbacks
+    def reallyRemove(self, options=None):
+        """
+        Remove, bypassing the trash
+        """
+
         yield self._deleteQuery.on(self._txn, NoSuchObjectResourceError,
                                    resourceID=self._resourceID)
         yield self.properties()._removeResource()
