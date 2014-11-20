@@ -675,6 +675,8 @@ class CalendarHome(CommonHome):
         inbox = yield self.createCalendarWithName("inbox")
         yield inbox.setUsedForFreeBusy(False)
 
+        yield self.createTrash()
+
 
     @inlineCallbacks
     def splitCalendars(self):
@@ -5645,10 +5647,62 @@ class ManagedAttachment(Attachment):
 
         returnValue(location)
 
+
+class TrashCollection(Calendar):
+
+    _childType = "trash"  # FIXME: make childType an enumeration
+
+
+    @classproperty
+    def _trashInHomeQuery(cls):
+        obj = cls._objectSchema
+        bind = cls._bindSchema
+        return Select(
+            [
+                obj.PARENT_RESOURCE_ID, obj.RESOURCE_ID
+            ],
+            From=obj.join(
+                bind, obj.PARENT_RESOURCE_ID == bind.RESOURCE_ID
+            ),
+            Where=(obj.IS_TRASH == True).And(
+                bind.HOME_RESOURCE_ID == Parameter("resourceID")
+            ).And(
+                bind.BIND_MODE == _BIND_MODE_OWN
+            )
+        )
+
+
+    @inlineCallbacks
+    def listObjectResources(self):
+        """
+        Return a list of names of child object resources in this trash; the
+        list is computed from all the homeChildren in the trash's parent home.
+        """
+        home = self._calendarHome
+
+        results = []
+        rows = (yield self._trashInHomeQuery.on(
+            self._txn, resourceID=home._resourceID
+        ))
+        if rows:
+            for childID, objectID in rows:
+                child = (yield home.childWithID(childID))
+                if child:
+                    objectResource = (
+                        yield child.objectResourceWithID(objectID)
+                    )
+                    results.append(objectResource.name())
+
+        returnValue(results)
+
+
+
+
 # Hook-up class relationships at the end after they have all been defined
 from txdav.caldav.datastore.sql_external import CalendarHomeExternal, CalendarExternal, CalendarObjectExternal
 CalendarHome._externalClass = CalendarHomeExternal
 CalendarHome._childClass = Calendar
+CommonHome._trashClass = TrashCollection
 Calendar._externalClass = CalendarExternal
 Calendar._objectResourceClass = CalendarObject
 CalendarObject._externalClass = CalendarObjectExternal

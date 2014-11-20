@@ -92,7 +92,8 @@ insert into HOME_STATUS values (2, 'purging');
 --------------
 
 create table CALENDAR (
-  RESOURCE_ID integer   primary key default nextval('RESOURCE_ID_SEQ') -- implicit index
+  RESOURCE_ID integer   primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
+  COLLECTION_TYPE       varchar(10) default null -- None, inbox, trash (FIXME: convert this to enumeration)
 );
 
 

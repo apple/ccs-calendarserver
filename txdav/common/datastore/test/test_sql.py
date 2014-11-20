@@ -527,6 +527,7 @@ class CommonTrashTests(StoreTestCase):
 
         home = yield txn.calendarHomeWithUID("user01", create=True)
         collection = yield home.childWithName("calendar")
+        trash = yield home.childWithName("trash")
 
         # No objects
         objects = yield collection.listObjectResources()
@@ -538,9 +539,13 @@ class CommonTrashTests(StoreTestCase):
             Component.allFromString(VCALENDAR_DATA_NO_SCHEDULING)
         )
 
-        # One object
+        # One object in collection
         objects = yield collection.listObjectResources()
         self.assertEquals(len(objects), 1)
+
+        # No objects in trash
+        objects = yield trash.listObjectResources()
+        self.assertEquals(len(objects), 0)
 
         # Verify it's not in the trash
         self.assertFalse((yield resource.isTrash()))
@@ -551,9 +556,13 @@ class CommonTrashTests(StoreTestCase):
         # Verify it's in the trash
         self.assertTrue((yield resource.isTrash()))
 
-        # No objects
+        # No objects in collection
         objects = yield collection.listObjectResources()
         self.assertEquals(len(objects), 0)
+
+        # One object in trash
+        objects = yield trash.listObjectResources()
+        self.assertEquals(len(objects), 1)
 
         # Put back from trash
         yield resource.fromTrash()
@@ -561,9 +570,13 @@ class CommonTrashTests(StoreTestCase):
         # Not in trash
         self.assertFalse((yield resource.isTrash()))
 
-        # One object
+        # One object in collection
         objects = yield collection.listObjectResources()
         self.assertEquals(len(objects), 1)
+
+        # No objects in trash
+        objects = yield trash.listObjectResources()
+        self.assertEquals(len(objects), 0)
 
 
         #

@@ -2991,6 +2991,7 @@ class CommonHome(SharingHomeMixIn):
     _homeMetaDataTable = None
     _externalClass = None
     _childClass = None
+    _trashClass = None
     _childTable = None
     _notifierPrefix = None
 
@@ -3442,7 +3443,11 @@ class CommonHome(SharingHomeMixIn):
         @param name: a string.
         @return: an L{ICalendar} or C{None} if no such child exists.
         """
-        return self._childClass.objectWithName(self, name)
+        # FIXME: should determine the class from the collection_type column
+        if name == "trash":
+            return self._trashClass.objectWithName(self, name)
+        else:
+            return self._childClass.objectWithName(self, name)
 
 
     def anyObjectWithShareUID(self, shareUID):
@@ -3509,6 +3514,12 @@ class CommonHome(SharingHomeMixIn):
         yield child.remove()
         self._children.pop(name, None)
         self._children.pop(resourceID, None)
+
+
+    @inlineCallbacks
+    def createTrash(self):
+        child = yield self._trashClass.create(self, "trash")
+        returnValue(child)
 
 
     @classproperty
@@ -5521,6 +5532,8 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
     _revisionsSchema = None
     _objectSchema = None
 
+    _childType = None
+
 
     @classmethod
     @inlineCallbacks
@@ -5814,7 +5827,10 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         """
         child = cls._homeChildSchema
         return Insert(
-            {child.RESOURCE_ID: schema.RESOURCE_ID_SEQ},
+            {
+                child.RESOURCE_ID: schema.RESOURCE_ID_SEQ,
+                child.COLLECTION_TYPE: Parameter("childType"),
+            },
             Return=(child.RESOURCE_ID)
         )
 
@@ -5825,8 +5841,12 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         DAL statement to create a home child with all default values.
         """
         child = cls._homeChildMetaDataSchema
-        return Insert({child.RESOURCE_ID: Parameter("resourceID")},
-                      Return=(child.CREATED, child.MODIFIED))
+        return Insert(
+            {
+                child.RESOURCE_ID: Parameter("resourceID"),
+            },
+            Return=(child.CREATED, child.MODIFIED)
+        )
 
 
     @classmethod
@@ -5840,7 +5860,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             raise HomeChildNameNotAllowedError(name)
 
         # Create this object
-        resourceID = (yield cls._insertHomeChild.on(home._txn))[0][0]
+        resourceID = (yield cls._insertHomeChild.on(home._txn, childType=cls._childType))[0][0]
 
         # Initialize this object
         _created, _modified = (yield cls._insertHomeChildMetaData.on(home._txn, resourceID=resourceID))[0]
