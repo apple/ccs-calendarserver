@@ -5565,11 +5565,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         else:
             ownerName = None
 
-        if metadataData:
-            collectionType = metadataData[3]
-            if collectionType == "trash":  # FIXME: make this an enumeration
-                cls = home._trashClass
-
         c = cls._externalClass if ownerHome.external() else cls
         child = c(
             home=home,
@@ -7382,6 +7377,10 @@ class CommonObjectResource(FancyEqMixin, object):
             self._txn, isTrash=True, resourceID=self._resourceID
         )
         yield self._parentCollection.removedObjectResource(self)
+        trash = yield self._parentCollection._home.childWithName("trash")
+        print("TO TRASH", trash)
+        if trash is not None:
+            yield trash._insertRevision(self._name)
 
 
     @inlineCallbacks
@@ -7390,6 +7389,10 @@ class CommonObjectResource(FancyEqMixin, object):
             self._txn, isTrash=False, resourceID=self._resourceID
         )
         yield self._parentCollection.addedObjectResource(self)
+        trash = yield self._parentCollection._home.childWithName("trash")
+        print("FROM TRASH", trash)
+        if trash is not None:
+            yield trash._deleteRevision(self._name)
 
 
     @classproperty

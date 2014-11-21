@@ -982,6 +982,43 @@ class Calendar(CommonHomeChild):
 
 
     @classmethod
+    def makeClass(cls, home, bindData, additionalBindData, metadataData, propstore=None, ownerHome=None):
+        """
+        Examine the calendar metadata to see which flavor of Calendar collection
+        to create, then call the inherited makeClass with the right class.
+
+        @param home: the parent home object
+        @type home: L{CommonHome}
+        @param bindData: the standard set of bind columns
+        @type bindData: C{list}
+        @param additionalBindData: additional bind data specific to sub-classes
+        @type additionalBindData: C{list}
+        @param metadataData: metadata data
+        @type metadataData: C{list}
+        @param propstore: a property store to use, or C{None} to load it automatically
+        @type propstore: L{PropertyStore}
+        @param ownerHome: the home of the owner, or C{None} to figure it out automatically
+        @type ownerHome: L{CommonHome}
+
+        @return: the constructed child class
+        @rtype: L{CommonHomeChild}
+        """
+
+        if metadataData:
+            childType = metadataData[3]
+            if childType == "trash":  # FIXME: make this an enumeration
+                actualClass = TrashCollection
+            else:
+                actualClass = cls
+
+            return super(Calendar, actualClass).makeClass(
+                home, bindData, additionalBindData, metadataData,
+                propstore=propstore, ownerHome=ownerHome
+            )
+
+
+
+    @classmethod
     def metadataColumns(cls):
         """
         Return a list of column name for retrieval of metadata. This allows
