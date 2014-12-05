@@ -36,6 +36,19 @@ class DelegationTest(StoreTestCase):
 
 
     @inlineCallbacks
+    def test_recordCreation(self):
+        """
+        Verify the record we get back from recordWithShortName has a shortName
+        that matches the one we looked up.
+        """
+        record = yield self.directory.recordWithShortName(
+            DelegateRecordType.readDelegateGroup,
+            "foo"
+        )
+        self.assertEquals(record.shortNames[0], "foo")
+
+
+    @inlineCallbacks
     def test_directDelegation(self):
         txn = self.store.newTransaction(label="test_directDelegation")
 

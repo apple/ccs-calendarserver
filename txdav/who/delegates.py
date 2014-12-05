@@ -183,7 +183,7 @@ class DirectoryService(BaseDirectoryService):
         record = DirectoryRecord(self, {
             FieldName.uid: uid,
             FieldName.recordType: recordType,
-            FieldName.shortNames: (uid,),
+            FieldName.shortNames: (shortName,),
         })
         return succeed(record)
 
