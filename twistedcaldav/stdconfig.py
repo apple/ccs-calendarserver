@@ -1021,6 +1021,7 @@ DEFAULT_CONFIG = {
     "Manhole": {
         "Enabled": False,
         "StartingPortNumber": 5000,
+        "DPSPortNumber": 4999,
         "PasswordFilePath": "",
     },
 

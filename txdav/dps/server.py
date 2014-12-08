@@ -22,6 +22,7 @@ from calendarserver.tap.util import getDBPool, storeFromConfigWithDPSServer
 from twext.python.log import Logger
 from twext.who.expression import MatchType, MatchFlags, Operand
 from twisted.application import service
+from twisted.application.service import MultiService
 from twisted.application.strports import service as strPortsService
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.protocol import Factory
@@ -41,7 +42,7 @@ from txdav.dps.commands import (
     WikiAccessForUIDCommand, ContinuationCommand,
     ExternalDelegatesCommand, StatsCommand, ExpandedMemberUIDsCommand,
     AddMembersCommand, RemoveMembersCommand,
-    UpdateRecordsCommand, FlushCommand, # RemoveRecordsCommand,
+    UpdateRecordsCommand, FlushCommand,  # RemoveRecordsCommand,
 )
 from txdav.who.wiki import WikiAccessLevel
 from zope.interface import implementer
@@ -820,9 +821,44 @@ class DirectoryProxyServiceMaker(object):
 
         log.info("Created directory service")
 
-        return strPortsService(
+        dpsService = strPortsService(
             "unix:{path}:mode=660".format(
                 path=config.DirectoryProxy.SocketPath
             ),
             DirectoryProxyAMPFactory(store.directoryService())
         )
+
+        if config.Manhole.Enabled:
+            multiService = MultiService()
+            dpsService.setServiceParent(multiService)
+            try:
+                from twisted.conch.manhole_tap import (
+                    makeService as manholeMakeService
+                )
+                portString = "tcp:{:d}:interface=127.0.0.1".format(
+                    config.Manhole.DPSPortNumber
+                )
+                manholeService = manholeMakeService({
+                    "sshPort": None,
+                    "telnetPort": portString,
+                    "namespace": {
+                        "config": config,
+                        "service": dpsService,
+                        "store": store,
+                        "directory": store.directoryService(),
+                    },
+                    "passwd": config.Manhole.PasswordFilePath,
+                })
+                manholeService.setServiceParent(multiService)
+                # Using print(because logging isn't ready at this point)
+                print("Manhole access enabled:", portString)
+
+            except ImportError:
+                print(
+                    "Manhole access could not enabled because "
+                    "manhole_tap could not be imported"
+                )
+
+            return multiService
+        else:
+            return dpsService
