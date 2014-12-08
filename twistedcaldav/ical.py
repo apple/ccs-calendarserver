@@ -3331,7 +3331,7 @@ END:VCALENDAR
                             email = None
 
                     if config.Scheduling.Options.FakeResourceLocationEmail:
-                        if email.endswith("@do_not_reply"):
+                        if email and email.endswith("@do_not_reply"):
                             email = ""
 
                     if email:
