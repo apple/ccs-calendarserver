@@ -20,6 +20,7 @@ pycrypto==2.6.1
 PyGreSQL==4.1.1
 pyOpenSSL==0.14
 service_identity==14.0.0
+cryptography==0.6.1
 characteristic==14.0.0
 python-dateutil==1.5  # Note: v2.0+ is for Python 3
 python-ldap==2.4.18
