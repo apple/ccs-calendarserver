@@ -236,6 +236,7 @@ install_requirements = [
 
     # Security frameworks
     "pyOpenSSL>=0.13.1",
+    "service_identity",
     "pycrypto",
     "pyasn1",
     "kerberos",
