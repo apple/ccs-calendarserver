@@ -125,6 +125,7 @@ class DPSClientSingleDirectoryTest(unittest.TestCase):
         self.assertEquals(record.uid, testUID)
 
 
+    @inlineCallbacks
     def test_guid(self):
         if testMode == "od":
             record = (yield self.directory.recordWithGUID(testUID))
@@ -454,6 +455,7 @@ class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
         self.assertEquals(record.uid, self.wsanchezUID)
 
 
+    @inlineCallbacks
     def test_guid(self):
         record = yield self.client.recordWithGUID(self.wsanchezUID)
         self.assertTrue(u"wsanchez" in record.shortNames)
@@ -464,7 +466,7 @@ class DPSClientAugmentedAggregateDirectoryTest(StoreTestCase):
         records = (yield self.client.recordsWithRecordType(
             RecordType.user
         ))
-        self.assertEquals(len(records), 243)
+        self.assertEquals(len(records), 244)
 
 
     @inlineCallbacks

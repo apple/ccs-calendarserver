@@ -114,17 +114,17 @@ class TestConduit (CommonCommonTests, txweb2.dav.test.util.TestCase):
         self.assertTrue(r1 is not None)
         self.assertTrue(r2 is not None)
 
-        self.assertFailure(
+        yield self.assertFailure(
             conduit.validRequest("bogus01", "user02"),
             DirectoryRecordNotFoundError
         )
 
-        self.assertFailure(
+        yield self.assertFailure(
             conduit.validRequest("user01", "bogus02"),
             DirectoryRecordNotFoundError
         )
 
-        self.assertFailure(
+        yield self.assertFailure(
             conduit.validRequest("user01", "user02"),
             FailedCrossPodRequestError
         )

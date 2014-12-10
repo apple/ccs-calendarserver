@@ -534,25 +534,26 @@ END:VCALENDAR
         self.assertEqual(supported_components, set(ical.allowedStoreComponents))
 
 
+    @inlineCallbacks
     def test_calendarHomeVersion(self):
         """
         The DATAVERSION column for new calendar homes must match the
         CALENDAR-DATAVERSION value.
         """
 
-        home = yield self.transactionUnderTest().calendarHomeWithUID("home_version")
+        home = yield self.transactionUnderTest().calendarHomeWithUID("home_version", create=True)
         self.assertTrue(home is not None)
         yield self.transactionUnderTest().commit
 
         txn = yield self.transactionUnderTest()
-        version = yield txn.calendarserverValue("CALENDAR-DATAVERSION")[0][0]
+        version = yield txn.calendarserverValue("CALENDAR-DATAVERSION")
         ch = schema.CALENDAR_HOME
-        homeVersion = yield Select(
+        homeVersion = (yield Select(
             [ch.DATAVERSION, ],
             From=ch,
             Where=ch.OWNER_UID == "home_version",
-        ).on(txn)[0][0]
-        self.assertEqual(int(homeVersion, version))
+        ).on(txn))[0][0]
+        self.assertEqual(int(homeVersion), int(version))
 
 
     @inlineCallbacks

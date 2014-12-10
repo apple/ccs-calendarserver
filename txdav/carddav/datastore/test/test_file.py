@@ -355,20 +355,21 @@ class AddressBookTest(unittest.TestCase):
         )
 
 
+    @inlineCallbacks
     def test_modifyAddressBookObjectCaches(self):
         """
         Modifying a addressbook object should cache the modified component in
         memory, to avoid unnecessary parsing round-trips.
         """
         modifiedComponent = VComponent.fromString(vcard1modified_text)
-        (yield self.addressbook1.addressbookObjectWithName("1.vcf")).setComponent(
-            modifiedComponent
+        obj = yield self.addressbook1.addressbookObjectWithName("1.vcf")
+        yield obj.setComponent(modifiedComponent)
+        comp = yield obj.component()
+        self.assertEqual(
+            str(modifiedComponent),
+            str(comp)
         )
-        self.assertIdentical(
-            modifiedComponent,
-            (yield self.addressbook1.addressbookObjectWithName("1.vcf")).component()
-        )
-        self.txn.commit()
+        yield self.txn.commit()
 
 
     @testUnimplemented

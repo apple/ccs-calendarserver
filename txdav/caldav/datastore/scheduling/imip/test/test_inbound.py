@@ -29,7 +29,6 @@ from txdav.caldav.datastore.scheduling.imip.inbound import MailRetriever
 from txdav.caldav.datastore.scheduling.imip.inbound import injectMessage
 from txdav.caldav.datastore.scheduling.imip.inbound import shouldDeleteAllMail
 from txdav.caldav.datastore.scheduling.imip.inbound import IMAP4DownloadProtocol
-from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
 from txdav.common.datastore.test.util import CommonCommonTests
 
 from twext.enterprise.jobqueue import JobItem
@@ -177,7 +176,7 @@ END:VCALENDAR
         # Make sure a known token *is* processed
         txn = self.store.newTransaction()
         token = (yield txn.imipCreateToken(
-            "urn:uuid:5A985493-EE2C-4665-94CF-4DFEA3A89500",
+            "urn:x-uid:5A985493-EE2C-4665-94CF-4DFEA3A89500",
             "mailto:user02@example.com",
             "1E71F9C8-AEDA-48EB-98D0-76E898F6BB5C"
         ))
@@ -200,7 +199,7 @@ END:VCALENDAR
         # Make sure a known token *is* processed
         txn = self.store.newTransaction()
         yield txn.imipCreateToken(
-            "urn:uuid:5A985493-EE2C-4665-94CF-4DFEA3A89500",
+            "urn:x-uid:5A985493-EE2C-4665-94CF-4DFEA3A89500",
             "mailto:xyzzy@example.com",
             "1E71F9C8-AEDA-48EB-98D0-76E898F6BB5C",
             token="d7cdf68d-8b73-4df1-ad3b-f08002fb285f"
@@ -213,13 +212,14 @@ END:VCALENDAR
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
 
 
+    @inlineCallbacks
     def test_processReplyMissingOrganizer(self):
         msg = email.message_from_string(self.dataFile('reply_missing_organizer'))
 
         # stick the token in the database first
         txn = self.store.newTransaction()
         yield txn.imipCreateToken(
-            "urn:uuid:5A985493-EE2C-4665-94CF-4DFEA3A89500",
+            "urn:x-uid:5A985493-EE2C-4665-94CF-4DFEA3A89500",
             "mailto:xyzzy@example.com",
             "1E71F9C8-AEDA-48EB-98D0-76E898F6BB5C",
             token="d7cdf68d-8b73-4df1-ad3b-f08002fb285f"
@@ -227,19 +227,18 @@ END:VCALENDAR
         yield txn.commit()
 
         result = (yield self.receiver.processReply(msg))
-        organizer, _ignore_attendee, calendar = result
-        organizerProp = calendar.mainComponent().getOrganizerProperty()
-        self.assertTrue(organizerProp is not None)
-        self.assertEquals(organizer,
-                          "urn:uuid:5A985493-EE2C-4665-94CF-4DFEA3A89500")
+        self.assertEquals(result, MailReceiver.INJECTION_SUBMITTED)
+
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
 
 
+    @inlineCallbacks
     def test_processReplyMissingAttendee(self):
         msg = email.message_from_string(self.dataFile('reply_missing_attendee'))
 
         txn = self.store.newTransaction()
         yield txn.imipCreateToken(
-            "urn:uuid:5A985493-EE2C-4665-94CF-4DFEA3A89500",
+            "urn:x-uid:5A985493-EE2C-4665-94CF-4DFEA3A89500",
             "mailto:xyzzy@example.com",
             "1E71F9C8-AEDA-48EB-98D0-76E898F6BB5C",
             token="d7cdf68d-8b73-4df1-ad3b-f08002fb285f"
@@ -247,16 +246,12 @@ END:VCALENDAR
         yield txn.commit()
 
         result = (yield self.receiver.processReply(msg))
-        _ignore_organizer, attendee, calendar = result
+        self.assertEquals(result, MailReceiver.INJECTION_SUBMITTED)
 
-        # Since the expected attendee was missing, the reply processor should
-        # have added an attendee back in with a "5.1;Service unavailable"
-        # schedule-status
-        attendeeProp = calendar.mainComponent().getAttendeeProperty([attendee])
-        self.assertEquals(attendeeProp.parameterValue("SCHEDULE-STATUS"),
-                          iTIPRequestStatus.SERVICE_UNAVAILABLE)
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
 
 
+    @inlineCallbacks
     def test_processReplyMissingAttachment(self):
 
         msg = email.message_from_string(
@@ -266,7 +261,7 @@ END:VCALENDAR
         # stick the token in the database first
         txn = self.store.newTransaction()
         yield txn.imipCreateToken(
-            "urn:uuid:5A985493-EE2C-4665-94CF-4DFEA3A89500",
+            "urn:x-uid:5A985493-EE2C-4665-94CF-4DFEA3A89500",
             "mailto:xyzzy@example.com",
             "1E71F9C8-AEDA-48EB-98D0-76E898F6BB5C",
             token="d7cdf68d-8b73-4df1-ad3b-f08002fb285f"
@@ -275,6 +270,8 @@ END:VCALENDAR
 
         result = (yield self.receiver.processReply(msg))
         self.assertEquals(result, MailReceiver.REPLY_FORWARDED_TO_ORGANIZER)
+
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
 
 
     @inlineCallbacks

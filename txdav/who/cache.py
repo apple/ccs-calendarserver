@@ -87,6 +87,12 @@ class CachingDirectoryService(
         self._expireSeconds = expireSeconds
         self.resetCache()
 
+#        from txdav.who.augment import AugmentedDirectoryService
+#        if isinstance(self._directory, AugmentedDirectoryService):
+#            for ds in self._directory._directory.services:
+#                if hasattr(ds, "setMasterDirectory"):
+#                    ds.setMasterDirectory(self)
+
 
     def _addTiming(self, key, duration):
         if self._directoryTiming:

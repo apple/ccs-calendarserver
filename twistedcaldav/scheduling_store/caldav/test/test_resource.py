@@ -118,7 +118,7 @@ class Properties (StoreTestCase):
         newfbset.add("/calendar-broken")
         newset = caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in newfbset])
 
-        self.failUnlessFailure(inbox.writeProperty(newset, request), HTTPError)
+        yield self.failUnlessFailure(inbox.writeProperty(newset, request), HTTPError)
 
 
 

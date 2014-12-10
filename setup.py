@@ -239,6 +239,8 @@ install_requirements = [
     "service_identity",
     "pycrypto",
     "pyasn1",
+    "pyasn1_modules",
+    "characteristic",
     "kerberos",
 
     # Data store

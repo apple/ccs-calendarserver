@@ -165,6 +165,13 @@ limitations under the License.
     <email>home_attachments@example.com</email>
   </record>
   <record type="user">
+    <uid>home_version</uid>
+    <short-name>home_version</short-name>
+    <password>home_version</password>
+    <full-name>Home Version</full-name>
+    <email>home_version@example.com</email>
+  </record>
+  <record type="user">
     <uid>xyzzy</uid>
     <short-name>xyzzy</short-name>
     <password>xyzzy</password>

@@ -163,7 +163,7 @@ class GroupCacherTest(StoreTestCase):
         txn = store.newTransaction()
 
         # Non-existent groupID
-        self.failUnlessFailure(txn.groupByID(42), NotFoundError)
+        yield self.failUnlessFailure(txn.groupByID(42), NotFoundError)
 
         uid = u"__top_group_1__"
         hash = "553eb54e3bbb26582198ee04541dbee4"

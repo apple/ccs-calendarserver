@@ -812,7 +812,8 @@ class PublicKeyLookup(object):
             return None
 
 
-    def flushCache(self):
+    @staticmethod
+    def flushCache():
         PublicKeyLookup.keyCache = {}
 
 

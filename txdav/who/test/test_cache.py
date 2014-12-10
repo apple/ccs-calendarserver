@@ -60,7 +60,7 @@ class CacheTest(StoreTestCase):
         self.assertTrue(CalRecordType.resource in dir.recordTypes())
 
         records = yield dir.recordsWithRecordType(RecordType.user)
-        self.assertEquals(len(records), 243)
+        self.assertEquals(len(records), 244)
 
         record = yield dir.recordWithGUID(uuid.UUID("8166C681-2D08-4846-90F7-97023A6EDDC5"))
         self.assertEquals(record.uid, u"cache-uid-1")

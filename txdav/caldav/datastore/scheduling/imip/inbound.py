@@ -367,7 +367,7 @@ class MailReceiver(object):
             del msg["To"]
             msg["To"] = toAddr
             log.warn("Mail gateway forwarding reply back to organizer")
-            yield smtpSender.sendMessage(fromAddr, toAddr, messageid(), msg)
+            yield smtpSender.sendMessage(fromAddr, toAddr, messageid(), msg.as_string())
             returnValue(self.REPLY_FORWARDED_TO_ORGANIZER)
 
         # Process the imip attachment; inject to calendar server

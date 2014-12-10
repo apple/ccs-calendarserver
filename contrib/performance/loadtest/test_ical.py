@@ -1279,6 +1279,7 @@ class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
         self.assertEqual({}, self.client.xmpp)
 
 
+    @inlineCallbacks
     def test_changeEventAttendee(self):
         """
         OS_X_10_6.changeEventAttendee removes one attendee from an
@@ -1291,7 +1292,7 @@ class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
         old = attendees[0]
         new = old.duplicate()
         new.setParameter('CN', 'Some Other Guy')
-        event = Event(None, u'/some/calendar/1234.ics', None, vevent)
+        event = Event(self.client.serializeLocation(), u'/some/calendar/1234.ics', None, vevent)
         self.client._events[event.url] = event
         self.client.changeEventAttendee(event.url, old, new)
 

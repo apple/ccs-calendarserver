@@ -11,7 +11,9 @@
 		<project>pycparser</project>
 		<project>pycrypto</project>
 		<project>PyGreSQL</project>
+		<project>pyOpenSSL</project>
 		<project>python-ldap</project>
+		<project>service_identity</project>
 		<project>sqlparse</project>
 		<project>twextpy</project>
 		<project>Twisted</project>

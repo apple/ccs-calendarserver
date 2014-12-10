@@ -284,7 +284,7 @@ END:VCARD
 
         # old sync token fails
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
-        self.failUnlessFailure(calendar.resourceNamesSinceToken(token), SyncTokenValidException)
+        yield self.failUnlessFailure(calendar.resourceNamesSinceToken(token), SyncTokenValidException)
 
 
     @inlineCallbacks
@@ -332,8 +332,8 @@ END:VCARD
 
         # old sync token fails
         home = yield self.homeUnderTest(name="user01")
-        self.failUnlessFailure(home.resourceNamesSinceToken(token, "1"), SyncTokenValidException)
-        self.failUnlessFailure(home.resourceNamesSinceToken(token, "infinity"), SyncTokenValidException)
+        yield self.failUnlessFailure(home.resourceNamesSinceToken(token, "1"), SyncTokenValidException)
+        yield self.failUnlessFailure(home.resourceNamesSinceToken(token, "infinity"), SyncTokenValidException)
 
 
     @inlineCallbacks
@@ -384,7 +384,7 @@ END:VCARD
 
         # old sync token fails
         addressbook = yield self.addressbookUnderTest(home="user01", name="addressbook")
-        self.failUnlessFailure(addressbook.resourceNamesSinceToken(token), SyncTokenValidException)
+        yield self.failUnlessFailure(addressbook.resourceNamesSinceToken(token), SyncTokenValidException)
 
 
     @inlineCallbacks
@@ -470,4 +470,4 @@ END:VCARD
 
         # old sync token fails
         addressbook = yield self.addressbookUnderTest(home="user01", name="addressbook")
-        self.failUnlessFailure(addressbook.resourceNamesSinceToken(token), SyncTokenValidException)
+        yield self.failUnlessFailure(addressbook.resourceNamesSinceToken(token), SyncTokenValidException)

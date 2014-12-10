@@ -389,6 +389,7 @@ dkim-signature:v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:htt
             self.assertEqual(extracted, result.replace("\n", "\r\n"))
 
 
+    @inlineCallbacks
     def test_locate_public_key(self):
         """
         L{DKIMVerifier.locatePublicKey} correctly finds key matching headers.
@@ -439,13 +440,14 @@ Connection:close
         for hdrs, keys, result in data:
             headers = [hdr.split(":", 1) for hdr in hdrs.splitlines()]
             TestPublicKeyLookup.PublicKeyLookup_Testing.keys = keys
+            TestPublicKeyLookup.PublicKeyLookup_Testing.flushCache()
             verifier = DKIMVerifier(self._makeHeaders(headers), "", key_lookup=(TestPublicKeyLookup.PublicKeyLookup_Testing,))
             verifier.processDKIMHeader()
             pkey = (yield verifier.locatePublicKey())
             if result:
-                self.assertNotEqual(pkey, None)
+                self.assertTrue(pkey is not None)
             else:
-                self.assertEqual(pkey, None)
+                self.assertTrue(pkey is None)
 
 
     @inlineCallbacks
@@ -473,7 +475,7 @@ Connection:close
                 TestPublicKeyLookup.PublicKeyLookup_Testing.keys = keys
                 data = (yield allDataFromStream(request.stream))
                 verifier = DKIMVerifier(request.headers, data, key_lookup=(TestPublicKeyLookup.PublicKeyLookup_Testing,))
-                TestPublicKeyLookup.PublicKeyLookup_Testing({}).flushCache()
+                TestPublicKeyLookup.PublicKeyLookup_Testing.flushCache()
                 try:
                     yield verifier.verify()
                 except Exception, e:

@@ -76,6 +76,7 @@ calendar1_objectNames = [
     "2.ics",
     "3.ics",
     "4.ics",
+    "5.ics",
 ]
 
 home1_calendarNames = [
@@ -240,6 +241,7 @@ class CommonTests(CommonCommonTests):
         metadata2 = cls.metadata2.copy()
         metadata3 = cls.metadata3.copy()
         metadata4 = cls.metadata4.copy()
+        metadata5 = cls.metadata5.copy()
         return {
             "home1": {
                 "calendar_1": {
@@ -247,6 +249,7 @@ class CommonTests(CommonCommonTests):
                     "2.ics": (cal1Root.child("2.ics").getContent(), metadata2),
                     "3.ics": (cal1Root.child("3.ics").getContent(), metadata3),
                     "4.ics": (cal1Root.child("4.ics").getContent(), metadata4),
+                    "5.ics": (cal1Root.child("5.ics").getContent(), metadata5),
                 },
                 "calendar_2": {},
                 "calendar_empty": {},
@@ -1233,14 +1236,18 @@ END:VCALENDAR
         )
 
 
+    @inlineCallbacks
     def test_organizer(self):
         """
         L{ICalendarObject.organizer} returns a C{str} describing the calendar
         user address of the C{ORGANIZER} property of the calendar object's
         component.
         """
+
+        calobj = yield self.calendarObjectUnderTest(name="5.ics")
+        organizer = yield calobj.organizer()
         self.assertEquals(
-            (yield self.calendarObjectUnderTest()).organizer(),
+            organizer,
             "mailto:wsanchez@example.com"
         )
 

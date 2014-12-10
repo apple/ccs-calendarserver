@@ -180,6 +180,7 @@ class UpgradeTests(StoreTestCase):
         self.assertTrue(os.path.exists(os.path.join(config.DataRoot, NEWPROXYFILE)))
 
 
+    @inlineCallbacks
     def test_freeBusyUpgrade(self):
         """
         Test the updating of calendar-free-busy-set xattrs on inboxes

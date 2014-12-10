@@ -191,6 +191,7 @@ class Database (twistedcaldav.test.util.TestCase):
         self.assertEqual(items, ())
 
 
+    @inlineCallbacks
     def test_version_upgrade_persistent(self):
         """
         Connect to database and create table
@@ -198,9 +199,9 @@ class Database (twistedcaldav.test.util.TestCase):
         db_file = self.mktemp()
         db = Database.TestDB(db_file, persistent=True)
         yield db.open()
-        yield db.execute("INSERT into TESTTYPE (KEY, VALUE) values (:1, :2)", "FOO", "BAR")
+        yield db.execute("INSERT into TESTTYPE (KEY, VALUE) values (:1, :2)", ("FOO", "BAR",))
         items = (yield db.query("SELECT * from TESTTYPE"))
-        self.assertEqual(items, (("FOO", "BAR")))
+        self.assertEqual(items, (("FOO", "BAR"),))
         db.close()
         db = None
 
@@ -210,26 +211,27 @@ class Database (twistedcaldav.test.util.TestCase):
         db.close()
         db = None
 
-        db = Database.TestDB(db_file, persistent=True, autocommit=True)
+        db = Database.TestDB(db_file, persistent=True)
         yield db.open()
         items = (yield db.query("SELECT * from TESTTYPE"))
-        self.assertEqual(items, (("FOO", "BAR")))
+        self.assertEqual(items, (("FOO", "BAR"),))
 
 
+    @inlineCallbacks
     def test_version_upgrade_persistent_add_index(self):
         """
         Connect to database and create table
         """
         db_file = self.mktemp()
-        db = Database.TestDB(db_file, persistent=True, autocommit=True)
+        db = Database.TestDB(db_file, persistent=True)
         yield db.open()
-        yield db.execute("INSERT into TESTTYPE (KEY, VALUE) values (:1, :2)", "FOO", "BAR")
+        yield db.execute("INSERT into TESTTYPE (KEY, VALUE) values (:1, :2)", ("FOO", "BAR",))
         items = (yield db.query("SELECT * from TESTTYPE"))
-        self.assertEqual(items, (("FOO", "BAR")))
+        self.assertEqual(items, (("FOO", "BAR"),))
         db.close()
         db = None
 
-        db = Database.TestDBCreateIndexOnUpgrade(db_file, persistent=True, autocommit=True)
+        db = Database.TestDBCreateIndexOnUpgrade(db_file, persistent=True)
         yield db.open()
         items = (yield db.query("SELECT * from TESTTYPE"))
-        self.assertEqual(items, (("FOO", "BAR")))
+        self.assertEqual(items, (("FOO", "BAR"),))

@@ -40,7 +40,7 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
 
 
     def test_getTargetMissing(self):
-        self.assertFailure(self.commands.getTarget(["/foo"]), NotFoundError)
+        return self.assertFailure(self.commands.getTarget(["/foo"]), NotFoundError)
 
 
     @inlineCallbacks
