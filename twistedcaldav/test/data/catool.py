@@ -15,7 +15,7 @@
 # limitations under the License.
 ##
 
-from __future__ import print_function
+from __future__ import print_function, with_statement
 from getopt import getopt
 import sys
 import shutil
@@ -71,7 +71,35 @@ def newCA(caPath):
 
 
 
-def makeUserCertificate(caPath, user):
+def updateCRL(caPath):
+    """
+    Create a new certificate authority with supporting files at the specified path.
+
+    @param caPath: path to store CA files
+    @type caPath: L{str}
+    """
+
+    print("Updating CRLs for Certificate Authority")
+
+    crlfile = os.path.join(caPath, "crl.pem".format(user))
+    certfile = os.path.join(caPath, "cacert.pem")
+    certcrlfile = os.path.join(caPath, "cacertcrl.pem")
+
+    # Generate CRL
+    subprocess.call("openssl ca -batch -gencrl -out {certout} -passin pass:{passwd} -notext -config openssl.cnf".format(
+        certout=crlfile,
+        passwd="secret",
+    ).split())
+
+    with open(certfile) as f:
+        with open(crlfile) as g:
+            with open(certcrlfile, "w") as h:
+                h.write(f.read())
+                h.write(g.read())
+
+
+
+def makeUserCertificate(caPath, user, self_signed=False):
     """
     Create a new certificate for the specified user and sign using the CA cert.
 
@@ -79,6 +107,8 @@ def makeUserCertificate(caPath, user):
     @type caPath: L{str}
     @param user: user id
     @type user: L{str}
+    @param self_signed: L{True} to generate a self-signed cert, L{False} to generate a CA signed cert
+    @type self_signed: L{bool}
     """
     print("Creating new Certificate for {}".format(user))
 
@@ -88,23 +118,34 @@ def makeUserCertificate(caPath, user):
     pemfile = os.path.join(caPath, "certs", "{}.pem".format(user))
     pkcs12file = os.path.join(caPath, "certs", "{}.p12".format(user))
 
-    # Create a certificate request
-    subprocess.call("openssl req -batch -new -keyout {keyout} -out {reqout} -passout pass:{passwd} -days {days} -subj {subject}".format(
-        keyout=keyfile,
-        reqout=reqfile,
-        passwd="secret",
-        days=365 * 3,
-        subject="/C=US/ST=CA/O=Example.com/CN={user}/emailAddress={user}@example.com".format(user=user)
-    ).split())
+    if not self_signed:
+        # Create a certificate request
+        subprocess.call("openssl req -batch -new -keyout {keyout} -out {reqout} -passout pass:{passwd} -days {days} -subj {subject}".format(
+            keyout=keyfile,
+            reqout=reqfile,
+            passwd="secret",
+            days=365 * 3,
+            subject="/C=US/ST=CA/O=Example.com/CN={user}/emailAddress={user}@example.com".format(user=user)
+        ).split())
 
-    # Sign certificate
-    subprocess.call("openssl ca -batch -policy policy_anything -out {certout} -passin pass:{passwd} -notext -infiles {reqin}".format(
-        certout=certfile,
-        reqin=reqfile,
-        passwd="secret",
-    ).split())
+        # Sign certificate
+        subprocess.call("openssl ca -batch -policy policy_anything -out {certout} -passin pass:{passwd} -notext -infiles {reqin}".format(
+            certout=certfile,
+            reqin=reqfile,
+            passwd="secret",
+        ).split())
 
-    os.remove(reqfile)
+        os.remove(reqfile)
+    else:
+        # Create a self-signed certificate
+        subprocess.call("openssl req -batch -new -x509 -keyout {keyout} -out {certout} -passout pass:{passwd} -days {days} -subj {subject}".format(
+            keyout=keyfile,
+            certout=certfile,
+            passwd="secret",
+            days=365 * 3,
+            subject="/C=US/ST=CA/O=Example.com/CN={user}/emailAddress={user}@example.com".format(user=user)
+        ).split())
+
 
     with open(keyfile) as f:
         privkey = f.read()
@@ -135,6 +176,7 @@ def usage():
     print("--newca   create a new CA - delete any existing demoCA directory")
     print("--newuser USER  create a new user certificate with user id \"USER\" signed by the CA")
     print("--users N  generate a set of user certificates for \"user01\", \"user02\", etc. up to \"userN\"")
+    print("--bogus N  generate a set of self-signed user certificates for \"bogus01\", \"bogus02\", etc. up to \"bogusN\"")
     print("")
     print("Version: 1")
 
@@ -145,8 +187,10 @@ if __name__ == '__main__':
     newca = False
     newuser = None
     users = None
+    bogus = None
+    usersCreated = False
 
-    options, args = getopt(sys.argv[1:], "h", ["newca", "newuser=", "users="])
+    options, args = getopt(sys.argv[1:], "h", ["newca", "newuser=", "users=", "bogus="])
 
     for option, value in options:
         if option == "-h":
@@ -158,15 +202,27 @@ if __name__ == '__main__':
             newuser = value
         elif option == "--users":
             users = int(value)
+        elif option == "--bogus":
+            bogus = int(value)
 
     if newca:
         newCA(caPath)
 
     if newuser:
         makeUserCertificate(caPath, newuser)
+        usersCreated = True
 
     if users:
         for user in range(1, users + 1):
             makeUserCertificate(caPath, "user{:02d}".format(user))
+        usersCreated = True
+
+    if bogus:
+        for user in range(1, bogus + 1):
+            makeUserCertificate(caPath, "bogus{:02d}".format(user), self_signed=True)
+        usersCreated = True
+
+    if usersCreated:
+        updateCRL(caPath)
 
     print("Certificate Authority operations complete.")
