@@ -250,7 +250,7 @@ class FreeBusyURLResource (ReadOnlyNoCopyResourceMixIn, CalDAVResource):
         for item in principal.calendarUserAddresses():
             if cuaddr is None:
                 cuaddr = item
-            if item.startswith("mailto"):
+            if item.startswith("mailto:"):
                 cuaddr = item
                 break
 
