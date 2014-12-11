@@ -541,6 +541,7 @@ END:VCALENDAR
         CALENDAR-DATAVERSION value.
         """
 
+        self.transactionUnderTest()._homeClass[ECALENDARTYPE]._dataVersionValue = None
         home = yield self.transactionUnderTest().calendarHomeWithUID("home_version", create=True)
         self.assertTrue(home is not None)
         yield self.transactionUnderTest().commit

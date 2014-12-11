@@ -211,6 +211,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         ADDRESSBOOK-DATAVERSION value.
         """
 
+        self.transactionUnderTest()._homeClass[EADDRESSBOOKTYPE]._dataVersionValue = None
         home = yield self.transactionUnderTest().addressbookHomeWithUID("home_version", create=True)
         self.assertTrue(home is not None)
         yield self.transactionUnderTest().commit
