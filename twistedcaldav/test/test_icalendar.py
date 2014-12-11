@@ -11952,3 +11952,27 @@ END:VCALENDAR
             result = cal.reconcileGroupAttendees(propMap)
             self.assertEqual(result, changed, msg="{}: {}".format(title, "Result mismatch"))
             self.assertEqual(normalize_iCalStr(cal), normalize_iCalStr(txt_result), msg="{}:{}".format(title, diff_iCalStrs(cal, txt_result)))
+
+
+    def test_brokenGEO(self):
+        """
+        Make sure a broken GEO property can be parsed.
+        """
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART;VALUE=DATE:20080601
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+GEO:-12.345\\;67.89
+SUMMARY:Test
+END:VEVENT
+END:VCALENDAR
+"""
+
+        cal = Component.fromString(data)
+        self.assertTrue(cal is not None)
+        self.assertTrue(cal.mainComponent().hasProperty("GEO"))
