@@ -30,6 +30,7 @@ from twisted.trial.unittest import TestCase
 from twistedcaldav.config import ConfigDict
 from twistedcaldav.stdconfig import config as stdconfig
 from txdav.who.augment import AugmentedDirectoryService
+from txdav.who.cache import CachingDirectoryService
 from txdav.who.delegates import (
     DirectoryService as DelegateDirectoryService,
     RecordType as DelegateRecordType
@@ -43,6 +44,7 @@ from txdav.who.wiki import (
 )
 
 hasattr(stdconfig, "Servers")   # Quell pyflakes
+
 
 class StubStore(object):
     pass
@@ -108,6 +110,11 @@ class UtilTest(TestCase):
                 "Servers": {
                     "Enabled": False,
                 },
+                "DirectoryProxy": {
+                    "SocketPath": "directory-proxy.sock",
+                    "InProcessCachingSeconds": 60,
+                    "InSidecarCachingSeconds": 120,
+                },
             }
         )
 
@@ -125,36 +132,39 @@ class UtilTest(TestCase):
         self.assertTrue(isinstance(service._directory, AggregateDirectoryService))
         self.assertEquals(len(service._directory.services), 4)
         self.assertTrue(
-            isinstance(service._directory.services[0], XMLDirectoryService)
+            isinstance(service._directory.services[0], DelegateDirectoryService)
         )
         self.assertEquals(
             set(service._directory.services[0].recordTypes()),
-            set([RecordType.user, RecordType.group])
-        )
-        self.assertTrue(
-            isinstance(service._directory.services[1], XMLDirectoryService)
-        )
-        self.assertEquals(
-            set(service._directory.services[1].recordTypes()),
-            set(
-                [
-                    CalRecordType.location,
-                    CalRecordType.resource,
-                    CalRecordType.address
-                ]
-            )
-        )
-        self.assertTrue(
-            isinstance(service._directory.services[2], DelegateDirectoryService)
-        )
-        self.assertEquals(
-            set(service._directory.services[2].recordTypes()),
             set(
                 [
                     DelegateRecordType.readDelegateGroup,
                     DelegateRecordType.writeDelegateGroup,
                     DelegateRecordType.readDelegatorGroup,
                     DelegateRecordType.writeDelegatorGroup,
+                ]
+            )
+        )
+        self.assertTrue(
+            isinstance(service._directory.services[1], CachingDirectoryService)
+        )
+        self.assertTrue(
+            isinstance(service._directory.services[1]._directory, XMLDirectoryService)
+        )
+        self.assertEquals(
+            set(service._directory.services[1]._directory.recordTypes()),
+            set([RecordType.user, RecordType.group])
+        )
+        self.assertTrue(
+            isinstance(service._directory.services[2]._directory, XMLDirectoryService)
+        )
+        self.assertEquals(
+            set(service._directory.services[2]._directory.recordTypes()),
+            set(
+                [
+                    CalRecordType.location,
+                    CalRecordType.resource,
+                    CalRecordType.address
                 ]
             )
         )

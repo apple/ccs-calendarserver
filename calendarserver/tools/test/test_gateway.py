@@ -182,8 +182,8 @@ class GatewayTestCase(RunCommandTestCase):
 
     def _flush(self):
         # Flush both XML directories
-        self.directory._directory.services[0].flush()
         self.directory._directory.services[1].flush()
+        self.directory._directory.services[2].flush()
 
 
     @inlineCallbacks

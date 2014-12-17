@@ -82,21 +82,40 @@ class CachingDirectoryService(
     def __init__(self, directory, expireSeconds=30):
         BaseDirectoryService.__init__(self, directory.realmName)
         self._directory = directory
-        self.serversDB = directory.serversDB
-        self._directoryTiming = hasattr(self._directory, "_addTiming")
+
+        # Patch the wrapped directory service's recordWithXXX to instead
+        # use this cache
+
+        directory._wrapped_recordWithUID = directory.recordWithUID
+        directory.recordWithUID = self.recordWithUID
+
+        directory._wrapped_recordWithGUID = directory.recordWithGUID
+        directory.recordWithGUID = self.recordWithGUID
+
+        directory._wrapped_recordWithShortName = directory.recordWithShortName
+        directory.recordWithShortName = self.recordWithShortName
+
+        directory._wrapped_recordsWithEmailAddress = directory.recordsWithEmailAddress
+        directory.recordsWithEmailAddress = self.recordsWithEmailAddress
+
         self._expireSeconds = expireSeconds
         self.resetCache()
 
-#        from txdav.who.augment import AugmentedDirectoryService
-#        if isinstance(self._directory, AugmentedDirectoryService):
-#            for ds in self._directory._directory.services:
-#                if hasattr(ds, "setMasterDirectory"):
-#                    ds.setMasterDirectory(self)
+
+
+    def setTimingMethod(self, f):
+        """
+        Replace the default no-op timing method
+        """
+        self._addTiming = f
 
 
     def _addTiming(self, key, duration):
-        if self._directoryTiming:
-            self._directory._addTiming(key, duration)
+        """
+        Timing won't get recorded by default -- you must call setTimingMethod
+        with a callable that takes a key such as a method name, and a duration.
+        """
+        pass
 
 
     def resetCache(self):
@@ -160,6 +179,40 @@ class CachingDirectoryService(
                 pass
 
 
+    def purgeRecord(self, record):
+        """
+        Remove a record from all indices in the cache
+
+        @param record: the directory record
+        """
+
+        if record.uid in self._cache[IndexType.uid]:
+            del self._cache[IndexType.uid][record.uid]
+
+        try:
+            if record.guid in self._cache[IndexType.guid]:
+                del self._cache[IndexType.guid][record.guid]
+        except AttributeError:
+            pass
+
+        try:
+            typeName = record.recordType.name
+            for name in record.shortNames:
+                key = (typeName, name)
+                if key in self._cache[IndexType.shortName]:
+                    del self._cache[IndexType.shortName][key]
+        except AttributeError:
+            pass
+
+        try:
+            for emailAddress in record.emailAddresses:
+                if emailAddress in self._cache[IndexType.emailAddress]:
+                    del self._cache[IndexType.emailAddress][emailAddress]
+        except AttributeError:
+            pass
+
+
+
     def purgeExpiredRecords(self):
         """
         Scans the cache for expired records and deletes them
@@ -173,6 +226,7 @@ class CachingDirectoryService(
             for key, (cachedTime, _ignore_record) in self._cache[indexType].items():
                 if now - self._expireSeconds > cachedTime:
                     del self._cache[indexType][key]
+
 
 
     def lookupRecord(self, indexType, key, name):
@@ -213,7 +267,7 @@ class CachingDirectoryService(
                     key=key
                 )
                 # This record has expired
-                del self._cache[indexType][key]
+                self.purgeRecord(record)
                 self._addTiming("{}-expired".format(name), 0)
                 return None
 
@@ -244,7 +298,7 @@ class CachingDirectoryService(
         # First check our cache
         record = self.lookupRecord(IndexType.uid, uid, "recordWithUID")
         if record is None:
-            record = yield self._directory.recordWithUID(
+            record = yield self._directory._wrapped_recordWithUID(
                 uid, timeoutSeconds=timeoutSeconds
             )
             if record is not None:
@@ -263,7 +317,7 @@ class CachingDirectoryService(
         # First check our cache
         record = self.lookupRecord(IndexType.guid, guid, "recordWithGUID")
         if record is None:
-            record = yield self._directory.recordWithGUID(
+            record = yield self._directory._wrapped_recordWithGUID(
                 guid, timeoutSeconds=timeoutSeconds
             )
             if record is not None:
@@ -286,7 +340,7 @@ class CachingDirectoryService(
             "recordWithShortName"
         )
         if record is None:
-            record = yield self._directory.recordWithShortName(
+            record = yield self._directory._wrapped_recordWithShortName(
                 recordType, shortName, timeoutSeconds=timeoutSeconds
             )
             if record is not None:
@@ -311,7 +365,7 @@ class CachingDirectoryService(
             "recordsWithEmailAddress"
         )
         if record is None:
-            records = yield self._directory.recordsWithEmailAddress(
+            records = yield self._directory._wrapped_recordsWithEmailAddress(
                 emailAddress,
                 limitResults=limitResults, timeoutSeconds=timeoutSeconds
             )
@@ -352,12 +406,12 @@ class CachingDirectoryService(
 
 
     def recordsFromExpression(
-        self, expression, recordTypes=None,
+        self, expression, recordTypes=None, records=None,
         limitResults=None, timeoutSeconds=None
     ):
         # Defer to the directory service we're caching
         return self._directory.recordsFromExpression(
-            expression, recordTypes=recordTypes,
+            expression, recordTypes=recordTypes, records=records,
             limitResults=limitResults, timeoutSeconds=timeoutSeconds
         )
 

@@ -763,6 +763,14 @@
     <key>SharedConnectionPool</key>
     <true/>
 
+    <key>DirectoryProxy</key>
+    <dict>
+      <key>InProcessCachingSeconds</key>
+      <integer>0</integer>
+      <key>InSidecarCachingSeconds</key>
+      <integer>0</integer>
+    </dict>
+
     <!--
         Twisted
       -->

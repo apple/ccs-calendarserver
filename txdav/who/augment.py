@@ -110,12 +110,9 @@ class AugmentedDirectoryService(
         self._store = store
         self._augmentDB = augmentDB
 
-        # Look for an LDAP DS with extra info to expose to the dashboard
+        # An LDAP DS has extra info to expose via the dashboard
+        # This is assigned in buildDirectory()
         self._ldapDS = None
-        for ds in self._directory._services:
-            if hasattr(ds, "poolStats"):
-                self._ldapDS = ds
-                break
 
 
     @classmethod
@@ -457,7 +454,9 @@ class AugmentedDirectoryService(
         # print("Augmented fields", fields)
 
         # Clone to a new record with the augmented fields
-        returnValue(AugmentedDirectoryRecord(self, record, fields))
+        augmentedRecord = AugmentedDirectoryRecord(self, record, fields)
+
+        returnValue(augmentedRecord)
 
 
 

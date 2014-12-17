@@ -234,11 +234,11 @@ class ConnectionDispenser(object):
 def storeFromConfigWithoutDPS(config, txnFactory):
     store = storeFromConfig(config, txnFactory, None)
     directory = directoryFromConfig(config, store)
-    if config.DirectoryProxy.InProcessCachingSeconds:
-        directory = CachingDirectoryService(
-            directory,
-            expireSeconds=config.DirectoryProxy.InProcessCachingSeconds
-        )
+    # if config.DirectoryProxy.InProcessCachingSeconds:
+    #     directory = CachingDirectoryService(
+    #         directory,
+    #         expireSeconds=config.DirectoryProxy.InProcessCachingSeconds
+    #     )
     store.setDirectoryService(directory)
     return store
 
@@ -262,11 +262,11 @@ def storeFromConfigWithDPSClient(config, txnFactory):
 def storeFromConfigWithDPSServer(config, txnFactory):
     store = storeFromConfig(config, txnFactory, None)
     directory = directoryFromConfig(config, store)
-    if config.DirectoryProxy.InSidecarCachingSeconds:
-        directory = CachingDirectoryService(
-            directory,
-            expireSeconds=config.DirectoryProxy.InSidecarCachingSeconds
-        )
+    # if config.DirectoryProxy.InSidecarCachingSeconds:
+    #     directory = CachingDirectoryService(
+    #         directory,
+    #         expireSeconds=config.DirectoryProxy.InSidecarCachingSeconds
+    #     )
     store.setDirectoryService(directory)
     return store
 

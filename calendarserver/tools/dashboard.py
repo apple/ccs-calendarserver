@@ -1055,7 +1055,7 @@ class DirectoryStatsWindow(BaseWindow):
             if methodName.endswith("-hit"):
                 overallCountRatio += count
                 overallCountCached += count
-            if "-" not in methodName:
+            if methodName.endswith("-miss") or methodName.endswith("-expired"):
                 overallCountRatio += count
                 overallCountUncached += count
             overallTimeSpent += timeSpent

@@ -623,7 +623,7 @@ def assertProvides(testCase, interface, provider):
 
 def buildTestDirectory(
     store, dataRoot, accounts=None, resources=None, augments=None, proxies=None,
-    serversDB=None
+    serversDB=None, cacheSeconds=0
 ):
     """
     @param store: the store for the directory to use
@@ -711,7 +711,7 @@ def buildTestDirectory(
     )
     directory = buildDirectory(
         store, dataRoot, servicesInfo, augmentServiceInfo, wikiServiceInfo,
-        serversDB
+        serversDB, cacheSeconds
     )
 
     store.setDirectoryService(directory)
@@ -733,7 +733,7 @@ class CommonCommonTests(object):
     @inlineCallbacks
     def buildStoreAndDirectory(
         self, accounts=None, resources=None, augments=None, proxies=None,
-        extraUids=None, serversDB=None
+        extraUids=None, serversDB=None, cacheSeconds=0
     ):
 
         self.serverRoot = self.mktemp()
@@ -752,7 +752,7 @@ class CommonCommonTests(object):
             self.store, config.DataRoot,
             accounts=accounts, resources=resources,
             augments=augments, proxies=proxies,
-            serversDB=serversDB
+            serversDB=serversDB, cacheSeconds=cacheSeconds
         )
         if extraUids:
             for uid in extraUids:

@@ -32,6 +32,7 @@ from twisted.python.filepath import FilePath
 from twisted.python.reflect import namedClass
 from twistedcaldav.config import fullServerPath
 from txdav.who.augment import AugmentedDirectoryService
+from txdav.who.cache import CachingDirectoryService
 from txdav.who.delegates import DirectoryService as DelegateDirectoryService
 from txdav.who.idirectory import (
     RecordType as CalRecordType,
@@ -72,14 +73,15 @@ def directoryFromConfig(config, store):
         [config.DirectoryService, config.ResourceService],
         config.AugmentService,
         config.Authentication.Wiki,
-        serversDB=serversDB
+        serversDB=serversDB,
+        cachingSeconds=config.DirectoryProxy.InSidecarCachingSeconds
     )
 
 
 
 def buildDirectory(
     store, dataRoot, servicesInfo, augmentServiceInfo, wikiServiceInfo,
-    serversDB=None
+    serversDB=None, cachingSeconds=0
 ):
     """
     Return a directory without using a config object; suitable for tests
@@ -97,6 +99,8 @@ def buildDirectory(
     """
 
     aggregatedServices = []
+    cachingServices = []
+    ldapService = None  # LDAP DS has extra stats (see augment.py)
 
     for serviceValue in servicesInfo:
 
@@ -105,6 +109,7 @@ def buildDirectory(
 
         directoryType = serviceValue.type.lower()
         params = serviceValue.params
+
 
         if "xml" in directoryType:
             xmlFile = params.xmlFile
@@ -179,6 +184,7 @@ def buildDirectory(
                     CalRecordType.address: extraFilters.get("addresses", ""),
                 }
             )
+            ldapService = directory
 
         elif "inmemory" in directoryType:
             from txdav.who.test.support import CalendarInMemoryDirectoryService
@@ -215,6 +221,14 @@ def buildDirectory(
             (directory.fieldName, CalFieldName)
         )
         fieldNames.append(directory.fieldName)
+
+        if cachingSeconds:
+            directory = CachingDirectoryService(
+                directory,
+                expireSeconds=cachingSeconds
+            )
+            cachingServices.append(directory)
+
         aggregatedServices.append(directory)
 
     #
@@ -254,7 +268,9 @@ def buildDirectory(
         userDirectory.realmName,
         store
     )
-    aggregatedServices.append(delegateDirectory)
+    # (put at front of list so we don't try to ask the actual DS services
+    # about the delegate-related principals, for performance)
+    aggregatedServices.insert(0, delegateDirectory)
 
     # Wiki service
     if wikiServiceInfo.Enabled:
@@ -283,6 +299,14 @@ def buildDirectory(
         # so hand it a reference to the augmented directory.
         # FIXME: is there a better pattern to use here?
         delegateDirectory.setMasterDirectory(augmented)
+
+        # Tell each caching service what method to use when reporting
+        # times and cache stats
+        for cachingService in cachingServices:
+            cachingService.setTimingMethod(augmented._addTiming)
+
+        # LDAP has additional stats to report
+        augmented._ldapDS = ldapService
 
     except Exception as e:
         log.error("Could not create directory service", error=e)
