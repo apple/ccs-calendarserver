@@ -2,7 +2,7 @@
 <!DOCTYPE timezones SYSTEM "timezones.dtd">
 
 <timezones>
-  <dtstamp>2014-09-29T08:55:38Z</dtstamp>
+  <dtstamp>2014-12-18T01:47:23Z</dtstamp>
   <timezone>
     <tzid>AUS Central Standard Time</tzid>
     <dtstamp>2014-08-25T14:48:40Z</dtstamp>
@@ -41,8 +41,8 @@
   </timezone>
   <timezone>
     <tzid>Africa/Addis_Ababa</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>c9234d83755971b0f7723f588fbea74b</md5>
+    <dtstamp>2014-12-18T01:47:23Z</dtstamp>
+    <md5>3c5906f619478e1ad5046bb187607846</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Algiers</tzid>
@@ -51,14 +51,14 @@
   </timezone>
   <timezone>
     <tzid>Africa/Asmara</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2014-12-18T01:47:23Z</dtstamp>
     <alias>Africa/Asmera</alias>
-    <md5>44f78e1256485756d3b171a7b3c9440a</md5>
+    <md5>876b2a9cb1ee009229a8c3c2bc71a300</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Asmera</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>bfa1d6f0cc8e1895614300ce0fcb1722</md5>
+    <dtstamp>2014-12-18T01:47:23Z</dtstamp>
+    <md5>bf999f03614bf00284e469d2a4dbbffe</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Bamako</tzid>
@@ -125,13 +125,13 @@
   </timezone>
   <timezone>
     <tzid>Africa/Dar_es_Salaam</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>b4943937a1c88fc9f7995d1563eada11</md5>
+    <dtstamp>2014-12-18T01:47:23Z</dtstamp>
+    <md5>83d4830f4d7460fe68a9d95049dafaeb</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Djibouti</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>d18c2e4b68deae8e65e8aff4703d3776</md5>
+    <dtstamp>2014-12-18T01:47:23Z</dtstamp>
+    <md5>acc5e49e747b1d43bb37dcca0b225f3a</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Douala</tzid>
@@ -173,8 +173,8 @@
   </timezone>
   <timezone>
     <tzid>Africa/Kampala</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>0a8e97a4644a204f7dfcffe5faf3eca7</md5>
+    <dtstamp>2014-12-18T01:47:23Z</dtstamp>
+    <md5>69e4f167d0ed9b244a4052251ad63262</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Khartoum</tzid>
@@ -261,8 +261,8 @@
   </timezone>
   <timezone>
     <tzid>Africa/Mogadishu</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>e2ca770bc74c8d3bc98df62584852f6d</md5>
+    <dtstamp>2014-12-18T01:47:23Z</dtstamp>
+    <md5>aeb95446508b88df512ee980130cec53</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Monrovia</tzid>
@@ -273,6 +273,15 @@
     <tzid>Africa/Nairobi</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>E. Africa Standard Time</alias>
+    <alias>Africa/Addis_Ababa</alias>
+    <alias>Africa/Asmara</alias>
+    <alias>Africa/Dar_es_Salaam</alias>
+    <alias>Africa/Djibouti</alias>
+    <alias>Africa/Kampala</alias>
+    <alias>Africa/Mogadishu</alias>
+    <alias>Indian/Antananarivo</alias>
+    <alias>Indian/Comoro</alias>
+    <alias>Indian/Mayotte</alias>
     <md5>0f834f9942a32756fcf3ecb8bcfd6459</md5>
   </timezone>
   <timezone>
@@ -677,8 +686,8 @@
   </timezone>
   <timezone>
     <tzid>America/Grand_Turk</tzid>
-    <dtstamp>2014-09-29T08:55:38Z</dtstamp>
-    <md5>0d74f9ce8fce3e47f823bf3f85d39347</md5>
+    <dtstamp>2014-12-18T01:47:23Z</dtstamp>
+    <md5>0e97a322d36f60948ee761e0aaf22c37</md5>
   </timezone>
   <timezone>
     <tzid>America/Grenada</tzid>
@@ -1390,6 +1399,8 @@
     <tzid>Asia/Bangkok</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>SE Asia Standard Time</alias>
+    <alias>Asia/Phnom_Penh</alias>
+    <alias>Asia/Vientiane</alias>
     <md5>0ee6b61e4db09003f6f98d6d285a7f5d</md5>
   </timezone>
   <timezone>
@@ -1491,9 +1502,9 @@
   </timezone>
   <timezone>
     <tzid>Asia/Ho_Chi_Minh</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2014-12-18T01:47:23Z</dtstamp>
     <alias>Asia/Saigon</alias>
-    <md5>761dfd90a12d7edb0e38e68ab4ec13f0</md5>
+    <md5>c5cce4b0bac4dbf0ca0de1e4b23c433f</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Hong_Kong</tzid>
@@ -1663,8 +1674,8 @@
   </timezone>
   <timezone>
     <tzid>Asia/Phnom_Penh</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>81f9a62270d9ecf41a1df84fee76b26f</md5>
+    <dtstamp>2014-12-18T01:47:23Z</dtstamp>
+    <md5>72952edd709fcd9690b3f6f26544cfc8</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Pontianak</tzid>
@@ -1673,8 +1684,8 @@
   </timezone>
   <timezone>
     <tzid>Asia/Pyongyang</tzid>
-    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
-    <md5>876fec01b8a488ff1493e4d62f49d00f</md5>
+    <dtstamp>2014-12-18T01:47:23Z</dtstamp>
+    <md5>9d74fc10ed3cbb47fa6a9350d6fe012e</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Qatar</tzid>
@@ -1700,8 +1711,8 @@
   </timezone>
   <timezone>
     <tzid>Asia/Saigon</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>1909d3c03fdba843ae7de0d1da66d9f9</md5>
+    <dtstamp>2014-12-18T01:47:23Z</dtstamp>
+    <md5>189a1c810eb19b770185caa0659eda4d</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Sakhalin</tzid>
@@ -1715,10 +1726,10 @@
   </timezone>
   <timezone>
     <tzid>Asia/Seoul</tzid>
-    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
+    <dtstamp>2014-12-18T01:47:23Z</dtstamp>
     <alias>Korea Standard Time</alias>
     <alias>ROK</alias>
-    <md5>f071153a03c5772a7f3dfc47c79f0bc5</md5>
+    <md5>597564d369c566f0585399ea6d6fcb70</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Shanghai</tzid>
@@ -1821,8 +1832,8 @@
   </timezone>
   <timezone>
     <tzid>Asia/Vientiane</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>c54d00005929463b7c5ba889c5ae9b1b</md5>
+    <dtstamp>2014-12-18T01:47:23Z</dtstamp>
+    <md5>9cbe3d1ef1b0d11f7817dbd01dd9e203</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Vladivostok</tzid>
@@ -2650,8 +2661,8 @@
   </timezone>
   <timezone>
     <tzid>Europe/Minsk</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>a7692716e353f8b168b7dc238deb8fc9</md5>
+    <dtstamp>2014-12-18T01:47:23Z</dtstamp>
+    <md5>97b017bdaa870f13b8e5b8676e8340ed</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Monaco</tzid>
@@ -2817,8 +2828,8 @@
   </timezone>
   <timezone>
     <tzid>Fiji Standard Time</tzid>
-    <dtstamp>2014-06-09T19:47:04Z</dtstamp>
-    <md5>f53a5ec8b50fc4a04b2fbf1ea0e7e577</md5>
+    <dtstamp>2014-12-18T01:47:23Z</dtstamp>
+    <md5>009bd4490900c920bc8aef21da3014c8</md5>
   </timezone>
   <timezone>
     <tzid>GB</tzid>
@@ -2907,8 +2918,8 @@
   </timezone>
   <timezone>
     <tzid>Indian/Antananarivo</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>54b8cf688972faef6254eda042d0b759</md5>
+    <dtstamp>2014-12-18T01:47:23Z</dtstamp>
+    <md5>917c44a8018ea31a15aee5316308ae7d</md5>
   </timezone>
   <timezone>
     <tzid>Indian/Chagos</tzid>
@@ -2927,8 +2938,8 @@
   </timezone>
   <timezone>
     <tzid>Indian/Comoro</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>879eb3167957c61c64124dab0ecbb50f</md5>
+    <dtstamp>2014-12-18T01:47:23Z</dtstamp>
+    <md5>44897731490846c0059ea8fe5366cba0</md5>
   </timezone>
   <timezone>
     <tzid>Indian/Kerguelen</tzid>
@@ -2953,8 +2964,8 @@
   </timezone>
   <timezone>
     <tzid>Indian/Mayotte</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>de8757aa5b9a58932bac913852e921e7</md5>
+    <dtstamp>2014-12-18T01:47:23Z</dtstamp>
+    <md5>b167c17a0d824ea3f487ea7cfe8dac7a</md5>
   </timezone>
   <timezone>
     <tzid>Indian/Reunion</tzid>
@@ -3003,8 +3014,8 @@
   </timezone>
   <timezone>
     <tzid>Korea Standard Time</tzid>
-    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
-    <md5>74e60ff70ddaa1941c70e4065b613db7</md5>
+    <dtstamp>2014-12-18T01:47:23Z</dtstamp>
+    <md5>c61be653f9c891be583efd82a7605146</md5>
   </timezone>
   <timezone>
     <tzid>Kwajalein</tzid>
@@ -3187,6 +3198,11 @@
     <md5>31b52d15573225aff7940c24fbe45343</md5>
   </timezone>
   <timezone>
+    <tzid>Pacific/Bougainville</tzid>
+    <dtstamp>2014-12-18T01:47:23Z</dtstamp>
+    <md5>abf6675f6364dc2933ca1c9cea71e69b</md5>
+  </timezone>
+  <timezone>
     <tzid>Pacific/Chatham</tzid>
     <dtstamp>2014-08-25T14:48:40Z</dtstamp>
     <alias>NZ-CHAT</alias>
@@ -3222,9 +3238,9 @@
   </timezone>
   <timezone>
     <tzid>Pacific/Fiji</tzid>
-    <dtstamp>2014-05-30T18:27:48Z</dtstamp>
+    <dtstamp>2014-12-18T01:47:23Z</dtstamp>
     <alias>Fiji Standard Time</alias>
-    <md5>78ca7c42aa407761c6804f0502976b83</md5>
+    <md5>f7a1b52b958837293703b4dd4de7378f</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Funafuti</tzid>
@@ -3429,8 +3445,8 @@
   </timezone>
   <timezone>
     <tzid>ROK</tzid>
-    <dtstamp>2014-08-25T14:48:40Z</dtstamp>
-    <md5>a8338463043ff4a9bd40b1b1c65e5cfd</md5>
+    <dtstamp>2014-12-18T01:47:23Z</dtstamp>
+    <md5>e8534801b60f108d1511642cef3e3f86</md5>
   </timezone>
   <timezone>
     <tzid>Romance Standard Time</tzid>

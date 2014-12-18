@@ -1,6 +1,8 @@
 AUS Central Standard Time	Australia/Darwin
 AUS Eastern Standard Time	Australia/Sydney
 Afghanistan Standard Time	Asia/Kabul
+Africa/Addis_Ababa	Africa/Nairobi
+Africa/Asmara	Africa/Nairobi
 Africa/Asmera	Africa/Asmara
 Africa/Bamako	Africa/Abidjan
 Africa/Bangui	Africa/Lagos
@@ -10,11 +12,14 @@ Africa/Brazzaville	Africa/Lagos
 Africa/Bujumbura	Africa/Maputo
 Africa/Conakry	Africa/Abidjan
 Africa/Dakar	Africa/Abidjan
+Africa/Dar_es_Salaam	Africa/Nairobi
+Africa/Djibouti	Africa/Nairobi
 Africa/Douala	Africa/Lagos
 Africa/Freetown	Africa/Abidjan
 Africa/Gaborone	Africa/Maputo
 Africa/Harare	Africa/Maputo
 Africa/Juba	Africa/Khartoum
+Africa/Kampala	Africa/Nairobi
 Africa/Kigali	Africa/Maputo
 Africa/Kinshasa	Africa/Lagos
 Africa/Libreville	Africa/Lagos
@@ -25,6 +30,7 @@ Africa/Lusaka	Africa/Maputo
 Africa/Malabo	Africa/Lagos
 Africa/Maseru	Africa/Johannesburg
 Africa/Mbabane	Africa/Johannesburg
+Africa/Mogadishu	Africa/Nairobi
 Africa/Niamey	Africa/Lagos
 Africa/Nouakchott	Africa/Abidjan
 Africa/Ouagadougou	Africa/Abidjan
@@ -81,11 +87,13 @@ Asia/Istanbul	Europe/Istanbul
 Asia/Kashgar	Asia/Urumqi
 Asia/Katmandu	Asia/Kathmandu
 Asia/Macao	Asia/Macau
+Asia/Phnom_Penh	Asia/Bangkok
 Asia/Saigon	Asia/Ho_Chi_Minh
 Asia/Tel_Aviv	Asia/Jerusalem
 Asia/Thimbu	Asia/Thimphu
 Asia/Ujung_Pandang	Asia/Makassar
 Asia/Ulan_Bator	Asia/Ulaanbaatar
+Asia/Vientiane	Asia/Bangkok
 Atlantic Standard Time	America/Halifax
 Atlantic/Faeroe	Atlantic/Faroe
 Atlantic/Jan_Mayen	Europe/Oslo
@@ -184,6 +192,9 @@ Hawaiian Standard Time	Pacific/Honolulu
 Hongkong	Asia/Hong_Kong
 Iceland	Atlantic/Reykjavik
 India Standard Time	Asia/Calcutta
+Indian/Antananarivo	Africa/Nairobi
+Indian/Comoro	Africa/Nairobi
+Indian/Mayotte	Africa/Nairobi
 Iran	Asia/Tehran
 Iran Standard Time	Asia/Tehran
 Israel	Asia/Jerusalem
