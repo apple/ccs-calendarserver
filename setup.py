@@ -309,6 +309,8 @@ def doSetup():
             "twistedcaldav": [
                 "*.html",
                 "zoneinfo/*.ics",
+                "zoneinfo/*.txt",
+                "zoneinfo/*.xml",
                 "zoneinfo/*/*.ics",
                 "zoneinfo/*/*/*.ics",
                 "images/*/*.jpg",
