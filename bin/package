@@ -1,0 +1,130 @@
+#!/bin/sh
+# -*- sh-basic-offset: 2 -*-
+
+##
+# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+##
+
+##
+# WARNING: This script is intended for use by developers working on
+# the Calendar Server code base.  It is not intended for use in a
+# deployment configuration.
+#
+# DO NOT use this script as a system startup tool (eg. in /etc/init.d,
+# /Library/StartupItems, launchd plists, etc.)
+#
+# For those uses, install the server properly (eg. with "./run -i
+# /tmp/foo && cd /tmp/foo && pax -pe -rvw . /") and use the caldavd
+# executable to start the server.
+##
+
+set -e;
+set -u;
+
+wd="$(cd "$(dirname "$0")/.." && pwd)";
+
+
+#
+# Usage
+#
+
+clean="false";
+
+usage () {
+  program="$(basename "$0")";
+
+  if [ "${1--}" != "-" ]; then
+    echo "$@";
+    echo;
+  fi;
+
+  echo "Usage: ${program} [-hFfn] destination";
+  echo "Options:";
+  echo "  -h  Print this help and exit";
+  echo "  -F  Clean and force setup to run";
+  echo "  -f  Force setup to run";
+  echo "  -n  Do not run setup";
+
+  if [ "${1-}" == "-" ]; then
+    return 0;
+  fi;
+  exit 64;
+}
+
+
+parse_options () {
+  OPTIND=1;
+  while getopts "hFfn" option; do
+    case "${option}" in
+      '?') usage; ;;
+      'h') usage -; exit 0; ;;
+      'F') do_setup="true" ; force_setup="true" ; clean="true" ; ;;
+      'f') do_setup="true" ; force_setup="true" ; clean="false"; ;;
+      'n') do_setup="false"; force_setup="false"; clean="false"; ;;
+    esac;
+  done;
+  shift $((${OPTIND} - 1));
+
+  if [ $# -le 0 ]; then
+    usage "No desination provided.";
+  fi;
+  destination="$1"; shift;
+
+  if [ $# != 0 ]; then
+    usage "Unrecognized arguments:" "$@";
+  fi;
+}
+
+
+main () {
+  . "${wd}/bin/_build.sh";
+
+  parse_options "$@";
+
+  # Build the product
+
+  if "${clean}"; then
+    develop_clean;
+  fi;
+
+  develop;
+
+  install -d "${destination}";
+
+  install -d "${destination}/virtualenv";
+  cp -pR "${py_virtualenv}/" "${destination}/virtualenv";
+
+  # Make the python virtualenv relocatable
+  "${bootstrap_python}" -m virtualenv --relocatable "${destination}/virtualenv";
+
+  cp -pR "${dev_roots}"/*/ "${destination}/virtualenv/";
+
+  install -d "${destination}/bin";
+  install -m 555 "${wd}/support/_run_from_ve" "${destination}/bin";
+  ln -fsv _run_from_ve "${destination}/bin/caldavd";
+
+  for script in $(
+    python -c 'import setup; print "\n".join("calendarserver_{}".format(n) for n in setup.script_entry_points.keys())';
+  ); do
+    ln -fsv _run_from_ve "${destination}/bin/${script}";
+  done;
+
+  # More here...
+  # Looks like we need to install calendarserver.
+  # Maybe should rebuild virtualenv insted of copying it.
+}
+
+
+main "$@";
