@@ -596,7 +596,10 @@ py_dependencies () {
 
   if [ ! -d "${py_virtualenv}" ]; then
     bootstrap_virtualenv;
-    "${bootstrap_python}" -m virtualenv --system-site-packages "${py_virtualenv}";
+    "${bootstrap_python}" -m virtualenv  \
+      --system-site-packages             \
+      --no-setuptools                    \
+      "${py_virtualenv}";
   fi;
 
   cd "${wd}";
@@ -701,4 +704,21 @@ develop () {
   init_build;
   c_dependencies;
   py_dependencies;
+}
+
+
+develop_clean () {
+  init_build;
+
+  # Clean
+  rm -rf "${dev_roots}";
+  rm -rf "${py_virtualenv}";
+}
+
+
+develop_distclean () {
+  init_build;
+
+  # Clean
+  rm -rf "${dev_home}";
 }
