@@ -62,23 +62,20 @@ usage () {
 
   echo "Usage: ${program} [-hvgsfnpdkrR] [-K key] [-iIb dst] [-t type] [-S statsdirectory] [-P plugin]";
   echo "Options:";
-  echo "	-h  Print this help and exit";
-  echo "	-s  Run setup only; don't run server";
-  echo "	-f  Force setup to run";
-  echo "	-n  Do not run setup";
-  echo "	-p  Print PYTHONPATH value for server and exit";
-  echo "	-e  Print =-separated environment variables required to run and exit";
-  echo "	-d  Run caldavd as a daemon";
-  echo "	-k  Stop caldavd";
-  echo "	-r  Restart caldavd";
-  echo "	-K  Print value of configuration key and exit";
-  # echo "	-i  Perform a system install into dst; implies -s";
-  # echo "	-I  Perform a home install into dst; implies -s";
-  # echo "	-b  Perform a bundled install (include all dependencies) into dst; implies -s";
-  echo "	-t  Select the server process type (Master, Slave or Combined) [${service_type}]";
-  echo "	-S  Write a pstats object for each process to the given directory when the server is stopped.";
-  echo "	-P  Select the twistd plugin name [${plugin_name}]";
-  echo "	-R  Twisted Reactor plugin to execute [${reactor}]";
+  echo "  -h  Print this help and exit";
+  echo "  -s  Run setup only; don't run server";
+  echo "  -f  Force setup to run";
+  echo "  -n  Do not run setup";
+  echo "  -p  Print PYTHONPATH value for server and exit";
+  echo "  -e  Print =-separated environment variables required to run and exit";
+  echo "  -d  Run caldavd as a daemon";
+  echo "  -k  Stop caldavd";
+  echo "  -r  Restart caldavd";
+  echo "  -K  Print value of configuration key and exit";
+  echo "  -t  Select the server process type (Master, Slave or Combined) [${service_type}]";
+  echo "  -S  Write a pstats object for each process to the given directory when the server is stopped.";
+  echo "  -P  Select the twistd plugin name [${plugin_name}]";
+  echo "  -R  Twisted Reactor plugin to execute [${reactor}]";
 
   if [ "${1-}" == "-" ]; then
     return 0;
@@ -92,7 +89,6 @@ usage () {
 parse_options () {
   OPTIND=1;
   print_path="false";
-  print_environment="false";
   while getopts "ahsfnpedkrc:K:i:I:b:t:S:P:R:" option; do
     case "${option}" in
       '?') usage; ;;
@@ -111,33 +107,6 @@ parse_options () {
       'p')
         do_get="false"; do_setup="false"; run="false"; print_path="true";
         ;;
-      # 'e')
-      #   do_get="false"; do_setup="false"; run="false"; print_path="true";
-      #   print_environment="true";
-      #   ;;
-      # 'i')
-      #   do_get="true";
-      #   do_setup="true";
-      #   run="false";
-      #   install="${OPTARG}";
-      #   install_flag="--root=";
-      #   ;;
-      # 'I')
-      #   do_get="true";
-      #   do_setup="true";
-      #   run="false";
-      #   install="${wd}/build/dst";
-      #   install_flag="--root=";
-      #   install_home="${OPTARG}";
-      #   ;;
-      # 'b')
-      #   do_bundle="true";
-      #   do_get="true";
-      #   do_setup="true";
-      #   run="false";
-      #   install="${OPTARG}";
-      #   install_flag="--root=";
-      #   ;;
       'n') do_setup="false"; force_setup="false"; ;;
     esac;
   done;
@@ -226,8 +195,6 @@ run_main () {
   # About to do something for real; let's enumerate (and depending on options,
   # possibly download and/or install) the dependencies.
 
-  export _DEVELOP="true";
-
   develop;
 
   if "${kill}" || "${restart}"; then
@@ -250,18 +217,6 @@ run_main () {
     fi;
   fi;
 
-  # # If we're installing, install the calendar server itself.
-  # py_install "Calendar Server" "${wd}";
-
-  # if [ -n "${install_home:-}" ]; then
-  #   do_home_install;
-  # fi;
-
-  # if "${do_bundle}"; then
-  #   write_environment;
-  # fi;
-
-  # Finally, run the server.
   run;
 }
 
