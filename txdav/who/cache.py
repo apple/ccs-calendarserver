@@ -102,7 +102,6 @@ class CachingDirectoryService(
         self.resetCache()
 
 
-
     def setTimingMethod(self, f):
         """
         Replace the default no-op timing method
@@ -212,7 +211,6 @@ class CachingDirectoryService(
             pass
 
 
-
     def purgeExpiredRecords(self):
         """
         Scans the cache for expired records and deletes them
@@ -226,7 +224,6 @@ class CachingDirectoryService(
             for key, (cachedTime, _ignore_record) in self._cache[indexType].items():
                 if now - self._expireSeconds > cachedTime:
                     del self._cache[indexType][key]
-
 
 
     def lookupRecord(self, indexType, key, name):
