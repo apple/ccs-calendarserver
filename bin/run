@@ -154,7 +154,7 @@ run () {
     fi;
 
     if [ "$(uname -s)" == "Darwin" ] && [ "$(uname -r | cut -d . -f 1)" -ge 9 ]; then
-      caldavd_wrapper_command="launchctl bsexec /";
+      caldavd_wrapper_command="launchctl /";
     else
       caldavd_wrapper_command="";
     fi;
