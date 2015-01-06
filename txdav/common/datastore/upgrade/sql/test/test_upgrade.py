@@ -212,7 +212,9 @@ class SchemaUpgradeTests(TestCase):
         # These are special case exceptions
         for i in (
             "Table: CALENDAR_HOME, column name DATAVERSION default mismatch",
+            "Table: CALENDAR_HOME, mismatched constraints: set([<Constraint: (NOT NULL ['DATAVERSION'] None)>])",
             "Table: ADDRESSBOOK_HOME, column name DATAVERSION default mismatch",
+            "Table: ADDRESSBOOK_HOME, mismatched constraints: set([<Constraint: (NOT NULL ['DATAVERSION'] None)>])",
             "Table: PUSH_NOTIFICATION_WORK, column name PUSH_PRIORITY default mismatch",
         ):
             try:

@@ -26,12 +26,10 @@ from twistedcaldav.config import config
 from twistedcaldav.ical import Component
 
 from txdav.caldav.datastore.scheduling.cuaddress import calendarUserFromCalendarUserUID
-from txdav.caldav.datastore.scheduling.itip import iTipGenerator, iTIPRequestStatus
+from txdav.caldav.datastore.scheduling.itip import iTIPRequestStatus
 from txdav.caldav.icalendarstore import ComponentUpdateState
 from txdav.common.datastore.sql_tables import schema, \
     scheduleActionToSQL, scheduleActionFromSQL
-
-from pycalendar.datetime import DateTime
 
 import datetime
 import hashlib
@@ -40,7 +38,6 @@ import traceback
 __all__ = [
     "ScheduleOrganizerWork",
     "ScheduleReplyWork",
-    "ScheduleReplyCancelWork",
     "ScheduleRefreshWork",
     "ScheduleAutoReplyWork",
 ]
@@ -504,33 +501,7 @@ class ScheduleOrganizerSendWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORG
 
 
 
-class ScheduleReplyWorkMixin(ScheduleWorkMixin):
-
-
-    def makeScheduler(self, home):
-        """
-        Convenience method which we can override in unit tests to make testing easier.
-        """
-        from txdav.caldav.datastore.scheduling.caldav.scheduler import CalDAVScheduler
-        return CalDAVScheduler(self.transaction, home.uid())
-
-
-    @inlineCallbacks
-    def sendToOrganizer(self, home, action, itipmsg, originator, recipient):
-
-        # Send scheduling message
-
-        # This is a local CALDAV scheduling operation.
-        scheduler = self.makeScheduler(home)
-
-        # Do the PUT processing
-        log.info("Implicit %s - attendee: '%s' to organizer: '%s', UID: '%s'" % (action, originator, recipient, itipmsg.resourceUID(),))
-        response = (yield scheduler.doSchedulingViaPUT(originator, (recipient,), itipmsg, internal_request=True))
-        returnValue(response)
-
-
-
-class ScheduleReplyWork(ScheduleReplyWorkMixin, fromTable(schema.SCHEDULE_REPLY_WORK)):
+class ScheduleReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REPLY_WORK)):
     """
     The associated work item table is SCHEDULE_REPLY_WORK.
 
@@ -540,21 +511,35 @@ class ScheduleReplyWork(ScheduleReplyWorkMixin, fromTable(schema.SCHEDULE_REPLY_
 
     @classmethod
     @inlineCallbacks
-    def reply(cls, txn, home, resource, changedRids, attendee):
+    def reply(cls, txn, home, resource, itipmsg, attendee):
         # Always queue up new work - coalescing happens when work is executed
         notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.WorkQueues.ReplyDelaySeconds)
+        uid = itipmsg.resourceUID()
         proposal = (yield txn.enqueue(
             cls,
             notBefore=notBefore,
-            icalendarUid=resource.uid(),
+            icalendarUid=uid,
             homeResourceID=home.id(),
-            resourceID=resource.id(),
-
-            # Serialize None as ""
-            changedRids=",".join(map(lambda x: "" if x is None else str(x), changedRids)) if changedRids else None,
+            resourceID=resource.id() if resource else None,
+            itipMsg=itipmsg.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference),
         ))
         cls._enqueued()
-        log.debug("ScheduleReplyWork - enqueued for ID: {id}, UID: {uid}, attendee: {att}", id=proposal.workItem.workID, uid=resource.uid(), att=attendee)
+        log.debug("ScheduleReplyWork - enqueued for ID: {id}, UID: {uid}, attendee: {att}", id=proposal.workItem.workID, uid=uid, att=attendee)
+
+
+    @inlineCallbacks
+    def sendToOrganizer(self, home, itipmsg, originator, recipient):
+
+        # Send scheduling message
+
+        # This is a local CALDAV scheduling operation.
+        from txdav.caldav.datastore.scheduling.caldav.scheduler import CalDAVScheduler
+        scheduler = CalDAVScheduler(self.transaction, home.uid())
+
+        # Do the PUT processing
+        log.info("Implicit REPLY - attendee: '%s' to organizer: '%s', UID: '%s'" % (originator, recipient, itipmsg.resourceUID(),))
+        response = (yield scheduler.doSchedulingViaPUT(originator, (recipient,), itipmsg, internal_request=True))
+        returnValue(response)
 
 
     @inlineCallbacks
@@ -563,98 +548,38 @@ class ScheduleReplyWork(ScheduleReplyWorkMixin, fromTable(schema.SCHEDULE_REPLY_
         try:
             home = (yield self.transaction.calendarHomeWithResourceID(self.homeResourceID))
             resource = (yield home.objectResourceWithID(self.resourceID))
+            itipmsg = Component.fromString(self.itipMsg)
             attendeeAddress = yield calendarUserFromCalendarUserUID(home.uid(), self.transaction)
             attendee = attendeeAddress.record.canonicalCalendarUserAddress()
-            calendar = (yield resource.componentForUser())
-            organizer = calendar.validOrganizerForScheduling()
+            organizer = itipmsg.validOrganizerForScheduling()
 
-            # Deserialize "" as None
-            changedRids = map(lambda x: DateTime.parseText(x) if x else None, self.changedRids.split(",")) if self.changedRids else None
-
-            log.debug("ScheduleReplyWork - running for ID: {id}, UID: {uid}, attendee: {att}", id=self.workID, uid=calendar.resourceUID(), att=attendee)
+            log.debug("ScheduleReplyWork - running for ID: {id}, UID: {uid}, attendee: {att}", id=self.workID, uid=itipmsg.resourceUID(), att=attendee)
 
             # We need to get the UID lock for implicit processing.
-            yield NamedLock.acquire(self.transaction, "ImplicitUIDLock:%s" % (hashlib.md5(calendar.resourceUID()).hexdigest(),))
-
-            itipmsg = iTipGenerator.generateAttendeeReply(calendar, attendee, changedRids=changedRids)
+            yield NamedLock.acquire(self.transaction, "ImplicitUIDLock:%s" % (hashlib.md5(itipmsg.resourceUID()).hexdigest(),))
 
             # Send scheduling message and process response
-            response = (yield self.sendToOrganizer(home, "REPLY", itipmsg, attendee, organizer))
-            responses, all_delivered = self.extractSchedulingResponse((response,))
-            if not all_delivered:
-                changed = yield self.handleSchedulingResponse(responses, calendar, False)
-                if changed:
-                    yield resource._setComponentInternal(calendar, internal_state=ComponentUpdateState.ATTENDEE_ITIP_UPDATE)
+            response = (yield self.sendToOrganizer(home, itipmsg, attendee, organizer))
+
+            if resource is not None:
+                responses, all_delivered = self.extractSchedulingResponse((response,))
+                if not all_delivered:
+                    calendar = (yield resource.componentForUser())
+                    changed = yield self.handleSchedulingResponse(responses, calendar, False)
+                    if changed:
+                        yield resource._setComponentInternal(calendar, internal_state=ComponentUpdateState.ATTENDEE_ITIP_UPDATE)
 
             self._dequeued()
 
         except Exception, e:
             # FIXME: calendar may not be set here!
-            log.debug("ScheduleReplyWork - exception ID: {id}, UID: '{uid}', {err}", id=self.workID, uid=calendar.resourceUID(), err=str(e))
+            log.debug("ScheduleReplyWork - exception ID: {id}, UID: '{uid}', {err}", id=self.workID, uid=itipmsg.resourceUID(), err=str(e))
             raise
         except:
-            log.debug("ScheduleReplyWork - bare exception ID: {id}, UID: '{uid}'", id=self.workID, uid=calendar.resourceUID())
+            log.debug("ScheduleReplyWork - bare exception ID: {id}, UID: '{uid}'", id=self.workID, uid=itipmsg.resourceUID())
             raise
 
-        log.debug("ScheduleReplyWork - done for ID: {id}, UID: {uid}, attendee: {att}", id=self.workID, uid=calendar.resourceUID(), att=attendee)
-
-
-
-class ScheduleReplyCancelWork(ScheduleReplyWorkMixin, fromTable(schema.SCHEDULE_REPLY_CANCEL_WORK)):
-    """
-    The associated work item table is SCHEDULE_REPLY_CANCEL_WORK.
-
-    This work item is used to send an iTIP reply message when an attendee deletes
-    their copy of the calendar object resource. For this to work we need to store a copy
-    of the original resource data.
-    """
-
-    @classmethod
-    @inlineCallbacks
-    def replyCancel(cls, txn, home, calendar, attendee):
-        # Always queue up new work - coalescing happens when work is executed
-        notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.WorkQueues.ReplyDelaySeconds)
-        proposal = (yield txn.enqueue(
-            cls,
-            notBefore=notBefore,
-            icalendarUid=calendar.resourceUID(),
-            homeResourceID=home.id(),
-            icalendarText=calendar.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference),
-        ))
-        cls._enqueued()
-        log.debug("ScheduleReplyCancelWork - enqueued for ID: {id}, UID: {uid}, attendee: {att}", id=proposal.workItem.workID, uid=calendar.resourceUID(), att=attendee)
-
-
-    @inlineCallbacks
-    def doWork(self):
-
-        try:
-            home = (yield self.transaction.calendarHomeWithResourceID(self.homeResourceID))
-            attendeeAddress = yield calendarUserFromCalendarUserUID(home.uid(), self.transaction)
-            attendee = attendeeAddress.record.canonicalCalendarUserAddress()
-            calendar = Component.fromString(self.icalendarText)
-            organizer = calendar.validOrganizerForScheduling()
-
-            log.debug("ScheduleReplyCancelWork - running for ID: {id}, UID: {uid}, attendee: {att}", id=self.workID, uid=calendar.resourceUID(), att=attendee)
-
-            # We need to get the UID lock for implicit processing.
-            yield NamedLock.acquire(self.transaction, "ImplicitUIDLock:%s" % (hashlib.md5(calendar.resourceUID()).hexdigest(),))
-
-            itipmsg = iTipGenerator.generateAttendeeReply(calendar, attendee, force_decline=True)
-
-            # Send scheduling message - no need to process response as original resource is gone
-            yield self.sendToOrganizer(home, "CANCEL", itipmsg, attendee, organizer)
-
-            self._dequeued()
-
-        except Exception, e:
-            log.debug("ScheduleReplyCancelWork - exception ID: {id}, UID: '{uid}', {err}", id=self.workID, uid=calendar.resourceUID(), err=str(e))
-            raise
-        except:
-            log.debug("ScheduleReplyCancelWork - bare exception ID: {id}, UID: '{uid}'", id=self.workID, uid=calendar.resourceUID())
-            raise
-
-        log.debug("ScheduleReplyCancelWork - done for ID: {id}, UID: {uid}, attendee: {att}", id=self.workID, uid=calendar.resourceUID(), att=attendee)
+        log.debug("ScheduleReplyWork - done for ID: {id}, UID: {uid}, attendee: {att}", id=self.workID, uid=itipmsg.resourceUID(), att=attendee)
 
 
 

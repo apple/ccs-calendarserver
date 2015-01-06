@@ -236,7 +236,6 @@ class PrincipalPurgeHomeWork(
         sow = schema.SCHEDULE_ORGANIZER_WORK
         sosw = schema.SCHEDULE_ORGANIZER_SEND_WORK
         srw = schema.SCHEDULE_REPLY_WORK
-        srcw = schema.SCHEDULE_REPLY_CANCEL_WORK
         rows = yield Select(
             [sow.HOME_RESOURCE_ID],
             From=sow,
@@ -251,13 +250,6 @@ class PrincipalPurgeHomeWork(
                             [srw.HOME_RESOURCE_ID],
                             From=srw,
                             Where=(srw.HOME_RESOURCE_ID == self.homeResourceID),
-                            SetExpression=Union(
-                                Select(
-                                    [srcw.HOME_RESOURCE_ID],
-                                    From=srcw,
-                                    Where=(srcw.HOME_RESOURCE_ID == self.homeResourceID),
-                                )
-                            ),
                         )
                     ),
                 )

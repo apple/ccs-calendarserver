@@ -3542,6 +3542,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {},
+                {},
             ),
             (
                 "#1.2 Simple component, one property change",
@@ -3568,6 +3569,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {"": {"SUMMARY": set(), }},
+                {},
             ),
             (
                 "#1.3 Simple component, one property change, one addition, one removal",
@@ -3596,6 +3598,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {"": {"SUMMARY": set(), "LOCATION": set(), "DESCRIPTION": set(), }},
+                {},
             ),
             (
                 "#1.4 Simple component, add attendee",
@@ -3629,6 +3632,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {"": {"ATTENDEE": set(), }},
+                {"": set(("mailto:user3@example.com",))},
             ),
             (
                 "#1.5 Simple component, remove attendee",
@@ -3660,6 +3664,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {"": {"ATTENDEE": set(), }},
+                {},
             ),
             (
                 "#1.6 Simple component, attendee PARTSTAT only",
@@ -3692,6 +3697,40 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {"": {"ATTENDEE": set(), }},
+                {},
+            ),
+            (
+                "#1.6a Simple component, attendee PARTSTAT->NEEDS-ACTION only",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT="ACCEPTED":mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                {"": {"ATTENDEE": set(), }},
+                {"": set(("mailto:user2@example.com",))},
             ),
             (
                 "#1.7 Simple component, attendee PARTSTAT and addition",
@@ -3725,6 +3764,41 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {"": {"ATTENDEE": set(), }},
+                {"": set(("mailto:user3@example.com",))},
+            ),
+            (
+                "#1.7a Simple component, attendee PARTSTAT->NEEDS-ACTION and addition",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT="ACCEPTED":mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ATTENDEE:mailto:user3@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                {"": {"ATTENDEE": set(), }},
+                {"": set(("mailto:user2@example.com", "mailto:user3@example.com",))},
             ),
             (
                 "#1.8 Simple component, attendee RSVP only",
@@ -3757,6 +3831,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {"": {"ATTENDEE": set(), }},
+                {},
             ),
             (
                 "#1.9 Simple component, DTSTART/DTEND VALUE",
@@ -3789,6 +3864,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {"": {"DTEND": set(("VALUE",)), "DTSTART": set(("VALUE",)), }},
+                {},
             ),
             (
                 "#1.10 Simple component, DTSTART/DTEND TZID",
@@ -3857,6 +3933,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {"": {"DTEND": set(("TZID",)), "DTSTART": set(("TZID",)), }},
+                {},
             ),
         )
 
@@ -3894,6 +3971,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {},
+                {},
             ),
             (
                 "#2.2 Simple component, one property change",
@@ -3922,6 +4000,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {"": {"SUMMARY": set(), }},
+                {},
             ),
             (
                 "#2.3 Simple component, one property change, one addition, one removal",
@@ -3952,6 +4031,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {"": {"SUMMARY": set(), "LOCATION": set(), "DESCRIPTION": set(), }},
+                {},
             ),
             (
                 "#2.4 Simple component, add attendee",
@@ -3987,6 +4067,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {"": {"ATTENDEE": set(), }},
+                {"": set(("mailto:user3@example.com",))},
             ),
             (
                 "#2.5 Simple component, remove attendee",
@@ -4020,6 +4101,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {"": {"ATTENDEE": set(), }},
+                {},
             ),
             (
                 "#2.6 Simple component, attendee PARTSTAT only",
@@ -4054,6 +4136,42 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {"": {"ATTENDEE": set(), }},
+                {},
+            ),
+            (
+                "#2.6a Simple component, attendee PARTSTAT->NEEDS-ACTION only",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT="ACCEPTED":mailto:user2@example.com
+RRULE:COUNT=400;FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:COUNT=400;FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                {"": {"ATTENDEE": set(), }},
+                {"": set(("mailto:user2@example.com",))},
             ),
             (
                 "#2.7 Simple component, attendee PARTSTAT and addition",
@@ -4089,6 +4207,43 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {"": {"ATTENDEE": set(), }},
+                {"": set(("mailto:user3@example.com",))},
+            ),
+            (
+                "#2.7a Simple component, attendee PARTSTAT->NEEDS-ACTION and addition",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT="ACCEPTED":mailto:user2@example.com
+RRULE:COUNT=400;FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+SUMMARY:Test
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ATTENDEE:mailto:user3@example.com
+RRULE:COUNT=400;FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                {"": {"ATTENDEE": set(), }},
+                {"": set(("mailto:user2@example.com", "mailto:user3@example.com",))},
             ),
             (
                 "#2.8 Simple recurring component, property order change",
@@ -4126,6 +4281,7 @@ EXDATE:20080602T120000Z
 END:VEVENT
 END:VCALENDAR
 """,
+                {},
                 {},
             ),
         )
@@ -4184,6 +4340,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {},
+                {},
             ),
             (
                 "#3.2 Simple component, one property change in instance",
@@ -4232,6 +4389,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {"20080602T120000Z": {"SUMMARY": set(), }},
+                {},
             ),
             (
                 "#3.3 Simple component, one property change in master",
@@ -4280,6 +4438,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {"": {"SUMMARY": set(), }},
+                {},
             ),
             (
                 "#3.4 Simple component, one property change in master and instance",
@@ -4328,6 +4487,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {"": {"SUMMARY": set(), }, "20080602T120000Z": {"SUMMARY": set(), }},
+                {},
             ),
             (
                 "#3.5 Simple component, different property change in master and instance",
@@ -4377,6 +4537,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {"": {"SUMMARY": set()}, "20080602T120000Z": {"Description": set()}},
+                {},
             ),
             (
                 "#3.6 Simple component, instance added no change",
@@ -4411,6 +4572,7 @@ SUMMARY:Test
 END:VEVENT
 END:VCALENDAR
 """,
+                {},
                 {},
             ),
             (
@@ -4447,6 +4609,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {"20080602T120000Z": {"DTSTART": set(), "DTEND": set(), }},
+                {},
             ),
             (
                 "#3.8 Simple component, instance removed no change",
@@ -4481,6 +4644,7 @@ RRULE:COUNT=400;FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
 """,
+                {},
                 {},
             ),
             (
@@ -4517,6 +4681,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {"20080602T120000Z": {"DTSTART": set(), "DTEND": set(), }},
+                {},
             ),
         )
 
@@ -4555,6 +4720,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {},
+                {},
             ),
             (
                 "#4.2 Override component added",
@@ -4589,6 +4755,7 @@ DTEND:20080602T140000Z
 SUMMARY:Test
 END:VCALENDAR
 """,
+                {},
                 {},
             ),
         )
@@ -4628,6 +4795,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {"20080602T120000Z": {"DTSTART": set()}},
+                {},
             ),
             (
                 "#5.2 Override component added",
@@ -4663,19 +4831,23 @@ END:VEVENT
 END:VCALENDAR
 """,
                 {"20080602T120000Z": {"DTSTART": set()}},
+                {},
             ),
         )
 
-        for description, calendar1, calendar2, rids in itertools.chain(data1, data2, data3, data4,):
+        for description, calendar1, calendar2, rids, changes in itertools.chain(data1, data2, data3, data4,):
             differ = iCalDiff(Component.fromString(calendar1), Component.fromString(calendar2), False)
-            got_rids = differ.whatIsDifferent()
+            got_rids, got_changes = differ.whatIsDifferent()
             rids = dict([(DateTime.parseText(k) if k else None, v) for k, v in rids.items()])
+            changes = dict([(DateTime.parseText(k) if k else None, v) for k, v in changes.items()])
             self.assertEqual(got_rids, rids, msg="%s expected R-IDs: '%s', got: '%s'" % (description, rids, got_rids,))
+            self.assertEqual(got_changes, changes, msg="%s expected changes R-IDs: '%s', got: '%s'" % (description, changes, got_changes,))
 
-        for description, calendar1, calendar2, rids in itertools.chain(data5,):
+        for description, calendar1, calendar2, rids, changes in itertools.chain(data5,):
             differ = iCalDiff(Component.fromString(calendar1), Component.fromString(calendar2), False)
-            got_rids = differ.whatIsDifferent(isiTip=False)
+            got_rids, got_changes = differ.whatIsDifferent(isiTip=False)
             self.assertEqual(got_rids, rids, msg="%s expected R-IDs: '%s', got: '%s'" % (description, rids, got_rids,))
+            self.assertEqual(got_changes, changes, msg="%s expected changes R-IDs: '%s', got: '%s'" % (description, changes, got_changes,))
 
 
     def test_attendee_needs_action(self):
@@ -5241,7 +5413,7 @@ END:VCALENDAR
 
         for description, calendar1, calendar2, rids, rescheduled in data:
             differ = iCalDiff(Component.fromString(calendar1), Component.fromString(calendar2), False)
-            diffs = differ.whatIsDifferent()
+            diffs, _ignore_changes = differ.whatIsDifferent()
             got_rids, got_rescheduled = differ.attendeeNeedsAction(diffs)
             rids = set([DateTime.parseText(k) if k else None for k in rids])
             self.assertEqual(got_rids, rids, msg="%s expected R-IDs: '%s', got: '%s'" % (description, rids, got_rids,))

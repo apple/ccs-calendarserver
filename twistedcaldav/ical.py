@@ -712,6 +712,14 @@ class Component (object):
         return self._pycalendar.getType()
 
 
+    def ignored(self):
+        """
+        @return: where this component is one of the L{ignoredComponents}.
+        @rtype: L{bool}
+        """
+        return self.name() in ignoredComponents
+
+
     def mainType(self):
         """
         Determine the primary type of iCal component in this calendar.
@@ -721,10 +729,8 @@ class Component (object):
         assert self.name() == "VCALENDAR", "Must be a VCALENDAR: {0!r}".format(self,)
 
         mtype = None
-        for component in self.subcomponents():
-            if component.name() in ignoredComponents:
-                continue
-            elif mtype and (mtype != component.name()):
+        for component in self.subcomponents(ignore=True):
+            if mtype and (mtype != component.name()):
                 raise InvalidICalendarDataError("Component contains more than one type of primary type: {0!r}".format(self,))
             else:
                 mtype = component.name()
@@ -742,9 +748,7 @@ class Component (object):
         assert self.name() == "VCALENDAR", "Must be a VCALENDAR: {0!r}".format(self,)
 
         result = None
-        for component in self.subcomponents():
-            if component.name() in ignoredComponents:
-                continue
+        for component in self.subcomponents(ignore=True):
             if not component.hasProperty("RECURRENCE-ID"):
                 return component
             elif result is None:
@@ -761,9 +765,7 @@ class Component (object):
         """
         assert self.name() == "VCALENDAR", "Must be a VCALENDAR: {0!r}".format(self,)
 
-        for component in self.subcomponents():
-            if component.name() in ignoredComponents:
-                continue
+        for component in self.subcomponents(ignore=True):
             if not component.hasProperty("RECURRENCE-ID"):
                 return component
 
@@ -785,9 +787,7 @@ class Component (object):
         if isinstance(recurrence_id, str):
             recurrence_id = DateTime.parseText(recurrence_id) if recurrence_id else None
 
-        for component in self.subcomponents():
-            if component.name() in ignoredComponents:
-                continue
+        for component in self.subcomponents(ignore=True):
             rid = component.getRecurrenceIDUTC()
             if rid and recurrence_id and rid == recurrence_id:
                 return component
@@ -821,7 +821,7 @@ class Component (object):
         return result
 
 
-    def subcomponents(self):
+    def subcomponents(self, ignore=False):
         """
         @return: an iterable of L{Component} objects, one for each subcomponent
             of this component.
@@ -829,6 +829,7 @@ class Component (object):
         return (
             Component(None, pycalendar=c, parent=self)
             for c in self._pycalendar.getComponents()
+            if not ignore or (c.getType() not in ignoredComponents)
         )
 
 
@@ -895,13 +896,13 @@ class Component (object):
         )
 
 
-    def propertyValue(self, name):
+    def propertyValue(self, name, default=None):
         properties = tuple(self.properties(name))
         if len(properties) == 1:
             return properties[0].value()
         if len(properties) > 1:
             raise InvalidICalendarDataError("More than one {0} property in component {1!r}".format(name, self))
-        return None
+        return default
 
 
     def getStartDateUTC(self):
@@ -1269,9 +1270,7 @@ class Component (object):
                     master.removeProperty(property)
 
         # Remove overrides in the future
-        for component in list(self.subcomponents()):
-            if component.name() in ignoredComponents:
-                continue
+        for component in list(self.subcomponents(ignore=True)):
             c_rid = component.getRecurrenceIDUTC()
             if c_rid is not None and c_rid >= rid:
                 self.removeComponent(component)
@@ -1375,9 +1374,7 @@ class Component (object):
 
         # Remove overrides in the past - but do not remove any override matching
         # the cut-off as that is still a valid override after "re-basing" the master.
-        for component in list(self.subcomponents()):
-            if component.name() in ignoredComponents:
-                continue
+        for component in list(self.subcomponents(ignore=True)):
             c_rid = component.getRecurrenceIDUTC()
             if c_rid is not None and c_rid < rid:
                 self.removeComponent(component)
@@ -1570,9 +1567,8 @@ class Component (object):
         # Extract appropriate sub-component if this is a VCALENDAR
         if self.name() == "VCALENDAR":
             result = ()
-            for component in self.subcomponents():
-                if component.name() not in ignoredComponents:
-                    result += component.getComponentInstances()
+            for component in self.subcomponents(ignore=True):
+                result += component.getComponentInstances()
             return result
         else:
             rid = self.getRecurrenceIDUTC()
@@ -1586,8 +1582,8 @@ class Component (object):
 
         # Extract appropriate sub-component if this is a VCALENDAR
         if self.name() == "VCALENDAR":
-            for component in self.subcomponents():
-                if component.name() not in ignoredComponents and component.isRecurring():
+            for component in self.subcomponents(ignore=True):
+                if component.isRecurring():
                     return True
         else:
             for propname in ("RRULE", "RDATE", "EXDATE", "RECURRENCE-ID",):
@@ -1829,10 +1825,9 @@ class Component (object):
         assert self.name() == "VCALENDAR", "Not a calendar: {0!r}".format(self,)
 
         if not hasattr(self, "_resource_uid"):
-            for subcomponent in self.subcomponents():
-                if subcomponent.name() not in ignoredComponents:
-                    self._resource_uid = subcomponent.propertyValue("UID")
-                    break
+            for subcomponent in self.subcomponents(ignore=True):
+                self._resource_uid = subcomponent.propertyValue("UID")
+                break
             else:
                 self._resource_uid = None
 
@@ -1866,7 +1861,7 @@ class Component (object):
                 name = subcomponent.name()
                 if name == "VTIMEZONE":
                     has_timezone = True
-                elif subcomponent.name() in ignoredComponents:
+                elif subcomponent.ignored():
                     continue
                 else:
                     self._resource_type = name
@@ -2044,7 +2039,7 @@ class Component (object):
         for subcomponent in self.subcomponents():
             if subcomponent.name() == "VTIMEZONE":
                 timezones.add(subcomponent.propertyValue("TZID"))
-            elif subcomponent.name() in ignoredComponents:
+            elif subcomponent.ignored():
                 continue
             else:
                 if ctype is None:
@@ -2264,9 +2259,8 @@ class Component (object):
 
         # Extract appropriate sub-component if this is a VCALENDAR
         if self.name() == "VCALENDAR":
-            for component in self.subcomponents():
-                if component.name() not in ignoredComponents:
-                    return component.getOrganizer()
+            for component in self.subcomponents(ignore=True):
+                return component.getOrganizer()
         else:
             try:
                 # Find the primary subcomponent
@@ -2287,9 +2281,8 @@ class Component (object):
         # Extract appropriate sub-component if this is a VCALENDAR
         if self.name() == "VCALENDAR":
             result = ()
-            for component in self.subcomponents():
-                if component.name() not in ignoredComponents:
-                    result += component.getOrganizersByInstance()
+            for component in self.subcomponents(ignore=True):
+                result += component.getOrganizersByInstance()
             return result
         else:
             try:
@@ -2312,9 +2305,8 @@ class Component (object):
 
         # Extract appropriate sub-component if this is a VCALENDAR
         if self.name() == "VCALENDAR":
-            for component in self.subcomponents():
-                if component.name() not in ignoredComponents:
-                    return component.getOrganizerProperty()
+            for component in self.subcomponents(ignore=True):
+                return component.getOrganizerProperty()
         else:
             try:
                 # Find the primary subcomponent
@@ -2346,10 +2338,7 @@ class Component (object):
         """
 
         changed = False
-        for component in tuple(self.subcomponents()):
-            if component.name() in ignoredComponents:
-                continue
-
+        for component in tuple(self.subcomponents(ignore=True)):
             organizerProp = component.getOrganizerProperty()
             if organizerProp is not None:
                 if organizerProp.parameterValue("SCHEDULE-AGENT", "SERVER") != "SERVER":
@@ -2373,9 +2362,8 @@ class Component (object):
 
         # Extract appropriate sub-component if this is a VCALENDAR
         if self.name() == "VCALENDAR":
-            for component in self.subcomponents():
-                if component.name() not in ignoredComponents:
-                    return component.getAttendees()
+            for component in self.subcomponents(ignore=True):
+                return component.getAttendees()
         else:
             # Find the property values
             return [p.value() for p in self.properties(self.recipientPropertyName())]
@@ -2397,9 +2385,8 @@ class Component (object):
         # Extract appropriate sub-component if this is a VCALENDAR
         if self.name() == "VCALENDAR":
             result = ()
-            for component in self.subcomponents():
-                if component.name() not in ignoredComponents:
-                    result += component.getAttendeesByInstance(makeUnique, onlyScheduleAgentServer)
+            for component in self.subcomponents(ignore=True):
+                result += component.getAttendeesByInstance(makeUnique, onlyScheduleAgentServer)
             return result
         else:
             result = ()
@@ -2457,11 +2444,10 @@ class Component (object):
 
         # Extract appropriate sub-component if this is a VCALENDAR
         if self.name() == "VCALENDAR":
-            for component in self.subcomponents():
-                if component.name() not in ignoredComponents:
-                    attendee = component.getAttendeeProperty(match)
-                    if attendee is not None:
-                        return attendee
+            for component in self.subcomponents(ignore=True):
+                attendee = component.getAttendeeProperty(match)
+                if attendee is not None:
+                    return attendee
         else:
             # Find the primary subcomponent
             for attendee in self.properties(self.recipientPropertyName()):
@@ -2483,11 +2469,10 @@ class Component (object):
 
         # Extract appropriate sub-component if this is a VCALENDAR
         results = []
-        for component in self.subcomponents():
-            if component.name() not in ignoredComponents:
-                attendee = component.getAttendeeProperty(match)
-                if attendee:
-                    results.append(attendee)
+        for component in self.subcomponents(ignore=True):
+            attendee = component.getAttendeeProperty(match)
+            if attendee:
+                results.append(attendee)
 
         return results
 
@@ -2501,10 +2486,9 @@ class Component (object):
 
         # Extract appropriate sub-component if this is a VCALENDAR
         if self.name() == "VCALENDAR":
-            for component in self.subcomponents():
-                if component.name() not in ignoredComponents:
-                    for attendee in component.getAllAttendeeProperties():
-                        yield attendee
+            for component in self.subcomponents(ignore=True):
+                for attendee in component.getAllAttendeeProperties():
+                    yield attendee
         else:
             # Find the primary subcomponent
             for attendee in self.properties(self.recipientPropertyName()):
@@ -2528,9 +2512,8 @@ class Component (object):
 
         # Extract appropriate sub-component if this is a VCALENDAR
         if self.name() == "VCALENDAR":
-            for component in self.subcomponents():
-                if component.name() not in ignoredComponents:
-                    return component.getMaskUID()
+            for component in self.subcomponents(ignore=True):
+                return component.getMaskUID()
         else:
             try:
                 # Find the primary subcomponent
@@ -2550,9 +2533,8 @@ class Component (object):
 
         # Extract appropriate sub-component if this is a VCALENDAR
         if self.name() == "VCALENDAR":
-            for component in self.subcomponents():
-                if component.name() not in ignoredComponents:
-                    return component.getExtendedFreeBusy()
+            for component in self.subcomponents(ignore=True):
+                return component.getExtendedFreeBusy()
         else:
             try:
                 # Find the primary subcomponent
@@ -2599,9 +2581,7 @@ class Component (object):
         @type propvalue: C{str} or C{None}
         """
 
-        for component in self.subcomponents():
-            if component.name() in ignoredComponents:
-                continue
+        for component in self.subcomponents(ignore=True):
             for property in component.properties(propname):
                 if propvalue is None or property.value() == propvalue:
                     for paramname, paramvalue in params.items():
@@ -2695,9 +2675,7 @@ class Component (object):
         @type property: L{Property}
         """
 
-        for component in self.subcomponents():
-            if component.name() in ignoredComponents:
-                continue
+        for component in self.subcomponents(ignore=True):
             found = component.getProperty(property.name())
             if not found or found.value() != property.value():
                 return False
@@ -2713,9 +2691,7 @@ class Component (object):
         @type property: L{Property}
         """
 
-        for component in self.subcomponents():
-            if component.name() in ignoredComponents:
-                continue
+        for component in self.subcomponents(ignore=True):
             component.addProperty(property)
 
 
@@ -2725,9 +2701,7 @@ class Component (object):
         @param property: the L{Property} to replace in this component.
         """
 
-        for component in self.subcomponents():
-            if component.name() in ignoredComponents:
-                continue
+        for component in self.subcomponents(ignore=True):
             component.replaceProperty(property)
 
 
@@ -2747,9 +2721,7 @@ class Component (object):
         """
 
         if self.name() == "VCALENDAR":
-            for component in self.subcomponents():
-                if component.name() in ignoredComponents:
-                    continue
+            for component in self.subcomponents(ignore=True):
                 if component.hasPropertyWithParameterMatch(propname, param_name, param_value, param_value_is_default):
                     return True
         else:
@@ -2773,9 +2745,7 @@ class Component (object):
         """
 
         if self.name() == "VCALENDAR":
-            for component in self.subcomponents():
-                if component.name() in ignoredComponents:
-                    continue
+            for component in self.subcomponents(ignore=True):
                 component.replaceAllPropertiesWithParameterMatch(property, param_name, param_value, param_value_is_default)
         else:
             for oldprop in tuple(self.properties(property.name())):
@@ -2791,9 +2761,7 @@ class Component (object):
         """
 
         if self.name() == "VCALENDAR":
-            for component in self.subcomponents():
-                if component.name() in ignoredComponents:
-                    continue
+            for component in self.subcomponents(ignore=True):
                 component.removeAllPropertiesWithParameterMatch(propname, param_name, param_value, param_value_is_default)
         else:
             for oldprop in tuple(self.properties(propname)):
@@ -2816,9 +2784,7 @@ class Component (object):
         assert from_calendar.name() == "VCALENDAR", "Not a calendar: {0!r}".format(self,)
 
         if self.name() == "VCALENDAR":
-            for component in self.subcomponents():
-                if component.name() in ignoredComponents:
-                    continue
+            for component in self.subcomponents(ignore=True):
                 component.transferProperties(from_calendar, properties)
         else:
             # Is there a matching component
@@ -2847,9 +2813,7 @@ class Component (object):
         remove_components = []
         master_component = None
         removed_master = False
-        for component in self.subcomponents():
-            if component.name() in ignoredComponents:
-                continue
+        for component in self.subcomponents(ignore=True):
             found_all_attendees = True
             for attendee in attendees:
                 foundAttendee = component.getAttendeeProperty((attendee,))
@@ -2890,12 +2854,9 @@ class Component (object):
         assert self.name() == "VCALENDAR", "Not a calendar: {0!r}".format(self,)
 
         # Remove components not in the list
-        components = tuple(self.subcomponents())
+        components = tuple(self.subcomponents(ignore=True))
         remaining = len(components)
         for component in components:
-            if component.name() in ignoredComponents:
-                remaining -= 1
-                continue
             rid = component.getRecurrenceIDUTC()
             if rid not in rids:
                 self.removeComponent(component)
@@ -2911,9 +2872,7 @@ class Component (object):
 
         assert self.name() == "VCALENDAR", "Not a calendar: {0!r}".format(self,)
 
-        for component in self.subcomponents():
-            if component.name() in ignoredComponents:
-                continue
+        for component in self.subcomponents(ignore=True):
             [component.removeProperty(p) for p in tuple(component.properties(component.recipientPropertyName())) if p.value().lower() != attendee.lower()]
 
 
@@ -2926,9 +2885,7 @@ class Component (object):
 
         attendees = set([attendee.lower() for attendee in attendees])
 
-        for component in self.subcomponents():
-            if component.name() in ignoredComponents:
-                continue
+        for component in self.subcomponents(ignore=True):
             [component.removeProperty(p) for p in tuple(component.properties(component.recipientPropertyName())) if p.value().lower() not in attendees]
 
 
@@ -3008,9 +2965,7 @@ END:VCALENDAR
         """
 
         if self.name() == "VCALENDAR":
-            for component in self.subcomponents():
-                if component.name() in ignoredComponents:
-                    continue
+            for component in self.subcomponents(ignore=True):
                 component.removeAlarms()
         else:
             for component in tuple(self.subcomponents()):
@@ -3051,7 +3006,7 @@ END:VCALENDAR
             for component in self.subcomponents():
                 component.filterProperties(remove, keep, do_subcomponents=False)
         else:
-            if self.name() in ignoredComponents:
+            if self.ignored():
                 return
 
             for p in tuple(self.properties()):
@@ -3069,24 +3024,25 @@ END:VCALENDAR
                 self.removeComponent(component)
 
 
-    def removeXProperties(self, keep_properties=(), remove_x_parameters=True, do_subcomponents=True):
+    def removeXProperties(self, keep_properties=(), keep_parameters={}, remove_x_parameters=True, do_subcomponents=True):
         """
         Remove all X- properties except the specified ones
         """
 
         if do_subcomponents and self.name() == "VCALENDAR":
             for component in self.subcomponents():
-                component.removeXProperties(keep_properties, remove_x_parameters, do_subcomponents=False)
+                component.removeXProperties(keep_properties, keep_parameters, remove_x_parameters, do_subcomponents=False)
         else:
-            if self.name() in ignoredComponents:
+            if self.ignored():
                 return
             for p in tuple(self.properties()):
                 xpname = p.name().startswith("X-")
                 if xpname and p.name() not in keep_properties:
                     self.removeProperty(p)
                 elif not xpname and remove_x_parameters:
+                    preserve = keep_parameters.get(p.name(), set())
                     for paramname in p.parameterNames():
-                        if paramname.startswith("X-"):
+                        if paramname.startswith("X-") and paramname not in preserve:
                             p.removeParameter(paramname)
 
 
@@ -3096,9 +3052,7 @@ END:VCALENDAR
         """
 
         if self.name() == "VCALENDAR":
-            for component in self.subcomponents():
-                if component.name() in ignoredComponents:
-                    continue
+            for component in self.subcomponents(ignore=True):
                 component.removePropertyParameters(property, params)
         else:
             props = self.properties(property)
@@ -3113,9 +3067,7 @@ END:VCALENDAR
         """
 
         if self.name() == "VCALENDAR":
-            for component in self.subcomponents():
-                if component.name() in ignoredComponents:
-                    continue
+            for component in self.subcomponents(ignore=True):
                 component.removePropertyParametersByValue(property, paramvalues)
         else:
             props = self.properties(property)
@@ -3133,9 +3085,7 @@ END:VCALENDAR
         try:
             # Extract items from component
             uid = self.propertyValue("UID")
-            seq = self.propertyValue("SEQUENCE")
-            if seq:
-                seq = int(seq)
+            seq = self.propertyValue("SEQUENCE", 0)
             dtstamp = self.propertyValue("DTSTAMP")
             rid = self.propertyValue("RECURRENCE-ID")
 
@@ -3181,14 +3131,9 @@ END:VCALENDAR
         assert uid1 == uid2
 
         # Look for sequence
-        if (seq1 is not None) and (seq2 is not None):
-            if seq1 > seq2:
-                return 1
-            if seq1 < seq2:
-                return -1
-        elif (seq1 is not None) and (seq2 is None):
+        if seq1 > seq2:
             return 1
-        elif (seq1 is None) and (seq2 is not None):
+        if seq1 < seq2:
             return -1
 
         # Look for DTSTAMP
@@ -3212,20 +3157,14 @@ END:VCALENDAR
         that is always greater than the old.
         """
 
-        for component in self.subcomponents():
-            if component.name() in ignoredComponents:
-                continue
+        for component in self.subcomponents(ignore=True):
             oldcomponent = oldcalendar.overriddenComponent(component.getRecurrenceIDUTC())
             if oldcomponent is None:
                 oldcomponent = oldcalendar.masterComponent()
                 if oldcomponent is None:
                     continue
-            newseq = component.propertyValue("SEQUENCE")
-            if newseq is None:
-                newseq = 0
-            oldseq = oldcomponent.propertyValue("SEQUENCE")
-            if oldseq is None:
-                oldseq = 0
+            newseq = component.propertyValue("SEQUENCE", 0)
+            oldseq = oldcomponent.propertyValue("SEQUENCE", 0)
             if newseq <= oldseq:
                 return True
 
@@ -3389,9 +3328,7 @@ END:VCALENDAR
         """
 
         if self.name() == "VCALENDAR":
-            for component in self.subcomponents():
-                if component.name() in ignoredComponents:
-                    continue
+            for component in self.subcomponents(ignore=True):
                 component.normalizePropertyValueLists(propname)
         else:
             for prop in tuple(self.properties(propname)):
@@ -3407,9 +3344,7 @@ END:VCALENDAR
         """
 
         if self.name() == "VCALENDAR":
-            for component in self.subcomponents():
-                if component.name() in ignoredComponents:
-                    continue
+            for component in self.subcomponents(ignore=True):
                 component.normalizeAttachments()
         else:
             dropboxPrefix = self.propertyValue("X-APPLE-DROPBOX")
@@ -3441,9 +3376,11 @@ END:VCALENDAR
         @type toCanonical: L{bool}
         """
 
-        for component in self.subcomponents():
-            if component.name() in ignoredComponents:
-                continue
+        # Keep a cache of records because events with lots of recurrence overrides can contain
+        # the same attendee cu-address multuiple times
+        cache = {}
+
+        for component in self.subcomponents(ignore=True):
             for prop in itertools.chain(
                 component.properties("ORGANIZER"),
                 component.properties("ATTENDEE"),
@@ -3453,7 +3390,11 @@ END:VCALENDAR
                 # Check that we can lookup this calendar user address - if not
                 # we cannot do anything with it
                 cuaddr = normalizeCUAddr(prop.value())
-                name, uid, cutype, cuaddrs = yield lookupFunction(cuaddr, recordFunction, config)
+                if cuaddr not in cache:
+                    result = yield lookupFunction(cuaddr, recordFunction, config)
+                    cache[cuaddr] = result
+
+                name, uid, cutype, cuaddrs = cache[cuaddr]
                 if uid is None:
                     continue
 
@@ -3563,10 +3504,7 @@ END:VCALENDAR
     def _reconcileGroupAttendee(self, groupCUA, memberAttendeeProps):
 
         changed = False
-        for component in self.subcomponents():
-            if component.name() in ignoredComponents:
-                continue
-
+        for component in self.subcomponents(ignore=True):
             oldAttendeeProps = tuple(component.properties("ATTENDEE"))
             oldAttendeeCUAs = set([attendeeProp.value() for attendeeProp in oldAttendeeProps])
 
@@ -3611,10 +3549,7 @@ END:VCALENDAR
                 nonemptyGroupCUAs.add(groupCUA)
 
         # remove orphans
-        for component in self.subcomponents():
-            if component.name() in ignoredComponents:
-                continue
-
+        for component in self.subcomponents(ignore=True):
             for attendeeProp in tuple(component.properties("ATTENDEE")):
                 if attendeeProp.hasParameter("MEMBER"):
                     attendeeCUA = attendeeProp.value()
@@ -3673,7 +3608,7 @@ END:VCALENDAR
                             adjusted_start = subcomponent.propertyValue("X-APPLE-TRAVEL-DURATION")
                             adjusted_end = subcomponent.propertyValue("X-APPLE-TRAVEL-RETURN-DURATION")
                             self._perUserData.setdefault(uid, {})[instancerid] = (transp, adjusted_start, adjusted_end,)
-                elif component.name() not in ignoredComponents:
+                elif not component.ignored():
                     instancerid = component.propertyValue("RECURRENCE-ID")
                     transp = component.propertyValue("TRANSP") == "TRANSPARENT"
                     self._perUserData.setdefault("", {})[instancerid] = (transp, None, None,)
@@ -3940,7 +3875,7 @@ def merge(*iterables):
 
 
 
-def normalize_iCalStr(icalstr):
+def normalize_iCalStr(icalstr, filter_params=("ATTENDEE;X-CALENDARSERVER-DTSTAMP", "ATTENDEE;X-CALENDARSERVER-RESET-PARTSTAT",)):
     """
     Normalize a string representation of ical data for easy test comparison.
     """
@@ -3948,10 +3883,17 @@ def normalize_iCalStr(icalstr):
     icalstr = str(icalstr).replace("\r\n ", "")
     icalstr = icalstr.replace("\n ", "")
     lines = [line for line in icalstr.splitlines() if not line.startswith("DTSTAMP")]
-    for ctr, line in enumerate(lines[:]):
-        pos = line.find(";X-CALENDARSERVER-DTSTAMP=")
-        if pos != -1:
-            lines[ctr] = line[:pos] + line[pos + len(";X-CALENDARSERVER-DTSTAMP=") + 16:]
+    for param in filter_params:
+        propname, paramname = param.split(";")
+        for ctr, line in enumerate(lines[:]):
+            if line.startswith(propname + ";"):
+                pos = line.find(";{}=".format(paramname))
+                if pos != -1:
+                    next_segment = line[pos + len(paramname) + 2:]
+                    end_pos = next_segment.find(";")
+                    if end_pos == -1:
+                        end_pos = next_segment.find(":")
+                    lines[ctr] = line[:pos] + line[pos + len(paramname) + 2 + end_pos:]
     icalstr = "\r\n".join(lines)
     return icalstr + "\r\n"
 

@@ -17,7 +17,7 @@ create table NAMED_LOCK (
 );
 
 create table JOB (
-    "JOB_ID" integer primary key,
+    "JOB_ID" integer primary key not null,
     "WORK_TYPE" nvarchar2(255),
     "PRIORITY" integer default 0,
     "WEIGHT" integer default 0,
@@ -370,7 +370,7 @@ create table IMIP_TOKENS (
 );
 
 create table IMIP_INVITATION_WORK (
-    "WORK_ID" integer primary key,
+    "WORK_ID" integer primary key not null,
     "JOB_ID" integer not null references JOB,
     "FROM_ADDR" nvarchar2(255),
     "TO_ADDR" nvarchar2(255),
@@ -378,12 +378,12 @@ create table IMIP_INVITATION_WORK (
 );
 
 create table IMIP_POLLING_WORK (
-    "WORK_ID" integer primary key,
+    "WORK_ID" integer primary key not null,
     "JOB_ID" integer not null references JOB
 );
 
 create table IMIP_REPLY_WORK (
-    "WORK_ID" integer primary key,
+    "WORK_ID" integer primary key not null,
     "JOB_ID" integer not null references JOB,
     "ORGANIZER" nvarchar2(255),
     "ATTENDEE" nvarchar2(255),
@@ -391,25 +391,25 @@ create table IMIP_REPLY_WORK (
 );
 
 create table PUSH_NOTIFICATION_WORK (
-    "WORK_ID" integer primary key,
+    "WORK_ID" integer primary key not null,
     "JOB_ID" integer not null references JOB,
     "PUSH_ID" nvarchar2(255),
     "PUSH_PRIORITY" integer not null
 );
 
 create table GROUP_CACHER_POLLING_WORK (
-    "WORK_ID" integer primary key,
+    "WORK_ID" integer primary key not null,
     "JOB_ID" integer not null references JOB
 );
 
 create table GROUP_REFRESH_WORK (
-    "WORK_ID" integer primary key,
+    "WORK_ID" integer primary key not null,
     "JOB_ID" integer not null references JOB,
     "GROUP_UID" nvarchar2(255)
 );
 
 create table GROUP_DELEGATE_CHANGES_WORK (
-    "WORK_ID" integer primary key,
+    "WORK_ID" integer primary key not null,
     "JOB_ID" integer not null references JOB,
     "DELEGATOR_UID" nvarchar2(255),
     "READ_DELEGATE_UID" nvarchar2(255),
@@ -433,7 +433,7 @@ create table GROUP_MEMBERSHIP (
 );
 
 create table GROUP_ATTENDEE_RECONCILE_WORK (
-    "WORK_ID" integer primary key,
+    "WORK_ID" integer primary key not null,
     "JOB_ID" integer not null references JOB,
     "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade,
     "GROUP_ID" integer not null references GROUPS on delete cascade
@@ -447,7 +447,7 @@ create table GROUP_ATTENDEE (
 );
 
 create table GROUP_SHAREE_RECONCILE_WORK (
-    "WORK_ID" integer primary key,
+    "WORK_ID" integer primary key not null,
     "JOB_ID" integer not null references JOB,
     "CALENDAR_ID" integer not null references CALENDAR on delete cascade,
     "GROUP_ID" integer not null references GROUPS on delete cascade
@@ -483,34 +483,34 @@ create table EXTERNAL_DELEGATE_GROUPS (
 );
 
 create table CALENDAR_OBJECT_SPLITTER_WORK (
-    "WORK_ID" integer primary key,
+    "WORK_ID" integer primary key not null,
     "JOB_ID" integer not null references JOB,
     "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade
 );
 
 create table FIND_MIN_VALID_REVISION_WORK (
-    "WORK_ID" integer primary key,
+    "WORK_ID" integer primary key not null,
     "JOB_ID" integer not null references JOB
 );
 
 create table REVISION_CLEANUP_WORK (
-    "WORK_ID" integer primary key,
+    "WORK_ID" integer primary key not null,
     "JOB_ID" integer not null references JOB
 );
 
 create table INBOX_CLEANUP_WORK (
-    "WORK_ID" integer primary key,
+    "WORK_ID" integer primary key not null,
     "JOB_ID" integer not null references JOB
 );
 
 create table CLEANUP_ONE_INBOX_WORK (
-    "WORK_ID" integer primary key,
+    "WORK_ID" integer primary key not null,
     "JOB_ID" integer not null references JOB,
     "HOME_ID" integer not null unique references CALENDAR_HOME on delete cascade
 );
 
 create table SCHEDULE_WORK (
-    "WORK_ID" integer primary key,
+    "WORK_ID" integer primary key not null,
     "JOB_ID" integer not null references JOB,
     "ICALENDAR_UID" nvarchar2(255),
     "WORK_TYPE" nvarchar2(255)
@@ -569,29 +569,35 @@ create table SCHEDULE_ORGANIZER_SEND_WORK (
 create table SCHEDULE_REPLY_WORK (
     "WORK_ID" integer primary key references SCHEDULE_WORK on delete cascade,
     "HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade,
-    "RESOURCE_ID" integer,
-    "ITIP_MSG" nclob
+    "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade,
+    "CHANGED_RIDS" nclob
+);
+
+create table SCHEDULE_REPLY_CANCEL_WORK (
+    "WORK_ID" integer primary key references SCHEDULE_WORK on delete cascade,
+    "HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade,
+    "ICALENDAR_TEXT" nclob
 );
 
 create table PRINCIPAL_PURGE_POLLING_WORK (
-    "WORK_ID" integer primary key,
+    "WORK_ID" integer primary key not null,
     "JOB_ID" integer not null references JOB
 );
 
 create table PRINCIPAL_PURGE_CHECK_WORK (
-    "WORK_ID" integer primary key,
+    "WORK_ID" integer primary key not null,
     "JOB_ID" integer not null references JOB,
     "UID" nvarchar2(255)
 );
 
 create table PRINCIPAL_PURGE_WORK (
-    "WORK_ID" integer primary key,
+    "WORK_ID" integer primary key not null,
     "JOB_ID" integer not null references JOB,
     "UID" nvarchar2(255)
 );
 
 create table PRINCIPAL_PURGE_HOME_WORK (
-    "WORK_ID" integer primary key,
+    "WORK_ID" integer primary key not null,
     "JOB_ID" integer not null references JOB,
     "HOME_RESOURCE_ID" integer not null references CALENDAR_HOME on delete cascade
 );
@@ -601,7 +607,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '50');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '49');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');
@@ -892,6 +898,10 @@ create index SCHEDULE_REPLY_WORK_H_745af8cf on SCHEDULE_REPLY_WORK (
 
 create index SCHEDULE_REPLY_WORK_R_11bd3fbb on SCHEDULE_REPLY_WORK (
     RESOURCE_ID
+);
+
+create index SCHEDULE_REPLY_CANCEL_dab513ef on SCHEDULE_REPLY_CANCEL_WORK (
+    HOME_RESOURCE_ID
 );
 
 create index PRINCIPAL_PURGE_POLLI_6383e68a on PRINCIPAL_PURGE_POLLING_WORK (

@@ -377,7 +377,7 @@ class CachingDirectoryService(
                 # but there might be others in the directory service with that
                 # same email address.
                 self.cacheRecord(
-                    records[0],
+                    list(records)[0],
                     (
                         IndexType.uid, IndexType.guid,
                         IndexType.shortName, IndexType.emailAddress

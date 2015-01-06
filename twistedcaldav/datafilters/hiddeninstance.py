@@ -15,7 +15,7 @@
 ##
 
 from twistedcaldav.datafilters.filter import CalendarFilter
-from twistedcaldav.ical import Component, ignoredComponents
+from twistedcaldav.ical import Component
 
 __all__ = [
     "HiddenInstanceFilter",
@@ -38,9 +38,7 @@ class HiddenInstanceFilter(CalendarFilter):
         """
 
         master = ical.masterComponent()
-        for component in tuple(ical.subcomponents()):
-            if component.name() in ignoredComponents:
-                continue
+        for component in tuple(ical.subcomponents(ignore=True)):
             rid = component.getRecurrenceIDUTC()
             if rid is None:
                 continue

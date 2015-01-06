@@ -17,7 +17,7 @@
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.enterprise.dal.model import Schema, Table, Column, Sequence, Function, \
-    SQLType, ProcedureCall
+    SQLType, ProcedureCall, Constraint
 from twext.enterprise.dal.parseschema import addSQLToSchema
 
 """
@@ -63,8 +63,8 @@ def dumpSchema(txn, title, schemaname="public"):
         tables[name.upper()] = table
 
         # Columns
-        rows = yield txn.execSQL("select column_name, data_type, character_maximum_length, column_default from information_schema.columns where table_schema = '%s' and table_name = '%s';" % (schemaname, name,))
-        for name, datatype, charlen, default in rows:
+        rows = yield txn.execSQL("select column_name, data_type, is_nullable, character_maximum_length, column_default from information_schema.columns where table_schema = '%s' and table_name = '%s';" % (schemaname, name,))
+        for name, datatype, is_nullable, charlen, default in rows:
             # TODO: figure out the type
             column = Column(table, name.upper(), SQLType(DTYPE_MAP.get(datatype, datatype), charlen))
             table.columns.append(column)
@@ -79,6 +79,8 @@ def dumpSchema(txn, title, schemaname="public"):
                         column.default = int(default)
                     except ValueError:
                         column.default = default
+            if is_nullable == "NO":
+                table.tableConstraint(Constraint.NOT_NULL, [column.name, ])
 
     # Key columns
     keys = {}

@@ -26,7 +26,7 @@ from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.trial import unittest
 from twistedcaldav.config import config
-from twistedcaldav.ical import Component, normalize_iCalStr, ignoredComponents
+from twistedcaldav.ical import Component, normalize_iCalStr
 from txdav.caldav.datastore.test.util import populateCalendarsFrom, CommonCommonTests
 from txdav.common.datastore.sql_tables import schema
 from txdav.who.directory import CalendarDirectoryRecordMixin
@@ -87,10 +87,7 @@ class GroupAttendeeTestBase(CommonCommonTests, unittest.TestCase):
 
         def orderMemberValues(event):
 
-            for component in event.subcomponents():
-                if component.name() in ignoredComponents:
-                    continue
-
+            for component in event.subcomponents(ignore=True):
                 # remove all values and add them again
                 # this is sort of a hack, better pycalendar has ordering
                 for attendeeProp in tuple(component.properties("ATTENDEE")):
@@ -1227,9 +1224,7 @@ END:VCALENDAR
         cobjs = yield cal.objectResources()
         for cobj in cobjs:
             vcalendar = yield cobj.component()
-            for component in vcalendar.subcomponents():
-                if component.name() in ignoredComponents:
-                    continue
+            for component in vcalendar.subcomponents(ignore=True):
                 props = {
                     "relatedTo": component.getProperty("RELATED-TO"),
                     "start": component.getProperty("DTSTART"),
@@ -1406,9 +1401,7 @@ END:VCALENDAR
         cobjs = yield cal.objectResources()
         for cobj in cobjs:
             vcalendar = yield cobj.component()
-            for component in vcalendar.subcomponents():
-                if component.name() in ignoredComponents:
-                    continue
+            for component in vcalendar.subcomponents(ignore=True):
                 props = {
                     "relatedTo": component.getProperty("RELATED-TO"),
                     "start": component.getProperty("DTSTART"),

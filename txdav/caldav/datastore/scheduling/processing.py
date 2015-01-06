@@ -348,7 +348,7 @@ class ImplicitProcessor(object):
     @inlineCallbacks
     def doImplicitAttendeeUpdate(self):
         """
-        An iTIP message has been sent by to an attendee by the organizer. We need to update the attendee state
+        An iTIP message has been sent to an attendee by the organizer. We need to update the attendee state
         based on the nature of the iTIP message.
         """
 

@@ -54,7 +54,7 @@ create table NAMED_LOCK (
 create sequence JOB_SEQ;
 
 create table JOB (
-  JOB_ID      integer primary key default nextval('JOB_SEQ'), --implicit index
+  JOB_ID      integer primary key default nextval('JOB_SEQ') not null, --implicit index
   WORK_TYPE   varchar(255) not null,
   PRIORITY    integer default 0,
   WEIGHT      integer default 0,
@@ -688,7 +688,7 @@ create sequence WORKITEM_SEQ;
 ---------------------------
 
 create table IMIP_INVITATION_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ'), -- implicit index
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   JOB_ID                        integer      references JOB not null,
   FROM_ADDR                     varchar(255) not null,
   TO_ADDR                       varchar(255) not null,
@@ -703,7 +703,7 @@ create index IMIP_INVITATION_WORK_JOB_ID on
 -----------------------
 
 create table IMIP_POLLING_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ'), -- implicit index
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   JOB_ID                        integer      references JOB not null
 );
 
@@ -716,7 +716,7 @@ create index IMIP_POLLING_WORK_JOB_ID on
 ---------------------
 
 create table IMIP_REPLY_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ'), -- implicit index
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   JOB_ID                        integer      references JOB not null,
   ORGANIZER                     varchar(255) not null,
   ATTENDEE                      varchar(255) not null,
@@ -732,7 +732,7 @@ create index IMIP_REPLY_WORK_JOB_ID on
 ------------------------
 
 create table PUSH_NOTIFICATION_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ'), -- implicit index
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   JOB_ID                        integer      references JOB not null,
   PUSH_ID                       varchar(255) not null,
   PUSH_PRIORITY                 integer      not null -- 1:low 5:medium 10:high
@@ -748,7 +748,7 @@ create index PUSH_NOTIFICATION_WORK_PUSH_ID on
 -----------------
 
 create table GROUP_CACHER_POLLING_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ'), -- implicit index
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   JOB_ID                        integer      references JOB not null
 );
 
@@ -756,7 +756,7 @@ create index GROUP_CACHER_POLLING_WORK_JOB_ID on
   GROUP_CACHER_POLLING_WORK(JOB_ID);
 
 create table GROUP_REFRESH_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ'), -- implicit index
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   JOB_ID                        integer      references JOB not null,
   GROUP_UID                     varchar(255) not null
 );
@@ -767,7 +767,7 @@ create index GROUP_REFRESH_WORK_GROUP_UID on
   GROUP_REFRESH_WORK(GROUP_UID);
 
 create table GROUP_DELEGATE_CHANGES_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ'), -- implicit index
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   JOB_ID                        integer      references JOB not null,
   DELEGATOR_UID                 varchar(255) not null,
   READ_DELEGATE_UID             varchar(255) not null,
@@ -802,7 +802,7 @@ create index GROUP_MEMBERSHIP_MEMBER on
   GROUP_MEMBERSHIP(MEMBER_UID);
 
 create table GROUP_ATTENDEE_RECONCILE_WORK (
-  WORK_ID                       integer primary key default nextval('WORKITEM_SEQ'), -- implicit index
+  WORK_ID                       integer primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   JOB_ID                        integer not null references JOB,
   RESOURCE_ID                   integer not null references CALENDAR_OBJECT on delete cascade,
   GROUP_ID                      integer not null references GROUPS on delete cascade
@@ -829,7 +829,7 @@ create index GROUP_ATTENDEE_RESOURCE_ID on
 
 
 create table GROUP_SHAREE_RECONCILE_WORK (
-  WORK_ID                       integer primary key default nextval('WORKITEM_SEQ'), -- implicit index
+  WORK_ID                       integer primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   JOB_ID                        integer not null references JOB,
   CALENDAR_ID                   integer	not null references CALENDAR on delete cascade,
   GROUP_ID                      integer not null references GROUPS on delete cascade
@@ -881,7 +881,7 @@ create index DELEGATE_GROUPS_GROUP_ID on
   DELEGATE_GROUPS(GROUP_ID);
 
 create table EXTERNAL_DELEGATE_GROUPS (
-  DELEGATOR                     varchar(255) primary key,
+  DELEGATOR                     varchar(255) primary key not null,
   GROUP_UID_READ                varchar(255),
   GROUP_UID_WRITE               varchar(255)
 );
@@ -891,7 +891,7 @@ create table EXTERNAL_DELEGATE_GROUPS (
 --------------------------
 
 create table CALENDAR_OBJECT_SPLITTER_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ'), -- implicit index
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   JOB_ID                        integer      references JOB not null,
   RESOURCE_ID                   integer      not null references CALENDAR_OBJECT on delete cascade
 );
@@ -906,7 +906,7 @@ create index CALENDAR_OBJECT_SPLITTER_WORK_JOB_ID on
 ---------------------------
 
 create table FIND_MIN_VALID_REVISION_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ'), -- implicit index
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   JOB_ID                        integer      references JOB not null
 );
 
@@ -914,7 +914,7 @@ create index FIND_MIN_VALID_REVISION_WORK_JOB_ID on
   FIND_MIN_VALID_REVISION_WORK(JOB_ID);
 
 create table REVISION_CLEANUP_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ'), -- implicit index
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   JOB_ID                        integer      references JOB not null
 );
 
@@ -926,7 +926,7 @@ create index REVISION_CLEANUP_WORK_JOB_ID on
 ------------------------
 
 create table INBOX_CLEANUP_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ'), -- implicit index
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   JOB_ID                        integer      references JOB not null
 );
 
@@ -934,7 +934,7 @@ create index INBOX_CLEANUP_WORK_JOB_ID on
    INBOX_CLEANUP_WORK(JOB_ID);
 
 create table CLEANUP_ONE_INBOX_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ'), -- implicit index
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   JOB_ID                        integer      references JOB not null,
   HOME_ID                       integer      not null unique references CALENDAR_HOME on delete cascade -- implicit index
 );
@@ -947,7 +947,7 @@ create index CLEANUP_ONE_INBOX_WORK_JOB_ID on
 -------------------
 
 create table SCHEDULE_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ'), -- implicit index
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   JOB_ID                        integer      references JOB not null,
   ICALENDAR_UID                 varchar(255) not null,
   WORK_TYPE                     varchar(255) not null
@@ -1058,8 +1058,8 @@ create index SCHEDULE_ORGANIZER_SEND_WORK_RESOURCE_ID on
 create table SCHEDULE_REPLY_WORK (
   WORK_ID                       integer      primary key references SCHEDULE_WORK on delete cascade, -- implicit index
   HOME_RESOURCE_ID              integer      not null references CALENDAR_HOME on delete cascade,
-  RESOURCE_ID                   integer,     -- this references a possibly non-existent CALENDAR_OBJECT
-  ITIP_MSG                      text
+  RESOURCE_ID                   integer      not null references CALENDAR_OBJECT on delete cascade,
+  CHANGED_RIDS                  text
 );
 
 create index SCHEDULE_REPLY_WORK_HOME_RESOURCE_ID on
@@ -1067,12 +1067,25 @@ create index SCHEDULE_REPLY_WORK_HOME_RESOURCE_ID on
 create index SCHEDULE_REPLY_WORK_RESOURCE_ID on
   SCHEDULE_REPLY_WORK(RESOURCE_ID);
 
+--------------------------------
+-- Schedule Reply Cancel Work --
+--------------------------------
+
+create table SCHEDULE_REPLY_CANCEL_WORK (
+  WORK_ID                       integer      primary key references SCHEDULE_WORK on delete cascade, -- implicit index
+  HOME_RESOURCE_ID              integer      not null references CALENDAR_HOME on delete cascade,
+  ICALENDAR_TEXT                text         not null
+);
+
+create index SCHEDULE_REPLY_CANCEL_WORK_HOME_RESOURCE_ID on
+  SCHEDULE_REPLY_CANCEL_WORK(HOME_RESOURCE_ID);
+
 ----------------------------------
 -- Principal Purge Polling Work --
 ----------------------------------
 
 create table PRINCIPAL_PURGE_POLLING_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ'), -- implicit index
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   JOB_ID                        integer      references JOB not null
 );
 
@@ -1084,7 +1097,7 @@ create index PRINCIPAL_PURGE_POLLING_WORK_JOB_ID on
 --------------------------------
 
 create table PRINCIPAL_PURGE_CHECK_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ'), -- implicit index
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   JOB_ID                        integer      references JOB not null,
   UID                           varchar(255) not null
 );
@@ -1099,7 +1112,7 @@ create index PRINCIPAL_PURGE_CHECK_WORK_UID on
 --------------------------
 
 create table PRINCIPAL_PURGE_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ'), -- implicit index
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   JOB_ID                        integer      references JOB not null,
   UID                           varchar(255) not null
 );
@@ -1115,7 +1128,7 @@ create index PRINCIPAL_PURGE_WORK_UID on
 --------------------------------
 
 create table PRINCIPAL_PURGE_HOME_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ'), -- implicit index
+  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ') not null, -- implicit index
   JOB_ID                        integer      references JOB not null,
   HOME_RESOURCE_ID              integer      not null references CALENDAR_HOME on delete cascade
 );
@@ -1135,7 +1148,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '50');
+insert into CALENDARSERVER values ('VERSION', '49');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');

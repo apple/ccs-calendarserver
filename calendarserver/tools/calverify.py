@@ -61,10 +61,7 @@ from twisted.python import usage
 from twisted.python.usage import Options
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.dateops import pyCalendarTodatetime
-from twistedcaldav.ical import (
-    Component, ignoredComponents,
-    InvalidICalendarDataError, Property, PERUSER_COMPONENT
-)
+from twistedcaldav.ical import Component, InvalidICalendarDataError, Property, PERUSER_COMPONENT
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from twistedcaldav.timezones import TimezoneCache
 from txdav.caldav.datastore.scheduling.icalsplitter import iCalSplitter
@@ -1166,9 +1163,7 @@ class BadDataService(CalVerifyService):
             self.cuaCache[cuaddr] = result
             returnValue(result)
 
-        for subcomponent in component.subcomponents():
-            if subcomponent.name() in ignoredComponents:
-                continue
+        for subcomponent in component.subcomponents(ignore=True):
             organizer = subcomponent.getProperty("ORGANIZER")
             if organizer:
                 cuaddr = organizer.value()
@@ -2016,9 +2011,7 @@ class SchedulingMismatchService(CalVerifyService):
         Set the TRANSP property based on the PARTSTAT value on matching ATTENDEE properties
         in each component.
         """
-        for component in calendar.subcomponents():
-            if component.name() in ignoredComponents:
-                continue
+        for component in calendar.subcomponents(ignore=True):
             prop = component.getAttendeeProperty(attendee)
             addTransp = False
             if prop:

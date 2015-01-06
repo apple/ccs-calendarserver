@@ -14,6 +14,7 @@
 # limitations under the License.
 # #
 
+from twext.enterprise.dal.model import Constraint
 from twext.enterprise.dal.parseschema import schemaFromPath
 from twisted.python.modules import getModule
 from twisted.trial.unittest import TestCase
@@ -102,7 +103,18 @@ class SQLSchemaFiles(TestCase):
 
         self.assertEqual(current_version, current_oracle_version)
 
-        mismatched = schemaFromPath(currentSchema).compare(schemaFromPath(currentOracleSchema))
+        schema_current = schemaFromPath(currentSchema)
+        schema_oracle = schemaFromPath(currentOracleSchema)
+
+        # Remove any not null constraints in the postgres schema for text columns as in
+        # Oracle nclob or nvarchar never uses not null
+        for table in schema_current.tables:
+            for constraint in tuple(table.constraints):
+                if constraint.type == Constraint.NOT_NULL and len(constraint.affectsColumns) == 1:
+                    if constraint.affectsColumns[0].type.name in ("text", "char", "varchar"):
+                        table.constraints.remove(constraint)
+
+        mismatched = schema_current.compare(schema_oracle)
         self.assertEqual(len(mismatched), 0, msg=", ".join(mismatched))
 
 

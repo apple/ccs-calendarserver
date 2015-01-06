@@ -36,7 +36,7 @@ from txdav.caldav.datastore.scheduling.icaldiff import iCalDiff
 from txdav.caldav.datastore.scheduling.itip import iTipGenerator, iTIPRequestStatus
 from txdav.caldav.datastore.scheduling.utils import getCalendarObjectForRecord
 from txdav.caldav.datastore.scheduling.work import ScheduleReplyWork, \
-    ScheduleReplyCancelWork, ScheduleOrganizerWork, ScheduleOrganizerSendWork
+    ScheduleOrganizerWork, ScheduleOrganizerSendWork
 from txdav.caldav.icalendarstore import SetComponentOptions
 
 import collections
@@ -668,9 +668,6 @@ class ImplicitScheduler(object):
         self.changed_rids = None
         self.cancelledAttendees = ()
         self.reinvites = None
-        self.needs_action_rids = None
-
-        self.needs_sequence_change = False
 
         self.coerceOrganizerScheduleAgent()
 
@@ -683,8 +680,9 @@ class ImplicitScheduler(object):
             # Cancel all attendees
             self.cancelledAttendees = [(attendee, None) for attendee in self.attendees]
 
-            # CANCEL always bumps sequence
-            self.needs_sequence_change = True
+            # CANCEL always bumps sequence (if queued, sequence has already changed)
+            if not queued:
+                self.calendar.bumpiTIPInfo(oldcalendar=self.oldcalendar, doSequence=True)
 
         # Check for a new resource or an update
         elif self.action in ("modify", "modify-cancelled"):
@@ -701,7 +699,8 @@ class ImplicitScheduler(object):
                 self.calendar.sequenceInSync(self.oldcalendar)
 
             # Significant change
-            no_change, self.changed_rids, self.needs_action_rids, reinvites, recurrence_reschedule, status_cancelled, only_status = self.isOrganizerChangeInsignificant()
+            no_change, self.changed_rids, needs_action_rids, needs_action_changed_rids, reinvites, \
+                recurrence_reschedule, status_cancelled, only_status = self.isOrganizerChangeInsignificant()
             if no_change:
                 if reinvites:
                     log.debug("Implicit - organizer '{organizer}' is re-inviting UID: '{uid}', attendees: {attendees}", organizer=self.organizer, uid=self.uid, attendees=", ".join(reinvites))
@@ -711,11 +710,21 @@ class ImplicitScheduler(object):
                     log.debug("Implicit - organizer '{organizer}' is modifying UID: '{uid}' but change is not significant", organizer=self.organizer, uid=self.uid)
                     returnValue(None)
             else:
-                # Do not change PARTSTATs for a split operation
+
+                # For now we always bump the sequence number on modifications because we cannot track DTSTAMP on
+                # the Attendee side. But we check the old and the new and only bump if the client did not already do it.
+                # Also, if queued, the sequence has already been changed
+                if not queued and self.calendar.needsiTIPSequenceChange(self.oldcalendar):
+                    self.calendar.bumpiTIPInfo(oldcalendar=self.oldcalendar, doSequence=True)
+
+                # Only change PARTSTATs for a non-split operation
                 if self.split_details is None:
+
+                    # Adjust ATTENDEE;PARTSTAT for instances that have changed such that a re-evaluation of partstat is needed
                     log.debug("Implicit - organizer '{organizer}' is modifying UID: '{uid}'", organizer=self.organizer, uid=self.uid)
 
-                    for rid in self.needs_action_rids:
+                    # Look for changes to an instance that require all attendees of that instance to be reset
+                    for rid in needs_action_rids:
                         comp = self.calendar.overriddenComponent(rid)
                         if comp is None:
                             comp = self.calendar.deriveInstance(rid)
@@ -723,16 +732,28 @@ class ImplicitScheduler(object):
                                 self.calendar.addComponent(comp)
 
                         for attendee in comp.getAllAttendeeProperties():
+                            if attendee.value() in self.organizerAddress.record.calendarUserAddresses:
+                                # If the attendee is the organizer then do not update
+                                # the PARTSTAT to NEEDS-ACTION.
+                                # The organizer is automatically ACCEPTED to the event.
+                                continue
                             if attendee.hasParameter("PARTSTAT"):
-                                cuaddr = attendee.value()
-
-                                if cuaddr in self.organizerAddress.record.calendarUserAddresses:
-                                    # If the attendee is the organizer then do not update
-                                    # the PARTSTAT to NEEDS-ACTION.
-                                    # The organizer is automatically ACCEPTED to the event.
-                                    continue
-
                                 attendee.setParameter("PARTSTAT", "NEEDS-ACTION")
+                            seq = comp.propertyValue("SEQUENCE", 0)
+                            attendee.setParameter("X-CALENDARSERVER-RESET-PARTSTAT", str(seq))
+
+                    # Look for changes to a specific attendee within an instance
+                    for rid, attendees in needs_action_changed_rids.items():
+                        comp = self.calendar.overriddenComponent(rid)
+                        if comp is None:
+                            comp = self.calendar.deriveInstance(rid)
+                            if comp is not None:
+                                self.calendar.addComponent(comp)
+
+                        for attendee in comp.getAllAttendeeProperties():
+                            if attendee.value() in attendees:
+                                seq = comp.propertyValue("SEQUENCE", 0)
+                                attendee.setParameter("X-CALENDARSERVER-RESET-PARTSTAT", str(seq))
                 else:
                     log.debug("Implicit - organizer '{organizer}' is splitting UID: '{uid}'", organizer=self.organizer, uid=self.uid)
 
@@ -744,18 +765,23 @@ class ImplicitScheduler(object):
 
                 self.checkStatusCancelled(status_cancelled, only_status)
 
-                # For now we always bump the sequence number on modifications because we cannot track DTSTAMP on
-                # the Attendee side. But we check the old and the new and only bump if the client did not already do it.
-                self.needs_sequence_change = self.calendar.needsiTIPSequenceChange(self.oldcalendar)
-
         elif self.action == "create":
             if self.split_details is None:
                 log.debug("Implicit - organizer '{organizer}' is creating UID: '{uid}'", organizer=self.organizer, uid=self.uid)
                 self.coerceAttendeesPartstatOnCreate()
 
+                # We need to handle the case where an organizer "restores" a previously delete event that has a sequence
+                # lower than the one used in the cancel that attendees may still have. In this case what we need to do
+                # is force the sequence to a new value that is significantly higher than the highest one present.
+                # Also, if queued, the sequence has already been changed
+                if not queued:
+                    seqs = map(lambda x: x.value(), self.calendar.getAllPropertiesInAnyComponent("SEQUENCE", depth=1))
+                    maxseq = max(seqs) if seqs else 0
+                    if maxseq != 0:
+                        self.calendar.replacePropertyInAllComponents(Property("SEQUENCE", maxseq + 1000))
+
             else:
                 log.debug("Implicit - organizer '{organizer}' is creating a split UID: '{uid}'", organizer=self.organizer, uid=self.uid)
-                self.needs_sequence_change = False
 
         # Always set RSVP=TRUE for any NEEDS-ACTION
         for attendee in self.calendar.getAllAttendeeProperties():
@@ -768,20 +794,8 @@ class ImplicitScheduler(object):
                 attendee.removeParameter("PARTSTAT")
 
         # If processing a queue item, actually execute the scheduling operations, else queue it.
-        # Note a split is always queued, so we do not need to re-queue
+        # Note a split is always a queued execution, so we do not need to re-queue
         if queued or not config.Scheduling.Options.WorkQueues.Enabled or self.split_details is not None:
-            if self.action == "create":
-                if self.split_details is None:
-                    # We need to handle the case where an organizer "restores" a previously delete event that has a sequence
-                    # lower than the one used in the cancel that attendees may still have. In this case what we need to do
-                    # is force the sequence to a new value that is significantly higher than the highest one present.
-                    seqs = map(lambda x: x.value(), self.calendar.getAllPropertiesInAnyComponent("SEQUENCE", depth=1))
-                    maxseq = max(seqs) if seqs else 0
-                    if maxseq != 0:
-                        self.calendar.replacePropertyInAllComponents(Property("SEQUENCE", maxseq + 1000))
-            elif self.needs_sequence_change:
-                self.calendar.bumpiTIPInfo(oldcalendar=self.oldcalendar, doSequence=True)
-
             yield self.scheduleWithAttendees()
         else:
             yield self.queuedScheduleWithAttendees()
@@ -795,9 +809,25 @@ class ImplicitScheduler(object):
 
 
     def isOrganizerChangeInsignificant(self):
+        """
+        Detect exactly how an organizer update has changed an event and report back the key items
+        needed for iTIP scheduling for those changes. These items are returned:
+
+        L{rids} - the L{DateTime} for each instance that had any kind of change
+        L{date_changed_rids} - the L{DateTime} for each instance that had a scheduling
+            change that needs to reset every ATTENDEE;PARTSTAT to NEEDS-ACTION
+        L{needs_action_changed_rids} - the L{DateTime}:L{set} map for each instance
+            where an ATTENDEE property was reset to NEEDS-ACTION by the organizer
+        L{reinvites} - the L{set} of each attendee that has a SCHEDULE-FORCE-SEND
+        L{recurrence_reschedule} - whether or not an entire reschedule of an RRULE
+            has occurred
+        L{status_cancelled} - the L{DateTime} for each instance that now has STATUS:CANCELLED
+        L{only_status} - L{True} if the only change was a STATUS change
+        """
 
         rids = None
         date_changed_rids = None
+        needs_action_changed_rids = None
         reinvites = None
         recurrence_reschedule = False
         status_cancelled = set()
@@ -806,11 +836,16 @@ class ImplicitScheduler(object):
         no_change = differ.organizerDiff()
         if not no_change:
             # ORGANIZER change is absolutely not allowed!
-            diffs = differ.whatIsDifferent()
+            diffs, needs_action_changed_rids = differ.whatIsDifferent()
             rids = set()
             date_changed_rids = set()
             checkOrganizerValue = False
             for rid, props in diffs.iteritems():
+
+                # Ignore sequence only changes
+                if "SEQUENCE" in props and len(props) == 1:
+                    continue
+
                 if "ORGANIZER" in props:
                     checkOrganizerValue = True
                 rids.add(rid)
@@ -904,7 +939,7 @@ class ImplicitScheduler(object):
                     pass
 
         return (
-            no_change, rids, date_changed_rids, reinvites,
+            no_change, rids, date_changed_rids, needs_action_changed_rids, reinvites,
             recurrence_reschedule, status_cancelled, only_status
         )
 
@@ -1146,22 +1181,6 @@ class ImplicitScheduler(object):
             len(self.calendar.getAllUniqueAttendees()) - 1,
             self.do_smart_merge,
         )
-
-        # We bump the sequence AFTER storing the work item data to make sure that the sequence
-        # change does not cause unchanged components to be treated as changed when the work
-        # item executes.
-
-        if self.action == "create":
-            # We need to handle the case where an organizer "restores" a previously delete event that has a sequence
-            # lower than the one used in the cancel that attendees may still have. In this case what we need to do
-            # is force the sequence to a new value that is significantly higher than the highest one present.
-            seqs = map(lambda x: x.value(), self.calendar.getAllPropertiesInAnyComponent("SEQUENCE", depth=1))
-            maxseq = max(seqs) if seqs else 0
-            if maxseq != 0:
-                self.calendar.replacePropertyInAllComponents(Property("SEQUENCE", maxseq + 1000))
-
-        elif self.needs_sequence_change:
-            self.calendar.bumpiTIPInfo(oldcalendar=self.oldcalendar, doSequence=True)
 
         # First process cancelled attendees
         total = (yield self.processCancels(queued=True))
@@ -1701,6 +1720,7 @@ class ImplicitScheduler(object):
         if self.logItems is not None:
             self.logItems["itip.reply"] = "reply"
 
+        itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee, changedRids=changedRids)
         if config.Scheduling.Options.WorkQueues.Enabled:
             # Always make it look like scheduling succeeded when queuing
             self.calendar.setParameterToValueForPropertyWithValue(
@@ -1710,11 +1730,9 @@ class ImplicitScheduler(object):
                 self.organizer,
             )
 
-            return ScheduleReplyWork.reply(self.txn, self.calendar_home, self.resource, changedRids, self.attendee)
+            return ScheduleReplyWork.reply(self.txn, self.calendar_home, self.resource, itipmsg, self.attendee)
 
         else:
-            itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee, changedRids=changedRids)
-
             # Send scheduling message
             return self.sendToOrganizer("REPLY", itipmsg)
 
@@ -1727,12 +1745,11 @@ class ImplicitScheduler(object):
         if self.logItems is not None:
             self.logItems["itip.reply"] = "cancel"
 
+        itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee, force_decline=True)
+
         if config.Scheduling.Options.WorkQueues.Enabled:
-            return ScheduleReplyCancelWork.replyCancel(self.txn, self.calendar_home, self.calendar, self.attendee)
-
+            return ScheduleReplyWork.reply(self.txn, self.calendar_home, None, itipmsg, self.attendee)
         else:
-            itipmsg = iTipGenerator.generateAttendeeReply(self.calendar, self.attendee, force_decline=True)
-
             # Send scheduling message
             return self.sendToOrganizer("CANCEL", itipmsg)
 

@@ -580,8 +580,8 @@ def getRootResource(config, newStore, resources=None):
         )
         root.putChild(".well-known", wellKnownResource)
         for enabled, wellknown_name, redirected_to in (
-            (config.EnableCalDAV, "caldav", "/",),
-            (config.EnableCardDAV, "carddav", "/",),
+            (config.EnableCalDAV, "caldav", "/principals",),
+            (config.EnableCardDAV, "carddav", "/principals",),
             (config.TimezoneService.Enabled, "timezone", "/stdtimezones",),
             (config.Scheduling.iSchedule.Enabled, "ischedule", "/ischedule"),
         ):

@@ -772,6 +772,7 @@ class iCalDiff(object):
             return map
 
         rids = {}
+        needs_action_changes = {}
 
         oldmap = mapComponents(self.oldcalendar)
         oldset = set(oldmap.keys())
@@ -782,7 +783,7 @@ class iCalDiff(object):
         for key in (oldset & newset):
             component1 = oldmap[key]
             component2 = newmap[key]
-            self._diffComponents(component1, component2, rids, isiTip)
+            self._diffComponents(component1, component2, rids, needs_action_changes, isiTip)
 
         # Now verify that each additional component in oldset matches a derived component in newset
         for key in oldset - newset:
@@ -796,7 +797,7 @@ class iCalDiff(object):
                 if not isiTip:
                     rids[rid.getText() if rid is not None else ""] = {"DTSTART": set()}
                 continue
-            self._diffComponents(oldcomponent, newcomponent, rids, isiTip)
+            self._diffComponents(oldcomponent, newcomponent, rids, needs_action_changes, isiTip)
 
         # Now verify that each additional component in oldset matches a derived component in newset
         for key in newset - oldset:
@@ -810,9 +811,9 @@ class iCalDiff(object):
                     rids[rid.getText() if rid is not None else ""] = {"DTSTART": set()}
                 continue
             newcomponent = newmap[key]
-            self._diffComponents(oldcomponent, newcomponent, rids, isiTip)
+            self._diffComponents(oldcomponent, newcomponent, rids, needs_action_changes, isiTip)
 
-        return rids
+        return (rids, needs_action_changes,)
 
 
     TRPROPS = frozenset((
@@ -839,7 +840,8 @@ class iCalDiff(object):
         @rtype: L{bool}
         """
 
-        for props in self.whatIsDifferent(isiTip=False).values():
+        rids, _ignore_changes = self.whatIsDifferent(isiTip=False)
+        for props in rids.values():
             props = frozenset(props.keys())
             if props & self.TRPROPS:
                 return True
@@ -930,7 +932,7 @@ class iCalDiff(object):
         return comp
 
 
-    def _diffComponents(self, comp1, comp2, rids, isiTip=True):
+    def _diffComponents(self, comp1, comp2, rids, needs_action_rids, isiTip=True):
 
         assert isinstance(comp1, Component) and isinstance(comp2, Component)
 
@@ -945,6 +947,7 @@ class iCalDiff(object):
         # Diff all the properties
         propdiff = set(comp1.properties()) ^ set(comp2.properties())
         addedChanges = False
+        attendeeChanges = False
 
         propsChanged = {}
         for prop in propdiff:
@@ -955,6 +958,8 @@ class iCalDiff(object):
                 "X-CALENDARSERVER-PRIVATE-COMMENT",
             ):
                 continue
+            if prop.name() == "ATTENDEE":
+                attendeeChanges = True
             propsChanged.setdefault(prop.name(), set())
             addedChanges = True
             prop1s = tuple(comp1.properties(prop.name()))
@@ -971,6 +976,29 @@ class iCalDiff(object):
         if addedChanges:
             rid = comp1.getRecurrenceIDUTC()
             rids[rid] = propsChanged
+
+        if attendeeChanges:
+            self._diffNeedsAction(comp1, comp2, needs_action_rids)
+
+
+    def _diffNeedsAction(self, comp1, comp2, needs_action_rids):
+
+        rid = comp1.getRecurrenceIDUTC()
+
+        # Get all the properties
+        attendees1 = comp1.getAllAttendeeProperties()
+        attendees2 = comp2.getAllAttendeeProperties()
+
+        # Invert
+        attendees1ByValue = dict([(attendee.value(), attendee) for attendee in attendees1])
+        attendees2ByValue = dict([(attendee.value(), attendee) for attendee in attendees2])
+
+        for attendee in attendees2ByValue.keys():
+            if attendee not in attendees1ByValue or (
+                attendees2ByValue[attendee].parameterValue("PARTSTAT", "NEEDS-ACTION") == "NEEDS-ACTION" and
+                attendees1ByValue[attendee].parameterValue("PARTSTAT", "NEEDS-ACTION") != "NEEDS-ACTION"
+            ):
+                needs_action_rids.setdefault(rid, set()).add(attendee)
 
 
     def _logDiffError(self, title):

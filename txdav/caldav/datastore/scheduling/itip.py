@@ -17,21 +17,21 @@
 """
 iTIP (RFC5546) scheduling message processing and generation.
 
-
-This is currently used for handling auto-replies to schedule requests arriving
-in an inbox. It is called in a delayed fashion via reactor.callLater.
+This modules takes an iTIP message, and a matching existing calendar object, and it
+applies the changes implied by the iTIP message to the existing data (or creates new
+data if needed).
 
 We assume that all the components/calendars we deal with have been determined
 as being 'valid for CalDAV/iTIP', i.e. they contain UIDs, single component
 types, etc.
 """
 
+from collections import namedtuple
 
 from twext.python.log import Logger
 
 from twistedcaldav.config import config
-from twistedcaldav.ical import Property, iCalendarProductID, Component, \
-    ignoredComponents
+from twistedcaldav.ical import Property, iCalendarProductID, Component
 
 from pycalendar.datetime import DateTime
 
@@ -44,6 +44,59 @@ __all__ = [
 
 
 class iTipProcessing(object):
+
+    # Information to be transferred from one component to another
+    TransferDetails = namedtuple(
+        "TransferDetails",
+        [
+            "valarms", "private_comments", "transps", "completeds", "organizer",
+            "organizer_schedule_status", "attendee", "attendee_dtstamp", "sequence",
+            "other_props", "recipient",
+        ]
+    )
+
+    @staticmethod
+    def _transferDetails(component, recipient):
+        """
+        Get the L{TransferDetails} from the specified component, which may be L{None}.
+
+        @param component: the component to extract details from
+        @type component: L{Component} or L{None}
+        @param recipient: the attendee whose iTIP message is being processed
+        @type recipient: L{str}
+        """
+        if component:
+            valarms = [comp for comp in component.subcomponents() if comp.name() == "VALARM"]
+            private_comments = tuple(component.properties("X-CALENDARSERVER-PRIVATE-COMMENT"))
+            transps = tuple(component.properties("TRANSP"))
+            completeds = tuple(component.properties("COMPLETED"))
+            organizer = component.getProperty("ORGANIZER")
+            organizer_schedule_status = organizer.parameterValue("SCHEDULE-STATUS", None) if organizer else None
+            attendee = component.getAttendeeProperty((recipient,))
+            attendee_dtstamp = attendee.parameterValue("X-CALENDARSERVER-DTSTAMP") if attendee else None
+            sequence = component.propertyValue("SEQUENCE", 0)
+            other_props = {}
+            for pname in config.Scheduling.CalDAV.PerAttendeeProperties:
+                props = tuple(component.properties(pname))
+                other_props[pname] = props
+        else:
+            valarms = ()
+            private_comments = ()
+            transps = ()
+            completeds = ()
+            organizer = None
+            organizer_schedule_status = None
+            attendee = None
+            attendee_dtstamp = None
+            sequence = 0,
+            other_props = {}
+
+        return iTipProcessing.TransferDetails(
+            valarms, private_comments, transps, completeds, organizer,
+            organizer_schedule_status, attendee, attendee_dtstamp, sequence,
+            other_props, recipient,
+        )
+
 
     @staticmethod
     def processNewRequest(itip_message, recipient=None, creating=False):
@@ -72,10 +125,11 @@ class iTipProcessing(object):
             # Check for incoming DECLINED
             if creating:
                 iTipProcessing.addTranspForNeedsAction(calendar.subcomponents(), recipient)
+                calendar.removePropertyParameters("ATTENDEE", ("X-CALENDARSERVER-RESET-PARTSTAT",))
 
                 master = calendar.masterComponent()
-                for component in tuple(calendar.subcomponents()):
-                    if component in ignoredComponents or component is master:
+                for component in tuple(calendar.subcomponents(ignore=True)):
+                    if component is master:
                         continue
                     attendee = component.getAttendeeProperty((recipient,))
                     if attendee and attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") == "DECLINED":
@@ -118,35 +172,14 @@ class iTipProcessing(object):
         # Merge Organizer data with Attendee's own changes (VALARMs, Comment only for now).
         from txdav.caldav.datastore.scheduling.icaldiff import iCalDiff
         differ = iCalDiff(calendar, itip_message, False)
-        rids = differ.whatIsDifferent()
+        rids, _ignore_changes = differ.whatIsDifferent()
         needs_action_rids, reschedule = differ.attendeeNeedsAction(rids)
 
         # Different behavior depending on whether a master component is present or not
         # Here we cache per-attendee data from the existing master that we need to use in any new
         # overridden components that the organizer added
         current_master = calendar.masterComponent()
-        if current_master:
-            valarms = [comp for comp in current_master.subcomponents() if comp.name() == "VALARM"]
-            private_comments = tuple(current_master.properties("X-CALENDARSERVER-PRIVATE-COMMENT"))
-            transps = tuple(current_master.properties("TRANSP"))
-            completeds = tuple(current_master.properties("COMPLETED"))
-            organizer = current_master.getProperty("ORGANIZER")
-            organizer_schedule_status = organizer.parameterValue("SCHEDULE-STATUS", None) if organizer else None
-            attendee = current_master.getAttendeeProperty((recipient,))
-            attendee_dtstamp = attendee.parameterValue("X-CALENDARSERVER-DTSTAMP") if attendee else None
-            other_props = {}
-            for pname in config.Scheduling.CalDAV.PerAttendeeProperties:
-                props = tuple(current_master.properties(pname))
-                other_props[pname] = props
-        else:
-            valarms = ()
-            private_comments = ()
-            transps = ()
-            completeds = ()
-            organizer_schedule_status = None
-            attendee = None
-            attendee_dtstamp = None
-            other_props = {}
+        details = iTipProcessing._transferDetails(current_master, recipient)
 
         if itip_message.masterComponent() is not None:
 
@@ -156,13 +189,12 @@ class iTipProcessing(object):
             # Copy over master alarms, comments etc
             master_component = new_calendar.masterComponent()
             transfer_partstat = None not in needs_action_rids and not reschedule
-            seq_change = Component.compareComponentsForITIP(master_component, current_master, use_dtstamp=False) <= 0 if current_master is not None else False
-            iTipProcessing._transferItems(master_component, transfer_partstat and seq_change, valarms, private_comments, transps, completeds, organizer_schedule_status, attendee, attendee_dtstamp, other_props, recipient)
+            iTipProcessing._transferItems(master_component, transfer_partstat, details)
 
             # Now try to match recurrences in the new calendar
             for component in tuple(new_calendar.subcomponents()):
                 if component.name() != "VTIMEZONE" and component.getRecurrenceIDUTC() is not None:
-                    iTipProcessing.transferItems(calendar, component, needs_action_rids, reschedule, valarms, private_comments, transps, completeds, organizer_schedule_status, attendee, attendee_dtstamp, other_props, recipient)
+                    iTipProcessing.transferItems(calendar, component, needs_action_rids, reschedule, details)
 
             # Now try to match recurrences from the old calendar
             for component in calendar.subcomponents():
@@ -181,11 +213,12 @@ class iTipProcessing(object):
                                 new_calendar.addComponent(component.duplicate())
                             else:
                                 new_calendar.addComponent(new_component)
-                                iTipProcessing.transferItems(calendar, new_component, needs_action_rids, reschedule, valarms, private_comments, transps, completeds, organizer_schedule_status, attendee, attendee_dtstamp, other_props, recipient)
+                                iTipProcessing.transferItems(calendar, new_component, needs_action_rids, reschedule, details)
                                 if hidden:
                                     new_component.addProperty(Property(Component.HIDDEN_INSTANCE_PROPERTY, "T"))
 
             iTipProcessing.addTranspForNeedsAction(new_calendar.subcomponents(), recipient)
+            new_calendar.removePropertyParameters("ATTENDEE", ("X-CALENDARSERVER-RESET-PARTSTAT",))
 
             # Replace the entire object
             return new_calendar, rids
@@ -202,7 +235,7 @@ class iTipProcessing(object):
                         calendar.addComponent(component)
                 else:
                     component = component.duplicate()
-                    missingDeclined = iTipProcessing.transferItems(calendar, component, needs_action_rids, reschedule, valarms, private_comments, transps, completeds, organizer_schedule_status, attendee, attendee_dtstamp, other_props, recipient, remove_matched=True)
+                    missingDeclined = iTipProcessing.transferItems(calendar, component, needs_action_rids, reschedule, details, remove_matched=True)
                     if not missingDeclined:
                         # Add the component and make sure to remove any matching EXDATE
                         calendar.addComponent(component)
@@ -210,6 +243,7 @@ class iTipProcessing(object):
                             current_master.removeExdate(component.getRecurrenceIDUTC())
 
             iTipProcessing.addTranspForNeedsAction(calendar.subcomponents(), recipient)
+            calendar.removePropertyParameters("ATTENDEE", ("X-CALENDARSERVER-RESET-PARTSTAT",))
 
             # Write back the modified object
             return calendar, rids
@@ -251,7 +285,7 @@ class iTipProcessing(object):
             else:
                 # Cancel every instance in the existing event and sync over SEQUENCE
                 calendar.replacePropertyInAllComponents(Property("STATUS", "CANCELLED"))
-                newseq = itip_message.masterComponent().propertyValue("SEQUENCE")
+                newseq = itip_message.masterComponent().propertyValue("SEQUENCE", 0)
                 calendar.replacePropertyInAllComponents(Property("SEQUENCE", newseq))
                 return True, False, None
 
@@ -291,7 +325,7 @@ class iTipProcessing(object):
                 else:
                     # Existing component is cancelled.
                     overridden.replaceProperty(Property("STATUS", "CANCELLED"))
-                    newseq = component.propertyValue("SEQUENCE")
+                    newseq = component.propertyValue("SEQUENCE", 0)
                     overridden.replaceProperty(Property("SEQUENCE", newseq))
 
             elif calendar_master:
@@ -306,7 +340,7 @@ class iTipProcessing(object):
                     if overridden is not None:
                         overridden.replaceProperty(Property("STATUS", "CANCELLED"))
                         calendar.addComponent(overridden)
-                        newseq = component.propertyValue("SEQUENCE")
+                        newseq = component.propertyValue("SEQUENCE", 0)
                         overridden.replaceProperty(Property("SEQUENCE", newseq))
 
         # If we have any EXDATEs lets add them to the existing calendar object.
@@ -355,7 +389,7 @@ class iTipProcessing(object):
         attendees = set()
         rids = set()
         if new_master is not None and old_master is not None:
-            attendee, partstat, private_comment = iTipProcessing.updateAttendeeData(new_master, old_master)
+            attendee, partstat, private_comment = iTipProcessing.updateAttendeeDataFromReply(new_master, old_master)
             if attendee:
                 attendees.add(attendee)
                 if partstat or private_comment:
@@ -405,7 +439,7 @@ class iTipProcessing(object):
                     log.error("Ignoring instance: %s in iTIP REPLY for: %s" % (rid, itip_message.resourceUID()))
                     continue
 
-            attendee, partstat, private_comment = iTipProcessing.updateAttendeeData(itip_component, match_component)
+            attendee, partstat, private_comment = iTipProcessing.updateAttendeeDataFromReply(itip_component, match_component)
             if attendee:
                 attendees.add(attendee)
                 if rids is not None and (partstat or private_comment):
@@ -423,20 +457,20 @@ class iTipProcessing(object):
 
 
     @staticmethod
-    def updateAttendeeData(from_component, to_component):
+    def updateAttendeeDataFromReply(reply_component, organizer_component):
         """
         Called when processing a REPLY only.
 
-        Copy the PARTSTAT of the Attendee in the from_component to the matching ATTENDEE
-        in the to_component. Ignore if no match found. Also update the private comments.
+        Copy the PARTSTAT of the Attendee in the reply_component to the matching ATTENDEE
+        in the organizer_component. Ignore if no match found. Also update the private comments.
 
         For VPOLL we need to copy POLL-ITEM-ID response values into the actual matching
         polled sub-components as VOTER properties.
 
-        @param from_component: component to copy from
-        @type from_component: L{Component}
-        @param to_component: component to copy to
-        @type to_component: L{Component}
+        @param reply_component: component to copy from
+        @type reply_component: L{Component}
+        @param organizer_component: component to copy to
+        @type organizer_component: L{Component}
         """
 
         # Track what changed
@@ -444,24 +478,28 @@ class iTipProcessing(object):
         private_comment_changed = False
 
         # Get REQUEST-STATUS as we need to write that into the saved ATTENDEE property
-        reqstatus = tuple(from_component.properties("REQUEST-STATUS"))
+        reqstatus = tuple(reply_component.properties("REQUEST-STATUS"))
         if reqstatus:
             reqstatus = ",".join(status.value()[0] for status in reqstatus)
         else:
             reqstatus = "2.0"
 
-        # Get attendee in from_component - there MUST be only one
-        attendees = tuple(from_component.properties(from_component.recipientPropertyName()))
+        # Get attendee in reply_component - there MUST be only one
+        attendees = tuple(reply_component.properties(reply_component.recipientPropertyName()))
         if len(attendees) != 1:
-            log.error("There must be one and only one ATTENDEE property in a REPLY\n%s" % (str(from_component),))
+            log.error("There must be one and only one ATTENDEE property in a REPLY\n%s" % (str(reply_component),))
             return None, False, False
 
         attendee = attendees[0]
         partstat = attendee.parameterValue("PARTSTAT", "NEEDS-ACTION")
+        reply_sequence = reply_component.propertyValue("SEQUENCE", 0)
 
-        # Now find matching ATTENDEE in to_component
-        existing_attendee = to_component.getAttendeeProperty((attendee.value(),))
-        if existing_attendee:
+        # Now find matching ATTENDEE in organizer_component
+        existing_attendee = organizer_component.getAttendeeProperty((attendee.value(),))
+        existing_reset_sequence = int(existing_attendee.parameterValue("X-CALENDARSERVER-RESET-PARTSTAT", "0")) if existing_attendee else 0
+
+        # Only process the change for this component if it was made after the last partstat reset
+        if existing_attendee and reply_sequence >= existing_reset_sequence:
             oldpartstat = existing_attendee.parameterValue("PARTSTAT", "NEEDS-ACTION")
             existing_attendee.setParameter("PARTSTAT", partstat)
             existing_attendee.setParameter("SCHEDULE-STATUS", reqstatus)
@@ -477,11 +515,11 @@ class iTipProcessing(object):
             # Handle attendee comments
             if config.Scheduling.CalDAV.get("EnablePrivateComments", True):
                 # Look for X-CALENDARSERVER-PRIVATE-COMMENT property in iTIP component (State 1 in spec)
-                attendee_comment = tuple(from_component.properties("X-CALENDARSERVER-PRIVATE-COMMENT"))
+                attendee_comment = tuple(reply_component.properties("X-CALENDARSERVER-PRIVATE-COMMENT"))
                 attendee_comment = attendee_comment[0] if len(attendee_comment) else None
 
                 # Look for matching X-CALENDARSERVER-ATTENDEE-COMMENT property in existing data (State 2 in spec)
-                private_comments = tuple(to_component.properties("X-CALENDARSERVER-ATTENDEE-COMMENT"))
+                private_comments = tuple(organizer_component.properties("X-CALENDARSERVER-ATTENDEE-COMMENT"))
                 for comment in private_comments:
                     attendeeref = comment.parameterValue("X-CALENDARSERVER-ATTENDEE-REF")
                     if attendeeref == attendee.value():
@@ -500,7 +538,7 @@ class iTipProcessing(object):
 
             elif attendee_comment is None and private_comment is not None:
                 # We now remove the private comment on the organizer's side if the attendee removed it
-                to_component.removeProperty(private_comment)
+                organizer_component.removeProperty(private_comment)
 
                 private_comment_changed = True
 
@@ -515,7 +553,7 @@ class iTipProcessing(object):
                         "X-CALENDARSERVER-DTSTAMP": DateTime.getNowUTC().getText(),
                     }
                 )
-                to_component.addProperty(private_comment)
+                organizer_component.addProperty(private_comment)
 
                 private_comment_changed = True
 
@@ -535,33 +573,31 @@ class iTipProcessing(object):
                     private_comment_changed = True
 
             # Do VPOLL transfer
-            if from_component.name() == "VPOLL":
+            if reply_component.name() == "VPOLL":
                 # TODO: figure out how to report changes back
-                iTipProcessing.updateVPOLLData(from_component, to_component, attendee)
+                iTipProcessing.updateVPOLLDataFromReply(reply_component, organizer_component, attendee)
 
         return attendee.value(), partstat_changed, private_comment_changed
 
 
     @staticmethod
-    def updateVPOLLData(from_component, to_component, attendee):
+    def updateVPOLLDataFromReply(reply_component, organizer_component, attendee):
         """
         Update VPOLL sub-components with voter's response.
 
-        @param from_component: component to copy from
-        @type from_component: L{Component}
-        @param to_component: component to copy to
-        @type to_component: L{Component}
+        @param reply_component: component to copy from
+        @type reply_component: L{Component}
+        @param organizer_component: component to copy to
+        @type organizer_component: L{Component}
         @param attendee: attendee being processed
         @type attendee: L{Property}
         """
 
         responses = {}
-        for prop in from_component.properties("POLL-ITEM-ID"):
+        for prop in reply_component.properties("POLL-ITEM-ID"):
             responses[prop.value()] = prop
 
-        for component in to_component.subcomponents():
-            if component.name() in ignoredComponents:
-                continue
+        for component in organizer_component.subcomponents(ignore=True):
             poll_item_id = component.propertyValue("POLL-ITEM-ID")
             if poll_item_id is None:
                 continue
@@ -581,7 +617,7 @@ class iTipProcessing(object):
 
 
     @staticmethod
-    def transferItems(from_calendar, to_component, needs_action_rids, reschedule, valarms, private_comments, transps, completeds, organizer_schedule_status, attendee, attendee_dtstamp, other_props, recipient, remove_matched=False):
+    def transferItems(from_calendar, to_component, needs_action_rids, reschedule, master_details, remove_matched=False):
         """
         Transfer properties from a calendar to a component by first trying to match the component in the original calendar and
         use the properties from that, or use the values provided as arguments (which have been derived from the original calendar's
@@ -591,22 +627,8 @@ class iTipProcessing(object):
         @type from_calendar: L{Component}
         @param to_component: the new component to transfer items to
         @type to_component: L{Component}
-        @param valarms: a C{list} of VALARM components from the old master to use
-        @type valarms: C{list}
-        @param private_comments: a C{list} of private comment properties from the old master to use
-        @type private_comments: C{list}
-        @param transps: a C{list} of TRANSP properties from the old master to use
-        @type transps: C{list}
-        @param completeds: a C{list} of COMPLETED properties from the old master to use
-        @type completeds: C{list}
-        @param organizer_schedule_status: a the SCHEDULE-STATUS value for the organizer from the old master to use
-        @type organizer_schedule_status: C{str}
-        @param attendee_dtstamp: an the ATTENDEE DTSTAMP parameter value from the old master to use
-        @type attendee_dtstamp: C{str}
-        @param other_props: other properties from the old master to use
-        @type other_props: C{list}
-        @param recipient: the calendar user address of the attendee whose data is being processed
-        @type recipient: C{str}
+        @param master_details: the L{TransferDetails} for the master component
+        @type master_details: L{TransferDetails}
         @param remove_matched: whether or not to remove the matching component rather than transfer items
         @type remove_matched: C{bool}
 
@@ -620,24 +642,13 @@ class iTipProcessing(object):
         # Is there a matching component
         matched = from_calendar.overriddenComponent(rid)
         if matched:
-            valarms = [comp for comp in matched.subcomponents() if comp.name() == "VALARM"]
-            private_comments = tuple(matched.properties("X-CALENDARSERVER-PRIVATE-COMMENT"))
-            transps = tuple(matched.properties("TRANSP"))
-            completeds = tuple(matched.properties("COMPLETED"))
-            organizer = matched.getProperty("ORGANIZER")
-            organizer_schedule_status = organizer.parameterValue("SCHEDULE-STATUS", None) if organizer else None
-            attendee = matched.getAttendeeProperty((recipient,))
-            attendee_dtstamp = attendee.parameterValue("X-CALENDARSERVER-DTSTAMP") if attendee else None
-            other_props = {}
-            for pname in config.Scheduling.CalDAV.PerAttendeeProperties:
-                props = tuple(matched.properties(pname))
-                other_props[pname] = props
 
-            seq_change = Component.compareComponentsForITIP(to_component, matched, use_dtstamp=False) <= 0
-            iTipProcessing._transferItems(to_component, transfer_partstat and seq_change, valarms, private_comments, transps, completeds, organizer_schedule_status, attendee, attendee_dtstamp, other_props, recipient)
+            details = iTipProcessing._transferDetails(matched, master_details.recipient)
+
+            iTipProcessing._transferItems(to_component, transfer_partstat, details)
 
             # Check for incoming DECLINED
-            to_attendee = to_component.getAttendeeProperty((recipient,))
+            to_attendee = to_component.getAttendeeProperty((details.recipient,))
             if to_attendee and to_attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") == "DECLINED":
                 # If existing item has HIDDEN property copy that over
                 if matched.hasProperty(Component.HIDDEN_INSTANCE_PROPERTY):
@@ -649,16 +660,14 @@ class iTipProcessing(object):
 
             # Check to see if the new component is cancelled as that could mean we are copying in the wrong attendee state
             if to_component.propertyValue("STATUS") == "CANCELLED":
-                if attendee and to_attendee:
-                    to_attendee.setParameter("PARTSTAT", attendee.parameterValue("PARTSTAT", "NEEDS-ACTION"))
+                if details.attendee and to_attendee:
+                    to_attendee.setParameter("PARTSTAT", details.attendee.parameterValue("PARTSTAT", "NEEDS-ACTION"))
 
         else:
-            master_component = from_calendar.masterComponent()
-            seq_change = (Component.compareComponentsForITIP(to_component, master_component, use_dtstamp=False) <= 0) if master_component is not None else True
-            iTipProcessing._transferItems(to_component, transfer_partstat and seq_change, valarms, private_comments, transps, completeds, organizer_schedule_status, attendee, attendee_dtstamp, other_props, recipient)
+            iTipProcessing._transferItems(to_component, transfer_partstat, master_details)
 
             # Check for incoming DECLINED
-            attendee = to_component.getAttendeeProperty((recipient,))
+            attendee = to_component.getAttendeeProperty((master_details.recipient,))
             if attendee and attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") == "DECLINED":
                 return True
 
@@ -666,7 +675,7 @@ class iTipProcessing(object):
 
 
     @staticmethod
-    def _transferItems(to_component, transfer_partstat, valarms, private_comments, transps, completeds, organizer_schedule_status, old_attendee, attendee_dtstamp, other_props, recipient):
+    def _transferItems(to_component, transfer_partstat, details):
         """
         Transfer properties the key per-attendee properties from one component to another. Note that the key properties are pulled out into separate items, because they
         may have been derived from the master.
@@ -675,22 +684,8 @@ class iTipProcessing(object):
         @type to_component: L{Component}
         @param partstat_change: whether not to transfer the old PARTSTAT over
         @type partstat_change: C{bool}
-        @param valarms: a C{list} of VALARM components from the old master to use
-        @type valarms: C{list}
-        @param private_comments: a C{list} of private comment properties from the old master to use
-        @type private_comments: C{list}
-        @param transps: a C{list} of TRANSP properties from the old master to use
-        @type transps: C{list}
-        @param completeds: a C{list} of COMPLETED properties from the old master to use
-        @type completeds: C{list}
-        @param organizer_schedule_status: a the SCHEDULE-STATUS value for the organizer from the old master to use
-        @type organizer_schedule_status: C{str}
-        @param attendee_dtstamp: an the ATTENDEE DTSTAMP parameter value from the old master to use
-        @type attendee_dtstamp: C{str}
-        @param other_props: other properties from the old master to use
-        @type other_props: C{list}
-        @param recipient: the calendar user address of the attendee whose data is being processed
-        @type recipient: C{str}
+        @param details: the L{TransferDetails} for the master component
+        @type details: L{TransferDetails}
 
         @return: C{True} if an EXDATE match occurred requiring the incoming component to be removed.
         """
@@ -702,28 +697,36 @@ class iTipProcessing(object):
         to_component.removeProperty("X-CALENDARSERVER-PRIVATE-COMMENT")
         to_component.removeProperty("TRANSP")
         to_component.removeProperty("COMPLETED")
-        for propname in other_props.keys():
+        for propname in details.other_props.keys():
             to_component.removeProperty(propname)
 
-        [to_component.addComponent(alarm) for alarm in valarms]
-        [to_component.addProperty(comment) for comment in private_comments]
-        [to_component.replaceProperty(transp) for transp in transps]
-        [to_component.replaceProperty(completed) for completed in completeds]
-        for props in other_props.values():
+        [to_component.addComponent(alarm) for alarm in details.valarms]
+        [to_component.addProperty(comment) for comment in details.private_comments]
+        [to_component.replaceProperty(transp) for transp in details.transps]
+        [to_component.replaceProperty(completed) for completed in details.completeds]
+        for props in details.other_props.values():
             [to_component.replaceProperty(prop) for prop in props]
 
-        if organizer_schedule_status:
+        if details.organizer_schedule_status:
             organizer = to_component.getProperty("ORGANIZER")
             if organizer:
-                organizer.setParameter("SCHEDULE-STATUS", organizer_schedule_status)
+                organizer.setParameter("SCHEDULE-STATUS", details.organizer_schedule_status)
 
         # ATTENDEE property merge
-        attendee = to_component.getAttendeeProperty((recipient,))
-        if old_attendee and attendee and transfer_partstat:
-            iTipProcessing.mergePartStat(old_attendee, attendee)
+        attendee = to_component.getAttendeeProperty((details.recipient,))
 
-        if attendee_dtstamp and attendee:
-            attendee.setParameter("X-CALENDARSERVER-DTSTAMP", attendee_dtstamp)
+        # Handle explicit PARTSTAT reset by checking for the X-CALENDARSERVER-RESET-PARTSTAT parameter and
+        # comparing it to the sequence of the original component
+        if attendee:
+            reset_sequence = int(attendee.parameterValue("X-CALENDARSERVER-RESET-PARTSTAT", "0"))
+            if details.sequence < reset_sequence:
+                transfer_partstat = False
+
+        if details.attendee and attendee and transfer_partstat:
+            iTipProcessing.mergePartStat(details.attendee, attendee)
+
+        if details.attendee_dtstamp and attendee:
+            attendee.setParameter("X-CALENDARSERVER-DTSTAMP", details.attendee_dtstamp)
 
         return False
 
@@ -789,9 +792,7 @@ class iTipProcessing(object):
 
         # If master component exists, compare all in iTIP and update if any are new
         if cal_master:
-            for itip_component in itip.subcomponents():
-                if itip_component.name() in ignoredComponents:
-                    continue
+            for itip_component in itip.subcomponents(ignore=True):
                 cal_component = calendar.overriddenComponent(itip_component.getRecurrenceIDUTC())
                 if cal_component is None:
                     cal_component = cal_master
@@ -806,9 +807,7 @@ class iTipProcessing(object):
         elif itip_master:
 
             # Do comparison of each appropriate component if any one is new, process the itip
-            for cal_component in calendar.subcomponents():
-                if cal_component.name() in ignoredComponents:
-                    continue
+            for cal_component in calendar.subcomponents(ignore=True):
                 itip_component = itip.overriddenComponent(cal_component.getRecurrenceIDUTC())
                 if itip_component is None:
                     itip_component = itip_master
@@ -826,14 +825,10 @@ class iTipProcessing(object):
             # that has been removed. Not much we can do about it without additional tracking.
 
             cal_rids = set()
-            for cal_component in calendar.subcomponents():
-                if cal_component.name() in ignoredComponents:
-                    continue
+            for cal_component in calendar.subcomponents(ignore=True):
                 cal_rids.add(cal_component.getRecurrenceIDUTC())
             itip_rids = set()
-            for itip_component in itip.subcomponents():
-                if itip_component.name() in ignoredComponents:
-                    continue
+            for itip_component in itip.subcomponents(ignore=True):
                 itip_rids.add(itip_component.getRecurrenceIDUTC())
 
             # Compare ones that match
@@ -902,8 +897,8 @@ class iTipGenerator(object):
             # Add some required properties extracted from the original
             comp.addProperty(Property("DTSTAMP", instance.propertyValue("DTSTAMP")))
             comp.addProperty(Property("UID", instance.propertyValue("UID")))
-            seq = instance.propertyValue("SEQUENCE")
-            seq = int(seq) + 1 if seq else 1
+            seq = instance.propertyValue("SEQUENCE", 0)
+            seq = seq + 1
             comp.addProperty(Property("SEQUENCE", seq))
             comp.addProperty(instance.getOrganizerProperty())
             if instance_rid:
@@ -1020,9 +1015,7 @@ class iTipGenerator(object):
         itip.removeAllButOneAttendee(attendee)
 
         # Remove all components which are missing the attendee
-        for component in itip.subcomponents():
-            if component.name() in ignoredComponents:
-                continue
+        for component in itip.subcomponents(ignore=True):
             if not component.getAttendeeProperty((attendee,)):
                 itip.removeComponent(component)
 
@@ -1083,9 +1076,7 @@ class iTipGenerator(object):
         @type attendee: C{str}
         """
 
-        for component in tuple(vpoll.subcomponents()):
-            if component.name() in ignoredComponents:
-                continue
+        for component in tuple(vpoll.subcomponents(ignore=True)):
             poll_item_id = component.propertyValue("POLL-ITEM-ID")
             if poll_item_id is None:
                 continue
@@ -1117,7 +1108,10 @@ class iTipGenerator(object):
         else:
             # Attendee properties that need to go to the Organizer
             keep_properties = ("X-CALENDARSERVER-PRIVATE-COMMENT",)
-        itip.removeXProperties(keep_properties=keep_properties)
+        keep_parameters = {
+            "ATTENDEE": set(("X-CALENDARSERVER-RESET-PARTSTAT",)),
+        }
+        itip.removeXProperties(keep_properties=keep_properties, keep_parameters=keep_parameters)
 
         # Property Parameters
         itip.removePropertyParameters("ATTENDEE", ("SCHEDULE-AGENT", "SCHEDULE-STATUS", "SCHEDULE-FORCE-SEND", "X-CALENDARSERVER-DTSTAMP",))
