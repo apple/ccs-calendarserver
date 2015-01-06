@@ -20,7 +20,7 @@
 
 -- Just need to add one column
 alter table CALENDAR_HOME
- add column DATAVERSION integer default 1 null;
+ add column DATAVERSION integer default 1 not null;
  
 -- Need to add timestamp columns
 alter table CALENDAR_HOME_METADATA
@@ -33,7 +33,7 @@ alter table CALENDAR
 
 -- Just need to add one column
 alter table ADDRESSBOOK_HOME
- add column DATAVERSION integer default 1 null;
+ add column DATAVERSION integer default 1 not null;
  
 -- Need to add timestamp columns
 alter table ADDRESSBOOK_HOME_METADATA
