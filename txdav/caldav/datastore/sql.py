@@ -692,6 +692,9 @@ class CalendarHome(CommonHome):
             # Ignore inbox - also shared calendars are not part of .calendars()
             if calendar.isInbox():
                 continue
+            # Ignore trash
+            if calendar.isTrash():
+                continue
             split_count = yield calendar.splitCollectionByComponentTypes()
             self.log.warn("  Calendar: '{0}', split into {1}".format(calendar.name(), split_count + 1,))
 
@@ -712,6 +715,8 @@ class CalendarHome(CommonHome):
             calendars = yield self.calendars()
             for calendar in calendars:
                 if calendar.isInbox():
+                    continue
+                if calendar.isTrash():
                     continue
                 names.add(calendar.name())
                 result = yield calendar.getSupportedComponents()
@@ -753,6 +758,8 @@ class CalendarHome(CommonHome):
         # Check validity of the default
         if calendar.isInbox():
             raise InvalidDefaultCalendar("Cannot set inbox as a default calendar")
+        elif calendar.isTrash():
+            raise InvalidDefaultCalendar("Cannot set trash as a default calendar")
         elif not calendar.owned():
             raise InvalidDefaultCalendar("Cannot set shared calendar as a default calendar")
         elif not calendar.isSupportedComponent(componentType):
@@ -807,6 +814,8 @@ class CalendarHome(CommonHome):
         if default is not None:
             if default.isInbox():
                 default = None
+            elif default.isTrash():
+                default = None
             elif not default.owned():
                 default = None
             elif not default.isSupportedComponent(componentType):
@@ -821,6 +830,8 @@ class CalendarHome(CommonHome):
             for calendarName in existing_names:
                 calendar = (yield self.calendarWithName(calendarName))
                 if calendar.isInbox():
+                    continue
+                elif calendar.isTrash():
                     continue
                 elif not calendar.owned():
                     continue
@@ -1313,7 +1324,7 @@ class Calendar(CommonHomeChild):
         @return: C{True} if it does, C{False} otherwise
         @rtype: C{bool}
         """
-        return (self._transp == _TRANSP_OPAQUE) and not self.isInbox()
+        return (self._transp == _TRANSP_OPAQUE) and not self.isInbox() and not self.isTrash()
 
 
     @inlineCallbacks
@@ -1327,7 +1338,7 @@ class Calendar(CommonHomeChild):
         @type use_it: C{bool}
         """
 
-        self._transp = _TRANSP_OPAQUE if use_it and not self.isInbox() else _TRANSP_TRANSPARENT
+        self._transp = _TRANSP_OPAQUE if use_it and (not self.isInbox() and not self.isTrash()) else _TRANSP_TRANSPARENT
         cal = self._bindSchema
         yield Update(
             {cal.TRANSP : self._transp},
@@ -3893,7 +3904,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             if self._dropboxID:
                 yield DropBoxAttachment.resourceRemoved(self._txn, self._resourceID, self._dropboxID)
             yield ManagedAttachment.resourceRemoved(self._txn, self._resourceID)
-        yield super(CalendarObject, self).remove()
+        yield super(CalendarObject, self).reallyRemove()
 
         # Do scheduling
         if scheduler is not None:
@@ -5711,6 +5722,19 @@ class TrashCollection(Calendar):
         )
 
 
+    def isTrash(self):
+        return True
+
+
+    def nameForResource(self, collection, objectResource):
+        return "{}-{}".format(collection._resourceID, objectResource.name())
+
+
+    def parseName(self, name):
+        parentID, resourceName = name.split("-", 1)
+        return int(parentID), resourceName
+
+
     @inlineCallbacks
     def listObjectResources(self):
         """
@@ -5730,10 +5754,9 @@ class TrashCollection(Calendar):
                     objectResource = (
                         yield child.objectResourceWithID(objectID)
                     )
-                    results.append(objectResource.name())
+                    results.append(self.nameForResource(child, objectResource))
 
         returnValue(results)
-
 
 
 

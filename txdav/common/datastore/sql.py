@@ -74,7 +74,7 @@ from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     ObjectResourceNameNotAllowedError, ObjectResourceNameAlreadyExistsError, \
     NoSuchObjectResourceError, AllRetriesFailed, InvalidSubscriptionValues, \
     InvalidIMIPTokenValues, TooManyObjectResourcesError, \
-    SyncTokenValidException
+    SyncTokenValidException, AlreadyInTrashError
 from txdav.common.idirectoryservice import IStoreDirectoryService, \
     DirectoryRecordNotFoundError
 from txdav.common.inotifications import INotificationCollection, \
@@ -5695,6 +5695,10 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             self._notifiers = None
 
 
+    def isTrash(self):
+        return False
+
+
     def memoMe(self, key, memo):
         """
         Add this object to the memo dictionary in whatever fashion is appropriate.
@@ -6846,18 +6850,28 @@ class CommonObjectResource(FancyEqMixin, object):
 
         rows = None
         if name:
+            if parent.isTrash():
+                # the name needs to be split
+                parentID, name = parent.parseName(name)
+            else:
+                parentID = parent._resourceID
+
             rows = yield cls._allColumnsWithParentAndName.on(
                 parent._txn,
                 name=name,
-                parentID=parent._resourceID
+                parentID=parentID
             )
         elif uid:
+            assert not parent.isTrash(), "UID lookup in Trash not supported"
+
             rows = yield cls._allColumnsWithParentAndUID.on(
                 parent._txn,
                 uid=uid,
                 parentID=parent._resourceID
             )
         elif resourceID:
+            assert not parent.isTrash(), "ID lookup in Trash not supported"
+
             rows = yield cls._allColumnsWithParentAndID.on(
                 parent._txn,
                 resourceID=resourceID,
@@ -7335,7 +7349,11 @@ class CommonObjectResource(FancyEqMixin, object):
         """
         Just moves the object to the trash
         """
-        yield self.toTrash()
+
+        if self._parentCollection.isTrash():
+            raise AlreadyInTrashError
+        else:
+            yield self.toTrash()
 
 
     @inlineCallbacks
@@ -7380,7 +7398,12 @@ class CommonObjectResource(FancyEqMixin, object):
         trash = yield self._parentCollection._home.childWithName("trash")
         print("TO TRASH", trash)
         if trash is not None:
-            yield trash._insertRevision(self._name)
+            yield trash._insertRevision(
+                trash.nameForResource(
+                    self._parentCollection,
+                    self
+                )
+            )
 
 
     @inlineCallbacks
@@ -7392,7 +7415,12 @@ class CommonObjectResource(FancyEqMixin, object):
         trash = yield self._parentCollection._home.childWithName("trash")
         print("FROM TRASH", trash)
         if trash is not None:
-            yield trash._deleteRevision(self._name)
+            yield trash._deleteRevision(
+                trash.nameForResource(
+                    self._parentCollection,
+                    self
+                )
+            )
 
 
     @classproperty

@@ -2130,7 +2130,7 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
                     removed=True,
                 )
 
-        yield super(AddressBookObject, self).remove()
+        yield super(AddressBookObject, self).reallyRemove() # FIXME: carddav trash?
         self._kind = None
         self._ownerAddressBookResourceID = None
         self._objectText = None
