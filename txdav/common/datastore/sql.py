@@ -480,7 +480,8 @@ class TransactionStatsCollector(object):
         toFile.write("***\n\n")
 
         if self.logFileName:
-            open(self.logFileName, "a").write(toFile.getvalue())
+            with open(self.logFileName, "a") as f:
+                f.write(toFile.getvalue())
         else:
             log.error(toFile.getvalue())
 

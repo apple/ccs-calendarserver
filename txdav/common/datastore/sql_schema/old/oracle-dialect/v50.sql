@@ -488,12 +488,6 @@ create table CALENDAR_OBJECT_SPLITTER_WORK (
     "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade
 );
 
-create table CALENDAR_OBJECT_UPGRADE_WORK (
-    "WORK_ID" integer primary key,
-    "JOB_ID" integer not null references JOB,
-    "RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade
-);
-
 create table FIND_MIN_VALID_REVISION_WORK (
     "WORK_ID" integer primary key,
     "JOB_ID" integer not null references JOB
@@ -607,7 +601,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '51');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '50');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');
@@ -828,14 +822,6 @@ create index CALENDAR_OBJECT_SPLIT_af71dcda on CALENDAR_OBJECT_SPLITTER_WORK (
 );
 
 create index CALENDAR_OBJECT_SPLIT_33603b72 on CALENDAR_OBJECT_SPLITTER_WORK (
-    JOB_ID
-);
-
-create index CALENDAR_OBJECT_UPGRA_a5c181eb on CALENDAR_OBJECT_UPGRADE_WORK (
-    RESOURCE_ID
-);
-
-create index CALENDAR_OBJECT_UPGRA_39d6f8f9 on CALENDAR_OBJECT_UPGRADE_WORK (
     JOB_ID
 );
 

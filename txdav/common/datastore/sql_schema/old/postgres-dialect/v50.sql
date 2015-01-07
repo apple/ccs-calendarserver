@@ -901,21 +901,6 @@ create index CALENDAR_OBJECT_SPLITTER_WORK_RESOURCE_ID on
 create index CALENDAR_OBJECT_SPLITTER_WORK_JOB_ID on
   CALENDAR_OBJECT_SPLITTER_WORK(JOB_ID);
 
--------------------------
--- Object Upgrade Work --
--------------------------
-
-create table CALENDAR_OBJECT_UPGRADE_WORK (
-  WORK_ID                       integer      primary key default nextval('WORKITEM_SEQ'), -- implicit index
-  JOB_ID                        integer      references JOB not null,
-  RESOURCE_ID                   integer      not null references CALENDAR_OBJECT on delete cascade
-);
-
-create index CALENDAR_OBJECT_UPGRADE_WORK_RESOURCE_ID on
-  CALENDAR_OBJECT_UPGRADE_WORK(RESOURCE_ID);
-create index CALENDAR_OBJECT_UPGRADE_WORK_JOB_ID on
-  CALENDAR_OBJECT_UPGRADE_WORK(JOB_ID);
-
 ---------------------------
 -- Revision Cleanup Work --
 ---------------------------
@@ -1150,7 +1135,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '51');
+insert into CALENDARSERVER values ('VERSION', '50');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');

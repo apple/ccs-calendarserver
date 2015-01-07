@@ -2172,6 +2172,8 @@ END:VEVENT
 END:VCALENDAR
 """
 
+        self.patch(CalendarObject.CalendarObjectUpgradeWork, "delay", 1)
+
         yield self.homeUnderTest(name="user01", create=True)
         calendar = yield self.calendarUnderTest(name="calendar", home="user01")
         yield calendar.createCalendarObjectWithName("data1.ics", Component.fromString(olddata))
@@ -2204,6 +2206,13 @@ END:VCALENDAR
         self.assertTrue("urn:x-uid:user01" in txt)
         self.assertEqual(obj._dataversion, obj._currentDataVersion)
         yield self.commit()
+
+        jobs = yield JobItem.all(self.transactionUnderTest())
+        yield self.commit()
+        self.assertEqual(len(jobs), 1)
+
+        # Wait for it to complete
+        yield JobItem.waitEmpty(self._sqlCalendarStore.newTransaction, reactor, 60)
 
         # Still new
         obj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")

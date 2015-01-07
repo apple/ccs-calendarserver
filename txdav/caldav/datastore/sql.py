@@ -30,7 +30,8 @@ from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.syntax import Count, ColumnSyntax, Delete, \
     Insert, Len, Max, Parameter, Select, Update, utcNowSQL
 from twext.enterprise.locking import NamedLock
-from twext.enterprise.jobqueue import WorkItem
+from twext.enterprise.jobqueue import WorkItem, AggregatedWorkItem, \
+    WORK_PRIORITY_LOW, WORK_WEIGHT_5, WORK_WEIGHT_3
 from twext.enterprise.util import parseSQLTimestamp
 from twext.python.clsprop import classproperty
 from twext.python.filepath import CachingFilePath
@@ -3693,7 +3694,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def component(self):
+    def component(self, doUpdate=False):
         """
         Read calendar data and validate/fix it. Do not raise a store error here
         if there are unfixable errors as that could prevent the overall request
@@ -3735,7 +3736,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
             # Check for on-demand data upgrade
             if self._dataversion < self._currentDataVersion:
-                yield self.upgradeData(component)
+                yield self.upgradeData(component, doUpdate)
 
             self._cachedComponent = component
             self._cachedCommponentPerUser = {}
@@ -3766,7 +3767,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def upgradeData(self, component):
+    def upgradeData(self, component, doUpdate=False):
         """
         Implement in sub-classes. If the data version of this item does not match
         the current data version, call this method and implement a data upgrade,
@@ -3781,7 +3782,38 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             )
 
         self._dataversion = self._currentDataVersion
-        yield self.updateDatabase(component)
+        if doUpdate:
+            # Do the update right now
+            yield self.updateDatabase(component)
+        else:
+            # Do the update later
+            notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=CalendarObject.CalendarObjectUpgradeWork.delay)
+            yield self._txn.enqueue(CalendarObject.CalendarObjectUpgradeWork, resourceID=self._resourceID, notBefore=notBefore)
+
+
+    class CalendarObjectUpgradeWork(AggregatedWorkItem, fromTable(schema.CALENDAR_OBJECT_UPGRADE_WORK)):
+        """
+        A L{WorkItem} that upgrades a calendar object's data if needed.
+        """
+
+        group = property(lambda self: (self.table.RESOURCE_ID == self.resourceID))
+        default_priority = WORK_PRIORITY_LOW
+        default_weight = WORK_WEIGHT_3
+        delay = 60
+
+        @inlineCallbacks
+        def doWork(self):
+
+            log.debug("Data upgrade calendar object with resource-id: {rid}", rid=self.resourceID)
+
+            # Get the actual owned calendar object with this ID
+            cobj = (yield CalendarStoreFeatures(self.transaction._store).calendarObjectWithID(self.transaction, self.resourceID))
+            if cobj is None:
+                returnValue(None)
+
+            # Check for and do the update
+            if cobj._dataversion != cobj._currentDataVersion:
+                yield cobj.component(doUpdate=True)
 
 
     def moveValidation(self, destination, name):
@@ -4725,6 +4757,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     class CalendarObjectSplitterWork(WorkItem, fromTable(schema.CALENDAR_OBJECT_SPLITTER_WORK)):
 
         group = property(lambda self: (self.table.RESOURCE_ID == self.resourceID))
+        default_priority = WORK_PRIORITY_LOW
+        default_weight = WORK_WEIGHT_5
 
         @inlineCallbacks
         def doWork(self):

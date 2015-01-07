@@ -21,7 +21,7 @@ Group membership caching
 
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.syntax import Delete, Select, Parameter
-from twext.enterprise.jobqueue import WorkItem, RegeneratingWorkItem
+from twext.enterprise.jobqueue import AggregatedWorkItem, RegeneratingWorkItem
 from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed, \
     DeferredList
@@ -83,18 +83,12 @@ class GroupCacherPollingWork(
 
 
 
-class GroupRefreshWork(WorkItem, fromTable(schema.GROUP_REFRESH_WORK)):
+class GroupRefreshWork(AggregatedWorkItem, fromTable(schema.GROUP_REFRESH_WORK)):
 
     group = property(lambda self: (self.table.GROUP_UID == self.groupUid))
 
     @inlineCallbacks
     def doWork(self):
-        # Delete all other work items for this group
-        yield Delete(
-            From=self.table,
-            Where=self.group,
-        ).on(self.transaction)
-
         groupCacher = getattr(self.transaction, "_groupCacher", None)
         if groupCacher is not None:
 
@@ -118,18 +112,12 @@ class GroupRefreshWork(WorkItem, fromTable(schema.GROUP_REFRESH_WORK)):
 
 
 
-class GroupDelegateChangesWork(WorkItem, fromTable(schema.GROUP_DELEGATE_CHANGES_WORK)):
+class GroupDelegateChangesWork(AggregatedWorkItem, fromTable(schema.GROUP_DELEGATE_CHANGES_WORK)):
 
     delegator = property(lambda self: (self.table.DELEGATOR_UID == self.delegatorUid))
 
     @inlineCallbacks
     def doWork(self):
-        # Delete all other work items for this delegator
-        yield Delete(
-            From=self.table,
-            Where=self.delegator,
-        ).on(self.transaction)
-
         groupCacher = getattr(self.transaction, "_groupCacher", None)
         if groupCacher is not None:
 
@@ -149,7 +137,7 @@ class GroupDelegateChangesWork(WorkItem, fromTable(schema.GROUP_DELEGATE_CHANGES
 
 
 class GroupAttendeeReconciliationWork(
-    WorkItem, fromTable(schema.GROUP_ATTENDEE_RECONCILE_WORK)
+    AggregatedWorkItem, fromTable(schema.GROUP_ATTENDEE_RECONCILE_WORK)
 ):
 
     group = property(
@@ -159,12 +147,6 @@ class GroupAttendeeReconciliationWork(
 
     @inlineCallbacks
     def doWork(self):
-
-        # Delete all other work items for this event
-        yield Delete(
-            From=self.table,
-            Where=self.group,
-        ).on(self.transaction)
 
         # get db object
         calendarObject = yield CalendarStoreFeatures(
@@ -177,7 +159,7 @@ class GroupAttendeeReconciliationWork(
 
 
 class GroupShareeReconciliationWork(
-    WorkItem, fromTable(schema.GROUP_SHAREE_RECONCILE_WORK)
+    AggregatedWorkItem, fromTable(schema.GROUP_SHAREE_RECONCILE_WORK)
 ):
 
     group = property(
@@ -187,12 +169,6 @@ class GroupShareeReconciliationWork(
 
     @inlineCallbacks
     def doWork(self):
-
-        # Delete all other work items for this event
-        yield Delete(
-            From=self.table,
-            Where=self.group,
-        ).on(self.transaction)
 
         bind = schema.CALENDAR_BIND
         rows = yield Select(
