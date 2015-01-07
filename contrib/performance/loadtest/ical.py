@@ -35,6 +35,7 @@ from pycalendar.timezone import Timezone
 
 from twext.internet.adaptendpoint import connect
 from twext.internet.gaiendpoint import GAIEndpoint
+from twisted.internet.ssl import ClientContextFactory
 
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue, \
     succeed
@@ -42,7 +43,8 @@ from twisted.internet.task import LoopingCall
 from twisted.python.filepath import FilePath
 from twisted.python.log import addObserver, err, msg
 from twisted.python.util import FancyEqMixin
-from twisted.web.client import Agent, ContentDecoderAgent, GzipDecoder
+from twisted.web.client import Agent, ContentDecoderAgent, GzipDecoder, \
+    _DeprecatedToCurrentPolicyForHTTPS
 from twisted.web.http import OK, MULTI_STATUS, CREATED, NO_CONTENT, PRECONDITION_FAILED, MOVED_PERMANENTLY, \
     FORBIDDEN, FOUND
 from twisted.web.http_headers import Headers
@@ -349,6 +351,16 @@ class _PubSubClientFactory(PubSubClientFactory):
 
 
 
+class WebClientContextFactory(ClientContextFactory):
+    """
+    A web context factory which ignores the hostname and port and does no
+    certificate verification.
+    """
+    def getContext(self, hostname, port):
+        return ClientContextFactory.getContext(self)
+
+
+
 class BaseAppleClient(BaseClient):
     """
     Implementation of common OS X/iOS client behavior.
@@ -421,7 +433,10 @@ class BaseAppleClient(BaseClient):
         self.reactor = reactor
 
         # The server might use gzip encoding
-        agent = Agent(self.reactor)
+        agent = Agent(
+            self.reactor,
+            contextFactory=_DeprecatedToCurrentPolicyForHTTPS(WebClientContextFactory()),
+        )
         agent = ContentDecoderAgent(agent, [("gzip", GzipDecoder)])
         self.agent = AuthHandlerAgent(agent, auth)
 
