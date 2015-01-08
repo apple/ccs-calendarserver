@@ -235,12 +235,9 @@ install_requirements = [
     "twextpy",
 
     # Security frameworks
-    "pyOpenSSL>=0.13.1",
-    "service_identity",
-    "pycrypto",
-    "pyasn1",
-    "pyasn1_modules",
-    "characteristic",
+    "pyOpenSSL>=0.13.1",  # also for Twisted
+    "service_identity",   # for Twisted
+    "pycrypto",           # for Twisted
     "kerberos",
 
     # Data store
