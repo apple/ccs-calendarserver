@@ -74,7 +74,7 @@ from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     ObjectResourceNameNotAllowedError, ObjectResourceNameAlreadyExistsError, \
     NoSuchObjectResourceError, AllRetriesFailed, InvalidSubscriptionValues, \
     InvalidIMIPTokenValues, TooManyObjectResourcesError, \
-    SyncTokenValidException
+    SyncTokenValidException, AlreadyInTrashError
 from txdav.common.idirectoryservice import IStoreDirectoryService, \
     DirectoryRecordNotFoundError
 from txdav.common.inotifications import INotificationCollection, \
@@ -2992,6 +2992,7 @@ class CommonHome(SharingHomeMixIn):
     _homeMetaDataTable = None
     _externalClass = None
     _childClass = None
+    _trashClass = None
     _childTable = None
     _notifierPrefix = None
 
@@ -3510,6 +3511,12 @@ class CommonHome(SharingHomeMixIn):
         yield child.remove()
         self._children.pop(name, None)
         self._children.pop(resourceID, None)
+
+
+    @inlineCallbacks
+    def createTrash(self):
+        child = yield self._trashClass.create(self, "trash")
+        returnValue(child)
 
 
     @classproperty
@@ -5522,6 +5529,8 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
     _revisionsSchema = None
     _objectSchema = None
 
+    _childType = None
+
 
     @classmethod
     @inlineCallbacks
@@ -5687,6 +5696,10 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             self._notifiers = None
 
 
+    def isTrash(self):
+        return False
+
+
     def memoMe(self, key, memo):
         """
         Add this object to the memo dictionary in whatever fashion is appropriate.
@@ -5815,7 +5828,9 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         """
         child = cls._homeChildSchema
         return Insert(
-            {child.RESOURCE_ID: schema.RESOURCE_ID_SEQ},
+            {
+                child.RESOURCE_ID: schema.RESOURCE_ID_SEQ,
+            },
             Return=(child.RESOURCE_ID)
         )
 
@@ -5826,8 +5841,13 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         DAL statement to create a home child with all default values.
         """
         child = cls._homeChildMetaDataSchema
-        return Insert({child.RESOURCE_ID: Parameter("resourceID")},
-                      Return=(child.CREATED, child.MODIFIED))
+        return Insert(
+            {
+                child.RESOURCE_ID: Parameter("resourceID"),
+                child.CHILD_TYPE: Parameter("childType"),
+            },
+            Return=(child.CREATED, child.MODIFIED)
+        )
 
 
     @classmethod
@@ -5844,7 +5864,11 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         resourceID = (yield cls._insertHomeChild.on(home._txn))[0][0]
 
         # Initialize this object
-        _created, _modified = (yield cls._insertHomeChildMetaData.on(home._txn, resourceID=resourceID))[0]
+        _created, _modified = (
+            yield cls._insertHomeChildMetaData.on(
+                home._txn, resourceID=resourceID, childType=cls._childType
+            )
+        )[0]
         # Bind table needs entry
         yield cls._bindInsertQuery.on(
             home._txn, homeID=home._resourceID, resourceID=resourceID, externalID=externalID,
@@ -6064,12 +6088,23 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         DAL query to load all object resource names for a home child.
         """
         obj = cls._objectSchema
-        return Select([obj.RESOURCE_NAME], From=obj,
-                      Where=obj.PARENT_RESOURCE_ID == Parameter('resourceID'))
+        return Select(
+            [obj.RESOURCE_NAME],
+            From=obj,
+            Where=(
+                obj.PARENT_RESOURCE_ID == Parameter('resourceID')
+            ).And(
+                obj.IS_TRASH == False
+            )
+        )
 
 
     @inlineCallbacks
     def listObjectResources(self):
+        """
+        Returns a list of names of object resources in this collection, taking
+        into account the IS_TRASH flag and skipping those in the trash.
+        """
         if self._objectNames is None:
             rows = yield self._objectResourceNamesQuery.on(
                 self._txn, resourceID=self._resourceID)
@@ -6220,10 +6255,25 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         self._objects[objectResource.name()] = objectResource
         self._objects[objectResource.uid()] = objectResource
         self._objects[objectResource.id()] = objectResource
+        self._objectNames = None
 
         # Note: create triggers a notification when the component is set, so we
         # don't need to call notify() here like we do for object removal.
         returnValue(objectResource)
+
+
+    @inlineCallbacks
+    def addedObjectResource(self, child):
+        """
+        When a resource is put back from the trash to the original collection,
+        this method updates/invalidates caches and triggers a notification.
+        """
+        self._objects[child.name()] = child
+        self._objects[child.uid()] = child
+        self._objects[child.id()] = child
+        # Invalidate _objectNames so it will get reloaded
+        self._objectNames = None
+        yield self.notifyChanged()
 
 
     @inlineCallbacks
@@ -6801,18 +6851,28 @@ class CommonObjectResource(FancyEqMixin, object):
 
         rows = None
         if name:
+            if parent.isTrash():
+                # the name needs to be split
+                parentID, name = parent.parseName(name)
+            else:
+                parentID = parent._resourceID
+
             rows = yield cls._allColumnsWithParentAndName.on(
                 parent._txn,
                 name=name,
-                parentID=parent._resourceID
+                parentID=parentID
             )
         elif uid:
+            assert not parent.isTrash(), "UID lookup in Trash not supported"
+
             rows = yield cls._allColumnsWithParentAndUID.on(
                 parent._txn,
                 uid=uid,
                 parentID=parent._resourceID
             )
         elif resourceID:
+            assert not parent.isTrash(), "ID lookup in Trash not supported"
+
             rows = yield cls._allColumnsWithParentAndID.on(
                 parent._txn,
                 resourceID=resourceID,
@@ -7287,6 +7347,22 @@ class CommonObjectResource(FancyEqMixin, object):
 
     @inlineCallbacks
     def remove(self, options=None):
+        """
+        Just moves the object to the trash
+        """
+
+        if self._parentCollection.isTrash():
+            raise AlreadyInTrashError
+        else:
+            yield self.toTrash()
+
+
+    @inlineCallbacks
+    def reallyRemove(self, options=None):
+        """
+        Remove, bypassing the trash
+        """
+
         yield self._deleteQuery.on(self._txn, NoSuchObjectResourceError,
                                    resourceID=self._resourceID)
         yield self.properties()._removeResource()
@@ -7303,6 +7379,66 @@ class CommonObjectResource(FancyEqMixin, object):
         self._modified = None
         self._textData = None
         self._cachedComponent = None
+
+
+    @classproperty
+    def _updateIsTrashQuery(cls):
+        obj = cls._objectSchema
+        return Update(
+            {obj.IS_TRASH: Parameter("isTrash")},
+            Where=obj.RESOURCE_ID == Parameter("resourceID"),
+        )
+
+
+    @inlineCallbacks
+    def toTrash(self):
+        yield self._updateIsTrashQuery.on(
+            self._txn, isTrash=True, resourceID=self._resourceID
+        )
+        yield self._parentCollection.removedObjectResource(self)
+        trash = yield self._parentCollection._home.childWithName("trash")
+        print("TO TRASH", trash)
+        if trash is not None:
+            yield trash._insertRevision(
+                trash.nameForResource(
+                    self._parentCollection,
+                    self
+                )
+            )
+
+
+    @inlineCallbacks
+    def fromTrash(self):
+        yield self._updateIsTrashQuery.on(
+            self._txn, isTrash=False, resourceID=self._resourceID
+        )
+        yield self._parentCollection.addedObjectResource(self)
+        trash = yield self._parentCollection._home.childWithName("trash")
+        print("FROM TRASH", trash)
+        if trash is not None:
+            yield trash._deleteRevision(
+                trash.nameForResource(
+                    self._parentCollection,
+                    self
+                )
+            )
+
+
+    @classproperty
+    def _selectIsTrashQuery(cls):
+        obj = cls._objectSchema
+        return Select((obj.IS_TRASH,), From=obj, Where=obj.RESOURCE_ID == Parameter("resourceID"))
+
+
+    @inlineCallbacks
+    def isTrash(self):
+        returnValue(
+            (
+                yield self._selectIsTrashQuery.on(
+                    self._txn, resourceID=self._resourceID
+                )
+            )[0][0]
+        )
 
 
     def removeNotifyCategory(self):

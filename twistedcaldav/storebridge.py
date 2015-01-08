@@ -73,7 +73,7 @@ from txdav.common.icommondatastore import (
     InvalidObjectResourceError, ObjectResourceNameNotAllowedError,
     ObjectResourceNameAlreadyExistsError, UIDExistsError,
     UIDExistsElsewhereError, InvalidUIDError, InvalidResourceMove,
-    InvalidComponentForStoreError
+    InvalidComponentForStoreError, AlreadyInTrashError
 )
 from txdav.idav import PropertyChangeNotAllowedError
 from txdav.who.wiki import RecordType as WikiRecordType
@@ -2700,6 +2700,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         DuplicatePrivateCommentsError: (_CommonObjectResource._storeExceptionError, (calendarserver_namespace, "no-duplicate-private-comments",),),
         LockTimeout: (_CommonObjectResource._storeExceptionUnavailable, "Lock timed out.",),
         UnknownTimezone: (_CommonObjectResource._storeExceptionError, (caldav_namespace, "valid-timezone"),),
+        AlreadyInTrashError: (_CommonObjectResource._storeExceptionError, (calendarserver_namespace, "not-in-trash",),),
     }
 
     StoreMoveExceptionsErrors = {

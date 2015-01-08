@@ -676,6 +676,8 @@ class CalendarHome(CommonHome):
         inbox = yield self.createCalendarWithName("inbox")
         yield inbox.setUsedForFreeBusy(False)
 
+        yield self.createTrash()
+
 
     @inlineCallbacks
     def splitCalendars(self):
@@ -690,6 +692,9 @@ class CalendarHome(CommonHome):
 
             # Ignore inbox - also shared calendars are not part of .calendars()
             if calendar.isInbox():
+                continue
+            # Ignore trash
+            if calendar.isTrash():
                 continue
             split_count = yield calendar.splitCollectionByComponentTypes()
             self.log.warn("  Calendar: '{0}', split into {1}".format(calendar.name(), split_count + 1,))
@@ -711,6 +716,8 @@ class CalendarHome(CommonHome):
             calendars = yield self.calendars()
             for calendar in calendars:
                 if calendar.isInbox():
+                    continue
+                if calendar.isTrash():
                     continue
                 names.add(calendar.name())
                 result = yield calendar.getSupportedComponents()
@@ -752,6 +759,8 @@ class CalendarHome(CommonHome):
         # Check validity of the default
         if calendar.isInbox():
             raise InvalidDefaultCalendar("Cannot set inbox as a default calendar")
+        elif calendar.isTrash():
+            raise InvalidDefaultCalendar("Cannot set trash as a default calendar")
         elif not calendar.owned():
             raise InvalidDefaultCalendar("Cannot set shared calendar as a default calendar")
         elif not calendar.isSupportedComponent(componentType):
@@ -806,6 +815,8 @@ class CalendarHome(CommonHome):
         if default is not None:
             if default.isInbox():
                 default = None
+            elif default.isTrash():
+                default = None
             elif not default.owned():
                 default = None
             elif not default.isSupportedComponent(componentType):
@@ -820,6 +831,8 @@ class CalendarHome(CommonHome):
             for calendarName in existing_names:
                 calendar = (yield self.calendarWithName(calendarName))
                 if calendar.isInbox():
+                    continue
+                elif calendar.isTrash():
                     continue
                 elif not calendar.owned():
                     continue
@@ -981,6 +994,43 @@ class Calendar(CommonHomeChild):
 
 
     @classmethod
+    def makeClass(cls, home, bindData, additionalBindData, metadataData, propstore=None, ownerHome=None):
+        """
+        Examine the calendar metadata to see which flavor of Calendar collection
+        to create, then call the inherited makeClass with the right class.
+
+        @param home: the parent home object
+        @type home: L{CommonHome}
+        @param bindData: the standard set of bind columns
+        @type bindData: C{list}
+        @param additionalBindData: additional bind data specific to sub-classes
+        @type additionalBindData: C{list}
+        @param metadataData: metadata data
+        @type metadataData: C{list}
+        @param propstore: a property store to use, or C{None} to load it automatically
+        @type propstore: L{PropertyStore}
+        @param ownerHome: the home of the owner, or C{None} to figure it out automatically
+        @type ownerHome: L{CommonHome}
+
+        @return: the constructed child class
+        @rtype: L{CommonHomeChild}
+        """
+
+        if metadataData:
+            childType = metadataData[3]
+            if childType == "trash":  # FIXME: make this an enumeration
+                actualClass = TrashCollection
+            else:
+                actualClass = cls
+
+            return super(Calendar, actualClass).makeClass(
+                home, bindData, additionalBindData, metadataData,
+                propstore=propstore, ownerHome=ownerHome
+            )
+
+
+
+    @classmethod
     def metadataColumns(cls):
         """
         Return a list of column name for retrieval of metadata. This allows
@@ -994,6 +1044,7 @@ class Calendar(CommonHomeChild):
             cls._homeChildMetaDataSchema.SUPPORTED_COMPONENTS,
             cls._homeChildMetaDataSchema.CREATED,
             cls._homeChildMetaDataSchema.MODIFIED,
+            cls._homeChildMetaDataSchema.CHILD_TYPE,
         )
 
 
@@ -1011,6 +1062,7 @@ class Calendar(CommonHomeChild):
             "_supportedComponents",
             "_created",
             "_modified",
+            "_childType",
         )
 
 
@@ -1273,7 +1325,7 @@ class Calendar(CommonHomeChild):
         @return: C{True} if it does, C{False} otherwise
         @rtype: C{bool}
         """
-        return (self._transp == _TRANSP_OPAQUE) and not self.isInbox()
+        return (self._transp == _TRANSP_OPAQUE) and not self.isInbox() and not self.isTrash()
 
 
     @inlineCallbacks
@@ -1287,7 +1339,7 @@ class Calendar(CommonHomeChild):
         @type use_it: C{bool}
         """
 
-        self._transp = _TRANSP_OPAQUE if use_it and not self.isInbox() else _TRANSP_TRANSPARENT
+        self._transp = _TRANSP_OPAQUE if use_it and (not self.isInbox() and not self.isTrash()) else _TRANSP_TRANSPARENT
         cal = self._bindSchema
         yield Update(
             {cal.TRANSP : self._transp},
@@ -3884,7 +3936,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             if self._dropboxID:
                 yield DropBoxAttachment.resourceRemoved(self._txn, self._resourceID, self._dropboxID)
             yield ManagedAttachment.resourceRemoved(self._txn, self._resourceID)
-        yield super(CalendarObject, self).remove()
+        yield super(CalendarObject, self).reallyRemove()
 
         # Do scheduling
         if scheduler is not None:
@@ -5679,10 +5731,74 @@ class ManagedAttachment(Attachment):
 
         returnValue(location)
 
+
+class TrashCollection(Calendar):
+
+    _childType = "trash"  # FIXME: make childType an enumeration
+
+
+    @classproperty
+    def _trashInHomeQuery(cls):
+        obj = cls._objectSchema
+        bind = cls._bindSchema
+        return Select(
+            [
+                obj.PARENT_RESOURCE_ID, obj.RESOURCE_ID
+            ],
+            From=obj.join(
+                bind, obj.PARENT_RESOURCE_ID == bind.RESOURCE_ID
+            ),
+            Where=(obj.IS_TRASH == True).And(
+                bind.HOME_RESOURCE_ID == Parameter("resourceID")
+            ).And(
+                bind.BIND_MODE == _BIND_MODE_OWN
+            )
+        )
+
+
+    def isTrash(self):
+        return True
+
+
+    def nameForResource(self, collection, objectResource):
+        return "{}-{}".format(collection._resourceID, objectResource.name())
+
+
+    def parseName(self, name):
+        parentID, resourceName = name.split("-", 1)
+        return int(parentID), resourceName
+
+
+    @inlineCallbacks
+    def listObjectResources(self):
+        """
+        Return a list of names of child object resources in this trash; the
+        list is computed from all the homeChildren in the trash's parent home.
+        """
+        home = self._calendarHome
+
+        results = []
+        rows = (yield self._trashInHomeQuery.on(
+            self._txn, resourceID=home._resourceID
+        ))
+        if rows:
+            for childID, objectID in rows:
+                child = (yield home.childWithID(childID))
+                if child:
+                    objectResource = (
+                        yield child.objectResourceWithID(objectID)
+                    )
+                    results.append(self.nameForResource(child, objectResource))
+
+        returnValue(results)
+
+
+
 # Hook-up class relationships at the end after they have all been defined
 from txdav.caldav.datastore.sql_external import CalendarHomeExternal, CalendarExternal, CalendarObjectExternal
 CalendarHome._externalClass = CalendarHomeExternal
 CalendarHome._childClass = Calendar
+CommonHome._trashClass = TrashCollection
 Calendar._externalClass = CalendarExternal
 Calendar._objectResourceClass = CalendarObject
 CalendarObject._externalClass = CalendarObjectExternal

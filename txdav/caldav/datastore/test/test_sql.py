@@ -466,7 +466,7 @@ END:VCALENDAR
         )
         yield migrateHome(fromHome, toHome, lambda x: x.component())
         toCalendars = yield toHome.calendars()
-        self.assertEquals(set([c.name() for c in toCalendars if c.name() != "inbox"]),
+        self.assertEquals(set([c.name() for c in toCalendars if c.name() not in ("inbox", "trash")]),
                           set([k for k in self.requirements['home1'].keys()
                                if self.requirements['home1'][k] is not None]))
         fromCalendars = yield fromHome.calendars()
@@ -496,9 +496,9 @@ END:VCALENDAR
             )
 
         supported_components = set()
-        self.assertEqual(len(toCalendars), 2 + len(ical.allowedStoreComponents))
+        self.assertEqual(len(toCalendars), 3 + len(ical.allowedStoreComponents))
         for calendar in toCalendars:
-            if calendar.name() == "inbox":
+            if calendar.name() in ("inbox", "trash"):
                 continue
             result = yield calendar.getSupportedComponents()
             supported_components.add(result)
@@ -524,7 +524,7 @@ END:VCALENDAR
             )
 
         supported_components = set()
-        self.assertEqual(len(toCalendars), 3)
+        self.assertEqual(len(toCalendars), 4)
         for calendar in toCalendars:
             if calendar.name() == "inbox":
                 continue
@@ -1949,7 +1949,7 @@ END:VCALENDAR
 
         home = yield self.homeUnderTest(name="user01")
         children = yield home.loadChildren()
-        self.assertEqual(len(children), 3)
+        self.assertEqual(len(children), 4)
         yield self.commit()
 
         calendar = yield self.calendarUnderTest(home="user01", name="calendar")
