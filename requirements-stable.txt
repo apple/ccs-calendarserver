@@ -53,6 +53,7 @@
     pyOpenSSL==0.14
         cryptography==0.7.1
             #cffi
+            enum34==1.0.4
             setuptools==11.3.1
             #six
         six==1.9.0
