@@ -171,7 +171,12 @@ echo "Preparing sources for ${project_version}...";
 "${wc}/support/_cache_deps";
 
 # Clean up after _cache_deps
-find "${wc}/.develop" -depth 1 ! '(' -name pip_downloads -o -name tools ')' -print0 | xargs -0 rm -r;
+find "${wc}/.develop" -depth 1 ! '(' -name pip_downloads -o -name tools ')' -print | {
+  while read filename; do
+    echo "Cruft in .develop: ${filename}";
+    exit 1;
+  done;
+}
 
 if "${build}"; then
   echo "";
