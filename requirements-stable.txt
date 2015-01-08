@@ -38,11 +38,10 @@
     -e svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk@14260#egg=twextpy
         cffi==0.8.6
             pycparser==2.10
+        python-ldap==2.4.18
         #twisted
         # [DAL] extra
               sqlparse==0.1.14
-        # [LDAP] extra
-            python-ldap==2.4.18
         # [OpenDirectory] extra
             #pyobjc-framework-OpenDirectory  # Use system module
         # [Postgres] extra
