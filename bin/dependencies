@@ -2,7 +2,7 @@
 # -*- sh-basic-offset: 2 -*-
 
 ##
-# Copyright (c) 2005-2014 Apple Inc. All rights reserved.
+# Copyright (c) 2015 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,6 +27,66 @@ wd="$(cd "$(dirname "$0")/.." && pwd)";
 do_setup="false";
 develop > /dev/null;
 
-extras="$(echo $@ | sed 's| |,|g')";
+##
+# Argument handling
+##
 
-exec "${py_bindir}/eggdeps" "calendarserver[${extras}]";
+output="nested";
+
+extras () {
+  PYTHONPATH="${wd}:${PYTHONPATH:-}" "${bootstrap_python}" - 2>/dev/null << EOF
+from __future__ import print_function
+import setup
+print(" ".join(setup.extras_requirements.keys()))
+EOF
+}
+
+usage ()
+{
+    program="$(basename "$0")";
+
+    if [ "${1--}" != "-" ]; then echo "$@"; echo; fi;
+
+    echo "Usage: ${program} [-h] [extra ...]";
+    echo "Supported extras: $(extras)";
+    echo "Options:";
+    echo "    -h Print this help and exit";
+
+    if [ "${1-}" == "-" ]; then return 0; fi;
+    exit 64;
+}
+
+while getopts 'hl' option; do
+    case "${option}" in
+        '?') usage; ;;
+        'h') usage -; exit 0; ;;
+        'l') output="list"; ;;
+    esac;
+done;
+
+shift $((${OPTIND} - 1));
+
+
+##
+# Do The Right Thing
+##
+
+cmd="${py_bindir}/eggdeps";
+
+extras="$(echo $@ | sed 's| |,|g')";
+spec="calendarserver[${extras}]";
+
+case "${output}" in
+
+  'nested')
+    "${cmd}" "${spec}";
+    ;;
+
+  'list')
+    PYTHONPATH="${wd}:${PYTHONPATH:-}" "${bootstrap_python}" - 2>/dev/null << EOF
+from __future__ import print_function
+import setup
+print("\n".join($("${cmd}" --requirements "${spec}")))
+EOF
+
+esac;
