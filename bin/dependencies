@@ -31,6 +31,7 @@ develop > /dev/null;
 # Argument handling
 ##
 
+all_extras="false";
 output="nested";
 
 extras () {
@@ -43,25 +44,30 @@ EOF
 
 usage ()
 {
-    program="$(basename "$0")";
+  program="$(basename "$0")";
 
-    if [ "${1--}" != "-" ]; then echo "$@"; echo; fi;
+  if [ "${1--}" != "-" ]; then echo "$@"; echo; fi;
 
-    echo "Usage: ${program} [-h] [extra ...]";
-    echo "Supported extras: $(extras)";
-    echo "Options:";
-    echo "    -h Print this help and exit";
+  echo "Usage: ${program} [-hanl] [extra ...]";
+  echo "Supported extras: $(extras)";
+  echo "Options:";
+  echo "    -h Print this help and exit";
+  echo "    -a Enable all extras";
+  echo "    -n Output a nested list (default)";
+  echo "    -l Output a simple list";
 
-    if [ "${1-}" == "-" ]; then return 0; fi;
-    exit 64;
+  if [ "${1-}" == "-" ]; then return 0; fi;
+  exit 64;
 }
 
-while getopts 'hl' option; do
-    case "${option}" in
-        '?') usage; ;;
-        'h') usage -; exit 0; ;;
-        'l') output="list"; ;;
-    esac;
+while getopts 'hanl' option; do
+  case "${option}" in
+    '?') usage; ;;
+      'h') usage -; exit 0; ;;
+      'a') all_extras="true"; ;;
+      'n') output="nested"; ;;
+      'l') output="list"; ;;
+  esac;
 done;
 
 shift $((${OPTIND} - 1));
@@ -73,7 +79,14 @@ shift $((${OPTIND} - 1));
 
 cmd="${py_bindir}/eggdeps";
 
-extras="$(echo $@ | sed 's| |,|g')";
+if "${all_extras}"; then
+  extras="$(extras)";
+else
+  extras="$@";
+fi;
+
+extras="$(echo ${extras} | sed 's| |,|g')";
+
 spec="calendarserver[${extras}]";
 
 case "${output}" in
