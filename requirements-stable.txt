@@ -1,77 +1,34 @@
-##
-#
-# Specify specific versions of our dependencies here.
-#
-##
-#
-# This defines the versions of dependencies that we are developing and
-# testing with.
-#
-# Other versions of dependencies are likely to work in most cases, but
-# here you can see what our automated builds are using, so this
-# combination is known to work.
-#
-##
-#
-# This file should contain every module in the output of:
-#   ./bin/dependencies -a
-#
-##
+# This file should contain everything in the output of:
+#   ./bin/python -m pip freeze --local
+# with the exception of any modules obtained via requirements-dev.plist
 
--e .  # calendarserver
+# For CalendarServer development, don't try to get these projects from PyPI; use svn.
 
-  zope.interface==4.1.1
+-e .
+-e svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk@14260#egg=twextpy
+-e svn+http://svn.calendarserver.org/repository/calendarserver/PyKerberos/trunk@13420#egg=kerberos
+-e svn+http://svn.calendarserver.org/repository/calendarserver/PyCalendar/trunk@14245#egg=pycalendar
 
-  Twisted==14.0.2
-    #zope.interface
-    # NOTE: Twisted also uses pyOpenSSL, pycrypto and service_identity,
-    #   but doesn't specify them as dependencies, so that are explicitly
-    #   added to calendarserver.
-    #pyOpenSSL
-    service_identity==14.0.0
-      characteristic==14.0.0
-      pyasn1==0.1.7
-      pyasn1-modules==0.0.5
-      #pyOpenSSL  
-    pycrypto==2.6.1
+# Specify specific versions of our dependencies so that we're all testing the same config.
 
-  -e svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk@14260#egg=twextpy
-    cffi==0.8.6
-      pycparser==2.10
-    #twisted
-    #[DAL]
-      sqlparse==0.1.14
-
-  pyOpenSSL==0.14
-    cryptography==0.7.1
-      #cffi
-      setuptools==11.3.1
-      #six
-    six==1.9.0
-
-  -e svn+http://svn.calendarserver.org/repository/calendarserver/PyKerberos/trunk@13420#egg=kerberos
-
-  xattr==0.7.5
-    #cffi
-
-  python-dateutil==1.5  # Note: v2.0+ is for Python 3
-
-  pytz==2014.10
-
-  -e svn+http://svn.calendarserver.org/repository/calendarserver/PyCalendar/trunk@14245#egg=pycalendar
-
-  psutil==2.1.3
-
-  setproctitle==1.1.8
-
-  # LDAP extra
-  python-ldap==2.4.18
-
-  # OpenDirectory extra
-  #pyobjc-framework-opendirectory  # Use system module
-
-  # Postgres extra
-  PyGreSQL==4.1.1
-
-  # Oracle extra
-  #cx-oracle  # Not in PyPI
+cffi==0.8.6
+funcparserlib==0.3.6
+psutil==2.1.3
+pyasn1==0.1.7
+pyasn1_modules==0.0.5
+pycparser==2.10
+pycrypto==2.6.1
+PyGreSQL==4.1.1
+pyOpenSSL==0.14
+service_identity==14.0.0
+cryptography==0.6.1
+characteristic==14.0.0
+python-dateutil==1.5  # Note: v2.0+ is for Python 3
+python-ldap==2.4.18
+pytz==2014.10
+setproctitle==1.1.8
+sqlparse==0.1.14
+Twisted==14.0.2
+wheel==0.24.0
+xattr==0.7.5
+zope.interface==4.1.1
