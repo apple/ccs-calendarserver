@@ -89,7 +89,10 @@ install-python:: build
 	@echo "Creating virtual environment...";
 	$(_v) $(RMDIR) "$(DSTROOT)$(CS_VIRTUALENV)";
 	$(_v) PYTHONPATH="$(BuildDirectory)/pytools/lib" \
-	          "$(PYTHON)" -m virtualenv --system-site-packages "$(DSTROOT)$(CS_VIRTUALENV)";
+	          "$(PYTHON)" -m virtualenv              \
+		          --system-site-packages             \
+		          --always-copy                      \
+		          "$(DSTROOT)$(CS_VIRTUALENV)";
 	@#
 	@# Use the pip in the virtual environment to install.
 	@# It knows about where things go in the virtual environment.
@@ -118,18 +121,18 @@ install-python:: build
 	@echo "Putting comments into empty files...";
 	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type f -size 0 -name "*.py" -exec sh -c 'printf "# empty\n" > {}' ";";
 	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type f -size 0 -name "*.h" -exec sh -c 'printf "/* empty */\n" > {}' ";";
-	@echo "Replacing symbolic links...";
-	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type l |                       \
-	          while read link; do                                           \
-	              target="$$(readlink "$${link}")";                         \
-	              if [ "$$(echo $${target} | cut -f 1 -d /)" == "" ]; then  \
-	                  rm -fv "$${link}";                                    \
-	                  cp -aLfv "$${target}" "$${link}" || {                 \
-	                      rm -rfv "$${link}";                               \
-	                      ln -sfv "$${target}" "$${link}";                  \
-	                  }                                                     \
-	              fi;                                                       \
-	          done;
+	# @echo "Replacing symbolic links...";
+	# $(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type l |                       \
+	#           while read link; do                                           \
+	#               target="$$(readlink "$${link}")";                         \
+	#               if [ "$$(echo $${target} | cut -f 1 -d /)" == "" ]; then  \
+	#                   rm -fv "$${link}";                                    \
+	#                   cp -aLfv "$${target}" "$${link}" || {                 \
+	#                       rm -rfv "$${link}";                               \
+	#                       ln -sfv "$${target}" "$${link}";                  \
+	#                   }                                                     \
+	#               fi;                                                       \
+	#           done;
 
 install:: install-config
 install-config::
