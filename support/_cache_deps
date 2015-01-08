@@ -58,6 +58,13 @@ done;
 # Download dependencies
 #
 
+tmp="$(mktemp -d -t CalendarServer_ve_tools)";
+
+# Bootstrap virtualenv and friends so we can use them
+py_ve_tools="${tmp}/ve_tools";
+export PYTHONPATH="${py_ve_tools}/lib:${wd}:${PYTHONPATH:-}";
+bootstrap_virtualenv;
+
 ruler "Downloading Python requirements for .[${extra_features}]";
 echo "";
 pip_download                       \
@@ -66,6 +73,7 @@ pip_download                       \
   --requirement="${requirements}"  \
   ;
 
+rm -rf "${tmp}";
 
 
 #
