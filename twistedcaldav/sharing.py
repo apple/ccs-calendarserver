@@ -39,6 +39,7 @@ from txdav.common.datastore.sql_tables import _ABO_KIND_GROUP, \
     _BIND_MODE_DIRECT, _BIND_MODE_INDIRECT, _BIND_MODE_OWN, _BIND_MODE_READ, \
     _BIND_MODE_WRITE, _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED, \
     _BIND_STATUS_DELETED, _BIND_STATUS_INVALID, _BIND_STATUS_INVITED
+from txdav.common.idirectoryservice import DirectoryRecordNotFoundError
 from txdav.xml import element
 from txdav.who.wiki import RecordType as WikiRecordType, WikiAccessLevel
 
@@ -875,7 +876,15 @@ class SharedHomeMixin(LinkFollowerMixIn):
     def acceptShare(self, request, inviteUID, summary):
 
         # Accept the share
-        shareeView = yield self._newStoreHome.acceptShare(inviteUID, summary)
+        try:
+            shareeView = yield self._newStoreHome.acceptShare(inviteUID, summary)
+        except DirectoryRecordNotFoundError:
+            # Missing sharer record => fail request
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (calendarserver_namespace, "invalid-share"),
+                "Invite UID not valid",
+            ))
         if shareeView is None:
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
@@ -897,7 +906,11 @@ class SharedHomeMixin(LinkFollowerMixIn):
     def declineShare(self, request, inviteUID):
 
         # Remove it if it is in the DB
-        result = yield self._newStoreHome.declineShare(inviteUID)
+        try:
+            result = yield self._newStoreHome.declineShare(inviteUID)
+        except DirectoryRecordNotFoundError:
+            # Missing sharer record => just treat decline as success
+            result = True
         if not result:
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
