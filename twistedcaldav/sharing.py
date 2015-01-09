@@ -1322,16 +1322,18 @@ class SharedHomeMixin(LinkFollowerMixIn):
         ownerPrincipalUID = ownerPrincipal.principalUID()
         sharedResource = (yield request.locateResource(hostUrl))
         if sharedResource is None:
-            # FIXME: have to return here rather than raise to allow removal of a share for a sharer
-            # whose principal is no longer valid yet still exists in the store. Really we need to get rid of
-            # locateResource calls and just do everything via store objects.
-            returnValue(None)
-            # Original shared collection is gone - nothing we can do except ignore it
-            raise HTTPError(ErrorResponse(
-                responsecode.FORBIDDEN,
-                (customxml.calendarserver_namespace, "valid-request"),
-                "Invalid shared collection",
-            ))
+            if state == _BIND_STATUS_DECLINED:
+                # FIXME: have to return here rather than raise to allow removal of a share for a sharer
+                # whose principal is no longer valid yet still exists in the store. Really we need to get rid of
+                # locateResource calls and just do everything via store objects.
+                returnValue(None)
+            else:
+                # Original shared collection is gone - nothing we can do except ignore it
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (customxml.calendarserver_namespace, "valid-request"),
+                    "Invalid shared collection",
+                ))
 
         # Change the record
         if not processed:
