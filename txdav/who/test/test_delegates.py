@@ -34,6 +34,8 @@ class DelegationTest(StoreTestCase):
         self.store = self.storeUnderTest()
         self.groupCacher = GroupCacher(self.directory)
 
+        yield Delegates._memcacher.flushAll()
+
 
     @inlineCallbacks
     def test_recordCreation(self):
@@ -301,6 +303,8 @@ class DelegationCachingTest(StoreTestCase):
         self.store = self.storeUnderTest()
         self.groupCacher = GroupCacher(self.directory)
 
+        yield Delegates._memcacher.flushAll()
+
 
     @inlineCallbacks
     def _memcacherMemberResults(self, delegate, readWrite, expanded, results):
@@ -385,8 +389,6 @@ class DelegationCachingTest(StoreTestCase):
     @inlineCallbacks
     def test_cacheUsed(self):
 
-        yield Delegates._memcacher.flushAll()
-
         delegator = yield self.directory.recordWithUID(u"__wsanchez1__")
         delegate1 = yield self.directory.recordWithUID(u"__sagen1__")
 
@@ -440,8 +442,6 @@ class DelegationCachingTest(StoreTestCase):
 
     @inlineCallbacks
     def test_addRemoveDelegation(self):
-
-        yield Delegates._memcacher.flushAll()
 
         delegator = yield self.directory.recordWithUID(u"__wsanchez1__")
         delegate1 = yield self.directory.recordWithUID(u"__sagen1__")
@@ -555,8 +555,6 @@ class DelegationCachingTest(StoreTestCase):
     @inlineCallbacks
     def test_setDelegation(self):
 
-        yield Delegates._memcacher.flushAll()
-
         delegator = yield self.directory.recordWithUID(u"__wsanchez1__")
         delegates = [
             (yield self.directory.recordWithUID(u"__sagen1__")),
@@ -664,8 +662,6 @@ class DelegationCachingTest(StoreTestCase):
 
     @inlineCallbacks
     def test_setGroupDelegation(self):
-
-        yield Delegates._memcacher.flushAll()
 
         delegator = yield self.directory.recordWithUID(u"__wsanchez1__")
         delegates = [
