@@ -11,7 +11,7 @@ For general information about the server, see http://www.calendarserver.org/
 Copyright and License
 ==========================
 
-Copyright (c) 2005-2014 Apple Inc. All rights reserved.
+Copyright (c) 2005-2015 Apple Inc. All rights reserved.
 
 This software is licensed under the Apache License, Version 2.0. The Apache License is a well-established open source license, enabling collaborative open source software development.
 
