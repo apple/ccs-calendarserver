@@ -36,7 +36,7 @@
             #pyOpenSSL
         pycrypto==2.6.1
 
-    -e svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk@14260#egg=twextpy
+    -e svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk@14287#egg=twextpy
         cffi==0.8.6
             pycparser==2.10
         #twisted
