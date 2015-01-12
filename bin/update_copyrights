@@ -44,7 +44,7 @@ find_files () {
     -print0;
 }
 
-wd="$(cd "$(dirname "$0")/.." && pwd)";
+wd="$(pwd -P)";
 
 this_year="$(date "+%Y")";
 last_year=$((${this_year} - 1));
