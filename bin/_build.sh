@@ -158,7 +158,7 @@ init_build () {
 
 
 setup_print () {
-  what="$1"; shift;
+  local what="$1"; shift;
 
   PYTHONPATH="${wd}:${PYTHONPATH:-}" "${bootstrap_python}" - 2>/dev/null << EOF
 from __future__ import print_function
@@ -175,7 +175,7 @@ www_get () {
   local  md5="";
   local sha1="";
 
-  OPTIND=1;
+  local OPTIND=1;
   while getopts "m:s:" option; do
     case "${option}" in
       'm')  md5="${OPTARG}"; ;;
@@ -193,9 +193,11 @@ www_get () {
   fi;
   if [ ! -d "${path}" ]; then
     local ext="$(echo "${url}" | sed 's|^.*\.\([^.]*\)$|\1|')";
+    local decompress="";
+    local unpack="";
 
     untar () { tar -xvf -; }
-    unzipstream () { tmp="$(mktemp -t ccsXXXXX)"; cat > "${tmp}"; unzip "${tmp}"; rm "${tmp}"; }
+    unzipstream () { local tmp="$(mktemp -t ccsXXXXX)"; cat > "${tmp}"; unzip "${tmp}"; rm "${tmp}"; }
     case "${ext}" in
       gz|tgz) decompress="gzip -d -c"; unpack="untar"; ;;
       bz2)    decompress="bzip2 -d -c"; unpack="untar"; ;;
@@ -320,6 +322,8 @@ www_get () {
 # Run 'make' with the given command line, prepending a -j option appropriate to
 # the number of CPUs on the current machine, if that can be determined.
 jmake () {
+  local ncpu="";
+
   case "$(uname -s)" in
     Darwin|Linux)
       ncpu="$(getconf _NPROCESSORS_ONLN)";
@@ -349,7 +353,7 @@ c_dependency () {
   local build_cmd="jmake"; 
   local install_cmd="make install";
 
-  OPTIND=1;
+  local OPTIND=1;
   while getopts "m:s:c:p:b:" option; do
     case "${option}" in
       'm') f_hash="-m ${OPTARG}"; ;;
@@ -369,7 +373,7 @@ c_dependency () {
 
   mkdir -p "${dep_sources}";
 
-  srcdir="${dep_sources}/${path}";
+  local srcdir="${dep_sources}/${path}";
   # local dstroot="${srcdir}/_root";
   local dstroot="${dev_roots}/${name}";
 
@@ -640,14 +644,14 @@ bootstrap_virtualenv () {
       pip-1.5.6          \
       virtualenv-1.11.6  \
   ; do
-         name="${pkg%-*}";
-      version="${pkg#*-}";
-       first="$(echo "${name}" | sed 's|^\(.\).*$|\1|')";
-         url="https://pypi.python.org/packages/source/${first}/${name}/${pkg}.tar.gz";
+      local    name="${pkg%-*}";
+      local version="${pkg#*-}";
+      local  first="$(echo "${name}" | sed 's|^\(.\).*$|\1|')";
+      local    url="https://pypi.python.org/packages/source/${first}/${name}/${pkg}.tar.gz";
 
       ruler "Downloading ${pkg}";
 
-      tmp="$(mktemp -d -t ccsXXXXX)";
+      local tmp="$(mktemp -d -t ccsXXXXX)";
 
       curl -L "${url}" | tar -C "${tmp}" -xvzf -;
 
