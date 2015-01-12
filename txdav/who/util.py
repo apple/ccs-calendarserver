@@ -21,11 +21,6 @@ from twext.who.aggregate import DirectoryService as AggregateDirectoryService
 from twext.who.idirectory import (
     FieldName as BaseFieldName, RecordType, DirectoryConfigurationError
 )
-from twext.who.ldap import (
-    DirectoryService as LDAPDirectoryService,
-    FieldName as LDAPFieldName,
-    RecordTypeSchema
-)
 from twext.who.util import ConstantsContainer
 from twisted.cred.credentials import UsernamePassword
 from twisted.python.filepath import FilePath
@@ -129,6 +124,12 @@ def buildDirectory(
             directory = ODDirectoryService(nodeName=node, suppressSystemRecords=True)
 
         elif "ldap" in directoryType:
+            from twext.who.ldap import (
+                DirectoryService as LDAPDirectoryService,
+                FieldName as LDAPFieldName,
+                RecordTypeSchema
+            )
+
             if params.credentials.dn and params.credentials.password:
                 creds = UsernamePassword(
                     params.credentials.dn,

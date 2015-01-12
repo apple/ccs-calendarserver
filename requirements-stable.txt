@@ -32,13 +32,12 @@
             characteristic==14.0.0
             pyasn1==0.1.7
             pyasn1-modules==0.0.5
-            #pyOpenSSL  
+            #pyOpenSSL
         pycrypto==2.6.1
 
     -e svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk@14260#egg=twextpy
         cffi==0.8.6
             pycparser==2.10
-        python-ldap==2.4.18
         #twisted
         # [DAL] extra
               sqlparse==0.1.14
