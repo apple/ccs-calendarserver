@@ -52,6 +52,8 @@ CS_GROUP = _calendar
 # Build
 #
 
+.SHELLFLAGS = -euc
+
 .phony: build install install_source install-ossfiles cache_deps buildit
 
 build:: $(BuildDirectory)/$(Project)
@@ -103,7 +105,7 @@ install-python:: build
 	              "$(DSTROOT)$(CS_VIRTUALENV)/bin/pip" install                \
 	                  --pre --allow-all-external --no-index --no-deps         \
 	                  --log=$(OBJROOT)/pip.log                                \
-	                  "$${pkg}";                                              \
+	                  "$${pkg}" || exit 1;                                    \
 	      done;
 	@#
 	@# Make the virtualenv relocatable
@@ -121,18 +123,18 @@ install-python:: build
 	@echo "Putting comments into empty files...";
 	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type f -size 0 -name "*.py" -exec sh -c 'printf "# empty\n" > {}' ";";
 	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type f -size 0 -name "*.h" -exec sh -c 'printf "/* empty */\n" > {}' ";";
-	# @echo "Replacing symbolic links...";
-	# $(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type l |                       \
-	#           while read link; do                                           \
-	#               target="$$(readlink "$${link}")";                         \
-	#               if [ "$$(echo $${target} | cut -f 1 -d /)" == "" ]; then  \
-	#                   rm -fv "$${link}";                                    \
-	#                   cp -aLfv "$${target}" "$${link}" || {                 \
-	#                       rm -rfv "$${link}";                               \
-	#                       ln -sfv "$${target}" "$${link}";                  \
-	#                   }                                                     \
-	#               fi;                                                       \
-	#           done;
+	@# @echo "Replacing symbolic links...";
+	@# $(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type l |                       \
+	@#           while read link; do                                           \
+	@#               target="$$(readlink "$${link}")";                         \
+	@#               if [ "$$(echo $${target} | cut -f 1 -d /)" == "" ]; then  \
+	@#                   rm -fv "$${link}";                                    \
+	@#                   cp -aLfv "$${target}" "$${link}" || {                 \
+	@#                       rm -rfv "$${link}";                               \
+	@#                       ln -sfv "$${target}" "$${link}";                  \
+	@#                   }                                                     \
+	@#               fi;                                                       \
+	@#           done;
 
 install:: install-config
 install-config::
