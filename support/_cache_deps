@@ -19,6 +19,7 @@
 
 set -e
 set -u
+set -x
 
 wd="$(cd "$(dirname "$0")/.." && pwd)";
 
@@ -58,22 +59,26 @@ done;
 # Download dependencies
 #
 
-tmp="$(mktemp -d -t CalendarServer_ve_tools)";
+ve_tmp="$(mktemp -d -t CalendarServer_ve_tools)";
 
 # Bootstrap virtualenv and friends so we can use them
-py_ve_tools="${tmp}/ve_tools";
+py_ve_tools="${ve_tmp}/ve_tools";
 export PYTHONPATH="${py_ve_tools}/lib:${wd}:${PYTHONPATH:-}";
 bootstrap_virtualenv;
+
+reqs_to_use="${ve_tmp}/requirements.txt";
+
+sed -e '/python-ldap/d' < "${requirements}" > "${reqs_to_use}";
 
 ruler "Downloading Python requirements for .[${extra_features}]";
 echo "";
 pip_download                       \
   --allow-unverified cx-Oracle     \
   --no-deps                        \
-  --requirement="${requirements}"  \
+  --requirement="${reqs_to_use}"  \
   ;
 
-rm -rf "${tmp}";
+rm -rf "${ve_tmp}";
 
 
 #
