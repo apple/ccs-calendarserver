@@ -641,7 +641,7 @@ bootstrap_virtualenv () {
 
   for pkg in             \
       setuptools-5.4.1   \
-      pip-1.5.6          \
+      pip-6.0.6          \
       virtualenv-1.11.6  \
   ; do
       local    name="${pkg%-*}";

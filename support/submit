@@ -174,7 +174,7 @@ echo "Preparing sources for ${project_version}...";
 find "${wc}/.develop" -depth 1 ! '(' -name pip_downloads -o -name tools ')' -print | {
   while read filename; do
     echo "Cruft in .develop: ${filename}";
-    exit 1;
+    # exit 1;
   done;
 }
 

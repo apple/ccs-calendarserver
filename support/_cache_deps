@@ -40,7 +40,7 @@ extra_features="OpenDirectory,Postgres";
 mkdir -p "${wd}/.develop/tools";
 
 for pkg in             \
-    pip-1.5.4          \
+    pip-6.0.6          \
     virtualenv-1.11.4  \
     setuptools-3.4.4   \
 ; do
