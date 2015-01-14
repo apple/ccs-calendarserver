@@ -6,7 +6,7 @@ class Subscription(object):
 
 
     def cancel(self):
-        self.peridical.subscriptions.remove(self)
+        self.periodical.subscriptions.remove(self)
 
 
     def issue(self, issue):
