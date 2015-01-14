@@ -15,22 +15,19 @@
 ##
 
 webpoll:
-	curl http://code.jquery.com/jquery-2.0.3.js -o webapp/js/jquery-2.0.3.js
-	curl http://code.jquery.com/ui/1.10.3/jquery-ui.js -o webapp/js/jquery-ui-1.10.3.js
-	curl https://raw.github.com/douglascrockford/JSON-js/master/json2.js -o webapp/js/json2.js
-	curl http://trentrichardson.com/examples/timepicker/jquery-ui-timepicker-addon.js -o webapp/js/datetimepicker.js
+	mkdir -p webapp/js/3rdparty
+	curl http://code.jquery.com/jquery-2.1.3.js -o webapp/js/3rdparty/jquery-2.1.3.js
+	curl http://code.jquery.com/ui/1.11.2/jquery-ui.js -o webapp/js/3rdparty/jquery-ui-1.11.2.js
+	curl -L https://github.com/douglascrockford/JSON-js/raw/master/json2.js -o webapp/js/3rdparty/json2.js
+	curl http://trentrichardson.com/examples/timepicker/jquery-ui-timepicker-addon.js -o webapp/js/3rdparty/datetimepicker.js
 	
-	curl http://trentrichardson.com/examples/timepicker/jquery-ui-timepicker-addon.css -o webapp/css/datetimepicker.css
-	curl http://jqueryui.com/resources/download/jquery-ui-themes-1.10.3.zip -o /tmp/jquery-ui-themes-1.10.3.zip
-	unzip /tmp/jquery-ui-themes-1.10.3.zip jquery-ui-themes-1.10.3/themes/cupertino/* -d /tmp
-	mv /tmp/jquery-ui-themes-1.10.3/themes/cupertino webapp/css
-	rm -rf /tmp/jquery-ui-themes-1.10.3
+	mkdir -p webapp/css/3rdparty
+	curl http://trentrichardson.com/examples/timepicker/jquery-ui-timepicker-addon.css -o webapp/css/3rdparty/datetimepicker.css
+	curl http://jqueryui.com/resources/download/jquery-ui-themes-1.11.2.zip -o /tmp/jquery-ui-themes-1.11.2.zip
+	unzip /tmp/jquery-ui-themes-1.11.2.zip jquery-ui-themes-1.11.2/themes/cupertino/* -d /tmp
+	mv /tmp/jquery-ui-themes-1.11.2/themes/cupertino webapp/css/3rdparty
+	rm -rf /tmp/jquery-ui-themes-1.11.2
 
 clean:
-	rm -f webapp/js/jquery-2.0.3.js
-	rm -f webapp/js/jquery-ui-1.10.3.js
-	rm -f webapp/js/json2.js
-	rm -f webapp/js/datetimepicker.js
-	
-	rm -f webapp/css/datetimepicker.css
-	rm -rf webapp/css/cupertino
+	rm -rf webapp/js/3rdparty
+	rm -rf webapp/css/3rdparty

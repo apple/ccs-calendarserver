@@ -32,6 +32,7 @@ from txdav.caldav.icalendarstore import ComponentUpdateState
 from txdav.common.datastore.sql_tables import schema, \
     scheduleActionToSQL, scheduleActionFromSQL
 
+import collections
 import datetime
 import hashlib
 import traceback
@@ -262,17 +263,18 @@ class ScheduleWorkMixin(WorkItem):
 
         # Map each recipient in the response to a status code
         changed = False
-        propname = calendar.mainComponent().recipientPropertyName() if is_organizer else "ORGANIZER"
+        recipients = collections.defaultdict(list)
+        for p in calendar.getAllAttendeeProperties() if is_organizer else calendar.getOrganizerProperties():
+            recipients[p.value()].append(p)
+
         for recipient, statusCode in response:
             # Now apply to each ATTENDEE/ORGANIZER in the original data only if not 1.2
             if statusCode != iTIPRequestStatus.MESSAGE_DELIVERED_CODE:
-                calendar.setParameterToValueForPropertyWithValue(
-                    "SCHEDULE-STATUS",
-                    statusCode,
-                    propname,
-                    recipient,
-                )
-                changed = True
+
+                # Now apply to each ATTENDEE/ORGANIZER in the original data
+                for p in recipients[recipient]:
+                    p.setParameter("SCHEDULE-STATUS", statusCode)
+                    changed = True
 
         return changed
 

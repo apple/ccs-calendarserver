@@ -485,7 +485,7 @@ class iTipProcessing(object):
             reqstatus = "2.0"
 
         # Get attendee in reply_component - there MUST be only one
-        attendees = tuple(reply_component.properties(reply_component.recipientPropertyName()))
+        attendees = tuple(reply_component.getRecipientProperties())
         if len(attendees) != 1:
             log.error("There must be one and only one ATTENDEE property in a REPLY\n%s" % (str(reply_component),))
             return None, False, False
@@ -500,17 +500,18 @@ class iTipProcessing(object):
 
         # Only process the change for this component if it was made after the last partstat reset
         if existing_attendee and reply_sequence >= existing_reset_sequence:
-            oldpartstat = existing_attendee.parameterValue("PARTSTAT", "NEEDS-ACTION")
-            existing_attendee.setParameter("PARTSTAT", partstat)
-            existing_attendee.setParameter("SCHEDULE-STATUS", reqstatus)
-            partstat_changed = (oldpartstat != partstat)
+            if existing_attendee.name() == "ATTENDEE":
+                oldpartstat = existing_attendee.parameterValue("PARTSTAT", "NEEDS-ACTION")
+                existing_attendee.setParameter("PARTSTAT", partstat)
+                existing_attendee.setParameter("SCHEDULE-STATUS", reqstatus)
+                partstat_changed = (oldpartstat != partstat)
 
-            # Always delete RSVP on PARTSTAT change
-            if partstat_changed:
-                try:
-                    existing_attendee.removeParameter("RSVP")
-                except KeyError:
-                    pass
+                # Always delete RSVP on PARTSTAT change
+                if partstat_changed:
+                    try:
+                        existing_attendee.removeParameter("RSVP")
+                    except KeyError:
+                        pass
 
             # Handle attendee comments
             if config.Scheduling.CalDAV.get("EnablePrivateComments", True):
@@ -583,7 +584,8 @@ class iTipProcessing(object):
     @staticmethod
     def updateVPOLLDataFromReply(reply_component, organizer_component, attendee):
         """
-        Update VPOLL sub-components with voter's response.
+        Update VPOLL sub-components with voter's response. Just replace the organizer's
+        VVOTER component for the replying attendee (voter) with the one in the replyVoter.
 
         @param reply_component: component to copy from
         @type reply_component: L{Component}
@@ -593,27 +595,45 @@ class iTipProcessing(object):
         @type attendee: L{Property}
         """
 
-        responses = {}
-        for prop in reply_component.properties("POLL-ITEM-ID"):
-            responses[prop.value()] = prop
+        # Get REQUEST-STATUS as we need to write that into the saved ATTENDEE property
+        reqstatus = tuple(reply_component.properties("REQUEST-STATUS"))
+        if reqstatus:
+            reqstatus = ",".join(status.value()[0] for status in reqstatus)
+        else:
+            reqstatus = "2.0"
 
-        for component in organizer_component.subcomponents(ignore=True):
-            poll_item_id = component.propertyValue("POLL-ITEM-ID")
-            if poll_item_id is None:
-                continue
-            voter = component.getVoterProperty((attendee.value(),))
+        # Get the matching VVOTER component in each VPOLL
+        replyVoter = reply_component.voterComponentForVoter(attendee.value())
+        organizerVoter = organizer_component.voterComponentForVoter(attendee.value())
 
-            # If no response - remove
-            if poll_item_id not in responses or not responses[poll_item_id].hasParameter("RESPONSE"):
-                if voter is not None:
-                    component.removeProperty(voter)
-                continue
+        if replyVoter is None:
+            return
 
-            # Add or update voter
-            if voter is None:
-                voter = Property("VOTER", attendee.value())
-                component.addProperty(voter)
-            voter.setParameter("RESPONSE", responses[poll_item_id].parameterValue("RESPONSE"))
+        if organizerVoter is None:
+            # Add in the new one
+            organizerVoter = replyVoter.duplicate()
+            reply_component.addComponent(organizerVoter)
+        else:
+            # Merge each vote
+            replyMap = replyVoter.voteMap()
+            organizerMap = organizerVoter.voteMap()
+
+            # Add new ones
+            for vote in set(replyMap.keys()) - set(organizerMap.keys()):
+                organizerVoter.addComponent(replyMap[vote].duplicate())
+
+            # Replace existing ones
+            for vote in set(replyMap.keys()) & set(organizerMap.keys()):
+                organizerVoter.removeComponent(organizerMap[vote])
+                organizerVoter.addComponent(replyMap[vote].duplicate())
+
+        # Update VOTER property
+        existing_voter = organizerVoter.getProperty("VOTER")
+        existing_voter.setParameter("SCHEDULE-STATUS", reqstatus)
+        try:
+            existing_voter.removeParameter("RSVP")
+        except KeyError:
+            pass
 
 
     @staticmethod
@@ -1068,22 +1088,18 @@ class iTipGenerator(object):
     @staticmethod
     def generateVPOLLReply(vpoll, attendee):
         """
-        Generate the proper poll response in a reply for each component being voted on.
+        Generate the proper poll response in a reply by removing all sub-components
+        except fore the VVOTER matching the attendee (voter) replying.
 
         @param vpoll: the VPOLL component to process
         @type vpoll: L{Component}
-        @param attendee: calendar user address of attendee replying
+        @param attendee: calendar user address of attendee (voter) replying
         @type attendee: C{str}
         """
 
         for component in tuple(vpoll.subcomponents(ignore=True)):
-            poll_item_id = component.propertyValue("POLL-ITEM-ID")
-            if poll_item_id is None:
-                continue
-            voter = component.getVoterProperty((attendee,))
-            if voter is not None and voter.hasParameter("RESPONSE"):
-                vpoll.addProperty(Property("POLL-ITEM-ID", poll_item_id, {"RESPONSE": voter.parameterValue("RESPONSE")}))
-            vpoll.removeComponent(component)
+            if component.name() != "VVOTER" or component.getVoterProperty((attendee,)) is None:
+                vpoll.removeComponent(component)
 
 
     @staticmethod

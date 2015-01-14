@@ -671,6 +671,8 @@ class ImplicitScheduler(object):
 
         self.coerceOrganizerScheduleAgent()
 
+        partstatProcessing = self.calendar.mainType() != "VPOLL"
+
         # Check for a delete
         if self.action == "remove":
 
@@ -692,7 +694,9 @@ class ImplicitScheduler(object):
                 self.oldcalendar = (yield self.resource.componentForUser())
             self.oldAttendeesByInstance = self.oldcalendar.getAttendeesByInstance(True, onlyScheduleAgentServer=True)
             self.oldInstances = set(self.oldcalendar.getComponentInstances())
-            self.coerceAttendeesPartstatOnModify()
+
+            if partstatProcessing:
+                self.coerceAttendeesPartstatOnModify()
 
             # Don't allow any SEQUENCE to decrease
             if self.oldcalendar and (not queued or not config.Scheduling.Options.WorkQueues.Enabled):
@@ -737,10 +741,11 @@ class ImplicitScheduler(object):
                                 # the PARTSTAT to NEEDS-ACTION.
                                 # The organizer is automatically ACCEPTED to the event.
                                 continue
-                            if attendee.hasParameter("PARTSTAT"):
-                                attendee.setParameter("PARTSTAT", "NEEDS-ACTION")
-                            seq = comp.propertyValue("SEQUENCE", 0)
-                            attendee.setParameter("X-CALENDARSERVER-RESET-PARTSTAT", str(seq))
+                            if partstatProcessing:
+                                if attendee.hasParameter("PARTSTAT"):
+                                    attendee.setParameter("PARTSTAT", "NEEDS-ACTION")
+                                seq = comp.propertyValue("SEQUENCE", 0)
+                                attendee.setParameter("X-CALENDARSERVER-RESET-PARTSTAT", str(seq))
 
                     # Look for changes to a specific attendee within an instance
                     for rid, attendees in needs_action_changed_rids.items():
@@ -750,10 +755,11 @@ class ImplicitScheduler(object):
                             if comp is not None:
                                 self.calendar.addComponent(comp)
 
-                        for attendee in comp.getAllAttendeeProperties():
-                            if attendee.value() in attendees:
-                                seq = comp.propertyValue("SEQUENCE", 0)
-                                attendee.setParameter("X-CALENDARSERVER-RESET-PARTSTAT", str(seq))
+                        if partstatProcessing:
+                            for attendee in comp.getAllAttendeeProperties():
+                                if attendee.value() in attendees:
+                                    seq = comp.propertyValue("SEQUENCE", 0)
+                                    attendee.setParameter("X-CALENDARSERVER-RESET-PARTSTAT", str(seq))
                 else:
                     log.debug("Implicit - organizer '{organizer}' is splitting UID: '{uid}'", organizer=self.organizer, uid=self.uid)
 
@@ -768,7 +774,8 @@ class ImplicitScheduler(object):
         elif self.action == "create":
             if self.split_details is None:
                 log.debug("Implicit - organizer '{organizer}' is creating UID: '{uid}'", organizer=self.organizer, uid=self.uid)
-                self.coerceAttendeesPartstatOnCreate()
+                if partstatProcessing:
+                    self.coerceAttendeesPartstatOnCreate()
 
                 # We need to handle the case where an organizer "restores" a previously delete event that has a sequence
                 # lower than the one used in the cancel that attendees may still have. In this case what we need to do
@@ -784,14 +791,15 @@ class ImplicitScheduler(object):
                 log.debug("Implicit - organizer '{organizer}' is creating a split UID: '{uid}'", organizer=self.organizer, uid=self.uid)
 
         # Always set RSVP=TRUE for any NEEDS-ACTION
-        for attendee in self.calendar.getAllAttendeeProperties():
-            if attendee.parameterValue("CUTYPE") != "X-SERVER-GROUP":
-                if attendee.parameterValue("PARTSTAT", "NEEDS-ACTION").upper() == "NEEDS-ACTION":
-                    attendee.setParameter("RSVP", "TRUE")
-            else:
-                # Always remove RSVP and PARTSTAT
-                attendee.removeParameter("RSVP")
-                attendee.removeParameter("PARTSTAT")
+        if partstatProcessing:
+            for attendee in self.calendar.getAllAttendeeProperties():
+                if attendee.parameterValue("CUTYPE") != "X-SERVER-GROUP":
+                    if attendee.parameterValue("PARTSTAT", "NEEDS-ACTION").upper() == "NEEDS-ACTION":
+                        attendee.setParameter("RSVP", "TRUE")
+                else:
+                    # Always remove RSVP and PARTSTAT
+                    attendee.removeParameter("RSVP")
+                    attendee.removeParameter("PARTSTAT")
 
         # If processing a queue item, actually execute the scheduling operations, else queue it.
         # Note a split is always a queued execution, so we do not need to re-queue
@@ -1229,6 +1237,9 @@ class ImplicitScheduler(object):
             aggregated.setdefault(attendee, []).append(rid)
 
         count = 0
+        recipientProperties = collections.defaultdict(list)
+        for p in self.calendar.getAllAttendeeProperties():
+            recipientProperties[p.value()].append(p)
         for attendee, rids in aggregated.iteritems():
 
             # Don't send message back to the ORGANIZER
@@ -1261,12 +1272,8 @@ class ImplicitScheduler(object):
 
                 if queued:
                     # Always make it look like scheduling succeeded when queuing
-                    self.calendar.setParameterToValueForPropertyWithValue(
-                        "SCHEDULE-STATUS",
-                        iTIPRequestStatus.MESSAGE_DELIVERED_CODE,
-                        "ATTENDEE",
-                        attendee,
-                    )
+                    for p in recipientProperties[attendee]:
+                        p.setParameter("SCHEDULE-STATUS", iTIPRequestStatus.MESSAGE_DELIVERED_CODE)
                 else:
                     # Add split details if needed
                     if self.split_details is not None:
@@ -1299,6 +1306,9 @@ class ImplicitScheduler(object):
 
         # Do one per attendee
         count = 0
+        recipientProperties = collections.defaultdict(list)
+        for p in self.calendar.getAllAttendeeProperties():
+            recipientProperties[p.value()].append(p)
         for attendee in self.attendees:
 
             # Don't send message back to the ORGANIZER
@@ -1327,10 +1337,8 @@ class ImplicitScheduler(object):
             # Do not schedule with groups - ever
             if attendeeAddress.hosted() and attendeeAddress.getCUType() == "GROUP":
                 # Set SCHEDULE-STATUS to something appropriate
-                self.calendar.setParametersForPropertyWithValue(
-                    {"SCHEDULE-STATUS": iTIPRequestStatus.REQUEST_FORWARDED_CODE if config.GroupAttendees.Enabled else iTIPRequestStatus.NO_USER_SUPPORT_CODE},
-                    "ATTENDEE", attendee,
-                )
+                for p in recipientProperties[attendee]:
+                    p.setParameter("SCHEDULE-STATUS", iTIPRequestStatus.REQUEST_FORWARDED_CODE if config.GroupAttendees.Enabled else iTIPRequestStatus.NO_USER_SUPPORT_CODE)
                 continue
 
             itipmsg = iTipGenerator.generateAttendeeRequest(self.calendar, (attendee,), self.changed_rids)
@@ -1340,12 +1348,8 @@ class ImplicitScheduler(object):
 
                 if queued:
                     # Always make it look like scheduling succeeded when queuing
-                    self.calendar.setParameterToValueForPropertyWithValue(
-                        "SCHEDULE-STATUS",
-                        iTIPRequestStatus.MESSAGE_DELIVERED_CODE,
-                        "ATTENDEE",
-                        attendee,
-                    )
+                    for p in recipientProperties[attendee]:
+                        p.setParameter("SCHEDULE-STATUS", iTIPRequestStatus.MESSAGE_DELIVERED_CODE)
                 else:
                     # Add split details if needed
                     if self.split_details is not None:
@@ -1411,20 +1415,19 @@ class ImplicitScheduler(object):
             self.queuedResponses.append(response)
         else:
             # Map each recipient in the response to a status code
+            recipients = collections.defaultdict(list)
+            for p in self.calendar.getAllAttendeeProperties() if is_organizer else self.calendar.getOrganizerProperties():
+                recipients[p.value()].append(p)
+
             responses = {}
-            propname = self.calendar.mainComponent().recipientPropertyName() if is_organizer else "ORGANIZER"
             for item in response.responses:
                 recipient = str(item.recipient.children[0])
                 status = str(item.reqstatus)
                 responses[recipient] = status
 
                 # Now apply to each ATTENDEE/ORGANIZER in the original data
-                self.calendar.setParameterToValueForPropertyWithValue(
-                    "SCHEDULE-STATUS",
-                    status.split(";")[0],
-                    propname,
-                    recipient,
-                )
+                for p in recipients[recipient]:
+                    p.setParameter("SCHEDULE-STATUS", status.split(";")[0])
 
 
     @inlineCallbacks

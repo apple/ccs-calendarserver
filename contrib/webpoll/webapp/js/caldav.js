@@ -772,34 +772,45 @@ CalendarComponent.prototype.pollitemid = function(value) {
 
 CalendarComponent.prototype.voter_responses = function() {
 	var voter_results = {}
-	$.each(this.data.properties("voter"), function(index, voter) {
-		voter_results[voter[3]] = parseInt(voter[1]["response"]);
+	var pollitemid = this.pollitemid();
+	$.each(this.parent.data.components("vvoter"), function(index, vvoter) {
+		var voter = vvoter.getPropertyValue("voter")
+		$.each(vvoter.components("vote"), function(index, vote) {
+			if (vote.getPropertyValue("poll-item-id") == pollitemid) {
+				voter_results[voter] = vote.getPropertyValue("response");
+				return false;
+			}
+		});
 	});
 	return voter_results;
 }
 
 // Change active user's response to this event
 CalendarComponent.prototype.changeVoterResponse = function(response) {
+	var matches_vvoter = $.grep(this.parent.data.components("vvoter"), function(vvoter, index) {
+		return gSession.currentPrincipal.matchingAddress(vvoter.getPropertyValue("voter"));
+	});
+	var pollitemid = this.pollitemid();
 	if (response !== null) {
-		var matches = $.grep(this.data.properties("voter"), function(voter, index) {
-			return gSession.currentPrincipal.matchingAddress(voter[3]);
+		var matches_vote = $.grep(matches_vvoter[0].components("vote"), function(vote, index) {
+			return vote.getPropertyValue("poll-item-id") == pollitemid;
 		});
-		if (matches.length == 1) {
-			new CalendarUser(matches[0], this).response(response.toString());
+		if (matches_vote.length == 1) {
+			matches_vote[0].getProperty("response")[3] = response;
 		} else {
-			this.data.newProperty(
-				"voter",
-				gSession.currentPrincipal.defaultAddress(),
-				{ "response" : response.toString() },
-				"cal-address"
-			);
-			this.changed(true);
+			var vote = matches_vvoter[0].newComponent("vote");
+			vote.newProperty("response", response, {}, "integer");
+			vote.newProperty("poll-item-id", pollitemid, {}, "integer");
 		}
 	} else {
-		this.data.removePropertiesMatchingValue(function(propdata) {
-			return propdata[0] == "voter" && gSession.currentPrincipal.matchingAddress(propdata[3]); 
+		$.each(matches_vvoter[0].components("vote"), function(index, vote) {
+			if (vote.getPropertyValue("poll-item-id") == pollitemid) {
+				matches_vvoter[0].caldata[2].remove(index);
+				return false;
+			}
 		});
 	}
+	this.changed(true);
 }
 
 // A container class for VCALENDAR objects
@@ -849,7 +860,8 @@ CalendarPoll.newPoll = function(title) {
 		{ "cn" : gSession.currentPrincipal.cn },
 		"cal-address"
 	);
-	vpoll.newProperty(
+	var vvoter = vpoll.newComponent("vvoter");
+	vvoter.newProperty(
 		"voter",
 		gSession.currentPrincipal.defaultAddress(),
 		{
@@ -895,43 +907,55 @@ CalendarPoll.prototype.events = function() {
 // Add a new VEVENT to the VPOLL
 CalendarPoll.prototype.addEvent = function(dtstart, dtend) {
 	this.changed(true);
+	var poll_item_id = this.data.components("vevent").length;
 	var vevent = this.data.newComponent("vevent", true);
 	vevent.newProperty("dtstart", jcaldate.jsDateTojCal(dtstart), {}, "date-time");
 	vevent.newProperty("dtend", jcaldate.jsDateTojCal(dtend), {}, "date-time");
 	vevent.newProperty("summary", this.summary());
-	vevent.newProperty("poll-item-id", (this.data.components("vevent").length).toString());
-	vevent.newProperty(
-		"voter",
-		this.organizer(),
-		{"response" : "80"},
-		"cal-address"
-	);
+	vevent.newProperty("poll-item-id", poll_item_id, {}, "integer");
+
+	var matches_vvoter = $.grep(this.data.components("vvoter"), function(vvoter, index) {
+		return gSession.currentPrincipal.matchingAddress(vvoter.getPropertyValue("voter"));
+	});
+
+	var vvoter = null;
+	if (matches_vvoter.length == 1) {
+		vvoter = matches_vvoter[0];
+	}
+	else {
+		vvoter = this.data.newComponent("vvoter");
+		vvoter.newProperty("voter", this.organizer(), {}, "cal-address");
+	}
+	var vote = vvoter.newComponent("vote");
+	vote.newProperty("response", 80, {}, "integer");
+	vote.newProperty("poll-item-id", poll_item_id, {}, "integer");
 	return new CalendarEvent(vevent, this);
 }
 
 // Get an array of voters in the VPOLL
 CalendarPoll.prototype.voters = function() {
 	var this_vpoll = this;
-	return $.map(this.data.properties("voter"), function(voter) {
-		return new CalendarUser(voter, this_vpoll);
+	return $.map(this.data.components("vvoter"), function(vvoter) {
+		return new CalendarUser(vvoter.getProperty("voter"), this_vpoll);
 	});
 }
 
 // Add a voter to the VPOLL
 CalendarPoll.prototype.addVoter = function() {
 	this.changed(true);
-	return new CalendarUser(this.data.newProperty("voter", "", {}, "cal-address"), this);
+	var vvoter = this.data.newComponent("vvoter");
+	return new CalendarUser(vvoter.newProperty("voter", "", {}, "cal-address"), this);
 }
 
 // Mark current user as accepted
 CalendarPoll.prototype.acceptInvite = function() {
 	if (!this.isOwned()) {
-		var voters = $.grep(this.data.properties("voter"), function(voter) {
-			return gSession.currentPrincipal.matchingAddress(voter[3]);
-		});
-		$.each(voters, function(index, voter) {
-			voter[1]["partstat"] = "ACCEPTED";
-			delete voter[1]["rsvp"];
+		$.each(this.data.components("vvoter"), function(index, vvoter) {
+			var voter = vvoter.getProperty("voter");
+			if (gSession.currentPrincipal.matchingAddress(voter[3])) {
+				voter[1]["partstat"] = "ACCEPTED";
+				delete voter[1]["rsvp"];
+			}
 		})
 	}
 }
@@ -962,7 +986,8 @@ CalendarEvent.prototype.pickAsWinner = function() {
 	vevent.copyProperty("dtstart", this.data);
 	vevent.copyProperty("dtend", this.data);
 	vevent.copyProperty("organizer", vpoll.data);
-	$.each(vpoll.data.properties("voter"), function(index, voter) {
+	$.each(vpoll.data.components("vvoter"), function(index, vvoter) {
+		var voter = vvoter.getProperty("voter");
 		var attendee = vevent.newProperty(
 			"attendee",
 			voter[3],

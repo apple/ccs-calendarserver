@@ -593,36 +593,39 @@ class iCalDiff(object):
 
         changed = False
 
-        # Get the VOTER properties in sub-components of the VPOLL as set by the attendee
-        poll_items = {}
-        for component in clientComponent.subcomponents():
-            poll_id = component.propertyValue("POLL-ITEM-ID")
-            if poll_id is not None:
-                poll_items[poll_id] = component.getVoterProperty((self.attendee,))
+        # Get the matching VVOTER component in each VPOLL
+        serverVoter = serverComponent.voterComponentForVoter(self.attendee)
+        clientVoter = clientComponent.voterComponentForVoter(self.attendee)
 
-        # Transfer attendee data with the master set
-        for component in serverComponent.subcomponents():
-            poll_id = component.propertyValue("POLL-ITEM-ID")
-            if poll_id is not None:
-                voter = component.getVoterProperty((self.attendee,))
-                attendee_voter = poll_items.get(poll_id)
-                if attendee_voter is None:
-                    if voter is not None:
-                        component.removeProperty(voter)
-                        changed = True
-                elif voter is None:
-                    component.addProperty(attendee_voter)
-                    changed = True
+        # Now get a map of each response
+        serverMap = serverVoter.voteMap()
+        clientMap = clientVoter.voteMap()
+
+        # Remove missing
+        for poll_id in set(serverMap.keys()) - set(clientMap.keys()):
+            serverVoter.removeComponent(serverMap[poll_id])
+            changed = True
+
+        # Add new ones
+        for poll_id in set(clientMap.keys()) - set(serverMap.keys()):
+            vote = clientMap[poll_id].duplicate()
+            vote.replaceProperty(Property("LAST-MODIFIED", DateTime.getNowUTC()))
+            serverVoter.addComponent(vote)
+            changed = True
+
+        # Look for response change
+        for poll_id in set(serverMap.keys()) & set(clientMap.keys()):
+            server_vote = serverMap[poll_id]
+            client_vote = clientMap[poll_id]
+            server_response = server_vote.propertyValue("RESPONSE")
+            client_response = client_vote.propertyValue("RESPONSE")
+            if server_response != client_response:
+                if client_response is not None:
+                    server_vote.replaceProperty(Property("RESPONSE", client_response))
                 else:
-                    for paramname in ("RESPONSE",):
-                        paramvalue = attendee_voter.parameterValue(paramname)
-                        if paramvalue is None:
-                            voter.removeParameter(paramname)
-                            changed = True
-                        else:
-                            if paramvalue != voter.parameterValue(paramname):
-                                voter.setParameter(paramname, paramvalue)
-                                changed = True
+                    server_vote.removeProperty("RESPONSE")
+                server_vote.replaceProperty(Property("LAST-MODIFIED", DateTime.getNowUTC()))
+                changed = True
 
         return changed
 

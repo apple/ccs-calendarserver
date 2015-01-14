@@ -32,7 +32,6 @@ from txweb2.http import Response
 
 from twisted.internet.defer import succeed
 
-from twistedcaldav.config import config
 from twistedcaldav.resource import CalDAVResource
 
 from txdav.xml import element as davxml
@@ -105,7 +104,7 @@ class SimpleRedirectResource(SimpleResource):
 
 
     def renderHTTP(self, request):
-        return http.RedirectResponse(request.unparseURL(host=config.ServerHostName, **self._kwargs))
+        return http.RedirectResponse(request.unparseURL(host=request.host, **self._kwargs))
 
 
 

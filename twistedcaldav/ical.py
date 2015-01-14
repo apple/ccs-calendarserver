@@ -2296,6 +2296,25 @@ class Component (object):
         return ()
 
 
+    def getOrganizerProperties(self):
+        """
+        Get the organizer value. Works on either a VCALENDAR or on a component.
+
+        @return: the string value of the Organizer property, or None
+        """
+
+        # Extract appropriate sub-component if this is a VCALENDAR
+        if self.name() == "VCALENDAR":
+            return [component.getOrganizerProperty() for component in self.subcomponents(ignore=True)]
+        else:
+            try:
+                return self.getProperty("ORGANIZER")
+            except InvalidICalendarDataError:
+                pass
+
+        return None
+
+
     def getOrganizerProperty(self):
         """
         Get the organizer value. Works on either a VCALENDAR or on a component.
@@ -2349,26 +2368,42 @@ class Component (object):
 
 
     def recipientPropertyName(self):
-        return "VOTER" if self.name() == "VPOLL" else "ATTENDEE"
+        return "VOTER" if self.name() in ("VPOLL", "VVOTER",) else "ATTENDEE"
+
+
+    def getRecipientProperties(self):
+        """
+        Get the attendee properties. Works on either a VCALENDAR or on a component.
+
+        @return: a C{list} of the the Attendee properties
+        """
+
+        # Extract appropriate sub-component if this is a VCALENDAR
+        if self.name() == "VCALENDAR":
+            for component in self.subcomponents(ignore=True):
+                return component.getRecipientProperties()
+        else:
+            # Find the property values
+            if self.name() == "VPOLL":
+                results = []
+                for c in self.subcomponents():
+                    if c.name() == "VVOTER":
+                        results.extend(c.properties(self.recipientPropertyName()))
+                return results
+            else:
+                return list(self.properties(self.recipientPropertyName()))
+
+        return None
 
 
     def getAttendees(self):
         """
         Get the attendee value. Works on either a VCALENDAR or on a component.
 
-        @param match: a C{list} of calendar user address strings to try and match.
         @return: a C{list} of the string values of the Attendee property, or None
         """
 
-        # Extract appropriate sub-component if this is a VCALENDAR
-        if self.name() == "VCALENDAR":
-            for component in self.subcomponents(ignore=True):
-                return component.getAttendees()
-        else:
-            # Find the property values
-            return [p.value() for p in self.properties(self.recipientPropertyName())]
-
-        return None
+        return [p.value() for p in self.getRecipientProperties()]
 
 
     def getAttendeesByInstance(self, makeUnique=False, onlyScheduleAgentServer=False):
@@ -2392,7 +2427,7 @@ class Component (object):
             result = ()
             attendees = set()
             rid = self.getRecurrenceIDUTC()
-            for attendee in tuple(self.properties(self.recipientPropertyName())):
+            for attendee in tuple(self.getRecipientProperties()):
 
                 if onlyScheduleAgentServer:
                     if attendee.hasParameter("SCHEDULE-AGENT"):
@@ -2450,7 +2485,7 @@ class Component (object):
                     return attendee
         else:
             # Find the primary subcomponent
-            for attendee in self.properties(self.recipientPropertyName()):
+            for attendee in self.getRecipientProperties():
                 if normalizeCUAddr(attendee.value()) in test:
                     return attendee
 
@@ -2491,7 +2526,7 @@ class Component (object):
                     yield attendee
         else:
             # Find the primary subcomponent
-            for attendee in self.properties(self.recipientPropertyName()):
+            for attendee in self.getRecipientProperties():
                 yield attendee
 
 
@@ -2845,6 +2880,33 @@ class Component (object):
                 master_component.addProperty(Property("EXDATE", [exdate, ]))
 
 
+    def voterComponentForVoter(self, voter):
+        """
+        Find the VVOTER subcomponent with a VOTER property matching the specified attendee (voter).
+
+        @param voter: the calendar user address of the attendee (voter) to match
+        @type voter: L{str}
+        """
+        for voterComponent in tuple(self.subcomponents(ignore=True)):
+            if voterComponent.name() == "VVOTER" and voterComponent.getVoterProperty((voter,)) is not None:
+                return voterComponent
+        else:
+            return None
+
+
+    def voteMap(self):
+        """
+        Get a dict mapping each VOTE component POLL-ITEM-ID to the VOTE component.
+        """
+        results = {}
+        for component in self.subcomponents():
+            if component.name() == "VOTE":
+                poll_id = component.propertyValue("POLL-ITEM-ID")
+                if poll_id is not None:
+                    results[poll_id] = component
+        return results
+
+
     def filterComponents(self, rids):
 
         # If master is in rids do nothing
@@ -2873,7 +2935,15 @@ class Component (object):
         assert self.name() == "VCALENDAR", "Not a calendar: {0!r}".format(self,)
 
         for component in self.subcomponents(ignore=True):
-            [component.removeProperty(p) for p in tuple(component.properties(component.recipientPropertyName())) if p.value().lower() != attendee.lower()]
+            if component.name() == "VPOLL":
+                for vvoter in tuple(self.subcomponents()):
+                    if vvoter.name() == "VVOTER":
+                        if vvoter.propertyValue(component.recipientPropertyName()).lower() != attendee.lower():
+                            component.removeComponent(vvoter)
+            else:
+                for p in tuple(component.properties(component.recipientPropertyName())):
+                    if p.value().lower() != attendee.lower():
+                        component.removeProperty(p)
 
 
     def removeAllButTheseAttendees(self, attendees):
@@ -2886,7 +2956,15 @@ class Component (object):
         attendees = set([attendee.lower() for attendee in attendees])
 
         for component in self.subcomponents(ignore=True):
-            [component.removeProperty(p) for p in tuple(component.properties(component.recipientPropertyName())) if p.value().lower() not in attendees]
+            if component.name() == "VPOLL":
+                for vvoter in tuple(self.subcomponents()):
+                    if vvoter.name() == "VVOTER":
+                        if vvoter.propertyValue(component.recipientPropertyName()).lower() not in attendees:
+                            component.removeComponent(vvoter)
+            else:
+                for p in tuple(component.properties(component.recipientPropertyName())):
+                    if p.value().lower() not in attendees:
+                        component.removeProperty(p)
 
 
     def hasAlarm(self):
@@ -3059,6 +3137,9 @@ END:VCALENDAR
             for prop in props:
                 for param in params:
                     prop.removeParameter(param)
+            if self.name() == "VPOLL":
+                for component in self.subcomponents(ignore=True):
+                    component.removePropertyParameters(property, params)
 
 
     def removePropertyParametersByValue(self, property, paramvalues):
@@ -3074,6 +3155,9 @@ END:VCALENDAR
             for prop in props:
                 for param, value in paramvalues:
                     prop.removeParameterValue(param, value)
+            if self.name() == "VPOLL":
+                for component in self.subcomponents(ignore=True):
+                    component.removePropertyParametersByValue(property, paramvalues)
 
 
     def getITIPInfo(self):
