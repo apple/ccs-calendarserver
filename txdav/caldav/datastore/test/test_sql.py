@@ -526,7 +526,7 @@ END:VCALENDAR
         supported_components = set()
         self.assertEqual(len(toCalendars), 4)
         for calendar in toCalendars:
-            if calendar.name() == "inbox":
+            if calendar.name() in ("inbox", "trash"):
                 continue
             result = yield calendar.getSupportedComponents()
             supported_components.add(result)
