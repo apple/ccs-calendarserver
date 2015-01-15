@@ -18,7 +18,7 @@
 #
 ##
 
--e .  # calendarserver
+--editable .  # calendarserver
 
     zope.interface==4.1.1
 
@@ -36,7 +36,7 @@
             #pyOpenSSL
         pycrypto==2.6.1
 
-    -e svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk@14287#egg=twextpy
+    --editable svn+http://svn.calendarserver.org/repository/calendarserver/twext/trunk@14287#egg=twextpy
         cffi==0.8.6
             pycparser==2.10
         #twisted
@@ -66,9 +66,9 @@
             #six
         six==1.9.0
 
-    -e svn+http://svn.calendarserver.org/repository/calendarserver/PyKerberos/trunk@13420#egg=kerberos
+    --editable svn+http://svn.calendarserver.org/repository/calendarserver/PyKerberos/trunk@13420#egg=kerberos
 
-    -e svn+http://svn.calendarserver.org/repository/calendarserver/PyCalendar/trunk@14301#egg=pycalendar
+    --editable svn+http://svn.calendarserver.org/repository/calendarserver/PyCalendar/trunk@14301#egg=pycalendar
     python-dateutil==1.5  # Note: v2.0+ is for Python 3
     pytz==2014.10
 

@@ -1,5 +1,5 @@
 # Get master requirements
--r requirements-stable.txt
+--requirement requirements-stable.txt
 
 # Additional dependencies for development and testing
 pyflakes
