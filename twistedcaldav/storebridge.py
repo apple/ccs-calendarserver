@@ -2850,7 +2850,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
 
             # Look for client fixes
             ua = request.headers.getHeader("User-Agent")
-            client_fix_transp = matchClientFixes(config, ua)
+            client_fix_transp = "ForceAttendeeTRANSP" in matchClientFixes(config, ua)
 
             # Setup options
             options = {

@@ -15,7 +15,6 @@
 ##
 
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.python.reflect import namedClass
 
 
 class AttachmentsPoddingConduitMixin(object):
@@ -48,11 +47,7 @@ class AttachmentsPoddingConduitMixin(object):
         request["filename"] = filename
 
         response = yield self.sendRequest(shareeView._txn, recipient, request, stream, content_type)
-
-        if response["result"] == "ok":
-            returnValue(response["value"])
-        elif response["result"] == "exception":
-            raise namedClass(response["class"])(response["result"])
+        returnValue(response)
 
 
     @inlineCallbacks
@@ -64,26 +59,15 @@ class AttachmentsPoddingConduitMixin(object):
         @type request: C{dict}
         """
 
-        actionName = "add-attachment"
-        _ignore_shareeView, objectResource = yield self._getResourcesForRequest(txn, request, actionName)
-        try:
-            attachment, location = yield objectResource.addAttachment(
-                request["rids"],
-                request["streamType"],
-                request["filename"],
-                request["stream"],
-            )
-        except Exception as e:
-            returnValue({
-                "result": "exception",
-                "class": ".".join((e.__class__.__module__, e.__class__.__name__,)),
-                "request": str(e),
-            })
+        _ignore_shareeView, objectResource = yield self._getResourcesForRequest(txn, request)
+        attachment, location = yield objectResource.addAttachment(
+            request["rids"],
+            request["streamType"],
+            request["filename"],
+            request["stream"],
+        )
 
-        returnValue({
-            "result": "ok",
-            "value": (attachment.managedID(), location,),
-        })
+        returnValue((attachment.managedID(), location,))
 
 
     @inlineCallbacks
@@ -110,11 +94,7 @@ class AttachmentsPoddingConduitMixin(object):
         request["filename"] = filename
 
         response = yield self.sendRequest(shareeView._txn, recipient, request, stream, content_type)
-
-        if response["result"] == "ok":
-            returnValue(response["value"])
-        elif response["result"] == "exception":
-            raise namedClass(response["class"])(response["result"])
+        returnValue(response)
 
 
     @inlineCallbacks
@@ -126,26 +106,15 @@ class AttachmentsPoddingConduitMixin(object):
         @type request: C{dict}
         """
 
-        actionName = "update-attachment"
-        _ignore_shareeView, objectResource = yield self._getResourcesForRequest(txn, request, actionName)
-        try:
-            attachment, location = yield objectResource.updateAttachment(
-                request["managedID"],
-                request["streamType"],
-                request["filename"],
-                request["stream"],
-            )
-        except Exception as e:
-            returnValue({
-                "result": "exception",
-                "class": ".".join((e.__class__.__module__, e.__class__.__name__,)),
-                "request": str(e),
-            })
+        _ignore_shareeView, objectResource = yield self._getResourcesForRequest(txn, request)
+        attachment, location = yield objectResource.updateAttachment(
+            request["managedID"],
+            request["streamType"],
+            request["filename"],
+            request["stream"],
+        )
 
-        returnValue({
-            "result": "ok",
-            "value": (attachment.managedID(), location,),
-        })
+        returnValue((attachment.managedID(), location,))
 
 
     @inlineCallbacks
@@ -167,12 +136,7 @@ class AttachmentsPoddingConduitMixin(object):
         request["rids"] = rids
         request["managedID"] = managed_id
 
-        response = yield self.sendRequest(shareeView._txn, recipient, request)
-
-        if response["result"] == "ok":
-            returnValue(response["value"])
-        elif response["result"] == "exception":
-            raise namedClass(response["class"])(response["result"])
+        yield self.sendRequest(shareeView._txn, recipient, request)
 
 
     @inlineCallbacks
@@ -184,21 +148,8 @@ class AttachmentsPoddingConduitMixin(object):
         @type request: C{dict}
         """
 
-        actionName = "remove-attachment"
-        _ignore_shareeView, objectResource = yield self._getResourcesForRequest(txn, request, actionName)
-        try:
-            yield objectResource.removeAttachment(
-                request["rids"],
-                request["managedID"],
-            )
-        except Exception as e:
-            returnValue({
-                "result": "exception",
-                "class": ".".join((e.__class__.__module__, e.__class__.__name__,)),
-                "request": str(e),
-            })
-
-        returnValue({
-            "result": "ok",
-            "value": None,
-        })
+        _ignore_shareeView, objectResource = yield self._getResourcesForRequest(txn, request)
+        yield objectResource.removeAttachment(
+            request["rids"],
+            request["managedID"],
+        )

@@ -8,4 +8,4 @@ mockldap
 q
 tl.eggdeps
 --editable svn+http://svn.calendarserver.org/repository/calendarserver/CalDAVClientLibrary/trunk@13420#egg=CalDAVClientLibrary
---editable svn+http://svn.calendarserver.org/repository/calendarserver/CalDAVTester/trunk@14300#egg=CalDAVTester
+--editable svn+http://svn.calendarserver.org/repository/calendarserver/CalDAVTester/trunk@14306#egg=CalDAVTester

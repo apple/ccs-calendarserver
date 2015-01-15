@@ -376,7 +376,7 @@ class IScheduleScheduler(RemoteScheduler):
 
         # Check against this server.
         matched = False
-        serversDB = self.txn._store.directoryService().serversDB
+        serversDB = self.txn._store.directoryService().serversDB()
         if serversDB.getThisServer().checkThisIP(clientip):
             matched = True
 

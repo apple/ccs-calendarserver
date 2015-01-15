@@ -52,7 +52,6 @@ class TestConduit (CommonCommonTests, txweb2.dav.test.util.TestCase):
 
         def recv_fake(self, j):
             return succeed({
-                "result": "ok",
                 "back2u": j["echo"],
                 "more": "bits",
             })
@@ -149,7 +148,6 @@ class TestConduitToConduit(MultiStoreConduitTest):
 
         def recv_fake(self, txn, j):
             return succeed({
-                "result": "ok",
                 "back2u": j["echo"],
                 "more": "bits",
             })
@@ -173,23 +171,13 @@ class TestConduitToConduit(MultiStoreConduitTest):
         txn = self.transactionUnderTest()
         store1 = self.storeUnderTest()
         response = yield store1.conduit.send_fake(txn, "user01", "puser01")
-        self.assertTrue("result" in response)
-        self.assertEqual(response["result"], "ok")
-        self.assertTrue("back2u" in response)
-        self.assertEqual(response["back2u"], "bravo")
-        self.assertTrue("more" in response)
-        self.assertEqual(response["more"], "bits")
+        self.assertEqual(response, {"back2u": "bravo", "more": "bits"})
         yield txn.commit()
 
         store2 = self.otherStoreUnderTest()
         txn = store2.newTransaction()
         response = yield store2.conduit.send_fake(txn, "puser01", "user01")
-        self.assertTrue("result" in response)
-        self.assertEqual(response["result"], "ok")
-        self.assertTrue("back2u" in response)
-        self.assertEqual(response["back2u"], "bravo")
-        self.assertTrue("more" in response)
-        self.assertEqual(response["more"], "bits")
+        self.assertEqual(response, {"back2u": "bravo", "more": "bits"})
         yield txn.commit()
 
 

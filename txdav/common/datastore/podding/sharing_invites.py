@@ -14,9 +14,8 @@
 # limitations under the License.
 ##
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks
 
-from txdav.common.icommondatastore import ExternalShareFailed
 from txdav.common.datastore.podding.base import FailedCrossPodRequestError
 from txdav.common.datastore.podding.sharing_base import SharingCommonPoddingConduit
 
@@ -71,8 +70,7 @@ class SharingInvitesPoddingConduitMixin(SharingCommonPoddingConduit):
         if supported_components is not None:
             request["supported-components"] = supported_components
 
-        result = yield self.sendRequest(txn, recipient, request)
-        returnValue(result)
+        yield self.sendRequest(txn, recipient, request)
 
 
     @inlineCallbacks
@@ -84,32 +82,22 @@ class SharingInvitesPoddingConduitMixin(SharingCommonPoddingConduit):
         @type request: C{dict}
         """
 
-        if request["action"] != "shareinvite":
-            raise FailedCrossPodRequestError("Wrong action '{}' for recv_shareinvite".format(request["action"]))
-
         # Sharee home on this pod must exist (create if needed)
         shareeHome = yield txn.homeWithUID(request["type"], request["sharee"], create=True)
         if shareeHome is None or shareeHome.external():
             raise FailedCrossPodRequestError("Invalid sharee UID specified")
 
         # Create a share
-        try:
-            yield shareeHome.processExternalInvite(
-                request["owner"],
-                request["owner_id"],
-                request["owner_name"],
-                request["share_id"],
-                request["mode"],
-                request["summary"],
-                request["properties"],
-                supported_components=request.get("supported-components")
-            )
-        except ExternalShareFailed as e:
-            raise FailedCrossPodRequestError(str(e))
-
-        returnValue({
-            "result": "ok",
-        })
+        yield shareeHome.processExternalInvite(
+            request["owner"],
+            request["owner_id"],
+            request["owner_name"],
+            request["share_id"],
+            request["mode"],
+            request["summary"],
+            request["properties"],
+            supported_components=request.get("supported-components")
+        )
 
 
     @inlineCallbacks
@@ -140,8 +128,7 @@ class SharingInvitesPoddingConduitMixin(SharingCommonPoddingConduit):
             "share_id": shareUID,
         }
 
-        result = yield self.sendRequest(txn, recipient, request)
-        returnValue(result)
+        yield self.sendRequest(txn, recipient, request)
 
 
     @inlineCallbacks
@@ -153,27 +140,17 @@ class SharingInvitesPoddingConduitMixin(SharingCommonPoddingConduit):
         @type request: C{dict}
         """
 
-        if request["action"] != "shareuninvite":
-            raise FailedCrossPodRequestError("Wrong action '{}' for recv_shareuninvite".format(request["action"]))
-
         # Sharee home on this pod must already exist
         shareeHome = yield txn.homeWithUID(request["type"], request["sharee"])
         if shareeHome is None or shareeHome.external():
             FailedCrossPodRequestError("Invalid sharee UID specified")
 
         # Remove a share
-        try:
-            yield shareeHome.processExternalUninvite(
-                request["owner"],
-                request["owner_id"],
-                request["share_id"],
-            )
-        except ExternalShareFailed as e:
-            FailedCrossPodRequestError(str(e))
-
-        returnValue({
-            "result": "ok",
-        })
+        yield shareeHome.processExternalUninvite(
+            request["owner"],
+            request["owner_id"],
+            request["share_id"],
+        )
 
 
     @inlineCallbacks
@@ -208,8 +185,7 @@ class SharingInvitesPoddingConduitMixin(SharingCommonPoddingConduit):
         if summary is not None:
             request["summary"] = summary
 
-        result = yield self.sendRequest(txn, recipient, request)
-        returnValue(result)
+        yield self.sendRequest(txn, recipient, request)
 
 
     @inlineCallbacks
@@ -221,26 +197,16 @@ class SharingInvitesPoddingConduitMixin(SharingCommonPoddingConduit):
         @type request: C{dict}
         """
 
-        if request["action"] != "sharereply":
-            raise FailedCrossPodRequestError("Wrong action '{}' for recv_sharereply".format(request["action"]))
-
         # Sharer home on this pod must already exist
         ownerHome = yield txn.homeWithUID(request["type"], request["owner"])
         if ownerHome is None or ownerHome.external():
             FailedCrossPodRequestError("Invalid owner UID specified")
 
         # Process a reply
-        try:
-            yield ownerHome.processExternalReply(
-                request["owner"],
-                request["sharee"],
-                request["share_id"],
-                request["status"],
-                summary=request.get("summary")
-            )
-        except ExternalShareFailed as e:
-            FailedCrossPodRequestError(str(e))
-
-        returnValue({
-            "result": "ok",
-        })
+        yield ownerHome.processExternalReply(
+            request["owner"],
+            request["sharee"],
+            request["share_id"],
+            request["status"],
+            summary=request.get("summary")
+        )

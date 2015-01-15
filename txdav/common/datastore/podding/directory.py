@@ -15,7 +15,6 @@
 ##
 
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.python.reflect import namedClass
 from txdav.common.datastore.podding.base import FailedCrossPodRequestError
 from txdav.who.delegates import Delegates
 
@@ -41,11 +40,7 @@ class DirectoryPoddingConduitMixin(object):
             "action": "all-group-delegates",
         }
         response = yield self.sendRequestToServer(txn, server, request)
-
-        if response["result"] == "ok":
-            returnValue(set(response["value"]))
-        elif response["result"] == "exception":
-            raise namedClass(response["class"])(response["result"])
+        returnValue(set(response))
 
 
     @inlineCallbacks
@@ -57,22 +52,9 @@ class DirectoryPoddingConduitMixin(object):
         @type request: C{dict}
         """
 
-        if request["action"] != "all-group-delegates":
-            raise FailedCrossPodRequestError("Wrong action '{}' for recv_all_group_delegates".format(request["action"]))
+        delegatedUIDs = yield txn.allGroupDelegates()
 
-        try:
-            delegatedUIDs = yield txn.allGroupDelegates()
-        except Exception as e:
-            returnValue({
-                "result": "exception",
-                "class": ".".join((e.__class__.__module__, e.__class__.__name__,)),
-                "request": str(e),
-            })
-
-        returnValue({
-            "result": "ok",
-            "value": list(delegatedUIDs),
-        })
+        returnValue(list(delegatedUIDs))
 
 
     @inlineCallbacks
@@ -98,12 +80,7 @@ class DirectoryPoddingConduitMixin(object):
             "delegates": [delegate.uid for delegate in delegates],
             "read-write": readWrite,
         }
-        response = yield self.sendRequestToServer(txn, delegator.server(), request)
-
-        if response["result"] == "ok":
-            returnValue(None)
-        elif response["result"] == "exception":
-            raise namedClass(response["class"])(response["result"])
+        yield self.sendRequestToServer(txn, delegator.server(), request)
 
 
     @inlineCallbacks
@@ -115,32 +92,18 @@ class DirectoryPoddingConduitMixin(object):
         @type request: C{dict}
         """
 
-        if request["action"] != "set-delegates":
-            raise FailedCrossPodRequestError("Wrong action '{}' for recv_set_delegates".format(request["action"]))
+        delegator = yield txn.directoryService().recordWithUID(request["uid"])
+        if delegator is None or not delegator.thisServer():
+            raise FailedCrossPodRequestError("Cross-pod delegate not on this server: {}".format(delegator.uid))
 
-        try:
-            delegator = yield txn.directoryService().recordWithUID(request["uid"])
-            if delegator is None or not delegator.thisServer():
-                raise FailedCrossPodRequestError("Cross-pod delegate not on this server: {}".format(delegator.uid))
+        delegates = []
+        for uid in request["delegates"]:
+            delegate = yield txn.directoryService().recordWithUID(uid)
+            if delegate is None:
+                raise FailedCrossPodRequestError("Cross-pod delegate missing on this server: {}".format(uid))
+            delegates.append(delegate)
 
-            delegates = []
-            for uid in request["delegates"]:
-                delegate = yield txn.directoryService().recordWithUID(uid)
-                if delegate is None:
-                    raise FailedCrossPodRequestError("Cross-pod delegate missing on this server: {}".format(uid))
-                delegates.append(delegate)
-
-            yield Delegates.setDelegates(txn, delegator, delegates, request["read-write"])
-        except Exception as e:
-            returnValue({
-                "result": "exception",
-                "class": ".".join((e.__class__.__module__, e.__class__.__name__,)),
-                "request": str(e),
-            })
-
-        returnValue({
-            "result": "ok",
-        })
+        yield Delegates.setDelegates(txn, delegator, delegates, request["read-write"])
 
 
     @inlineCallbacks
@@ -165,11 +128,7 @@ class DirectoryPoddingConduitMixin(object):
             "expanded": expanded,
         }
         response = yield self.sendRequestToServer(txn, delegator.server(), request)
-
-        if response["result"] == "ok":
-            returnValue(set(response["value"]))
-        elif response["result"] == "exception":
-            raise namedClass(response["class"])(response["result"])
+        returnValue(set(response))
 
 
     @inlineCallbacks
@@ -181,26 +140,13 @@ class DirectoryPoddingConduitMixin(object):
         @type request: C{dict}
         """
 
-        if request["action"] != "get-delegates":
-            raise FailedCrossPodRequestError("Wrong action '{}' for recv_get_delegates".format(request["action"]))
+        delegator = yield txn.directoryService().recordWithUID(request["uid"])
+        if delegator is None or not delegator.thisServer():
+            raise FailedCrossPodRequestError("Cross-pod delegate not on this server: {}".format(delegator.uid))
 
-        try:
-            delegator = yield txn.directoryService().recordWithUID(request["uid"])
-            if delegator is None or not delegator.thisServer():
-                raise FailedCrossPodRequestError("Cross-pod delegate not on this server: {}".format(delegator.uid))
+        delegates = yield Delegates._delegatesOfUIDs(txn, delegator, request["read-write"], request["expanded"])
 
-            delegates = yield Delegates._delegatesOfUIDs(txn, delegator, request["read-write"], request["expanded"])
-        except Exception as e:
-            returnValue({
-                "result": "exception",
-                "class": ".".join((e.__class__.__module__, e.__class__.__name__,)),
-                "request": str(e),
-            })
-
-        returnValue({
-            "result": "ok",
-            "value": list(delegates),
-        })
+        returnValue(list(delegates))
 
 
     @inlineCallbacks
@@ -226,11 +172,7 @@ class DirectoryPoddingConduitMixin(object):
             "read-write": readWrite,
         }
         response = yield self.sendRequestToServer(txn, server, request)
-
-        if response["result"] == "ok":
-            returnValue(set(response["value"]))
-        elif response["result"] == "exception":
-            raise namedClass(response["class"])(response["result"])
+        returnValue(set(response))
 
 
     @inlineCallbacks
@@ -242,23 +184,10 @@ class DirectoryPoddingConduitMixin(object):
         @type request: C{dict}
         """
 
-        if request["action"] != "get-delegators":
-            raise FailedCrossPodRequestError("Wrong action '{}' for recv_get_delegators".format(request["action"]))
+        delegate = yield txn.directoryService().recordWithUID(request["uid"])
+        if delegate is None or delegate.thisServer():
+            raise FailedCrossPodRequestError("Cross-pod delegate missing or on this server: {}".format(delegate.uid))
 
-        try:
-            delegate = yield txn.directoryService().recordWithUID(request["uid"])
-            if delegate is None or delegate.thisServer():
-                raise FailedCrossPodRequestError("Cross-pod delegate missing or on this server: {}".format(delegate.uid))
+        delegators = yield Delegates._delegatedToUIDs(txn, delegate, request["read-write"], onlyThisServer=True)
 
-            delegateors = yield Delegates._delegatedToUIDs(txn, delegate, request["read-write"], onlyThisServer=True)
-        except Exception as e:
-            returnValue({
-                "result": "exception",
-                "class": ".".join((e.__class__.__module__, e.__class__.__name__,)),
-                "request": str(e),
-            })
-
-        returnValue({
-            "result": "ok",
-            "value": list(delegateors),
-        })
+        returnValue(list(delegators))

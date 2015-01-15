@@ -614,7 +614,7 @@ class CachingDelegates(object):
         log.debug("_podDelegators for: {} and read-write = {}".format(delegate.uid, readWrite,))
         results = yield DeferredList([
             txn.store().conduit.send_get_delegators(txn, server, delegate, readWrite) for
-            server in txn.directoryService().serversDB.allServersExceptThis()
+            server in txn.directoryService().serversDB().allServersExceptThis()
         ], consumeErrors=True)
         delegators = set()
         for result in results:

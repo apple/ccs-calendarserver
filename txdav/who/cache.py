@@ -473,6 +473,10 @@ class CachingDirectoryService(
         )
 
 
+    def serversDB(self):
+        return self._directory.serversDB()
+
+
     @inlineCallbacks
     def flush(self):
         self.resetCache()

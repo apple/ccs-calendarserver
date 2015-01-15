@@ -15,7 +15,6 @@
 ##
 
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.python.reflect import namedClass
 
 from txdav.common.datastore.podding.sharing_base import SharingCommonPoddingConduit
 from txdav.caldav.datastore.scheduling.freebusy import generateFreeBusyInfo
@@ -59,10 +58,7 @@ class SharingStorePoddingConduitMixin(SharingCommonPoddingConduit):
         if kwargs is not None:
             request["keywords"] = kwargs
         response = yield self.sendRequest(shareeView._txn, recipient, request)
-        if response["result"] == "ok":
-            returnValue(response["value"] if transform is None else transform(response["value"], shareeView, objectResource))
-        elif response["result"] == "exception":
-            raise namedClass(response["class"])(response["result"])
+        returnValue(response if transform is None else transform(response, shareeView, objectResource))
 
 
     @inlineCallbacks
@@ -81,29 +77,19 @@ class SharingStorePoddingConduitMixin(SharingCommonPoddingConduit):
         @type transform: C{callable}
         """
 
-        shareeView, objectResource = yield self._getResourcesForRequest(txn, request, actionName)
-        try:
-            if onHomeChild:
-                # Operate on the L{CommonHomeChild}
-                value = yield getattr(shareeView, method)(*request.get("arguments", ()), **request.get("keywords", {}))
+        shareeView, objectResource = yield self._getResourcesForRequest(txn, request)
+        if onHomeChild:
+            # Operate on the L{CommonHomeChild}
+            value = yield getattr(shareeView, method)(*request.get("arguments", ()), **request.get("keywords", {}))
+        else:
+            # Operate on the L{CommonObjectResource}
+            if objectResource is not None:
+                value = yield getattr(objectResource, method)(*request.get("arguments", ()), **request.get("keywords", {}))
             else:
-                # Operate on the L{CommonObjectResource}
-                if objectResource is not None:
-                    value = yield getattr(objectResource, method)(*request.get("arguments", ()), **request.get("keywords", {}))
-                else:
-                    # classmethod call
-                    value = yield getattr(shareeView._objectResourceClass, method)(shareeView, *request.get("arguments", ()), **request.get("keywords", {}))
-        except Exception as e:
-            returnValue({
-                "result": "exception",
-                "class": ".".join((e.__class__.__module__, e.__class__.__name__,)),
-                "request": str(e),
-            })
+                # classmethod call
+                value = yield getattr(shareeView._objectResourceClass, method)(shareeView, *request.get("arguments", ()), **request.get("keywords", {}))
 
-        returnValue({
-            "result": "ok",
-            "value": transform(value, shareeView, objectResource) if transform is not None else value,
-        })
+        returnValue(transform(value, shareeView, objectResource) if transform is not None else value)
 
 
     @inlineCallbacks
@@ -134,11 +120,7 @@ class SharingStorePoddingConduitMixin(SharingCommonPoddingConduit):
         action["event_details"] = event_details
 
         response = yield self.sendRequest(calresource._txn, recipient, action)
-
-        if response["result"] == "ok":
-            returnValue((response["fbresults"], response["matchtotal"],))
-        elif response["result"] == "exception":
-            raise namedClass(response["class"])(response["result"])
+        returnValue((response["fbresults"], response["matchtotal"],))
 
 
     @inlineCallbacks
@@ -150,29 +132,23 @@ class SharingStorePoddingConduitMixin(SharingCommonPoddingConduit):
         @type request: C{dict}
         """
 
-        shareeView, _ignore_objectResource = yield self._getResourcesForRequest(txn, request, "freebusy")
-        try:
-            # Operate on the L{CommonHomeChild}
-            fbinfo = [[], [], []]
-            matchtotal = yield generateFreeBusyInfo(
-                shareeView,
-                fbinfo,
-                TimeRange(start=request["timerange"][0], end=request["timerange"][1]),
-                request["matchtotal"],
-                request["excludeuid"],
-                request["organizer"],
-                request["organizerPrincipal"],
-                request["same_calendar_user"],
-                request["servertoserver"],
-                request["event_details"],
-                logItems=None
-            )
-        except Exception as e:
-            returnValue({
-                "result": "exception",
-                "class": ".".join((e.__class__.__module__, e.__class__.__name__,)),
-                "request": str(e),
-            })
+        # Operate on the L{CommonHomeChild}
+        shareeView, _ignore_objectResource = yield self._getResourcesForRequest(txn, request)
+
+        fbinfo = [[], [], []]
+        matchtotal = yield generateFreeBusyInfo(
+            shareeView,
+            fbinfo,
+            TimeRange(start=request["timerange"][0], end=request["timerange"][1]),
+            request["matchtotal"],
+            request["excludeuid"],
+            request["organizer"],
+            request["organizerPrincipal"],
+            request["same_calendar_user"],
+            request["servertoserver"],
+            request["event_details"],
+            logItems=None
+        )
 
         # Convert L{DateTime} objects to text for JSON response
         for i in range(3):
@@ -180,7 +156,6 @@ class SharingStorePoddingConduitMixin(SharingCommonPoddingConduit):
                 fbinfo[i][j] = fbinfo[i][j].getText()
 
         returnValue({
-            "result": "ok",
             "fbresults": fbinfo,
             "matchtotal": matchtotal,
         })

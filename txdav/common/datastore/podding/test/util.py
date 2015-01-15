@@ -89,7 +89,15 @@ class FakeConduitRequest(object):
         if self.stream is not None:
             j["stream"] = self.stream
             j["streamType"] = self.streamType
-        result = yield store.conduit.processRequest(j)
+        try:
+            result = yield store.conduit.processRequest(j)
+        except Exception as e:
+            # Send the exception over to the other side
+            result = {
+                "result": "exception",
+                "class": ".".join((e.__class__.__module__, e.__class__.__name__,)),
+                "request": str(e),
+            }
         result = json.dumps(result)
         returnValue(result)
 

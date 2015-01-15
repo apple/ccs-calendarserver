@@ -16,8 +16,6 @@
 
 from twext.python.log import Logger
 
-from twisted.internet.defer import inlineCallbacks, returnValue
-
 from txdav.common.idirectoryservice import DirectoryRecordNotFoundError
 from txdav.common.datastore.podding.attachments import AttachmentsPoddingConduitMixin
 from txdav.common.datastore.podding.base import FailedCrossPodRequestError
@@ -25,6 +23,10 @@ from txdav.common.datastore.podding.directory import DirectoryPoddingConduitMixi
 from txdav.common.datastore.podding.request import ConduitRequest
 from txdav.common.datastore.podding.sharing_invites import SharingInvitesPoddingConduitMixin
 from txdav.common.datastore.podding.sharing_store import SharingStorePoddingConduitMixin
+
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.python.reflect import namedClass
+from twisted.python.failure import Failure
 
 
 log = Logger()
@@ -114,7 +116,12 @@ class PoddingConduit(
             response = (yield request.doRequest(txn))
         except Exception as e:
             raise FailedCrossPodRequestError("Failed cross-pod request: {}".format(e))
-        returnValue(response)
+        if response["result"] == "exception":
+            raise namedClass(response["class"])(response["result"])
+        elif response["result"] != "ok":
+            raise FailedCrossPodRequestError("Cross-pod request failed: {}".format(response))
+        else:
+            returnValue(response.get("value"))
 
 
     @inlineCallbacks
@@ -146,11 +153,15 @@ class PoddingConduit(
 
         # Do the actual request processing
         try:
-            result = (yield getattr(self, method)(txn, data))
+            value = (yield getattr(self, method)(txn, data))
+            result = {"result": "ok"}
+            if value is not None:
+                result["value"] = value
         except Exception as e:
+            ex = Failure()
             yield txn.abort()
             log.error("Failed action: {action}, {ex}", action=action, ex=e)
-            raise FailedCrossPodRequestError("Failed action: {}, {}".format(action, e))
+            ex.raiseException()
 
         yield txn.commit()
 

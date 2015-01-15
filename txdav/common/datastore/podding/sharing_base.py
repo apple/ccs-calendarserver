@@ -58,7 +58,7 @@ class SharingCommonPoddingConduit(object):
 
 
     @inlineCallbacks
-    def _getResourcesForRequest(self, txn, request, expected_action):
+    def _getResourcesForRequest(self, txn, request):
         """
         Find the resources associated with the request. This is used when a JSON request has been received
         and the underlying store objects the request refers to need to be found.
@@ -66,9 +66,6 @@ class SharingCommonPoddingConduit(object):
         @param request: request arguments
         @type request: C{dict}
         """
-
-        if request["action"] != expected_action:
-            raise FailedCrossPodRequestError("Wrong action '{}' for recv_{}".format(request["action"], expected_action))
 
         # Get a share
         ownerHome = yield txn.homeWithUID(request["type"], request["owner"])

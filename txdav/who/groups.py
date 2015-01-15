@@ -533,10 +533,10 @@ class GroupCacher(object):
         )
 
         # Also get group delegates from other pods
-        if txn.directoryService().serversDB is not None and len(txn.directoryService().serversDB.allServersExceptThis()) != 0:
+        if txn.directoryService().serversDB() is not None and len(txn.directoryService().serversDB().allServersExceptThis()) != 0:
             results = yield DeferredList([
                 txn.store().conduit.send_all_group_delegates(txn, server) for
-                server in txn.directoryService().serversDB.allServersExceptThis()
+                server in txn.directoryService().serversDB().allServersExceptThis()
             ], consumeErrors=True)
             for result in results:
                 if result and result[0]:

@@ -72,7 +72,7 @@ class ConduitRequest(object):
                 self.loggedResponse = yield self.logResponse(response)
                 emitAccounting("xPod", "", self.loggedRequest + "\n" + self.loggedResponse, "POST")
 
-            if response.code in (responsecode.OK,):
+            if response.code in (responsecode.OK, responsecode.BAD_REQUEST,):
                 data = (yield allDataFromStream(response.stream))
                 data = json.loads(data)
             else:

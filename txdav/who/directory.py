@@ -53,10 +53,14 @@ class CalendarDirectoryServiceMixin(object):
 
     guid = "1332A615-4D3A-41FE-B636-FBE25BFB982E"
 
-    serversDB = None
+    _serversDB = None
+
+    def serversDB(self):
+        return self._serversDB
+
 
     def setServersDB(self, serversDB):
-        self.serversDB = serversDB
+        self._serversDB = serversDB
 
 
     # Must maintain the hack for a bit longer:
@@ -502,10 +506,10 @@ class CalendarDirectoryRecordMixin(object):
         URL of the server hosting this record. Return None if hosted on this server.
         """
         if (
-            self.service.serversDB is not None and
+            self.service.serversDB() is not None and
             getattr(self, "serviceNodeUID", None)
         ):
-            return self.service.serversDB.getServerURIById(self.serviceNodeUID)
+            return self.service.serversDB().getServerURIById(self.serviceNodeUID)
         else:
             return None
 
@@ -515,10 +519,10 @@ class CalendarDirectoryRecordMixin(object):
         Server hosting this record. Return None if hosted on this server.
         """
         if (
-            self.service.serversDB is not None and
+            self.service.serversDB() is not None and
             getattr(self, "serviceNodeUID", None)
         ):
-            return self.service.serversDB.getServerById(self.serviceNodeUID)
+            return self.service.serversDB().getServerById(self.serviceNodeUID)
         else:
             return None
 

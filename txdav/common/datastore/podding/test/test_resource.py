@@ -37,7 +37,6 @@ class ConduitPOST (CommonCommonTests, txweb2.dav.test.util.TestCase):
 
         def recv_fake(self, txn, j):
             return succeed({
-                "result": "ok",
                 "back2u": j["echo"],
                 "more": "bits",
             })
@@ -266,7 +265,5 @@ class ConduitPOST (CommonCommonTests, txweb2.dav.test.util.TestCase):
         j = json.loads(data)
         self.assertTrue("result" in j)
         self.assertEqual(j["result"], "ok")
-        self.assertTrue("back2u" in j)
-        self.assertEqual(j["back2u"], "bravo")
-        self.assertTrue("more" in j)
-        self.assertEqual(j["more"], "bits")
+        self.assertTrue("value" in j)
+        self.assertEqual(j["value"], {"back2u": "bravo", "more": "bits"})

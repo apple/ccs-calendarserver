@@ -953,7 +953,7 @@ class ComponentRemoveState(Names):
 
 
 
-class SetComponentOptions(Names):
+class SetComponentOptions(object):
     """
     Constants for keys used in the L{ICalendarObject.setComponent} method's
     C{options} dict. The definitions below define the constant key name and
@@ -966,14 +966,18 @@ class SetComponentOptions(Names):
         Value: L{bool}
     """
 
-    smartMerge = NamedConstant()
-    smartMerge.description = u"Smart Merge: CalDAV If-Schedule-Tag-Match behavior"
-    smartMerge.defaultValue = False
+    # Smart Merge: CalDAV If-Schedule-Tag-Match behavior
+    smartMerge = "smartMerge"
 
-    clientFixTRANSP = NamedConstant()
-    clientFixTRANSP.description = u"Fix for clients not setting TRANSP"
-    clientFixTRANSP.defaultValue = False
+    # Fix for clients not setting TRANSP
+    clientFixTRANSP = "clientFixTRANSP"
+
+    _defaults = {
+        smartMerge: False,
+        clientFixTRANSP: False
+    }
 
     @staticmethod
     def value(options, key):
-        return options.get(key, key.defaultValue) if options is not None else key.defaultValue
+        defaultValue = SetComponentOptions._defaults.get(key)
+        return options.get(key, defaultValue) if options is not None else defaultValue
