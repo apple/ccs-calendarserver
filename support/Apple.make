@@ -100,10 +100,18 @@ install-python:: build
 	@# It knows about where things go in the virtual environment.
 	@#
 	@echo "Installing Python packages...";
+	@# $(_v) for pkg in $$(find "$(Sources)/.develop/pip_downloads" -type f); do \
+	@#           $(Environment)                                                  \
+	@#               "$(DSTROOT)$(CS_VIRTUALENV)/bin/pip" install                \
+	@#                   --pre --allow-all-external --no-index --no-deps         \
+	@#                   --log=$(OBJROOT)/pip.log                                \
+	@#                   "$${pkg}" || exit 1;                                    \
+	@#       done;
 	$(_v) for pkg in $$(find "$(Sources)/.develop/pip_downloads" -type f); do \
 	          $(Environment)                                                  \
 	              "$(DSTROOT)$(CS_VIRTUALENV)/bin/pip" install                \
-	                  --pre --allow-all-external --no-index --no-deps         \
+	                  --pre --allow-all-external --no-index                   \
+	                  --find-links="file://$(Sources)/.develop/pip_downloads" \
 	                  --log=$(OBJROOT)/pip.log                                \
 	                  "$${pkg}" || exit 1;                                    \
 	      done;
@@ -141,9 +149,9 @@ install-config::
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)";
 	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)/caldavd-apple.plist";
 
-install:: install-logdir-omg-hack-ew
-install-logdir-omg-hack-ew::
-	$(_v) $(INSTALL_DIRECTORY) -o "$(CS_USER)" -g "$(CS_GROUP)" -m 0755 "$(DSTROOT)$(VARDIR)/log$(CALDAVDSUBDIR)";
+# install:: install-logdir-omg-hack-ew
+# install-logdir-omg-hack-ew::
+# 	$(_v) $(INSTALL_DIRECTORY) -o "$(CS_USER)" -g "$(CS_GROUP)" -m 0755 "$(DSTROOT)$(VARDIR)/log$(CALDAVDSUBDIR)";
 
 install:: install-commands
 install-commands::
