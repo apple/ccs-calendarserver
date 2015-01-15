@@ -58,15 +58,13 @@ CS_GROUP = _calendar
 
 build:: $(BuildDirectory)/$(Project)
 
-build-no::
-	@echo "Building $(Project)...";
-	$(_v) cd $(BuildDirectory)/$(Project) && $(Environment) $(PYTHON) setup.py build
-
 install:: install-python
 install-python:: build
 	@#
-	@# Install virtualenv someplace and put it in PYTHONPATH in case it's not
-	@# on the host system.
+	@# We need the virtualenv + pip + setuptools toolchain.
+	@# Install virtualenv someplace and put it in PYTHONPATH so we have it.
+	@# This way, the host system we're building on doesn't need to have these
+	@# tools and we can ensure that we're using known versions.
 	@#
 	@echo "Installing virtualenv and friends...";
 	$(_v) mkdir -p "$(BuildDirectory)/pytools";
@@ -86,7 +84,12 @@ install-python:: build
 	      done;
 	@#
 	@# Set up a virtual environment in Server.app; we'll install into that.
-	@# Use --system-site-packages so that we use the packages provided by the OS.
+	@# That creates a self-contained environment which has specific version of
+	@# (almost) all of our dependancies in it.
+	@# Use --system-site-packages so that we use the packages provided by the
+	@# OS, such as PyObjC.
+	@# Use --always-copy because we want copies of, not links to, the system
+	@# python, as Server.app is an indenpendant product train.
 	@#
 	@echo "Creating virtual environment...";
 	$(_v) $(RMDIR) "$(DSTROOT)$(CS_VIRTUALENV)";
@@ -96,25 +99,19 @@ install-python:: build
 		          --always-copy                      \
 		          "$(DSTROOT)$(CS_VIRTUALENV)";
 	@#
-	@# Use the pip in the virtual environment to install.
-	@# It knows about where things go in the virtual environment.
+	@# Use the pip in the virtual environment (as opposed to pip in the OS) to
+	@# install, as it knows about where things go in the virtual environment.
+	@# Use --no-index and --find-links so that we don't use PyPI; we want to
+	@# use the cached downloads we submit to B&I, and not fetch content from
+	@# the Internet.
 	@#
 	@echo "Installing Python packages...";
-	@# $(_v) for pkg in $$(find "$(Sources)/.develop/pip_downloads" -type f); do \
-	@#           $(Environment)                                                  \
-	@#               "$(DSTROOT)$(CS_VIRTUALENV)/bin/pip" install                \
-	@#                   --pre --allow-all-external --no-index --no-deps         \
-	@#                   --log=$(OBJROOT)/pip.log                                \
-	@#                   "$${pkg}" || exit 1;                                    \
-	@#       done;
-	$(_v) for pkg in $$(find "$(Sources)/.develop/pip_downloads" -type f); do \
-	          $(Environment)                                                  \
-	              "$(DSTROOT)$(CS_VIRTUALENV)/bin/pip" install                \
-	                  --pre --allow-all-external --no-index                   \
-	                  --find-links="file://$(Sources)/.develop/pip_downloads" \
-	                  --log=$(OBJROOT)/pip.log                                \
-	                  "$${pkg}" || exit 1;                                    \
-	      done;
+	$(_v) $(Environment)                                                  \
+	          "$(DSTROOT)$(CS_VIRTUALENV)/bin/pip" install                \
+	              --pre --allow-all-external --no-index                   \
+	              --find-links="file://$(Sources)/.develop/pip_downloads" \
+	              --log=$(OBJROOT)/pip.log                                \
+	              CalendarServer[OpenDirectory,Postgres]
 	@#
 	@# Make the virtualenv relocatable
 	@#
@@ -131,6 +128,7 @@ install-python:: build
 	@echo "Putting comments into empty files...";
 	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type f -size 0 -name "*.py" -exec sh -c 'printf "# empty\n" > {}' ";";
 	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type f -size 0 -name "*.h" -exec sh -c 'printf "/* empty */\n" > {}' ";";
+	@# This is obsoleted by using --always-copy when we create the virtualenv:
 	@# @echo "Replacing symbolic links...";
 	@# $(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type l |                       \
 	@#           while read link; do                                           \
