@@ -19,7 +19,6 @@
 
 set -e
 set -u
-set -x
 
 wd="$(cd "$(dirname "$0")/.." && pwd)";
 
@@ -34,7 +33,7 @@ extra_features="OpenDirectory,Postgres";
 
 
 #
-# Download virtualenv and friends.
+# Download virtualenv and friends so that B&I has that core toolchain.
 #
 
 mkdir -p "${wd}/.develop/tools";
@@ -61,7 +60,7 @@ done;
 
 ve_tmp="$(mktemp -d -t CalendarServer_ve_tools)";
 
-# Bootstrap virtualenv and friends so we can use them
+# Bootstrap virtualenv and friends so we can use them in this script (not sent to B&I).
 py_ve_tools="${ve_tmp}/ve_tools";
 export PYTHONPATH="${py_ve_tools}/lib:${wd}:${PYTHONPATH:-}";
 bootstrap_virtualenv;
