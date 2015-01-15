@@ -150,8 +150,7 @@ echo ""
 echo "Tweaking for B&I...";
 ln -s support/Apple.make "${wc}/Makefile";
 
-version_file="${wc}/SubmissionInfo.xml";
-cat - >> "${version_file}" <<EOF
+cat - >> "${wc}/SubmissionInfo.xml" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <submission>
  <project>${project}</project>
@@ -165,6 +164,8 @@ cat - >> "${version_file}" <<EOF
  </source>
 </submission>
 EOF
+
+echo "${revision}" > "${wc}/svnversion.txt";
 
 echo "";
 echo "Preparing sources for ${project_version}...";
