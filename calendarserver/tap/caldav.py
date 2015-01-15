@@ -1250,8 +1250,14 @@ class CalDAVServiceMaker (object):
 
             # Job queues always required
             from twisted.internet import reactor
+
+            if config.WorkQueue.enableAMP:
+                ampPort = config.WorkQueue.ampPort
+            else:
+                ampPort = None
+
             pool = PeerConnectionPool(
-                reactor, store.newTransaction, config.WorkQueue.ampPort
+                reactor, store.newTransaction, ampPort
             )
             self._initJobQueue(pool)
             store.queuer = store.queuer.transferProposalCallbacks(pool)
@@ -1836,8 +1842,14 @@ class CalDAVServiceMaker (object):
                 stats.store = store
 
             from twisted.internet import reactor
+
+            if config.WorkQueue.enableAMP:
+                ampPort = config.WorkQueue.ampPort
+            else:
+                ampPort = None
+
             pool = PeerConnectionPool(
-                reactor, store.newTransaction, config.WorkQueue.ampPort
+                reactor, store.newTransaction, ampPort
             )
             self._initJobQueue(pool)
             store.queuer = store.queuer.transferProposalCallbacks(pool)

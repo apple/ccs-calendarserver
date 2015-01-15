@@ -232,6 +232,7 @@ DEFAULT_CONFIG = {
     # Work queue configuration information
     #
     "WorkQueue": {
+        "enableAMP": False,
         "ampPort": 7654,            # Port used for hosts in a cluster to talk to each other
 
         "queuePollInterval": 0.1,   # Interval in seconds for job queue polling
