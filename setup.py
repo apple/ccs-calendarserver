@@ -33,10 +33,13 @@ def find_packages():
         "twisted.plugins",
     ]
 
-    for pkg in filter(
-        lambda p: os.path.isdir(p) and os.path.isfile(os.path.join(p, "__init__.py")),
-        os.listdir(".")
-    ):
+    def is_package(path):
+        return (
+            os.path.isdir(path) and
+            os.path.isfile(os.path.join(path, "__init__.py"))
+        )
+
+    for pkg in filter(is_package, os.listdir(".")):
         modules.extend([pkg, ] + [
             "{}.{}".format(pkg, subpkg)
             for subpkg in setuptools_find_packages(pkg)
@@ -66,6 +69,8 @@ def version():
 
     source_root = dirname(abspath(__file__))
 
+    full_version = base_version
+
     for branch in branches:
         cmd = ["svnversion", "-n", source_root, branch]
 
@@ -74,14 +79,12 @@ def version():
 
         except OSError as e:
             if e.errno == errno.ENOENT:
-                full_version = base_version + "-unknown"
+                svn_revision = None
                 break
             raise
 
         if "S" in svn_revision:
             continue
-
-        full_version = base_version
 
         if branch == "trunk":
             full_version += "b.trunk"
@@ -89,14 +92,23 @@ def version():
             full_version += "c.dev"
 
         if svn_revision in ("exported", "Unversioned directory"):
-            full_version += "-unknown"
-        else:
-            full_version += "-r{revision}".format(revision=svn_revision)
+            svn_revision_filename = joinpath(
+                dirname(__file__), "svnversion.txt"
+            )
+            try:
+                svn_revision_file = file(svn_revision_filename)
+                svn_revision = svn_revision_file.read().strip()
+            except (IOError, OSError):
+                svn_revision = None
 
         break
     else:
         full_version = base_version
         full_version += "a.unknown"
+
+    if svn_revision is None:
+        full_version += "-unknown"
+    else:
         full_version += "-r{revision}".format(revision=svn_revision)
 
     return full_version
