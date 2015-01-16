@@ -105,6 +105,16 @@ install-python:: build
 	@# use the cached downloads we submit to B&I, and not fetch content from
 	@# the Internet.
 	@#
+
+	@# Install cffi first because twext will fail to generate the .so files
+	@# otherwise
+	@echo "Installing cffi...";
+	$(_v) $(Environment)                                                  \
+	          "$(DSTROOT)$(CS_VIRTUALENV)/bin/pip" install                \
+	              --pre --allow-all-external --no-index                   \
+	              --find-links="file://$(Sources)/.develop/pip_downloads" \
+	              --log=$(OBJROOT)/pip.log                                \
+	              cffi
 	@echo "Installing Python packages...";
 	$(_v) $(Environment)                                                  \
 	          "$(DSTROOT)$(CS_VIRTUALENV)/bin/pip" install                \
