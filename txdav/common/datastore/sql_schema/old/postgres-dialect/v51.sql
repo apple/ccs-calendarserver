@@ -1,7 +1,7 @@
 -- -*- test-case-name: txdav.caldav.datastore.test.test_sql,txdav.carddav.datastore.test.test_sql -*-
 
 ----
--- Copyright (c) 2010-2015 Apple Inc. All rights reserved.
+-- Copyright (c) 2010-2014 Apple Inc. All rights reserved.
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -131,9 +131,7 @@ create table CALENDAR_METADATA (
   RESOURCE_ID           integer      primary key references CALENDAR on delete cascade, -- implicit index
   SUPPORTED_COMPONENTS  varchar(255) default null,
   CREATED               timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  MODIFIED              timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  CHILD_TYPE            varchar(10)  default null -- None, inbox, trash (FIXME: convert this to enumeration)
-
+  MODIFIED              timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
 );
 
 
@@ -260,8 +258,6 @@ create table CALENDAR_OBJECT (
   CREATED              timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED             timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   DATAVERSION          integer      default 0 not null,
-  IS_TRASH             boolean      default false not null, -- all instances are in the trash
-  HAS_TRASH            boolean      default false not null, -- has at least one instance in trash
 
   unique (CALENDAR_RESOURCE_ID, RESOURCE_NAME) -- implicit index
 
@@ -362,7 +358,7 @@ create table PERUSER (
   TRANSPARENT                 boolean      not null,
   ADJUSTED_START_DATE         timestamp    default null,
   ADJUSTED_END_DATE           timestamp    default null,
-
+  
   primary key (TIME_RANGE_INSTANCE_ID, USER_ID)    -- implicit index
 );
 
@@ -482,7 +478,6 @@ create table ADDRESSBOOK_OBJECT (
   CREATED                       timestamp       default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                      timestamp       default timezone('UTC', CURRENT_TIMESTAMP),
   DATAVERSION                   integer         default 0 not null,
-  IS_TRASH                      boolean         default false not null,
 
   unique (ADDRESSBOOK_HOME_RESOURCE_ID, RESOURCE_NAME), -- implicit index
   unique (ADDRESSBOOK_HOME_RESOURCE_ID, VCARD_UID)      -- implicit index
@@ -588,7 +583,7 @@ create table CALENDAR_OBJECT_REVISIONS (
   REVISION                  integer      default nextval('REVISION_SEQ') not null,
   DELETED                   boolean      not null,
   MODIFIED                  timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-
+  
   unique(CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_ID, CALENDAR_NAME, RESOURCE_NAME)    -- implicit index
 );
 
@@ -615,7 +610,7 @@ create table ADDRESSBOOK_OBJECT_REVISIONS (
   REVISION                      integer      default nextval('REVISION_SEQ') not null,
   DELETED                       boolean      not null,
   MODIFIED                      timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-
+  
   unique(ADDRESSBOOK_HOME_RESOURCE_ID, OWNER_HOME_RESOURCE_ID, ADDRESSBOOK_NAME, RESOURCE_NAME)    -- implicit index
 );
 
@@ -1155,7 +1150,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '52');
+insert into CALENDARSERVER values ('VERSION', '51');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');
