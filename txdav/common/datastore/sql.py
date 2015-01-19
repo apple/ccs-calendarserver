@@ -7351,10 +7351,14 @@ class CommonObjectResource(FancyEqMixin, object):
         Just moves the object to the trash
         """
 
-        if self._parentCollection.isTrash():
-            raise AlreadyInTrashError
+
+        if config.EnableTrashCollection:
+            if self._parentCollection.isTrash():
+                raise AlreadyInTrashError
+            else:
+                yield self.toTrash()
         else:
-            yield self.toTrash()
+            yield self.reallyRemove(options=options)
 
 
     @inlineCallbacks

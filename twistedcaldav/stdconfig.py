@@ -577,7 +577,9 @@ DEFAULT_CONFIG = {
         # "VPOLL",
     ],
 
-    "ParallelUpgrades" : False, # Perform upgrades - currently only the
+    "EnableTrashCollection": False,  # Enable Trash Collection
+
+    "ParallelUpgrades": False, # Perform upgrades - currently only the
                                 # database -> filesystem migration - but in
                                 # the future, hopefully all relevant
                                 # upgrades - in parallel in subprocesses.

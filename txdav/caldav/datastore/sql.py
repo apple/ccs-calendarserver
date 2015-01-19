@@ -3936,7 +3936,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             if self._dropboxID:
                 yield DropBoxAttachment.resourceRemoved(self._txn, self._resourceID, self._dropboxID)
             yield ManagedAttachment.resourceRemoved(self._txn, self._resourceID)
-        yield super(CalendarObject, self).reallyRemove()
+        yield super(CalendarObject, self).remove()
 
         # Do scheduling
         if scheduler is not None:
