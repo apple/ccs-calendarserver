@@ -35,8 +35,8 @@ from twisted.internet.protocol import ServerFactory
 from twisted.internet.defer import Deferred, inlineCallbacks, succeed
 from twisted.internet.task import Clock
 from twisted.internet import reactor
-from twisted.application.service import (IService, IServiceCollection,
-                                         MultiService)
+from twisted.application.service import (IService, IServiceCollection
+                                         )
 from twisted.application import internet
 
 from twext.python.log import Logger
@@ -63,7 +63,6 @@ from calendarserver.tap.caldav import (
     DataStoreMonitor
 )
 from calendarserver.provision.root import RootResource
-from twext.enterprise.jobqueue import PeerConnectionPool, LocalQueuer
 from StringIO import StringIO
 
 log = Logger()
@@ -460,66 +459,6 @@ class ProcessMonitorTests(CalDAVServiceMakerTestBase):
                     lambda x: isinstance(x, DelayedStartupProcessMonitor)))
             )
         )
-
-
-
-class StoreQueuerSetInMasterTests(CalDAVServiceMakerTestBase):
-
-    def configure(self):
-        super(StoreQueuerSetInMasterTests, self).configure()
-        config.ProcessType = "Combined"
-
-
-    def test_storeQueuerSetInMaster(self):
-        """
-        In the master, the store's queuer should be set to a
-        L{PeerConnectionPool}, so that work can be distributed to other
-        processes.
-        """
-        class NotAStore(object):
-            queuer = LocalQueuer(None)
-
-            def __init__(self, directory):
-                self.directory = directory
-
-            def newTransaction(self):
-                return None
-
-            def callWithNewTransactions(self, x):
-                pass
-
-            def directoryService(self):
-                return self.directory
-
-        store = NotAStore(self.directory)
-
-
-        def something(proposal):
-            pass
-
-        store.queuer.callWithNewProposals(something)
-
-
-        def patch(maker):
-            def storageServiceStandIn(createMainService, logObserver,
-                                      uid=None, gid=None, directory=None):
-                pool = None
-                logObserver = None
-                storageService = None
-                svc = createMainService(
-                    pool, store, logObserver, storageService
-                )
-                multi = MultiService()
-                svc.setServiceParent(multi)
-                return multi
-            self.patch(maker, "storageService", storageServiceStandIn)
-            return maker
-
-        maker = CalDAVServiceMaker()
-        maker = patch(maker)
-        maker.makeService(self.options)
-        self.assertIsInstance(store.queuer, PeerConnectionPool)
-        self.assertIn(something, store.queuer.proposalCallbacks)
 
 
 

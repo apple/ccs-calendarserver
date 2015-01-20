@@ -255,7 +255,7 @@ class SQLStoreBuilder(object):
         # Start the job queue after store is up and cleaned
         if enableJobProcessing:
             pool = PeerConnectionPool(
-                reactor, store.newTransaction, None
+                reactor, store.newTransaction, None, useWorkerPool=False
             )
             store.queuer = store.queuer.transferProposalCallbacks(pool)
             pool.startService()
