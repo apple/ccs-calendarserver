@@ -1257,7 +1257,8 @@ class CalDAVServiceMaker (object):
                 ampPort = None
 
             pool = PeerConnectionPool(
-                reactor, store.newTransaction, ampPort
+                reactor, store.newTransaction, ampPort,
+                useWorkerPool=False
             )
             self._initJobQueue(pool)
             store.queuer = store.queuer.transferProposalCallbacks(pool)
@@ -1852,7 +1853,10 @@ class CalDAVServiceMaker (object):
                 reactor, store.newTransaction, ampPort
             )
             self._initJobQueue(pool)
-            store.queuer = store.queuer.transferProposalCallbacks(pool)
+
+            # The master should not perform queued work
+            store.queuer = NonPerformingQueuer()
+
             controlSocket.addFactory(
                 _QUEUE_ROUTE, pool.workerListenerFactory()
             )
