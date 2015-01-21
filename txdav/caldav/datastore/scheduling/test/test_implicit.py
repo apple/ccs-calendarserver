@@ -1273,6 +1273,9 @@ ATTENDEE:mailto:user02@example.com
 END:VEVENT
 END:VCALENDAR
 """
+
+        self.patch(CalendarObject.CalendarObjectUpgradeWork, "delay", 1)
+
         yield self._createCalendarObject(data1, "user01", "test.ics")
 
         cobj = yield self.calendarObjectUnderTest(home="user01", name="test.ics")
@@ -1287,6 +1290,16 @@ END:VCALENDAR
         # Because CUA normalization happens in component() now too...
         self.assertTrue(comp.getOrganizer().startswith("urn:x-uid:"))
         self.assertFalse(comp.getOrganizerScheduleAgent())
+        yield self.commit()
+
+        yield JobItem.waitEmpty(self.storeUnderTest().newTransaction, reactor, 60)
+
+        cobj = yield self.calendarObjectUnderTest(home="user01", name="test.ics")
+        comp = yield cobj.component()
+        # Because CUA normalization happens in component() now too...
+        self.assertTrue(comp.getOrganizer().startswith("urn:x-uid:"))
+        self.assertFalse(comp.getOrganizerScheduleAgent())
+        yield self.commit()
 
         cobj = yield self.calendarObjectUnderTest(home="user01", name="test.ics")
         actualVersion = CalendarObject._currentDataVersion
@@ -1299,6 +1312,15 @@ END:VCALENDAR
         comp = yield cobj.component()
         self.assertTrue(comp.getOrganizer().startswith("urn:x-uid:"))
         self.assertTrue(comp.getOrganizerScheduleAgent())
+        yield self.commit()
+
+        yield JobItem.waitEmpty(self.storeUnderTest().newTransaction, reactor, 60)
+
+        cobj = yield self.calendarObjectUnderTest(home="user01", name="test.ics")
+        comp = yield cobj.component()
+        self.assertTrue(comp.getOrganizer().startswith("urn:x-uid:"))
+        self.assertTrue(comp.getOrganizerScheduleAgent())
+        yield self.commit()
 
 
     @inlineCallbacks
