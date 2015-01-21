@@ -38,6 +38,7 @@ init_build > /dev/null;
 
 do_setup="false";
   do_get="false";
+ viewlog="false";
 
     random="--random=$(date "+%s")";
   no_color="";
@@ -58,18 +59,19 @@ usage ()
 
   echo "Usage: ${program} [options]";
   echo "Options:";
-  echo "        -h  Print this help and exit";
-  echo "        -n  Do not use color";
-  echo "        -o  Do not run tests in random order.";
-  echo "        -r<num>  Use specified seed to determine order.";
-  echo "        -u  Run until the tests fail.";
-  echo "        -c  Generate coverage reports.";
+  echo "        -h         Print this help and exit";
+  echo "        -n         Do not use color";
+  echo "        -o         Do not run tests in random order.";
+  echo "        -r <seed>  Use specified seed to determine order.";
+  echo "        -u         Run until the tests fail.";
+  echo "        -c         Generate coverage reports.";
+  echo "        -L         Show logging output in a separate view.";
 
   if [ "${1-}" == "-" ]; then return 0; fi;
   exit 64;
 }
 
-while getopts "nhoucr:j:" option; do
+while getopts "hor:nucj:L" option; do
   case "${option}" in
     '?') usage; ;;
     'h') usage -; exit 0; ;;
@@ -79,6 +81,7 @@ while getopts "nhoucr:j:" option; do
     'u') until_fail="--until-failure"; ;;
     'c')   coverage="--coverage"; ;;
     'j')    numjobs="-j $OPTARG"; ;;
+    'L')    viewlog="true";
   esac;
 done;
 shift $((${OPTIND} - 1));
@@ -104,6 +107,25 @@ find "${wd}" -name \*.pyc -print0 | xargs -0 rm;
 # Unit tests
 #
 
+trial_temp="${dev_home}/trial";
+
+if "${viewlog}"; then
+  if [ "${TERM_PROGRAM}" = "Apple_Terminal" ]; then
+    if [ ! -d "${trial_temp}" ]; then
+      mkdir "${trial_temp}";
+    fi;
+
+    touch "${trial_temp}/_trial_marker";
+    cp /dev/null "${trial_temp}/test.log";
+
+    open -a Console "${trial_temp}/test.log";
+  else
+    echo "Unable to view log.";
+  fi;
+fi;
+
+error=0;
+
 if [ $# -eq 0 ]; then
   lint="true";
   # Test these modules with a single invocation of trial
@@ -118,7 +140,8 @@ if [ $# -eq 0 ]; then
     ${no_color}                                       \
     ${coverage}                                       \
     ${numjobs}                                        \
-    "$@";
+    "$@"                                              \
+    || error=$?;
 else
   lint="false";
   # Loop over the passed-in modules
@@ -136,21 +159,23 @@ else
       ${no_color}                                       \
       ${coverage}                                       \
       ${numjobs}                                        \
-      "${module}";
+      "${module}"                                       \
+      || error=$? ;
   done;
 fi;
 
-
-
-if ! "${lint}"; then
-  exit 0;
+if [ ${error} -ne 0 ]; then
+  exit ${error};
 fi;
-
 
 
 #
 # Linting
 #
+
+if ! "${lint}"; then
+  exit 0;
+fi;
 
 echo "";
 echo "Running pyflakes...";
