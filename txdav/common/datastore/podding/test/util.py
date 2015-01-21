@@ -105,41 +105,50 @@ class FakeConduitRequest(object):
 
 class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
 
-    theStoreBuilder2 = SQLStoreBuilder(secondary=True)
-    otherTransaction = None
+    numberOfStores = 2
+
+    theStoreBuilders = []
+    theStores = []
+    activeTransactions = []
+
+    def __init__(self, methodName='runTest'):
+        txweb2.dav.test.util.TestCase.__init__(self, methodName)
+        while len(self.theStoreBuilders) < self.numberOfStores:
+            self.theStoreBuilders.append(SQLStoreBuilder(count=len(self.theStoreBuilders)))
+        self.theStores = [None] * self.numberOfStores
+        self.activeTransactions = [None] * self.numberOfStores
+
 
     @inlineCallbacks
     def setUp(self):
         yield super(MultiStoreConduitTest, self).setUp()
 
-        # Store 1
-        serversDB1 = ServersDB()
-        server1a = Server("A", "http://127.0.0.1:8008", "A", True)
-        serversDB1.addServer(server1a)
-        server1b = Server("B", "http://127.0.0.1:8108", "B", False)
-        serversDB1.addServer(server1b)
-        yield self.buildStoreAndDirectory(serversDB=serversDB1)
-        self.store.queryCacher = None     # Cannot use query caching
-        self.store.conduit = self.makeConduit(self.store)
+        # Stores
+        for i in range(self.numberOfStores):
+            serversDB = ServersDB()
+            for j in range(self.numberOfStores):
+                letter = chr(ord("A") + j)
+                port = 8008 + 100 * j
+                server = Server(letter, "http://127.0.0.1:{}".format(port), letter, j == i)
+                serversDB.addServer(server)
 
-        # Store 2
-        serversDB2 = ServersDB()
-        server2a = Server("A", "http://127.0.0.1:8008", "A", False)
-        serversDB2.addServer(server2a)
-        server2b = Server("B", "http://127.0.0.1:8108", "B", True)
-        serversDB2.addServer(server2b)
+            if i == 0:
+                yield self.buildStoreAndDirectory(
+                    serversDB=serversDB,
+                    storeBuilder=self.theStoreBuilders[i]
+                )
+                self.theStores[i] = self.store
+            else:
+                self.theStores[i] = yield self.buildStore(self.theStoreBuilders[i])
+                directory = buildTestDirectory(
+                    self.theStores[i], self.mktemp(), serversDB=serversDB
+                )
+                self.theStores[i].setDirectoryService(directory)
 
-        self.store2 = yield self.buildStore(self.theStoreBuilder2)
-        directory2 = buildTestDirectory(
-            self.store2, self.mktemp(), serversDB=serversDB2
-        )
+            self.theStores[i].queryCacher = None     # Cannot use query caching
+            self.theStores[i].conduit = self.makeConduit(self.theStores[i])
 
-        self.store2.setDirectoryService(directory2)
-        self.store2.queryCacher = None     # Cannot use query caching
-        self.store2.conduit = self.makeConduit(self.store2)
-
-        FakeConduitRequest.addServerStore(server1a, self.store)
-        FakeConduitRequest.addServerStore(server2b, self.store2)
+            FakeConduitRequest.addServerStore(serversDB.getServerById(chr(ord("A") + i)), self.theStores[i])
 
 
     def configure(self):
@@ -147,17 +156,17 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
         self.config.Servers.Enabled = True
 
 
-    def otherStoreUnderTest(self):
+    def theStoreUnderTest(self, count):
         """
         Return a store for testing.
         """
-        return self.store2
+        return self.theStores[count]
 
 
-    def newOtherTransaction(self):
-        assert self.otherTransaction is None
-        store2 = self.otherStoreUnderTest()
-        txn = store2.newTransaction()
+    def makeNewTransaction(self, count):
+        assert self.activeTransactions[count] is None
+        store = self.theStoreUnderTest(count)
+        txn = store.newTransaction()
 
         @inlineCallbacks
         def maybeCommitThis():
@@ -166,28 +175,28 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
             except AlreadyFinishedError:
                 pass
         self.addCleanup(maybeCommitThis)
-        self.otherTransaction = txn
-        return self.otherTransaction
+        self.activeTransactions[count] = txn
+        return self.activeTransactions[count]
 
 
-    def otherTransactionUnderTest(self):
-        if self.otherTransaction is None:
-            self.newOtherTransaction()
-        return self.otherTransaction
-
-
-    @inlineCallbacks
-    def otherCommit(self):
-        assert self.otherTransaction is not None
-        yield self.otherTransaction.commit()
-        self.otherTransaction = None
+    def theTransactionUnderTest(self, count):
+        if self.activeTransactions[count] is None:
+            self.makeNewTransaction(count)
+        return self.activeTransactions[count]
 
 
     @inlineCallbacks
-    def otherAbort(self):
-        assert self.otherTransaction is not None
-        yield self.otherTransaction.abort()
-        self.otherTransaction = None
+    def commitTransaction(self, count):
+        assert self.activeTransactions[count] is not None
+        yield self.activeTransactions[count].commit()
+        self.activeTransactions[count] = None
+
+
+    @inlineCallbacks
+    def abortTransaction(self, count):
+        assert self.activeTransactions[count] is not None
+        yield self.activeTransactions[count].abort()
+        self.activeTransactions[count] = None
 
 
     def makeConduit(self, store):
@@ -199,15 +208,15 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
     @inlineCallbacks
     def createShare(self, ownerGUID="user01", shareeGUID="puser02", name="calendar"):
 
-        home = yield self.homeUnderTest(name=ownerGUID, create=True)
+        home = yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name=ownerGUID, create=True)
         calendar = yield home.calendarWithName(name)
         yield calendar.inviteUIDToShare(shareeGUID, _BIND_MODE_WRITE, "shared", shareName="shared-calendar")
-        yield self.commit()
+        yield self.commitTransaction(0)
 
         # ACK: home2 is None
-        home2 = yield self.homeUnderTest(txn=self.newOtherTransaction(), name=shareeGUID)
+        home2 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(1), name=shareeGUID)
         yield home2.acceptShare("shared-calendar")
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
         returnValue("shared-calendar")
 
@@ -215,7 +224,7 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
     @inlineCallbacks
     def removeShare(self, ownerGUID="user01", shareeGUID="puser02", name="calendar"):
 
-        home = yield self.homeUnderTest(name=ownerGUID)
+        home = yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name=ownerGUID)
         calendar = yield home.calendarWithName(name)
         yield calendar.uninviteUIDFromShare(shareeGUID)
-        yield self.commit()
+        yield self.commitTransaction(0)

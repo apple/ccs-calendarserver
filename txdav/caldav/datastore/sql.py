@@ -2273,7 +2273,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         if name.startswith("."):
             raise ObjectResourceNameNotAllowedError(name)
 
-        c = cls._externalClass if parent.external() else cls
+        c = cls._externalClass if parent.externalClass() else cls
         objectResource = c(parent, name, None, None, options=options)
         yield objectResource._setComponentInternal(component, inserting=True, internal_state=internal_state, split_details=split_details)
         yield objectResource._loadPropertyStore(created=True)

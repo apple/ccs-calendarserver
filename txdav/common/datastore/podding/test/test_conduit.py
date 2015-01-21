@@ -168,17 +168,15 @@ class TestConduitToConduit(MultiStoreConduitTest):
         Cross-pod request works when conduit does support the action.
         """
 
-        txn = self.transactionUnderTest()
-        store1 = self.storeUnderTest()
-        response = yield store1.conduit.send_fake(txn, "user01", "puser01")
+        store = self.theStoreUnderTest(0)
+        response = yield store.conduit.send_fake(self.theTransactionUnderTest(0), "user01", "puser01")
         self.assertEqual(response, {"back2u": "bravo", "more": "bits"})
-        yield txn.commit()
+        yield self.commitTransaction(0)
 
-        store2 = self.otherStoreUnderTest()
-        txn = store2.newTransaction()
-        response = yield store2.conduit.send_fake(txn, "puser01", "user01")
+        store = self.theStoreUnderTest(1)
+        response = yield store.conduit.send_fake(self.theTransactionUnderTest(1), "puser01", "user01")
         self.assertEqual(response, {"back2u": "bravo", "more": "bits"})
-        yield txn.commit()
+        yield self.commitTransaction(1)
 
 
 
@@ -261,23 +259,23 @@ END:VCALENDAR
 
         yield self.createShare("user01", "puser01")
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         shared = yield calendar1.shareeView("puser01")
         self.assertEqual(shared.shareStatus(), _BIND_STATUS_ACCEPTED)
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         self.assertTrue(shared is not None)
         self.assertTrue(shared.external())
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         yield calendar1.uninviteUIDFromShare("puser01")
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         self.assertTrue(shared is None)
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
 
     @inlineCallbacks
@@ -288,33 +286,33 @@ END:VCALENDAR
 
         yield self.createShare("user01", "puser01")
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         count = yield shared.countObjectResources()
         self.assertEqual(count, 0)
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
         count = yield calendar1.countObjectResources()
         self.assertEqual(count, 1)
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         count = yield shared.countObjectResources()
         self.assertEqual(count, 1)
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
-        object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
+        object1 = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(0), home="user01", calendar_name="calendar", name="1.ics")
         yield object1.remove()
         count = yield calendar1.countObjectResources()
         self.assertEqual(count, 0)
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         count = yield shared.countObjectResources()
         self.assertEqual(count, 0)
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
 
     @inlineCallbacks
@@ -325,34 +323,34 @@ END:VCALENDAR
 
         yield self.createShare("user01", "puser01")
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         objects = yield shared.listObjectResources()
         self.assertEqual(set(objects), set())
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
         yield calendar1.createCalendarObjectWithName("2.ics", Component.fromString(self.caldata2))
         objects = yield calendar1.listObjectResources()
         self.assertEqual(set(objects), set(("1.ics", "2.ics",)))
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         objects = yield shared.listObjectResources()
         self.assertEqual(set(objects), set(("1.ics", "2.ics",)))
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
-        object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
+        object1 = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(0), home="user01", calendar_name="calendar", name="1.ics")
         yield object1.remove()
         objects = yield calendar1.listObjectResources()
         self.assertEqual(set(objects), set(("2.ics",)))
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         objects = yield shared.listObjectResources()
         self.assertEqual(set(objects), set(("2.ics",)))
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
 
     @inlineCallbacks
@@ -363,45 +361,45 @@ END:VCALENDAR
 
         yield self.createShare("user01", "puser01")
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         token1_1 = yield calendar1.syncToken()
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         token2_1 = yield shared.syncToken()
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
         self.assertEqual(token1_1, token2_1)
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         token1_2 = yield calendar1.syncToken()
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         token2_2 = yield shared.syncToken()
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
         self.assertNotEqual(token1_1, token1_2)
         self.assertEqual(token1_2, token2_2)
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
-        object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
+        object1 = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(0), home="user01", calendar_name="calendar", name="1.ics")
         yield object1.remove()
         count = yield calendar1.countObjectResources()
         self.assertEqual(count, 0)
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         token1_3 = yield calendar1.syncToken()
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         token2_3 = yield shared.syncToken()
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
         self.assertNotEqual(token1_1, token1_3)
         self.assertNotEqual(token1_2, token1_3)
@@ -416,58 +414,58 @@ END:VCALENDAR
 
         yield self.createShare("user01", "puser01")
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         token1_1 = yield calendar1.syncToken()
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         token2_1 = yield shared.syncToken()
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         token1_2 = yield calendar1.syncToken()
         names1 = yield calendar1.resourceNamesSinceToken(token1_1)
         self.assertEqual(names1, ([u"1.ics"], [], [],))
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         token2_2 = yield shared.syncToken()
         names2 = yield shared.resourceNamesSinceToken(token2_1)
         self.assertEqual(names2, ([u"1.ics"], [], [],))
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
-        object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
+        object1 = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(0), home="user01", calendar_name="calendar", name="1.ics")
         yield object1.remove()
         count = yield calendar1.countObjectResources()
         self.assertEqual(count, 0)
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         token1_3 = yield calendar1.syncToken()
         names1 = yield calendar1.resourceNamesSinceToken(token1_2)
         self.assertEqual(names1, ([], [u"1.ics"], [],))
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         token2_3 = yield shared.syncToken()
         names2 = yield shared.resourceNamesSinceToken(token2_2)
         self.assertEqual(names2, ([], [u"1.ics"], [],))
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         names1 = yield calendar1.resourceNamesSinceToken(token1_3)
         self.assertEqual(names1, ([], [], [],))
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         names2 = yield shared.resourceNamesSinceToken(token2_3)
         self.assertEqual(names2, ([], [], [],))
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
 
     @inlineCallbacks
@@ -478,23 +476,23 @@ END:VCALENDAR
 
         yield self.createShare("user01", "puser01")
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         uid = yield calendar1.resourceUIDForName("1.ics")
         self.assertEqual(uid, "uid1")
         uid = yield calendar1.resourceUIDForName("2.ics")
         self.assertTrue(uid is None)
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         uid = yield shared.resourceUIDForName("1.ics")
         self.assertEqual(uid, "uid1")
         uid = yield shared.resourceUIDForName("2.ics")
         self.assertTrue(uid is None)
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
 
     @inlineCallbacks
@@ -505,23 +503,23 @@ END:VCALENDAR
 
         yield self.createShare("user01", "puser01")
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         name = yield calendar1.resourceNameForUID("uid1")
         self.assertEqual(name, "1.ics")
         name = yield calendar1.resourceNameForUID("uid2")
         self.assertTrue(name is None)
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         name = yield shared.resourceNameForUID("uid1")
         self.assertEqual(name, "1.ics")
         name = yield shared.resourceNameForUID("uid2")
         self.assertTrue(name is None)
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
 
     @inlineCallbacks
@@ -532,9 +530,9 @@ END:VCALENDAR
 
         yield self.createShare("user01", "puser01")
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
-        yield self.commit()
+        yield self.commitTransaction(0)
 
         filter = caldavxml.Filter(
             caldavxml.ComponentFilter(
@@ -546,15 +544,15 @@ END:VCALENDAR
         )
         filter = Filter(filter)
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         names = [item[0] for item in (yield calendar1.search(filter))]
         self.assertEqual(names, ["1.ics", ])
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         names = [item[0] for item in (yield shared.search(filter))]
         self.assertEqual(names, ["1.ics", ])
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
 
     @inlineCallbacks
@@ -565,14 +563,14 @@ END:VCALENDAR
 
         yield self.createShare("user01", "puser01")
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         resource1 = yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
         resource_id1 = resource1.id()
         resource2 = yield calendar1.createCalendarObjectWithName("2.ics", Component.fromString(self.caldata2))
         resource_id2 = resource2.id()
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         resources = yield shared.objectResources()
         byname = dict([(obj.name(), obj) for obj in resources])
         byuid = dict([(obj.uid(), obj) for obj in resources])
@@ -598,14 +596,13 @@ END:VCALENDAR
         self.assertTrue(resource is byname["2.ics"])
         resource = yield shared.objectResourceWithID(0)
         self.assertTrue(resource is None)
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
-        object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        object1 = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(0), home="user01", calendar_name="calendar", name="1.ics")
         yield object1.remove()
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         resources = yield shared.objectResources()
         byname = dict([(obj.name(), obj) for obj in resources])
         byuid = dict([(obj.uid(), obj) for obj in resources])
@@ -631,7 +628,7 @@ END:VCALENDAR
         self.assertTrue(resource is byname["2.ics"])
         resource = yield shared.objectResourceWithID(0)
         self.assertTrue(resource is None)
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
 
     @inlineCallbacks
@@ -642,20 +639,20 @@ END:VCALENDAR
 
         yield self.createShare("user01", "puser01")
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         resource1 = yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
         resource_id1 = resource1.id()
         yield calendar1.createCalendarObjectWithName("2.ics", Component.fromString(self.caldata2))
         resource3 = yield calendar1.createCalendarObjectWithName("3.ics", Component.fromString(self.caldata3))
         resource_id3 = resource3.id()
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         resources = yield shared.objectResources()
         self.assertEqual(len(resources), 3)
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         resources = yield shared.objectResourcesWithNames(("1.ics", "3.ics",))
         byname = dict([(obj.name(), obj) for obj in resources])
         byuid = dict([(obj.uid(), obj) for obj in resources])
@@ -681,14 +678,13 @@ END:VCALENDAR
         self.assertTrue(resource is byname["3.ics"])
         resource = yield shared.objectResourceWithID(0)
         self.assertTrue(resource is None)
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
-        object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        object1 = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(0), home="user01", calendar_name="calendar", name="1.ics")
         yield object1.remove()
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         resources = yield shared.objectResourcesWithNames(("1.ics", "3.ics",))
         byname = dict([(obj.name(), obj) for obj in resources])
         byuid = dict([(obj.uid(), obj) for obj in resources])
@@ -714,7 +710,7 @@ END:VCALENDAR
         self.assertTrue(resource is byname["3.ics"])
         resource = yield shared.objectResourceWithID(0)
         self.assertTrue(resource is None)
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
 
     @inlineCallbacks
@@ -725,12 +721,12 @@ END:VCALENDAR
 
         yield self.createShare("user01", "puser01")
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         resource = yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
         resource_id = resource.id()
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         resource = yield shared.objectResourceWithName("1.ics")
         self.assertTrue(resource is not None)
         self.assertEqual(resource.name(), "1.ics")
@@ -739,9 +735,9 @@ END:VCALENDAR
         resource = yield shared.objectResourceWithName("2.ics")
         self.assertTrue(resource is None)
 
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         resource = yield shared.objectResourceWithUID("uid1")
         self.assertTrue(resource is not None)
         self.assertEqual(resource.name(), "1.ics")
@@ -750,9 +746,9 @@ END:VCALENDAR
         resource = yield shared.objectResourceWithUID("uid2")
         self.assertTrue(resource is None)
 
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         resource = yield shared.objectResourceWithID(resource_id)
         self.assertTrue(resource is not None)
         self.assertEqual(resource.name(), "1.ics")
@@ -761,27 +757,26 @@ END:VCALENDAR
         resource = yield shared.objectResourceWithID(0)
         self.assertTrue(resource is None)
 
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
-        object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        object1 = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(0), home="user01", calendar_name="calendar", name="1.ics")
         yield object1.remove()
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         resource = yield shared.objectResourceWithName("1.ics")
         self.assertTrue(resource is None)
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         resource = yield shared.objectResourceWithUID("uid1")
         self.assertTrue(resource is None)
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         resource = yield shared.objectResourceWithID(resource_id)
         self.assertTrue(resource is None)
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
 
     @inlineCallbacks
@@ -792,29 +787,29 @@ END:VCALENDAR
 
         yield self.createShare("user01", "puser01")
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         resource = yield shared.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
         resource_id = resource.id()
         self.assertTrue(resource is not None)
         self.assertEqual(resource.name(), "1.ics")
         self.assertEqual(resource.uid(), "uid1")
         self.assertFalse(resource._componentChanged)
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         resource = yield shared.objectResourceWithUID("uid1")
         self.assertTrue(resource is not None)
         self.assertEqual(resource.name(), "1.ics")
         self.assertEqual(resource.uid(), "uid1")
         self.assertEqual(resource.id(), resource_id)
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
-        object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        object1 = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(0), home="user01", calendar_name="calendar", name="1.ics")
         self.assertTrue(object1 is not None)
         self.assertEqual(object1.name(), "1.ics")
         self.assertEqual(object1.uid(), "uid1")
         self.assertEqual(object1.id(), resource_id)
-        yield self.commit()
+        yield self.commitTransaction(0)
 
 
     @inlineCallbacks
@@ -825,17 +820,17 @@ END:VCALENDAR
 
         yield self.createShare("user01", "puser01")
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         yield self.failUnlessFailure(shared.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1)), ObjectResourceNameAlreadyExistsError)
-        yield self.otherAbort()
+        yield self.abortTransaction(1)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
         yield self.failUnlessFailure(shared.createCalendarObjectWithName(".2.ics", Component.fromString(self.caldata2)), ObjectResourceNameNotAllowedError)
-        yield self.otherAbort()
+        yield self.abortTransaction(1)
 
 
     @inlineCallbacks
@@ -846,29 +841,29 @@ END:VCALENDAR
 
         yield self.createShare("user01", "puser01")
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        shared_object = yield self.calendarObjectUnderTest(txn=self.newOtherTransaction(), home="puser01", calendar_name="shared-calendar", name="1.ics")
+        shared_object = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", calendar_name="shared-calendar", name="1.ics")
         ical = yield shared_object.component()
         self.assertTrue(isinstance(ical, Component))
         self.assertEqual(normalize_iCalStr(str(ical)), normalize_iCalStr(self.caldata1))
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
-        shared_object = yield self.calendarObjectUnderTest(txn=self.newOtherTransaction(), home="puser01", calendar_name="shared-calendar", name="1.ics")
+        shared_object = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", calendar_name="shared-calendar", name="1.ics")
         changed = yield shared_object.setComponent(Component.fromString(self.caldata1_changed))
         self.assertFalse(changed)
         ical = yield shared_object.component()
         self.assertTrue(isinstance(ical, Component))
         self.assertEqual(normalize_iCalStr(str(ical)), normalize_iCalStr(self.caldata1_changed))
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
-        object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        object1 = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(0), home="user01", calendar_name="calendar", name="1.ics")
         ical = yield object1.component()
         self.assertTrue(isinstance(ical, Component))
         self.assertEqual(normalize_iCalStr(str(ical)), normalize_iCalStr(self.caldata1_changed))
-        yield self.commit()
+        yield self.commitTransaction(0)
 
 
     @inlineCallbacks
@@ -879,40 +874,40 @@ END:VCALENDAR
 
         yield self.createShare("user01", "puser01")
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        shared_object = yield self.calendarObjectUnderTest(txn=self.newOtherTransaction(), home="puser01", calendar_name="shared-calendar", name="1.ics")
+        shared_object = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", calendar_name="shared-calendar", name="1.ics")
         ical = yield shared_object.component()
         self.assertTrue(isinstance(ical, Component))
         self.assertEqual(normalize_iCalStr(str(ical)), normalize_iCalStr(self.caldata1))
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
 
     @inlineCallbacks
     def test_remove(self):
         """
-        Test that action=create works.
+        Test that action=remove works.
         """
 
         yield self.createShare("user01", "puser01")
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        shared_object = yield self.calendarObjectUnderTest(txn=self.newOtherTransaction(), home="puser01", calendar_name="shared-calendar", name="1.ics")
+        shared_object = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", calendar_name="shared-calendar", name="1.ics")
         yield shared_object.remove()
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
-        shared_object = yield self.calendarObjectUnderTest(txn=self.newOtherTransaction(), home="puser01", calendar_name="shared-calendar", name="1.ics")
+        shared_object = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", calendar_name="shared-calendar", name="1.ics")
         self.assertTrue(shared_object is None)
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
-        object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        object1 = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(0), home="user01", calendar_name="calendar", name="1.ics")
         self.assertTrue(object1 is None)
-        yield self.commit()
+        yield self.commitTransaction(0)
 
 
     @inlineCallbacks
@@ -923,14 +918,14 @@ END:VCALENDAR
 
         yield self.createShare("user01", "puser01")
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
-        yield self.commit()
+        yield self.commitTransaction(0)
 
         fbstart = "{now:04d}0102T000000Z".format(**self.nowYear)
         fbend = "{now:04d}0103T000000Z".format(**self.nowYear)
 
-        shared = yield self.calendarUnderTest(txn=self.newOtherTransaction(), home="puser01", name="shared-calendar")
+        shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
 
         fbinfo = [[], [], []]
         matchtotal = yield generateFreeBusyInfo(
@@ -951,7 +946,7 @@ END:VCALENDAR
         self.assertEqual(fbinfo[0], [Period.parseText("{now:04d}0102T140000Z/PT1H".format(**self.nowYear)), ])
         self.assertEqual(len(fbinfo[1]), 0)
         self.assertEqual(len(fbinfo[2]), 0)
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
 
     def attachmentToString(self, attachment):
@@ -977,26 +972,26 @@ END:VCALENDAR
 
         yield self.createShare("user01", "puser01")
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         object1 = yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
         resourceID = object1.id()
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        shared_object = yield self.calendarObjectUnderTest(txn=self.newOtherTransaction(), home="puser01", calendar_name="shared-calendar", name="1.ics")
+        shared_object = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", calendar_name="shared-calendar", name="1.ics")
         attachment, location = yield shared_object.addAttachment(None, MimeType.fromString("text/plain"), "test.txt", MemoryStream("Here is some text."))
         managedID = attachment.managedID()
         from txdav.caldav.datastore.sql_external import ManagedAttachmentExternal
         self.assertTrue(isinstance(attachment, ManagedAttachmentExternal))
         self.assertTrue("user01/attachments/test" in location)
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
-        cobjs = yield ManagedAttachment.referencesTo(self.transactionUnderTest(), managedID)
+        cobjs = yield ManagedAttachment.referencesTo(self.theTransactionUnderTest(0), managedID)
         self.assertEqual(cobjs, set((resourceID,)))
-        attachment = yield ManagedAttachment.load(self.transactionUnderTest(), resourceID, managedID)
+        attachment = yield ManagedAttachment.load(self.theTransactionUnderTest(0), resourceID, managedID)
         self.assertEqual(attachment.name(), "test.txt")
         data = yield self.attachmentToString(attachment)
         self.assertEqual(data, "Here is some text.")
-        yield self.commit()
+        yield self.commitTransaction(0)
 
 
     @inlineCallbacks
@@ -1007,31 +1002,31 @@ END:VCALENDAR
 
         yield self.createShare("user01", "puser01")
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        object1 = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(0), home="user01", calendar_name="calendar", name="1.ics")
         resourceID = object1.id()
         attachment, _ignore_location = yield object1.addAttachment(None, MimeType.fromString("text/plain"), "test.txt", MemoryStream("Here is some text."))
         managedID = attachment.managedID()
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        shared_object = yield self.calendarObjectUnderTest(txn=self.newOtherTransaction(), home="puser01", calendar_name="shared-calendar", name="1.ics")
+        shared_object = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", calendar_name="shared-calendar", name="1.ics")
         attachment, location = yield shared_object.updateAttachment(managedID, MimeType.fromString("text/plain"), "test.txt", MemoryStream("Here is some more text."))
         managedID = attachment.managedID()
         from txdav.caldav.datastore.sql_external import ManagedAttachmentExternal
         self.assertTrue(isinstance(attachment, ManagedAttachmentExternal))
         self.assertTrue("user01/attachments/test" in location)
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
-        cobjs = yield ManagedAttachment.referencesTo(self.transactionUnderTest(), managedID)
+        cobjs = yield ManagedAttachment.referencesTo(self.theTransactionUnderTest(0), managedID)
         self.assertEqual(cobjs, set((resourceID,)))
         attachment = yield ManagedAttachment.load(self.transactionUnderTest(), resourceID, managedID)
         self.assertEqual(attachment.name(), "test.txt")
         data = yield self.attachmentToString(attachment)
         self.assertEqual(data, "Here is some more text.")
-        yield self.commit()
+        yield self.commitTransaction(0)
 
 
     @inlineCallbacks
@@ -1042,22 +1037,22 @@ END:VCALENDAR
 
         yield self.createShare("user01", "puser01")
 
-        calendar1 = yield self.calendarUnderTest(home="user01", name="calendar")
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
         yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        object1 = yield self.calendarObjectUnderTest(home="user01", calendar_name="calendar", name="1.ics")
+        object1 = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(0), home="user01", calendar_name="calendar", name="1.ics")
         resourceID = object1.id()
         attachment, _ignore_location = yield object1.addAttachment(None, MimeType.fromString("text/plain"), "test.txt", MemoryStream("Here is some text."))
         managedID = attachment.managedID()
-        yield self.commit()
+        yield self.commitTransaction(0)
 
-        shared_object = yield self.calendarObjectUnderTest(txn=self.newOtherTransaction(), home="puser01", calendar_name="shared-calendar", name="1.ics")
+        shared_object = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", calendar_name="shared-calendar", name="1.ics")
         yield shared_object.removeAttachment(None, managedID)
-        yield self.otherCommit()
+        yield self.commitTransaction(1)
 
-        cobjs = yield ManagedAttachment.referencesTo(self.transactionUnderTest(), managedID)
+        cobjs = yield ManagedAttachment.referencesTo(self.theTransactionUnderTest(0), managedID)
         self.assertEqual(cobjs, set())
-        attachment = yield ManagedAttachment.load(self.transactionUnderTest(), resourceID, managedID)
+        attachment = yield ManagedAttachment.load(self.theTransactionUnderTest(0), resourceID, managedID)
         self.assertTrue(attachment is None)
-        yield self.commit()
+        yield self.commitTransaction(0)

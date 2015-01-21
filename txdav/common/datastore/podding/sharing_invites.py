@@ -17,10 +17,9 @@
 from twisted.internet.defer import inlineCallbacks
 
 from txdav.common.datastore.podding.base import FailedCrossPodRequestError
-from txdav.common.datastore.podding.sharing_base import SharingCommonPoddingConduit
 
 
-class SharingInvitesPoddingConduitMixin(SharingCommonPoddingConduit):
+class SharingInvitesConduitMixin(object):
     """
     Defines the cross-pod API for sharing invites that will be mixed into the
     L{PoddingConduit} class.

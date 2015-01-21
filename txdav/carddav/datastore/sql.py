@@ -1892,7 +1892,7 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
         @rtype: L{CommonHomeChild}
         """
 
-        c = cls._externalClass if parent.external() else cls
+        c = cls._externalClass if parent.externalClass() else cls
         child = c(
             parent,
             objectData[cls._allColumns().index(cls._objectSchema.RESOURCE_NAME)],
@@ -2038,6 +2038,15 @@ class AddressBookObject(CommonObjectResource, AddressBookObjectSharingMixIn):
         @return: a string.
         """
         return self.addressbook().external()
+
+
+    def externalClass(self):
+        """
+        Is this an external object.
+
+        @return: a string.
+        """
+        return self.addressbook().externalClass()
 
 
     @inlineCallbacks

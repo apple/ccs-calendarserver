@@ -17,25 +17,24 @@
 from twext.python.log import Logger
 
 from txdav.common.idirectoryservice import DirectoryRecordNotFoundError
-from txdav.common.datastore.podding.attachments import AttachmentsPoddingConduitMixin
+from txdav.common.datastore.podding.attachments import AttachmentsConduitMixin
 from txdav.common.datastore.podding.base import FailedCrossPodRequestError
 from txdav.common.datastore.podding.directory import DirectoryPoddingConduitMixin
+from txdav.common.datastore.podding.store_api import StoreAPIConduitMixin
 from txdav.common.datastore.podding.request import ConduitRequest
-from txdav.common.datastore.podding.sharing_invites import SharingInvitesPoddingConduitMixin
-from txdav.common.datastore.podding.sharing_store import SharingStorePoddingConduitMixin
+from txdav.common.datastore.podding.sharing_invites import SharingInvitesConduitMixin
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.reflect import namedClass
-from twisted.python.failure import Failure
 
 
 log = Logger()
 
 
 class PoddingConduit(
-    AttachmentsPoddingConduitMixin,
-    SharingInvitesPoddingConduitMixin,
-    SharingStorePoddingConduitMixin,
+    StoreAPIConduitMixin,
+    AttachmentsConduitMixin,
+    SharingInvitesConduitMixin,
     DirectoryPoddingConduitMixin,
 ):
     """
@@ -117,7 +116,7 @@ class PoddingConduit(
         except Exception as e:
             raise FailedCrossPodRequestError("Failed cross-pod request: {}".format(e))
         if response["result"] == "exception":
-            raise namedClass(response["class"])(response["result"])
+            raise namedClass(response["class"])(response["details"])
         elif response["result"] != "ok":
             raise FailedCrossPodRequestError("Cross-pod request failed: {}".format(response))
         else:
@@ -157,12 +156,18 @@ class PoddingConduit(
             result = {"result": "ok"}
             if value is not None:
                 result["value"] = value
+
         except Exception as e:
-            ex = Failure()
+            # Send the exception over to the other side
             yield txn.abort()
             log.error("Failed action: {action}, {ex}", action=action, ex=e)
-            ex.raiseException()
+            result = {
+                "result": "exception",
+                "class": ".".join((e.__class__.__module__, e.__class__.__name__,)),
+                "details": str(e),
+            }
 
-        yield txn.commit()
+        else:
+            yield txn.commit()
 
         returnValue(result)

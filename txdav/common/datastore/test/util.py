@@ -105,11 +105,11 @@ class SQLStoreBuilder(object):
     """
     Test-fixture-builder which can construct a PostgresStore.
     """
-    def __init__(self, secondary=False):
+    def __init__(self, count=0):
         self.sharedService = None
         self.currentTestID = None
-        self.sharedDBPath = "_test_sql_db" + str(os.getpid()) + ("-2" if secondary else "")
-        self.ampPort = config.WorkQueue.ampPort + (1 if secondary else 0)
+        self.sharedDBPath = "_test_sql_db" + str(os.getpid()) + ("-{}".format(count) if count else "")
+        self.ampPort = config.WorkQueue.ampPort + count
 
 
     def createService(self, serviceFactory):
@@ -127,6 +127,7 @@ class SQLStoreBuilder(object):
                 "-c fsync=FALSE",
                 "-c synchronous_commit=off",
                 "-c full_page_writes=FALSE",
+                "-c client-min-messages=warning",
             ],
             testMode=True
         )
@@ -230,11 +231,6 @@ class SQLStoreBuilder(object):
             txn = store.newTransaction()
             jobs = yield JobItem.all(txn)
             yield txn.commit()
-            if len(jobs):
-                print("Jobs left in job queue {}: {}".format(
-                    testCase,
-                    ",".join([job.workType for job in jobs])
-                ))
 
             if enableJobProcessing:
                 yield pool.stopService()
@@ -243,10 +239,18 @@ class SQLStoreBuilder(object):
             wasBusy = len(cp._busy)
             busyText = repr(cp._busy)
             result = yield cp.stopService()
+
             if deriveValue(testCase, _SPECIAL_TXN_CLEAN, lambda tc: False):
                 if wasBusy:
                     testCase.fail("Outstanding Transactions: " + busyText)
                 returnValue(result)
+
+            if len(jobs):
+                testCase.fail("Jobs left in job queue {}: {}".format(
+                    testCase,
+                    ",".join([job.workType for job in jobs])
+                ))
+
             returnValue(result)
 
         testCase.addCleanup(stopIt)
@@ -733,7 +737,7 @@ class CommonCommonTests(object):
     @inlineCallbacks
     def buildStoreAndDirectory(
         self, accounts=None, resources=None, augments=None, proxies=None,
-        extraUids=None, serversDB=None, cacheSeconds=0
+        extraUids=None, serversDB=None, cacheSeconds=0, storeBuilder=theStoreBuilder
     ):
 
         self.serverRoot = self.mktemp()
@@ -745,7 +749,7 @@ class CommonCommonTests(object):
         config.reset()
         self.configure()
 
-        self.store = yield self.buildStore()
+        self.store = yield self.buildStore(storeBuilder)
         self._sqlCalendarStore = self.store  # FIXME: remove references to this
 
         self.directory = buildTestDirectory(

@@ -62,27 +62,6 @@ class CommonHomeExternal(CommonHome):
         return True
 
 
-    def children(self):
-        """
-        No children.
-        """
-        raise AssertionError("CommonHomeExternal: not supported")
-
-
-    def loadChildren(self):
-        """
-        No children.
-        """
-        raise AssertionError("CommonHomeExternal: not supported")
-
-
-    def listChildren(self):
-        """
-        No children.
-        """
-        raise AssertionError("CommonHomeExternal: not supported")
-
-
     def objectWithShareUID(self, shareUID):
         """
         No children.
@@ -210,6 +189,43 @@ class CommonHomeChildExternal(CommonHomeChild):
     specific apis to the other pod using cross-pod requests.
     """
 
+    @classmethod
+    @inlineCallbacks
+    def listObjects(cls, home):
+        """
+        Retrieve the names of the children that exist in the given home.
+
+        @return: an iterable of C{str}s.
+        """
+
+        results = yield home._txn.store().conduit.send_homechild_listobjects(home)
+        returnValue(results)
+
+
+    @classmethod
+    @inlineCallbacks
+    def loadAllObjects(cls, home):
+        raw_results = yield home._txn.store().conduit.send_homechild_loadallobjects(home)
+
+        results = []
+        for mapping in raw_results:
+            child = yield cls.internalize(home, mapping)
+            results.append(child)
+        returnValue(results)
+
+
+    @classmethod
+    @inlineCallbacks
+    def objectWith(cls, home, name=None, resourceID=None, externalID=None, accepted=True):
+        mapping = yield home._txn.store().conduit.send_homechild_objectwith(home, name, resourceID, externalID, accepted)
+
+        if mapping:
+            child = yield cls.internalize(home, mapping)
+            returnValue(child)
+        else:
+            returnValue(None)
+
+
     def external(self):
         """
         Is this an external home.
@@ -242,72 +258,6 @@ class CommonHomeChildExternal(CommonHomeChild):
 
 
     @inlineCallbacks
-    def listObjectResources(self):
-        if self._objectNames is None:
-            try:
-                self._objectNames = yield self._txn.store().conduit.send_listobjects(self)
-            except NonExistentExternalShare:
-                yield self.fixNonExistentExternalShare()
-                raise ExternalShareFailed("External share does not exist")
-
-        returnValue(self._objectNames)
-
-
-    @inlineCallbacks
-    def countObjectResources(self):
-        if self._objectNames is None:
-            try:
-                count = yield self._txn.store().conduit.send_countobjects(self)
-            except NonExistentExternalShare:
-                yield self.fixNonExistentExternalShare()
-                raise ExternalShareFailed("External share does not exist")
-            returnValue(count)
-        returnValue(len(self._objectNames))
-
-
-    @inlineCallbacks
-    def resourceNameForUID(self, uid):
-        try:
-            resource = self._objects[uid]
-            returnValue(resource.name() if resource else None)
-        except KeyError:
-            pass
-
-        try:
-            name = yield self._txn.store().conduit.send_resourcenameforuid(self, uid)
-        except NonExistentExternalShare:
-            yield self.fixNonExistentExternalShare()
-            raise ExternalShareFailed("External share does not exist")
-
-        if name:
-            returnValue(name)
-        else:
-            self._objects[uid] = None
-            returnValue(None)
-
-
-    @inlineCallbacks
-    def resourceUIDForName(self, name):
-        try:
-            resource = self._objects[name]
-            returnValue(resource.uid() if resource else None)
-        except KeyError:
-            pass
-
-        try:
-            uid = yield self._txn.store().conduit.send_resourceuidforname(self, name)
-        except NonExistentExternalShare:
-            yield self.fixNonExistentExternalShare()
-            raise ExternalShareFailed("External share does not exist")
-
-        if uid:
-            returnValue(uid)
-        else:
-            self._objects[name] = None
-            returnValue(None)
-
-
-    @inlineCallbacks
     def moveObjectResource(self, child, newparent, newname=None):
         """
         The base class does an optimization to avoid removing/re-creating
@@ -332,7 +282,7 @@ class CommonHomeChildExternal(CommonHomeChild):
         """
 
         try:
-            result = yield self._txn.store().conduit.send_movehere(self, name, str(component))
+            result = yield self._txn.store().conduit.send_homechild_movehere(self, name, str(component))
         except NonExistentExternalShare:
             yield self.fixNonExistentExternalShare()
             raise ExternalShareFailed("External share does not exist")
@@ -352,7 +302,7 @@ class CommonHomeChildExternal(CommonHomeChild):
         """
 
         try:
-            result = yield self._txn.store().conduit.send_moveaway(self, rid)
+            result = yield self._txn.store().conduit.send_homechild_moveaway(self, rid)
         except NonExistentExternalShare:
             yield self.fixNonExistentExternalShare()
             raise ExternalShareFailed("External share does not exist")
@@ -363,7 +313,7 @@ class CommonHomeChildExternal(CommonHomeChild):
     def syncToken(self):
         if self._syncTokenRevision is None:
             try:
-                token = yield self._txn.store().conduit.send_synctoken(self)
+                token = yield self._txn.store().conduit.send_homechild_synctoken(self)
                 self._syncTokenRevision = self.revisionFromToken(token)
             except NonExistentExternalShare:
                 yield self.fixNonExistentExternalShare()
@@ -374,7 +324,7 @@ class CommonHomeChildExternal(CommonHomeChild):
     @inlineCallbacks
     def resourceNamesSinceRevision(self, revision):
         try:
-            names = yield self._txn.store().conduit.send_resourcenamessincerevision(self, revision)
+            names = yield self._txn.store().conduit.send_homechild_resourcenamessincerevision(self, revision)
         except NonExistentExternalShare:
             yield self.fixNonExistentExternalShare()
             raise ExternalShareFailed("External share does not exist")
@@ -385,7 +335,7 @@ class CommonHomeChildExternal(CommonHomeChild):
     @inlineCallbacks
     def search(self, filter, **kwargs):
         try:
-            results = yield self._txn.store().conduit.send_search(self, filter.serialize(), **kwargs)
+            results = yield self._txn.store().conduit.send_homechild_search(self, filter.serialize(), **kwargs)
         except NonExistentExternalShare:
             yield self.fixNonExistentExternalShare()
             raise ExternalShareFailed("External share does not exist")
@@ -403,7 +353,7 @@ class CommonObjectResourceExternal(CommonObjectResource):
     @classmethod
     @inlineCallbacks
     def loadAllObjects(cls, parent):
-        mapping_list = yield parent._txn.store().conduit.send_loadallobjects(parent, None)
+        mapping_list = yield parent._txn.store().conduit.send_objectresource_loadallobjects(parent)
 
         results = []
         if mapping_list:
@@ -416,7 +366,7 @@ class CommonObjectResourceExternal(CommonObjectResource):
     @classmethod
     @inlineCallbacks
     def loadAllObjectsWithNames(cls, parent, names):
-        mapping_list = yield parent._txn.store().conduit.send_loadallobjectswithnames(parent, None, names)
+        mapping_list = yield parent._txn.store().conduit.send_objectresource_loadallobjectswithnames(parent, names)
 
         results = []
         if mapping_list:
@@ -428,8 +378,22 @@ class CommonObjectResourceExternal(CommonObjectResource):
 
     @classmethod
     @inlineCallbacks
+    def listObjects(cls, parent):
+        results = yield parent._txn.store().conduit.send_objectresource_listobjects(parent)
+        returnValue(results)
+
+
+    @classmethod
+    @inlineCallbacks
+    def countObjects(cls, parent):
+        result = yield parent._txn.store().conduit.send_objectresource_countobjects(parent)
+        returnValue(result)
+
+
+    @classmethod
+    @inlineCallbacks
     def objectWith(cls, parent, name=None, uid=None, resourceID=None):
-        mapping = yield parent._txn.store().conduit.send_objectwith(parent, None, name, uid, resourceID)
+        mapping = yield parent._txn.store().conduit.send_objectresource_objectwith(parent, name, uid, resourceID)
 
         if mapping:
             child = yield cls.internalize(parent, mapping)
@@ -440,8 +404,22 @@ class CommonObjectResourceExternal(CommonObjectResource):
 
     @classmethod
     @inlineCallbacks
+    def resourceNameForUID(cls, parent, uid):
+        result = yield parent._txn.store().conduit.send_objectresource_resourcenameforuid(parent, uid)
+        returnValue(result)
+
+
+    @classmethod
+    @inlineCallbacks
+    def resourceUIDForName(cls, parent, name):
+        result = yield parent._txn.store().conduit.send_objectresource_resourceuidforname(parent, name)
+        returnValue(result)
+
+
+    @classmethod
+    @inlineCallbacks
     def create(cls, parent, name, component, options=None):
-        mapping = yield parent._txn.store().conduit.send_create(parent, None, name, str(component), options=options)
+        mapping = yield parent._txn.store().conduit.send_objectresource_create(parent, name, str(component), options=options)
 
         if mapping:
             child = yield cls.internalize(parent, mapping)
@@ -452,7 +430,7 @@ class CommonObjectResourceExternal(CommonObjectResource):
 
     @inlineCallbacks
     def setComponent(self, component, **kwargs):
-        self._componentChanged = yield self._txn.store().conduit.send_setcomponent(self.parentCollection(), self, str(component), **kwargs)
+        self._componentChanged = yield self._txn.store().conduit.send_objectresource_setcomponent(self, str(component), **kwargs)
         self._cachedComponent = None
         returnValue(self._componentChanged)
 
@@ -460,7 +438,7 @@ class CommonObjectResourceExternal(CommonObjectResource):
     @inlineCallbacks
     def component(self):
         if self._cachedComponent is None:
-            text = yield self._txn.store().conduit.send_component(self.parentCollection(), self)
+            text = yield self._txn.store().conduit.send_objectresource_component(self)
             self._cachedComponent = self._componentClass.fromString(text)
 
         returnValue(self._cachedComponent)
@@ -468,4 +446,4 @@ class CommonObjectResourceExternal(CommonObjectResource):
 
     @inlineCallbacks
     def remove(self):
-        yield self._txn.store().conduit.send_remove(self.parentCollection(), self)
+        yield self._txn.store().conduit.send_objectresource_remove(self)

@@ -17,7 +17,7 @@
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 
-class AttachmentsPoddingConduitMixin(object):
+class AttachmentsConduitMixin(object):
     """
     Defines the cross-pod API for managed attachments that will be mixed into the
     L{PoddingConduit} class.
@@ -41,12 +41,11 @@ class AttachmentsPoddingConduitMixin(object):
         """
 
         actionName = "add-attachment"
-        shareeView = objectResource._parentCollection
-        request, recipient = yield self._getRequestForResource(actionName, shareeView, objectResource)
+        txn, request, server = yield self._getRequestForStoreObject(actionName, objectResource, False)
         request["rids"] = rids
         request["filename"] = filename
 
-        response = yield self.sendRequest(shareeView._txn, recipient, request, stream, content_type)
+        response = yield self.sendRequestToServer(txn, server, request, stream, content_type)
         returnValue(response)
 
 
@@ -59,7 +58,7 @@ class AttachmentsPoddingConduitMixin(object):
         @type request: C{dict}
         """
 
-        _ignore_shareeView, objectResource = yield self._getResourcesForRequest(txn, request)
+        objectResource, _ignore = yield self._getStoreObjectForRequest(txn, request)
         attachment, location = yield objectResource.addAttachment(
             request["rids"],
             request["streamType"],
@@ -88,12 +87,11 @@ class AttachmentsPoddingConduitMixin(object):
         """
 
         actionName = "update-attachment"
-        shareeView = objectResource._parentCollection
-        request, recipient = yield self._getRequestForResource(actionName, shareeView, objectResource)
+        txn, request, server = yield self._getRequestForStoreObject(actionName, objectResource, False)
         request["managedID"] = managed_id
         request["filename"] = filename
 
-        response = yield self.sendRequest(shareeView._txn, recipient, request, stream, content_type)
+        response = yield self.sendRequestToServer(txn, server, request, stream, content_type)
         returnValue(response)
 
 
@@ -106,7 +104,7 @@ class AttachmentsPoddingConduitMixin(object):
         @type request: C{dict}
         """
 
-        _ignore_shareeView, objectResource = yield self._getResourcesForRequest(txn, request)
+        objectResource, _ignore = yield self._getStoreObjectForRequest(txn, request)
         attachment, location = yield objectResource.updateAttachment(
             request["managedID"],
             request["streamType"],
@@ -131,12 +129,11 @@ class AttachmentsPoddingConduitMixin(object):
         """
 
         actionName = "remove-attachment"
-        shareeView = objectResource._parentCollection
-        request, recipient = yield self._getRequestForResource(actionName, shareeView, objectResource)
+        txn, request, server = yield self._getRequestForStoreObject(actionName, objectResource, False)
         request["rids"] = rids
         request["managedID"] = managed_id
 
-        yield self.sendRequest(shareeView._txn, recipient, request)
+        yield self.sendRequestToServer(txn, server, request)
 
 
     @inlineCallbacks
@@ -148,7 +145,7 @@ class AttachmentsPoddingConduitMixin(object):
         @type request: C{dict}
         """
 
-        _ignore_shareeView, objectResource = yield self._getResourcesForRequest(txn, request)
+        objectResource, _ignore = yield self._getStoreObjectForRequest(txn, request)
         yield objectResource.removeAttachment(
             request["rids"],
             request["managedID"],

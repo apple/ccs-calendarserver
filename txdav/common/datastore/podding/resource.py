@@ -157,7 +157,7 @@ class ConduitResource(ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildrenMix
         # Get the conduit to process the data
         try:
             result = yield self.store.conduit.processRequest(j)
-            code = responsecode.OK
+            code = responsecode.OK if result["result"] == "ok" else responsecode.BAD_REQUEST
         except Exception as e:
             # Send the exception over to the other side
             result = {
