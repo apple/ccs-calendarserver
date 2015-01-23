@@ -114,6 +114,14 @@ def main():
     except FileNotFound:
         print("{} does not exist".format(systemPlist.encode("utf-8")))
 
+    userPlist = os.path.join(serverRoot, "Config", "caldavd-user.plist")
+    try:
+        if checkPlist(userPlist):
+            print("{} exists and can be parsed".format(userPlist.encode("utf-8")))
+        else:
+            print("{} exists but cannot be parsed".format(userPlist.encode("utf-8")))
+    except FileNotFound:
+        print("{} does not exist".format(userPlist.encode("utf-8")))
 
     keys = showConfigKeys()
 
