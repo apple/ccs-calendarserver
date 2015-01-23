@@ -1648,6 +1648,71 @@ END:VCALENDAR
         self.assertTrue(list2[1].startswith(hashlib.md5("12345-67890").hexdigest()))
 
 
+    @inlineCallbacks
+    def test_doImplicitScheduling_MissingAttendeeWithInvalidUser(self):
+        """
+        Test that doImplicitMissingAttendee works when the event contains an
+        invalid attendee.
+        """
+
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTAMP:20080601T120000Z
+DTSTART:20140302T190000Z
+DURATION:PT1H
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:foo@bar.com
+RRULE:FREQ=DAILY;UNTIL=20140309T075959Z
+END:VEVENT
+END:VCALENDAR
+"""
+        yield self._createCalendarObject(data1, "user02", "test.ics")
+        list2 = (yield self._listCalendarObjects("user02"))
+        self.assertEqual(len(list2), 1)
+
+        yield self._setCalendarData(data1, "user02", "test.ics")
+        list2 = (yield self._listCalendarObjects("user02"))
+        self.assertEqual(len(list2), 1)
+
+
+    @inlineCallbacks
+    def test_doImplicitScheduling_MissingAttendeeWithiMIP(self):
+        """
+        Test that doImplicitMissingAttendee works when iMIP is enabled and the event
+        contains an iMIP attendee.
+        """
+
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTAMP:20080601T120000Z
+DTSTART:20140302T190000Z
+DURATION:PT1H
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:foo@bar.com
+RRULE:FREQ=DAILY;UNTIL=20140309T075959Z
+END:VEVENT
+END:VCALENDAR
+"""
+        self.patch(config.Scheduling.iMIP, "Enabled", True)
+        self.patch(config.Scheduling.iMIP, "AddressPatterns", ["mailto:.*"])
+
+        yield self._createCalendarObject(data1, "user02", "test.ics")
+        list2 = (yield self._listCalendarObjects("user02"))
+        self.assertEqual(len(list2), 1)
+
+        yield self._setCalendarData(data1, "user02", "test.ics")
+        list2 = (yield self._listCalendarObjects("user02"))
+        self.assertEqual(len(list2), 1)
+
+
 
 class ScheduleAgentFixBase(CommonCommonTests, TestCase):
     """

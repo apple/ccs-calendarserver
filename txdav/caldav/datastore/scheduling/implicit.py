@@ -1165,8 +1165,7 @@ class ImplicitScheduler(object):
                 cuaddr = attendee.value()
                 if cuaddr not in coerced:
                     attendeeAddress = (yield calendarUserFromCalendarUserAddress(cuaddr, self.txn))
-                    local_attendee = type(attendeeAddress) in (LocalCalendarUser, OtherServerCalendarUser,)
-                    coerced[cuaddr] = local_attendee
+                    coerced[cuaddr] = attendeeAddress.hosted()
                 if coerced[cuaddr]:
                     attendee.removeParameter("SCHEDULE-AGENT")
 
@@ -1614,7 +1613,7 @@ class ImplicitScheduler(object):
                     found_old = False
                     for attendee in oldattendess:
                         attendeeAddress = (yield calendarUserFromCalendarUserAddress(attendee, self.txn))
-                        if attendeeAddress and attendeeAddress.record.uid == self.calendar_home.uid():
+                        if attendeeAddress.hosted() and attendeeAddress.record.uid == self.calendar_home.uid():
                             found_old = True
                             break
 
