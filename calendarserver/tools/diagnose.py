@@ -346,6 +346,8 @@ def showPostgresContent():
     count = countFromSQLQuery("select count(*) from delegate_groups;")
     print("Number of group delegate assignments: {}".format(count))
 
+    print("'job' table...")
+    runSQLQuery("select * from job;")
 
 
 def showConfigKeys():
