@@ -103,7 +103,7 @@ def main():
             d.run()
         curses.wrapper(_wrapped)
     else:
-        d = Dashboard(None, False)
+        d = Dashboard(server, None, False)
         d.run()
 
 
