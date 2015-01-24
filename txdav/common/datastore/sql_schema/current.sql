@@ -85,6 +85,7 @@ create table HOME_STATUS (
 insert into HOME_STATUS values (0, 'normal' );
 insert into HOME_STATUS values (1, 'external');
 insert into HOME_STATUS values (2, 'purging');
+insert into HOME_STATUS values (3, 'migrating');
 
 
 --------------

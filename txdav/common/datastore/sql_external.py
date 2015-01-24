@@ -310,15 +310,14 @@ class CommonHomeChildExternal(CommonHomeChild):
 
 
     @inlineCallbacks
-    def syncToken(self):
+    def syncTokenRevision(self):
         if self._syncTokenRevision is None:
             try:
-                token = yield self._txn.store().conduit.send_homechild_synctoken(self)
-                self._syncTokenRevision = self.revisionFromToken(token)
+                revision = yield self._txn.store().conduit.send_homechild_synctokenrevision(self)
             except NonExistentExternalShare:
                 yield self.fixNonExistentExternalShare()
                 raise ExternalShareFailed("External share does not exist")
-        returnValue(("%s_%s" % (self._externalID, self._syncTokenRevision,)))
+        returnValue(revision)
 
 
     @inlineCallbacks

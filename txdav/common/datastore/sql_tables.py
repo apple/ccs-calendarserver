@@ -187,6 +187,7 @@ _homeStatus = _schemaConstants(
 _HOME_STATUS_NORMAL = _homeStatus('normal')
 _HOME_STATUS_EXTERNAL = _homeStatus('external')
 _HOME_STATUS_PURGING = _homeStatus('purging')
+_HOME_STATUS_MIGRATING = _homeStatus('migrating')
 
 _bindStatus = _schemaConstants(
     schema.CALENDAR_BIND_STATUS.DESCRIPTION,

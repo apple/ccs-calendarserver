@@ -65,7 +65,7 @@ from txdav.common.datastore.sql_tables import _BIND_MODE_DIRECT, \
     _BIND_MODE_INDIRECT, _BIND_MODE_OWN, _BIND_STATUS_ACCEPTED, \
     _BIND_STATUS_DECLINED, _BIND_STATUS_DELETED, _BIND_STATUS_INVALID, \
     _BIND_STATUS_INVITED, _HOME_STATUS_EXTERNAL, _HOME_STATUS_NORMAL, \
-    _HOME_STATUS_PURGING, schema, splitSQLString
+    _HOME_STATUS_PURGING, schema, splitSQLString, _HOME_STATUS_MIGRATING
 from txdav.common.icommondatastore import ConcurrentModification, \
     RecordNotAllowedError, ExternalShareFailed, ShareNotAllowed, \
     IndexedSearchException, NotFoundError
@@ -695,7 +695,7 @@ class CommonStoreTransaction(object):
         ).on(self)
 
 
-    def _determineMemo(self, storeType, uid, create=False, authzUID=None):
+    def _determineMemo(self, storeType, uid, create=False, authzUID=None, migratingUID=None):
         """
         Determine the memo dictionary to use for homeWithUID.
         """
@@ -721,7 +721,7 @@ class CommonStoreTransaction(object):
 
 
     @memoizedKey("uid", _determineMemo)
-    def homeWithUID(self, storeType, uid, create=False, authzUID=None):
+    def homeWithUID(self, storeType, uid, create=False, authzUID=None, migratingUID=None):
         """
         We need to distinguish between various different users "looking" at a home and its
         child resources because we have per-user properties that depend on which user is "looking".
@@ -733,15 +733,15 @@ class CommonStoreTransaction(object):
         if storeType not in (ECALENDARTYPE, EADDRESSBOOKTYPE):
             raise RuntimeError("Unknown home type.")
 
-        return self._homeClass[storeType].homeWithUID(self, uid, create, authzUID)
+        return self._homeClass[storeType].homeWithUID(self, uid, create, authzUID, migratingUID)
 
 
-    def calendarHomeWithUID(self, uid, create=False, authzUID=None):
-        return self.homeWithUID(ECALENDARTYPE, uid, create=create, authzUID=authzUID)
+    def calendarHomeWithUID(self, uid, create=False, authzUID=None, migratingUID=None):
+        return self.homeWithUID(ECALENDARTYPE, uid, create=create, authzUID=authzUID, migratingUID=migratingUID)
 
 
-    def addressbookHomeWithUID(self, uid, create=False, authzUID=None):
-        return self.homeWithUID(EADDRESSBOOKTYPE, uid, create=create, authzUID=authzUID)
+    def addressbookHomeWithUID(self, uid, create=False, authzUID=None, migratingUID=None):
+        return self.homeWithUID(EADDRESSBOOKTYPE, uid, create=create, authzUID=authzUID, migratingUID=migratingUID)
 
 
     @inlineCallbacks
@@ -3231,7 +3231,7 @@ class CommonHome(SharingHomeMixIn):
 
     @classmethod
     @inlineCallbacks
-    def homeWithUID(cls, txn, uid, create=False, authzUID=None):
+    def homeWithUID(cls, txn, uid, create=False, authzUID=None, migratingUID=None):
         """
         @param uid: I'm going to assume uid is utf-8 encoded bytes
         """
@@ -3243,11 +3243,17 @@ class CommonHome(SharingHomeMixIn):
                 returnValue(None)
 
             # Determine if the user is local or external
-            record = yield txn.directoryService().recordWithUID(uid.decode("utf-8"))
+            diruid = uid if migratingUID is None else migratingUID
+            record = yield txn.directoryService().recordWithUID(diruid.decode("utf-8"))
             if record is None:
-                raise DirectoryRecordNotFoundError("Cannot create home for UID since no directory record exists: {}".format(uid))
+                raise DirectoryRecordNotFoundError("Cannot create home for UID since no directory record exists: {}".format(diruid))
 
-            state = _HOME_STATUS_NORMAL if record.thisServer() else _HOME_STATUS_EXTERNAL
+            if migratingUID is None:
+                state = _HOME_STATUS_NORMAL if record.thisServer() else _HOME_STATUS_EXTERNAL
+            else:
+                if record.thisServer():
+                    raise RecordNotAllowedError("Cannot migrate a user data for a user already hosted on this server")
+                state = _HOME_STATUS_MIGRATING
 
             # Use savepoint so we can do a partial rollback if there is a race condition
             # where this row has already been inserted
@@ -3282,7 +3288,8 @@ class CommonHome(SharingHomeMixIn):
                 # mapping in _cacher when creating as we don't want that to appear
                 # until AFTER the commit
                 home = yield cls.makeClass(txn, uid, no_cache=True, authzUID=authzUID)
-                yield home.createdHome()
+                if migratingUID is None:
+                    yield home.createdHome()
                 returnValue(home)
 
 
@@ -3357,11 +3364,27 @@ class CommonHome(SharingHomeMixIn):
         return self._status == _HOME_STATUS_PURGING
 
 
+    def migrating(self):
+        """
+        Is this an external home.
+
+        @return: a string.
+        """
+        return self._status == _HOME_STATUS_MIGRATING
+
+
     def purge(self):
         """
         Mark this home as being purged.
         """
         return self.setStatus(_HOME_STATUS_PURGING)
+
+
+    def migrate(self):
+        """
+        Mark this home as being purged.
+        """
+        return self.setStatus(_HOME_STATUS_MIGRATING)
 
 
     @inlineCallbacks
@@ -3598,11 +3621,16 @@ class CommonHome(SharingHomeMixIn):
         taken to invalid the cached value properly.
         """
         if self._syncTokenRevision is None:
-            self._syncTokenRevision = (yield self._syncTokenQuery.on(
-                self._txn, resourceID=self._resourceID))[0][0]
-            if self._syncTokenRevision is None:
-                self._syncTokenRevision = int((yield self._txn.calendarserverValue("MIN-VALID-REVISION")))
+            self._syncTokenRevision = yield self.syncTokenRevision()
         returnValue("%s_%s" % (self._resourceID, self._syncTokenRevision))
+
+
+    @inlineCallbacks
+    def syncTokenRevision(self):
+        revision = (yield self._syncTokenQuery.on(self._txn, resourceID=self._resourceID))[0][0]
+        if revision is None:
+            revision = int((yield self._txn.calendarserverValue("MIN-VALID-REVISION")))
+        returnValue(revision)
 
 
     @classproperty
@@ -4127,11 +4155,16 @@ class _SharedSyncLogic(object):
     @inlineCallbacks
     def syncToken(self):
         if self._syncTokenRevision is None:
-            self._syncTokenRevision = (yield self._childSyncTokenQuery.on(
-                self._txn, resourceID=self._resourceID))[0][0]
-            if self._syncTokenRevision is None:
-                self._syncTokenRevision = int((yield self._txn.calendarserverValue("MIN-VALID-REVISION")))
+            self._syncTokenRevision = yield self.syncTokenRevision()
         returnValue(("%s_%s" % (self._resourceID, self._syncTokenRevision,)))
+
+
+    @inlineCallbacks
+    def syncTokenRevision(self):
+        revision = (yield self._childSyncTokenQuery.on(self._txn, resourceID=self._resourceID))[0][0]
+        if revision is None:
+            revision = int((yield self._txn.calendarserverValue("MIN-VALID-REVISION")))
+        returnValue(revision)
 
 
     def objectResourcesSinceToken(self, token):
@@ -7410,6 +7443,13 @@ class CommonObjectResource(FancyEqMixin, object):
         self._cachedComponent = None
 
 
+    def purge(self):
+        """
+        Do a "silent" removal of this object resource.
+        """
+        return self.remove()
+
+
     def removeNotifyCategory(self):
         """
         Indicates what category to use when determining the priority of push
@@ -7775,13 +7815,16 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
     @inlineCallbacks
     def syncToken(self):
         if self._syncTokenRevision is None:
-            self._syncTokenRevision = (
-                yield self._syncTokenQuery.on(
-                    self._txn, resourceID=self._resourceID)
-            )[0][0]
-            if self._syncTokenRevision is None:
-                self._syncTokenRevision = int((yield self._txn.calendarserverValue("MIN-VALID-REVISION")))
+            self._syncTokenRevision = yield self.syncTokenRevision()
         returnValue("%s_%s" % (self._resourceID, self._syncTokenRevision))
+
+
+    @inlineCallbacks
+    def syncTokenRevision(self):
+        revision = (yield self._syncTokenQuery.on(self._txn, resourceID=self._resourceID))[0][0]
+        if revision is None:
+            revision = int((yield self._txn.calendarserverValue("MIN-VALID-REVISION")))
+        returnValue(revision)
 
 
     def properties(self):

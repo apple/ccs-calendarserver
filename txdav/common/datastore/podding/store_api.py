@@ -350,7 +350,7 @@ StoreAPIConduitMixin._make_simple_action("homechild_loadallobjects", "loadAllObj
 StoreAPIConduitMixin._make_simple_action("homechild_objectwith", "objectWith", classMethod=True, transform_recv_result=StoreAPIConduitMixin._to_externalize)
 StoreAPIConduitMixin._make_simple_action("homechild_movehere", "moveObjectResourceHere")
 StoreAPIConduitMixin._make_simple_action("homechild_moveaway", "moveObjectResourceAway")
-StoreAPIConduitMixin._make_simple_action("homechild_synctoken", "syncToken")
+StoreAPIConduitMixin._make_simple_action("homechild_synctokenrevision", "syncTokenRevision")
 StoreAPIConduitMixin._make_simple_action("homechild_resourcenamessincerevision", "resourceNamesSinceRevision", transform_send_result=StoreAPIConduitMixin._to_tuple)
 StoreAPIConduitMixin._make_simple_action("homechild_search", "search")
 

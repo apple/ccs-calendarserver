@@ -526,6 +526,48 @@ class CalendarHome(CommonHome):
 
 
     @inlineCallbacks
+    def copyMetadata(self, other):
+        """
+        Copy metadata from one L{CalendarObjectResource} to another. This is only
+        used during a migration step.
+        """
+        assert self._txn._migrating
+
+        # Simple attributes that can be copied over as-is
+        chm = schema.CALENDAR_HOME_METADATA
+        values = {
+            chm.ALARM_VEVENT_TIMED : other._alarm_vevent_timed,
+            chm.ALARM_VEVENT_ALLDAY : other._alarm_vevent_allday,
+            chm.ALARM_VTODO_TIMED : other._alarm_vtodo_timed,
+            chm.ALARM_VTODO_ALLDAY : other._alarm_vtodo_allday,
+            chm.AVAILABILITY : other._availability,
+        }
+
+        # Need to map the default collection references from the remote ids to
+        # the local ones using names
+        remote_calendars = yield other.loadChildren()
+        remote_calendars = dict([(calendar.id(), calendar,) for calendar in remote_calendars])
+        local_calendars = yield self.loadChildren()
+        local_calendars = dict([(calendar.name(), calendar,) for calendar in local_calendars])
+
+        for componentType in self._componentDefaultColumn.keys():
+            attr_name = self._componentDefaultAttribute[componentType]
+            remote_id = getattr(other, attr_name)
+            if remote_id is not None:
+                remote_calendar = remote_calendars.get(remote_id)
+                if remote_calendar is not None:
+                    remote_id = local_calendars.get(remote_calendar.name())
+            setattr(self, attr_name, remote_id)
+            values[self._componentDefaultColumn[componentType]] = remote_id
+
+        # Update the local data
+        yield Update(
+            values,
+            Where=chm.RESOURCE_ID == self._resourceID
+        ).on(self._txn)
+
+
+    @inlineCallbacks
     def hasCalendarResourceUIDSomewhereElse(self, uid, ok_object, mode):
         """
         Determine if this calendar home contains any calendar objects which
@@ -3694,6 +3736,31 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
+    def copyMetadata(self, other):
+        """
+        Copy metadata from one L{CalendarObjectResource} to another. This is only
+        used during a migration step.
+        """
+        assert self._txn._migrating
+
+        co = schema.CALENDAR_OBJECT
+        values = {
+            co.ATTACHMENTS_MODE                : other._attachment,
+            co.DROPBOX_ID                      : other._dropboxID,
+            co.ACCESS                          : other._access,
+            co.SCHEDULE_OBJECT                 : other._schedule_object,
+            co.SCHEDULE_TAG                    : other._schedule_tag,
+            co.SCHEDULE_ETAGS                  : other._schedule_etags,
+            co.PRIVATE_COMMENTS                : other._private_comments,
+        }
+
+        yield Update(
+            values,
+            Where=co.RESOURCE_ID == self._resourceID
+        ).on(self._txn)
+
+
+    @inlineCallbacks
     def component(self, doUpdate=False):
         """
         Read calendar data and validate/fix it. Do not raise a store error here
@@ -3856,6 +3923,15 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     def remove(self, implicitly=True):
         return self._removeInternal(
             internal_state=ComponentRemoveState.NORMAL if implicitly else ComponentRemoveState.NORMAL_NO_IMPLICIT
+        )
+
+
+    def purge(self):
+        """
+        Do a "silent" removal of this object resource.
+        """
+        return self._removeInternal(
+            ComponentRemoveState.NORMAL_NO_IMPLICIT
         )
 
 
