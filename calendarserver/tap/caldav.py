@@ -1262,6 +1262,7 @@ class CalDAVServiceMaker (object):
             )
             self._initJobQueue(pool)
             store.queuer = store.queuer.transferProposalCallbacks(pool)
+            store.pool = pool
             pool.setServiceParent(result)
 
             # Optionally set up mail retrieval
@@ -1856,6 +1857,7 @@ class CalDAVServiceMaker (object):
 
             # The master should not perform queued work
             store.queuer = NonPerformingQueuer()
+            store.pool = pool
 
             controlSocket.addFactory(
                 _QUEUE_ROUTE, pool.workerListenerFactory()
