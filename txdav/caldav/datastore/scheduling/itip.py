@@ -348,6 +348,23 @@ class iTipProcessing(object):
                 if partstat or private_comment:
                     rids.add(("", partstat, private_comment,))
 
+        # Make sure all overridden components in the organizer's copy have matching overridden components
+        # in the iTIP message
+        for organizer_component in calendar.subcomponents():
+            if organizer_component.name() == "VTIMEZONE":
+                continue
+            rid = organizer_component.getRecurrenceIDUTC()
+            if rid is None:
+                continue
+            match_component = itip_message.overriddenComponent(rid)
+            if match_component is None:
+                match_component = itip_message.deriveInstance(rid)
+                if match_component is not None:
+                    itip_message.addComponent(match_component)
+                else:
+                    log.error("Ignoring instance: %s missing in iTIP REPLY for: %s" % (rid, itip_message.resourceUID()))
+                    continue
+
         # Now do all overridden ones (sort by RECURRENCE-ID)
         sortedComponents = []
         for itip_component in itip_message.subcomponents():
