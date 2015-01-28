@@ -758,22 +758,6 @@ upgradeMethods = [
 @inlineCallbacks
 def upgradeData(config, directory):
 
-    if config.ResourceService.Enabled:
-        resourcesFileName = config.ResourceService.params.xmlFile
-        if resourcesFileName[0] not in ("/", "."):
-            resourcesFileName = os.path.join(config.DataRoot, resourcesFileName)
-        resourcesFilePath = FilePath(resourcesFileName)
-        if resourcesFilePath.exists():
-            upgradeResourcesXML(resourcesFilePath)
-
-    if config.AugmentService.type == "twistedcaldav.directory.augment.AugmentXMLDB":
-        for fileName in config.AugmentService.params.xmlFiles:
-            if fileName[0] not in ("/", "."):
-                fileName = os.path.join(config.DataRoot, fileName)
-            filePath = FilePath(fileName)
-            if filePath.exists():
-                upgradeAugmentsXML(filePath)
-
     triggerPath = os.path.join(config.ServerRoot, TRIGGER_FILE)
     if os.path.exists(triggerPath):
         try:
