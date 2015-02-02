@@ -3435,7 +3435,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def splitAt(self, rid):
+    def splitAt(self, rid, pastUID=None):
         """
         User initiated split. We need to verify it is OK to do so first. We will allow any recurring item to
         be split, but will not allow attendees to split invites.
@@ -3443,6 +3443,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         @param rid: the date-time where the split should occur. This need not be a specific instance
             date-time - this method will choose the next instance on or after this value.
         @type rid: L{DateTime}
+        @param pastuid: the UID of the new (past) resource to be created
+        @type pastuid: L{str}
         """
 
         # Must be recurring
@@ -3464,7 +3466,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             raise InvalidSplit()
 
         # Do split and return new resource
-        olderObject = yield self.split(rid=rid)
+        olderObject = yield self.split(rid=rid, olderUID=pastUID)
         returnValue(olderObject)
 
 
@@ -3507,6 +3509,9 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         newerUID = calendar.resourceUID()
         if olderUID is None:
             olderUID = str(uuid.uuid4())
+            olderResourceName = "{0}.ics".format(olderUID)
+        else:
+            olderResourceName = "{0}.ics".format(olderUID.encode("base64")[:-1].rstrip("="))
 
         # Now process this resource, but do implicit scheduling for attendees not hosted on this server.
         # We need to do this before processing attendee copies.
@@ -3522,7 +3527,12 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # Store changed data
         yield self._setComponentInternal(calendar_new, internal_state=ComponentUpdateState.SPLIT_OWNER, split_details=(rid, olderUID, True,))
-        olderObject = yield self.calendar()._createCalendarObjectWithNameInternal("%s.ics" % (olderUID,), calendar_old, ComponentUpdateState.SPLIT_OWNER, split_details=(rid, newerUID, False,))
+        olderObject = yield self.calendar()._createCalendarObjectWithNameInternal(
+            olderResourceName,
+            calendar_old,
+            ComponentUpdateState.SPLIT_OWNER,
+            split_details=(rid, newerUID, False,)
+        )
 
         # Split each one - but not this resource
         for resource in resources:
