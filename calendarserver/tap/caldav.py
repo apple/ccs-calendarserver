@@ -185,6 +185,7 @@ def _computeEnvVars(parent):
         "PYTHONPATH",
         "LD_LIBRARY_PATH",
         "DYLD_LIBRARY_PATH",
+        "LD_PRELOAD",
     ]
 
     optionalVars = [
