@@ -1420,6 +1420,7 @@ def _postUpdateAugmentService(configDict, reloading=False):
                 upgradeAugmentsXML(filePath)
 
 
+
 def _updateACLs(configDict, reloading=False):
     #
     # Base resource ACLs
