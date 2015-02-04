@@ -301,7 +301,7 @@ class _CommonHomeChildCollectionMixin(object):
 
     def owner_url(self):
         if self.isShareeResource():
-            return joinURL(self._share_url, "/")
+            return joinURL(self._share_url, "/") if self._share_url else ""
         else:
             return self.url()
 
@@ -3920,14 +3920,20 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
 
         if jsondata["notification-type"] == "invite-notification":
             ownerPrincipal = yield self.principalForUID(jsondata["owner"])
-            ownerCN = ownerPrincipal.displayName()
-            ownerHomeURL = ownerPrincipal.calendarHomeURLs()[0] if jsondata["shared-type"] == "calendar" else ownerPrincipal.addressBookHomeURLs()[0]
-
-            # FIXME:  use urn:uuid always?
-            if jsondata["shared-type"] == "calendar":
-                owner = ownerPrincipal.principalURL()
+            if ownerPrincipal is None:
+                ownerCN = ""
+                ownerCollectionURL = ""
+                owner = "urn:x-uid:" + jsondata["owner"]
             else:
-                owner = "urn:x-uid:" + ownerPrincipal.principalUID()
+                ownerCN = ownerPrincipal.displayName()
+                ownerHomeURL = ownerPrincipal.calendarHomeURLs()[0] if jsondata["shared-type"] == "calendar" else ownerPrincipal.addressBookHomeURLs()[0]
+                ownerCollectionURL = urljoin(ownerHomeURL, jsondata["ownerName"])
+
+                # FIXME:  use urn:uuid always?
+                if jsondata["shared-type"] == "calendar":
+                    owner = ownerPrincipal.principalURL()
+                else:
+                    owner = "urn:x-uid:" + ownerPrincipal.principalUID()
 
             shareePrincipal = yield self.principalForUID(jsondata["sharee"])
 
@@ -3952,7 +3958,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
                     invitationBindStatusToXMLMap[jsondata["status"]](),
                     customxml.InviteAccess(invitationBindModeToXMLMap[jsondata["access"]]()),
                     customxml.HostURL(
-                        element.HRef.fromString(urljoin(ownerHomeURL, jsondata["ownerName"])),
+                        element.HRef.fromString(ownerCollectionURL),
                     ),
                     customxml.Organizer(
                         element.HRef.fromString(owner),

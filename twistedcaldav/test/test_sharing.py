@@ -102,6 +102,66 @@ class SharingTests(StoreTestCase):
 
 
     @inlineCallbacks
+    def _doPROPFINDHome(self, resultcode=responsecode.MULTI_STATUS):
+        body = """<?xml version="1.0" encoding="UTF-8"?>
+<A:propfind xmlns:A="DAV:">
+  <A:prop>
+    <A:add-member/>
+    <C:allowed-sharing-modes xmlns:C="http://calendarserver.org/ns/"/>
+    <D:autoprovisioned xmlns:D="http://apple.com/ns/ical/"/>
+    <E:bulk-requests xmlns:E="http://me.com/_namespace/"/>
+    <D:calendar-color xmlns:D="http://apple.com/ns/ical/"/>
+    <B:calendar-description xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <B:calendar-free-busy-set xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <D:calendar-order xmlns:D="http://apple.com/ns/ical/"/>
+    <B:calendar-timezone xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <A:current-user-privilege-set/>
+    <B:default-alarm-vevent-date xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <B:default-alarm-vevent-datetime xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <A:displayname/>
+    <C:getctag xmlns:C="http://calendarserver.org/ns/"/>
+    <C:invite xmlns:C="http://calendarserver.org/ns/"/>
+    <D:language-code xmlns:D="http://apple.com/ns/ical/"/>
+    <D:location-code xmlns:D="http://apple.com/ns/ical/"/>
+    <A:owner/>
+    <C:pre-publish-url xmlns:C="http://calendarserver.org/ns/"/>
+    <C:publish-url xmlns:C="http://calendarserver.org/ns/"/>
+    <C:push-transports xmlns:C="http://calendarserver.org/ns/"/>
+    <C:pushkey xmlns:C="http://calendarserver.org/ns/"/>
+    <A:quota-available-bytes/>
+    <A:quota-used-bytes/>
+    <D:refreshrate xmlns:D="http://apple.com/ns/ical/"/>
+    <A:resource-id/>
+    <A:resourcetype/>
+    <B:schedule-calendar-transp xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <B:schedule-default-calendar-URL xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <C:source xmlns:C="http://calendarserver.org/ns/"/>
+    <C:subscribed-strip-alarms xmlns:C="http://calendarserver.org/ns/"/>
+    <C:subscribed-strip-attachments xmlns:C="http://calendarserver.org/ns/"/>
+    <C:subscribed-strip-todos xmlns:C="http://calendarserver.org/ns/"/>
+    <B:supported-calendar-component-set xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <B:supported-calendar-component-sets xmlns:B="urn:ietf:params:xml:ns:caldav"/>
+    <A:supported-report-set/>
+    <A:sync-token/>
+  </A:prop>
+</A:propfind>
+"""
+        authPrincipal = yield self.actualRoot.findPrincipalForAuthID("user02")
+        request = SimpleStoreRequest(self, "PROPFIND", "/calendars/__uids__/user02/", content=body, authPrincipal=authPrincipal)
+        request.headers.setHeader("content-type", MimeType("text", "xml"))
+        request.headers.setHeader("depth", "1")
+        response = yield self.send(request)
+        response = IResponse(response)
+        self.assertEqual(response.code, resultcode)
+
+        if response.stream:
+            data = yield allDataFromStream(response.stream)
+            returnValue(data)
+        else:
+            returnValue(None)
+
+
+    @inlineCallbacks
     def _getResource(self):
         request = SimpleStoreRequest(self, "GET", "/calendars/__uids__/user01/calendar/")
         resource = yield request.locateResource("/calendars/__uids__/user01/calendar/")
@@ -1234,6 +1294,9 @@ class SharingTests(StoreTestCase):
         record = yield self.userRecordWithShortName("user01")
         yield self.changeRecord(record, self.directory.fieldName.hasCalendars, False)
 
+        data = yield self._doPROPFINDHome()
+        self.assertTrue(data is not None)
+
         resource = (yield self._getResourceSharer(href))
         propInvite = yield resource.inviteProperty(None)
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
@@ -1297,6 +1360,9 @@ class SharingTests(StoreTestCase):
         yield self.directory.removeRecords(((yield self.userUIDFromShortName("user01")),))
         self.assertTrue((yield self.userUIDFromShortName("user01")) is None)
 
+        data = yield self._doPROPFINDHome()
+        self.assertTrue(data is not None)
+
         resource = (yield self._getResourceSharer(href))
         propInvite = yield resource.inviteProperty(None)
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
@@ -1311,6 +1377,33 @@ class SharingTests(StoreTestCase):
                 customxml.InviteStatusAccepted(),
             ),
         ))
+
+
+    @inlineCallbacks
+    def test_shareeNotificationWithMissingSharer(self):
+
+        yield self.resource.upgradeToShare()
+
+        yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
+            <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+                <CS:set>
+                    <D:href>mailto:user02@example.com</D:href>
+                    <CS:summary>My Shared Calendar</CS:summary>
+                    <CS:read-write/>
+                </CS:set>
+            </CS:share>
+            """)
+
+        yield self.directory.removeRecords(((yield self.userUIDFromShortName("user01")),))
+        self.assertTrue((yield self.userUIDFromShortName("user01")) is None)
+
+        request = SimpleStoreRequest(self, "GET", "/calendars/__uids__/user02/notification/")
+        notification = yield request.locateResource("/calendars/__uids__/user02/notification/")
+        names = yield notification.listChildren()
+        self.assertEqual(len(names), 1)
+        note_child = yield notification.getChild(names[0])
+        note = yield note_child.text()
+        self.assertTrue(isinstance(note, str))
 
 
     @inlineCallbacks

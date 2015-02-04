@@ -706,7 +706,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         def gotChildren(listChildrenResult):
             children[:] = list(listChildrenResult)
             getChild()
-        maybeDeferred(self.listChildren).addCallback(gotChildren)
+        maybeDeferred(self.listChildren).addCallback(gotChildren).addErrback(completionDeferred.errback)
 
         return completionDeferred
 
