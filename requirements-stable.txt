@@ -20,7 +20,7 @@
 
 --editable .  # calendarserver
 
-    zope.interface==4.1.1
+    zope.interface==4.1.2
 
     Twisted==14.0.2
         #zope.interface
@@ -30,7 +30,7 @@
         #   added to calendarserver.
         #pyOpenSSL
         service_identity==14.0.0
-            characteristic==14.0.0
+            characteristic==14.3.0
             pyasn1==0.1.7
             pyasn1-modules==0.0.5
             #pyOpenSSL
@@ -42,7 +42,7 @@
         #twisted
 
         # [LDAP] extra
-            python-ldap==2.4.18
+            python-ldap==2.4.19
                 #setuptools
 
         # [DAL] extra
@@ -55,14 +55,14 @@
             PyGreSQL==4.1.1
 
         # [Oracle] extra
-            #cx_Oracle  # Not in PyPI
+            #cx_Oracle==5.1.3  # Not in PyPI
 
     pyOpenSSL==0.14
-        cryptography==0.7.1
+        cryptography==0.7.2
             #pyasn1
             #cffi
             enum34==1.0.4
-            setuptools==11.3.1
+            setuptools==12.0.5
             #six
         six==1.9.0
 
