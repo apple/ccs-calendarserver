@@ -89,7 +89,7 @@ install-python:: build
 	@# Use --system-site-packages so that we use the packages provided by the
 	@# OS, such as PyObjC.
 	@# Use --always-copy because we want copies of, not links to, the system
-	@# python, as Server.app is an indenpendant product train.
+	@# python, as Server.app is an independent product train.
 	@#
 	@echo "Creating virtual environment...";
 	$(_v) $(RMDIR) "$(DSTROOT)$(CS_VIRTUALENV)";
@@ -138,19 +138,6 @@ install-python:: build
 	@echo "Putting comments into empty files...";
 	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type f -size 0 -name "*.py" -exec sh -c 'printf "# empty\n" > {}' ";";
 	$(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type f -size 0 -name "*.h" -exec sh -c 'printf "/* empty */\n" > {}' ";";
-	@# This is obsoleted by using --always-copy when we create the virtualenv:
-	@# @echo "Replacing symbolic links...";
-	@# $(_v) find "$(DSTROOT)$(CS_VIRTUALENV)" -type l |                       \
-	@#           while read link; do                                           \
-	@#               target="$$(readlink "$${link}")";                         \
-	@#               if [ "$$(echo $${target} | cut -f 1 -d /)" == "" ]; then  \
-	@#                   rm -fv "$${link}";                                    \
-	@#                   cp -aLfv "$${target}" "$${link}" || {                 \
-	@#                       rm -rfv "$${link}";                               \
-	@#                       ln -sfv "$${target}" "$${link}";                  \
-	@#                   }                                                     \
-	@#               fi;                                                       \
-	@#           done;
 
 install:: install-config
 install-config::
