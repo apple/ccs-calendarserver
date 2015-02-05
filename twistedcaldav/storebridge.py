@@ -2947,6 +2947,16 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         if not self.exists():
             raise HTTPError(NOT_FOUND)
 
+        # Do schedule tag check
+        try:
+            self.validIfScheduleMatch(request)
+        except HTTPError as e:
+            if e.response.code == responsecode.PRECONDITION_FAILED:
+                response = yield self._processPrefer(request, e.response)
+                raise HTTPError(response)
+            else:
+                raise
+
         # Split point is in the rid query parameter
         rid = request.args.get("rid")
         if rid is None:
@@ -2990,6 +3000,8 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         if returnRepresentation:
             etag1 = yield self.etag()
             etag2 = yield other.etag()
+            scheduletag1 = self.scheduleTag
+            scheduletag2 = otherStoreObject.scheduleTag
             cal1 = yield self.component()
             cal2 = yield other.component()
 
@@ -2999,6 +3011,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                     davxml.PropertyStatus(
                         davxml.PropertyContainer(
                             davxml.GETETag.fromString(etag1.generate()),
+                            caldavxml.ScheduleTag.fromString(scheduletag1),
                             caldavxml.CalendarData.fromCalendar(cal1),
                         ),
                         davxml.Status.fromResponseCode(OK),
@@ -3009,6 +3022,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                     davxml.PropertyStatus(
                         davxml.PropertyContainer(
                             davxml.GETETag.fromString(etag2.generate()),
+                            caldavxml.ScheduleTag.fromString(scheduletag2),
                             caldavxml.CalendarData.fromCalendar(cal2),
                         ),
                         davxml.Status.fromResponseCode(OK),
