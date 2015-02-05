@@ -2972,11 +2972,11 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
 
         try:
             otherStoreObject = yield self._newStoreObject.splitAt(rid, pastUID)
-        except InvalidSplit:
+        except InvalidSplit as e:
             raise HTTPError(ErrorResponse(
                 FORBIDDEN,
                 (calendarserver_namespace, "invalid-split",),
-                "The rid parameter in the request-URI contains an invalid value",
+                str(e),
             ))
 
         other = yield request.locateChildResource(self._parentResource, otherStoreObject.name())

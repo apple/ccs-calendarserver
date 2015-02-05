@@ -5160,7 +5160,10 @@ END:VCALENDAR
 
             responses = ScheduleResponseQueue("REQUEST", responsecode.OK)
             for recipient in recipients:
-                responses.add(recipient, responsecode.OK, reqstatus=iTIPRequestStatus.MESSAGE_DELIVERED)
+                if recipient.startswith("urn:uuid"):
+                    responses.add(recipient, responsecode.OK, reqstatus=iTIPRequestStatus.MESSAGE_DELIVERED)
+                else:
+                    responses.add(recipient, responsecode.NOT_FOUND, reqstatus=iTIPRequestStatus.INVALID_CALENDAR_USER)
             return succeed(responses)
 
         component = Component.fromString(data % self.subs)
@@ -6261,13 +6264,13 @@ END:VCALENDAR
 
         # Get the existing and new object data
         cobj1 = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
-        self.assertTrue(cobj1.isScheduleObject)
+        self.assertFalse(cobj1.isScheduleObject)
         ical1 = yield cobj1.component()
         newUID = ical1.masterComponent().propertyValue("RELATED-TO")
 
         cobj2 = yield self.calendarObjectUnderTest(name=oldname, calendar_name="calendar", home="user01")
         self.assertTrue(cobj2 is not None)
-        self.assertTrue(cobj2.isScheduleObject)
+        self.assertFalse(cobj2.isScheduleObject)
 
         ical_future = yield cobj1.component()
         ical_past = yield cobj2.component()
@@ -6402,6 +6405,56 @@ END:VCALENDAR
         self.assertEqual(normalize_iCalStr(ical_future), normalize_iCalStr(data_future2) % relsubs, "Failed future: %s" % (title,))
         self.assertEqual(normalize_iCalStr(ical_past), normalize_iCalStr(data_past2) % relsubs, "Failed past: %s" % (title,))
         self.assertEqual(normalize_iCalStr(ical_inbox), normalize_iCalStr(data_inbox2) % relsubs, "Failed inbox: %s" % (title,))
+
+
+    @inlineCallbacks
+    def test_calendarObjectSplit_splitat_no_same_uid(self):
+        """
+        Test that user triggered splitting of calendar objects does not work if the specified UID is the same
+        as the resource being split.
+        """
+
+        yield self._setupSplitAt()
+
+        # Update it
+        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
+        yield self.failUnlessFailure(cobj.splitAt(PyCalendarDateTime.parseText("%(now_back14)s" % self.subs), pastUID="12345-67890"), InvalidSplit)
+
+
+    @inlineCallbacks
+    def test_calendarObjectSplit_splitat_no_existing_uid(self):
+        """
+        Test that user triggered splitting of calendar objects does not work if the specified UID is the same
+        as another resource.
+        """
+
+        data_existing = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-existing
+DTSTART:%(now_back28)s
+DURATION:PT1H
+DTSTAMP:20051222T210507Z
+RRULE:FREQ=DAILY;COUNT=50
+SUMMARY:1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+ 1234567890123456789012345678901234567890
+END:VEVENT
+END:VCALENDAR
+"""
+
+        yield self._setupSplitAt()
+
+        calendar = yield self.calendarUnderTest(name="calendar", home="user01")
+        component = Component.fromString(data_existing % self.subs)
+        yield calendar.createCalendarObjectWithName("data2.ics", component)
+        yield self.commit()
+
+        # Update it
+        cobj = yield self.calendarObjectUnderTest(name="data1.ics", calendar_name="calendar", home="user01")
+        yield self.failUnlessFailure(cobj.splitAt(PyCalendarDateTime.parseText("%(now_back14)s" % self.subs), pastUID="12345-67890-existing"), InvalidSplit)
 
 
 

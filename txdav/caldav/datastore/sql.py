@@ -1512,6 +1512,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         self._cachedComponent = None
         self._cachedCommponentPerUser = {}
 
+        self._lockedUID = False
+
     _allColumns = [
         _objectSchema.RESOURCE_ID,
         _objectSchema.RESOURCE_NAME,
@@ -2125,15 +2127,27 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def _lockUID(self, component, inserting, internal_state):
+    def _lockUID(self, uid, internal_state):
         """
         Create a lock on the component's UID and verify, after getting the lock, that the incoming UID
         meets the requirements of the store.
         """
 
+        if not self._lockedUID and internal_state in (ComponentUpdateState.NORMAL, ComponentUpdateState.SPLIT_OWNER):
+            yield NamedLock.acquire(self._txn, "ImplicitUIDLock:%s" % (hashlib.md5(uid).hexdigest(),))
+            self._lockedUID = True
+
+
+    @inlineCallbacks
+    def _lockAndCheckUID(self, component, inserting, internal_state):
+        """
+        Create a lock on the component's UID and verify, after getting the lock, that the incoming UID
+        meets the requirements of the store.
+        """
+
+        # Lock it
         new_uid = component.resourceUID()
-        if internal_state == ComponentUpdateState.NORMAL:
-            yield NamedLock.acquire(self._txn, "ImplicitUIDLock:%s" % (hashlib.md5(new_uid).hexdigest(),))
+        yield self._lockUID(new_uid, internal_state)
 
         # UID conflict check - note we do this after reserving the UID to avoid a race condition where two requests
         # try to write the same calendar data to two different resource URIs.
@@ -2203,9 +2217,27 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
             # Do scheduling only for owner split
             if internal_state == ComponentUpdateState.SPLIT_OWNER:
-                yield self.doImplicitScheduling(component, inserting, internal_state, split_details)
+                # UID lock - this will remain active until the end of the current txn
+                yield self._lockAndCheckUID(component, inserting, internal_state)
 
-            self.isScheduleObject = True
+                # Make sure various bits of scheduling meta-data are correctly setup to ensure the
+                # new resource created by a split has the proper state
+                implicit_result = yield self.doImplicitScheduling(component, inserting, internal_state, split_details)
+                if isinstance(implicit_result, int):
+                    msg = "Invalid return status code from ImplicitScheduler during split: %s" % (implicit_result,)
+                    log.error(msg)
+                    raise InvalidObjectResourceError(msg)
+
+                self.isScheduleObject, new_component, did_implicit_action, schedule_state = implicit_result
+                if new_component is not None:
+                    component = new_component
+                if did_implicit_action:
+                    self._componentChanged = True
+
+            elif internal_state == ComponentUpdateState.SPLIT_ATTENDEE:
+                # This must always be set since the only time we get is is during scheduling
+                self.isScheduleObject = True
+
             self.processScheduleTags(component, inserting, internal_state)
 
         elif internal_state != ComponentUpdateState.RAW:
@@ -2213,7 +2245,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             yield self.fullValidation(component, inserting, internal_state)
 
             # UID lock - this will remain active until the end of the current txn
-            yield self._lockUID(component, inserting, internal_state)
+            yield self._lockAndCheckUID(component, inserting, internal_state)
 
             # Preserve private comments
             yield self.preservePrivateComments(component, inserting, internal_state)
@@ -3447,26 +3479,33 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         @type pastuid: L{str}
         """
 
+        # Cannot create one with the same UID as this
+        if pastUID and pastUID == self._uid:
+            raise InvalidSplit("Cannot split an event and re-use the same UID.")
+
         # Must be recurring
         component = yield self.component()
         if not component.isRecurring():
-            raise InvalidSplit()
+            raise InvalidSplit("Cannot split a non-recurring event.")
 
         # Cannot be attendee
         ownerPrincipal = self.calendar().ownerHome().directoryRecord()
         organizer = component.getOrganizer()
         organizerPrincipal = self.directoryService().recordWithCalendarUserAddress(organizer) if organizer else None
         if organizer is not None and organizerPrincipal.uid != ownerPrincipal.uid:
-            raise InvalidSplit()
+            raise InvalidSplit("Only organizers can split events.")
 
         # Determine valid split point
         splitter = iCalSplitter(1024, 14)
         rid = splitter.whereSplit(component, break_point=rid, allow_past_the_end=False)
         if rid is None:
-            raise InvalidSplit()
+            raise InvalidSplit("Cannot find a suitable recurrence-id to split at.")
 
         # Do split and return new resource
-        olderObject = yield self.split(rid=rid, olderUID=pastUID)
+        try:
+            olderObject = yield self.split(rid=rid, olderUID=pastUID)
+        except (UIDExistsError, UIDExistsElsewhereError):
+            raise InvalidSplit("Chosen UID exists elsewhere.")
         returnValue(olderObject)
 
 
@@ -3492,7 +3531,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         """
 
         # First job is to grab a UID lock on this entire series of events
-        yield NamedLock.acquire(self._txn, "ImplicitUIDLock:%s" % (hashlib.md5(self._uid).hexdigest(),))
+        yield self._lockUID(self._uid, internal_state=ComponentUpdateState.SPLIT_OWNER)
 
         # Find all other calendar objects on this server with the same UID
         if onlyThis:
