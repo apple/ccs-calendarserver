@@ -3020,7 +3020,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         except InvalidSplit as e:
             raise HTTPError(ErrorResponse(
                 FORBIDDEN,
-                (calendarserver_namespace, "invalid-split",),
+                (calendarserver_namespace, "valid-split",),
                 str(e),
             ))
 
