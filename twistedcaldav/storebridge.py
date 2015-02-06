@@ -2232,6 +2232,10 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         return self._newStoreObject.component()
 
 
+    def componentForUser(self):
+        return self._newStoreObject.component()
+
+
     def allowedTypes(self):
         """
         Return a dict of allowed MIME types for storing, mapped to equivalent PyCalendar types.
@@ -2260,7 +2264,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         if accepted_type is None:
             raise HTTPError(StatusResponse(responsecode.NOT_ACCEPTABLE, "Cannot generate requested data type"))
 
-        output = yield self.component()
+        output = yield self.componentForUser()
 
         response = Response(OK, {}, output.getText(accepted_type))
         response.headers.setHeader("content-type", MimeType.fromString("%s; charset=utf-8" % (accepted_type,)))
@@ -2633,13 +2637,10 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         self._initializeWithObject(newObject, newParent)
         returnValue(txn)
 
-    iCalendar = _CommonObjectResource.component
-
 
     def componentForUser(self):
         return self._newStoreObject.componentForUser()
 
-    iCalendarForUser = componentForUser
 
     def validIfScheduleMatch(self, request):
         """
@@ -3041,8 +3042,8 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
             etag2 = yield other.etag()
             scheduletag1 = self.scheduleTag
             scheduletag2 = otherStoreObject.scheduleTag
-            cal1 = yield self.component()
-            cal2 = yield other.component()
+            cal1 = yield self.componentForUser()
+            cal2 = yield other.componentForUser()
 
             xml_responses = [
                 davxml.PropertyStatusResponse(
@@ -3293,7 +3294,7 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
 
         yield newchild.storeComponent(component)
         if returnChangedData and newchild._newStoreObject._componentChanged:
-            result = (yield newchild.component())
+            result = (yield newchild.componentForUser())
             returnValue(result)
         else:
             returnValue(None)

@@ -1369,13 +1369,13 @@ class CalDAVResource (
     def iCalendarFiltered(self, isowner):
 
         # Now "filter" the resource calendar data
-        caldata = (yield self.iCalendarForUser())
+        caldata = (yield self.componentForUser())
         caldata = HiddenInstanceFilter().filter(caldata)
         caldata = PrivateEventFilter(self.accessMode, isowner).filter(caldata)
         returnValue(caldata)
 
 
-    def iCalendar(self):
+    def component(self):
         # storebridge handles this method
         raise NotImplementedError()
 

@@ -1336,7 +1336,7 @@ class PostDBImportStep(object):
             inbox, ownerPrincipal.scheduleInboxURL()
         )
 
-        calendar = yield inboxItem.iCalendar()
+        calendar = yield inboxItem.componentForUser()
         if calendar.mainType() is not None:
             try:
                 method = calendar.propertyValue("METHOD")
