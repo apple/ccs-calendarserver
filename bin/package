@@ -65,7 +65,7 @@ usage () {
 
 
 parse_options () {
-  OPTIND=1;
+  local OPTIND=1;
   while getopts "hFfn" option; do
     case "${option}" in
       '?') usage; ;;
@@ -93,37 +93,35 @@ main () {
 
   parse_options "$@";
 
-  # Build the product
+  #
+  # Build everything
+  #
 
   if "${clean}"; then
     develop_clean;
   fi;
 
-  develop;
-
   install -d "${destination}";
+  local destination="$(cd "${destination}" && pwd)";
 
-  install -d "${destination}/virtualenv";
-  cp -pR "${py_virtualenv}/" "${destination}/virtualenv";
+  init_build;
 
-  # Make the python virtualenv relocatable
-  "${bootstrap_python}" -m virtualenv --relocatable "${destination}/virtualenv";
+      dev_roots="${destination}/roots";
+  py_virtualenv="${destination}/virtualenv";
+      py_bindir="${py_virtualenv}/bin";
 
-  cp -pR "${dev_roots}"/*/ "${destination}/virtualenv/";
+  c_dependencies;
+  py_dependencies;
 
   install -d "${destination}/bin";
-  install -m 555 "${wd}/support/_run_from_ve" "${destination}/bin";
-  ln -fsv _run_from_ve "${destination}/bin/caldavd";
 
-  for script in $(
-    python -c 'import setup; print "\n".join("calendarserver_{}".format(n) for n in setup.script_entry_points.keys())';
-  ); do
-    ln -fsv _run_from_ve "${destination}/bin/${script}";
-  done;
+  (
+    cd "${destination}/bin" && \
+      find ../virtualenv/bin \
+        '(' -name 'caldavd' -o -name 'calendarserver_*' -o -name 'python' ')' \
+        -exec ln -fs '{}' . ';';
+  );
 
-  # More here...
-  # Looks like we need to install calendarserver.
-  # Maybe should rebuild virtualenv insted of copying it.
 }
 
 
