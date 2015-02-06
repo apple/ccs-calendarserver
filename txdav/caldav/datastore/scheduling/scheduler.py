@@ -515,7 +515,7 @@ class Scheduler(object):
             yield self.generateRemoteSchedulingResponses(otherserver_recipients, responses, freebusy, getattr(self.txn, 'doing_attendee_refresh', False))
 
         # To reduce chatter, we suppress certain messages
-        if not self.suppress_refresh:
+        if not self.suppress_refresh or self.calendar.mainType() == "VPOLL":
 
             # Now process remote recipients
             if remote_recipients:

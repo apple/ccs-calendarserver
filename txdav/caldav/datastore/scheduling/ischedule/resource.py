@@ -179,6 +179,27 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
                     "version": "2.0",
                 })
             )
+
+        componentTypes = []
+        from twistedcaldav.ical import allowedSchedulingComponents
+        for name in allowedSchedulingComponents:
+            if name == "VFREEBUSY":
+                componentTypes.append(
+                    ischedulexml.Component(
+                        ischedulexml.Method(name="REQUEST"),
+                        name=name
+                    )
+                )
+            else:
+                componentTypes.append(
+                    ischedulexml.Component(
+                        ischedulexml.Method(name="REQUEST"),
+                        ischedulexml.Method(name="CANCEL"),
+                        ischedulexml.Method(name="REPLY"),
+                        name=name
+                    )
+                )
+
         result = ischedulexml.QueryResult(
 
             ischedulexml.Capabilities(
@@ -186,24 +207,7 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
                 ischedulexml.Versions(
                     ischedulexml.Version.fromString("1.0"),
                 ),
-                ischedulexml.SchedulingMessages(
-                    ischedulexml.Component(
-                        ischedulexml.Method(name="REQUEST"),
-                        ischedulexml.Method(name="CANCEL"),
-                        ischedulexml.Method(name="REPLY"),
-                        name="VEVENT"
-                    ),
-                    ischedulexml.Component(
-                        ischedulexml.Method(name="REQUEST"),
-                        ischedulexml.Method(name="CANCEL"),
-                        ischedulexml.Method(name="REPLY"),
-                        name="VTODO"
-                    ),
-                    ischedulexml.Component(
-                        ischedulexml.Method(name="REQUEST"),
-                        name="VFREEBUSY"
-                    ),
-                ),
+                ischedulexml.SchedulingMessages(*componentTypes),
                 ischedulexml.CalendarDataTypes(*dataTypes),
                 ischedulexml.Attachments(
                     ischedulexml.External(),

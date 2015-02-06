@@ -34,7 +34,7 @@ import cStringIO
 from plistlib import readPlistFromString, writePlistToString
 import socket
 
-from twext.python.launchd import getLaunchDSocketFDs
+from twext.python.launchd import launchActivateSocket
 from twext.python.log import Logger
 from twext.who.checker import HTTPDigestCredentialChecker
 from twext.who.opendirectory import (
@@ -153,8 +153,8 @@ def makeAgentService(store):
     """
     from twisted.internet import reactor
 
-    sockets = getLaunchDSocketFDs()
-    fd = sockets["AgentSocket"][0]
+    sockets = launchActivateSocket("AgentSocket")
+    fd = sockets[0]
 
     family = socket.AF_INET
     endpoint = AdoptedStreamServerEndpoint(reactor, fd, family)

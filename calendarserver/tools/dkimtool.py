@@ -15,6 +15,7 @@
 # limitations under the License.
 ##
 
+import os
 import sys
 from Crypto.PublicKey import RSA
 from StringIO import StringIO
@@ -24,9 +25,7 @@ from twisted.internet.defer import inlineCallbacks
 from twisted.python.usage import Options
 
 from twext.python.log import Logger, LogLevel, StandardIOObserver
-from txweb2.client.http import ClientRequest
 from txweb2.http_headers import Headers
-from txweb2.stream import MemoryStream
 
 from txdav.caldav.datastore.scheduling.ischedule.dkim import RSA256, DKIMRequest, \
     PublicKeyLookup, DKIMVerifier, DKIMVerificationError
@@ -114,19 +113,17 @@ def _doRequest(options):
 @inlineCallbacks
 def _doVerify(options):
     # Parse the HTTP file
-    verify = open(options["verify"]).read()
-    method, uri, headers, stream = _parseRequest(verify)
-
-    request = ClientRequest(method, uri, headers, stream)
+    verify = open(os.path.expanduser(options["verify"])).read()
+    _method, _uri, headers, body = _parseRequest(verify)
 
     # Check for local public key
     if options["pub-key"]:
-        PublicKeyLookup_File.pubkeyfile = options["pub-key"]
+        PublicKeyLookup_File.pubkeyfile = os.path.expanduser(options["pub-key"])
         lookup = (PublicKeyLookup_File,)
     else:
         lookup = None
 
-    dkim = DKIMVerifier(request, lookup)
+    dkim = DKIMVerifier(headers, body, lookup)
     if options["fake-time"]:
         dkim.time = 0
 
@@ -162,7 +159,7 @@ def _parseRequest(request):
         name, value = hdr.split(':', 1)
         headers.addRawHeader(name, value.strip())
 
-    stream = MemoryStream("".join(body))
+    stream = "".join(body)
 
     return method, uri, headers, stream
 

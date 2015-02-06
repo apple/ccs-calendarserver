@@ -15,29 +15,26 @@
 # limitations under the License.
 ##
 
-import os
 import copy
+import os
+from plistlib import PlistParser  # @UnresolvedImport
 import re
 from socket import getfqdn, gethostbyname
 
-from twisted.python.runtime import platform
-
-from plistlib import PlistParser  # @UnresolvedImport
+from calendarserver.push.util import getAPNTopicFromCertificate
 from twext.python.log import Logger, InvalidLogLevelError, LogLevel
-from txweb2.dav.resource import TwistedACLInheritable
-
-from txdav.xml import element as davxml
-
+from twisted.python.filepath import FilePath
+from twisted.python.runtime import platform
 from twistedcaldav import caldavxml, customxml, carddavxml, mkcolxml
+from twistedcaldav import ical
 from twistedcaldav.config import ConfigProvider, ConfigurationError, ConfigDict
 from twistedcaldav.config import config, mergeData, fullServerPath
-from twistedcaldav.util import getPasswordFromKeychain
+from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.util import KeychainAccessError, KeychainPasswordNotFound
 from twistedcaldav.util import computeProcessCount
-from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
-
-from calendarserver.push.util import getAPNTopicFromCertificate
-from twistedcaldav import ical
+from twistedcaldav.util import getPasswordFromKeychain
+from txdav.xml import element as davxml
+from txweb2.dav.resource import TwistedACLInheritable
 
 log = Logger()
 
@@ -1363,6 +1360,16 @@ def _postUpdateResourceService(configDict, reloading=False):
             if param not in DEFAULT_RESOURCE_PARAMS[configDict.ResourceService.type]:
                 del configDict.ResourceService.params[param]
 
+    # Upgrading resources.xml must be done prior to using the store/directory
+    if configDict.ResourceService.Enabled and configDict.ResourceService.type == "xml":
+        resourcesFileName = configDict.ResourceService.params.xmlFile
+        if resourcesFileName[0] not in ("/", "."):
+            resourcesFileName = os.path.join(configDict.DataRoot, resourcesFileName)
+        resourcesFilePath = FilePath(resourcesFileName)
+        if resourcesFilePath.exists():
+            from twistedcaldav.upgrade import upgradeResourcesXML
+            upgradeResourcesXML(resourcesFilePath)
+
 
 
 def _preUpdateDirectoryAddressBookBackingDirectoryService(configDict, items, reloading=False):
@@ -1401,6 +1408,16 @@ def _postUpdateAugmentService(configDict, reloading=False):
             if param not in DEFAULT_AUGMENT_PARAMS[configDict.AugmentService.type]:
                 log.warn("Parameter %s is not supported by service %s" % (param, configDict.AugmentService.type))
                 del configDict.AugmentService.params[param]
+
+    # Upgrading augments.xml must be done prior to using the store/directory
+    if configDict.AugmentService.type == "twistedcaldav.directory.augment.AugmentXMLDB":
+        for fileName in configDict.AugmentService.params.xmlFiles:
+            if fileName[0] not in ("/", "."):
+                fileName = os.path.join(configDict.DataRoot, fileName)
+            filePath = FilePath(fileName)
+            if filePath.exists():
+                from twistedcaldav.upgrade import upgradeAugmentsXML
+                upgradeAugmentsXML(filePath)
 
 
 
@@ -1713,6 +1730,7 @@ POST_UPDATE_HOOKS = (
     # _updateServers,
     _updateCompliance,
 )
+
 
 def _cleanup(configDict, defaultDict):
     cleanDict = copy.deepcopy(configDict)

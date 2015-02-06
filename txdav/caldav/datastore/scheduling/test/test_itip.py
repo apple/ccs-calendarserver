@@ -21,7 +21,7 @@ from pycalendar.timezone import Timezone
 from twisted.trial import unittest
 
 from twistedcaldav.stdconfig import config
-from twistedcaldav.ical import Component
+from twistedcaldav.ical import Component, normalize_iCalStr
 
 from txdav.caldav.datastore.scheduling.itip import iTipProcessing, iTipGenerator
 
@@ -1289,6 +1289,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 True,
+                None,
             ),
             (
                 "1.2 Simple Reply - recurring no overrides",
@@ -1335,6 +1336,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 True,
+                None,
             ),
             (
                 "1.3 Simple Reply - recurring with missing master",
@@ -1389,6 +1391,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 True,
+                None,
             ),
             (
                 "1.4 Simple Reply - recurring with overrides in master but not reply",
@@ -1453,6 +1456,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 True,
+                None,
             ),
             (
                 "1.5 Simple Reply - recurring with overrides in master invalid in reply",
@@ -1517,6 +1521,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 True,
+                None,
             ),
             (
                 "1.6 Simple Reply - recurring with overrides in master, invalid ones in reply",
@@ -1590,6 +1595,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 True,
+                None,
             ),
             (
                 "2.1 X-CALENDARSERVER-RESET-PARTSTAT Reply - non recurring",
@@ -1636,6 +1642,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 True,
+                None,
             ),
             (
                 "2.2 X-CALENDARSERVER-RESET-PARTSTAT Reply - non recurring",
@@ -1682,6 +1689,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 True,
+                None,
             ),
             (
                 "2.3 X-CALENDARSERVER-RESET-PARTSTAT Reply - non recurring",
@@ -1728,6 +1736,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 True,
+                None,
             ),
             (
                 "2.4 X-CALENDARSERVER-RESET-PARTSTAT Reply - non recurring",
@@ -1774,6 +1783,7 @@ END:VEVENT
 END:VCALENDAR
 """,
                 True,
+                None,
             ),
             (
                 "3.1 Simple VPOLL Reply - response added",
@@ -1874,6 +1884,7 @@ END:VPOLL
 END:VCALENDAR
 """,
                 True,
+                ('mailto:user2@example.com', set([("", True, False,)])),
             ),
             (
                 "3.2 Simple VPOLL Reply - response changed",
@@ -1978,6 +1989,7 @@ END:VPOLL
 END:VCALENDAR
 """,
                 True,
+                ('mailto:user2@example.com', set([("", True, False,)])),
             ),
             (
                 "3.3 Simple VPOLL Reply - response added and changed",
@@ -2090,6 +2102,7 @@ END:VPOLL
 END:VCALENDAR
 """,
                 True,
+                ('mailto:user2@example.com', set([("", True, False,)])),
             ),
             (
                 "3.4 Simple VPOLL Reply - response one changed",
@@ -2202,19 +2215,473 @@ END:VPOLL
 END:VCALENDAR
 """,
                 True,
+                ('mailto:user2@example.com', set([("", True, False,)])),
+            ),
+            (
+                "3.5 Simple VPOLL Reply - no changes",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VPOLL
+UID:8D2B2048-7915-6ECD-A82B-01F4EF8EEBEA
+DTSTAMP:20150113T152404Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+POLL-MODE:BASIC
+POLL-PROPERTIES:DTSTART,DTEND
+SUMMARY:New Poll
+BEGIN:VVOTER
+DTSTAMP:20150113T152404Z
+VOTER;RSVP=TRUE:mailto:user2@example.com
+BEGIN:VOTE
+POLL-ITEM-ID:1
+RESPONSE:50
+END:VOTE
+BEGIN:VOTE
+POLL-ITEM-ID:2
+RESPONSE:100
+END:VOTE
+END:VVOTER
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+POLL-ITEM-ID:1
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080602T120000Z
+DTEND:20080602T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+POLL-ITEM-ID:2
+END:VEVENT
+END:VPOLL
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+METHOD:REPLY
+BEGIN:VPOLL
+UID:8D2B2048-7915-6ECD-A82B-01F4EF8EEBEA
+DTSTAMP:20150113T152404Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+POLL-MODE:BASIC
+POLL-PROPERTIES:DTSTART,DTEND
+SUMMARY:New Poll
+BEGIN:VVOTER
+DTSTAMP:20150113T152404Z
+VOTER;RSVP=TRUE:mailto:user2@example.com
+BEGIN:VOTE
+POLL-ITEM-ID:1
+RESPONSE:50
+END:VOTE
+BEGIN:VOTE
+POLL-ITEM-ID:2
+RESPONSE:100
+END:VOTE
+END:VVOTER
+END:VPOLL
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VPOLL
+UID:8D2B2048-7915-6ECD-A82B-01F4EF8EEBEA
+DTSTAMP:20150113T152404Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+POLL-MODE:BASIC
+POLL-PROPERTIES:DTSTART,DTEND
+SUMMARY:New Poll
+BEGIN:VVOTER
+DTSTAMP:20150113T152404Z
+VOTER;SCHEDULE-STATUS=2.0:mailto:user2@example.com
+BEGIN:VOTE
+POLL-ITEM-ID:1
+RESPONSE:50
+END:VOTE
+BEGIN:VOTE
+POLL-ITEM-ID:2
+RESPONSE:100
+END:VOTE
+END:VVOTER
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+POLL-ITEM-ID:1
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080602T120000Z
+DTEND:20080602T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+POLL-ITEM-ID:2
+END:VEVENT
+END:VPOLL
+END:VCALENDAR
+""",
+                True,
+                ('mailto:user2@example.com', set([])),
             ),
         )
 
-        for title, calendar_txt, itip_txt, changed_txt, expected in data:
+        for title, calendar_txt, itip_txt, changed_txt, expected, processed in data:
             calendar = Component.fromString(calendar_txt)
             itip = Component.fromString(itip_txt)
             if expected:
                 changed = Component.fromString(changed_txt)
 
-            result, _ignore = iTipProcessing.processReply(itip, calendar)
+            result, result_processed = iTipProcessing.processReply(itip, calendar)
             self.assertEqual(result, expected, msg="Result mismatch: %s" % (title,))
             if expected:
                 self.assertEqual(changed, calendar, msg="Calendar mismatch: %s" % (title,))
+            if processed is not None:
+                self.assertEqual(result_processed, processed, msg="Process mismatch: %s" % (title,))
+
+
+    def test_processPollStatus(self):
+        """
+        Test iTIPProcessing.processPollStatus
+        """
+
+        data = (
+            (
+                "3.1 Simple VPOLL - response added",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VPOLL
+UID:8D2B2048-7915-6ECD-A82B-01F4EF8EEBEA
+DTSTAMP:20150113T152404Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+POLL-MODE:BASIC
+POLL-PROPERTIES:DTSTART,DTEND
+SUMMARY:New Poll
+BEGIN:VVOTER
+DTSTAMP:20150113T152404Z
+VOTER;RSVP=TRUE:mailto:user1@example.com
+BEGIN:VOTE
+POLL-ITEM-ID:1
+RESPONSE:100
+END:VOTE
+BEGIN:VOTE
+POLL-ITEM-ID:2
+RESPONSE:100
+END:VOTE
+END:VVOTER
+BEGIN:VVOTER
+DTSTAMP:20150113T152404Z
+VOTER;RSVP=TRUE:mailto:user2@example.com
+END:VVOTER
+BEGIN:VVOTER
+DTSTAMP:20150113T152404Z
+VOTER;RSVP=TRUE:mailto:user3@example.com
+END:VVOTER
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+POLL-ITEM-ID:1
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080602T120000Z
+DTEND:20080602T130000Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+POLL-ITEM-ID:2
+END:VEVENT
+END:VPOLL
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+METHOD:POLLSTATUS
+BEGIN:VPOLL
+UID:8D2B2048-7915-6ECD-A82B-01F4EF8EEBEA
+DTSTAMP:20150113T152404Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+POLL-MODE:BASIC
+POLL-PROPERTIES:DTSTART,DTEND
+SUMMARY:New Poll
+BEGIN:VVOTER
+DTSTAMP:20150113T152404Z
+VOTER;RSVP=TRUE:mailto:user1@example.com
+BEGIN:VOTE
+POLL-ITEM-ID:1
+RESPONSE:100
+END:VOTE
+BEGIN:VOTE
+POLL-ITEM-ID:2
+RESPONSE:100
+END:VOTE
+END:VVOTER
+BEGIN:VVOTER
+DTSTAMP:20150113T152404Z
+VOTER;RSVP=TRUE:mailto:user2@example.com
+END:VVOTER
+BEGIN:VVOTER
+DTSTAMP:20150113T152404Z
+VOTER;RSVP=TRUE:mailto:user3@example.com
+BEGIN:VOTE
+POLL-ITEM-ID:1
+RESPONSE:100
+END:VOTE
+BEGIN:VOTE
+POLL-ITEM-ID:2
+RESPONSE:0
+END:VOTE
+END:VVOTER
+END:VPOLL
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VPOLL
+UID:8D2B2048-7915-6ECD-A82B-01F4EF8EEBEA
+DTSTAMP:20150113T152404Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+POLL-MODE:BASIC
+POLL-PROPERTIES:DTSTART,DTEND
+SUMMARY:New Poll
+BEGIN:VVOTER
+DTSTAMP:20150113T152404Z
+VOTER;RSVP=TRUE:mailto:user1@example.com
+BEGIN:VOTE
+POLL-ITEM-ID:1
+RESPONSE:100
+END:VOTE
+BEGIN:VOTE
+POLL-ITEM-ID:2
+RESPONSE:100
+END:VOTE
+END:VVOTER
+BEGIN:VVOTER
+DTSTAMP:20150113T152404Z
+VOTER;RSVP=TRUE:mailto:user2@example.com
+END:VVOTER
+BEGIN:VVOTER
+DTSTAMP:20150113T152404Z
+VOTER;RSVP=TRUE:mailto:user3@example.com
+BEGIN:VOTE
+POLL-ITEM-ID:1
+RESPONSE:100
+END:VOTE
+BEGIN:VOTE
+POLL-ITEM-ID:2
+RESPONSE:0
+END:VOTE
+END:VVOTER
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+POLL-ITEM-ID:1
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080602T120000Z
+DTEND:20080602T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+POLL-ITEM-ID:2
+END:VEVENT
+END:VPOLL
+END:VCALENDAR
+""",
+            ),
+            (
+                "3.2 Simple VPOLL - recipient response not changed",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VPOLL
+UID:8D2B2048-7915-6ECD-A82B-01F4EF8EEBEA
+DTSTAMP:20150113T152404Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+POLL-MODE:BASIC
+POLL-PROPERTIES:DTSTART,DTEND
+SUMMARY:New Poll
+BEGIN:VVOTER
+DTSTAMP:20150113T152404Z
+VOTER;RSVP=TRUE:mailto:user1@example.com
+BEGIN:VOTE
+POLL-ITEM-ID:1
+RESPONSE:100
+END:VOTE
+BEGIN:VOTE
+POLL-ITEM-ID:2
+RESPONSE:100
+END:VOTE
+END:VVOTER
+BEGIN:VVOTER
+DTSTAMP:20150113T152404Z
+VOTER;RSVP=TRUE:mailto:user2@example.com
+END:VVOTER
+BEGIN:VVOTER
+DTSTAMP:20150113T152404Z
+VOTER;RSVP=TRUE:mailto:user3@example.com
+END:VVOTER
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+POLL-ITEM-ID:1
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080602T120000Z
+DTEND:20080602T130000Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:user2@example.com
+POLL-ITEM-ID:2
+END:VEVENT
+END:VPOLL
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+METHOD:POLLSTATUS
+BEGIN:VPOLL
+UID:8D2B2048-7915-6ECD-A82B-01F4EF8EEBEA
+DTSTAMP:20150113T152404Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+POLL-MODE:BASIC
+POLL-PROPERTIES:DTSTART,DTEND
+SUMMARY:New Poll
+BEGIN:VVOTER
+DTSTAMP:20150113T152404Z
+VOTER;RSVP=TRUE:mailto:user1@example.com
+BEGIN:VOTE
+POLL-ITEM-ID:1
+RESPONSE:100
+END:VOTE
+BEGIN:VOTE
+POLL-ITEM-ID:2
+RESPONSE:100
+END:VOTE
+END:VVOTER
+BEGIN:VVOTER
+DTSTAMP:20150113T152404Z
+VOTER;RSVP=TRUE:mailto:user2@example.com
+BEGIN:VOTE
+POLL-ITEM-ID:1
+RESPONSE:50
+END:VOTE
+BEGIN:VOTE
+POLL-ITEM-ID:2
+RESPONSE:0
+END:VOTE
+END:VVOTER
+BEGIN:VVOTER
+DTSTAMP:20150113T152404Z
+VOTER;RSVP=TRUE:mailto:user3@example.com
+BEGIN:VOTE
+POLL-ITEM-ID:1
+RESPONSE:100
+END:VOTE
+BEGIN:VOTE
+POLL-ITEM-ID:2
+RESPONSE:0
+END:VOTE
+END:VVOTER
+END:VPOLL
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VPOLL
+UID:8D2B2048-7915-6ECD-A82B-01F4EF8EEBEA
+DTSTAMP:20150113T152404Z
+ORGANIZER;CN=User 01:mailto:user1@example.com
+POLL-MODE:BASIC
+POLL-PROPERTIES:DTSTART,DTEND
+SUMMARY:New Poll
+BEGIN:VVOTER
+DTSTAMP:20150113T152404Z
+VOTER;RSVP=TRUE:mailto:user1@example.com
+BEGIN:VOTE
+POLL-ITEM-ID:1
+RESPONSE:100
+END:VOTE
+BEGIN:VOTE
+POLL-ITEM-ID:2
+RESPONSE:100
+END:VOTE
+END:VVOTER
+BEGIN:VVOTER
+DTSTAMP:20150113T152404Z
+VOTER;RSVP=TRUE:mailto:user2@example.com
+END:VVOTER
+BEGIN:VVOTER
+DTSTAMP:20150113T152404Z
+VOTER;RSVP=TRUE:mailto:user3@example.com
+BEGIN:VOTE
+POLL-ITEM-ID:1
+RESPONSE:100
+END:VOTE
+BEGIN:VOTE
+POLL-ITEM-ID:2
+RESPONSE:0
+END:VOTE
+END:VVOTER
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+POLL-ITEM-ID:1
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080602T120000Z
+DTEND:20080602T130000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+POLL-ITEM-ID:2
+END:VEVENT
+END:VPOLL
+END:VCALENDAR
+""",
+            ),
+        )
+
+        for title, calendar_txt, itip_txt, changed_txt in data:
+            calendar = Component.fromString(calendar_txt)
+            itip = Component.fromString(itip_txt)
+
+            result = iTipProcessing.processPollStatus(itip, calendar, "mailto:user2@example.com")
+            self.assertEqual(normalize_iCalStr(result), normalize_iCalStr(changed_txt), msg="Calendar mismatch: %s" % (title,))
 
 
     def test_update_attendee_partstat(self):

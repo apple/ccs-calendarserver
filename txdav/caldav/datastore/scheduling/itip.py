@@ -358,6 +358,40 @@ class iTipProcessing(object):
 
 
     @staticmethod
+    def processPollStatus(itip_message, calendar, recipient):
+        """
+        Process a METHOD=POLLSTATUS.
+
+        @param itip_message: the iTIP message to process.
+        @type itip_message: L{Component}
+        @param calendar: the calendar object to apply the POLLSTATUS to
+        @type calendar: L{Component}
+
+        @return: the update calendar component or C{None}
+        """
+
+        # Check sequencing
+        if not iTipProcessing.sequenceComparison(itip_message, calendar):
+            # Ignore out of sequence message
+            return None
+
+        calendar_master = calendar.masterComponent()
+        itip_master = itip_message.masterComponent()
+
+        # Remove each VVOTER in the original (except for the recipients)
+        for component in tuple(calendar_master.subcomponents()):
+            if component.name() == "VVOTER" and component.propertyValue("VOTER") != recipient:
+                calendar_master.removeComponent(component)
+
+        # Add each VVOTER in the iTip message
+        for component in itip_master.subcomponents():
+            if component.name() == "VVOTER" and component.propertyValue("VOTER") != recipient:
+                calendar_master.addComponent(component.duplicate())
+
+        return calendar
+
+
+    @staticmethod
     def processReply(itip_message, calendar):
         """
         Process a METHOD=REPLY.
@@ -576,7 +610,7 @@ class iTipProcessing(object):
             # Do VPOLL transfer
             if reply_component.name() == "VPOLL":
                 # TODO: figure out how to report changes back
-                iTipProcessing.updateVPOLLDataFromReply(reply_component, organizer_component, attendee)
+                partstat_changed = iTipProcessing.updateVPOLLDataFromReply(reply_component, organizer_component, attendee)
 
         return attendee.value(), partstat_changed, private_comment_changed
 
@@ -595,6 +629,8 @@ class iTipProcessing(object):
         @type attendee: L{Property}
         """
 
+        partstat_changed = False
+
         # Get REQUEST-STATUS as we need to write that into the saved ATTENDEE property
         reqstatus = tuple(reply_component.properties("REQUEST-STATUS"))
         if reqstatus:
@@ -607,12 +643,13 @@ class iTipProcessing(object):
         organizerVoter = organizer_component.voterComponentForVoter(attendee.value())
 
         if replyVoter is None:
-            return
+            return partstat_changed
 
         if organizerVoter is None:
             # Add in the new one
             organizerVoter = replyVoter.duplicate()
             reply_component.addComponent(organizerVoter)
+            partstat_changed = True
         else:
             # Merge each vote
             replyMap = replyVoter.voteMap()
@@ -621,9 +658,12 @@ class iTipProcessing(object):
             # Add new ones
             for vote in set(replyMap.keys()) - set(organizerMap.keys()):
                 organizerVoter.addComponent(replyMap[vote].duplicate())
+                partstat_changed = True
 
             # Replace existing ones
             for vote in set(replyMap.keys()) & set(organizerMap.keys()):
+                if organizerMap[vote].propertyValue("RESPONSE") != replyMap[vote].propertyValue("RESPONSE"):
+                    partstat_changed = True
                 organizerVoter.removeComponent(organizerMap[vote])
                 organizerVoter.addComponent(replyMap[vote].duplicate())
 
@@ -634,6 +674,8 @@ class iTipProcessing(object):
             existing_voter.removeParameter("RSVP")
         except KeyError:
             pass
+
+        return partstat_changed
 
 
     @staticmethod

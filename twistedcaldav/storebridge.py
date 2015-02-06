@@ -301,7 +301,7 @@ class _CommonHomeChildCollectionMixin(object):
 
     def owner_url(self):
         if self.isShareeResource():
-            return joinURL(self._share_url, "/")
+            return joinURL(self._share_url, "/") if self._share_url else ""
         else:
             return self.url()
 
@@ -2982,6 +2982,16 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         if not self.exists():
             raise HTTPError(NOT_FOUND)
 
+        # Do schedule tag check
+        try:
+            self.validIfScheduleMatch(request)
+        except HTTPError as e:
+            if e.response.code == responsecode.PRECONDITION_FAILED:
+                response = yield self._processPrefer(request, e.response)
+                raise HTTPError(response)
+            else:
+                raise
+
         # Split point is in the rid query parameter
         rid = request.args.get("rid")
         if rid is None:
@@ -3007,11 +3017,11 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
 
         try:
             otherStoreObject = yield self._newStoreObject.splitAt(rid, pastUID)
-        except InvalidSplit:
+        except InvalidSplit as e:
             raise HTTPError(ErrorResponse(
                 FORBIDDEN,
-                (calendarserver_namespace, "invalid-split",),
-                "The rid parameter in the request-URI contains an invalid value",
+                (calendarserver_namespace, "valid-split",),
+                str(e),
             ))
 
         other = yield request.locateChildResource(self._parentResource, otherStoreObject.name())
@@ -3029,6 +3039,8 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                 raise HTTPError(StatusResponse(responsecode.NOT_ACCEPTABLE, "Cannot generate requested data type"))
             etag1 = yield self.etag()
             etag2 = yield other.etag()
+            scheduletag1 = self.scheduleTag
+            scheduletag2 = otherStoreObject.scheduleTag
             cal1 = yield self.component()
             cal2 = yield other.component()
 
@@ -3038,6 +3050,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                     davxml.PropertyStatus(
                         davxml.PropertyContainer(
                             davxml.GETETag.fromString(etag1.generate()),
+                            caldavxml.ScheduleTag.fromString(scheduletag1),
                             caldavxml.CalendarData.fromComponent(cal1, accepted_type),
                         ),
                         davxml.Status.fromResponseCode(OK),
@@ -3048,6 +3061,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                     davxml.PropertyStatus(
                         davxml.PropertyContainer(
                             davxml.GETETag.fromString(etag2.generate()),
+                            caldavxml.ScheduleTag.fromString(scheduletag2),
                             caldavxml.CalendarData.fromComponent(cal2, accepted_type),
                         ),
                         davxml.Status.fromResponseCode(OK),
@@ -3920,14 +3934,20 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
 
         if jsondata["notification-type"] == "invite-notification":
             ownerPrincipal = yield self.principalForUID(jsondata["owner"])
-            ownerCN = ownerPrincipal.displayName()
-            ownerHomeURL = ownerPrincipal.calendarHomeURLs()[0] if jsondata["shared-type"] == "calendar" else ownerPrincipal.addressBookHomeURLs()[0]
-
-            # FIXME:  use urn:uuid always?
-            if jsondata["shared-type"] == "calendar":
-                owner = ownerPrincipal.principalURL()
+            if ownerPrincipal is None:
+                ownerCN = ""
+                ownerCollectionURL = ""
+                owner = "urn:x-uid:" + jsondata["owner"]
             else:
-                owner = "urn:x-uid:" + ownerPrincipal.principalUID()
+                ownerCN = ownerPrincipal.displayName()
+                ownerHomeURL = ownerPrincipal.calendarHomeURLs()[0] if jsondata["shared-type"] == "calendar" else ownerPrincipal.addressBookHomeURLs()[0]
+                ownerCollectionURL = urljoin(ownerHomeURL, jsondata["ownerName"])
+
+                # FIXME:  use urn:uuid always?
+                if jsondata["shared-type"] == "calendar":
+                    owner = ownerPrincipal.principalURL()
+                else:
+                    owner = "urn:x-uid:" + ownerPrincipal.principalUID()
 
             shareePrincipal = yield self.principalForUID(jsondata["sharee"])
 
@@ -3952,7 +3972,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
                     invitationBindStatusToXMLMap[jsondata["status"]](),
                     customxml.InviteAccess(invitationBindModeToXMLMap[jsondata["access"]]()),
                     customxml.HostURL(
-                        element.HRef.fromString(urljoin(ownerHomeURL, jsondata["ownerName"])),
+                        element.HRef.fromString(ownerCollectionURL),
                     ),
                     customxml.Organizer(
                         element.HRef.fromString(owner),

@@ -90,8 +90,9 @@ class ImplicitProcessor(object):
         @param recipient: calendar user receiving the message
         @type recipient: C{str}
 
-        @return: a C{tuple} of (C{bool}, C{bool}) indicating whether the message was processed, and if it was whether
-            auto-processing has taken place.
+        @return: a C{tuple} of (C{bool}, C{bool}, C{bool}, C{bool}) indicating whether the message was processed,
+            and if it was whether auto-processing has taken place, whether it needs to be stored in the inbox, and
+            the changes property for the inbox item.
         """
 
         self.txn = txn
@@ -151,7 +152,7 @@ class ImplicitProcessor(object):
 
 
     def isAttendeeReceivingMessage(self):
-        return self.method in ("REQUEST", "ADD", "CANCEL")
+        return self.method in ("REQUEST", "ADD", "CANCEL", "POLLSTATUS")
 
 
     @inlineCallbacks
@@ -393,6 +394,8 @@ class ImplicitProcessor(object):
         elif self.method == "ADD":
             # TODO: implement ADD
             result = (False, False, False, None)
+        elif self.method == "POLLSTATUS":
+            result = (yield self.doImplicitAttendeePollStatus())
         else:
             # NB We should never get here as we will have rejected unsupported METHODs earlier.
             result = (True, True, False, None,)
@@ -552,7 +555,7 @@ class ImplicitProcessor(object):
             else:
                 # Request needs to be ignored
                 log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - ignoring" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-                result = (True, True, False, None,)
+                result = (True, False, False, None,)
 
         returnValue(result)
 
@@ -570,7 +573,7 @@ class ImplicitProcessor(object):
         # If there is no existing copy, then ignore
         if self.recipient_calendar is None:
             log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring METHOD:CANCEL, UID: '%s' - attendee has no copy" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-            result = (True, True, True, None)
+            result = (True, False, True, None)
         else:
             # Need to check for auto-respond attendees. These need to suppress the inbox message
             # if the cancel is processed. However, if the principal is a user we always force the
@@ -631,9 +634,33 @@ class ImplicitProcessor(object):
                     result = (True, autoprocessed, store_inbox, changes)
             else:
                 log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:CANCEL, UID: '%s' - ignoring" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-                result = (True, True, False, None)
+                result = (True, False, False, None)
 
         returnValue(result)
+
+
+    @inlineCallbacks
+    def doImplicitAttendeePollStatus(self):
+        """
+        An iTIP message status update has been sent to an attendee by the organizer. We need to update the
+        attendee state based on the nature of the iTIP message.
+        """
+        # If there is no existing copy, then we must fail
+        if self.new_resource:
+            log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:POLLSTATUS, UID: '%s' - attendee has no copy" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+            returnValue((True, False, False, None,))
+
+        processed_message = iTipProcessing.processPollStatus(self.message, self.recipient_calendar)
+
+        # Let the store know that no time-range info has changed for a refresh (assuming that
+        # no auto-accept changes were made)
+        processed_message.noInstanceIndexing = True
+
+        # Update the attendee's copy of the event
+        log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:POLLSTATUS, UID: '%s' - updating poll" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+        yield self.writeCalendarResource(None, self.recipient_calendar_resource, processed_message)
+
+        returnValue((True, False, False, None,))
 
 
     @inlineCallbacks

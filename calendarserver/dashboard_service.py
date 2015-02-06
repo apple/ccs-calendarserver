@@ -151,9 +151,9 @@ class DashboardProtocol (LineReceiver):
         """
 
         if self.factory.store:
-            queuer = self.factory.store.queuer
-            loads = queuer.workerPool.eachWorkerLoad()
-            level = queuer.workerPool.loadLevel()
+            pool = self.factory.store.pool
+            loads = pool.workerPool.eachWorkerLoad()
+            level = pool.workerPool.loadLevel()
         else:
             loads = []
             level = 0

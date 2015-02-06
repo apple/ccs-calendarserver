@@ -776,7 +776,7 @@ class CalDAVResource (
             else:
                 home = self._newStoreObject.ownerHome()
             principal = (yield self.principalForUID(home.uid()))
-            returnValue(element.HRef(principal.principalURL()))
+            returnValue(element.HRef(principal.principalURL()) if principal else None)
         else:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
         if parent and isinstance(parent, CalDAVResource):
@@ -1162,7 +1162,8 @@ class CalDAVResource (
         sharedParent = None
         if self.isShareeResource():
             # A sharee collection's quota root is the resource owner's root
-            sharedParent = (yield request.locateResource(parentForURL(self._share_url)))
+            if self._share_url:
+                sharedParent = (yield request.locateResource(parentForURL(self._share_url)))
         else:
             parent = (yield self.locateParent(request, request.urlForResource(self)))
             if isCalendarCollectionResource(parent) or isAddressBookCollectionResource(parent):

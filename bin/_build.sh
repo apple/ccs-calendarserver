@@ -516,7 +516,7 @@ c_dependencies () {
     local p="${n}-${v}";
 
     c_dependency -m "a7f4e5e559a0e37b3ffc438c9456e425" \
-      "Cyrus SASL" "${p}" \
+      "CyrusSASL" "${p}" \
       "ftp://ftp.cyrusimap.org/cyrus-sasl/${p}.tar.gz" \
       --disable-macos-framework;
   fi;
@@ -640,9 +640,9 @@ bootstrap_virtualenv () {
   mkdir -p "${py_ve_tools}/junk";
 
   for pkg in             \
-      setuptools-5.4.1   \
-      pip-6.0.6          \
-      virtualenv-1.11.6  \
+      setuptools-12.0.5  \
+      pip-6.0.8          \
+      virtualenv-12.0.7  \
   ; do
       local    name="${pkg%-*}";
       local version="${pkg#*-}";
@@ -695,7 +695,6 @@ pip_install_from_cache () {
 pip_download_and_install () {
   "${python}" -m pip install                 \
     --pre --allow-all-external               \
-    --download-cache="${dev_home}/pip_cache" \
     --log-file="${dev_home}/pip.log"         \
     "$@";
 }

@@ -424,8 +424,7 @@ class SharedResourceMixin(object):
         if principal:
             if request:
                 ownerPrincipal = (yield self.ownerPrincipal(request))
-                owner = ownerPrincipal.principalURL()
-                if owner == principal.principalURL():
+                if ownerPrincipal is None or ownerPrincipal.principalURL() == principal.principalURL():
                     returnValue(None)
             returnValue(principal.principalURL())
 

@@ -389,6 +389,33 @@ dkim-signature:v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:htt
             self.assertEqual(extracted, result.replace("\n", "\r\n"))
 
 
+    def test_canonicalize_body(self):
+        """
+        L{DKIMUtils.canonicalizeBody} correctly canonicalizes bodies.
+        """
+
+        data = (
+            (
+                """Simple""",
+                """Simple\n""",
+            ),
+            (
+                """Simple\n""",
+                """Simple\n""",
+            ),
+            (
+                """Simple\n\n""",
+                """Simple\n""",
+            ),
+        )
+
+        for text, result in data:
+            self.assertEqual(
+                DKIMUtils.canonicalizeBody(text.replace("\n", "\r\n")),
+                result.replace("\n", "\r\n"),
+            )
+
+
     @inlineCallbacks
     def test_locate_public_key(self):
         """

@@ -262,6 +262,7 @@ class SQLStoreBuilder(object):
                 reactor, store.newTransaction, None, useWorkerPool=False
             )
             store.queuer = store.queuer.transferProposalCallbacks(pool)
+            store.pool = pool
             pool.startService()
 
         returnValue(store)

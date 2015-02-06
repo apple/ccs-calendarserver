@@ -294,8 +294,16 @@ class DKIMUtils(object):
 
     @staticmethod
     def canonicalizeBody(data):
-        if not data.endswith("\r\n"):
-            data += "\r\n"
+        """
+        DKIM simple body canonicalization: remove empty lines at the end
+        and ensure it ends with one \r\n.
+
+        @param data: data to canonicalize
+        @type data: L{str}
+        """
+        while data.endswith("\r\n"):
+            data = data[:-2]
+        data += "\r\n"
         return data
 
 
