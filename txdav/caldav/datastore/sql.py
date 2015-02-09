@@ -413,8 +413,9 @@ class CalendarHome(CommonHome):
 
     # structured tables.  (new, preferred)
     _homeSchema = schema.CALENDAR_HOME
-    _bindSchema = schema.CALENDAR_BIND
     _homeMetaDataSchema = schema.CALENDAR_HOME_METADATA
+
+    _bindSchema = schema.CALENDAR_BIND
     _revisionsSchema = schema.CALENDAR_OBJECT_REVISIONS
     _objectSchema = schema.CALENDAR_OBJECT
 

@@ -2988,11 +2988,16 @@ class CommonHome(SharingHomeMixIn):
 
     # All these need to be initialized by derived classes for each store type
     _homeType = None
-    _homeTable = None
-    _homeMetaDataTable = None
+    _homeSchema = None
+    _homeMetaDataSchema = None
+
     _externalClass = None
     _childClass = None
-    _childTable = None
+
+    _bindSchema = None
+    _revisionsSchema = None
+    _objectSchema = None
+
     _notifierPrefix = None
 
     _dataVersionKey = None
@@ -3415,7 +3420,7 @@ class CommonHome(SharingHomeMixIn):
             Where=r.HOME_RESOURCE_ID == self._resourceID,
         ).on(self._txn)
 
-        h = self._homeTable
+        h = self._homeSchema
         yield Delete(
             From=h,
             Where=h.RESOURCE_ID == self._resourceID,
@@ -3432,7 +3437,8 @@ class CommonHome(SharingHomeMixIn):
         Remove each child.
         """
 
-        for child in (yield self.loadChildren()):
+        children = yield self.loadChildren()
+        for child in children:
             yield child.remove()
             self._children.pop(child.name(), None)
             self._children.pop(child.id(), None)

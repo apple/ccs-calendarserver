@@ -362,11 +362,11 @@ END:VCALENDAR
         yield self.createShare("user01", "puser01")
 
         calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
-        token1_1 = yield calendar1.syncToken()
+        token1_1 = yield calendar1.syncTokenRevision()
         yield self.commitTransaction(0)
 
         shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
-        token2_1 = yield shared.syncToken()
+        token2_1 = yield shared.syncTokenRevision()
         yield self.commitTransaction(1)
 
         self.assertEqual(token1_1, token2_1)
@@ -376,11 +376,11 @@ END:VCALENDAR
         yield self.commitTransaction(0)
 
         calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
-        token1_2 = yield calendar1.syncToken()
+        token1_2 = yield calendar1.syncTokenRevision()
         yield self.commitTransaction(0)
 
         shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
-        token2_2 = yield shared.syncToken()
+        token2_2 = yield shared.syncTokenRevision()
         yield self.commitTransaction(1)
 
         self.assertNotEqual(token1_1, token1_2)
@@ -394,11 +394,11 @@ END:VCALENDAR
         yield self.commitTransaction(0)
 
         calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
-        token1_3 = yield calendar1.syncToken()
+        token1_3 = yield calendar1.syncTokenRevision()
         yield self.commitTransaction(0)
 
         shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
-        token2_3 = yield shared.syncToken()
+        token2_3 = yield shared.syncTokenRevision()
         yield self.commitTransaction(1)
 
         self.assertNotEqual(token1_1, token1_3)

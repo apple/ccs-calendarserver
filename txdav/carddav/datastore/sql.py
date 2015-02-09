@@ -77,8 +77,9 @@ class AddressBookHome(CommonHome):
 
     # structured tables.  (new, preferred)
     _homeSchema = schema.ADDRESSBOOK_HOME
-    _bindSchema = schema.SHARED_ADDRESSBOOK_BIND
     _homeMetaDataSchema = schema.ADDRESSBOOK_HOME_METADATA
+
+    _bindSchema = schema.SHARED_ADDRESSBOOK_BIND
     _revisionsSchema = schema.ADDRESSBOOK_OBJECT_REVISIONS
     _objectSchema = schema.ADDRESSBOOK_OBJECT
 

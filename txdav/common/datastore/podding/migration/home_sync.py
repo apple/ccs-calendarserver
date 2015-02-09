@@ -172,6 +172,9 @@ class CrossPodHomeSync(object):
         rows, recalculate quota etc.
         """
 
+        # TODO: Re-write attachment URIs - not sure if we need this as reverse proxy may take care of it
+        pass
+
         # TODO: shared collections reconcile
         pass
 
