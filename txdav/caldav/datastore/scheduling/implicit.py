@@ -1328,7 +1328,8 @@ class ImplicitScheduler(object):
 
             attendeeAddress = (yield calendarUserFromCalendarUserAddress(attendee, self.txn))
 
-            # Handle split by not scheduling local attendees
+            # Local attendees have their data implicitly split when the organizer's copy is split, so
+            # there is no need to send a scheduling message to them to trigger the split.
             if self.split_details is not None:
                 if type(attendeeAddress) is LocalCalendarUser:
                     continue

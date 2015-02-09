@@ -67,7 +67,7 @@ class ICalDAVResource(IDAVResource):
         Create a calendar collection for this resource.
         """
 
-    def iCalendar(): #@NoSelf
+    def component(): #@NoSelf
         """
         Instantiate an iCalendar component object representing this resource or
         its child with the given name.
