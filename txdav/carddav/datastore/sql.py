@@ -36,7 +36,7 @@ from txweb2.http import HTTPError
 from txweb2.http_headers import MimeType
 from txweb2.responsecode import FORBIDDEN
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python import hashlib
 
 from twistedcaldav.config import config
@@ -167,34 +167,21 @@ class AddressBookHome(CommonHome):
 
     @inlineCallbacks
     def remove(self):
-        ah = schema.ADDRESSBOOK_HOME
         ahb = schema.SHARED_ADDRESSBOOK_BIND
-        aor = schema.ADDRESSBOOK_OBJECT_REVISIONS
-        rp = schema.RESOURCE_PROPERTY
 
         yield Delete(
             From=ahb,
             Where=ahb.ADDRESSBOOK_HOME_RESOURCE_ID == self._resourceID,
         ).on(self._txn)
 
-        yield Delete(
-            From=aor,
-            Where=aor.ADDRESSBOOK_HOME_RESOURCE_ID == self._resourceID,
-        ).on(self._txn)
+        yield super(AddressBookHome, self).remove()
 
-        yield Delete(
-            From=ah,
-            Where=ah.RESOURCE_ID == self._resourceID,
-        ).on(self._txn)
 
-        yield Delete(
-            From=rp,
-            Where=(rp.RESOURCE_ID == self._resourceID).Or(
-                rp.RESOURCE_ID == self._addressbookPropertyStoreID
-            )
-        ).on(self._txn)
-
-        yield self._cacher.delete(str(self._ownerUID))
+    def removeAllChildren(self):
+        """
+        This is a NoOp for the single child address book home
+        """
+        return succeed(None)
 
 
     @inlineCallbacks

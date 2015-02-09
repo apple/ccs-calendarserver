@@ -14,14 +14,19 @@
 # limitations under the License.
 ##
 
-from twext.python.log import Logger
+from collections import namedtuple
+from functools import wraps
 
+from twext.enterprise.dal.syntax import Select, Delete, Parameter, Insert, \
+    Update
+from twext.python.log import Logger
+from twisted.internet.defer import returnValue, inlineCallbacks
 from twisted.python.failure import Failure
-from twisted.internet.defer import returnValue, inlineCallbacks, succeed
+from txdav.caldav.icalendarstore import ComponentUpdateState
+from txdav.common.datastore.sql_tables import schema
 from txdav.common.idirectoryservice import DirectoryRecordNotFoundError
 
-from functools import wraps
-from txdav.caldav.icalendarstore import ComponentUpdateState
+import uuid
 
 log = Logger()
 
@@ -77,6 +82,8 @@ class CrossPodHomeSync(object):
 
     BATCH_SIZE = 50
 
+    CalendarSyncState = namedtuple("CalendarSyncState", ("localID", "lastSyncToken",))
+
     def __init__(self, store, diruid):
         """
         @param store: the data store
@@ -122,7 +129,7 @@ class CrossPodHomeSync(object):
         # Step 4 - final incremental sync
         yield self.sync()
 
-        # Step 5 - final overell sync of meta-data (including sharing re-linking)
+        # Step 5 - final overall sync of meta-data (including sharing re-linking)
         yield self.finalSync()
 
         # Step 6 - enable new home
@@ -148,13 +155,13 @@ class CrossPodHomeSync(object):
 
         yield self.syncCalendarList()
 
-        # TODO: sync home metadata such as alarms, default calendars, etc
+        # sync home metadata such as alarms, default calendars, etc
         yield self.syncCalendarHomeMetaData()
 
         # TODO: sync attachments
         pass
 
-        # TODO: group attendee reconcile
+        # TODO: group attendee/sharee reconcile
         pass
 
 
@@ -165,7 +172,13 @@ class CrossPodHomeSync(object):
         rows, recalculate quota etc.
         """
 
-        # TODO:
+        # TODO: shared collections reconcile
+        pass
+
+        # TODO: delegates reconcile
+        pass
+
+        # TODO: notifications
         pass
 
 
@@ -273,8 +286,8 @@ class CrossPodHomeSync(object):
         yield self.purgeLocal(local_sync_state, remote_sync_state)
 
         # Sync each calendar that matches on both sides
-        for name in remote_sync_state.keys():
-            yield self.syncCalendar(name, local_sync_state, remote_sync_state)
+        for remoteID in remote_sync_state.keys():
+            yield self.syncCalendar(remoteID, local_sync_state, remote_sync_state)
 
 
     @inTransactionWrapper
@@ -293,24 +306,68 @@ class CrossPodHomeSync(object):
         for calendar in calendars:
             if calendar.owned():
                 sync_token = yield calendar.syncToken()
-                results[calendar.name()] = sync_token
+                results[calendar.id()] = self.CalendarSyncState(0, sync_token)
 
         returnValue(results)
 
 
-    def getSyncState(self):
+    @inTransactionWrapper
+    @inlineCallbacks
+    def getSyncState(self, txn):
         """
         Get local synchronization state for the home being migrated.
         """
-        return succeed({})
+        cms = schema.CALENDAR_MIGRATION_STATE
+        rows = yield Select(
+            columns=(cms.REMOTE_RESOURCE_ID, cms.CALENDAR_RESOURCE_ID, cms.LAST_SYNC_TOKEN,),
+            From=cms,
+            Where=(cms.CALENDAR_HOME_RESOURCE_ID == self.homeId)
+        ).on(txn)
+        returnValue(dict([(remote_id, self.CalendarSyncState(local_id, sync,)) for remote_id, local_id, sync in rows]))
 
 
     @inTransactionWrapper
+    @inlineCallbacks
     def setSyncState(self, txn, details):
         """
         Get local synchronization state for the home being migrated.
         """
-        return succeed(None)
+        cms = schema.CALENDAR_MIGRATION_STATE
+
+        old_details = yield self.getSyncState(txn=txn)
+
+        # Remove missing keys
+        missing = set(old_details.keys()) - set(details.keys())
+        if missing:
+            yield Delete(
+                From=cms,
+                Where=(cms.CALENDAR_HOME_RESOURCE_ID == self.homeId).And(
+                    cms.REMOTE_RESOURCE_ID.In(Parameter("missing", len(missing)))
+                )
+            ).on(txn, missing=missing)
+
+        # Add new ones
+        insert = set(details.keys()) - set(old_details.keys())
+        for key in insert:
+            yield Insert({
+                cms.CALENDAR_HOME_RESOURCE_ID: self.homeId,
+                cms.REMOTE_RESOURCE_ID: key,
+                cms.CALENDAR_RESOURCE_ID: details[key].localID,
+                cms.LAST_SYNC_TOKEN: details[key].lastSyncToken,
+            }).on(txn)
+
+        # Update existing ones
+        updates = set(details.keys()) & set(old_details.keys())
+        for key in updates:
+            yield Update(
+                {
+                    cms.CALENDAR_RESOURCE_ID: details[key].localID,
+                    cms.LAST_SYNC_TOKEN: details[key].lastSyncToken,
+                },
+                Where=(cms.CALENDAR_HOME_RESOURCE_ID == self.homeId).And(
+                    cms.REMOTE_RESOURCE_ID == key
+                )
+            ).on(txn)
 
 
     @inTransactionWrapper
@@ -327,89 +384,116 @@ class CrossPodHomeSync(object):
         @type remote_sync_state: L{dict}
         """
         home = yield txn.calendarHomeWithUID(self.migratingUid())
-        for name in set(local_sync_state.keys()) - set(remote_sync_state.keys()):
-            calendar = yield home.childWithName(name)
+        for remoteID in set(local_sync_state.keys()) - set(remote_sync_state.keys()):
+            calendar = yield home.childWithID(local_sync_state[remoteID].localID)
             if calendar is not None:
                 yield calendar.purge()
-            del local_sync_state[name]
+            del local_sync_state[remoteID]
 
-        yield self.setSyncState(local_sync_state, txn=txn)
+        # FIXME: does this need to be done since we have a cascade on the table?
+        # yield self.setSyncState(local_sync_state, txn=txn)
 
 
     @inlineCallbacks
-    def syncCalendar(self, name, local_sync_state, remote_sync_state):
+    def syncCalendar(self, remoteID, local_sync_state, remote_sync_state):
         """
         Sync the contents of a calendar from the remote side. The local calendar may need to be created
         on initial sync. Make use of sync tokens to avoid unnecessary work.
 
-        @param name: name of the calendar to sync
-        @type name: L{str}
+        @param remoteID: id of the remote calendar to sync
+        @type remoteID: L{int}
         @param local_sync_state: local sync state
         @type local_sync_state: L{dict}
         @param remote_sync_state: remote sync state
         @type remote_sync_state: L{dict}
         """
 
-        local_token = local_sync_state.get(name, None)
-        remote_token = remote_sync_state[name]
-        if local_token != remote_token:
-            # See if we need to create the local one first
-            if local_token is None:
-                yield self.newCalendar(name)
+        # See if we need to create the local one first
+        local_state = local_sync_state.get(remoteID)
+        if local_state is None:
+            localID = yield self.newCalendar()
+            local_sync_state[remoteID] = self.CalendarSyncState(localID, None)
 
-            # TODO: sync meta-data such as alarms, supported-components, transp, etc
-            pass
+        localID = local_sync_state.get(remoteID).localID
+        local_token = local_sync_state.get(remoteID).lastSyncToken
+
+        remote_token = remote_sync_state[remoteID].lastSyncToken
+        if local_token != remote_token:
+            # Sync meta-data such as name, alarms, supported-components, transp, etc
+            yield self.syncCalendarMetaData(localID, remoteID)
 
             # Sync object resources
-            changed, deleted = yield self.findObjectsToSync(name, local_token)
-            yield self.purgeDeletedObjectsInBatches(name, deleted)
-            yield self.updateChangedObjectsInBatches(name, changed)
+            changed, deleted = yield self.findObjectsToSync(localID, remoteID, local_token)
+            yield self.purgeDeletedObjectsInBatches(localID, deleted)
+            yield self.updateChangedObjectsInBatches(localID, remoteID, changed)
 
-        local_sync_state[name] = remote_token
+        local_sync_state[remoteID] = self.CalendarSyncState(localID, remote_token)
         yield self.setSyncState(local_sync_state)
 
 
     @inTransactionWrapper
     @inlineCallbacks
-    def newCalendar(self, txn, name):
+    def newCalendar(self, txn):
         """
-        Create a new local calendar to sync remote data to.
-
-        @param name: name of the calendar to create
-        @type name: L{str}
+        Create a new local calendar to sync remote data to. We don't care about the name
+        of the calendar right now - it will be sync'd later.
         """
 
         home = yield txn.calendarHomeWithUID(self.migratingUid())
-        calendar = yield home.childWithName(name)
-        if calendar is None:
-            yield home.createChildWithName(name)
+        calendar = yield home.createChildWithName(str(uuid.uuid4()))
+        returnValue(calendar.id())
 
 
     @inTransactionWrapper
     @inlineCallbacks
-    def findObjectsToSync(self, txn, name, local_token):
+    def syncCalendarMetaData(self, txn, localID, remoteID):
+        """
+        Sync the metadata of a calendar from the remote side.
+
+        @param localID: id of the local calendar to sync
+        @type localID: L{int}
+        @param remoteID: id of the remote calendar to sync with
+        @type remoteID: L{int}
+        """
+        # Remote changes
+        remote_home = yield self._remoteHome(txn)
+        remote_calendar = yield remote_home.childWithID(remoteID)
+        if remote_calendar is None:
+            returnValue(None)
+
+        # Check whether the deleted set items
+        local_home = yield txn.calendarHomeWithUID(self.migratingUid())
+        local_calendar = yield local_home.childWithID(localID)
+        yield local_calendar.copyMetadata(remote_calendar)
+
+
+    @inTransactionWrapper
+    @inlineCallbacks
+    def findObjectsToSync(self, txn, localID, remoteID, local_token):
         """
         Find the set of object resources that need to be sync'd from the remote
         side and the set that need to be removed locally. Take into account the
         possibility that this is a partial sync and removals or additions might
         be false positives.
 
-        @param name: name of the calendar to sync
-        @type name: L{str}
+        @param localID: id of the local calendar to sync
+        @type localID: L{int}
+        @param remoteID: id of the remote calendar to sync with
+        @type remoteID: L{int}
         @param local_token: sync token last used to sync the calendar
         @type local_token: L{str}
         """
 
         # Remote changes
         remote_home = yield self._remoteHome(txn)
-        remote_calendar = yield remote_home.childWithName(name)
+        remote_calendar = yield remote_home.childWithID(remoteID)
         if remote_calendar is None:
             returnValue(None)
         changed, deleted, _ignore_invalid = yield remote_calendar.resourceNamesSinceToken(local_token)
 
         # Check whether the deleted set items
         local_home = yield txn.calendarHomeWithUID(self.migratingUid())
-        local_calendar = yield local_home.childWithName(name)
+        local_calendar = yield local_home.childWithID(localID)
 
         # Check the md5's on each changed remote with the local one to filter out ones
         # we don't actually need to sync
@@ -428,41 +512,41 @@ class CrossPodHomeSync(object):
 
 
     @inlineCallbacks
-    def purgeDeletedObjectsInBatches(self, name, deleted):
+    def purgeDeletedObjectsInBatches(self, localID, deleted):
         """
         Purge (silently remove) the specified object resources. This needs to
         succeed in the case where some or all resources have already been deleted.
         Do this in batches to keep transaction times small.
 
-        @param name: name of the calendar to purge from
-        @type name: L{str}
+        @param localID: id of the local calendar to sync
+        @type localID: L{int}
         @param deleted: list of names to purge
         @type deleted: L{list} of L{str}
         """
 
         remaining = list(deleted)
         while remaining:
-            yield self.purgeBatch(name, remaining[:self.BATCH_SIZE])
+            yield self.purgeBatch(localID, remaining[:self.BATCH_SIZE])
             del remaining[:self.BATCH_SIZE]
 
 
     @inTransactionWrapper
     @inlineCallbacks
-    def purgeBatch(self, txn, name, purge_names):
+    def purgeBatch(self, txn, localID, purge_names):
         """
         Purge a bunch of object resources from the specified calendar.
 
         @param txn: transaction to use
         @type txn: L{CommonStoreTransaction}
-        @param name: name of calendar
-        @type name: L{str}
+        @param localID: id of the local calendar to sync
+        @type localID: L{int}
         @param purge_names: object resource names to purge
         @type purge_names: L{list} of L{str}
         """
 
         # Check whether the deleted set items
         local_home = yield txn.calendarHomeWithUID(self.migratingUid())
-        local_calendar = yield local_home.childWithName(name)
+        local_calendar = yield local_home.childWithID(localID)
         local_objects = yield local_calendar.objectResourcesWithNames(purge_names)
 
         for local_object in local_objects:
@@ -470,41 +554,45 @@ class CrossPodHomeSync(object):
 
 
     @inlineCallbacks
-    def updateChangedObjectsInBatches(self, name, changed):
+    def updateChangedObjectsInBatches(self, localID, remoteID, changed):
         """
         Update the specified object resources. This needs to succeed in the
         case where some or all resources have already been deleted.
         Do this in batches to keep transaction times small.
 
-        @param name: name of the calendar to purge from
-        @type name: L{str}
+        @param localID: id of the local calendar to sync
+        @type localID: L{int}
+        @param remoteID: id of the remote calendar to sync with
+        @type remoteID: L{int}
         @param changed: list of names to update
         @type changed: L{list} of L{str}
         """
 
         remaining = list(changed)
         while remaining:
-            yield self.updateBatch(name, remaining[:self.BATCH_SIZE])
+            yield self.updateBatch(localID, remoteID, remaining[:self.BATCH_SIZE])
             del remaining[:self.BATCH_SIZE]
 
 
     @inTransactionWrapper
     @inlineCallbacks
-    def updateBatch(self, txn, name, remaining):
+    def updateBatch(self, txn, localID, remoteID, remaining):
         """
         Update a bunch of object resources from the specified remote calendar.
 
         @param txn: transaction to use
         @type txn: L{CommonStoreTransaction}
-        @param name: name of calendar
-        @type name: L{str}
+        @param localID: id of the local calendar to sync
+        @type localID: L{int}
+        @param remoteID: id of the remote calendar to sync with
+        @type remoteID: L{int}
         @param purge_names: object resource names to update
         @type purge_names: L{list} of L{str}
         """
 
         # Get remote objects
         remote_home = yield self._remoteHome(txn)
-        remote_calendar = yield remote_home.childWithName(name)
+        remote_calendar = yield remote_home.childWithID(remoteID)
         if remote_calendar is None:
             returnValue(None)
         remote_objects = yield remote_calendar.objectResourcesWithNames(remaining)
@@ -512,7 +600,7 @@ class CrossPodHomeSync(object):
 
         # Get local objects
         local_home = yield txn.calendarHomeWithUID(self.migratingUid())
-        local_calendar = yield local_home.childWithName(name)
+        local_calendar = yield local_home.childWithID(localID)
         local_objects = yield local_calendar.objectResourcesWithNames(remaining)
         local_objects = dict([(obj.name(), obj) for obj in local_objects])
 

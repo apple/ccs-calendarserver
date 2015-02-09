@@ -3402,6 +3402,42 @@ class CommonHome(SharingHomeMixIn):
             yield self._cacher.delete(self._ownerUID)
 
 
+    @inlineCallbacks
+    def remove(self):
+
+        # Removing the home table entry does NOT remove the child class entry - it does remove
+        # the associated bind entry. So manually remove each child.
+        yield self.removeAllChildren()
+
+        r = self._childClass._revisionsSchema
+        yield Delete(
+            From=r,
+            Where=r.HOME_RESOURCE_ID == self._resourceID,
+        ).on(self._txn)
+
+        h = self._homeTable
+        yield Delete(
+            From=h,
+            Where=h.RESOURCE_ID == self._resourceID,
+        ).on(self._txn)
+
+        yield self.properties()._removeResource()
+
+        yield self._cacher.delete(str(self._ownerUID))
+
+
+    @inlineCallbacks
+    def removeAllChildren(self):
+        """
+        Remove each child.
+        """
+
+        for child in (yield self.loadChildren()):
+            yield child.remove()
+            self._children.pop(child.name(), None)
+            self._children.pop(child.id(), None)
+
+
     def transaction(self):
         return self._txn
 
@@ -6118,6 +6154,13 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         self._objects = {}
 
         yield self._home.notifyChanged()
+
+
+    def purge(self):
+        """
+        Do a "silent" removal of this object resource.
+        """
+        return self.remove()
 
 
     def ownerHome(self):

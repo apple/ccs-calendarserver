@@ -111,6 +111,7 @@ from zope.interface.declarations import implements
 from urlparse import urlparse, urlunparse
 import collections
 import datetime
+import itertools
 import os
 import tempfile
 import urllib
@@ -494,35 +495,10 @@ class CalendarHome(CommonHome):
 
     @inlineCallbacks
     def remove(self):
-        ch = schema.CALENDAR_HOME
-        cb = schema.CALENDAR_BIND
-        cor = schema.CALENDAR_OBJECT_REVISIONS
-        rp = schema.RESOURCE_PROPERTY
-
         # delete attachments corresponding to this home, also removing from disk
         yield Attachment.removedHome(self._txn, self._resourceID)
 
-        yield Delete(
-            From=cb,
-            Where=cb.CALENDAR_HOME_RESOURCE_ID == self._resourceID
-        ).on(self._txn)
-
-        yield Delete(
-            From=cor,
-            Where=cor.CALENDAR_HOME_RESOURCE_ID == self._resourceID
-        ).on(self._txn)
-
-        yield Delete(
-            From=ch,
-            Where=ch.RESOURCE_ID == self._resourceID
-        ).on(self._txn)
-
-        yield Delete(
-            From=rp,
-            Where=rp.RESOURCE_ID == self._resourceID
-        ).on(self._txn)
-
-        yield self._cacher.delete(str(self._ownerUID))
+        yield super(CalendarHome, self).remove()
 
 
     @inlineCallbacks
@@ -1095,6 +1071,46 @@ class Calendar(CommonHomeChild):
     @property
     def _calendarHome(self):
         return self._home
+
+
+    @inlineCallbacks
+    def copyMetadata(self, other):
+        """
+        Copy metadata from one L{Calendar} to another. This is only
+        used during a migration step.
+        """
+
+        # Copy over list of attributes and the name
+        self._name = other._name
+        for attr in itertools.chain(self.metadataAttributes(), self.additionalBindAttributes()):
+            if attr in ("_created", "_modified"):
+                continue
+            if hasattr(other, attr):
+                setattr(self, attr, getattr(other, attr))
+
+        # Update the metadata table
+        cm = self._homeChildMetaDataSchema
+        values = {}
+        for attr, column in itertools.izip(self.metadataAttributes(), self.metadataColumns()):
+            if attr in ("_created", "_modified"):
+                continue
+            values[column] = getattr(self, attr)
+        yield Update(
+            values,
+            Where=(cm.RESOURCE_ID == self._resourceID)
+        ).on(self._txn)
+
+        # Update the bind table
+        cb = self._bindSchema
+        values = {
+            cb.RESOURCE_NAME: self._name
+        }
+        for attr, column in itertools.izip(self.additionalBindAttributes(), self.additionalBindColumns()):
+            values[column] = getattr(self, attr)
+        yield Update(
+            values,
+            Where=(cb.CALENDAR_HOME_RESOURCE_ID == self.viewerHome()._resourceID).And(cb.CALENDAR_RESOURCE_ID == self._resourceID)
+        ).on(self._txn)
 
     ownerCalendarHome = CommonHomeChild.ownerHome
     viewerCalendarHome = CommonHomeChild.viewerHome

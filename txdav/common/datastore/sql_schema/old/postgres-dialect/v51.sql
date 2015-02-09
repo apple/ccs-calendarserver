@@ -136,23 +136,6 @@ create table CALENDAR_METADATA (
 );
 
 
-------------------------
--- Calendar Migration --
-------------------------
-
-create table CALENDAR_MIGRATION_STATE (
-  CALENDAR_HOME_RESOURCE_ID	integer references CALENDAR_HOME on delete cascade,
-  REMOTE_RESOURCE_ID			integer not null,
-  CALENDAR_RESOURCE_ID			integer	references CALENDAR on delete cascade,
-  LAST_SYNC_TOKEN				varchar(255),
-   
-  primary key (CALENDAR_HOME_RESOURCE_ID, REMOTE_RESOURCE_ID) -- implicit index
-);
-
-create index CALENDAR_MIGRATION_STATE_CALENDAR_RESOURCE_ID on
-  CALENDAR_MIGRATION_STATE(CALENDAR_RESOURCE_ID);
-
-
 ---------------------------
 -- Sharing Notifications --
 ---------------------------
@@ -1168,7 +1151,7 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '52');
+insert into CALENDARSERVER values ('VERSION', '51');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER values ('NOTIFICATION-DATAVERSION', '1');

@@ -92,6 +92,22 @@ END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n").format(**nowYear)
 
+    caldata4 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:uid4
+DTSTART:{now:04d}0102T180000Z
+DURATION:PT1H
+CREATED:20060102T190000Z
+DTSTAMP:20051222T210507Z
+RRULE:FREQ=DAILY
+SUMMARY:instance
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n").format(**nowYear)
+
     @inlineCallbacks
     def test_remote_home(self):
         """
@@ -127,6 +143,8 @@ END:VCALENDAR
         # Home is present
         home = yield self.homeUnderTest(self.theTransactionUnderTest(1), name=syncer.migratingUid())
         self.assertTrue(home is not None)
+        children = yield home.listChildren()
+        self.assertEqual(len(children), 0)
         yield self.commitTransaction(1)
 
 
@@ -148,6 +166,8 @@ END:VCALENDAR
         # Home is present
         home = yield self.homeUnderTest(self.theTransactionUnderTest(1), name=syncer.migratingUid())
         self.assertTrue(home is not None)
+        children = yield home.listChildren()
+        self.assertEqual(len(children), 0)
         yield self.commitTransaction(1)
 
 
@@ -166,7 +186,7 @@ END:VCALENDAR
         for calendar in calendars01:
             if calendar.owned():
                 sync_token = yield calendar.syncToken()
-                results01[calendar.name()] = sync_token
+                results01[calendar.id()] = CrossPodHomeSync.CalendarSyncState(0, sync_token)
         yield self.commitTransaction(0)
 
         syncer = CrossPodHomeSync(self.theStoreUnderTest(1), "user01")
@@ -184,29 +204,30 @@ END:VCALENDAR
 
         home0 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
         calendar0 = yield home0.childWithName("calendar")
+        remote_id = calendar0.id()
         remote_sync_token = yield calendar0.syncToken()
         yield self.commitTransaction(0)
 
         syncer = CrossPodHomeSync(self.theStoreUnderTest(1), "user01")
         yield syncer.loadRecord()
-        yield syncer.prepareCalendarHome()
+        syncer.homeId = yield syncer.prepareCalendarHome()
 
         # No local calendar exists yet
         home1 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(1), name=syncer.migratingUid())
-        calendar1 = yield home1.childWithName("calendar")
-        self.assertTrue(calendar1 is None)
+        children = yield home1.listChildren()
+        self.assertEqual(len(children), 0)
         yield self.commitTransaction(1)
 
         # Trigger sync of the one calendar
         local_sync_state = {}
-        remote_sync_state = {"calendar": remote_sync_token}
+        remote_sync_state = {remote_id: CrossPodHomeSync.CalendarSyncState(0, remote_sync_token)}
         yield syncer.syncCalendar(
-            "calendar",
+            remote_id,
             local_sync_state,
             remote_sync_state,
         )
-        self.assertTrue("calendar" in local_sync_state)
-        self.assertEqual(local_sync_state["calendar"], remote_sync_state["calendar"])
+        self.assertEqual(len(local_sync_state), 1)
+        self.assertEqual(local_sync_state[remote_id].lastSyncToken, remote_sync_state[remote_id].lastSyncToken)
 
         # Local calendar exists
         home1 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(1), name=syncer.migratingUid())
@@ -228,11 +249,12 @@ END:VCALENDAR
         yield calendar0.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
         yield calendar0.createCalendarObjectWithName("2.ics", Component.fromString(self.caldata2))
         yield calendar0.createCalendarObjectWithName("3.ics", Component.fromString(self.caldata3))
+        remote_id = calendar0.id()
         yield self.commitTransaction(0)
 
         syncer = CrossPodHomeSync(self.theStoreUnderTest(1), "user01")
         yield syncer.loadRecord()
-        yield syncer.prepareCalendarHome()
+        syncer.homeId = yield syncer.prepareCalendarHome()
 
         # No local calendar exists yet
         home1 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(1), name=syncer.migratingUid())
@@ -244,12 +266,12 @@ END:VCALENDAR
         local_sync_state = {}
         remote_sync_state = yield syncer.getCalendarSyncList()
         yield syncer.syncCalendar(
-            "calendar",
+            remote_id,
             local_sync_state,
             remote_sync_state,
         )
-        self.assertTrue("calendar" in local_sync_state)
-        self.assertEqual(local_sync_state["calendar"], remote_sync_state["calendar"])
+        self.assertEqual(len(local_sync_state), 1)
+        self.assertEqual(local_sync_state[remote_id].lastSyncToken, remote_sync_state[remote_id].lastSyncToken)
 
         # Local calendar exists
         home1 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(1), name=syncer.migratingUid())
@@ -268,7 +290,7 @@ END:VCALENDAR
 
         remote_sync_state = yield syncer.getCalendarSyncList()
         yield syncer.syncCalendar(
-            "calendar",
+            remote_id,
             local_sync_state,
             remote_sync_state,
         )
@@ -289,7 +311,7 @@ END:VCALENDAR
 
         remote_sync_state = yield syncer.getCalendarSyncList()
         yield syncer.syncCalendar(
-            "calendar",
+            remote_id,
             local_sync_state,
             remote_sync_state,
         )
@@ -297,4 +319,84 @@ END:VCALENDAR
         calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home=syncer.migratingUid(), name="calendar")
         children = yield calendar1.listObjectResources()
         self.assertEqual(set(children), set(("1.ics", "3.ics",)))
+        yield self.commitTransaction(1)
+
+        # Add one resource
+        calendar0 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
+        yield calendar0.createCalendarObjectWithName("4.ics", Component.fromString(self.caldata4))
+        yield self.commitTransaction(0)
+
+        remote_sync_state = yield syncer.getCalendarSyncList()
+        yield syncer.syncCalendar(
+            remote_id,
+            local_sync_state,
+            remote_sync_state,
+        )
+
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home=syncer.migratingUid(), name="calendar")
+        children = yield calendar1.listObjectResources()
+        self.assertEqual(set(children), set(("1.ics", "3.ics", "4.ics",)))
+        yield self.commitTransaction(1)
+
+
+    @inlineCallbacks
+    def test_sync_calendars_add_remove(self):
+        """
+        Test that L{syncCalendar} syncs an initially non-existent local calendar with
+        a remote calendar containing data. Also check a change to one event is then
+        sync'd the second time.
+        """
+
+        home0 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
+        children0 = yield home0.loadChildren()
+        details0 = dict([(child.id(), child.name()) for child in children0])
+        yield self.commitTransaction(0)
+
+        syncer = CrossPodHomeSync(self.theStoreUnderTest(1), "user01")
+        yield syncer.loadRecord()
+        syncer.homeId = yield syncer.prepareCalendarHome()
+
+        # No local calendar exists yet
+        home1 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(1), name=syncer.migratingUid())
+        children1 = yield home1.loadChildren()
+        self.assertEqual(len(children1), 0)
+        yield self.commitTransaction(1)
+
+        # Trigger sync
+        yield syncer.syncCalendarList()
+        home1 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(1), name=syncer.migratingUid())
+        children1 = yield home1.loadChildren()
+        details1 = dict([(child.id(), child.name()) for child in children1])
+        self.assertEqual(set(details1.values()), set(details0.values()))
+        yield self.commitTransaction(1)
+
+        # Add a calendar
+        home0 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
+        newcalendar0 = yield home0.createCalendarWithName("new-calendar")
+        details0[newcalendar0.id()] = newcalendar0.name()
+        yield self.commitTransaction(0)
+
+        # Trigger sync
+        yield syncer.syncCalendarList()
+        home1 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(1), name=syncer.migratingUid())
+        children1 = yield home1.loadChildren()
+        details1 = dict([(child.id(), child.name()) for child in children1])
+        self.assertTrue("new-calendar" in details1.values())
+        self.assertEqual(set(details1.values()), set(details0.values()))
+        yield self.commitTransaction(1)
+
+        # Remove a calendar
+        home0 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
+        calendar0 = yield home0.childWithName("new-calendar")
+        del details0[calendar0.id()]
+        yield calendar0.remove()
+        yield self.commitTransaction(0)
+
+        # Trigger sync
+        yield syncer.syncCalendarList()
+        home1 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(1), name=syncer.migratingUid())
+        children1 = yield home1.loadChildren()
+        details1 = dict([(child.id(), child.name()) for child in children1])
+        self.assertTrue("new-calendar" not in details1.values())
+        self.assertEqual(set(details1.values()), set(details0.values()))
         yield self.commitTransaction(1)

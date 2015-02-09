@@ -42,7 +42,6 @@ create table HOME_STATUS (
 insert into HOME_STATUS (DESCRIPTION, ID) values ('normal', 0);
 insert into HOME_STATUS (DESCRIPTION, ID) values ('external', 1);
 insert into HOME_STATUS (DESCRIPTION, ID) values ('purging', 2);
-insert into HOME_STATUS (DESCRIPTION, ID) values ('migrating', 3);
 create table CALENDAR (
     "RESOURCE_ID" integer primary key
 );
@@ -67,14 +66,6 @@ create table CALENDAR_METADATA (
     "SUPPORTED_COMPONENTS" nvarchar2(255) default null,
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
-);
-
-create table CALENDAR_MIGRATION_STATE (
-    "CALENDAR_HOME_RESOURCE_ID" integer references CALENDAR_HOME on delete cascade,
-    "REMOTE_RESOURCE_ID" integer not null,
-    "CALENDAR_RESOURCE_ID" integer references CALENDAR on delete cascade,
-    "LAST_SYNC_TOKEN" nvarchar2(255), 
-    primary key ("CALENDAR_HOME_RESOURCE_ID", "REMOTE_RESOURCE_ID")
 );
 
 create table NOTIFICATION_HOME (
@@ -616,7 +607,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '52');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '51');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '6');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('NOTIFICATION-DATAVERSION', '1');
@@ -631,10 +622,6 @@ create index CALENDAR_HOME_METADAT_d55e5548 on CALENDAR_HOME_METADATA (
 
 create index CALENDAR_HOME_METADAT_910264ce on CALENDAR_HOME_METADATA (
     DEFAULT_POLLS
-);
-
-create index CALENDAR_MIGRATION_ST_57f40e9a on CALENDAR_MIGRATION_STATE (
-    CALENDAR_RESOURCE_ID
 );
 
 create index NOTIFICATION_NOTIFICA_f891f5f9 on NOTIFICATION (
