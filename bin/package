@@ -109,6 +109,7 @@ main () {
       dev_roots="${destination}/roots";
   py_virtualenv="${destination}/virtualenv";
       py_bindir="${py_virtualenv}/bin";
+    py_ve_tools="${dev_home}/ve_tools";
 
   if [ ! -d "${py_virtualenv}" ]; then
     bootstrap_virtualenv;
