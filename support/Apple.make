@@ -144,10 +144,6 @@ install-config::
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)";
 	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)/caldavd-apple.plist";
 
-# install:: install-logdir-omg-hack-ew
-# install-logdir-omg-hack-ew::
-# 	$(_v) $(INSTALL_DIRECTORY) -o "$(CS_USER)" -g "$(CS_GROUP)" -m 0755 "$(DSTROOT)$(VARDIR)/log$(CALDAVDSUBDIR)";
-
 install:: install-commands
 install-commands::
 	@echo "Installing links to executables...";
@@ -213,17 +209,3 @@ $(BuildDirectory)/$(Project):
 	@echo "Copying source for $(Project) to build directory...";
 	$(_v) $(MKDIR) -p "$@";
 	$(_v) cp -a "$(Sources)/" "$@/";
-
-#
-# Open Source Hooey
-#
-
-OSV = $(USRDIR)/local/OpenSourceVersions
-OSL = $(USRDIR)/local/OpenSourceLicenses
-
-#install:: install-ossfiles
-install-ossfiles::
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(OSV)";
-	$(_v) $(INSTALL_FILE) "$(Sources)/$(ProjectName).plist" "$(DSTROOT)/$(OSV)/$(ProjectName).plist";
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(OSL)";
-	$(_v) $(INSTALL_FILE) "$(BuildDirectory)/$(Project)/LICENSE" "$(DSTROOT)/$(OSL)/$(ProjectName).txt";
