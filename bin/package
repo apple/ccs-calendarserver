@@ -110,6 +110,14 @@ main () {
   py_virtualenv="${destination}/virtualenv";
       py_bindir="${py_virtualenv}/bin";
 
+  if [ ! -d "${py_virtualenv}" ]; then
+    bootstrap_virtualenv;
+    "${bootstrap_python}" -m virtualenv  \
+      --always-copy                      \
+      --no-setuptools                    \
+      "${py_virtualenv}";
+  fi;
+
   c_dependencies;
   py_dependencies;
 
