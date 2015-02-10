@@ -374,7 +374,6 @@ c_dependency () {
   mkdir -p "${dep_sources}";
 
   local srcdir="${dep_sources}/${path}";
-  # local dstroot="${srcdir}/_root";
   local dstroot="${dev_roots}/${name}";
 
   www_get ${f_hash} "${name}" "${srcdir}" "${uri}";
@@ -385,7 +384,7 @@ c_dependency () {
   export          CPPFLAGS="-I${dstroot}/include ${CPPFLAGS:-} ";
   export           LDFLAGS="-L${dstroot}/lib -L${dstroot}/lib64 ${LDFLAGS:-} ";
   export DYLD_LIBRARY_PATH="${dstroot}/lib:${dstroot}/lib64:${DYLD_LIBRARY_PATH:-}";
-  export PKG_CONFIG_PATH="${dstroot}/lib/pkgconfig:${PKG_CONFIG_PATH:-}";
+  export   PKG_CONFIG_PATH="${dstroot}/lib/pkgconfig:${PKG_CONFIG_PATH:-}";
 
   if "${do_setup}"; then
     if "${force_setup}"; then
