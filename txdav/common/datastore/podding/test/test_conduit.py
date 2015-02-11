@@ -1056,3 +1056,54 @@ END:VCALENDAR
         attachment = yield ManagedAttachment.load(self.theTransactionUnderTest(0), resourceID, managedID)
         self.assertTrue(attachment is None)
         yield self.commitTransaction(0)
+
+
+    @inlineCallbacks
+    def test_get_all_attachments(self):
+        """
+        Test that action=get-all-attachments works.
+        """
+
+        yield self.createShare("user01", "puser01")
+
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
+        yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        yield self.commitTransaction(0)
+
+        object1 = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(0), home="user01", calendar_name="calendar", name="1.ics")
+        yield object1.addAttachment(None, MimeType.fromString("text/plain"), "test.txt", MemoryStream("Here is some text."))
+        yield self.commitTransaction(0)
+
+        shared_object = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", calendar_name="shared-calendar", name="1.ics")
+        attachments = yield shared_object.ownerHome().getAllAttachments()
+        self.assertEqual(len(attachments), 1)
+        self.assertTrue(isinstance(attachments[0], ManagedAttachment))
+        self.assertEqual(attachments[0].contentType(), MimeType.fromString("text/plain"))
+        self.assertEqual(attachments[0].name(), "test.txt")
+        yield self.commitTransaction(1)
+
+
+    @inlineCallbacks
+    def test_get_attachment_data(self):
+        """
+        Test that action=get-all-attachments works.
+        """
+
+        yield self.createShare("user01", "puser01")
+
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
+        yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        yield self.commitTransaction(0)
+
+        object1 = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(0), home="user01", calendar_name="calendar", name="1.ics")
+        attachment, _ignore_location = yield object1.addAttachment(None, MimeType.fromString("text/plain"), "test.txt", MemoryStream("Here is some text."))
+        remote_id = attachment.id()
+        yield self.commitTransaction(0)
+
+        home1 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(1), name="puser01")
+        shared_object = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", calendar_name="shared-calendar", name="1.ics")
+        attachment = yield ManagedAttachment._create(self.theTransactionUnderTest(1), None, home1.id())
+        attachment._contentType = MimeType.fromString("text/plain")
+        attachment._name = "test.txt"
+        yield shared_object.ownerHome().readAttachmentData(remote_id, attachment)
+        yield self.commitTransaction(1)

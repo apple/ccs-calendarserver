@@ -14,11 +14,15 @@
 # limitations under the License.
 ##
 
-from twisted.internet.defer import inlineCallbacks
-from txdav.common.datastore.podding.test.util import MultiStoreConduitTest
-from txdav.common.datastore.podding.migration.home_sync import CrossPodHomeSync
 from pycalendar.datetime import DateTime
+from twext.enterprise.dal.syntax import Select
+from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.ical import Component, normalize_iCalStr
+from txdav.common.datastore.podding.migration.home_sync import CrossPodHomeSync
+from txdav.common.datastore.podding.test.util import MultiStoreConduitTest
+from txdav.common.datastore.sql_tables import schema
+from txweb2.http_headers import MimeType
+from txweb2.stream import MemoryStream
 
 
 class TestConduitAPI(MultiStoreConduitTest):
@@ -246,10 +250,11 @@ END:VCALENDAR
 
         home0 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
         calendar0 = yield home0.childWithName("calendar")
-        yield calendar0.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
-        yield calendar0.createCalendarObjectWithName("2.ics", Component.fromString(self.caldata2))
-        yield calendar0.createCalendarObjectWithName("3.ics", Component.fromString(self.caldata3))
+        o1 = yield calendar0.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        o2 = yield calendar0.createCalendarObjectWithName("2.ics", Component.fromString(self.caldata2))
+        o3 = yield calendar0.createCalendarObjectWithName("3.ics", Component.fromString(self.caldata3))
         remote_id = calendar0.id()
+        mapping0 = dict([(o.name(), o.id()) for o in (o1, o2, o3)])
         yield self.commitTransaction(0)
 
         syncer = CrossPodHomeSync(self.theStoreUnderTest(1), "user01")
@@ -273,12 +278,26 @@ END:VCALENDAR
         self.assertEqual(len(local_sync_state), 1)
         self.assertEqual(local_sync_state[remote_id].lastSyncToken, remote_sync_state[remote_id].lastSyncToken)
 
+        @inlineCallbacks
+        def _checkCalendarObjectMigrationState(home, mapping1):
+            com = schema.CALENDAR_OBJECT_MIGRATION
+            mappings = yield Select(
+                columns=[com.REMOTE_RESOURCE_ID, com.LOCAL_RESOURCE_ID],
+                From=com,
+                Where=(com.CALENDAR_HOME_RESOURCE_ID == home.id())
+            ).on(self.theTransactionUnderTest(1))
+            expected_mappings = dict([(mapping0[name], mapping1[name]) for name in mapping0.keys()])
+            self.assertEqual(dict(mappings), expected_mappings)
+
+
         # Local calendar exists
         home1 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(1), name=syncer.migratingUid())
         calendar1 = yield home1.childWithName("calendar")
         self.assertTrue(calendar1 is not None)
-        children = yield calendar1.listObjectResources()
-        self.assertEqual(set(children), set(("1.ics", "2.ics", "3.ics",)))
+        children = yield calendar1.objectResources()
+        self.assertEqual(set([child.name() for child in children]), set(("1.ics", "2.ics", "3.ics",)))
+        mapping1 = dict([(o.name(), o.id()) for o in children])
+        yield _checkCalendarObjectMigrationState(home1, mapping1)
         yield self.commitTransaction(1)
 
         # Change one resource
@@ -307,6 +326,7 @@ END:VCALENDAR
             txn=self.theTransactionUnderTest(0), home="user01", calendar_name="calendar", name="2.ics"
         )
         yield object0.remove()
+        del mapping0["2.ics"]
         yield self.commitTransaction(0)
 
         remote_sync_state = yield syncer.getCalendarSyncList()
@@ -317,13 +337,16 @@ END:VCALENDAR
         )
 
         calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home=syncer.migratingUid(), name="calendar")
-        children = yield calendar1.listObjectResources()
-        self.assertEqual(set(children), set(("1.ics", "3.ics",)))
+        children = yield calendar1.objectResources()
+        self.assertEqual(set([child.name() for child in children]), set(("1.ics", "3.ics",)))
+        mapping1 = dict([(o.name(), o.id()) for o in children])
+        yield _checkCalendarObjectMigrationState(home1, mapping1)
         yield self.commitTransaction(1)
 
         # Add one resource
         calendar0 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
-        yield calendar0.createCalendarObjectWithName("4.ics", Component.fromString(self.caldata4))
+        o4 = yield calendar0.createCalendarObjectWithName("4.ics", Component.fromString(self.caldata4))
+        mapping0[o4.name()] = o4.id()
         yield self.commitTransaction(0)
 
         remote_sync_state = yield syncer.getCalendarSyncList()
@@ -334,8 +357,10 @@ END:VCALENDAR
         )
 
         calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home=syncer.migratingUid(), name="calendar")
-        children = yield calendar1.listObjectResources()
-        self.assertEqual(set(children), set(("1.ics", "3.ics", "4.ics",)))
+        children = yield calendar1.objectResources()
+        self.assertEqual(set([child.name() for child in children]), set(("1.ics", "3.ics", "4.ics")))
+        mapping1 = dict([(o.name(), o.id()) for o in children])
+        yield _checkCalendarObjectMigrationState(home1, mapping1)
         yield self.commitTransaction(1)
 
 
@@ -400,3 +425,166 @@ END:VCALENDAR
         self.assertTrue("new-calendar" not in details1.values())
         self.assertEqual(set(details1.values()), set(details0.values()))
         yield self.commitTransaction(1)
+
+
+    @inlineCallbacks
+    def test_sync_attachments_add_remove(self):
+        """
+        Test that L{syncAttachments} syncs attachment data, then an update to the data,
+        and finally a removal of the data.
+        """
+
+
+        home0 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
+        calendar0 = yield home0.childWithName("calendar")
+        yield calendar0.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        yield calendar0.createCalendarObjectWithName("2.ics", Component.fromString(self.caldata2))
+        yield calendar0.createCalendarObjectWithName("3.ics", Component.fromString(self.caldata3))
+        remote_id = calendar0.id()
+        mapping0 = dict()
+        yield self.commitTransaction(0)
+
+        syncer = CrossPodHomeSync(self.theStoreUnderTest(1), "user01")
+        yield syncer.loadRecord()
+        syncer.homeId = yield syncer.prepareCalendarHome()
+
+        # Trigger sync of the one calendar
+        local_sync_state = {}
+        remote_sync_state = yield syncer.getCalendarSyncList()
+        yield syncer.syncCalendar(
+            remote_id,
+            local_sync_state,
+            remote_sync_state,
+        )
+        self.assertEqual(len(local_sync_state), 1)
+        self.assertEqual(local_sync_state[remote_id].lastSyncToken, remote_sync_state[remote_id].lastSyncToken)
+
+        # Sync attachments
+        changed, removed = yield syncer.syncAttachments()
+        self.assertEqual(changed, set())
+        self.assertEqual(removed, set())
+
+        @inlineCallbacks
+        def _checkAttachmentObjectMigrationState(home, mapping1):
+            am = schema.ATTACHMENT_MIGRATION
+            mappings = yield Select(
+                columns=[am.REMOTE_RESOURCE_ID, am.LOCAL_RESOURCE_ID],
+                From=am,
+                Where=(am.CALENDAR_HOME_RESOURCE_ID == home.id())
+            ).on(self.theTransactionUnderTest(1))
+            expected_mappings = dict([(mapping0[name], mapping1[name]) for name in mapping0.keys()])
+            self.assertEqual(dict(mappings), expected_mappings)
+
+
+        # Local calendar exists
+        home1 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(1), name=syncer.migratingUid())
+        calendar1 = yield home1.childWithName("calendar")
+        self.assertTrue(calendar1 is not None)
+        children = yield calendar1.objectResources()
+        self.assertEqual(set([child.name() for child in children]), set(("1.ics", "2.ics", "3.ics",)))
+
+        attachments = yield home1.getAllAttachments()
+        mapping1 = dict([(o.md5(), o.id()) for o in attachments])
+        yield _checkAttachmentObjectMigrationState(home1, mapping1)
+        yield self.commitTransaction(1)
+
+        # Add one attachment
+        object1 = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(0), home="user01", calendar_name="calendar", name="1.ics")
+        attachment, _ignore_location = yield object1.addAttachment(None, MimeType.fromString("text/plain"), "test.txt", MemoryStream("Here is some text #1."))
+        id0_1 = attachment.id()
+        md50_1 = attachment.md5()
+        managedid0_1 = attachment.managedID()
+        mapping0[md50_1] = id0_1
+        yield self.commitTransaction(0)
+
+        # Sync attachments
+        changed, removed = yield syncer.syncAttachments()
+        self.assertEqual(changed, set((id0_1,)))
+        self.assertEqual(removed, set())
+
+        # Validate changes
+        home1 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(1), name=syncer.migratingUid())
+        attachments = yield home1.getAllAttachments()
+        mapping1 = dict([(o.md5(), o.id()) for o in attachments])
+        yield _checkAttachmentObjectMigrationState(home1, mapping1)
+
+        # Add another attachment
+        object1 = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(0), home="user01", calendar_name="calendar", name="2.ics")
+        attachment, _ignore_location = yield object1.addAttachment(None, MimeType.fromString("text/plain"), "test2.txt", MemoryStream("Here is some text #2."))
+        id0_2 = attachment.id()
+        md50_2 = attachment.md5()
+        mapping0[md50_2] = id0_2
+        yield self.commitTransaction(0)
+
+        # Sync attachments
+        changed, removed = yield syncer.syncAttachments()
+        self.assertEqual(changed, set((id0_2,)))
+        self.assertEqual(removed, set())
+
+        # Validate changes
+        home1 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(1), name=syncer.migratingUid())
+        attachments = yield home1.getAllAttachments()
+        mapping1 = dict([(o.md5(), o.id()) for o in attachments])
+        yield _checkAttachmentObjectMigrationState(home1, mapping1)
+
+        # Change original attachment (this is actually a remove and a create all in one)
+        object1 = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(0), home="user01", calendar_name="calendar", name="1.ics")
+        attachment, _ignore_location = yield object1.updateAttachment(managedid0_1, MimeType.fromString("text/plain"), "test.txt", MemoryStream("Here is some text #1 - changed."))
+        del mapping0[md50_1]
+        id0_1_changed = attachment.id()
+        md50_1_changed = attachment.md5()
+        managedid0_1_changed = attachment.managedID()
+        mapping0[md50_1_changed] = id0_1_changed
+        yield self.commitTransaction(0)
+
+        # Sync attachments
+        changed, removed = yield syncer.syncAttachments()
+        self.assertEqual(changed, set((id0_1_changed,)))
+        self.assertEqual(removed, set((id0_1,)))
+
+        # Validate changes
+        home1 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(1), name=syncer.migratingUid())
+        attachments = yield home1.getAllAttachments()
+        mapping1 = dict([(o.md5(), o.id()) for o in attachments])
+        yield _checkAttachmentObjectMigrationState(home1, mapping1)
+
+        # Add original to a different resource
+        object1 = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(0), home="user01", calendar_name="calendar", name="1.ics")
+        component = yield object1.componentForUser()
+        attach = component.mainComponent().getProperty("ATTACH")
+
+        object1 = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(0), home="user01", calendar_name="calendar", name="3.ics")
+        component = yield object1.componentForUser()
+        attach = component.mainComponent().addProperty(attach)
+        yield object1.setComponent(component)
+        yield self.commitTransaction(0)
+
+        # Sync attachments
+        changed, removed = yield syncer.syncAttachments()
+        self.assertEqual(changed, set())
+        self.assertEqual(removed, set())
+
+        # Validate changes
+        home1 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(1), name=syncer.migratingUid())
+        attachments = yield home1.getAllAttachments()
+        mapping1 = dict([(o.md5(), o.id()) for o in attachments])
+        yield _checkAttachmentObjectMigrationState(home1, mapping1)
+
+        # Change original attachment in original resource (this creates a new one and does not remove the old)
+        object1 = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(0), home="user01", calendar_name="calendar", name="1.ics")
+        attachment, _ignore_location = yield object1.updateAttachment(managedid0_1_changed, MimeType.fromString("text/plain"), "test.txt", MemoryStream("Here is some text #1 - changed again."))
+        id0_1_changed_again = attachment.id()
+        md50_1_changed_again = attachment.md5()
+        mapping0[md50_1_changed_again] = id0_1_changed_again
+        yield self.commitTransaction(0)
+
+        # Sync attachments
+        changed, removed = yield syncer.syncAttachments()
+        self.assertEqual(changed, set((id0_1_changed_again,)))
+        self.assertEqual(removed, set())
+
+        # Validate changes
+        home1 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(1), name=syncer.migratingUid())
+        attachments = yield home1.getAllAttachments()
+        mapping1 = dict([(o.md5(), o.id()) for o in attachments])
+        yield _checkAttachmentObjectMigrationState(home1, mapping1)

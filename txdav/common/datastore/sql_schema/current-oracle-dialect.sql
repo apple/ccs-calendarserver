@@ -69,7 +69,7 @@ create table CALENDAR_METADATA (
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
 );
 
-create table CALENDAR_MIGRATION_STATE (
+create table CALENDAR_MIGRATION (
     "CALENDAR_HOME_RESOURCE_ID" integer references CALENDAR_HOME on delete cascade,
     "REMOTE_RESOURCE_ID" integer not null,
     "CALENDAR_RESOURCE_ID" integer references CALENDAR on delete cascade,
@@ -217,6 +217,13 @@ create table PERUSER (
     primary key ("TIME_RANGE_INSTANCE_ID", "USER_ID")
 );
 
+create table CALENDAR_OBJECT_MIGRATION (
+    "CALENDAR_HOME_RESOURCE_ID" integer references CALENDAR_HOME on delete cascade,
+    "REMOTE_RESOURCE_ID" integer not null,
+    "LOCAL_RESOURCE_ID" integer references CALENDAR_OBJECT on delete cascade, 
+    primary key ("CALENDAR_HOME_RESOURCE_ID", "REMOTE_RESOURCE_ID")
+);
+
 create table ATTACHMENT (
     "ATTACHMENT_ID" integer primary key,
     "CALENDAR_HOME_RESOURCE_ID" integer not null references CALENDAR_HOME,
@@ -235,6 +242,13 @@ create table ATTACHMENT_CALENDAR_OBJECT (
     "CALENDAR_OBJECT_RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade, 
     primary key ("ATTACHMENT_ID", "CALENDAR_OBJECT_RESOURCE_ID"), 
     unique ("MANAGED_ID", "CALENDAR_OBJECT_RESOURCE_ID")
+);
+
+create table ATTACHMENT_MIGRATION (
+    "CALENDAR_HOME_RESOURCE_ID" integer references CALENDAR_HOME on delete cascade,
+    "REMOTE_RESOURCE_ID" integer not null,
+    "LOCAL_RESOURCE_ID" integer references ATTACHMENT on delete cascade, 
+    primary key ("CALENDAR_HOME_RESOURCE_ID", "REMOTE_RESOURCE_ID")
 );
 
 create table RESOURCE_PROPERTY (
@@ -633,7 +647,7 @@ create index CALENDAR_HOME_METADAT_910264ce on CALENDAR_HOME_METADATA (
     DEFAULT_POLLS
 );
 
-create index CALENDAR_MIGRATION_ST_57f40e9a on CALENDAR_MIGRATION_STATE (
+create index CALENDAR_MIGRATION_CA_cc68f4ec on CALENDAR_MIGRATION (
     CALENDAR_RESOURCE_ID
 );
 
@@ -672,6 +686,15 @@ create index TIME_RANGE_CALENDAR_O_acf37bd1 on TIME_RANGE (
     CALENDAR_OBJECT_RESOURCE_ID
 );
 
+create index CALENDAR_OBJECT_MIGRA_0502cbef on CALENDAR_OBJECT_MIGRATION (
+    CALENDAR_HOME_RESOURCE_ID,
+    LOCAL_RESOURCE_ID
+);
+
+create index CALENDAR_OBJECT_MIGRA_3577efd9 on CALENDAR_OBJECT_MIGRATION (
+    LOCAL_RESOURCE_ID
+);
+
 create index ATTACHMENT_CALENDAR_H_0078845c on ATTACHMENT (
     CALENDAR_HOME_RESOURCE_ID
 );
@@ -682,6 +705,15 @@ create index ATTACHMENT_DROPBOX_ID_5073cf23 on ATTACHMENT (
 
 create index ATTACHMENT_CALENDAR_O_81508484 on ATTACHMENT_CALENDAR_OBJECT (
     CALENDAR_OBJECT_RESOURCE_ID
+);
+
+create index ATTACHMENT_MIGRATION__804bf85e on ATTACHMENT_MIGRATION (
+    CALENDAR_HOME_RESOURCE_ID,
+    LOCAL_RESOURCE_ID
+);
+
+create index ATTACHMENT_MIGRATION__816947fe on ATTACHMENT_MIGRATION (
+    LOCAL_RESOURCE_ID
 );
 
 create index SHARED_ADDRESSBOOK_BI_e9a2e6d4 on SHARED_ADDRESSBOOK_BIND (

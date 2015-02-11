@@ -18,9 +18,11 @@ from txweb2 import responsecode
 from txweb2.dav.noneprops import NonePropertyStore
 from txweb2.dav.util import allDataFromStream
 from txweb2.http import Response, HTTPError, StatusResponse, JSONResponse
-from txweb2.http_headers import MimeType
+from txweb2.http_headers import MimeType, MimeDisposition
+from txweb2.stream import ProducerStream
 
 from twisted.internet.defer import succeed, returnValue, inlineCallbacks
+from twisted.internet.protocol import Protocol
 
 from twistedcaldav.extensions import DAVResource, \
     DAVResourceWithoutChildrenMixin
@@ -154,18 +156,53 @@ class ConduitResource(ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildrenMix
             request.extendedLogItems = {}
         request.extendedLogItems["xpod"] = j["action"] if "action" in j else "unknown"
 
-        # Get the conduit to process the data
-        try:
-            result = yield self.store.conduit.processRequest(j)
-            code = responsecode.OK if result["result"] == "ok" else responsecode.BAD_REQUEST
-        except Exception as e:
-            # Send the exception over to the other side
-            result = {
-                "result": "exception",
-                "class": ".".join((e.__class__.__module__, e.__class__.__name__,)),
-                "request": str(e),
-            }
-            code = responsecode.BAD_REQUEST
+        # Look for a streaming action which needs special handling
+        if self.store.conduit.isStreamAction(j):
+            # Get the conduit to process the data stream
+            try:
+
+                stream = ProducerStream()
+                class StreamProtocol(Protocol):
+                    def connectionMade(self):
+                        stream.registerProducer(self.transport, False)
+                    def dataReceived(self, data):
+                        stream.write(data)
+                    def connectionLost(self, reason):
+                        stream.finish()
+
+                result = yield self.store.conduit.processRequestStream(j, StreamProtocol())
+
+                try:
+                    ct, name = result
+                except ValueError:
+                    code = responsecode.BAD_REQUEST
+                else:
+                    headers = {"content-type": ct}
+                    headers["content-disposition"] = MimeDisposition("attachment", params={"filename": name})
+                    returnValue(Response(responsecode.OK, headers, stream))
+
+            except Exception as e:
+                # Send the exception over to the other side
+                result = {
+                    "result": "exception",
+                    "class": ".".join((e.__class__.__module__, e.__class__.__name__,)),
+                    "details": str(e),
+                }
+                code = responsecode.BAD_REQUEST
+
+        else:
+            # Get the conduit to process the data
+            try:
+                result = yield self.store.conduit.processRequest(j)
+                code = responsecode.OK if result["result"] == "ok" else responsecode.BAD_REQUEST
+            except Exception as e:
+                # Send the exception over to the other side
+                result = {
+                    "result": "exception",
+                    "class": ".".join((e.__class__.__module__, e.__class__.__name__,)),
+                    "details": str(e),
+                }
+                code = responsecode.BAD_REQUEST
 
         response = JSONResponse(code, result)
         returnValue(response)

@@ -15,6 +15,8 @@
 ##
 
 from twisted.internet.defer import inlineCallbacks, returnValue
+from txdav.caldav.icalendarstore import InvalidAttachmentOperation
+from txweb2.http_headers import generateContentType
 
 
 class AttachmentsConduitMixin(object):
@@ -150,3 +152,73 @@ class AttachmentsConduitMixin(object):
             request["rids"],
             request["managedID"],
         )
+
+
+    @inlineCallbacks
+    def send_get_all_attachments(self, home):
+        """
+        Managed attachment removeAttachment call.
+
+        @param home: the home whose attachments are being requested
+        @type home: L{CalendarHome}
+        """
+
+        actionName = "get-all-attachments"
+        txn, request, server = yield self._getRequestForStoreObject(actionName, home, False)
+
+        response = yield self.sendRequestToServer(txn, server, request)
+        returnValue(response)
+
+
+    @inlineCallbacks
+    def recv_get_all_attachments(self, txn, request):
+        """
+        Process an getAllAttachments cross-pod request. Request arguments as per L{send_get_all_attachments}.
+
+        @param request: request arguments
+        @type request: C{dict}
+        """
+
+        home, _ignore = yield self._getStoreObjectForRequest(txn, request)
+        attachments = yield home.getAllAttachments()
+        returnValue([attachment.externalize() for attachment in attachments])
+
+
+    @inlineCallbacks
+    def send_get_attachment_data(self, home, attachment_id, stream):
+        """
+        Managed attachment readAttachmentData call. We are using streams on the sender and the receiver
+        side to avoid reading the whole attachment into memory.
+
+        @param home: the home whose attachment is being read
+        @type home: L{CalendarHome}
+        @param attachment_id: attachment-id to get
+        @type attachment_id: C{str}
+        @param stream: attachment data stream to write to
+        @type stream: L{IStream}
+        """
+
+        actionName = "get-attachment-data"
+        txn, request, server = yield self._getRequestForStoreObject(actionName, home, False)
+        request["attachmentID"] = attachment_id
+
+        response = yield self.sendRequestToServer(txn, server, request, writeStream=stream)
+        returnValue(response)
+
+
+    @inlineCallbacks
+    def recv_get_attachment_data(self, txn, request, stream):
+        """
+        Process an getAttachmentData cross-pod request. Request arguments as per L{send_get_attachment_data}.
+
+        @param request: request arguments
+        @type request: C{dict}
+        """
+
+        home, _ignore = yield self._getStoreObjectForRequest(txn, request)
+        attachment = yield home.getAttachmentByID(request["attachmentID"])
+        if attachment is None:
+            raise InvalidAttachmentOperation("Attachment is missing: {}".format(request["attachmentID"]))
+
+        attachment.retrieve(stream)
+        returnValue((generateContentType(attachment.contentType()), attachment.name(),))

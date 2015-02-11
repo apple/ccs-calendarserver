@@ -22,7 +22,7 @@
 insert into HOME_STATUS values (3, 'migrating');
 
 -- New table
-create table CALENDAR_MIGRATION_STATE (
+create table CALENDAR_MIGRATION (
   CALENDAR_HOME_RESOURCE_ID	integer references CALENDAR_HOME on delete cascade,
   REMOTE_RESOURCE_ID			integer not null,
   CALENDAR_RESOURCE_ID			integer	references CALENDAR on delete cascade,
@@ -31,8 +31,38 @@ create table CALENDAR_MIGRATION_STATE (
   primary key (CALENDAR_HOME_RESOURCE_ID, REMOTE_RESOURCE_ID) -- implicit index
 );
 
-create index CALENDAR_MIGRATION_STATE_CALENDAR_RESOURCE_ID on
-  CALENDAR_MIGRATION_STATE(CALENDAR_RESOURCE_ID);
+create index CALENDAR_MIGRATION_CALENDAR_RESOURCE_ID on
+  CALENDAR_MIGRATION(CALENDAR_RESOURCE_ID);
+
+  
+-- New table
+create table CALENDAR_OBJECT_MIGRATION (
+  CALENDAR_HOME_RESOURCE_ID		integer references CALENDAR_HOME on delete cascade,
+  REMOTE_RESOURCE_ID			integer not null,
+  LOCAL_RESOURCE_ID				integer	references CALENDAR_OBJECT on delete cascade,
+   
+  primary key (CALENDAR_HOME_RESOURCE_ID, REMOTE_RESOURCE_ID) -- implicit index
+);
+
+create index CALENDAR_OBJECT_MIGRATION_HOME_LOCAL on
+  CALENDAR_OBJECT_MIGRATION(CALENDAR_HOME_RESOURCE_ID, LOCAL_RESOURCE_ID);
+create index CALENDAR_OBJECT_MIGRATION_LOCAL_RESOURCE_ID on
+  CALENDAR_OBJECT_MIGRATION(LOCAL_RESOURCE_ID);
+
+  
+-- New table
+create table ATTACHMENT_MIGRATION (
+  CALENDAR_HOME_RESOURCE_ID		integer references CALENDAR_HOME on delete cascade,
+  REMOTE_RESOURCE_ID			integer not null,
+  LOCAL_RESOURCE_ID				integer	references ATTACHMENT on delete cascade,
+   
+  primary key (CALENDAR_HOME_RESOURCE_ID, REMOTE_RESOURCE_ID) -- implicit index
+);
+
+create index ATTACHMENT_MIGRATION_HOME_LOCAL on
+  ATTACHMENT_MIGRATION(CALENDAR_HOME_RESOURCE_ID, LOCAL_RESOURCE_ID);
+create index ATTACHMENT_MIGRATION_LOCAL_RESOURCE_ID on
+  ATTACHMENT_MIGRATION(LOCAL_RESOURCE_ID);
 
 
 -- update the version

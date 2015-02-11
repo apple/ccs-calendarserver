@@ -638,6 +638,24 @@ class CalendarHome(CommonHome):
 
 
     @inlineCallbacks
+    def getAllAttachments(self):
+        """
+        Return all the L{Attachment} objects associated with this calendar home.
+        Needed during migration.
+        """
+        attachments = yield Attachment.loadAllAttachments(self)
+        returnValue(attachments)
+
+
+    def getAttachmentByID(self, id):
+        """
+        Return a specific attachment associated with this calendar home.
+        Needed during migration only.
+        """
+        return Attachment.loadAttachmentByID(self, id)
+
+
+    @inlineCallbacks
     def getAllDropboxIDs(self):
         co = schema.CALENDAR_OBJECT
         cb = schema.CALENDAR_BIND
@@ -4646,8 +4664,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     @inlineCallbacks
     def attachments(self):
         if self._dropboxID:
-            rows = yield self._attachmentsQuery.on(self._txn,
-                                                   dropboxID=self._dropboxID)
+            rows = yield self._attachmentsQuery.on(
+                self._txn,
+                dropboxID=self._dropboxID,
+            )
             result = []
             for row in rows:
                 result.append((yield self.attachmentWithName(row[0])))
@@ -4920,7 +4940,7 @@ class AttachmentStorageTransport(StorageTransportBase):
 
     _TEMPORARY_UPLOADS_DIRECTORY = "Temporary"
 
-    def __init__(self, attachment, contentType, dispositionName, creating=False):
+    def __init__(self, attachment, contentType, dispositionName, creating=False, migrating=False):
         super(AttachmentStorageTransport, self).__init__(
             attachment, contentType, dispositionName)
 
@@ -4930,6 +4950,7 @@ class AttachmentStorageTransport(StorageTransportBase):
         self._path = CachingFilePath(fileName)
         self._hash = hashlib.md5()
         self._creating = creating
+        self._migrating = migrating
 
         self._txn.postAbort(self.aborted)
 
@@ -4970,6 +4991,10 @@ class AttachmentStorageTransport(StorageTransportBase):
 
     @inlineCallbacks
     def loseConnection(self):
+        """
+        Note that when self._migrating is set we only care about the data and don't need to
+        do any quota checks/adjustments.
+        """
 
         # FIXME: this should be synchronously accessible; IAttachment should
         # have a method for getting its parent just as CalendarObject/Calendar
@@ -4986,20 +5011,21 @@ class AttachmentStorageTransport(StorageTransportBase):
         self._file.close()
 
         # Check max size for attachment
-        if newSize > config.MaximumAttachmentSize:
+        if not self._migrating and newSize > config.MaximumAttachmentSize:
             self._path.remove()
             if self._creating:
                 yield self._attachment._internalRemove()
             raise AttachmentSizeTooLarge()
 
         # Check overall user quota
-        allowed = home.quotaAllowedBytes()
-        if allowed is not None and allowed < ((yield home.quotaUsedBytes())
-                                              + (newSize - oldSize)):
-            self._path.remove()
-            if self._creating:
-                yield self._attachment._internalRemove()
-            raise QuotaExceeded()
+        if not self._migrating:
+            allowed = home.quotaAllowedBytes()
+            if allowed is not None and allowed < ((yield home.quotaUsedBytes())
+                                                  + (newSize - oldSize)):
+                self._path.remove()
+                if self._creating:
+                    yield self._attachment._internalRemove()
+                raise QuotaExceeded()
 
         self._path.moveTo(self._attachment._path)
 
@@ -5010,7 +5036,7 @@ class AttachmentStorageTransport(StorageTransportBase):
             newSize
         )
 
-        if home:
+        if not self._migrating and home:
             # Adjust quota
             yield home.adjustQuotaUsedBytes(self._attachment.size() - oldSize)
 
@@ -5027,6 +5053,153 @@ def sqltime(value):
 class Attachment(object):
 
     implements(IAttachment)
+
+    _attachmentSchema = schema.ATTACHMENT
+
+    @classmethod
+    def makeClass(cls, txn, attachmentData):
+        """
+        Given the various database rows, build the actual class.
+
+        @param parent: the parent collection object
+        @type parent: L{CommonHomeChild}
+
+        @param objectData: the standard set of object columns
+        @type objectData: C{list}
+
+        @param propstore: a property store to use, or C{None} to load it
+            automatically
+        @type propstore: L{PropertyStore}
+
+        @return: the constructed child class
+        @rtype: L{CommonHomeChild}
+        """
+
+        att = schema.ATTACHMENT
+        dropbox_id = attachmentData[cls._allColumns().index(att.DROPBOX_ID)]
+        c = ManagedAttachment if dropbox_id == "." else DropBoxAttachment
+        child = c(
+            txn,
+            attachmentData[cls._allColumns().index(att.ATTACHMENT_ID)],
+            attachmentData[cls._allColumns().index(att.DROPBOX_ID)],
+            attachmentData[cls._allColumns().index(att.PATH)],
+        )
+
+        for attr, value in zip(child._rowAttributes(), attachmentData):
+            setattr(child, attr, value)
+        child._contentType = MimeType.fromString(child._contentType)
+
+        return child
+
+
+    @classmethod
+    def _allColumns(cls):
+        """
+        Full set of columns in the object table that need to be loaded to
+        initialize the object resource state.
+        """
+        att = cls._attachmentSchema
+        return [
+            att.ATTACHMENT_ID,
+            att.DROPBOX_ID,
+            att.CALENDAR_HOME_RESOURCE_ID,
+            att.CONTENT_TYPE,
+            att.SIZE,
+            att.MD5,
+            att.CREATED,
+            att.MODIFIED,
+            att.PATH,
+        ]
+
+
+    @classmethod
+    def _rowAttributes(cls):
+        """
+        Object attributes used to store the column values from L{_allColumns}. This used to create
+        a mapping when serializing the object for cross-pod requests.
+        """
+        return (
+            "_attachmentID",
+            "_dropboxID",
+            "_ownerHomeID",
+            "_contentType",
+            "_size",
+            "_md5",
+            "_created",
+            "_modified",
+            "_name",
+        )
+
+
+    @classmethod
+    @inlineCallbacks
+    def loadAllAttachments(cls, home):
+        """
+        Load all attachments assigned to the specified home collection. This should only be
+        used when sync'ing an entire home's set of attachments.
+        """
+
+        results = []
+
+        # Load from the main table first
+        att = cls._attachmentSchema
+        dataRows = yield Select(
+            cls._allColumns(),
+            From=att,
+            Where=att.CALENDAR_HOME_RESOURCE_ID == home.id(),
+        ).on(home._txn)
+
+        # Create the actual objects
+        for row in dataRows:
+            child = cls.makeClass(home._txn, row)
+            results.append(child)
+
+        returnValue(results)
+
+
+    @classmethod
+    @inlineCallbacks
+    def loadAttachmentByID(cls, home, id):
+        """
+        Load one attachments assigned to the specified home collection. This should only be
+        used when sync'ing an entire home's set of attachments.
+        """
+
+        # Load from the main table first
+        att = cls._attachmentSchema
+        rows = yield Select(
+            cls._allColumns(),
+            From=att,
+            Where=(att.CALENDAR_HOME_RESOURCE_ID == home.id()).And(
+                att.ATTACHMENT_ID == id),
+        ).on(home._txn)
+
+        # Create the actual object
+        returnValue(cls.makeClass(home._txn, rows[0]) if len(rows) == 1 else None)
+
+
+    def externalize(self):
+        """
+        Create a dictionary mapping key attributes so this object can be sent over a cross-pod call
+        and reconstituted at the other end. Note that the other end may have a different schema so
+        the attributes may not match exactly and will need to be processed accordingly.
+        """
+        result = dict([(attr[1:], getattr(self, attr, None)) for attr in self._rowAttributes()])
+        result["contentType"] = generateContentType(result["contentType"])
+        return result
+
+
+    @classmethod
+    def internalize(cls, txn, mapping):
+        """
+        Given a mapping generated by L{externalize}, convert the values into an array of database
+        like items that conforms to the ordering of L{_allColumns} so it can be fed into L{makeClass}.
+        Note that there may be a schema mismatch with the external data, so treat missing items as
+        C{None} and ignore extra items.
+        """
+
+        return cls.makeClass(txn, [mapping.get(row[1:]) for row in cls._rowAttributes()])
+
 
     def __init__(self, txn, a_id, dropboxID, name, ownerHomeID=None, justCreated=False):
         self._txn = txn
@@ -5061,23 +5234,13 @@ class Attachment(object):
         @return: C{True} if this attachment exists, C{False} otherwise.
         """
         att = schema.ATTACHMENT
-        if self._dropboxID:
+        if self._dropboxID and self._dropboxID != ".":
             where = (att.DROPBOX_ID == self._dropboxID).And(
                 att.PATH == self._name)
         else:
             where = (att.ATTACHMENT_ID == self._attachmentID)
         rows = (yield Select(
-            [
-                att.ATTACHMENT_ID,
-                att.DROPBOX_ID,
-                att.CALENDAR_HOME_RESOURCE_ID,
-                att.CONTENT_TYPE,
-                att.SIZE,
-                att.MD5,
-                att.CREATED,
-                att.MODIFIED,
-                att.PATH,
-            ],
+            self._allColumns(),
             From=att,
             Where=where
         ).on(self._txn))
@@ -5085,18 +5248,26 @@ class Attachment(object):
         if not rows:
             returnValue(None)
 
-        row_iter = iter(rows[0])
-        self._attachmentID = row_iter.next()
-        self._dropboxID = row_iter.next()
-        self._ownerHomeID = row_iter.next()
-        self._contentType = MimeType.fromString(row_iter.next())
-        self._size = row_iter.next()
-        self._md5 = row_iter.next()
-        self._created = sqltime(row_iter.next())
-        self._modified = sqltime(row_iter.next())
-        self._name = row_iter.next()
+        for attr, value in zip(self._rowAttributes(), rows[0]):
+            setattr(self, attr, value)
+        self._contentType = MimeType.fromString(self._contentType)
 
         returnValue(self)
+
+
+    @inlineCallbacks
+    def copyRemote(self, remote):
+        """
+        Copy properties from a remote (external) attachment that is being migrated.
+
+        @param remote: the external attachment
+        @type remote: L{Attachment}
+        """
+        yield self.changed(remote.contentType(), remote.name(), remote.md5(), remote.size())
+
+
+    def id(self):
+        return self._attachmentID
 
 
     def dropboxID(self):
@@ -5115,10 +5286,10 @@ class Attachment(object):
         pass  # stub
 
 
-    def store(self, contentType, dispositionName=None):
+    def store(self, contentType, dispositionName=None, migrating=False):
         if not self._name:
             self._name = dispositionName
-        return AttachmentStorageTransport(self, contentType, dispositionName, self._justCreated)
+        return AttachmentStorageTransport(self, contentType, dispositionName, self._justCreated, migrating=migrating)
 
 
     def retrieve(self, protocol):
@@ -5135,17 +5306,19 @@ class Attachment(object):
 
 
     @inlineCallbacks
-    def remove(self):
+    def remove(self, adjustQuota=True):
         oldSize = self._size
         self._txn.postCommit(self.removePaths)
         yield self._internalRemove()
-        # Adjust quota
-        home = (yield self._txn.calendarHomeWithResourceID(self._ownerHomeID))
-        if home:
-            yield home.adjustQuotaUsedBytes(-oldSize)
 
-            # Send change notification to home
-            yield home.notifyChanged()
+        # Adjust quota
+        if adjustQuota:
+            home = (yield self._txn.calendarHomeWithResourceID(self._ownerHomeID))
+            if home:
+                yield home.adjustQuotaUsedBytes(-oldSize)
+
+                # Send change notification to home
+                yield home.notifyChanged()
 
 
     def removePaths(self):
@@ -5200,7 +5373,7 @@ class Attachment(object):
         ).on(txn))
 
         for attachmentID, dropboxID in rows:
-            if dropboxID:
+            if dropboxID != ".":
                 attachment = DropBoxAttachment(txn, attachmentID, None, None)
             else:
                 attachment = ManagedAttachment(txn, attachmentID, None, None)
@@ -5473,7 +5646,7 @@ class ManagedAttachment(Attachment):
     @inlineCallbacks
     def create(cls, txn, managedID, ownerHomeID, referencedBy):
         """
-        Create a new Attachment object.
+        Create a new Attachment object and reference it.
 
         @param txn: The transaction to use
         @type txn: L{CommonStoreTransaction}
@@ -5504,7 +5677,8 @@ class ManagedAttachment(Attachment):
     @inlineCallbacks
     def update(cls, txn, oldManagedID, ownerHomeID, referencedBy, oldAttachmentID):
         """
-        Create a new Attachment object.
+        Update an Attachment object. This creates a new one and adjusts the reference to the old
+        one to point to the new one. If the old one is no longer referenced at all, it is deleted.
 
         @param txn: The transaction to use
         @type txn: L{CommonStoreTransaction}

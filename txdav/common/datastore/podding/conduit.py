@@ -72,6 +72,7 @@ class PoddingConduit(
         @param store: the L{CommonDataStore} in use.
         """
         self.store = store
+        self.streamingActions = ("get-attachment-data",)
 
 
     @inlineCallbacks
@@ -108,9 +109,9 @@ class PoddingConduit(
 
 
     @inlineCallbacks
-    def sendRequestToServer(self, txn, server, data, stream=None, streamType=None):
+    def sendRequestToServer(self, txn, server, data, stream=None, streamType=None, writeStream=None):
 
-        request = self.conduitRequestClass(server, data, stream, streamType)
+        request = self.conduitRequestClass(server, data, stream, streamType, writeStream)
         try:
             response = (yield request.doRequest(txn))
         except Exception as e:
@@ -121,6 +122,24 @@ class PoddingConduit(
             raise FailedCrossPodRequestError("Cross-pod request failed: {}".format(response))
         else:
             returnValue(response.get("value"))
+
+
+    def isStreamAction(self, data):
+        """
+        Check to see if this is a request that will return a data stream rather than a JSON response.
+        e.g., this is used to retrieve attachment data on another pod.
+
+        @param data: the JSON data to process
+        @type data: C{dict}
+        """
+        # Must have a dict with an "action" key
+        try:
+            action = data["action"]
+        except (KeyError, TypeError) as e:
+            log.error("JSON data must have an object as its root with an 'action' attribute: {ex}\n{json}", ex=e, json=data)
+            return False
+
+        return action in self.streamingActions
 
 
     @inlineCallbacks
@@ -157,6 +176,51 @@ class PoddingConduit(
             if value is not None:
                 result["value"] = value
 
+        except Exception as e:
+            # Send the exception over to the other side
+            yield txn.abort()
+            log.error("Failed action: {action}, {ex}", action=action, ex=e)
+            result = {
+                "result": "exception",
+                "class": ".".join((e.__class__.__module__, e.__class__.__name__,)),
+                "details": str(e),
+            }
+
+        else:
+            yield txn.commit()
+
+        returnValue(result)
+
+
+    @inlineCallbacks
+    def processRequestStream(self, data, stream):
+        """
+        Process the request.
+
+        @param data: the JSON data to process
+        @type data: C{dict}
+
+        @return: a L{tuple} of content-type and name, if successful, else a L{dict} for a JSON result
+        @rtype: L{tuple} of (L{str}, L{str}), or L{dict}
+        """
+        # Must have a dict with an "action" key
+        try:
+            action = data["action"]
+        except (KeyError, TypeError) as e:
+            log.error("JSON data must have an object as its root with an 'action' attribute: {ex}\n{json}", ex=e, json=data)
+            raise FailedCrossPodRequestError("JSON data must have an object as its root with an 'action' attribute: {}\n{}".format(e, data,))
+
+        method = "recv_{}".format(action.replace("-", "_"))
+        if not hasattr(self, method):
+            log.error("Unsupported action: {action}", action=action)
+            raise FailedCrossPodRequestError("Unsupported action: {}".format(action))
+
+        # Need a transaction to work with
+        txn = self.store.newTransaction(repr("Conduit request"))
+
+        # Do the actual request processing
+        try:
+            result = (yield getattr(self, method)(txn, data, stream))
         except Exception as e:
             # Send the exception over to the other side
             yield txn.abort()

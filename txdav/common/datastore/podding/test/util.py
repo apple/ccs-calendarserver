@@ -15,6 +15,7 @@
 ##
 
 from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.protocol import Protocol
 
 from txdav.caldav.datastore.scheduling.ischedule.localservers import (
     Server, ServersDB
@@ -26,6 +27,7 @@ from txdav.common.datastore.test.util import (
 )
 
 import txweb2.dav.test.util
+from txweb2.stream import ProducerStream, readStream
 
 from twext.enterprise.ienterprise import AlreadyFinishedError
 
@@ -54,12 +56,13 @@ class FakeConduitRequest(object):
         cls.storeMap[server.details()] = store
 
 
-    def __init__(self, server, data, stream=None, stream_type=None):
+    def __init__(self, server, data, stream=None, stream_type=None, writeStream=None):
 
         self.server = server
         self.data = json.dumps(data)
         self.stream = stream
         self.streamType = stream_type
+        self.writeStream = writeStream
 
 
     @inlineCallbacks
@@ -68,7 +71,20 @@ class FakeConduitRequest(object):
         # Generate an HTTP client request
         try:
             response = (yield self._processRequest())
-            response = json.loads(response)
+            if self.writeStream is None:
+                response = json.loads(response)
+            else:
+                try:
+                    ct, name, stream = response
+                    response = {
+                        "result": "ok",
+                        "content-type": ct,
+                        "name": name,
+                    }
+                    yield readStream(stream, self.writeStream.write)
+                    yield self.writeStream.loseConnection()
+                except ValueError:
+                    pass
         except Exception as e:
             raise ValueError("Failed cross-pod request: {}".format(e))
 
@@ -90,13 +106,32 @@ class FakeConduitRequest(object):
             j["stream"] = self.stream
             j["streamType"] = self.streamType
         try:
-            result = yield store.conduit.processRequest(j)
+            if store.conduit.isStreamAction(j):
+                stream = ProducerStream()
+                class StreamProtocol(Protocol):
+                    def connectionMade(self):
+                        stream.registerProducer(self.transport, False)
+                    def dataReceived(self, data):
+                        stream.write(data)
+                    def connectionLost(self, reason):
+                        stream.finish()
+
+                result = yield store.conduit.processRequestStream(j, StreamProtocol())
+
+                try:
+                    ct, name = result
+                except ValueError:
+                    pass
+                else:
+                    returnValue((ct, name, stream,))
+            else:
+                result = yield store.conduit.processRequest(j)
         except Exception as e:
             # Send the exception over to the other side
             result = {
                 "result": "exception",
                 "class": ".".join((e.__class__.__module__, e.__class__.__name__,)),
-                "request": str(e),
+                "details": str(e),
             }
         result = json.dumps(result)
         returnValue(result)
