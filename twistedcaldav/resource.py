@@ -1194,6 +1194,8 @@ class CalDAVResource (
                 client_data_token = client_token
 
         current_token = (yield self.getSyncToken())
+        if "/" in current_token:
+            current_token = current_token.split("/")[0]
         current_uuid, current_revision = current_token[6:].split("_", 1)
         current_revision = int(current_revision)
 
@@ -1252,7 +1254,9 @@ class CalDAVResource (
         """
 
         internal_token = (yield self.getInternalSyncToken())
-        returnValue("data:,%s" % (internal_token,))
+        internal_token = "data:,%s" % (internal_token,)
+        token = config.joinToken(internal_token)
+        returnValue(token)
 
 
     def getInternalSyncToken(self):
@@ -2058,12 +2062,25 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
     def _mergeSyncTokens(self, hometoken, notificationtoken):
         """
         Merge two sync tokens, choosing the higher revision number of the two,
-        but keeping the home resource-id intact.
+        but keeping the home resource-id intact.  If the config portion of
+        the token is present, it is also kept intact.
         """
+        if "/" in hometoken:
+            hometoken, configtoken = hometoken.split("/")
+        else:
+            configtoken = None
+
+        if "/" in notificationtoken:
+            notificationtoken = notificationtoken.split("/")[0]
+
         homekey, homerev = hometoken.split("_", 1)
         notrev = notificationtoken.split("_", 1)[1]
         if int(notrev) > int(homerev):
             hometoken = "%s_%s" % (homekey, notrev,)
+
+        if configtoken:
+            hometoken = "{}/{}".format(hometoken, configtoken)
+
         return hometoken
 
 

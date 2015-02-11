@@ -370,6 +370,17 @@ class Config(object):
         self._cachedSyncToken = None
 
 
+    def joinToken(self, dataToken):
+        """
+        Joins the config sync token with the dataToken.  If EnableConfigSyncToken
+        is False, the original dataToken is just returned
+        """
+        if self.EnableConfigSyncToken:
+            configToken = self.syncToken()
+            return "{}/{}".format(dataToken, configToken)
+        else:
+            return dataToken
+
 
 def mergeData(oldData, newData):
     """
