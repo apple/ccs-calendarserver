@@ -111,6 +111,12 @@ class CommonHomeResourceTests(TestCase):
         self.assertTrue(('http://calendarserver.org/ns/', 'getctag') in resource.liveProperties())
 
 
+    def test_commonHomeResourceMergeSyncToken(self):
+        resource = CommonHomeResource(None, None, None, StubHome())
+        self.assertEquals(resource._mergeSyncTokens("1_2/A", "1_3/A"), "1_3/A")
+        self.assertEquals(resource._mergeSyncTokens("1_2", "1_3"), "1_3")
+        self.assertEquals(resource._mergeSyncTokens("1_4", "1_3"), "1_4")
+
 
 class OwnershipTests(TestCase):
     """

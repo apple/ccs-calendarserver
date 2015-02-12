@@ -109,18 +109,38 @@ main () {
       dev_roots="${destination}/roots";
   py_virtualenv="${destination}/virtualenv";
       py_bindir="${py_virtualenv}/bin";
+    py_ve_tools="${dev_home}/ve_tools";
+
+  if [ ! -d "${py_virtualenv}" ]; then
+    bootstrap_virtualenv;
+    "${bootstrap_python}" -m virtualenv  \
+      --always-copy                      \
+      --no-setuptools                    \
+      "${py_virtualenv}";
+  fi;
 
   c_dependencies;
   py_dependencies;
 
   install -d "${destination}/bin";
 
-  (
-    cd "${destination}/bin" && \
-      find ../virtualenv/bin \
-        '(' -name 'caldavd' -o -name 'calendarserver_*' -o -name 'python' ')' \
-        -exec ln -fs '{}' . ';';
-  );
+  cd "${destination}/bin";
+
+  find ../virtualenv/bin                                                   \
+    '(' -name 'caldavd' -o -name 'calendarserver_*' -o -name 'python' ')'  \
+    -exec ln -fs '{}' . ';'                                                \
+  ;
+
+  for executable in              \
+    "memcached/bin/memcached"    \
+    "openssl/bin/openssl"        \
+    "PostgreSQL/bin/psql"        \
+    "PostgreSQL/bin/pg_dump"     \
+    "PostgreSQL/bin/pg_dumpall"  \
+    "PostgreSQL/bin/pg_restore"  \
+  ; do
+    ln -s "../roots/${executable}" .;
+  done;
 
 }
 

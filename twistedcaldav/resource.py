@@ -1183,15 +1183,27 @@ class CalDAVResource (
 
     @inlineCallbacks
     def whatchanged(self, client_token, depth):
+
+        client_data_token = None
+        client_config_token = None
+
+        if client_token:
+            if "/" in client_token:
+                client_data_token, client_config_token = client_token.split("/")
+            else:
+                client_data_token = client_token
+
         current_token = (yield self.getSyncToken())
+        if "/" in current_token:
+            current_token = current_token.split("/")[0]
         current_uuid, current_revision = current_token[6:].split("_", 1)
         current_revision = int(current_revision)
 
-        if client_token:
+        if client_data_token:
             try:
-                if not client_token.startswith("data:,"):
+                if not client_data_token.startswith("data:,"):
                     raise ValueError
-                caluuid, revision = client_token[6:].split("_", 1)
+                caluuid, revision = client_data_token[6:].split("_", 1)
                 revision = int(revision)
 
                 # Check client token validity
@@ -1217,7 +1229,17 @@ class CalDAVResource (
                 "Sync token not recognized",
             ))
 
-        returnValue((changed, removed, notallowed, current_token))
+        if config.EnableConfigSyncToken:
+            # Append the app-level portion of sync token (e.g. derived from config)
+            newConfigToken = config.syncToken()
+            current_token = "{}/{}".format(current_token, newConfigToken)
+
+            # If the config token changed, note that in the returned tuple
+            resourceChanged = (newConfigToken != client_config_token)
+        else:
+            resourceChanged = False
+
+        returnValue((changed, removed, notallowed, current_token, resourceChanged))
 
 
     def _indexWhatChanged(self, revision, depth):
@@ -1232,7 +1254,9 @@ class CalDAVResource (
         """
 
         internal_token = (yield self.getInternalSyncToken())
-        returnValue("data:,%s" % (internal_token,))
+        internal_token = "data:,%s" % (internal_token,)
+        token = config.joinToken(internal_token)
+        returnValue(token)
 
 
     def getInternalSyncToken(self):
@@ -2038,12 +2062,25 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
     def _mergeSyncTokens(self, hometoken, notificationtoken):
         """
         Merge two sync tokens, choosing the higher revision number of the two,
-        but keeping the home resource-id intact.
+        but keeping the home resource-id intact.  If the config portion of
+        the token is present, it is also kept intact.
         """
+        if "/" in hometoken:
+            hometoken, configtoken = hometoken.split("/")
+        else:
+            configtoken = None
+
+        if "/" in notificationtoken:
+            notificationtoken = notificationtoken.split("/")[0]
+
         homekey, homerev = hometoken.split("_", 1)
         notrev = notificationtoken.split("_", 1)[1]
         if int(notrev) > int(homerev):
             hometoken = "%s_%s" % (homekey, notrev,)
+
+        if configtoken:
+            hometoken = "{}/{}".format(hometoken, configtoken)
+
         return hometoken
 
 

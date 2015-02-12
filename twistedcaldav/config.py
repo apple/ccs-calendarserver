@@ -22,8 +22,9 @@ __all__ = [
     "config",
 ]
 
-import os
 import copy
+import hashlib
+import os
 
 class ConfigurationError(RuntimeError):
     """
@@ -262,6 +263,7 @@ class Config(object):
 
         self._updating = False
         self._dirty = False
+        self._cachedSyncToken = None
 
 
     def load(self, configFile):
@@ -297,7 +299,87 @@ class Config(object):
     def reset(self):
         self._data = ConfigDict(copy.deepcopy(self._provider.getDefaults()))
         self._dirty = True
+        self._syncTokenKeys = []
+        self._cachedSyncToken = None
 
+
+
+    def getKeyPath(self, keyPath):
+        """
+        Allows the getting of arbitrary nested dictionary keys via a single
+        dot-separated string.  For example, getKeyPath(self, "foo.bar.baz")
+        would fetch parent["foo"]["bar"]["baz"].  If any of the keys don't
+        exist, None is returned instead.
+
+        @param keyPath: a dot-delimited string specifying the path of keys to
+            traverse
+        @type keyPath: C{str}
+        @return: the value at keyPath
+        """
+        parent = self
+        parts = keyPath.split(".")
+        for part in parts[:-1]:
+            child = parent.get(part, None)
+            if child is None:
+                return None
+            parent = child
+        return parent.get(parts[-1], None)
+
+
+    def addSyncTokenKey(self, keyPath):
+        """
+        Indicates the specified key should be taken into account when generating
+        the sync token.  Also invalidates the (possibly) cached syncToken.
+
+        @param keyPath: a dot-delimited string specifying the path of keys to
+            traverse
+        @type keyPath: C{str}
+        """
+        if keyPath not in self._syncTokenKeys:
+            self._syncTokenKeys.append(keyPath)
+        self._cachedSyncToken = None
+
+
+    def syncToken(self):
+        """
+        Iterates the previously registered keys (sorted, so the order in which
+        the keys were registered doesn't affect the hash) and generates an MD5
+        hash of the combined values.  The hash is cached, and is invalidated
+        during a reload or if invalidateSyncToken is called.o
+
+        @return: the sync token
+        @rtype: C{str}
+        """
+        if self._cachedSyncToken is None:
+            pieces = []
+            self._syncTokenKeys.sort()
+            for key in self._syncTokenKeys:
+                value = self.getKeyPath(key)
+                if value is None:
+                    value = ""
+                pieces.append(key + ":" + str(value))
+            whole = "|".join(pieces)
+            self._cachedSyncToken = hashlib.md5(whole).hexdigest()
+        return self._cachedSyncToken
+
+
+    def invalidateSyncToken(self):
+        """
+        Invalidates the cached copy of the sync token.
+        """
+        self._cachedSyncToken = None
+
+
+    def joinToken(self, dataToken):
+        """
+        Joins the config sync token with the dataToken.  If EnableConfigSyncToken
+        is False, the original dataToken is just returned
+        """
+        if self.EnableConfigSyncToken:
+            configToken = self.syncToken()
+            return "{}/{}".format(dataToken, configToken)
+        else:
+            return dataToken
 
 
 def mergeData(oldData, newData):
