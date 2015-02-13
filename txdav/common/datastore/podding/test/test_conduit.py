@@ -32,7 +32,7 @@ from twistedcaldav.ical import Component, normalize_iCalStr
 from txdav.caldav.datastore.query.filter import Filter
 from txdav.caldav.datastore.scheduling.freebusy import generateFreeBusyInfo
 from txdav.caldav.datastore.scheduling.ischedule.localservers import ServersDB, Server
-from txdav.caldav.datastore.sql import ManagedAttachment
+from txdav.caldav.datastore.sql import ManagedAttachment, AttachmentLink
 from txdav.caldav.datastore.test.common import CaptureProtocol
 from txdav.common.datastore.podding.conduit import PoddingConduit, \
     FailedCrossPodRequestError
@@ -1106,4 +1106,33 @@ END:VCALENDAR
         attachment._contentType = MimeType.fromString("text/plain")
         attachment._name = "test.txt"
         yield shared_object.ownerHome().readAttachmentData(remote_id, attachment)
+        yield self.commitTransaction(1)
+
+
+    @inlineCallbacks
+    def test_get_attachment_links(self):
+        """
+        Test that action=get-attachment-links works.
+        """
+
+        yield self.createShare("user01", "puser01")
+
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
+        cobj1 = yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        calobjID = cobj1.id()
+        yield self.commitTransaction(0)
+
+        object1 = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(0), home="user01", calendar_name="calendar", name="1.ics")
+        attachment, _ignore_location = yield object1.addAttachment(None, MimeType.fromString("text/plain"), "test.txt", MemoryStream("Here is some text."))
+        attID = attachment.id()
+        managedID = attachment.managedID()
+        yield self.commitTransaction(0)
+
+        shared_object = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", calendar_name="shared-calendar", name="1.ics")
+        links = yield shared_object.ownerHome().getAttachmentLinks()
+        self.assertEqual(len(links), 1)
+        self.assertTrue(isinstance(links[0], AttachmentLink))
+        self.assertEqual(links[0]._attachmentID, attID)
+        self.assertEqual(links[0]._managedID, managedID)
+        self.assertEqual(links[0]._calendarObjectID, calobjID)
         yield self.commitTransaction(1)

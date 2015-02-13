@@ -18,6 +18,7 @@ from pycalendar.datetime import DateTime
 from twext.enterprise.dal.syntax import Select
 from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.ical import Component, normalize_iCalStr
+from txdav.caldav.datastore.sql import ManagedAttachment
 from txdav.common.datastore.podding.migration.home_sync import CrossPodHomeSync
 from txdav.common.datastore.podding.test.util import MultiStoreConduitTest
 from txdav.common.datastore.sql_tables import schema
@@ -588,3 +589,100 @@ END:VCALENDAR
         attachments = yield home1.getAllAttachments()
         mapping1 = dict([(o.md5(), o.id()) for o in attachments])
         yield _checkAttachmentObjectMigrationState(home1, mapping1)
+
+
+    @inlineCallbacks
+    def test_link_attachments(self):
+        """
+        Test that L{linkAttachments} links attachment data to the associated calendar object.
+        """
+
+        home0 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
+        calendar0 = yield home0.childWithName("calendar")
+        object0_1 = yield calendar0.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        object0_2 = yield calendar0.createCalendarObjectWithName("2.ics", Component.fromString(self.caldata2))
+        yield calendar0.createCalendarObjectWithName("3.ics", Component.fromString(self.caldata3))
+        remote_id = calendar0.id()
+
+        attachment, _ignore_location = yield object0_1.addAttachment(None, MimeType.fromString("text/plain"), "test.txt", MemoryStream("Here is some text #1."))
+        id0_1 = attachment.id()
+        md50_1 = attachment.md5()
+        managedid0_1 = attachment.managedID()
+        pathID0_1 = ManagedAttachment.lastSegmentOfUriPath(managedid0_1, attachment.name())
+
+        attachment, _ignore_location = yield object0_2.addAttachment(None, MimeType.fromString("text/plain"), "test2.txt", MemoryStream("Here is some text #2."))
+        id0_2 = attachment.id()
+        md50_2 = attachment.md5()
+        managedid0_2 = attachment.managedID()
+        pathID0_2 = ManagedAttachment.lastSegmentOfUriPath(managedid0_2, attachment.name())
+
+        yield self.commitTransaction(0)
+
+        # Add original to a different resource
+        object1 = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(0), home="user01", calendar_name="calendar", name="1.ics")
+        component = yield object1.componentForUser()
+        attach = component.mainComponent().getProperty("ATTACH")
+
+        object1 = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(0), home="user01", calendar_name="calendar", name="3.ics")
+        component = yield object1.componentForUser()
+        attach = component.mainComponent().addProperty(attach)
+        yield object1.setComponent(component)
+        yield self.commitTransaction(0)
+
+        syncer = CrossPodHomeSync(self.theStoreUnderTest(1), "user01")
+        yield syncer.loadRecord()
+        syncer.homeId = yield syncer.prepareCalendarHome()
+
+        # Trigger sync of the one calendar
+        local_sync_state = {}
+        remote_sync_state = yield syncer.getCalendarSyncList()
+        yield syncer.syncCalendar(
+            remote_id,
+            local_sync_state,
+            remote_sync_state,
+        )
+        self.assertEqual(len(local_sync_state), 1)
+        self.assertEqual(local_sync_state[remote_id].lastSyncToken, remote_sync_state[remote_id].lastSyncToken)
+
+        # Sync attachments
+        changed, removed = yield syncer.syncAttachments()
+        self.assertEqual(changed, set((id0_1, id0_2,)))
+        self.assertEqual(removed, set())
+
+        # Link attachments
+        len_links = yield syncer.linkAttachments()
+        self.assertEqual(len_links, 3)
+
+        # Local calendar exists
+        home1 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(1), name=syncer.migratingUid())
+        calendar1 = yield home1.childWithName("calendar")
+        self.assertTrue(calendar1 is not None)
+        children = yield calendar1.objectResources()
+        self.assertEqual(set([child.name() for child in children]), set(("1.ics", "2.ics", "3.ics",)))
+
+        # Make sure calendar object is associated with attachment
+        object1 = yield calendar1.objectResourceWithName("1.ics")
+        attachments = yield object1.managedAttachmentList()
+        self.assertEqual(attachments, [pathID0_1, ])
+
+        attachment = yield object1.attachmentWithManagedID(managedid0_1)
+        self.assertTrue(attachment is not None)
+        self.assertEqual(attachment.md5(), md50_1)
+
+        # Make sure calendar object is associated with attachment
+        object1 = yield calendar1.objectResourceWithName("2.ics")
+        attachments = yield object1.managedAttachmentList()
+        self.assertEqual(attachments, [pathID0_2, ])
+
+        attachment = yield object1.attachmentWithManagedID(managedid0_2)
+        self.assertTrue(attachment is not None)
+        self.assertEqual(attachment.md5(), md50_2)
+
+        # Make sure calendar object is associated with attachment
+        object1 = yield calendar1.objectResourceWithName("3.ics")
+        attachments = yield object1.managedAttachmentList()
+        self.assertEqual(attachments, [pathID0_1, ])
+
+        attachment = yield object1.attachmentWithManagedID(managedid0_1)
+        self.assertTrue(attachment is not None)
+        self.assertEqual(attachment.md5(), md50_1)

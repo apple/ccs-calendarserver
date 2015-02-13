@@ -21,20 +21,24 @@ from txdav.caldav.datastore.scheduling.ischedule.localservers import (
     Server, ServersDB
 )
 from txdav.common.datastore.podding.conduit import PoddingConduit
+from txdav.common.datastore.podding.request import ConduitRequest
 from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
 from txdav.common.datastore.test.util import (
     CommonCommonTests, SQLStoreBuilder, buildTestDirectory
 )
 
 import txweb2.dav.test.util
-from txweb2.stream import ProducerStream, readStream
+from txweb2 import responsecode
+from txweb2.http import Response, JSONResponse
+from txweb2.http_headers import MimeDisposition, MimeType
+from txweb2.stream import ProducerStream
 
 from twext.enterprise.ienterprise import AlreadyFinishedError
 
 import json
 
 
-class FakeConduitRequest(object):
+class FakeConduitRequest(ConduitRequest):
     """
     A conduit request that sends messages internally rather than using HTTP
     """
@@ -63,32 +67,6 @@ class FakeConduitRequest(object):
         self.stream = stream
         self.streamType = stream_type
         self.writeStream = writeStream
-
-
-    @inlineCallbacks
-    def doRequest(self, txn):
-
-        # Generate an HTTP client request
-        try:
-            response = (yield self._processRequest())
-            if self.writeStream is None:
-                response = json.loads(response)
-            else:
-                try:
-                    ct, name, stream = response
-                    response = {
-                        "result": "ok",
-                        "content-type": ct,
-                        "name": name,
-                    }
-                    yield readStream(stream, self.writeStream.write)
-                    yield self.writeStream.loseConnection()
-                except ValueError:
-                    pass
-        except Exception as e:
-            raise ValueError("Failed cross-pod request: {}".format(e))
-
-        returnValue(response)
 
 
     @inlineCallbacks
@@ -121,11 +99,14 @@ class FakeConduitRequest(object):
                 try:
                     ct, name = result
                 except ValueError:
-                    pass
+                    code = responsecode.BAD_REQUEST
                 else:
-                    returnValue((ct, name, stream,))
+                    headers = {"content-type": MimeType.fromString(ct)}
+                    headers["content-disposition"] = MimeDisposition("attachment", params={"filename": name})
+                    returnValue(Response(responsecode.OK, headers, stream))
             else:
                 result = yield store.conduit.processRequest(j)
+                code = responsecode.OK
         except Exception as e:
             # Send the exception over to the other side
             result = {
@@ -133,8 +114,10 @@ class FakeConduitRequest(object):
                 "class": ".".join((e.__class__.__module__, e.__class__.__name__,)),
                 "details": str(e),
             }
-        result = json.dumps(result)
-        returnValue(result)
+            code = responsecode.BAD_REQUEST
+
+        response = JSONResponse(code, result)
+        returnValue(response)
 
 
 

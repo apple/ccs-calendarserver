@@ -143,7 +143,7 @@ class CalendarStoreFeatures(object):
         @type txn: L{txdav.common.datastore.sql.CommonStoreTransaction}
         """
 
-        at = schema.ATTACHMENT
+        at = Attachment._attachmentSchema
         rows = (yield Select(
             (at.DROPBOX_ID,),
             From=at,
@@ -175,8 +175,8 @@ class CalendarStoreFeatures(object):
         txn = self._store.newTransaction("CalendarStoreFeatures.upgradeToManagedAttachments - preliminary work")
         try:
             # Clear out unused CALENDAR_OBJECT.DROPBOX_IDs
-            co = schema.CALENDAR_OBJECT
-            at = schema.ATTACHMENT
+            co = CalendarObject._objectSchema
+            at = Attachment._attachmentSchema
             yield Update(
                 {co.DROPBOX_ID: None},
                 Where=co.RESOURCE_ID.In(Select(
@@ -249,7 +249,7 @@ class CalendarStoreFeatures(object):
         log.debug("  {0} affected calendar objects".format(len(cobjs),))
 
         # Get names of each matching attachment
-        at = schema.ATTACHMENT
+        at = Attachment._attachmentSchema
         names = (yield Select(
             (at.PATH,),
             From=at,
@@ -318,8 +318,8 @@ class CalendarStoreFeatures(object):
         @type dropbox_id: C{str}
         """
 
-        co = schema.CALENDAR_OBJECT
-        cb = schema.CALENDAR_BIND
+        co = CalendarObject._objectSchema
+        cb = Calendar._bindSchema
         rows = (yield Select(
             (cb.CALENDAR_HOME_RESOURCE_ID, co.CALENDAR_RESOURCE_ID, co.RESOURCE_ID,),
             From=co.join(cb, co.CALENDAR_RESOURCE_ID == cb.CALENDAR_RESOURCE_ID),
@@ -511,7 +511,7 @@ class CalendarHome(CommonHome):
         assert self._txn._migrating
 
         # Simple attributes that can be copied over as-is
-        chm = schema.CALENDAR_HOME_METADATA
+        chm = self._homeMetaDataSchema
         values = {
             chm.ALARM_VEVENT_TIMED : other._alarm_vevent_timed,
             chm.ALARM_VEVENT_ALLDAY : other._alarm_vevent_allday,
@@ -617,8 +617,8 @@ class CalendarHome(CommonHome):
         """
         Implement lookup via queries.
         """
-        co = schema.CALENDAR_OBJECT
-        cb = schema.CALENDAR_BIND
+        co = self._objectSchema
+        cb = self._bindSchema
         rows = (yield Select(
             [co.PARENT_RESOURCE_ID,
              co.RESOURCE_ID],
@@ -637,14 +637,20 @@ class CalendarHome(CommonHome):
         returnValue(None)
 
 
-    @inlineCallbacks
     def getAllAttachments(self):
         """
         Return all the L{Attachment} objects associated with this calendar home.
         Needed during migration.
         """
-        attachments = yield Attachment.loadAllAttachments(self)
-        returnValue(attachments)
+        return Attachment.loadAllAttachments(self)
+
+
+    def getAttachmentLinks(self):
+        """
+        Read the attachment<->calendar object mapping data associated with this calendar home.
+        Needed during migration only.
+        """
+        return AttachmentLink.linksForHome(self)
 
 
     def getAttachmentByID(self, id):
@@ -657,8 +663,8 @@ class CalendarHome(CommonHome):
 
     @inlineCallbacks
     def getAllDropboxIDs(self):
-        co = schema.CALENDAR_OBJECT
-        cb = schema.CALENDAR_BIND
+        co = self._objectSchema
+        cb = self._bindSchema
         rows = (yield Select(
             [co.DROPBOX_ID],
             From=co.join(cb, co.PARENT_RESOURCE_ID == cb.RESOURCE_ID),
@@ -671,7 +677,7 @@ class CalendarHome(CommonHome):
 
     @inlineCallbacks
     def getAllAttachmentNames(self):
-        att = schema.ATTACHMENT
+        att = Attachment._attachmentSchema
         rows = (yield Select(
             [att.DROPBOX_ID],
             From=att,
@@ -683,8 +689,8 @@ class CalendarHome(CommonHome):
 
     @inlineCallbacks
     def getAllManagedIDs(self):
-        at = schema.ATTACHMENT
-        attco = schema.ATTACHMENT_CALENDAR_OBJECT
+        at = Attachment._attachmentSchema
+        attco = Attachment._attachmentLinkSchema
         rows = (yield Select(
             [attco.MANAGED_ID, ],
             From=attco.join(at, attco.ATTACHMENT_ID == at.ATTACHMENT_ID),
@@ -1565,7 +1571,7 @@ class Calendar(CommonHomeChild):
         """
         Query to find resources that need to be re-expanded
         """
-        co = schema.CALENDAR_OBJECT
+        co = cls._objectSchema
         return Select(
             [co.RESOURCE_NAME],
             From=co,
@@ -3598,7 +3604,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 recurrenceLowerLimit = None
                 recurrenceLimit = DateTime(1900, 1, 1, 0, 0, 0, tzid=Timezone(utc=True))
 
-        co = schema.CALENDAR_OBJECT
+        co = self._objectSchema
         tr = schema.TIME_RANGE
 
         # Do not update if reCreate (re-indexing - we don't want to re-write data
@@ -3809,7 +3815,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         """
         assert self._txn._migrating
 
-        co = schema.CALENDAR_OBJECT
+        co = self._objectSchema
         values = {
             co.ATTACHMENTS_MODE                : other._attachment,
             co.DROPBOX_ID                      : other._dropboxID,
@@ -4058,7 +4064,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         """
         DAL query to load RECURRANCE_MIN, RECURRANCE_MAX via an object's resource ID.
         """
-        co = schema.CALENDAR_OBJECT
+        co = cls._objectSchema
         return Select(
             [co.RECURRANCE_MIN, co.RECURRANCE_MAX, ],
             From=co,
@@ -4593,8 +4599,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         Get a list of managed attachments where the names returned are for the last path segment
         of the attachment URI.
         """
-        at = schema.ATTACHMENT
-        attco = schema.ATTACHMENT_CALENDAR_OBJECT
+        at = Attachment._attachmentSchema
+        attco = Attachment._attachmentLinkSchema
         rows = (yield Select(
             [attco.MANAGED_ID, at.PATH, ],
             From=attco.join(at, attco.ATTACHMENT_ID == at.ATTACHMENT_ID),
@@ -4610,8 +4616,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         """
 
         # Scan all the associated attachments for the one that matches
-        at = schema.ATTACHMENT
-        attco = schema.ATTACHMENT_CALENDAR_OBJECT
+        at = Attachment._attachmentSchema
+        attco = Attachment._attachmentLinkSchema
         rows = (yield Select(
             [attco.MANAGED_ID, at.PATH, ],
             From=attco.join(at, attco.ATTACHMENT_ID == at.ATTACHMENT_ID),
@@ -5050,32 +5056,136 @@ def sqltime(value):
 
 
 
+class AttachmentLink(object):
+    """
+    A binding between an L{Attachment} and an L{CalendarObject}.
+    """
+
+    _attachmentSchema = schema.ATTACHMENT
+    _attachmentLinkSchema = schema.ATTACHMENT_CALENDAR_OBJECT
+
+    @classmethod
+    def makeClass(cls, txn, linkData):
+        """
+        Given the various database rows, build the actual class.
+
+        @param objectData: the standard set of object columns
+        @type objectData: C{list}
+
+        @return: the constructed child class
+        @rtype: L{CommonHomeChild}
+        """
+
+        child = cls(txn)
+        for attr, value in zip(child._rowAttributes(), linkData):
+            setattr(child, attr, value)
+        return child
+
+
+    @classmethod
+    def _allColumns(cls):
+        """
+        Full set of columns in the object table that need to be loaded to
+        initialize the object resource state.
+        """
+        aco = cls._attachmentLinkSchema
+        return [
+            aco.ATTACHMENT_ID,
+            aco.MANAGED_ID,
+            aco.CALENDAR_OBJECT_RESOURCE_ID,
+        ]
+
+
+    @classmethod
+    def _rowAttributes(cls):
+        """
+        Object attributes used to store the column values from L{_allColumns}. This used to create
+        a mapping when serializing the object for cross-pod requests.
+        """
+        return (
+            "_attachmentID",
+            "_managedID",
+            "_calendarObjectID",
+        )
+
+
+    @classmethod
+    @inlineCallbacks
+    def linksForHome(cls, home):
+        """
+        Load all attachment<->calendar object mappings for the specified home collection.
+        """
+
+        # Load from the main table first
+        att = cls._attachmentSchema
+        attco = cls._attachmentLinkSchema
+        dataRows = yield Select(
+            cls._allColumns(),
+            From=attco.join(att, on=(attco.ATTACHMENT_ID == att.ATTACHMENT_ID)),
+            Where=att.CALENDAR_HOME_RESOURCE_ID == home.id(),
+        ).on(home._txn)
+
+        # Create the actual objects
+        returnValue([cls.makeClass(home._txn, row) for row in dataRows])
+
+
+    def __init__(self, txn):
+        self._txn = txn
+        for attr in self._rowAttributes():
+            setattr(self, attr, None)
+
+
+    def externalize(self):
+        """
+        Create a dictionary mapping key attributes so this object can be sent over a cross-pod call
+        and reconstituted at the other end. Note that the other end may have a different schema so
+        the attributes may not match exactly and will need to be processed accordingly.
+        """
+        return dict([(attr[1:], getattr(self, attr, None)) for attr in self._rowAttributes()])
+
+
+    @classmethod
+    def internalize(cls, txn, mapping):
+        """
+        Given a mapping generated by L{externalize}, convert the values into an array of database
+        like items that conforms to the ordering of L{_allColumns} so it can be fed into L{makeClass}.
+        Note that there may be a schema mismatch with the external data, so treat missing items as
+        C{None} and ignore extra items.
+        """
+
+        return cls.makeClass(txn, [mapping.get(row[1:]) for row in cls._rowAttributes()])
+
+
+    def insert(self):
+        """
+        Insert the object.
+        """
+
+        row = dict([(column, getattr(self, attr)) for column, attr in itertools.izip(self._allColumns(), self._rowAttributes())])
+        return Insert(row).on(self._txn)
+
+
+
 class Attachment(object):
 
     implements(IAttachment)
 
     _attachmentSchema = schema.ATTACHMENT
+    _attachmentLinkSchema = schema.ATTACHMENT_CALENDAR_OBJECT
 
     @classmethod
     def makeClass(cls, txn, attachmentData):
         """
         Given the various database rows, build the actual class.
 
-        @param parent: the parent collection object
-        @type parent: L{CommonHomeChild}
-
-        @param objectData: the standard set of object columns
-        @type objectData: C{list}
-
-        @param propstore: a property store to use, or C{None} to load it
-            automatically
-        @type propstore: L{PropertyStore}
+        @param attachmentData: the standard set of attachment columns
+        @type attachmentData: C{list}
 
         @return: the constructed child class
-        @rtype: L{CommonHomeChild}
+        @rtype: L{Attachment}
         """
 
-        att = schema.ATTACHMENT
+        att = cls._attachmentSchema
         dropbox_id = attachmentData[cls._allColumns().index(att.DROPBOX_ID)]
         c = ManagedAttachment if dropbox_id == "." else DropBoxAttachment
         child = c(
@@ -5233,7 +5343,7 @@ class Attachment(object):
 
         @return: C{True} if this attachment exists, C{False} otherwise.
         """
-        att = schema.ATTACHMENT
+        att = self._attachmentSchema
         if self._dropboxID and self._dropboxID != ".":
             where = (att.DROPBOX_ID == self._dropboxID).And(
                 att.PATH == self._name)
@@ -5255,7 +5365,6 @@ class Attachment(object):
         returnValue(self)
 
 
-    @inlineCallbacks
     def copyRemote(self, remote):
         """
         Copy properties from a remote (external) attachment that is being migrated.
@@ -5263,7 +5372,7 @@ class Attachment(object):
         @param remote: the external attachment
         @type remote: L{Attachment}
         """
-        yield self.changed(remote.contentType(), remote.name(), remote.md5(), remote.size())
+        return self.changed(remote.contentType(), remote.name(), remote.md5(), remote.size())
 
 
     def id(self):
@@ -5361,8 +5470,8 @@ class Attachment(object):
 
         TODO: this needs to be transactional wrt the actual file deletes.
         """
-        att = schema.ATTACHMENT
-        attco = schema.ATTACHMENT_CALENDAR_OBJECT
+        att = cls._attachmentSchema
+        attco = cls._attachmentLinkSchema
 
         rows = (yield Select(
             [att.ATTACHMENT_ID, att.DROPBOX_ID, ],
@@ -5448,7 +5557,7 @@ class DropBoxAttachment(Attachment):
             raise AttachmentDropboxNotAllowed
 
         # Now create the DB entry
-        att = schema.ATTACHMENT
+        att = cls._attachmentSchema
         rows = (yield Insert({
             att.CALENDAR_HOME_RESOURCE_ID : ownerHomeID,
             att.DROPBOX_ID                : dropboxID,
@@ -5500,7 +5609,7 @@ class DropBoxAttachment(Attachment):
         """
 
         # See if any other resources still reference this dropbox ID
-        co = schema.CALENDAR_OBJECT
+        co = CalendarObject._objectSchema
         rows = (yield Select(
             [co.RESOURCE_ID, ],
             From=co,
@@ -5510,7 +5619,7 @@ class DropBoxAttachment(Attachment):
 
         if not rows:
             # Find each attachment with matching dropbox ID
-            att = schema.ATTACHMENT
+            att = cls._attachmentSchema
             rows = (yield Select(
                 [att.PATH],
                 From=att,
@@ -5532,7 +5641,7 @@ class DropBoxAttachment(Attachment):
         self._md5 = md5
         self._size = size
 
-        att = schema.ATTACHMENT
+        att = self._attachmentSchema
         self._created, self._modified = map(
             sqltime,
             (yield Update(
@@ -5559,7 +5668,7 @@ class DropBoxAttachment(Attachment):
         """
 
         # Change the DROPBOX_ID to a single "." to indicate a managed attachment.
-        att = schema.ATTACHMENT
+        att = self._attachmentSchema
         (yield Update(
             {att.DROPBOX_ID    : ".", },
             Where=(att.ATTACHMENT_ID == self._attachmentID),
@@ -5613,7 +5722,7 @@ class ManagedAttachment(Attachment):
         """
 
         # Now create the DB entry
-        att = schema.ATTACHMENT
+        att = cls._attachmentSchema
         rows = (yield Insert({
             att.CALENDAR_HOME_RESOURCE_ID : ownerHomeID,
             att.DROPBOX_ID                : ".",
@@ -5663,7 +5772,7 @@ class ManagedAttachment(Attachment):
         attachment._objectResourceID = referencedBy
 
         # Create the attachment<->calendar object relationship for managed attachments
-        attco = schema.ATTACHMENT_CALENDAR_OBJECT
+        attco = cls._attachmentLinkSchema
         yield Insert({
             attco.ATTACHMENT_ID               : attachment._attachmentID,
             attco.MANAGED_ID                  : attachment._managedID,
@@ -5698,7 +5807,7 @@ class ManagedAttachment(Attachment):
         attachment._objectResourceID = referencedBy
 
         # Update the attachment<->calendar object relationship for managed attachments
-        attco = schema.ATTACHMENT_CALENDAR_OBJECT
+        attco = cls._attachmentLinkSchema
         yield Update(
             {
                 attco.ATTACHMENT_ID    : attachment._attachmentID,
@@ -5732,7 +5841,7 @@ class ManagedAttachment(Attachment):
         """
 
         if managedID:
-            attco = schema.ATTACHMENT_CALENDAR_OBJECT
+            attco = cls._attachmentLinkSchema
             where = (attco.MANAGED_ID == managedID)
             if referencedID is not None:
                 where = where.And(attco.CALENDAR_OBJECT_RESOURCE_ID == referencedID)
@@ -5760,7 +5869,7 @@ class ManagedAttachment(Attachment):
         """
         Find all the calendar object resourceIds referenced by this supplied managed-id.
         """
-        attco = schema.ATTACHMENT_CALENDAR_OBJECT
+        attco = cls._attachmentLinkSchema
         rows = (yield Select(
             [attco.CALENDAR_OBJECT_RESOURCE_ID, ],
             From=attco,
@@ -5776,9 +5885,9 @@ class ManagedAttachment(Attachment):
         """
         Return the "owner" home and referencing resource is, and UID for a managed-id.
         """
-        att = schema.ATTACHMENT
-        attco = schema.ATTACHMENT_CALENDAR_OBJECT
-        co = schema.CALENDAR_OBJECT
+        att = cls._attachmentSchema
+        attco = cls._attachmentLinkSchema
+        co = CalendarObject._objectSchema
         rows = (yield Select(
             [
                 att.CALENDAR_HOME_RESOURCE_ID,
@@ -5801,7 +5910,7 @@ class ManagedAttachment(Attachment):
         """
 
         # Find all reference attachment-ids and dereference
-        attco = schema.ATTACHMENT_CALENDAR_OBJECT
+        attco = cls._attachmentLinkSchema
         rows = (yield Select(
             [attco.MANAGED_ID, ],
             From=attco,
@@ -5821,7 +5930,7 @@ class ManagedAttachment(Attachment):
         """
 
         # Find the associated attachment-id and insert new reference
-        attco = schema.ATTACHMENT_CALENDAR_OBJECT
+        attco = cls._attachmentLinkSchema
         aid = (yield Select(
             [attco.ATTACHMENT_ID, ],
             From=attco,
@@ -5897,7 +6006,7 @@ class ManagedAttachment(Attachment):
         self._name = dispositionName
         self._md5 = md5
         self._size = size
-        att = schema.ATTACHMENT
+        att = self._attachmentSchema
         self._created, self._modified = map(
             sqltime,
             (yield Update(
@@ -5926,7 +6035,7 @@ class ManagedAttachment(Attachment):
         @rtype: L{ManagedAttachment}
         """
 
-        attco = schema.ATTACHMENT_CALENDAR_OBJECT
+        attco = self._attachmentLinkSchema
         yield Insert({
             attco.ATTACHMENT_ID               : self._attachmentID,
             attco.MANAGED_ID                  : self._managedID,
@@ -5941,7 +6050,7 @@ class ManagedAttachment(Attachment):
     def removeFromResource(self, resourceID):
 
         # Delete the reference
-        attco = schema.ATTACHMENT_CALENDAR_OBJECT
+        attco = self._attachmentLinkSchema
         yield Delete(
             From=attco,
             Where=(attco.ATTACHMENT_ID == self._attachmentID).And(

@@ -162,9 +162,6 @@ class CrossPodHomeSync(object):
         # TODO: sync attachments
         yield self.syncAttachments()
 
-        # TODO: group attendee/sharee reconcile
-        pass
-
 
     @inlineCallbacks
     def finalSync(self):
@@ -174,12 +171,18 @@ class CrossPodHomeSync(object):
         """
 
         # TODO: link attachments to resources: ATTACHMENT_CALENDAR_OBJECT table
-        pass
+        yield self.linkAttachments()
 
         # TODO: Re-write attachment URIs - not sure if we need this as reverse proxy may take care of it
         pass
 
+        # TODO: group attendee reconcile
+        pass
+
         # TODO: shared collections reconcile
+        pass
+
+        # TODO: group sharee reconcile
         pass
 
         # TODO: delegates reconcile
@@ -273,7 +276,7 @@ class CrossPodHomeSync(object):
         """
 
         from txdav.caldav.datastore.sql_external import CalendarHomeExternal
-        resourceID = yield txn.store().conduit.send_home_resource_id(self, self.record)
+        resourceID = yield txn.store().conduit.send_home_resource_id(txn, self.record)
         home = CalendarHomeExternal(txn, self.record.uid, resourceID) if resourceID is not None else None
         if home:
             home._childClass = home._childClass._externalClass
@@ -754,3 +757,82 @@ class CrossPodHomeSync(object):
 
         # Read the data from the conduit
         yield remote_home.readAttachmentData(remote_id, attachment)
+
+
+    @inlineCallbacks
+    def linkAttachments(self):
+        """
+        Link attachments to the calendar objects they belong to.
+        """
+
+        # Get the map of links for the remote home
+        links = yield self.getAttachmentLinks()
+
+        # Get remote->local ID mappings
+        attachmentIDMap, objectIDMap = yield self.getAttachmentMappings()
+
+        # Batch setting links for the local home
+        len_links = len(links)
+        while len(links):
+            yield self.makeAttachmentLinks(links[:50], attachmentIDMap, objectIDMap)
+            links = links[50:]
+
+        returnValue(len_links)
+
+
+    @inTransactionWrapper
+    @inlineCallbacks
+    def getAttachmentLinks(self, txn):
+        """
+        Get the remote link information.
+        """
+
+        # Get the map of links for the remote home
+        remote_home = yield self._remoteHome(txn)
+        links = yield remote_home.getAttachmentLinks()
+        returnValue(links)
+
+
+    @inTransactionWrapper
+    @inlineCallbacks
+    def getAttachmentMappings(self, txn):
+        """
+        Get the remote link information.
+        """
+
+        # Get migration mappings
+        am = schema.ATTACHMENT_MIGRATION
+        rows = yield Select(
+            [am.REMOTE_RESOURCE_ID, am.LOCAL_RESOURCE_ID],
+            From=am,
+            Where=(am.CALENDAR_HOME_RESOURCE_ID == self.homeId),
+        ).on(txn)
+        attachmentIDMap = dict(rows)
+
+        com = schema.CALENDAR_OBJECT_MIGRATION
+        rows = yield Select(
+            [com.REMOTE_RESOURCE_ID, com.LOCAL_RESOURCE_ID],
+            From=com,
+            Where=(com.CALENDAR_HOME_RESOURCE_ID == self.homeId),
+        ).on(txn)
+        objectIDMap = dict(rows)
+
+        returnValue((attachmentIDMap, objectIDMap,))
+
+
+    @inTransactionWrapper
+    @inlineCallbacks
+    def makeAttachmentLinks(self, txn, links, attachmentIDMap, objectIDMap):
+        """
+        Map remote links to local links.
+        """
+
+        for link in links:
+            # Remote link has an invalid txn at this point so replace that first
+            link._txn = txn
+
+            # Now re-map the attachment ID and calendar_object_id to the local ones
+            link._attachmentID = attachmentIDMap[link._attachmentID]
+            link._calendarObjectID = objectIDMap[link._calendarObjectID]
+
+            yield link.insert()

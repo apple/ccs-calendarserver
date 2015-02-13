@@ -16,6 +16,7 @@
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from txdav.caldav.icalendarstore import InvalidAttachmentOperation
+from txdav.common.datastore.podding.util import UtilityConduitMixin
 from txweb2.http_headers import generateContentType
 
 
@@ -155,36 +156,6 @@ class AttachmentsConduitMixin(object):
 
 
     @inlineCallbacks
-    def send_get_all_attachments(self, home):
-        """
-        Managed attachment removeAttachment call.
-
-        @param home: the home whose attachments are being requested
-        @type home: L{CalendarHome}
-        """
-
-        actionName = "get-all-attachments"
-        txn, request, server = yield self._getRequestForStoreObject(actionName, home, False)
-
-        response = yield self.sendRequestToServer(txn, server, request)
-        returnValue(response)
-
-
-    @inlineCallbacks
-    def recv_get_all_attachments(self, txn, request):
-        """
-        Process an getAllAttachments cross-pod request. Request arguments as per L{send_get_all_attachments}.
-
-        @param request: request arguments
-        @type request: C{dict}
-        """
-
-        home, _ignore = yield self._getStoreObjectForRequest(txn, request)
-        attachments = yield home.getAllAttachments()
-        returnValue([attachment.externalize() for attachment in attachments])
-
-
-    @inlineCallbacks
     def send_get_attachment_data(self, home, attachment_id, stream):
         """
         Managed attachment readAttachmentData call. We are using streams on the sender and the receiver
@@ -222,3 +193,8 @@ class AttachmentsConduitMixin(object):
 
         attachment.retrieve(stream)
         returnValue((generateContentType(attachment.contentType()), attachment.name(),))
+
+
+# Calls on L{CommonHome} objects
+UtilityConduitMixin._make_simple_action(AttachmentsConduitMixin, "home_get_all_attachments", "getAllAttachments", classMethod=False, transform_recv_result=UtilityConduitMixin._to_externalize_list)
+UtilityConduitMixin._make_simple_action(AttachmentsConduitMixin, "home_get_attachment_links", "getAttachmentLinks", classMethod=False, transform_recv_result=UtilityConduitMixin._to_externalize_list)

@@ -20,9 +20,10 @@ from txdav.common.idirectoryservice import DirectoryRecordNotFoundError
 from txdav.common.datastore.podding.attachments import AttachmentsConduitMixin
 from txdav.common.datastore.podding.base import FailedCrossPodRequestError
 from txdav.common.datastore.podding.directory import DirectoryPoddingConduitMixin
-from txdav.common.datastore.podding.store_api import StoreAPIConduitMixin
 from txdav.common.datastore.podding.request import ConduitRequest
 from txdav.common.datastore.podding.sharing_invites import SharingInvitesConduitMixin
+from txdav.common.datastore.podding.store_api import StoreAPIConduitMixin
+from txdav.common.datastore.podding.util import UtilityConduitMixin
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.reflect import namedClass
@@ -32,6 +33,7 @@ log = Logger()
 
 
 class PoddingConduit(
+    UtilityConduitMixin,
     StoreAPIConduitMixin,
     AttachmentsConduitMixin,
     SharingInvitesConduitMixin,

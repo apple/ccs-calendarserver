@@ -79,7 +79,6 @@ class ConduitRequest(object):
                     data = json.loads(data)
                 else:
                     yield readStream(response.stream, self.writeStream.write)
-                    yield self.writeStream.loseConnection()
                     content_type = response.headers.getHeader("content-type")
                     if content_type is None:
                         content_type = MimeType("application", "octet-stream")
@@ -88,7 +87,9 @@ class ConduitRequest(object):
                         filename = ""
                     else:
                         filename = content_disposition.params["filename"]
-                    response = {
+                    self.writeStream.resetDetails(content_type, filename)
+                    yield self.writeStream.loseConnection()
+                    data = {
                         "result": "ok",
                         "content-type": content_type,
                         "name": filename,

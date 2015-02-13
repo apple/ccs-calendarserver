@@ -177,7 +177,7 @@ class ConduitResource(ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildrenMix
                 except ValueError:
                     code = responsecode.BAD_REQUEST
                 else:
-                    headers = {"content-type": ct}
+                    headers = {"content-type": MimeType.fromString(ct)}
                     headers["content-disposition"] = MimeDisposition("attachment", params={"filename": name})
                     returnValue(Response(responsecode.OK, headers, stream))
 

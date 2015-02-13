@@ -23,7 +23,7 @@ from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twext.python.log import Logger
 
 from txdav.caldav.datastore.sql import CalendarHome, Calendar, CalendarObject, \
-    Attachment
+    Attachment, AttachmentLink
 from txdav.caldav.icalendarstore import ComponentUpdateState, ComponentRemoveState
 from txdav.common.datastore.sql_external import CommonHomeExternal, CommonHomeChildExternal, \
     CommonObjectResourceExternal
@@ -68,12 +68,8 @@ class CalendarHomeExternal(CommonHomeExternal, CalendarHome):
         Return all the L{Attachment} objects associated with this calendar home.
         Needed during migration.
         """
-        raw_results = yield self._txn.store().conduit.send_get_all_attachments(self)
-
-        results = []
-        for attachment in raw_results:
-            results.append(Attachment.internalize(self._txn, attachment))
-        returnValue(results)
+        raw_results = yield self._txn.store().conduit.send_home_get_all_attachments(self)
+        returnValue([Attachment.internalize(self._txn, attachment) for attachment in raw_results])
 
 
     @inlineCallbacks
@@ -84,6 +80,16 @@ class CalendarHomeExternal(CommonHomeExternal, CalendarHome):
         """
         stream = attachment.store(attachment.contentType(), attachment.name(), migrating=True)
         yield self._txn.store().conduit.send_get_attachment_data(self, remote_id, stream)
+
+
+    @inlineCallbacks
+    def getAttachmentLinks(self):
+        """
+        Read the attachment<->calendar object mapping data associated with this calendar home.
+        Needed during migration only.
+        """
+        raw_results = yield self._txn.store().conduit.send_home_get_attachment_links(self)
+        returnValue([AttachmentLink.internalize(self._txn, attachment) for attachment in raw_results])
 
 
     def getAllDropboxIDs(self):
