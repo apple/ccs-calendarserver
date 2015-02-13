@@ -475,7 +475,7 @@ DEFAULT_CONFIG = {
     "EnableAddMember"             : True, # POST ;add-member extension
     "EnableSyncReport"            : True, # REPORT collection-sync
     "EnableSyncReportHome"        : True, # REPORT collection-sync on home collections
-    "EnableConfigSyncToken"       : False, # Sync token includes config component
+    "EnableConfigSyncToken"       : True, # Sync token includes config component
     "EnableWellKnown"             : True, # /.well-known resource
     "EnableCalendarQueryExtended" : True, # Extended calendar-query REPORT
 
