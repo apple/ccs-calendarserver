@@ -1004,7 +1004,9 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
     def _groupForSharedAddressBookComponent(self):
 
         uid = self._groupForSharedAddressBookUID()
-        record = yield self._txn.directoryService().recordWithUID(uid.decode("utf-8"))
+        record = yield self._txn.directoryService().recordWithUID(
+            self.viewerHome().uid().decode("utf-8")
+        )
         n = record.shortNames[0]
         fn = record.fullname if (
             hasattr(record, "fullName") and record.fullname
