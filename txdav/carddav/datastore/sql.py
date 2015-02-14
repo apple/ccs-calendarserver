@@ -1003,14 +1003,14 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
     @inlineCallbacks
     def _groupForSharedAddressBookComponent(self):
 
-        n = self.viewerHome().uid()
-        fn = n
         uid = self._groupForSharedAddressBookUID()
-
-        #  storebridge should substitute principal name and full name
-        #      owner = yield CalDAVResource.principalForUID(self.ownerHome().uid())
-        #      n = owner.name()
-        #      fn = owner.displayName()
+        record = yield self._txn.directoryService().recordWithUID(uid.decode("utf-8"))
+        n = record.shortNames[0]
+        fn = record.fullname if (
+            hasattr(record, "fullName") and record.fullname
+        ) else (
+            n
+        )
 
         component = VCard.fromString(
             """BEGIN:VCARD
