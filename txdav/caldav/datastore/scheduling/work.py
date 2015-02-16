@@ -77,7 +77,7 @@ class ScheduleWorkMixin(WorkItem):
 
         baseargs = {
             "jobID": kwargs.pop("jobID"),
-            "icalendarUid": kwargs.pop("icalendarUid"),
+            "icalendarUID": kwargs.pop("icalendarUID"),
             "workType": cls.workType()
         }
 
@@ -121,7 +121,7 @@ class ScheduleWorkMixin(WorkItem):
         # cause deadlocks if done in the wrong order
 
         # Row level lock on this item
-        locked = yield self.baseWork.trylock(ScheduleWork.icalendarUid == self.icalendarUid)
+        locked = yield self.baseWork.trylock(ScheduleWork.icalendarUID == self.icalendarUID)
         if locked:
             yield self.trylock()
         returnValue(locked)
@@ -136,7 +136,7 @@ class ScheduleWorkMixin(WorkItem):
         """
         self.__dict__["baseWork"] = baseWork
         self.__dict__["jobID"] = baseWork.jobID
-        self.__dict__["icalendarUid"] = baseWork.icalendarUid
+        self.__dict__["icalendarUID"] = baseWork.icalendarUID
 
 
     def delete(self):
@@ -174,7 +174,7 @@ class ScheduleWorkMixin(WorkItem):
         if self.workType() == ScheduleOrganizerSendWork.workType():
             all = yield self.baseWork.query(
                 self.transaction,
-                (ScheduleWork.icalendarUid == self.icalendarUid).And(ScheduleWork.workID != self.workID),
+                (ScheduleWork.icalendarUID == self.icalendarUID).And(ScheduleWork.workID != self.workID),
                 order=ScheduleWork.workID,
                 limit=1,
             )
@@ -183,7 +183,7 @@ class ScheduleWorkMixin(WorkItem):
                 if work.workType == self.workType():
                     job = yield JobItem.load(self.transaction, work.jobID)
                     yield job.update(notBefore=datetime.datetime.utcnow())
-                    log.debug("ScheduleOrganizerSendWork - promoted job: {id}, UID: '{uid}'", id=work.workID, uid=self.icalendarUid)
+                    log.debug("ScheduleOrganizerSendWork - promoted job: {id}, UID: '{uid}'", id=work.workID, uid=self.icalendarUID)
 
 
     @classmethod
@@ -323,7 +323,7 @@ class ScheduleOrganizerWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORGANIZ
         proposal = (yield txn.enqueue(
             cls,
             notBefore=notBefore,
-            icalendarUid=uid,
+            icalendarUID=uid,
             scheduleAction=scheduleActionToSQL[action],
             homeResourceID=home.id(),
             resourceID=resource.id() if resource else None,
@@ -347,10 +347,10 @@ class ScheduleOrganizerWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORGANIZ
             calendar_old = Component.fromString(self.icalendarTextOld) if self.icalendarTextOld else None
             calendar_new = Component.fromString(self.icalendarTextNew) if self.icalendarTextNew else None
 
-            log.debug("ScheduleOrganizerWork - running for ID: {id}, UID: {uid}, organizer: {org}", id=self.workID, uid=self.icalendarUid, org=organizer)
+            log.debug("ScheduleOrganizerWork - running for ID: {id}, UID: {uid}, organizer: {org}", id=self.workID, uid=self.icalendarUID, org=organizer)
 
             # We need to get the UID lock for implicit processing.
-            yield NamedLock.acquire(self.transaction, "ImplicitUIDLock:%s" % (hashlib.md5(self.icalendarUid).hexdigest(),))
+            yield NamedLock.acquire(self.transaction, "ImplicitUIDLock:%s" % (hashlib.md5(self.icalendarUID).hexdigest(),))
 
             from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
             scheduler = ImplicitScheduler()
@@ -359,7 +359,7 @@ class ScheduleOrganizerWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORGANIZ
                 scheduleActionFromSQL[self.scheduleAction],
                 home,
                 resource,
-                self.icalendarUid,
+                self.icalendarUID,
                 calendar_old,
                 calendar_new,
                 self.smartMerge
@@ -368,15 +368,15 @@ class ScheduleOrganizerWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORGANIZ
             self._dequeued()
 
         except Exception, e:
-            log.debug("ScheduleOrganizerWork - exception ID: {id}, UID: '{uid}', {err}", id=self.workID, uid=self.icalendarUid, err=str(e))
+            log.debug("ScheduleOrganizerWork - exception ID: {id}, UID: '{uid}', {err}", id=self.workID, uid=self.icalendarUID, err=str(e))
             log.debug(traceback.format_exc())
             raise
         except:
-            log.debug("ScheduleOrganizerWork - bare exception ID: {id}, UID: '{uid}'", id=self.workID, uid=self.icalendarUid)
+            log.debug("ScheduleOrganizerWork - bare exception ID: {id}, UID: '{uid}'", id=self.workID, uid=self.icalendarUID)
             log.debug(traceback.format_exc())
             raise
 
-        log.debug("ScheduleOrganizerWork - done for ID: {id}, UID: {uid}, organizer: {org}", id=self.workID, uid=self.icalendarUid, org=organizer)
+        log.debug("ScheduleOrganizerWork - done for ID: {id}, UID: {uid}, organizer: {org}", id=self.workID, uid=self.icalendarUID, org=organizer)
 
 
 
@@ -418,7 +418,7 @@ class ScheduleOrganizerSendWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORG
         proposal = (yield txn.enqueue(
             cls,
             notBefore=notBefore,
-            icalendarUid=uid,
+            icalendarUID=uid,
             scheduleAction=scheduleActionToSQL[action],
             homeResourceID=home.id(),
             resourceID=resource.id() if resource else None,
@@ -449,13 +449,13 @@ class ScheduleOrganizerSendWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORG
             log.debug(
                 "ScheduleOrganizerSendWork - running for ID: {id}, UID: {uid}, organizer: {org}, attendee: {att}",
                 id=self.workID,
-                uid=self.icalendarUid,
+                uid=self.icalendarUID,
                 org=organizer,
                 att=self.attendee
             )
 
             # We need to get the UID lock for implicit processing.
-            yield NamedLock.acquire(self.transaction, "ImplicitUIDLock:%s" % (hashlib.md5(self.icalendarUid).hexdigest(),))
+            yield NamedLock.acquire(self.transaction, "ImplicitUIDLock:%s" % (hashlib.md5(self.icalendarUID).hexdigest(),))
 
             from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
             scheduler = ImplicitScheduler()
@@ -464,7 +464,7 @@ class ScheduleOrganizerSendWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORG
                 scheduleActionFromSQL[self.scheduleAction],
                 home,
                 resource,
-                self.icalendarUid,
+                self.icalendarUID,
                 organizer,
                 self.attendee,
                 itipmsg,
@@ -486,18 +486,18 @@ class ScheduleOrganizerSendWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_ORG
             self._dequeued()
 
         except Exception, e:
-            log.debug("ScheduleOrganizerSendWork - exception ID: {id}, UID: '{uid}', {err}", id=self.workID, uid=self.icalendarUid, err=str(e))
+            log.debug("ScheduleOrganizerSendWork - exception ID: {id}, UID: '{uid}', {err}", id=self.workID, uid=self.icalendarUID, err=str(e))
             log.debug(traceback.format_exc())
             raise
         except:
-            log.debug("ScheduleOrganizerSendWork - bare exception ID: {id}, UID: '{uid}'", id=self.workID, uid=self.icalendarUid)
+            log.debug("ScheduleOrganizerSendWork - bare exception ID: {id}, UID: '{uid}'", id=self.workID, uid=self.icalendarUID)
             log.debug(traceback.format_exc())
             raise
 
         log.debug(
             "ScheduleOrganizerSendWork - for ID: {id}, UID: {uid}, organizer: {org}, attendee: {att}",
             id=self.workID,
-            uid=self.icalendarUid,
+            uid=self.icalendarUID,
             org=organizer,
             att=self.attendee
         )
@@ -521,7 +521,7 @@ class ScheduleReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REPLY_WORK)
         proposal = (yield txn.enqueue(
             cls,
             notBefore=notBefore,
-            icalendarUid=uid,
+            icalendarUID=uid,
             homeResourceID=home.id(),
             resourceID=resource.id() if resource else None,
             itipMsg=itipmsg.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference),
@@ -649,7 +649,7 @@ class ScheduleRefreshWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REFRESH_W
         notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.WorkQueues.AttendeeRefreshBatchDelaySeconds)
         proposal = (yield txn.enqueue(
             cls,
-            icalendarUid=organizer_resource.uid(),
+            icalendarUID=organizer_resource.uid(),
             homeResourceID=organizer_resource._home.id(),
             resourceID=organizer_resource.id(),
             attendeeCount=len(attendees),
@@ -676,7 +676,7 @@ class ScheduleRefreshWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REFRESH_W
             log.debug("Schedule refresh for resource-id: {rid} - ignored", rid=self.resourceID)
             returnValue(None)
 
-        log.debug("ScheduleRefreshWork - running for ID: {id}, UID: {uid}", id=self.workID, uid=self.icalendarUid)
+        log.debug("ScheduleRefreshWork - running for ID: {id}, UID: {uid}", id=self.workID, uid=self.icalendarUID)
 
         # Get the unique list of pending attendees and split into batch to process
         # TODO: do a DELETE ... and rownum <= N returning attendee - but have to fix Oracle to
@@ -707,7 +707,7 @@ class ScheduleRefreshWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REFRESH_W
             notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.WorkQueues.AttendeeRefreshBatchIntervalSeconds)
             yield self.transaction.enqueue(
                 self.__class__,
-                icalendarUid=self.icalendarUid,
+                icalendarUID=self.icalendarUID,
                 homeResourceID=self.homeResourceID,
                 resourceID=self.resourceID,
                 attendeeCount=len(pendingAttendees),
@@ -721,7 +721,7 @@ class ScheduleRefreshWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_REFRESH_W
 
         self._dequeued()
 
-        log.debug("ScheduleRefreshWork - done for ID: {id}, UID: {uid}", id=self.workID, uid=self.icalendarUid)
+        log.debug("ScheduleRefreshWork - done for ID: {id}, UID: {uid}", id=self.workID, uid=self.icalendarUID)
 
 
     @inlineCallbacks
@@ -790,7 +790,7 @@ class ScheduleAutoReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_AUTO_RE
         notBefore = datetime.datetime.utcnow() + datetime.timedelta(seconds=config.Scheduling.Options.WorkQueues.AutoReplyDelaySeconds)
         proposal = (yield txn.enqueue(
             cls,
-            icalendarUid=resource.uid(),
+            icalendarUID=resource.uid(),
             homeResourceID=resource._home.id(),
             resourceID=resource.id(),
             partstat=partstat,
@@ -803,7 +803,7 @@ class ScheduleAutoReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_AUTO_RE
     @inlineCallbacks
     def doWork(self):
 
-        log.debug("ScheduleAutoReplyWork - running for ID: {id}, UID: {uid}", id=self.workID, uid=self.icalendarUid)
+        log.debug("ScheduleAutoReplyWork - running for ID: {id}, UID: {uid}", id=self.workID, uid=self.icalendarUID)
 
         # Delete all other work items with the same pushID
         yield Delete(
@@ -816,7 +816,7 @@ class ScheduleAutoReplyWork(ScheduleWorkMixin, fromTable(schema.SCHEDULE_AUTO_RE
 
         self._dequeued()
 
-        log.debug("ScheduleAutoReplyWork - done for ID: {id}, UID: {uid}", id=self.workID, uid=self.icalendarUid)
+        log.debug("ScheduleAutoReplyWork - done for ID: {id}, UID: {uid}", id=self.workID, uid=self.icalendarUID)
 
 
     @inlineCallbacks

@@ -209,7 +209,7 @@ class CommonHomeChildExternal(CommonHomeChild):
 
         results = []
         for mapping in raw_results:
-            child = yield cls.internalize(home, mapping)
+            child = yield cls.deserialize(home, mapping)
             results.append(child)
         returnValue(results)
 
@@ -220,7 +220,7 @@ class CommonHomeChildExternal(CommonHomeChild):
         mapping = yield home._txn.store().conduit.send_homechild_objectwith(home, name, resourceID, externalID, accepted)
 
         if mapping:
-            child = yield cls.internalize(home, mapping)
+            child = yield cls.deserialize(home, mapping)
             returnValue(child)
         else:
             returnValue(None)
@@ -357,7 +357,7 @@ class CommonObjectResourceExternal(CommonObjectResource):
         results = []
         if mapping_list:
             for mapping in mapping_list:
-                child = yield cls.internalize(parent, mapping)
+                child = yield cls.deserialize(parent, mapping)
                 results.append(child)
         returnValue(results)
 
@@ -370,7 +370,7 @@ class CommonObjectResourceExternal(CommonObjectResource):
         results = []
         if mapping_list:
             for mapping in mapping_list:
-                child = yield cls.internalize(parent, mapping)
+                child = yield cls.deserialize(parent, mapping)
                 results.append(child)
         returnValue(results)
 
@@ -395,7 +395,7 @@ class CommonObjectResourceExternal(CommonObjectResource):
         mapping = yield parent._txn.store().conduit.send_objectresource_objectwith(parent, name, uid, resourceID)
 
         if mapping:
-            child = yield cls.internalize(parent, mapping)
+            child = yield cls.deserialize(parent, mapping)
             returnValue(child)
         else:
             returnValue(None)
@@ -421,7 +421,7 @@ class CommonObjectResourceExternal(CommonObjectResource):
         mapping = yield parent._txn.store().conduit.send_objectresource_create(parent, name, str(component), options=options)
 
         if mapping:
-            child = yield cls.internalize(parent, mapping)
+            child = yield cls.deserialize(parent, mapping)
             returnValue(child)
         else:
             returnValue(None)

@@ -85,7 +85,7 @@ class GroupCacherPollingWork(
 
 class GroupRefreshWork(AggregatedWorkItem, fromTable(schema.GROUP_REFRESH_WORK)):
 
-    group = property(lambda self: (self.table.GROUP_UID == self.groupUid))
+    group = property(lambda self: (self.table.GROUP_UID == self.groupUID))
 
     @inlineCallbacks
     def doWork(self):
@@ -94,27 +94,27 @@ class GroupRefreshWork(AggregatedWorkItem, fromTable(schema.GROUP_REFRESH_WORK))
 
             try:
                 yield groupCacher.refreshGroup(
-                    self.transaction, self.groupUid.decode("utf-8")
+                    self.transaction, self.groupUID.decode("utf-8")
                 )
             except Exception, e:
                 log.error(
                     "Failed to refresh group {group} {err}",
-                    group=self.groupUid, err=e
+                    group=self.groupUID, err=e
                 )
 
         else:
             log.debug(
                 "Rescheduling group refresh for {group}: {when}",
-                group=self.groupUid,
+                group=self.groupUID,
                 when=datetime.datetime.utcnow() + datetime.timedelta(seconds=10)
             )
-            yield self.reschedule(self.transaction, 10, groupUID=self.groupUid)
+            yield self.reschedule(self.transaction, 10, groupUID=self.groupUID)
 
 
 
 class GroupDelegateChangesWork(AggregatedWorkItem, fromTable(schema.GROUP_DELEGATE_CHANGES_WORK)):
 
-    delegator = property(lambda self: (self.table.DELEGATOR_UID == self.delegatorUid))
+    delegator = property(lambda self: (self.table.DELEGATOR_UID == self.delegatorUID))
 
     @inlineCallbacks
     def doWork(self):
@@ -124,14 +124,14 @@ class GroupDelegateChangesWork(AggregatedWorkItem, fromTable(schema.GROUP_DELEGA
             try:
                 yield groupCacher.applyExternalAssignments(
                     self.transaction,
-                    self.delegatorUid.decode("utf-8"),
-                    self.readDelegateUid.decode("utf-8"),
-                    self.writeDelegateUid.decode("utf-8")
+                    self.delegatorUID.decode("utf-8"),
+                    self.readDelegateUID.decode("utf-8"),
+                    self.writeDelegateUID.decode("utf-8")
                 )
             except Exception, e:
                 log.error(
                     "Failed to apply external delegates for {uid} {err}",
-                    uid=self.delegatorUid, err=e
+                    uid=self.delegatorUID, err=e
                 )
 
 
@@ -182,8 +182,8 @@ class GroupShareeReconciliationWork(
             homeID = rows[0][0]
             home = yield self.transaction.calendarHomeWithResourceID(homeID)
             calendar = yield home.childWithID(self.calendarID)
-            groupUID = ((yield self.transaction.groupByID(self.groupID)))[0]
-            yield calendar.reconcileGroupSharee(groupUID)
+            group = (yield self.transaction.groupByID(self.groupID))
+            yield calendar.reconcileGroupSharee(group.groupUID)
 
 
 
@@ -302,7 +302,7 @@ class GroupCacher(object):
         # For each of those groups, create a per-group refresh work item
         for groupUID in set(groupUIDs) - set(deletedGroupUIDs):
             self.log.debug("Enqueuing group refresh for {u}", u=groupUID)
-            yield GroupRefreshWork.reschedule(txn, 0, groupUid=groupUID)
+            yield GroupRefreshWork.reschedule(txn, 0, groupUID=groupUID)
 
 
     @inlineCallbacks
@@ -335,9 +335,9 @@ class GroupCacher(object):
                     )
                 else:
                     yield GroupDelegateChangesWork.reschedule(
-                        txn, 0, delegatorUid=delegatorUID,
-                        readDelegateUid=readDelegateUID,
-                        writeDelegateUid=writeDelegateUID
+                        txn, 0, delegatorUID=delegatorUID,
+                        readDelegateUID=readDelegateUID,
+                        writeDelegateUID=writeDelegateUID
                     )
         if removed:
             for delegatorUID in removed:
@@ -351,8 +351,8 @@ class GroupCacher(object):
                     )
                 else:
                     yield GroupDelegateChangesWork.reschedule(
-                        txn, 0, delegatorUid=delegatorUID,
-                        readDelegateUid="", writeDelegateUid=""
+                        txn, 0, delegatorUID=delegatorUID,
+                        readDelegateUID="", writeDelegateUID=""
                     )
 
 
@@ -367,26 +367,20 @@ class GroupCacher(object):
         readDelegateGroupID = writeDelegateGroupID = None
 
         if readDelegateUID:
-            (
-                readDelegateGroupID, _ignore_name, _ignore_hash,
-                _ignore_modified, _ignore_extant
-            ) = (
-                yield txn.groupByUID(readDelegateUID)
-            )
-            if readDelegateGroupID is None:
+            readDelegateGroup = yield txn.groupByUID(readDelegateUID)
+            if readDelegateGroup is None:
                 # The group record does not actually exist
                 readDelegateUID = None
+            else:
+                readDelegateGroupID = readDelegateGroup.groupID
 
         if writeDelegateUID:
-            (
-                writeDelegateGroupID, _ignore_name, _ignore_hash,
-                _ignore_modified, _ignore_extant
-            ) = (
-                yield txn.groupByUID(writeDelegateUID)
-            )
-            if writeDelegateGroupID is None:
+            writeDelegateGroup = yield txn.groupByUID(writeDelegateUID)
+            if writeDelegateGroup is None:
                 # The group record does not actually exist
                 writeDelegateUID = None
+            else:
+                writeDelegateGroupID = writeDelegateGroup.groupID
 
         yield txn.assignExternalDelegates(
             delegatorUID, readDelegateGroupID, writeDelegateGroupID,
@@ -411,45 +405,36 @@ class GroupCacher(object):
         else:
             self.log.debug("Got group record: {u}", u=record.uid)
 
-        (
-            groupID, cachedName, cachedMembershipHash, _ignore_modified,
-            cachedExtant
-        ) = yield txn.groupByUID(
-            groupUID,
-            create=(record is not None)
-        )
+        group = yield txn.groupByUID(groupUID, create=(record is not None))
 
-        if groupID:
-            membershipChanged, addedUIDs, removedUIDs = yield txn.refreshGroup(
-                groupUID, record, groupID,
-                cachedName, cachedMembershipHash, cachedExtant
-            )
+        if group:
+            membershipChanged, addedUIDs, removedUIDs = yield txn.refreshGroup(group, record)
 
             if membershipChanged:
                 self.log.info(
                     "Membership changed for group {uid} {name}:\n\tadded {added}\n\tremoved {removed}",
-                    uid=groupUID,
-                    name=cachedName,
+                    uid=group.groupUID,
+                    name=group.name,
                     added=",".join(addedUIDs),
                     removed=",".join(removedUIDs),
                 )
 
                 # Send cache change notifications
                 if self.cacheNotifier is not None:
-                    self.cacheNotifier.changed(groupUID)
+                    self.cacheNotifier.changed(group.groupUID)
                     for uid in itertools.chain(addedUIDs, removedUIDs):
                         self.cacheNotifier.changed(uid)
 
                 # Notifier other store APIs of changes
-                wpsAttendee = yield self.scheduleGroupAttendeeReconciliations(txn, groupID)
-                wpsShareee = yield self.scheduleGroupShareeReconciliations(txn, groupID)
+                wpsAttendee = yield self.scheduleGroupAttendeeReconciliations(txn, group.groupID)
+                wpsShareee = yield self.scheduleGroupShareeReconciliations(txn, group.groupID)
 
                 returnValue(wpsAttendee + wpsShareee)
             else:
                 self.log.debug(
                     "No membership change for group {uid} {name}",
-                    uid=groupUID,
-                    name=cachedName
+                    uid=group.groupUID,
+                    name=group.name
                 )
 
         returnValue(tuple())

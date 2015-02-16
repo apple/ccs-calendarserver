@@ -69,7 +69,7 @@ class CalendarHomeExternal(CommonHomeExternal, CalendarHome):
         Needed during migration.
         """
         raw_results = yield self._txn.store().conduit.send_home_get_all_attachments(self)
-        returnValue([Attachment.internalize(self._txn, attachment) for attachment in raw_results])
+        returnValue([Attachment.deserialize(self._txn, attachment) for attachment in raw_results])
 
 
     @inlineCallbacks
@@ -89,7 +89,7 @@ class CalendarHomeExternal(CommonHomeExternal, CalendarHome):
         Needed during migration only.
         """
         raw_results = yield self._txn.store().conduit.send_home_get_attachment_links(self)
-        returnValue([AttachmentLink.internalize(self._txn, attachment) for attachment in raw_results])
+        returnValue([AttachmentLink.deserialize(self._txn, attachment) for attachment in raw_results])
 
 
     def getAllDropboxIDs(self):

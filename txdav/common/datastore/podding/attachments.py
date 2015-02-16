@@ -196,5 +196,5 @@ class AttachmentsConduitMixin(object):
 
 
 # Calls on L{CommonHome} objects
-UtilityConduitMixin._make_simple_action(AttachmentsConduitMixin, "home_get_all_attachments", "getAllAttachments", classMethod=False, transform_recv_result=UtilityConduitMixin._to_externalize_list)
-UtilityConduitMixin._make_simple_action(AttachmentsConduitMixin, "home_get_attachment_links", "getAttachmentLinks", classMethod=False, transform_recv_result=UtilityConduitMixin._to_externalize_list)
+UtilityConduitMixin._make_simple_action(AttachmentsConduitMixin, "home_get_all_attachments", "getAllAttachments", classMethod=False, transform_recv_result=UtilityConduitMixin._to_serialize_list)
+UtilityConduitMixin._make_simple_action(AttachmentsConduitMixin, "home_get_attachment_links", "getAttachmentLinks", classMethod=False, transform_recv_result=UtilityConduitMixin._to_serialize_list)

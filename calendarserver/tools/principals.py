@@ -775,15 +775,11 @@ def printGroupCacherInfo(service, store, principalIDs):
                 groupUIDs.append(record.uid)
 
     for groupUID in groupUIDs:
-        (
-            groupID, name, _ignore_membershipHash, modified, _ignore_extant
-        ) = yield txn.groupByUID(
-            groupUID
-        )
-        print("Group: \"{name}\" ({uid})".format(name=name, uid=groupUID))
+        group = yield txn.groupByUID(groupUID)
+        print("Group: \"{name}\" ({uid})".format(name=group.name, uid=group.groupUID))
 
         for txt, readWrite in (("read-only", False), ("read-write", True)):
-            delegatorUIDs = yield txn.delegatorsToGroup(groupID, readWrite)
+            delegatorUIDs = yield txn.delegatorsToGroup(group.groupID, readWrite)
             for delegatorUID in delegatorUIDs:
                 delegator = yield directory.recordWithUID(delegatorUID)
                 print(
@@ -793,12 +789,12 @@ def printGroupCacherInfo(service, store, principalIDs):
                 )
 
         print("Group members:")
-        memberUIDs = yield txn.groupMemberUIDs(groupID)
+        memberUIDs = yield txn.groupMemberUIDs(group.groupID)
         for memberUID in memberUIDs:
             record = yield directory.recordWithUID(memberUID)
             print(prettyRecord(record))
 
-        print("Last cached: {} GMT".format(modified))
+        print("Last cached: {} GMT".format(group.modified))
         print()
 
     yield txn.commit()

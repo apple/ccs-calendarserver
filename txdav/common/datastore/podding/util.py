@@ -212,19 +212,19 @@ class UtilityConduitMixin(object):
     # Transforms for returned data
     #
     @staticmethod
-    def _to_externalize(value):
+    def _to_serialize(value):
         """
         Convert the value to the external (JSON-based) representation.
         """
-        return value.externalize() if value is not None else None
+        return value.serialize() if value is not None else None
 
 
     @staticmethod
-    def _to_externalize_list(value):
+    def _to_serialize_list(value):
         """
         Convert the value to the external (JSON-based) representation.
         """
-        return [v.externalize() for v in value]
+        return [v.serialize() for v in value]
 
 
     @staticmethod

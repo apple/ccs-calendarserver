@@ -133,8 +133,8 @@ class StoreAPIConduitMixin(object):
 
 # Calls on L{CommonHomeChild} objects
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_listobjects", "listObjects", classMethod=True)
-UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_loadallobjects", "loadAllObjects", classMethod=True, transform_recv_result=UtilityConduitMixin._to_externalize_list)
-UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_objectwith", "objectWith", classMethod=True, transform_recv_result=UtilityConduitMixin._to_externalize)
+UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_loadallobjects", "loadAllObjects", classMethod=True, transform_recv_result=UtilityConduitMixin._to_serialize_list)
+UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_objectwith", "objectWith", classMethod=True, transform_recv_result=UtilityConduitMixin._to_serialize)
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_movehere", "moveObjectResourceHere")
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_moveaway", "moveObjectResourceAway")
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_synctokenrevision", "syncTokenRevision")
@@ -142,14 +142,14 @@ UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_resourc
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_search", "search")
 
 # Calls on L{CommonObjectResource} objects
-UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "objectresource_loadallobjects", "loadAllObjects", classMethod=True, transform_recv_result=UtilityConduitMixin._to_externalize_list)
-UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "objectresource_loadallobjectswithnames", "loadAllObjectsWithNames", classMethod=True, transform_recv_result=UtilityConduitMixin._to_externalize_list)
+UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "objectresource_loadallobjects", "loadAllObjects", classMethod=True, transform_recv_result=UtilityConduitMixin._to_serialize_list)
+UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "objectresource_loadallobjectswithnames", "loadAllObjectsWithNames", classMethod=True, transform_recv_result=UtilityConduitMixin._to_serialize_list)
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "objectresource_listobjects", "listObjects", classMethod=True)
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "objectresource_countobjects", "countObjects", classMethod=True)
-UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "objectresource_objectwith", "objectWith", classMethod=True, transform_recv_result=UtilityConduitMixin._to_externalize)
+UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "objectresource_objectwith", "objectWith", classMethod=True, transform_recv_result=UtilityConduitMixin._to_serialize)
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "objectresource_resourcenameforuid", "resourceNameForUID", classMethod=True)
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "objectresource_resourceuidforname", "resourceUIDForName", classMethod=True)
-UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "objectresource_create", "create", classMethod=True, transform_recv_result=UtilityConduitMixin._to_externalize)
+UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "objectresource_create", "create", classMethod=True, transform_recv_result=UtilityConduitMixin._to_serialize)
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "objectresource_setcomponent", "setComponent")
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "objectresource_component", "component", transform_recv_result=UtilityConduitMixin._to_string)
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "objectresource_remove", "remove")

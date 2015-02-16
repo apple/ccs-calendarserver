@@ -1878,8 +1878,8 @@ class Calendar(CommonHomeChild):
 
         # First check that the actual group membership has changed
         if (yield self.updateShareeGroupLink(groupUID)):
-            groupID = (yield self._txn.groupByUID(groupUID))[0]
-            memberUIDs = yield self._txn.groupMemberUIDs(groupID)
+            group = yield self._txn.groupByUID(groupUID)
+            memberUIDs = yield self._txn.groupMemberUIDs(group.groupID)
             boundUIDs = set()
 
             home = self._homeSchema
@@ -2029,39 +2029,36 @@ class Calendar(CommonHomeChild):
         update schema.GROUP_SHAREE
         """
         changed = False
-        (
-            groupID, _ignore_name, membershipHash, _ignore_modDate,
-            _ignore_extant
-        ) = yield self._txn.groupByUID(groupUID)
+        group = yield self._txn.groupByUID(groupUID)
 
         gs = schema.GROUP_SHAREE
         rows = yield Select(
             [gs.MEMBERSHIP_HASH, gs.GROUP_BIND_MODE],
             From=gs,
             Where=(gs.CALENDAR_ID == self._resourceID).And(
-                gs.GROUP_ID == groupID)
+                gs.GROUP_ID == group.groupID)
         ).on(self._txn)
         if rows:
             [[gsMembershipHash, gsMode]] = rows
             updateMap = {}
-            if gsMembershipHash != membershipHash:
-                updateMap[gs.MEMBERSHIP_HASH] = membershipHash
+            if gsMembershipHash != group.membershipHash:
+                updateMap[gs.MEMBERSHIP_HASH] = group.membershipHash
             if mode is not None and gsMode != mode:
                 updateMap[gs.GROUP_BIND_MODE] = mode
             if updateMap:
                 yield Update(
                     updateMap,
                     Where=(gs.CALENDAR_ID == self._resourceID).And(
-                        gs.GROUP_ID == groupID
+                        gs.GROUP_ID == group.groupID
                     )
                 ).on(self._txn)
                 changed = True
         else:
             yield Insert({
-                gs.MEMBERSHIP_HASH: membershipHash,
+                gs.MEMBERSHIP_HASH: group.membershipHash,
                 gs.GROUP_BIND_MODE: mode,
                 gs.CALENDAR_ID: self._resourceID,
-                gs.GROUP_ID: groupID,
+                gs.GROUP_ID: group.groupID,
             }).on(self._txn)
             changed = True
 
@@ -2148,8 +2145,8 @@ class Calendar(CommonHomeChild):
 
         # invite every member of group
         shareeViews = []
-        groupID = (yield self._txn.groupByUID(shareeUID))[0]
-        memberUIDs = yield self._txn.groupMemberUIDs(groupID)
+        group = yield self._txn.groupByUID(shareeUID)
+        memberUIDs = yield self._txn.groupMemberUIDs(group.groupID)
         for memberUID in memberUIDs:
             if memberUID != self._home.uid():
                 shareeView = yield self.shareeView(memberUID)
@@ -2496,9 +2493,9 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             groupRecord = yield self.directoryService().recordWithCalendarUserAddress(groupCUA)
             if groupRecord:
                 # get members
-                groupID = (yield self._txn.groupByUID(groupRecord.uid))[0]
-                if groupID is not None:
-                    members = yield self._txn.groupMembers(groupID)
+                group = yield self._txn.groupByUID(groupRecord.uid)
+                if group is not None:
+                    members = yield self._txn.groupMembers(group.groupID)
                     groupCUAToAttendeeMemberPropMap[groupRecord.canonicalCalendarUserAddress()] = tuple(
                         [member.attendeeProperty(params={"MEMBER": groupCUA}) for member in sorted(members, key=lambda x: x.uid)]
                     )
@@ -2551,26 +2548,23 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 groupUID = groupRecord.uid
             else:
                 groupUID = uidFromCalendarUserAddress(groupCUA)
-            (
-                groupID, _ignore_name, membershipHash, _ignore_modDate,
-                _ignore_extant
-            ) = yield self._txn.groupByUID(groupUID)
+            group = yield self._txn.groupByUID(groupUID)
 
             ga = schema.GROUP_ATTENDEE
-            if groupID in groupIDToMembershipHashMap:
-                if groupIDToMembershipHashMap[groupID] != membershipHash:
+            if group.groupID in groupIDToMembershipHashMap:
+                if groupIDToMembershipHashMap[group.groupID] != group.membershipHash:
                     yield Update(
-                        {ga.MEMBERSHIP_HASH: membershipHash, },
+                        {ga.MEMBERSHIP_HASH: group.membershipHash, },
                         Where=(ga.RESOURCE_ID == self._resourceID).And(
-                            ga.GROUP_ID == groupID)
+                            ga.GROUP_ID == group.groupID)
                     ).on(self._txn)
                     changed = True
-                del groupIDToMembershipHashMap[groupID]
+                del groupIDToMembershipHashMap[group.groupID]
             else:
                 yield Insert({
                     ga.RESOURCE_ID: self._resourceID,
-                    ga.GROUP_ID: groupID,
-                    ga.MEMBERSHIP_HASH: membershipHash,
+                    ga.GROUP_ID: group.groupID,
+                    ga.MEMBERSHIP_HASH: group.membershipHash,
                 }).on(self._txn)
                 changed = True
 
@@ -5135,7 +5129,7 @@ class AttachmentLink(object):
             setattr(self, attr, None)
 
 
-    def externalize(self):
+    def serialize(self):
         """
         Create a dictionary mapping key attributes so this object can be sent over a cross-pod call
         and reconstituted at the other end. Note that the other end may have a different schema so
@@ -5145,9 +5139,9 @@ class AttachmentLink(object):
 
 
     @classmethod
-    def internalize(cls, txn, mapping):
+    def deserialize(cls, txn, mapping):
         """
-        Given a mapping generated by L{externalize}, convert the values into an array of database
+        Given a mapping generated by L{serialize}, convert the values into an array of database
         like items that conforms to the ordering of L{_allColumns} so it can be fed into L{makeClass}.
         Note that there may be a schema mismatch with the external data, so treat missing items as
         C{None} and ignore extra items.
@@ -5288,7 +5282,7 @@ class Attachment(object):
         returnValue(cls.makeClass(home._txn, rows[0]) if len(rows) == 1 else None)
 
 
-    def externalize(self):
+    def serialize(self):
         """
         Create a dictionary mapping key attributes so this object can be sent over a cross-pod call
         and reconstituted at the other end. Note that the other end may have a different schema so
@@ -5300,9 +5294,9 @@ class Attachment(object):
 
 
     @classmethod
-    def internalize(cls, txn, mapping):
+    def deserialize(cls, txn, mapping):
         """
-        Given a mapping generated by L{externalize}, convert the values into an array of database
+        Given a mapping generated by L{serialize}, convert the values into an array of database
         like items that conforms to the ordering of L{_allColumns} so it can be fed into L{makeClass}.
         Note that there may be a schema mismatch with the external data, so treat missing items as
         C{None} and ignore extra items.

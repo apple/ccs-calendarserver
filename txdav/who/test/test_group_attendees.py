@@ -871,14 +871,11 @@ END:VCALENDAR
         # finally, simulate an event that has become old
         self.patch(CalendarDirectoryRecordMixin, "expandedMembers", unpatchedExpandedMembers)
 
-        (
-            groupID, _ignore_name, _ignore_membershipHash, _ignore_modDate,
-            _ignore_extant
-        ) = yield self.transactionUnderTest().groupByUID("group01")
+        group = yield self.transactionUnderTest().groupByUID("group01")
         ga = schema.GROUP_ATTENDEE
         yield Insert({
             ga.RESOURCE_ID: cobj._resourceID,
-            ga.GROUP_ID: groupID,
+            ga.GROUP_ID: group.groupID,
             ga.MEMBERSHIP_HASH: (-1),
         }).on(self.transactionUnderTest())
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "group01")
@@ -1033,14 +1030,11 @@ END:VCALENDAR
         # finally, simulate an event that has become old
         self.patch(CalendarDirectoryRecordMixin, "expandedMembers", unpatchedExpandedMembers)
 
-        (
-            groupID, _ignore_name, _ignore_membershipHash, _ignore_modDate,
-            _ignore_extant
-        ) = yield self.transactionUnderTest().groupByUID("group01")
+        group = yield self.transactionUnderTest().groupByUID("group01")
         ga = schema.GROUP_ATTENDEE
         yield Insert({
             ga.RESOURCE_ID: cobj._resourceID,
-            ga.GROUP_ID: groupID,
+            ga.GROUP_ID: group.groupID,
             ga.MEMBERSHIP_HASH: (-1),
         }).on(self.transactionUnderTest())
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "group01")

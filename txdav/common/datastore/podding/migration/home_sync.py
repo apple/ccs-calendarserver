@@ -176,10 +176,10 @@ class CrossPodHomeSync(object):
         # TODO: Re-write attachment URIs - not sure if we need this as reverse proxy may take care of it
         pass
 
-        # TODO: group attendee reconcile
+        # TODO: shared collections reconcile
         pass
 
-        # TODO: shared collections reconcile
+        # TODO: group attendee reconcile
         pass
 
         # TODO: group sharee reconcile
