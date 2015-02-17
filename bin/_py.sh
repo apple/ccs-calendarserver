@@ -61,27 +61,18 @@ try_python () {
 # Detect which version of Python to use, then print out which one was detected.
 #
 # This will prefer the python interpreter in the PYTHON environment variable.
-# If that's not found, it will check for "python2.7", "python2.6" and "python",
-# looking for each in your PATH and, failing that, in a number of well-known
-# locations.
+# If that's not found, it will check for "python2.7" and "python", looking for
+# each in your PATH.
 #
 detect_python_version () {
   local v;
   local p;
-  for v in "2.7" "2.6" ""
+  for v in "2.7" ""
   do
-    for p in                                                            \
-      "${PYTHON:=}"                                                     \
-      "python${v}"                                                      \
-      "/usr/local/bin/python${v}"                                       \
-      "/usr/local/python/bin/python${v}"                                \
-      "/usr/local/python${v}/bin/python${v}"                            \
-      "/opt/bin/python${v}"                                             \
-      "/opt/python/bin/python${v}"                                      \
-      "/opt/python${v}/bin/python${v}"                                  \
-      "/Library/Frameworks/Python.framework/Versions/${v}/bin/python"   \
-      "/opt/local/bin/python${v}"                                       \
-      "/sw/bin/python${v}"                                              \
+    for p in         \
+      "${PYTHON:=}"  \
+      "pypy${v}"     \
+      "python${v}"   \
       ;
     do
       if p="$(find_cmd "${p}")"; then
