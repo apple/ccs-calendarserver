@@ -14,17 +14,15 @@
 # limitations under the License.
 ##
 
-from collections import namedtuple
 from functools import wraps
 
-from twext.enterprise.dal.syntax import Select, Delete, Parameter, Insert, \
-    Update
 from twext.python.log import Logger
 from twisted.internet.defer import returnValue, inlineCallbacks
 from twisted.python.failure import Failure
 from txdav.caldav.icalendarstore import ComponentUpdateState
+from txdav.common.datastore.podding.migration.migration_metadata import CalendarMigrationRecord, \
+    CalendarObjectMigrationRecord, AttachmentMigrationRecord
 from txdav.caldav.datastore.sql import ManagedAttachment
-from txdav.common.datastore.sql_tables import schema
 from txdav.common.idirectoryservice import DirectoryRecordNotFoundError
 
 import uuid
@@ -82,8 +80,6 @@ def inTransactionWrapper(operation):
 class CrossPodHomeSync(object):
 
     BATCH_SIZE = 50
-
-    CalendarSyncState = namedtuple("CalendarSyncState", ("localID", "lastSyncToken",))
 
     def __init__(self, store, diruid):
         """
@@ -292,7 +288,7 @@ class CrossPodHomeSync(object):
         # Remote sync details
         remote_sync_state = yield self.getCalendarSyncList()
 
-        # TODO: get local sync details from local DB
+        # Get local sync details from local DB
         local_sync_state = yield self.getSyncState()
 
         # Remove local calendars no longer on the remote side
@@ -319,7 +315,12 @@ class CrossPodHomeSync(object):
         for calendar in calendars:
             if calendar.owned():
                 sync_token = yield calendar.syncToken()
-                results[calendar.id()] = self.CalendarSyncState(0, sync_token)
+                results[calendar.id()] = CalendarMigrationRecord.make(
+                    calendarHomeResourceID=home.id(),
+                    remoteResourceID=calendar.id(),
+                    localResourceID=0,
+                    lastSyncToken=sync_token,
+                )
 
         returnValue(results)
 
@@ -330,57 +331,27 @@ class CrossPodHomeSync(object):
         """
         Get local synchronization state for the home being migrated.
         """
-        cm = schema.CALENDAR_MIGRATION
-        rows = yield Select(
-            columns=(cm.REMOTE_RESOURCE_ID, cm.CALENDAR_RESOURCE_ID, cm.LAST_SYNC_TOKEN,),
-            From=cm,
-            Where=(cm.CALENDAR_HOME_RESOURCE_ID == self.homeId)
-        ).on(txn)
-        returnValue(dict([(remote_id, self.CalendarSyncState(local_id, sync,)) for remote_id, local_id, sync in rows]))
+        records = yield CalendarMigrationRecord.querysimple(
+            txn, calendarHomeResourceID=self.homeId
+        )
+        returnValue(dict([(record.remoteResourceID, record) for record in records]))
 
 
     @inTransactionWrapper
     @inlineCallbacks
-    def setSyncState(self, txn, details):
+    def updateSyncState(self, txn, stateRecord, newSyncToken):
         """
-        Get local synchronization state for the home being migrated.
+        Update or insert an L{CalendarMigrationRecord} with the new specified sync token.
         """
-        cm = schema.CALENDAR_MIGRATION
-
-        old_details = yield self.getSyncState(txn=txn)
-
-        # Remove missing keys
-        missing = set(old_details.keys()) - set(details.keys())
-        if missing:
-            yield Delete(
-                From=cm,
-                Where=(cm.CALENDAR_HOME_RESOURCE_ID == self.homeId).And(
-                    cm.REMOTE_RESOURCE_ID.In(Parameter("missing", len(missing)))
-                )
-            ).on(txn, missing=missing)
-
-        # Add new ones
-        insert = set(details.keys()) - set(old_details.keys())
-        for key in insert:
-            yield Insert({
-                cm.CALENDAR_HOME_RESOURCE_ID: self.homeId,
-                cm.REMOTE_RESOURCE_ID: key,
-                cm.CALENDAR_RESOURCE_ID: details[key].localID,
-                cm.LAST_SYNC_TOKEN: details[key].lastSyncToken,
-            }).on(txn)
-
-        # Update existing ones
-        updates = set(details.keys()) & set(old_details.keys())
-        for key in updates:
-            yield Update(
-                {
-                    cm.CALENDAR_RESOURCE_ID: details[key].localID,
-                    cm.LAST_SYNC_TOKEN: details[key].lastSyncToken,
-                },
-                Where=(cm.CALENDAR_HOME_RESOURCE_ID == self.homeId).And(
-                    cm.REMOTE_RESOURCE_ID == key
-                )
-            ).on(txn)
+        if stateRecord.isnew():
+            stateRecord.lastSyncToken = newSyncToken
+            yield stateRecord.insert(txn)
+        else:
+            # The existing stateRecord has a stale txn, but valid column values. We have
+            # to duplicate it before we can give it a different txn.
+            stateRecord = stateRecord.duplicate()
+            stateRecord.transaction = txn
+            yield stateRecord.update(lastSyncToken=newSyncToken)
 
 
     @inTransactionWrapper
@@ -398,13 +369,10 @@ class CrossPodHomeSync(object):
         """
         home = yield txn.calendarHomeWithUID(self.migratingUid())
         for remoteID in set(local_sync_state.keys()) - set(remote_sync_state.keys()):
-            calendar = yield home.childWithID(local_sync_state[remoteID].localID)
+            calendar = yield home.childWithID(local_sync_state[remoteID].localResourceID)
             if calendar is not None:
                 yield calendar.purge()
             del local_sync_state[remoteID]
-
-        # FIXME: does this need to be done since we have a cascade on the table?
-        # yield self.setSyncState(local_sync_state, txn=txn)
 
 
     @inlineCallbacks
@@ -422,26 +390,27 @@ class CrossPodHomeSync(object):
         """
 
         # See if we need to create the local one first
-        local_state = local_sync_state.get(remoteID)
-        if local_state is None:
+        if remoteID not in local_sync_state:
             localID = yield self.newCalendar()
-            local_sync_state[remoteID] = self.CalendarSyncState(localID, None)
-
-        localID = local_sync_state.get(remoteID).localID
-        local_token = local_sync_state.get(remoteID).lastSyncToken
+            local_sync_state[remoteID] = CalendarMigrationRecord.make(
+                calendarHomeResourceID=self.homeId,
+                remoteResourceID=remoteID,
+                localResourceID=localID,
+                lastSyncToken=None,
+            )
+        local_record = local_sync_state.get(remoteID)
 
         remote_token = remote_sync_state[remoteID].lastSyncToken
-        if local_token != remote_token:
+        if local_record.lastSyncToken != remote_token:
             # Sync meta-data such as name, alarms, supported-components, transp, etc
-            yield self.syncCalendarMetaData(localID, remoteID)
+            yield self.syncCalendarMetaData(local_record)
 
             # Sync object resources
-            changed, deleted = yield self.findObjectsToSync(localID, remoteID, local_token)
-            yield self.purgeDeletedObjectsInBatches(localID, deleted)
-            yield self.updateChangedObjectsInBatches(localID, remoteID, changed)
+            changed, deleted = yield self.findObjectsToSync(local_record)
+            yield self.purgeDeletedObjectsInBatches(local_record, deleted)
+            yield self.updateChangedObjectsInBatches(local_record, changed)
 
-        local_sync_state[remoteID] = self.CalendarSyncState(localID, remote_token)
-        yield self.setSyncState(local_sync_state)
+        yield self.updateSyncState(local_record, remote_token)
 
 
     @inTransactionWrapper
@@ -459,54 +428,48 @@ class CrossPodHomeSync(object):
 
     @inTransactionWrapper
     @inlineCallbacks
-    def syncCalendarMetaData(self, txn, localID, remoteID):
+    def syncCalendarMetaData(self, txn, migrationRecord):
         """
         Sync the metadata of a calendar from the remote side.
 
-        @param localID: id of the local calendar to sync
-        @type localID: L{int}
-        @param remoteID: id of the remote calendar to sync with
-        @type remoteID: L{int}
+        @param migrationRecord: current migration record
+        @type localID: L{CalendarMigrationRecord}
         """
         # Remote changes
         remote_home = yield self._remoteHome(txn)
-        remote_calendar = yield remote_home.childWithID(remoteID)
+        remote_calendar = yield remote_home.childWithID(migrationRecord.remoteResourceID)
         if remote_calendar is None:
             returnValue(None)
 
         # Check whether the deleted set items
         local_home = yield txn.calendarHomeWithUID(self.migratingUid())
-        local_calendar = yield local_home.childWithID(localID)
+        local_calendar = yield local_home.childWithID(migrationRecord.localResourceID)
         yield local_calendar.copyMetadata(remote_calendar)
 
 
     @inTransactionWrapper
     @inlineCallbacks
-    def findObjectsToSync(self, txn, localID, remoteID, local_token):
+    def findObjectsToSync(self, txn, migrationRecord):
         """
         Find the set of object resources that need to be sync'd from the remote
         side and the set that need to be removed locally. Take into account the
         possibility that this is a partial sync and removals or additions might
         be false positives.
 
-        @param localID: id of the local calendar to sync
-        @type localID: L{int}
-        @param remoteID: id of the remote calendar to sync with
-        @type remoteID: L{int}
-        @param local_token: sync token last used to sync the calendar
-        @type local_token: L{str}
+        @param migrationRecord: current migration record
+        @type localID: L{CalendarMigrationRecord}
         """
 
         # Remote changes
         remote_home = yield self._remoteHome(txn)
-        remote_calendar = yield remote_home.childWithID(remoteID)
+        remote_calendar = yield remote_home.childWithID(migrationRecord.remoteResourceID)
         if remote_calendar is None:
             returnValue(None)
-        changed, deleted, _ignore_invalid = yield remote_calendar.resourceNamesSinceToken(local_token)
+        changed, deleted, _ignore_invalid = yield remote_calendar.resourceNamesSinceToken(migrationRecord.lastSyncToken)
 
         # Check whether the deleted set items
         local_home = yield txn.calendarHomeWithUID(self.migratingUid())
-        local_calendar = yield local_home.childWithID(localID)
+        local_calendar = yield local_home.childWithID(migrationRecord.localResourceID)
 
         # Check the md5's on each changed remote with the local one to filter out ones
         # we don't actually need to sync
@@ -525,21 +488,21 @@ class CrossPodHomeSync(object):
 
 
     @inlineCallbacks
-    def purgeDeletedObjectsInBatches(self, localID, deleted):
+    def purgeDeletedObjectsInBatches(self, migrationRecord, deleted):
         """
         Purge (silently remove) the specified object resources. This needs to
         succeed in the case where some or all resources have already been deleted.
         Do this in batches to keep transaction times small.
 
-        @param localID: id of the local calendar to sync
-        @type localID: L{int}
+        @param migrationRecord: local calendar migration record
+        @type migrationRecord: L{CalendarMigrationRecord}
         @param deleted: list of names to purge
         @type deleted: L{list} of L{str}
         """
 
         remaining = list(deleted)
         while remaining:
-            yield self.purgeBatch(localID, remaining[:self.BATCH_SIZE])
+            yield self.purgeBatch(migrationRecord.localResourceID, remaining[:self.BATCH_SIZE])
             del remaining[:self.BATCH_SIZE]
 
 
@@ -567,23 +530,25 @@ class CrossPodHomeSync(object):
 
 
     @inlineCallbacks
-    def updateChangedObjectsInBatches(self, localID, remoteID, changed):
+    def updateChangedObjectsInBatches(self, migrationRecord, changed):
         """
         Update the specified object resources. This needs to succeed in the
         case where some or all resources have already been deleted.
         Do this in batches to keep transaction times small.
 
-        @param localID: id of the local calendar to sync
-        @type localID: L{int}
-        @param remoteID: id of the remote calendar to sync with
-        @type remoteID: L{int}
+        @param migrationRecord: local calendar migration record
+        @type migrationRecord: L{CalendarMigrationRecord}
         @param changed: list of names to update
         @type changed: L{list} of L{str}
         """
 
         remaining = list(changed)
         while remaining:
-            yield self.updateBatch(localID, remoteID, remaining[:self.BATCH_SIZE])
+            yield self.updateBatch(
+                migrationRecord.localResourceID,
+                migrationRecord.remoteResourceID,
+                remaining[:self.BATCH_SIZE],
+            )
             del remaining[:self.BATCH_SIZE]
 
 
@@ -622,7 +587,6 @@ class CrossPodHomeSync(object):
         # matches the remote one (which should help reduce the need for a client to resync
         # the data when moved from one pod to the other).
         txn._migrating = True
-        com = schema.CALENDAR_OBJECT_MIGRATION
         for obj_name in remote_objects.keys():
             remote_object = remote_objects[obj_name]
             remote_data = yield remote_object.component()
@@ -636,13 +600,12 @@ class CrossPodHomeSync(object):
 
                 # Maintain the mapping from the remote to local id. Note that this mapping never changes as the ids on both
                 # sides are immutable - though it may get deleted if the local object is removed during sync (via a cascade).
-                yield Insert(
-                    {
-                        com.CALENDAR_HOME_RESOURCE_ID: self.homeId,
-                        com.REMOTE_RESOURCE_ID: remote_object.id(),
-                        com.LOCAL_RESOURCE_ID: local_object.id()
-                    }
-                ).on(txn)
+                yield CalendarObjectMigrationRecord.create(
+                    txn,
+                    calendarHomeResourceID=self.homeId,
+                    remoteResourceID=remote_object.id(),
+                    localResourceID=local_object.id()
+                )
 
             # Sync meta-data such as schedule object, schedule tags, access mode etc
             yield local_object.copyMetadata(remote_object)
@@ -684,25 +647,20 @@ class CrossPodHomeSync(object):
         lmap = dict([(attachment.id(), attachment) for attachment in lattachments])
 
         # Figure out the differences
-        am = schema.ATTACHMENT_MIGRATION
-        rows = yield Select(
-            [am.REMOTE_RESOURCE_ID, am.LOCAL_RESOURCE_ID],
-            From=am,
-            Where=(am.CALENDAR_HOME_RESOURCE_ID == self.homeId),
-        ).on(txn)
-        mapping = dict(rows)
+        records = yield AttachmentMigrationRecord.querysimple(
+            txn, calendarHomeResourceID=self.homeId
+        )
+        mapping = dict([(record.remoteResourceID, record) for record in records])
 
         # Removed - remove attachment and migration state
         removed = set(mapping.keys()) - set(rmap.keys())
         for remove_id in removed:
-            local_id = mapping[remove_id]
-            att = yield ManagedAttachment.load(txn, None, None, attachmentID=local_id)
+            record = mapping[remove_id]
+            att = yield ManagedAttachment.load(txn, None, None, attachmentID=record.localResourceID)
             if att:
                 yield att.remove(adjustQuota=False)
-            yield Delete(
-                From=am,
-                Where=(am.LOCAL_RESOURCE_ID == local_id),
-            ).on(txn)
+            else:
+                yield record.delete()
 
         # Track which ones need attachment data sync'd over
         data_ids = set()
@@ -711,19 +669,18 @@ class CrossPodHomeSync(object):
         added = set(rmap.keys()) - set(mapping.keys())
         for added_id in added:
             attachment = yield ManagedAttachment._create(txn, None, self.homeId)
-            yield Insert(
-                {
-                    am.CALENDAR_HOME_RESOURCE_ID: self.homeId,
-                    am.REMOTE_RESOURCE_ID: added_id,
-                    am.LOCAL_RESOURCE_ID: attachment.id(),
-                }
-            ).on(txn)
+            yield AttachmentMigrationRecord.create(
+                txn,
+                calendarHomeResourceID=self.homeId,
+                remoteResourceID=added_id,
+                localResourceID=attachment.id(),
+            )
             data_ids.add(attachment.id())
 
         # Possible updates - check for md5 change and sync
         updates = set(mapping.keys()) & set(rmap.keys())
         for updated_id in updates:
-            local_id = mapping[updated_id]
+            local_id = mapping[updated_id].localResourceID
             if rmap[updated_id].md5() != lmap[local_id].md5():
                 yield lmap[local_id].copyRemote(rmap[updated_id])
                 data_ids.add(local_id)
@@ -744,19 +701,12 @@ class CrossPodHomeSync(object):
         if attachment is None:
             returnValue(None)
 
-        am = schema.ATTACHMENT_MIGRATION
-        rows = yield Select(
-            [am.LOCAL_RESOURCE_ID, am.REMOTE_RESOURCE_ID],
-            From=am,
-            Where=(am.CALENDAR_HOME_RESOURCE_ID == self.homeId),
-        ).on(txn)
-        mapping = dict(rows)
-        remote_id = mapping.get(local_id)
-        if remote_id is None:
-            returnValue(None)
-
-        # Read the data from the conduit
-        yield remote_home.readAttachmentData(remote_id, attachment)
+        records = yield AttachmentMigrationRecord.querysimple(
+            txn, calendarHomeResourceID=self.homeId, localResourceID=local_id
+        )
+        if records:
+            # Read the data from the conduit
+            yield remote_home.readAttachmentData(records[0].remoteResourceID, attachment)
 
 
     @inlineCallbacks
@@ -801,21 +751,15 @@ class CrossPodHomeSync(object):
         """
 
         # Get migration mappings
-        am = schema.ATTACHMENT_MIGRATION
-        rows = yield Select(
-            [am.REMOTE_RESOURCE_ID, am.LOCAL_RESOURCE_ID],
-            From=am,
-            Where=(am.CALENDAR_HOME_RESOURCE_ID == self.homeId),
-        ).on(txn)
-        attachmentIDMap = dict(rows)
+        records = yield AttachmentMigrationRecord.querysimple(
+            txn, calendarHomeResourceID=self.homeId
+        )
+        attachmentIDMap = dict([(record.remoteResourceID, record) for record in records])
 
-        com = schema.CALENDAR_OBJECT_MIGRATION
-        rows = yield Select(
-            [com.REMOTE_RESOURCE_ID, com.LOCAL_RESOURCE_ID],
-            From=com,
-            Where=(com.CALENDAR_HOME_RESOURCE_ID == self.homeId),
-        ).on(txn)
-        objectIDMap = dict(rows)
+        records = yield CalendarObjectMigrationRecord.querysimple(
+            txn, calendarHomeResourceID=self.homeId
+        )
+        objectIDMap = dict([(record.remoteResourceID, record) for record in records])
 
         returnValue((attachmentIDMap, objectIDMap,))
 
@@ -832,7 +776,7 @@ class CrossPodHomeSync(object):
             link._txn = txn
 
             # Now re-map the attachment ID and calendar_object_id to the local ones
-            link._attachmentID = attachmentIDMap[link._attachmentID]
-            link._calendarObjectID = objectIDMap[link._calendarObjectID]
+            link._attachmentID = attachmentIDMap[link._attachmentID].localResourceID
+            link._calendarObjectID = objectIDMap[link._calendarObjectID].localResourceID
 
             yield link.insert()

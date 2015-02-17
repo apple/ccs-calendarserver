@@ -275,7 +275,7 @@ class GroupCacherAPIMixin(object):
 
 
     def removeMemberFromGroup(self, memberUID, groupID):
-        return GroupMembershipRecord.deletematch(
+        return GroupMembershipRecord.deletesimple(
             self, groupID=groupID, memberUID=memberUID.encode("utf-8")
         )
 
@@ -499,12 +499,11 @@ class DelegatesAPIMixin(object):
             read-only access
         @type readWrite: C{boolean}
         """
-        return DelegateRecord.deletesome(
+        return DelegateRecord.deletesimple(
             self,
-            (DelegateRecord.delegator == delegator.encode("utf-8")).And(
-                DelegateRecord.delegate == delegate.encode("utf-8")).And(
-                DelegateRecord.readWrite == (1 if readWrite else 0)
-            ),
+            delegator=delegator.encode("utf-8"),
+            delegate=delegate.encode("utf-8"),
+            readWrite=(1 if readWrite else 0),
         )
 
 
@@ -519,11 +518,10 @@ class DelegatesAPIMixin(object):
             read-only access
         @type readWrite: C{boolean}
         """
-        return DelegateRecord.deletesome(
+        return DelegateRecord.deletesimple(
             self,
-            (DelegateRecord.delegator == delegator.encode("utf-8")).And(
-                DelegateRecord.readWrite == (1 if readWrite else 0)
-            ),
+            delegator=delegator.encode("utf-8"),
+            readWrite=(1 if readWrite else 0)
         )
 
 
@@ -540,12 +538,11 @@ class DelegatesAPIMixin(object):
             read-only access
         @type readWrite: C{boolean}
         """
-        return DelegateGroupsRecord.deletesome(
+        return DelegateGroupsRecord.deletesimple(
             self,
-            (DelegateGroupsRecord.delegator == delegator.encode("utf-8")).And(
-                DelegateGroupsRecord.groupID == delegateGroupID).And(
-                DelegateGroupsRecord.readWrite == (1 if readWrite else 0)
-            ),
+            delegator=delegator.encode("utf-8"),
+            groupID=delegateGroupID,
+            readWrite=(1 if readWrite else 0),
         )
 
 
@@ -560,11 +557,10 @@ class DelegatesAPIMixin(object):
             read-only access
         @type readWrite: C{boolean}
         """
-        return DelegateGroupsRecord.deletesome(
+        return DelegateGroupsRecord.deletesimple(
             self,
-            (DelegateGroupsRecord.delegator == delegator.encode("utf-8")).And(
-                DelegateGroupsRecord.readWrite == (1 if readWrite else 0)
-            ),
+            delegator=delegator.encode("utf-8"),
+            readWrite=(1 if readWrite else 0),
         )
 
 
@@ -734,17 +730,16 @@ class DelegatesAPIMixin(object):
         """
 
         # Delete existing external assignments for the delegator
-        yield DelegateGroupsRecord.deletesome(
+        yield DelegateGroupsRecord.deletesimple(
             self,
-            (DelegateGroupsRecord.delegator == str(delegator)).And(
-                DelegateGroupsRecord.isExternal == 1
-            )
+            delegator=str(delegator),
+            isExternal=1,
         )
 
         # Remove from the external comparison table
-        yield ExternalDelegateGroupsRecord.deletesome(
+        yield ExternalDelegateGroupsRecord.deletesimple(
             self,
-            ExternalDelegateGroupsRecord.delegator == str(delegator)
+            delegator=str(delegator),
         )
 
         # Store new assignments in the external comparison table

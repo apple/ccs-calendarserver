@@ -141,16 +141,16 @@ create table CALENDAR_METADATA (
 ------------------------
 
 create table CALENDAR_MIGRATION (
-  CALENDAR_HOME_RESOURCE_ID	integer references CALENDAR_HOME on delete cascade,
+  CALENDAR_HOME_RESOURCE_ID		integer references CALENDAR_HOME on delete cascade,
   REMOTE_RESOURCE_ID			integer not null,
-  CALENDAR_RESOURCE_ID			integer	references CALENDAR on delete cascade,
+  LOCAL_RESOURCE_ID				integer	references CALENDAR on delete cascade,
   LAST_SYNC_TOKEN				varchar(255),
    
   primary key (CALENDAR_HOME_RESOURCE_ID, REMOTE_RESOURCE_ID) -- implicit index
 );
 
-create index CALENDAR_MIGRATION_CALENDAR_RESOURCE_ID on
-  CALENDAR_MIGRATION(CALENDAR_RESOURCE_ID);
+create index CALENDAR_MIGRATION_LOCAL_RESOURCE_ID on
+  CALENDAR_MIGRATION(LOCAL_RESOURCE_ID);
 
 
 ---------------------------

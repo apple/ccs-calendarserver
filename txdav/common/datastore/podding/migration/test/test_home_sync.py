@@ -20,6 +20,7 @@ from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.ical import Component, normalize_iCalStr
 from txdav.caldav.datastore.sql import ManagedAttachment
 from txdav.common.datastore.podding.migration.home_sync import CrossPodHomeSync
+from txdav.common.datastore.podding.migration.migration_metadata import CalendarMigrationRecord
 from txdav.common.datastore.podding.test.util import MultiStoreConduitTest
 from txdav.common.datastore.sql_tables import schema
 from txweb2.http_headers import MimeType
@@ -191,7 +192,13 @@ END:VCALENDAR
         for calendar in calendars01:
             if calendar.owned():
                 sync_token = yield calendar.syncToken()
-                results01[calendar.id()] = CrossPodHomeSync.CalendarSyncState(0, sync_token)
+                results01[calendar.id()] = CalendarMigrationRecord.make(
+                    calendarHomeResourceID=home01.id(),
+                    remoteResourceID=calendar.id(),
+                    localResourceID=0,
+                    lastSyncToken=sync_token,
+                )
+
         yield self.commitTransaction(0)
 
         syncer = CrossPodHomeSync(self.theStoreUnderTest(1), "user01")
@@ -225,7 +232,12 @@ END:VCALENDAR
 
         # Trigger sync of the one calendar
         local_sync_state = {}
-        remote_sync_state = {remote_id: CrossPodHomeSync.CalendarSyncState(0, remote_sync_token)}
+        remote_sync_state = {remote_id: CalendarMigrationRecord.make(
+            calendarHomeResourceID=home0.id(),
+            remoteResourceID=remote_id,
+            localResourceID=0,
+            lastSyncToken=remote_sync_token,
+        )}
         yield syncer.syncCalendar(
             remote_id,
             local_sync_state,

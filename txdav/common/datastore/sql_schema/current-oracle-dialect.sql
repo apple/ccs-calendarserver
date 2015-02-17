@@ -72,7 +72,7 @@ create table CALENDAR_METADATA (
 create table CALENDAR_MIGRATION (
     "CALENDAR_HOME_RESOURCE_ID" integer references CALENDAR_HOME on delete cascade,
     "REMOTE_RESOURCE_ID" integer not null,
-    "CALENDAR_RESOURCE_ID" integer references CALENDAR on delete cascade,
+    "LOCAL_RESOURCE_ID" integer references CALENDAR on delete cascade,
     "LAST_SYNC_TOKEN" nvarchar2(255), 
     primary key ("CALENDAR_HOME_RESOURCE_ID", "REMOTE_RESOURCE_ID")
 );
@@ -647,8 +647,8 @@ create index CALENDAR_HOME_METADAT_910264ce on CALENDAR_HOME_METADATA (
     DEFAULT_POLLS
 );
 
-create index CALENDAR_MIGRATION_CA_cc68f4ec on CALENDAR_MIGRATION (
-    CALENDAR_RESOURCE_ID
+create index CALENDAR_MIGRATION_LO_0525c72b on CALENDAR_MIGRATION (
+    LOCAL_RESOURCE_ID
 );
 
 create index NOTIFICATION_NOTIFICA_f891f5f9 on NOTIFICATION (
