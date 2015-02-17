@@ -20,7 +20,7 @@ from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.ical import Component, normalize_iCalStr
 from txdav.caldav.datastore.sql import ManagedAttachment
 from txdav.common.datastore.podding.migration.home_sync import CrossPodHomeSync
-from txdav.common.datastore.podding.migration.migration_metadata import CalendarMigrationRecord
+from txdav.common.datastore.podding.migration.sync_metadata import CalendarMigrationRecord
 from txdav.common.datastore.podding.test.util import MultiStoreConduitTest
 from txdav.common.datastore.sql_tables import schema
 from txweb2.http_headers import MimeType

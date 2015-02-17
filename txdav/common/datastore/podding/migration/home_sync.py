@@ -20,7 +20,7 @@ from twext.python.log import Logger
 from twisted.internet.defer import returnValue, inlineCallbacks
 from twisted.python.failure import Failure
 from txdav.caldav.icalendarstore import ComponentUpdateState
-from txdav.common.datastore.podding.migration.migration_metadata import CalendarMigrationRecord, \
+from txdav.common.datastore.podding.migration.sync_metadata import CalendarMigrationRecord, \
     CalendarObjectMigrationRecord, AttachmentMigrationRecord
 from txdav.caldav.datastore.sql import ManagedAttachment
 from txdav.common.idirectoryservice import DirectoryRecordNotFoundError
