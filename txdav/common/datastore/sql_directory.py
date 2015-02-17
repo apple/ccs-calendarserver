@@ -16,7 +16,7 @@
 ##
 
 from twext.enterprise.dal.record import SerializableRecord, fromTable
-from twext.enterprise.dal.syntax import SavepointAction
+from twext.enterprise.dal.syntax import SavepointAction, Select
 from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
 from txdav.common.datastore.sql_tables import schema
@@ -147,6 +147,38 @@ class DelegateGroupsRecord(SerializableRecord, fromTable(schema.DELEGATE_GROUPS)
                 )
             ),
         )
+
+
+    @classmethod
+    @inlineCallbacks
+    def delegatorGroups(cls, txn, delegator):
+        """
+        Get delegator/group pairs for the specified delegator.
+        """
+
+        # Do a join to get what we need
+        rows = yield Select(
+            list(DelegateGroupsRecord.table) + list(GroupsRecord.table),
+            From=DelegateGroupsRecord.table.join(GroupsRecord.table, DelegateGroupsRecord.groupID == GroupsRecord.groupID),
+            Where=(DelegateGroupsRecord.delegator == delegator.encode("utf-8"))
+        ).on(txn)
+
+        results = []
+        delegatorNames = [DelegateGroupsRecord.__colmap__[column] for column in list(DelegateGroupsRecord.table)]
+        groupsNames = [GroupsRecord.__colmap__[column] for column in list(GroupsRecord.table)]
+        split_point = len(delegatorNames)
+        for row in rows:
+            delegatorRow = row[:split_point]
+            delegatorRecord = DelegateGroupsRecord()
+            delegatorRecord._attributesFromRow(zip(delegatorNames, delegatorRow))
+            delegatorRecord.transaction = txn
+            groupsRow = row[split_point:]
+            groupsRecord = GroupsRecord()
+            groupsRecord._attributesFromRow(zip(groupsNames, groupsRow))
+            groupsRecord.transaction = txn
+            results.append((delegatorRecord, groupsRecord,))
+
+        returnValue(results)
 
 
 
@@ -766,3 +798,51 @@ class DelegatesAPIMixin(object):
             yield self.addDelegateGroup(
                 delegator, writeDelegateGroupID, True, isExternal=True
             )
+
+
+    def dumpIndividualDelegatesLocal(self, delegator):
+        """
+        Get the L{DelegateRecord} for all delegates associated with this delegator.
+        """
+        return DelegateRecord.querysimple(self, delegator=delegator.encode("utf-8"))
+
+
+    @inlineCallbacks
+    def dumpIndividualDelegatesExternal(self, delegator):
+        """
+        Get the L{DelegateRecord} for all delegates associated with this delegator.
+        """
+        raw_results = yield self.store().conduit.send_dump_individual_delegates(self, delegator)
+        returnValue([DelegateRecord.deserialize(row) for row in raw_results])
+
+
+    def dumpGroupDelegatesLocal(self, delegator):
+        """
+        Get the L{DelegateGroupsRecord},L{GroupsRecord} for all group delegates associated with this delegator.
+        """
+        return DelegateGroupsRecord.delegatorGroups(self, delegator)
+
+
+    @inlineCallbacks
+    def dumpGroupDelegatesExternal(self, delegator):
+        """
+        Get the L{DelegateGroupsRecord},L{GroupsRecord} for all delegates associated with this delegator.
+        """
+        raw_results = yield self.store().conduit.send_dump_group_delegates(self, delegator)
+        returnValue([(DelegateGroupsRecord.deserialize(row[0]), GroupsRecord.deserialize(row[1]),) for row in raw_results])
+
+
+    def dumpExternalDelegatesLocal(self, delegator):
+        """
+        Get the L{ExternalDelegateGroupsRecord} for all delegates associated with this delegator.
+        """
+        return ExternalDelegateGroupsRecord.querysimple(self, delegator=delegator.encode("utf-8"))
+
+
+    @inlineCallbacks
+    def dumpExternalDelegatesExternal(self, delegator):
+        """
+        Get the L{ExternalDelegateGroupsRecord} for all delegates associated with this delegator.
+        """
+        raw_results = yield self.store().conduit.send_dump_external_delegates(self, delegator)
+        returnValue([ExternalDelegateGroupsRecord.deserialize(row) for row in raw_results])

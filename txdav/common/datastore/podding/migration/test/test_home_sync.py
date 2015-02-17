@@ -22,14 +22,17 @@ from txdav.caldav.datastore.sql import ManagedAttachment
 from txdav.common.datastore.podding.migration.home_sync import CrossPodHomeSync
 from txdav.common.datastore.podding.migration.sync_metadata import CalendarMigrationRecord
 from txdav.common.datastore.podding.test.util import MultiStoreConduitTest
+from txdav.common.datastore.sql_directory import DelegateRecord, \
+    ExternalDelegateGroupsRecord, DelegateGroupsRecord
 from txdav.common.datastore.sql_tables import schema
+from txdav.who.delegates import Delegates
 from txweb2.http_headers import MimeType
 from txweb2.stream import MemoryStream
 
 
-class TestConduitAPI(MultiStoreConduitTest):
+class TestCrossPodHomeSync(MultiStoreConduitTest):
     """
-    Test that the conduit api works.
+    Test that L{CrossPodHomeSync} works.
     """
 
     nowYear = {"now": DateTime.getToday().getYear()}
@@ -698,3 +701,89 @@ END:VCALENDAR
         attachment = yield object1.attachmentWithManagedID(managedid0_1)
         self.assertTrue(attachment is not None)
         self.assertEqual(attachment.md5(), md50_1)
+
+
+    @inlineCallbacks
+    def test_delegate_reconcile(self):
+        """
+        Test that L{delegateReconcile} copies over the full set of delegates and caches associated groups..
+        """
+
+        # Create remote home
+        yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
+        yield self.commitTransaction(0)
+
+        # Add some delegates
+        txn = self.theTransactionUnderTest(0)
+        record01 = yield txn.directoryService().recordWithUID(u"user01")
+        record02 = yield txn.directoryService().recordWithUID(u"user02")
+        record03 = yield txn.directoryService().recordWithUID(u"user03")
+
+        group01 = yield txn.directoryService().recordWithUID(u"__top_group_1__")
+        group02 = yield txn.directoryService().recordWithUID(u"right_coast")
+
+        # Add user02 and user03 as individual delegates
+        yield Delegates.addDelegate(txn, record01, record02, True)
+        yield Delegates.addDelegate(txn, record01, record03, False)
+
+        # Add group delegates
+        yield Delegates.addDelegate(txn, record01, group01, True)
+        yield Delegates.addDelegate(txn, record01, group02, False)
+
+        # Add external delegates
+        yield txn.assignExternalDelegates(u"user01", None, None, u"external1", u"external2")
+
+        yield self.commitTransaction(0)
+
+
+        # Initially no local delegates
+        txn = self.theTransactionUnderTest(1)
+        delegates = yield txn.dumpIndividualDelegatesLocal(u"user01")
+        self.assertEqual(len(delegates), 0)
+        delegates = yield txn.dumpGroupDelegatesLocal(u"user04")
+        self.assertEqual(len(delegates), 0)
+        externals = yield txn.dumpExternalDelegatesLocal(u"user01")
+        self.assertEqual(len(externals), 0)
+        yield self.commitTransaction(1)
+
+        # Sync from remote side
+        syncer = CrossPodHomeSync(self.theStoreUnderTest(1), "user01")
+        yield syncer.loadRecord()
+        yield syncer.delegateReconcile()
+
+        # Now have local delegates
+        txn = self.theTransactionUnderTest(1)
+
+        delegates = yield txn.dumpIndividualDelegatesLocal(u"user01")
+        self.assertEqual(
+            set(delegates),
+            set((
+                DelegateRecord.make(delegator="user01", delegate="user02", readWrite=1),
+                DelegateRecord.make(delegator="user01", delegate="user03", readWrite=0),
+            )),
+        )
+
+        delegateGroups = yield txn.dumpGroupDelegatesLocal(u"user01")
+        group_top = yield txn.groupByUID(u"__top_group_1__")
+        group_right = yield txn.groupByUID(u"right_coast")
+        self.assertEqual(
+            set([item[0] for item in delegateGroups]),
+            set((
+                DelegateGroupsRecord.make(delegator="user01", groupID=group_top.groupID, readWrite=1, isExternal=False),
+                DelegateGroupsRecord.make(delegator="user01", groupID=group_right.groupID, readWrite=0, isExternal=False),
+            )),
+        )
+
+        externals = yield txn.dumpExternalDelegatesLocal(u"user01")
+        self.assertEqual(
+            set(externals),
+            set((
+                ExternalDelegateGroupsRecord.make(
+                    delegator="user01",
+                    groupUIDRead="external1",
+                    groupUIDWrite="external2",
+                ),
+            )),
+        )
+
+        yield self.commitTransaction(1)

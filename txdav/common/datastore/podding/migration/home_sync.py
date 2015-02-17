@@ -150,12 +150,13 @@ class CrossPodHomeSync(object):
         yield self.loadRecord()
         self.homeId = yield self.prepareCalendarHome()
 
+        # Calendar list and calendar data
         yield self.syncCalendarList()
 
-        # sync home metadata such as alarms, default calendars, etc
+        # Sync home metadata such as alarms, default calendars, etc
         yield self.syncCalendarHomeMetaData()
 
-        # TODO: sync attachments
+        # Sync attachments
         yield self.syncAttachments()
 
 
@@ -166,7 +167,7 @@ class CrossPodHomeSync(object):
         rows, recalculate quota etc.
         """
 
-        # TODO: link attachments to resources: ATTACHMENT_CALENDAR_OBJECT table
+        # Link attachments to resources: ATTACHMENT_CALENDAR_OBJECT table
         yield self.linkAttachments()
 
         # TODO: Re-write attachment URIs - not sure if we need this as reverse proxy may take care of it
@@ -182,7 +183,7 @@ class CrossPodHomeSync(object):
         pass
 
         # TODO: delegates reconcile
-        pass
+        yield self.delegateReconcile()
 
         # TODO: notifications
         pass
@@ -780,3 +781,54 @@ class CrossPodHomeSync(object):
             link._calendarObjectID = objectIDMap[link._calendarObjectID].localResourceID
 
             yield link.insert()
+
+
+    @inlineCallbacks
+    def delegateReconcile(self):
+        """
+        Sync the delegate assignments from the remote home to the local home. We won't use
+        a fake directory UID locally.
+        """
+
+        yield self.individualDelegateReconcile()
+        yield self.groupDelegateReconcile()
+        yield self.externalDelegateReconcile()
+
+
+    @inTransactionWrapper
+    @inlineCallbacks
+    def individualDelegateReconcile(self, txn):
+        """
+        Sync the delegate assignments from the remote home to the local home. We won't use
+        a fake directory UID locally.
+        """
+        remote_records = yield txn.dumpIndividualDelegatesExternal(self.record)
+        for record in remote_records:
+            yield record.insert(txn)
+
+
+    @inTransactionWrapper
+    @inlineCallbacks
+    def groupDelegateReconcile(self, txn):
+        """
+        Sync the delegate assignments from the remote home to the local home. We won't use
+        a fake directory UID locally.
+        """
+        remote_records = yield txn.dumpGroupDelegatesExternal(self.record)
+        for delegator, group in remote_records:
+            # We need to make sure the group exists locally first and map the groupID to the local one
+            local_group = yield txn.groupByUID(group.groupUID)
+            delegator.groupID = local_group.groupID
+            yield delegator.insert(txn)
+
+
+    @inTransactionWrapper
+    @inlineCallbacks
+    def externalDelegateReconcile(self, txn):
+        """
+        Sync the external delegate assignments from the remote home to the local home. We won't use
+        a fake directory UID locally.
+        """
+        remote_records = yield txn.dumpExternalDelegatesExternal(self.record)
+        for record in remote_records:
+            yield record.insert(txn)
