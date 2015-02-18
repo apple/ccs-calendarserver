@@ -71,7 +71,7 @@ detect_python_version () {
   do
     for p in         \
       "${PYTHON:=}"  \
-      "pypy${v}"     \
+      # "pypy${v}"     \
       "python${v}"   \
       ;
     do
