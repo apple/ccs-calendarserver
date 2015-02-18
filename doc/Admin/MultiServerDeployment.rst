@@ -10,7 +10,7 @@ Calendar Server version 3 and later uses a database as the primary data store, i
 
 * `Memcached`_: All Calendar Server hosts need to share access to memcached
 
-* `Proxy Database`_: Normally the Proxy (delegation) database is kept in a local sqlite database, which is not sharable. Create an additional database on the DB server to hold the Proxy DB, then configure all the servers to use it.
+* `Proxy Database`_: In previous versions, the proxy (delegate) database was a separate SQLite or Postgres container, however as of 6.0 this data is stored in the primary database along with other user data, so no special steps are required here.
 
 * `Directory Services`_: All servers should have access to the same directory services data that defines users, groups, resources, and locations. Calendar Server provides a highly flexible LDAP client to leverage existing directory servers, or you can use local XML files.
 
@@ -122,6 +122,8 @@ In this configuration, the administrator is expected to ensure that there is a m
 ----------------
 Proxy Database
 ----------------
+
+As of version 6.0, the proxy data is stored in the main database, and no special steps are required to configure a multi-server deployment to share proxy data. The rest of the information in this section applies only to server versions before 6.0.
 
 The Proxy DB (for delegation) is typically stored on disk in an sqlite DB, which does not allow for concurrent access across multiple hosts. To address this, create an additional DB in the postgres server, then edit caldavd.plist to add something like the following, and disable any other ProxyDB configuration.
 
