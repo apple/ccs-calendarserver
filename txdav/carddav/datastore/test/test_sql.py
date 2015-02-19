@@ -580,7 +580,7 @@ END:VCARD
 
         aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
         foreignMemberRows = yield Select([aboForeignMembers.GROUP_ID, aboForeignMembers.MEMBER_ADDRESS], From=aboForeignMembers).on(txn)
-        self.assertEqual(foreignMemberRows, [[groupObject._resourceID, "urn:uuid:uid3"]])
+        self.assertEqual(map(list, foreignMemberRows), [[groupObject._resourceID, "urn:uuid:uid3"]])
 
         subgroup = VCard.fromString(
             """BEGIN:VCARD
@@ -598,10 +598,13 @@ END:VCARD
         subgroupObject = yield adbk.createAddressBookObjectWithName("sg.vcf", subgroup)
 
         memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers, Where=aboMembers.REMOVED == False).on(txn)
-        self.assertEqual(sorted(memberRows), sorted([
-            [groupObject._resourceID, subgroupObject._resourceID],
-            [subgroupObject._resourceID, personObject._resourceID],
-        ]))
+        self.assertEqual(
+            map(list, sorted(memberRows)),
+            sorted([
+                [groupObject._resourceID, subgroupObject._resourceID],
+                [subgroupObject._resourceID, personObject._resourceID],
+            ])
+        )
 
         foreignMemberRows = yield Select([aboForeignMembers.GROUP_ID, aboForeignMembers.MEMBER_ADDRESS], From=aboForeignMembers).on(txn)
         self.assertEqual(foreignMemberRows, [])
@@ -627,7 +630,10 @@ END:VCARD
         foreignMemberRows = yield Select(
             [aboForeignMembers.GROUP_ID, aboForeignMembers.MEMBER_ADDRESS], From=aboForeignMembers,
         ).on(txn)
-        self.assertEqual(foreignMemberRows, [[groupObject._resourceID, "urn:uuid:uid3"]])
+        self.assertEqual(
+            map(list, foreignMemberRows),
+            [[groupObject._resourceID, "urn:uuid:uid3"]]
+        )
 
         yield home.removeAddressBookWithName("addressbook")
         yield txn.commit()

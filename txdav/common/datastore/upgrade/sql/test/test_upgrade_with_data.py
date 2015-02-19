@@ -175,7 +175,7 @@ END:VCALENDAR
         self.assertEqual(len(schedules), 1)
         self.assertEqual(len(replies), 1)
 
-        self.assertEqual(replies[0], [1, 1, None, cal1, ])
+        self.assertEqual(list(replies[0]), [1, 1, None, cal1, ])
 
 
     @inlineCallbacks
@@ -271,4 +271,4 @@ END:VCALENDAR
         self.assertEqual(len(schedules), 1)
         self.assertEqual(len(replies), 1)
 
-        self.assertEqual(replies[0], [1, 1, 3, None, ])
+        self.assertEqual(list(replies[0]), [1, 1, 3, None, ])

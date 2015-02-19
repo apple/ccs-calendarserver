@@ -29,6 +29,8 @@ from txdav.base.datastore.subpostgres import PostgresService
 from twisted.internet.defer import inlineCallbacks, Deferred
 from twisted.application.service import Service
 
+
+
 class SubprocessStartup(TestCase):
     """
     Tests for starting and stopping the subprocess.
@@ -44,6 +46,7 @@ class SubprocessStartup(TestCase):
         """
 
         test = self
+
         class SimpleService1(Service):
 
             instances = []
@@ -82,7 +85,7 @@ class SubprocessStartup(TestCase):
         cursor = connection.cursor()
         cursor.execute("select * from test_dummy_table")
         values = cursor.fetchall()
-        self.assertEquals(values, [["dummy"]])
+        self.assertEquals(map(list, values), [["dummy"]])
 
 
     @inlineCallbacks
@@ -95,6 +98,7 @@ class SubprocessStartup(TestCase):
         """
 
         test = self
+
         class SimpleService2(Service):
 
             instances = []
@@ -134,7 +138,7 @@ class SubprocessStartup(TestCase):
         cursor = connection.cursor()
         cursor.execute("select * from test_dummy_table")
         values = cursor.fetchall()
-        self.assertEquals(values, [["dummy"]])
+        self.assertEquals(map(list, values), [["dummy"]])
 
 
     @inlineCallbacks
@@ -147,6 +151,7 @@ class SubprocessStartup(TestCase):
         """
 
         test = self
+
         class SimpleService1(Service):
 
             instances = []
@@ -171,8 +176,11 @@ class SubprocessStartup(TestCase):
                 finally:
                     cursor.close()
 
-        # The SQL in importFile.sql will get executed, including the insertion of "value1"
-        importFileName = CachingFilePath(__file__).parent().child("importFile.sql").path
+        # The SQL in importFile.sql will get executed, including the insertion
+        # of "value1"
+        importFileName = (
+            CachingFilePath(__file__).parent().child("importFile.sql").path
+        )
         svc = PostgresService(
             CachingFilePath("postgres_3.pgdb"),
             SimpleService1,
@@ -188,4 +196,4 @@ class SubprocessStartup(TestCase):
         cursor = connection.cursor()
         cursor.execute("select * from import_test_table")
         values = cursor.fetchall()
-        self.assertEquals(values, [["value1"], ["value2"]])
+        self.assertEquals(map(list, values), [["value1"], ["value2"]])

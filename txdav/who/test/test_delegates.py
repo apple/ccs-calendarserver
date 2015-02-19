@@ -269,7 +269,7 @@ class DelegationTest(StoreTestCase):
             )
         )
         yield txn.commit()
-        self.assertEquals([["__sagen1__"]], results)
+        self.assertEquals([["__sagen1__"]], map(list, results))
 
         # Delegate groups:
         group1 = yield self.directory.recordWithUID(u"__top_group_1__")
@@ -291,7 +291,7 @@ class DelegationTest(StoreTestCase):
             )
         )
         yield txn.commit()
-        self.assertEquals([["__top_group_1__"]], results)
+        self.assertEquals([["__top_group_1__"]], map(list, results))
 
 
 

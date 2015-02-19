@@ -92,8 +92,10 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         self.patch(self.store, "logTransactionWaits", 1)
 
         ctr = [0]
+
         def counter(*args, **kwargs):
             ctr[0] += 1
+
         self.patch(log, "error", counter)
 
         txn = self.transactionUnderTest()
@@ -115,8 +117,10 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         self.patch(self.store, "timeoutTransactions", 1)
 
         ctr = [0]
+
         def counter(*args, **kwargs):
             ctr[0] += 1
+
         self.patch(log, "error", counter)
 
         txn = self.transactionUnderTest()
@@ -130,7 +134,8 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
 
     def test_logWaitsAndTxnTimeout(self):
         """
-        CommonStoreTransactionMonitor logs waiting transactions and terminates long transactions.
+        CommonStoreTransactionMonitor logs waiting transactions and terminates
+        long transactions.
         """
 
         c = Clock()
@@ -141,11 +146,13 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         self.patch(self.store, "timeoutTransactions", 2)
 
         ctr = [0, 0]
+
         def counter(logStr, *args, **kwargs):
             if "wait" in logStr:
                 ctr[0] += 1
             elif "abort" in logStr:
                 ctr[1] += 1
+
         self.patch(log, "error", counter)
 
         txn = self.transactionUnderTest()
@@ -270,11 +277,13 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         cs = schema.CALENDARSERVER
         yield Select([cs.VALUE], From=cs).on(txn)
         waitAMoment = Deferred()
+
         @inlineCallbacks
         def later(subtxn):
             yield waitAMoment
             value = yield Select([cs.VALUE], From=cs).on(subtxn)
             returnValue(value)
+
         started = txn.subtransaction(later)
         txn.abort()
         waitAMoment.callback(True)
@@ -365,15 +374,23 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         from txdav.common.datastore.sql import _normalizeColumnUUIDs
         yield _normalizeColumnUUIDs(txn, rp.VIEWER_UID)
         self.assertEqual(
-            (yield Select(
-                [rp.RESOURCE_ID, rp.NAME,
-                    rp.VALUE, rp.VIEWER_UID],
-                From=rp,
-                OrderBy=rp.RESOURCE_ID, Ascending=True,
-            ).on(txn)),
-            [[1, "asdf", "property-value", "not-a-uuid"],
-             [2, "fdsa", "another-value",
-              "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA"]]
+            map(
+                list,
+                (
+                    yield Select(
+                        [rp.RESOURCE_ID, rp.NAME, rp.VALUE, rp.VIEWER_UID],
+                        From=rp,
+                        OrderBy=rp.RESOURCE_ID, Ascending=True,
+                    ).on(txn)
+                )
+            ),
+            [
+                [1, "asdf", "property-value", "not-a-uuid"],
+                [
+                    2, "fdsa",
+                    "another-value", "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA"
+                ]
+            ]
         )
 
 
@@ -399,7 +416,10 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         yield t1.calendarHomeWithUID(denormalizedUID, create=True)
         yield self.commit()
         yield fixUUIDNormalization(self.storeUnderTest())
-        self.assertEqual((yield self.allHomeUIDs()), [[normalizedUID]])
+        self.assertEqual(
+            map(list, (yield self.allHomeUIDs())),
+            [[normalizedUID]]
+        )
 
 
     @inlineCallbacks
@@ -413,8 +433,10 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         yield t1.notificationsWithUID(denormalizedUID, create=True)
         yield self.commit()
         yield fixUUIDNormalization(self.storeUnderTest())
-        self.assertEqual((yield self.allHomeUIDs(schema.NOTIFICATION_HOME)),
-                         [[normalizedUID]])
+        self.assertEqual(
+            map(list, (yield self.allHomeUIDs(schema.NOTIFICATION_HOME))),
+            [[normalizedUID]]
+        )
 
 
     @inlineCallbacks
@@ -428,8 +450,10 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         yield t1.addressbookHomeWithUID(denormalizedUID, create=True)
         yield self.commit()
         yield fixUUIDNormalization(self.storeUnderTest())
-        self.assertEqual((yield self.allHomeUIDs(schema.ADDRESSBOOK_HOME)),
-                         [[normalizedUID]])
+        self.assertEqual(
+            map(list, (yield self.allHomeUIDs(schema.ADDRESSBOOK_HOME))),
+            [[normalizedUID]]
+        )
 
 
     @inlineCallbacks

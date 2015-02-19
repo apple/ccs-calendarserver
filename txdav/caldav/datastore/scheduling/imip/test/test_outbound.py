@@ -544,7 +544,7 @@ END:VCALENDAR
 
         txn = self.store.newTransaction()
         self.assertEquals(
-            (yield txn.imipLookupByToken(token1)),
+            map(list, (yield txn.imipLookupByToken(token1))),
             [["organizer", "attendee", "icaluid"]])
         yield txn.commit()
 
@@ -704,7 +704,7 @@ END:VCALENDAR
         """
         class StubElement(Element):
             loader = StringFormatTemplateLoader(
-                lambda : StringIO(
+                lambda: StringIO(
                     "<test><alpha>%(slot1)s</alpha>%(other)s</test>"
                 ),
                 "testRenderHere"
@@ -716,8 +716,10 @@ END:VCALENDAR
                                      other="world")
         result = []
         flattenString(None, StubElement()).addCallback(result.append)
-        self.assertEquals(result,
-                          ["<test><alpha>hello</alpha>world</test>"])
+        self.assertEquals(
+            list(result),
+            ["<test><alpha>hello</alpha>world</test>"]
+        )
 
 
     def test_templateLoaderWithAttributes(self):
@@ -728,7 +730,7 @@ END:VCALENDAR
         """
         class StubElement(Element):
             loader = StringFormatTemplateLoader(
-                lambda : StringIO(
+                lambda: StringIO(
                     '<test><alpha beta="before %(slot1)s after">inner</alpha>'
                     '%(other)s</test>'
                 ),
@@ -741,9 +743,13 @@ END:VCALENDAR
                                      other="world")
         result = []
         flattenString(None, StubElement()).addCallback(result.append)
-        self.assertEquals(result,
-                          ['<test><alpha beta="before hello after">'
-                           'inner</alpha>world</test>'])
+        self.assertEquals(
+            result,
+            [
+                '<test><alpha beta="before hello after">'
+                'inner</alpha>world</test>'
+            ]
+        )
 
 
     def test_templateLoaderTagSoup(self):
@@ -755,7 +761,7 @@ END:VCALENDAR
         """
         class StubElement(Element):
             loader = StringFormatTemplateLoader(
-                lambda : StringIO(
+                lambda: StringIO(
                     '<test><alpha beta="before %(slot1)s after">inner</alpha>'
                     '%(other)s'
                 ),
