@@ -173,17 +173,17 @@ class CrossPodHomeSync(object):
         # TODO: Re-write attachment URIs - not sure if we need this as reverse proxy may take care of it
         pass
 
-        # TODO: shared collections reconcile
-        pass
-
         # TODO: group attendee reconcile
+        yield self.groupAttendeeReconcile()
+
+        # TODO: delegates reconcile
+        yield self.delegateReconcile()
+
+        # TODO: shared collections reconcile
         pass
 
         # TODO: group sharee reconcile
         pass
-
-        # TODO: delegates reconcile
-        yield self.delegateReconcile()
 
         # TODO: notifications
         pass
@@ -259,8 +259,13 @@ class CrossPodHomeSync(object):
         """
 
         remote_home = yield self._remoteHome(txn=txn)
+        yield remote_home.readMetaData()
+
+        calendars = yield CalendarMigrationRecord.querysimple(txn, calendarHomeResourceID=self.homeId)
+        calendarIDMap = dict((item.remoteResourceID, item.localResourceID) for item in calendars)
+
         local_home = yield txn.calendarHomeWithUID(self.migratingUid())
-        yield local_home.copyMetadata(remote_home)
+        yield local_home.copyMetadata(remote_home, calendarIDMap)
 
 
     @inlineCallbacks
@@ -832,3 +837,56 @@ class CrossPodHomeSync(object):
         remote_records = yield txn.dumpExternalDelegatesExternal(self.record)
         for record in remote_records:
             yield record.insert(txn)
+
+
+    @inlineCallbacks
+    def groupAttendeeReconcile(self):
+        """
+        Sync the remote group attendee links to the local store.
+        """
+
+        # Get remote data and local mapping information
+        remote_group_attendees, objectIDMap = yield self.groupAttendeeData()
+
+        # Map each result to a local resource (in batches)
+        number_of_links = len(remote_group_attendees)
+        while remote_group_attendees:
+            yield self.groupAttendeeProcess(remote_group_attendees[:50], objectIDMap)
+            remote_group_attendees = remote_group_attendees[50:]
+
+        returnValue(number_of_links)
+
+
+    @inTransactionWrapper
+    @inlineCallbacks
+    def groupAttendeeData(self, txn):
+        """
+        Sync the remote group attendee links to the local store.
+        """
+        remote_home = yield self._remoteHome(txn)
+        remote_group_attendees = yield remote_home.getAllGroupAttendees()
+
+        # Get all remote->local object maps
+        records = yield CalendarObjectMigrationRecord.querysimple(
+            txn, calendarHomeResourceID=self.homeId
+        )
+        objectIDMap = dict([(record.remoteResourceID, record.localResourceID) for record in records])
+
+        returnValue((remote_group_attendees, objectIDMap,))
+
+
+    @inTransactionWrapper
+    @inlineCallbacks
+    def groupAttendeeProcess(self, txn, results, objectIDMap):
+        """
+        Sync the remote group attendee links to the local store.
+        """
+        # Map each result to a local resource
+        for groupAttendee, group in results:
+            local_group = yield txn.groupByUID(group.groupUID)
+            groupAttendee.groupID = local_group.groupID
+            try:
+                groupAttendee.resourceID = objectIDMap[groupAttendee.resourceID]
+            except KeyError:
+                continue
+            yield groupAttendee.insert(txn)

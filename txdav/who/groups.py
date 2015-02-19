@@ -20,13 +20,15 @@ Group membership caching
 """
 
 from twext.enterprise.dal.record import fromTable
-from twext.enterprise.dal.syntax import Delete, Select, Parameter
+from twext.enterprise.dal.syntax import Select
 from twext.enterprise.jobqueue import AggregatedWorkItem, RegeneratingWorkItem
 from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed, \
     DeferredList
 from twistedcaldav.config import config
 from txdav.caldav.datastore.sql import CalendarStoreFeatures
+from txdav.caldav.datastore.sql_directory import GroupAttendeeRecord
+from txdav.common.datastore.sql_directory import GroupsRecord
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 import datetime
 import itertools
@@ -268,33 +270,28 @@ class GroupCacher(object):
         #     "Groups to refresh: {g}", g=groupUIDs
         # )
 
-        gr = schema.GROUPS
         if config.AutomaticPurging.Enabled and groupUIDs:
             # remove unused groups and groups that have not been seen in a while
             dateLimit = (
                 datetime.datetime.utcnow() -
                 datetime.timedelta(seconds=float(config.AutomaticPurging.GroupPurgeIntervalSeconds))
             )
-            rows = yield Delete(
-                From=gr,
-                Where=(
-                    (gr.EXTANT == 0).And(gr.MODIFIED < dateLimit)
+            rows = yield GroupsRecord.deletesome(
+                txn,
+                (
+                    (GroupsRecord.extant == 0).And(GroupsRecord.modified < dateLimit)
                 ).Or(
-                    gr.GROUP_UID.NotIn(
-                        Parameter("groupUIDs", len(groupUIDs))
-                    )
-                ) if groupUIDs else None,
-                Return=[gr.GROUP_UID]
-            ).on(txn, groupUIDs=groupUIDs)
+                    GroupsRecord.groupUID.NotIn(groupUIDs)
+                ),
+                returnCols=GroupsRecord.groupUID,
+            )
         else:
             # remove unused groups
-            rows = yield Delete(
-                From=gr,
-                Where=gr.GROUP_UID.NotIn(
-                    Parameter("groupUIDs", len(groupUIDs))
-                ) if groupUIDs else None,
-                Return=[gr.GROUP_UID]
-            ).on(txn, groupUIDs=groupUIDs)
+            rows = yield GroupsRecord.deletesome(
+                txn,
+                GroupsRecord.groupUID.NotIn(groupUIDs) if groupUIDs else None,
+                returnCols=GroupsRecord.groupUID,
+            )
         deletedGroupUIDs = [row[0] for row in rows]
         if deletedGroupUIDs:
             self.log.debug("Deleted old or unused groups {d}", d=deletedGroupUIDs)
@@ -465,19 +462,15 @@ class GroupCacher(object):
         work items for them.
         returns: WorkProposal
         """
-        ga = schema.GROUP_ATTENDEE
-        rows = yield Select(
-            [ga.RESOURCE_ID, ],
-            From=ga,
-            Where=ga.GROUP_ID == groupID,
-        ).on(txn)
+
+        records = yield GroupAttendeeRecord.querysimple(txn, groupID=groupID)
 
         wps = []
-        for [eventID] in rows:
+        for record in records:
             wp = yield GroupAttendeeReconciliationWork.reschedule(
                 txn,
                 seconds=float(config.GroupAttendees.ReconciliationDelaySeconds),
-                resourceID=eventID,
+                resourceID=record.resourceID,
                 groupID=groupID,
             )
             wps.append(wp)
@@ -531,20 +524,15 @@ class GroupCacher(object):
             )
 
         # Get groupUIDs for all group attendees
-        ga = schema.GROUP_ATTENDEE
-        gr = schema.GROUPS
-        rows = yield Select(
-            [gr.GROUP_UID],
-            From=gr,
-            Where=gr.GROUP_ID.In(
-                Select(
-                    [ga.GROUP_ID],
-                    From=ga,
-                    Distinct=True
-                )
-            )
-        ).on(txn)
-        attendeeGroupUIDs = frozenset([row[0] for row in rows])
+        groups = yield GroupsRecord.query(
+            txn,
+            GroupsRecord.groupID.In(GroupAttendeeRecord.queryExpr(
+                expr=None,
+                attributes=(GroupAttendeeRecord.groupID,),
+                distinct=True,
+            ))
+        )
+        attendeeGroupUIDs = frozenset([group.groupUID for group in groups])
         self.log.info(
             "There are {count} group attendees", count=len(attendeeGroupUIDs)
         )

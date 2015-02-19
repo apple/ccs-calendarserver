@@ -53,6 +53,15 @@ class CommonHomeExternal(CommonHome):
         raise AssertionError("CommonHomeExternal: not supported")
 
 
+    @inlineCallbacks
+    def readMetaData(self):
+        """
+        Read the home metadata from remote home and save as attributes on this object.
+        """
+        mapping = yield self._txn.store().conduit.send_home_metadata(self)
+        self.deserialize(mapping)
+
+
     def external(self):
         """
         Is this an external home.

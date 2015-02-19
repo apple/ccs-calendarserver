@@ -127,9 +127,19 @@ class StoreAPIConduitMixin(object):
             "matchtotal": matchtotal,
         })
 
+
+    @staticmethod
+    def _to_serialize_pair_list(value):
+        """
+        Convert the value to the external (JSON-based) representation.
+        """
+        return [[a.serialize(), b.serialize(), ] for a, b in value]
+
 # These are the actions on store objects we need to expose via the conduit api
 
 # Calls on L{CommonHome} objects
+UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "home_metadata", "serialize", classMethod=False)
+UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "home_get_all_group_attendees", "getAllGroupAttendees", classMethod=False, transform_recv_result=StoreAPIConduitMixin._to_serialize_pair_list)
 
 # Calls on L{CommonHomeChild} objects
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_listobjects", "listObjects", classMethod=True)

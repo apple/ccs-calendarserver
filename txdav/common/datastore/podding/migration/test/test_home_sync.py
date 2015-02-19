@@ -16,15 +16,21 @@
 
 from pycalendar.datetime import DateTime
 from twext.enterprise.dal.syntax import Select
-from twisted.internet.defer import inlineCallbacks
+from twext.enterprise.jobqueue import JobItem
+from twisted.internet import reactor
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.python.filepath import FilePath
+from twistedcaldav.config import config
 from twistedcaldav.ical import Component, normalize_iCalStr
 from txdav.caldav.datastore.sql import ManagedAttachment
 from txdav.common.datastore.podding.migration.home_sync import CrossPodHomeSync
-from txdav.common.datastore.podding.migration.sync_metadata import CalendarMigrationRecord
+from txdav.common.datastore.podding.migration.sync_metadata import CalendarMigrationRecord, \
+    AttachmentMigrationRecord
 from txdav.common.datastore.podding.test.util import MultiStoreConduitTest
 from txdav.common.datastore.sql_directory import DelegateRecord, \
     ExternalDelegateGroupsRecord, DelegateGroupsRecord
 from txdav.common.datastore.sql_tables import schema
+from txdav.common.datastore.test.util import populateCalendarsFrom
 from txdav.who.delegates import Delegates
 from txweb2.http_headers import MimeType
 from txweb2.stream import MemoryStream
@@ -117,6 +123,7 @@ END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n").format(**nowYear)
 
+
     @inlineCallbacks
     def test_remote_home(self):
         """
@@ -177,6 +184,115 @@ END:VCALENDAR
         self.assertTrue(home is not None)
         children = yield home.listChildren()
         self.assertEqual(len(children), 0)
+        yield self.commitTransaction(1)
+
+
+    @inlineCallbacks
+    def test_home_metadata(self):
+        """
+        Test that L{syncCalendarHomeMetaData} sync home metadata correctly.
+        """
+
+        alarm_event_timed = """BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:alarm_event_timed
+TRIGGER:-PT10M
+END:VALARM
+"""
+        alarm_event_allday = """BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:alarm_event_allday
+TRIGGER:-PT10M
+END:VALARM
+"""
+        alarm_todo_timed = """BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:alarm_todo_timed
+TRIGGER:-PT10M
+END:VALARM
+"""
+        alarm_todo_allday = """BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:alarm_todo_allday
+TRIGGER:-PT10M
+END:VALARM
+"""
+        availability = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Example Inc.//Example Calendar//EN
+BEGIN:VAVAILABILITY
+UID:20061005T133225Z-00001-availability@example.com
+DTSTART:20060101T000000Z
+DTEND:20060108T000000Z
+DTSTAMP:20061005T133225Z
+ORGANIZER:mailto:bernard@example.com
+BEGIN:AVAILABLE
+UID:20061005T133225Z-00001-A-availability@example.com
+DTSTART:20060102T090000Z
+DTEND:20060102T120000Z
+DTSTAMP:20061005T133225Z
+RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR
+SUMMARY:Weekdays from 9:00 to 12:00
+END:AVAILABLE
+END:VAVAILABILITY
+END:VCALENDAR
+"""
+
+        home0 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
+        events0 = yield home0.createChildWithName("events")
+        yield home0.setDefaultCalendar(events0, "VEVENT")
+        yield home0.setDefaultAlarm(alarm_event_timed, True, True)
+        yield home0.setDefaultAlarm(alarm_event_allday, True, False)
+        yield home0.setDefaultAlarm(alarm_todo_timed, False, True)
+        yield home0.setDefaultAlarm(alarm_todo_allday, False, False)
+        yield home0.setAvailability(Component.fromString(availability))
+        yield self.commitTransaction(0)
+
+        # Trigger sync
+        syncer = CrossPodHomeSync(self.theStoreUnderTest(1), "user01")
+        yield syncer.sync()
+
+        # Home is present with correct metadata
+        home1 = yield self.homeUnderTest(self.theTransactionUnderTest(1), name=syncer.migratingUid())
+        self.assertTrue(home1 is not None)
+        calendar1 = yield home1.childWithName("calendar")
+        events1 = yield home1.childWithName("events")
+        tasks1 = yield home1.childWithName("tasks")
+        self.assertFalse(home1.isDefaultCalendar(calendar1))
+        self.assertTrue(home1.isDefaultCalendar(events1))
+        self.assertTrue(home1.isDefaultCalendar(tasks1))
+        self.assertEqual(home1.getDefaultAlarm(True, True), alarm_event_timed)
+        self.assertEqual(home1.getDefaultAlarm(True, False), alarm_event_allday)
+        self.assertEqual(home1.getDefaultAlarm(False, True), alarm_todo_timed)
+        self.assertEqual(home1.getDefaultAlarm(False, False), alarm_todo_allday)
+        self.assertEqual(normalize_iCalStr(home1.getAvailability()), normalize_iCalStr(availability))
+        yield self.commitTransaction(1)
+
+        # Make some changes
+        home0 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
+        calendar0 = yield home0.childWithName("calendar")
+        yield home0.setDefaultCalendar(calendar0, "VEVENT")
+        yield home0.setDefaultAlarm(None, True, True)
+        yield home0.setDefaultAlarm(None, False, True)
+        yield self.commitTransaction(0)
+
+        # Trigger sync again
+        yield syncer.sync()
+
+        # Home is present with correct metadata
+        home1 = yield self.homeUnderTest(self.theTransactionUnderTest(1), name=syncer.migratingUid())
+        self.assertTrue(home1 is not None)
+        calendar1 = yield home1.childWithName("calendar")
+        events1 = yield home1.childWithName("events")
+        tasks1 = yield home1.childWithName("tasks")
+        self.assertTrue(home1.isDefaultCalendar(calendar1))
+        self.assertFalse(home1.isDefaultCalendar(events1))
+        self.assertTrue(home1.isDefaultCalendar(tasks1))
+        self.assertEqual(home1.getDefaultAlarm(True, True), None)
+        self.assertEqual(home1.getDefaultAlarm(True, False), alarm_event_allday)
+        self.assertEqual(home1.getDefaultAlarm(False, True), None)
+        self.assertEqual(home1.getDefaultAlarm(False, False), alarm_todo_allday)
+        self.assertEqual(normalize_iCalStr(home1.getAvailability()), normalize_iCalStr(availability))
         yield self.commitTransaction(1)
 
 
@@ -475,6 +591,16 @@ END:VCALENDAR
         self.assertEqual(len(local_sync_state), 1)
         self.assertEqual(local_sync_state[remote_id].lastSyncToken, remote_sync_state[remote_id].lastSyncToken)
 
+        @inlineCallbacks
+        def _mapLocalIDToRemote(remote_id):
+            records = yield AttachmentMigrationRecord.all(self.theTransactionUnderTest(1))
+            yield self.commitTransaction(1)
+            for record in records:
+                if record.remoteResourceID == remote_id:
+                    returnValue(record.localResourceID)
+            else:
+                returnValue(None)
+
         # Sync attachments
         changed, removed = yield syncer.syncAttachments()
         self.assertEqual(changed, set())
@@ -515,7 +641,7 @@ END:VCALENDAR
 
         # Sync attachments
         changed, removed = yield syncer.syncAttachments()
-        self.assertEqual(changed, set((id0_1,)))
+        self.assertEqual(changed, set(((yield _mapLocalIDToRemote(id0_1)),)))
         self.assertEqual(removed, set())
 
         # Validate changes
@@ -534,7 +660,7 @@ END:VCALENDAR
 
         # Sync attachments
         changed, removed = yield syncer.syncAttachments()
-        self.assertEqual(changed, set((id0_2,)))
+        self.assertEqual(changed, set(((yield _mapLocalIDToRemote(id0_2)),)))
         self.assertEqual(removed, set())
 
         # Validate changes
@@ -555,7 +681,7 @@ END:VCALENDAR
 
         # Sync attachments
         changed, removed = yield syncer.syncAttachments()
-        self.assertEqual(changed, set((id0_1_changed,)))
+        self.assertEqual(changed, set(((yield _mapLocalIDToRemote(id0_1_changed)),)))
         self.assertEqual(removed, set((id0_1,)))
 
         # Validate changes
@@ -596,7 +722,7 @@ END:VCALENDAR
 
         # Sync attachments
         changed, removed = yield syncer.syncAttachments()
-        self.assertEqual(changed, set((id0_1_changed_again,)))
+        self.assertEqual(changed, set(((yield _mapLocalIDToRemote(id0_1_changed_again)),)))
         self.assertEqual(removed, set())
 
         # Validate changes
@@ -661,7 +787,18 @@ END:VCALENDAR
 
         # Sync attachments
         changed, removed = yield syncer.syncAttachments()
-        self.assertEqual(changed, set((id0_1, id0_2,)))
+
+        @inlineCallbacks
+        def _mapLocalIDToRemote(remote_id):
+            records = yield AttachmentMigrationRecord.all(self.theTransactionUnderTest(1))
+            yield self.commitTransaction(1)
+            for record in records:
+                if record.remoteResourceID == remote_id:
+                    returnValue(record.localResourceID)
+            else:
+                returnValue(None)
+
+        self.assertEqual(changed, set(((yield _mapLocalIDToRemote(id0_1)), (yield _mapLocalIDToRemote(id0_2)),)))
         self.assertEqual(removed, set())
 
         # Link attachments
@@ -787,3 +924,131 @@ END:VCALENDAR
         )
 
         yield self.commitTransaction(1)
+
+
+
+class TestGroupAttendeeSync(MultiStoreConduitTest):
+    """
+    GroupAttendeeReconciliation tests
+    """
+
+    now = {"now1": DateTime.getToday().getYear() + 1}
+
+    groupdata1 = """BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART:{now1:04d}0101T100000Z
+DURATION:PT1H
+SUMMARY:event 1
+UID:event1@ninevah.local
+END:VEVENT
+END:VCALENDAR""".format(**now)
+
+    groupdata2 = """BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART:{now1:04d}0101T100000Z
+DURATION:PT1H
+SUMMARY:event 2
+UID:event2@ninevah.local
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:group02@example.com
+END:VEVENT
+END:VCALENDAR""".format(**now)
+
+    groupdata3 = """BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART:{now1:04d}0101T100000Z
+DURATION:PT1H
+SUMMARY:event 3
+UID:event3@ninevah.local
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:group04@example.com
+END:VEVENT
+END:VCALENDAR""".format(**now)
+
+    @inlineCallbacks
+    def setUp(self):
+        self.accounts = FilePath(__file__).sibling("accounts").child("groupAccounts.xml")
+        yield super(TestGroupAttendeeSync, self).setUp()
+        yield self.populate()
+
+
+    def configure(self):
+        super(TestGroupAttendeeSync, self).configure()
+        config.GroupAttendees.Enabled = True
+        config.GroupAttendees.ReconciliationDelaySeconds = 0
+        config.GroupAttendees.AutoUpdateSecondsFromNow = 0
+
+
+    @inlineCallbacks
+    def populate(self):
+        yield populateCalendarsFrom(self.requirements, self.theStoreUnderTest(0))
+
+    requirements = {
+        "user01" : None,
+        "user02" : None,
+        "user06" : None,
+        "user07" : None,
+        "user08" : None,
+        "user09" : None,
+        "user10" : None,
+
+    }
+
+    @inlineCallbacks
+    def test_group_attendees(self):
+        """
+        Test that L{groupAttendeeReconcile} links groups to the associated calendar object.
+        """
+
+        home0 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
+        calendar0 = yield home0.childWithName("calendar")
+        yield calendar0.createCalendarObjectWithName("1.ics", Component.fromString(self.groupdata1))
+        yield calendar0.createCalendarObjectWithName("2.ics", Component.fromString(self.groupdata2))
+        yield calendar0.createCalendarObjectWithName("3.ics", Component.fromString(self.groupdata3))
+        yield self.commitTransaction(0)
+
+        yield JobItem.waitEmpty(self.theStoreUnderTest(0).newTransaction, reactor, 60.0)
+
+        # Trigger sync
+        syncer = CrossPodHomeSync(self.theStoreUnderTest(1), "user01")
+        yield syncer.sync()
+
+        # Link groups
+        len_links = yield syncer.groupAttendeeReconcile()
+        self.assertEqual(len_links, 2)
+
+        # Local calendar exists
+        home1 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(1), name=syncer.migratingUid())
+        calendar1 = yield home1.childWithName("calendar")
+        self.assertTrue(calendar1 is not None)
+        children = yield calendar1.objectResources()
+        self.assertEqual(set([child.name() for child in children]), set(("1.ics", "2.ics", "3.ics",)))
+
+        object2 = yield calendar1.objectResourceWithName("2.ics")
+        record = (yield object2.groupEventLinks()).values()[0]
+        group02 = yield self.theTransactionUnderTest(1).groupByUID(u"group02")
+        self.assertEqual(record.groupID, group02.groupID)
+        self.assertEqual(record.membershipHash, group02.membershipHash)
+
+        object3 = yield calendar1.objectResourceWithName("3.ics")
+        record = (yield object3.groupEventLinks()).values()[0]
+        group04 = yield self.theTransactionUnderTest(1).groupByUID(u"group04")
+        self.assertEqual(record.groupID, group04.groupID)
+        self.assertEqual(record.membershipHash, group04.membershipHash)

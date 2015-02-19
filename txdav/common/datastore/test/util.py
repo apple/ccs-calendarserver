@@ -30,7 +30,7 @@ from hashlib import md5
 
 from pycalendar.datetime import DateTime
 
-from random import Random
+from random import Random, randint
 
 from twext.python.log import Logger
 from twext.python.filepath import CachingFilePath as FilePath
@@ -290,6 +290,16 @@ class SQLStoreBuilder(object):
                 yield cleanupTxn.execSQL("delete from " + table, [])
             except:
                 log.failure("delete table {table} failed", table=table)
+
+        # Change the starting values of sequences to random values
+        for sequence in schema.model.sequences: #@UndefinedVariable
+            try:
+                curval = (yield cleanupTxn.execSQL("select nextval('{}')".format(sequence.name), []))[0][0]
+                yield cleanupTxn.execSQL("select setval('{}', {})".format(sequence.name, curval + randint(1, 10000)), [])
+            except:
+                log.failure("setval sequence '{}' failed", sequence=sequence.name)
+        yield cleanupTxn.execSQL("update CALENDARSERVER set VALUE = '1' where NAME = 'MIN-VALID-REVISION'", [])
+
         yield cleanupTxn.commit()
 
         # Deal with memcached items that must be cleared

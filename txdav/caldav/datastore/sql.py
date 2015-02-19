@@ -64,6 +64,7 @@ from txdav.caldav.datastore.scheduling.icaldiff import iCalDiff
 from txdav.caldav.datastore.scheduling.icalsplitter import iCalSplitter
 from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
 from txdav.caldav.datastore.scheduling.utils import uidFromCalendarUserAddress
+from txdav.caldav.datastore.sql_directory import GroupAttendeeRecord
 from txdav.caldav.datastore.util import AttachmentRetrievalTransport, \
     normalizationLookup
 from txdav.caldav.datastore.util import CalendarObjectBase
@@ -503,39 +504,21 @@ class CalendarHome(CommonHome):
 
 
     @inlineCallbacks
-    def copyMetadata(self, other):
+    def copyMetadata(self, other, calendarIDMap):
         """
         Copy metadata from one L{CalendarObjectResource} to another. This is only
         used during a migration step.
         """
-        assert self._txn._migrating
 
-        # Simple attributes that can be copied over as-is
+        # Simple attributes that can be copied over as-is, but the calendar id's need to be mapped
         chm = self._homeMetaDataSchema
-        values = {
-            chm.ALARM_VEVENT_TIMED : other._alarm_vevent_timed,
-            chm.ALARM_VEVENT_ALLDAY : other._alarm_vevent_allday,
-            chm.ALARM_VTODO_TIMED : other._alarm_vtodo_timed,
-            chm.ALARM_VTODO_ALLDAY : other._alarm_vtodo_allday,
-            chm.AVAILABILITY : other._availability,
-        }
-
-        # Need to map the default collection references from the remote ids to
-        # the local ones using names
-        remote_calendars = yield other.loadChildren()
-        remote_calendars = dict([(calendar.id(), calendar,) for calendar in remote_calendars])
-        local_calendars = yield self.loadChildren()
-        local_calendars = dict([(calendar.name(), calendar,) for calendar in local_calendars])
-
-        for componentType in self._componentDefaultColumn.keys():
-            attr_name = self._componentDefaultAttribute[componentType]
-            remote_id = getattr(other, attr_name)
-            if remote_id is not None:
-                remote_calendar = remote_calendars.get(remote_id)
-                if remote_calendar is not None:
-                    remote_id = local_calendars.get(remote_calendar.name())
-            setattr(self, attr_name, remote_id)
-            values[self._componentDefaultColumn[componentType]] = remote_id
+        values = {}
+        for attr, col in zip(self.metadataAttributes(), self.metadataColumns()):
+            value = getattr(other, attr)
+            if attr in self._componentDefaultAttribute.values():
+                value = calendarIDMap.get(value)
+            setattr(self, attr, value)
+            values[col] = value
 
         # Update the local data
         yield Update(
@@ -698,6 +681,27 @@ class CalendarHome(CommonHome):
             OrderBy=attco.MANAGED_ID
         ).on(self._txn))
         returnValue([row[0] for row in rows])
+
+
+    @inlineCallbacks
+    def getAllGroupAttendees(self):
+        """
+        Return a list of L{GroupAttendeeRecord},L{GroupRecord} for each group attendee referenced in calendar data
+        owned by this home.
+        """
+
+        results = []
+        calendars = yield self.loadChildren()
+        for calendar in calendars:
+            if not calendar.owned():
+                continue
+            children = yield calendar.objectResources()
+            cobjs = [child.id() for child in children]
+            if cobjs:
+                result = yield GroupAttendeeRecord.groupAttendeesForObjects(self._txn, cobjs)
+                results.extend(result)
+
+        returnValue(results)
 
 
     @inlineCallbacks
@@ -2519,19 +2523,14 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         @return: a L{dict} with group ids as the key and membership hash as the value
         @rtype: L{dict}
         """
-        ga = schema.GROUP_ATTENDEE
-        rows = yield Select(
-            [ga.GROUP_ID, ga.MEMBERSHIP_HASH],
-            From=ga,
-            Where=ga.RESOURCE_ID == self._resourceID,
-        ).on(self._txn)
-        returnValue(dict(rows))
+        records = yield GroupAttendeeRecord.querysimple(self._txn, resourceID=self._resourceID)
+        returnValue(dict([(record.groupID, record,) for record in records]))
 
 
     @inlineCallbacks
     def updateEventGroupLink(self, groupCUAToAttendeeMemberPropMap=None):
         """
-        update schema.GROUP_ATTENDEE
+        update group event links
         """
         if groupCUAToAttendeeMemberPropMap is None:
             if hasattr(self, "_groupCUAToAttendeeMemberPropMap"):
@@ -2550,37 +2549,25 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 groupUID = uidFromCalendarUserAddress(groupCUA)
             group = yield self._txn.groupByUID(groupUID)
 
-            ga = schema.GROUP_ATTENDEE
             if group.groupID in groupIDToMembershipHashMap:
-                if groupIDToMembershipHashMap[group.groupID] != group.membershipHash:
-                    yield Update(
-                        {ga.MEMBERSHIP_HASH: group.membershipHash, },
-                        Where=(ga.RESOURCE_ID == self._resourceID).And(
-                            ga.GROUP_ID == group.groupID)
-                    ).on(self._txn)
+                if groupIDToMembershipHashMap[group.groupID].membershipHash != group.membershipHash:
+                    yield groupIDToMembershipHashMap[group.groupID].update(membershipHash=group.membershipHash)
                     changed = True
                 del groupIDToMembershipHashMap[group.groupID]
             else:
-                yield Insert({
-                    ga.RESOURCE_ID: self._resourceID,
-                    ga.GROUP_ID: group.groupID,
-                    ga.MEMBERSHIP_HASH: group.membershipHash,
-                }).on(self._txn)
+                yield GroupAttendeeRecord.create(
+                    self._txn,
+                    resourceID=self._resourceID,
+                    groupID=group.groupID,
+                    membershipHash=group.membershipHash,
+                )
                 changed = True
 
         if groupIDToMembershipHashMap:
-            groupIDsToRemove = groupIDToMembershipHashMap.keys()
-            yield Delete(
-                From=ga,
-                Where=(ga.RESOURCE_ID == self._resourceID).And(
-                    ga.GROUP_ID.In(
-                        Parameter(
-                            "groupIDsToRemove",
-                            len(groupIDsToRemove)
-                        )
-                    )
-                )
-            ).on(self._txn, groupIDsToRemove=groupIDsToRemove)
+            yield GroupAttendeeRecord.deletesome(
+                self._txn,
+                GroupAttendeeRecord.groupID.In(groupIDToMembershipHashMap.keys()),
+            )
             changed = True
 
         returnValue(changed)
@@ -2641,11 +2628,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     del self._groupCUAToAttendeeMemberPropMap
                 else:
                     # delete existing group rows
-                    ga = schema.GROUP_ATTENDEE
-                    yield Delete(
-                        From=ga,
-                        Where=ga.RESOURCE_ID == self._resourceID,
-                    ).on(txn)
+                    yield GroupAttendeeRecord.deletesimple(self._txn, resourceID=self._resourceID)
 
         returnValue(isOldEventWithGroupAttendees)
 
@@ -2691,13 +2674,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     # remove group link to ensure update (update to unknown hash would work too)
                     # FIXME: its possible that more than one group id gets updated during this single work item, so we
                     # need to make sure that ALL the group_id's are removed by this query.
-                    ga = schema.GROUP_ATTENDEE
-                    yield Delete(
-                        From=ga,
-                        Where=(ga.RESOURCE_ID == self._resourceID).And(
-                            ga.GROUP_ID == groupID
-                        )
-                    ).on(self._txn)
+                    yield GroupAttendeeRecord.deletesimple(
+                        self._txn,
+                        resourceID=self._resourceID,
+                        groupID=groupID,
+                    )
 
                     # update group attendee in remaining component
                     component = yield self.componentForUser()
@@ -3807,8 +3788,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         Copy metadata from one L{CalendarObjectResource} to another. This is only
         used during a migration step.
         """
-        assert self._txn._migrating
-
         co = self._objectSchema
         values = {
             co.ATTACHMENTS_MODE                : other._attachment,

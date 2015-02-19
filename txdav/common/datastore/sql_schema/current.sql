@@ -927,7 +927,7 @@ create table DELEGATE_GROUPS (
   DELEGATOR                     varchar(255) not null,
   GROUP_ID                      integer      not null references GROUPS on delete cascade,
   READ_WRITE                    integer      not null, -- 1 = ReadWrite, 0 = ReadOnly
-  IS_EXTERNAL                   integer      not null, -- 1 = ReadWrite, 0 = ReadOnly
+  IS_EXTERNAL                   integer      not null, -- 1 = External, 0 = Internal
 
   primary key (DELEGATOR, READ_WRITE, GROUP_ID)
 );

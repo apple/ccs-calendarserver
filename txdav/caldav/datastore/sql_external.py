@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from txdav.common.datastore.sql_directory import GroupsRecord
+from txdav.caldav.datastore.sql_directory import GroupAttendeeRecord
 """
 SQL backend for CalDAV storage when resources are external.
 """
@@ -111,6 +113,17 @@ class CalendarHomeExternal(CommonHomeExternal, CalendarHome):
         No children.
         """
         raise AssertionError("CommonHomeExternal: not supported")
+
+
+    @inlineCallbacks
+    def getAllGroupAttendees(self):
+        """
+        Return a list of L{GroupAttendeeRecord},L{GroupRecord} for each group attendee referenced in calendar data
+        owned by this home.
+        """
+
+        raw_results = yield self._txn.store().conduit.send_home_get_all_group_attendees(self)
+        returnValue([(GroupAttendeeRecord.deserialize(item[0]), GroupsRecord.deserialize(item[1]),) for item in raw_results])
 
 
     def createdHome(self):
