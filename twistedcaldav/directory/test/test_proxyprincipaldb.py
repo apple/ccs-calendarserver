@@ -598,11 +598,11 @@ class ProxyPrincipalDBPostgreSQL (twistedcaldav.test.util.TestCase):
 
 
 try:
-    import pgdb
+    import pgdb as postgres
 except ImportError:
     ProxyPrincipalDBPostgreSQL.skip = True
 else:
     try:
-        db = pgdb.connect(host="localhost", database="proxies")
+        db = postgres.connect(host="localhost", database="proxies")
     except:
         ProxyPrincipalDBPostgreSQL.skip = True
