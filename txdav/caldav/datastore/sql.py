@@ -3094,7 +3094,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def doImplicitScheduling(self, component, inserting, internal_state, options, split_details=None):
+    def doImplicitScheduling(self, component, inserting, internal_state, options, split_details=None, updateSelf=False):
 
         new_component = None
         did_implicit_action = False
@@ -3119,9 +3119,12 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             scheduler = ImplicitScheduler(logItems=self._txn.logItems, options=options)
 
             # PUT
+            resourceToUpdate = None if inserting else self
+            # (If we're in the trash, it's okay to update this, even if inserting=True)
+            resourceToUpdate = self if updateSelf else resourceToUpdate
             do_implicit_action, is_scheduling_resource = (yield scheduler.testImplicitSchedulingPUT(
                 self.calendar(),
-                None if inserting else self,
+                resourceToUpdate,
                 component,
                 internal_request=is_internal,
             ))
@@ -3281,7 +3284,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def _setComponentInternal(self, component, inserting=False, internal_state=ComponentUpdateState.NORMAL, options=None, split_details=None):
+    def _setComponentInternal(self, component, inserting=False, internal_state=ComponentUpdateState.NORMAL, options=None, split_details=None, updateSelf=False):
         """
         Setting the component internally to the store itself. This will bypass a whole bunch of data consistency checks
         on the assumption that those have been done prior to the component data being provided, provided the flag is set.
@@ -3348,7 +3351,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 yield self.decorateHostedStatus(component)
 
             # Do scheduling
-            implicit_result = (yield self.doImplicitScheduling(component, inserting, internal_state, options))
+            implicit_result = (yield self.doImplicitScheduling(component, inserting, internal_state, options, updateSelf=updateSelf))
             if isinstance(implicit_result, int):
                 if implicit_result == ImplicitScheduler.STATUS_ORPHANED_CANCELLED_EVENT:
                     raise ResourceDeletedError("Resource created but immediately deleted by the server.")
@@ -3389,7 +3392,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         elif self._txn._migrating:
             self.validCalendarDataCheck(component, inserting)
 
-        yield self.updateDatabase(component, inserting=inserting)
+        # If updateSelf is True, we want to turn inserting off within updateDatabase
+        yield self.updateDatabase(component, inserting=inserting if not updateSelf else False)
 
         # update GROUP_ATTENDEE table rows
         if inserting:
@@ -3936,7 +3940,19 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             if self._dropboxID:
                 yield DropBoxAttachment.resourceRemoved(self._txn, self._resourceID, self._dropboxID)
             yield ManagedAttachment.resourceRemoved(self._txn, self._resourceID)
-        yield super(CalendarObject, self).remove()
+
+        if isinbox: # bypass the trash
+            yield super(CalendarObject, self).reallyRemove()
+        else:
+            status = calendar.mainComponent().getProperty("STATUS")
+            if status is not None:
+                status = status.strvalue()
+                if status == "CANCELLED":
+                    yield super(CalendarObject, self).reallyRemove()
+                else:
+                    yield super(CalendarObject, self).remove()
+            else:
+                yield super(CalendarObject, self).remove()
 
         # Do scheduling
         if scheduler is not None:
@@ -4690,7 +4706,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def split(self, onlyThis=False, rid=None, olderUID=None):
+    def split(self, onlyThis=False, rid=None, olderUID=None, coercePartstatsInExistingResource=False, splitter=None):
         """
         Split this and all matching UID calendar objects as per L{iCalSplitter}.
 
@@ -4731,7 +4747,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         else:
             resources = (yield CalendarStoreFeatures(self._txn._store).calendarObjectsWithUID(self._txn, self._uid))
 
-        splitter = iCalSplitter(config.Scheduling.Options.Splitting.Size, config.Scheduling.Options.Splitting.PastDays)
+        if splitter is None:
+            splitter = iCalSplitter(config.Scheduling.Options.Splitting.Size, config.Scheduling.Options.Splitting.PastDays)
 
         # Determine the recurrence-id of the split and create a new UID for it
         calendar = (yield self.component())
@@ -4757,25 +4774,29 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             returnValue(None)
 
         # Store changed data
-        yield self._setComponentInternal(calendar_new, internal_state=ComponentUpdateState.SPLIT_OWNER, split_details=(rid, olderUID, True,))
+        yield self._setComponentInternal(calendar_new, internal_state=ComponentUpdateState.SPLIT_OWNER, split_details=(rid, olderUID, True, coercePartstatsInExistingResource))
         olderObject = yield self.calendar()._createCalendarObjectWithNameInternal(
             olderResourceName,
             calendar_old,
             ComponentUpdateState.SPLIT_OWNER,
-            split_details=(rid, newerUID, False,)
+            split_details=(rid, newerUID, False, False)
         )
 
         # Split each one - but not this resource
         for resource in resources:
             if resource._resourceID == self._resourceID:
                 continue
-            yield resource.splitForAttendee(rid, olderUID)
+            yield resource.splitForAttendee(
+                rid,
+                olderUID,
+                coercePartstatsInExistingResource=coercePartstatsInExistingResource
+            )
 
         returnValue(olderObject)
 
 
     @inlineCallbacks
-    def splitForAttendee(self, rid=None, olderUID=None):
+    def splitForAttendee(self, rid=None, olderUID=None, coercePartstatsInExistingResource=False):
         """
         Split this attendee resource as per L{split}. Note this is also used on any Organizer inbox items.
         Also, for inbox items, we are not protected by the ImplicitUID lock - it is possible that the inbox
@@ -4796,6 +4817,12 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # Store changed data
         if ical_new.mainType() is not None:
+
+            if coercePartstatsInExistingResource:
+                for attendee in ical_new.getAllAttendeeProperties():
+                    if attendee.parameterValue("SCHEDULE-AGENT", "SERVER").upper() == "SERVER" and attendee.hasParameter("PARTSTAT"):
+                        attendee.setParameter("PARTSTAT", "NEEDS-ACTION")
+
             yield self._setComponentInternal(ical_new, internal_state=ComponentUpdateState.SPLIT_ATTENDEE)
         else:
             # The split removed all components from this object - remove it
@@ -4834,6 +4861,51 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             if will:
                 # Now do the spitting
                 yield cobj.split()
+
+
+
+    @inlineCallbacks
+    def fromTrash(self):
+        yield super(CalendarObject, self).fromTrash()
+
+        caldata = yield self.componentForUser()
+        if caldata.getOrganizer():
+            # This is a scheduled event
+
+            splitter = iCalSplitter()
+            willSplit = splitter.willSplit(caldata)
+            if willSplit:
+                newPastResource = yield self.split(
+                    coercePartstatsInExistingResource=True,
+                    splitter=splitter
+                )
+                # original resource is the ongoing one,
+                # the new resource is the past one
+            else:
+                now = DateTime.getNowUTC()
+                now.setHHMMSS(0, 0, 0)
+                instances = caldata.cacheExpandedTimeRanges(now)
+                instances = sorted(instances.instances.values(), key=lambda x: x.start)
+                if instances[0].start >= now:
+                    # future
+                    newdata = caldata.duplicate()
+                    newdata.bumpiTIPInfo(doSequence=True)
+                    for attendee in newdata.getAllAttendeeProperties():
+                        if attendee.parameterValue("SCHEDULE-AGENT", "SERVER").upper() == "SERVER" and attendee.hasParameter("PARTSTAT"):
+                            attendee.setParameter("PARTSTAT", "NEEDS-ACTION")
+
+
+                    yield self._setComponentInternal(
+                        newdata, inserting=True, updateSelf=True
+                    )
+
+                else:
+                    # past
+                    yield ImplicitScheduler().refreshAllAttendeesExceptSome(
+                        self._txn,
+                        self,
+                    )
+
 
 
 
@@ -5763,6 +5835,9 @@ class TrashCollection(Calendar):
     def nameForResource(self, collection, objectResource):
         return "{}-{}".format(collection._resourceID, objectResource.name())
 
+    def originalParentForResource(self, objectResource):
+        parentID, resourceName = self.parseName(objectResource._name)
+        return self._home.childWithID(parentID)
 
     def parseName(self, name):
         parentID, resourceName = name.split("-", 1)

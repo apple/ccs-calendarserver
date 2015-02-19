@@ -5700,6 +5700,10 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         return False
 
 
+    def originalParentForResource(self, objectResource):
+        return succeed(objectResource._parentCollection)
+
+
     def memoMe(self, key, memo):
         """
         Add this object to the memo dictionary in whatever fashion is appropriate.
@@ -7069,6 +7073,13 @@ class CommonObjectResource(FancyEqMixin, object):
 
         if row:
             child = yield cls.makeClass(parent, row)
+
+            # Use the name that was passed in, especially to cover the case
+            # where the "trashed" name is prepended with the original collection
+            # id (otherwise the name will be missing that id)
+            if name is not None:
+                child._name = name
+
             returnValue(child)
         else:
             returnValue(None)
@@ -7400,8 +7411,9 @@ class CommonObjectResource(FancyEqMixin, object):
             self._txn, isTrash=True, resourceID=self._resourceID
         )
         yield self._parentCollection.removedObjectResource(self)
+        yield self._parentCollection._deleteRevision(self.name())
+
         trash = yield self._parentCollection._home.childWithName("trash")
-        print("TO TRASH", trash)
         if trash is not None:
             yield trash._insertRevision(
                 trash.nameForResource(
@@ -7413,19 +7425,22 @@ class CommonObjectResource(FancyEqMixin, object):
 
     @inlineCallbacks
     def fromTrash(self):
+        trash = self._parentCollection
+        self._parentCollection = yield trash.originalParentForResource(self)
         yield self._updateIsTrashQuery.on(
             self._txn, isTrash=False, resourceID=self._resourceID
         )
-        yield self._parentCollection.addedObjectResource(self)
-        trash = yield self._parentCollection._home.childWithName("trash")
-        print("FROM TRASH", trash)
-        if trash is not None:
-            yield trash._deleteRevision(
-                trash.nameForResource(
-                    self._parentCollection,
-                    self
-                )
+        yield trash._deleteRevision(
+            trash.nameForResource(
+                self._parentCollection,
+                self
             )
+        )
+        _ignored, self._name = trash.parseName(self._name)
+
+        yield self._parentCollection.addedObjectResource(self)
+        yield self._parentCollection._insertRevision(self.name())
+
 
 
     @classproperty
