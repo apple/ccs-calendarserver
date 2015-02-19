@@ -38,6 +38,7 @@ __all__ = [
     "ConcurrentModification",
     "InvalidObjectResourceError",
     "InternalDataStoreError",
+    "AlreadyInTrashError",
 ]
 
 #
@@ -233,6 +234,13 @@ class NonExistentExternalShare(CommonStoreError):
     other pod. The caller of the external request receiving this exception should
     remove the local external share to "heal" this mismatch.
     """
+
+
+class AlreadyInTrashError(CommonStoreError):
+    """
+    An object resource being removed is already in the trash.
+    """
+
 
 
 # Indexing / sync tokens

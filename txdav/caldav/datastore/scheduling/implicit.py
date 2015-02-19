@@ -762,6 +762,8 @@ class ImplicitScheduler(object):
                                     attendee.setParameter("X-CALENDARSERVER-RESET-PARTSTAT", str(seq))
                 else:
                     log.debug("Implicit - organizer '{organizer}' is splitting UID: '{uid}'", organizer=self.organizer, uid=self.uid)
+                    if self.split_details[3]:
+                        self.coerceAttendeesPartstatOnCreate()
 
                 # Check for removed attendees
                 if not recurrence_reschedule:
@@ -1276,7 +1278,7 @@ class ImplicitScheduler(object):
                 else:
                     # Add split details if needed
                     if self.split_details is not None:
-                        rid, uid, newer_piece = self.split_details
+                        rid, uid, newer_piece, ignore = self.split_details
                         itipmsg.addProperty(Property("X-CALENDARSERVER-SPLIT-RID", rid))
                         itipmsg.addProperty(Property("X-CALENDARSERVER-SPLIT-OLDER-UID" if newer_piece else "X-CALENDARSERVER-SPLIT-NEWER-UID", uid))
 
@@ -1353,7 +1355,7 @@ class ImplicitScheduler(object):
                 else:
                     # Add split details if needed
                     if self.split_details is not None:
-                        rid, uid, newer_piece = self.split_details
+                        rid, uid, newer_piece, ignore = self.split_details
                         itipmsg.addProperty(Property("X-CALENDARSERVER-SPLIT-RID", rid))
                         itipmsg.addProperty(Property("X-CALENDARSERVER-SPLIT-OLDER-UID" if newer_piece else "X-CALENDARSERVER-SPLIT-NEWER-UID", uid))
 
