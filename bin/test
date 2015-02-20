@@ -93,6 +93,10 @@ shift $((${OPTIND} - 1));
 
 develop > /dev/null "${dev_home}/setup.log";
 
+echo "Using ${python} as Python:";
+"${python}" -V;
+echo "";
+
 
 
 #

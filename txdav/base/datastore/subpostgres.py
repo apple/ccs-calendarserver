@@ -26,7 +26,7 @@ import signal
 from hashlib import md5
 from pipes import quote as shell_quote
 
-import pgdb
+import pgdb as postgres
 
 from twisted.python.procutils import which
 from twisted.internet.protocol import ProcessProtocol
@@ -254,6 +254,7 @@ class PostgresService(MultiService):
             self.port = None
             self.listenAddresses = []
 
+        self.testMode = testMode
         self.sharedBuffers = sharedBuffers if not testMode else 16
         self.maxConnections = maxConnections if not testMode else 8
         self.options = options
@@ -292,20 +293,20 @@ class PostgresService(MultiService):
 
     def activateDelayedShutdown(self):
         """
-        Call this when starting database initialization code to protect against
-        shutdown.
+        Call this when starting database initialization code to
+        protect against shutdown.
 
-        Sets the delayedShutdown flag to True so that if reactor shutdown
-        commences, the shutdown will be delayed until deactivateDelayedShutdown
-        is called.
+        Sets the delayedShutdown flag to True so that if reactor
+        shutdown commences, the shutdown will be delayed until
+        deactivateDelayedShutdown is called.
         """
         self.delayedShutdown = True
 
 
     def deactivateDelayedShutdown(self):
         """
-        Call this when database initialization code has completed so that the
-        reactor can shutdown.
+        Call this when database initialization code has completed so
+        that the reactor can shutdown.
         """
         self.delayedShutdown = False
         if self.shutdownDeferred:
@@ -331,7 +332,7 @@ class PostgresService(MultiService):
         if self.port:
             kwargs["host"] = "{}:{}".format(self.host, self.port)
 
-        return DBAPIConnector(pgdb, postgresPreflight, dsn, **kwargs)
+        return DBAPIConnector(postgres, postgresPreflight, dsn, **kwargs)
 
 
     def produceConnection(self, label="<unlabeled>", databaseName=None):
@@ -353,7 +354,7 @@ class PostgresService(MultiService):
                 createDatabaseCursor.execute(
                     "drop database {}".format(self.databaseName)
                 )
-            except pgdb.DatabaseError:
+            except postgres.DatabaseError:
                 pass
 
         try:
@@ -420,9 +421,16 @@ class PostgresService(MultiService):
         """
 
         def createConnection():
-            createDatabaseConn = self.produceConnection(
-                "schema creation", "postgres"
-            )
+            try:
+                createDatabaseConn = self.produceConnection(
+                    "schema creation", "postgres"
+                )
+            except postgres.DatabaseError as e:
+                log.error(
+                    "Unable to connect to database for schema creation: {error}",
+                    error=e
+                )
+                raise
             createDatabaseCursor = createDatabaseConn.cursor()
             createDatabaseCursor.execute("commit")
             return createDatabaseConn, createDatabaseCursor
@@ -464,6 +472,10 @@ class PostgresService(MultiService):
             options.append("-c log_filename=postgresql_%w.log")
             options.append("-c log_rotation_age=1440")
             options.append("-c logging_collector=on")
+
+        options.append("-c log_line_prefix=%t")
+        if self.testMode:
+            options.append("-c log_statement=all")
 
         log.warn(
             "Requesting postgres start via {cmd} {opts}",

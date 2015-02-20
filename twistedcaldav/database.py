@@ -17,10 +17,9 @@
 import thread
 
 try:
-    import pgdb
+    import pgdb as postgres
 except:
-    pgdb = None
-# pgdb = None
+    postgres = None
 
 from twisted.enterprise.adbapi import ConnectionPool
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -571,7 +570,7 @@ class ADBAPISqliteMixin(object):
         # internal statements so we do not need to remap those
         return sql
 
-if pgdb:
+if postgres:
 
     class ADBAPIPostgreSQLMixin(object):
 
@@ -608,7 +607,7 @@ if pgdb:
 
             try:
                 yield self._db_execute(statement)
-            except pgdb.DatabaseError:
+            except postgres.DatabaseError:
 
                 if not ifnotexists:
                     raise
@@ -638,7 +637,7 @@ if pgdb:
 
             try:
                 yield self._db_execute(statement)
-            except pgdb.DatabaseError:
+            except postgres.DatabaseError:
 
                 if not ifnotexists:
                     raise
@@ -677,7 +676,7 @@ if pgdb:
                     values ('TYPE', :1)
                     """, (self._db_type(),)
                 )
-            except pgdb.DatabaseError:
+            except postgres.DatabaseError:
                 pass
 
 
