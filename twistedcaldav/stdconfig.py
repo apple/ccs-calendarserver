@@ -17,9 +17,11 @@
 
 import copy
 import os
+from os.path import basename
 from plistlib import PlistParser  # @UnresolvedImport
 import re
 from socket import getfqdn, gethostbyname
+import sys
 
 from calendarserver.push.util import getAPNTopicFromCertificate
 from twext.python.log import Logger, InvalidLogLevelError, LogLevel
@@ -386,6 +388,7 @@ DEFAULT_CONFIG = {
     "AccessLogFile"  : "access.log", # Apache-style access log
     "ErrorLogFile"   : "error.log", # Server activity log
     "AgentLogFile"   : "agent.log", # Agent activity log
+    "UtilityLogFile"   : "{}.log".format(basename(sys.argv[0])), # Command line utility log
     "ErrorLogEnabled"   : True, # True = use log file, False = stdout
     "ErrorLogRotateMB"  : 10, # Rotate error log after so many megabytes
     "ErrorLogMaxRotatedFiles"  : 5, # Retain this many error log files
@@ -1188,6 +1191,7 @@ RELATIVE_PATHS = [
     ("LogRoot", "AccessLogFile"),
     ("LogRoot", "ErrorLogFile"),
     ("LogRoot", "AgentLogFile"),
+    ("LogRoot", "UtilityLogFile"),
     ("LogRoot", ("Postgres", "LogFile",)),
     ("LogRoot", ("LogDatabase", "StatisticsLogFile",)),
     ("LogRoot", "AccountingLogRoot"),

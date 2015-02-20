@@ -26,6 +26,8 @@ from twext.python.log import StandardIOObserver
 from twistedcaldav.config import ConfigurationError
 from twisted.internet.defer import inlineCallbacks, succeed
 from twisted.application.service import Service
+from twisted.python.logfile import LogFile
+from twisted.python.log import FileLogObserver
 
 import sys
 from calendarserver.tap.util import getRootResource
@@ -93,6 +95,15 @@ def utilityMain(
         config = loadConfig(configFileName)
         if patchConfig is not None:
             patchConfig(config)
+
+        utilityLogFile = LogFile.fromFullPath(
+            config.UtilityLogFile,
+            rotateLength=config.ErrorLogRotateMB * 1024 * 1024,
+            maxRotatedFiles=config.ErrorLogMaxRotatedFiles
+        )
+        utilityLogObserver = FileLogObserver(utilityLogFile)
+        utilityLogObserver.start()
+
 
         checkDirectories(config)
 
