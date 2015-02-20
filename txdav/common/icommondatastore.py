@@ -347,7 +347,7 @@ class ICommonTransaction(ITransaction):
         @param token: The device token of the subscriber
         @type token: C{str}
 
-        @return: tuples of (key, timestamp, guid)
+        @return: list of L{Record}
         """
 
     def apnSubscriptionsByKey(key): #@NoSelf
@@ -357,7 +357,7 @@ class ICommonTransaction(ITransaction):
         @param key: The push key
         @type key: C{str}
 
-        @return: tuples of (token, guid)
+        @return: list of L{Record}
         """
 
     def apnSubscriptionsBySubscriber(guid): #@NoSelf
@@ -367,7 +367,7 @@ class ICommonTransaction(ITransaction):
         @param guid: The GUID of the subscribed principal
         @type guid: C{str}
 
-        @return: tuples of (token, key, timestamp, userAgent, ipAddr)
+        @return: list of L{Record}
         """
 
     def imipCreateToken(organizer, attendee, icaluid, token=None): #@NoSelf

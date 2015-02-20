@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from txdav.common.datastore.sql_imip import imipAPIMixin
 
 """
 SQL data store.
@@ -62,8 +61,10 @@ from txdav.caldav.icalendarstore import ICalendarTransaction, ICalendarStore
 from txdav.carddav.iaddressbookstore import IAddressBookTransaction
 from txdav.common.datastore.common import HomeChildBase
 from txdav.common.datastore.podding.conduit import PoddingConduit
+from txdav.common.datastore.sql_apn import APNSubscriptionsMixin
 from txdav.common.datastore.sql_directory import DelegatesAPIMixin, \
     GroupsAPIMixin, GroupCacherAPIMixin
+from txdav.common.datastore.sql_imip import imipAPIMixin
 from txdav.common.datastore.sql_tables import _BIND_MODE_DIRECT, \
     _BIND_MODE_INDIRECT, _BIND_MODE_OWN, _BIND_STATUS_ACCEPTED, \
     _BIND_STATUS_DECLINED, _BIND_STATUS_DELETED, _BIND_STATUS_INVALID, \
@@ -75,7 +76,7 @@ from txdav.common.icommondatastore import ConcurrentModification, \
 from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     HomeChildNameAlreadyExistsError, NoSuchHomeChildError, \
     ObjectResourceNameNotAllowedError, ObjectResourceNameAlreadyExistsError, \
-    NoSuchObjectResourceError, AllRetriesFailed, InvalidSubscriptionValues, \
+    NoSuchObjectResourceError, AllRetriesFailed, \
     TooManyObjectResourcesError, SyncTokenValidException
 from txdav.common.idirectoryservice import IStoreDirectoryService, \
     DirectoryRecordNotFoundError
@@ -567,7 +568,7 @@ class CommonStoreTransactionMonitor(object):
 
 class CommonStoreTransaction(
     GroupsAPIMixin, GroupCacherAPIMixin, DelegatesAPIMixin,
-    imipAPIMixin,
+    imipAPIMixin, APNSubscriptionsMixin,
 ):
     """
     Transaction implementation for SQL database.
@@ -783,145 +784,6 @@ class CommonStoreTransaction(
         Implement notificationsWithResourceID.
         """
         return NotificationCollection.notificationsWithResourceID(self, rid)
-
-
-    @classproperty
-    def _insertAPNSubscriptionQuery(cls):
-        apn = schema.APN_SUBSCRIPTIONS
-        return Insert({
-            apn.TOKEN: Parameter("token"),
-            apn.RESOURCE_KEY: Parameter("resourceKey"),
-            apn.MODIFIED: Parameter("modified"),
-            apn.SUBSCRIBER_GUID: Parameter("subscriber"),
-            apn.USER_AGENT: Parameter("userAgent"),
-            apn.IP_ADDR: Parameter("ipAddr")
-        })
-
-
-    @classproperty
-    def _updateAPNSubscriptionQuery(cls):
-        apn = schema.APN_SUBSCRIPTIONS
-        return Update(
-            {
-                apn.MODIFIED: Parameter("modified"),
-                apn.SUBSCRIBER_GUID: Parameter("subscriber"),
-                apn.USER_AGENT: Parameter("userAgent"),
-                apn.IP_ADDR: Parameter("ipAddr")
-            },
-            Where=(apn.TOKEN == Parameter("token")).And(
-                apn.RESOURCE_KEY == Parameter("resourceKey"))
-        )
-
-
-    @classproperty
-    def _selectAPNSubscriptionQuery(cls):
-        apn = schema.APN_SUBSCRIPTIONS
-        return Select(
-            [apn.MODIFIED, apn.SUBSCRIBER_GUID],
-            From=apn,
-            Where=(apn.TOKEN == Parameter("token")).And(
-                apn.RESOURCE_KEY == Parameter("resourceKey")
-            )
-        )
-
-
-    @inlineCallbacks
-    def addAPNSubscription(
-        self, token, key, timestamp, subscriber,
-        userAgent, ipAddr
-    ):
-        if not (token and key and timestamp and subscriber):
-            raise InvalidSubscriptionValues()
-
-        # Cap these values at 255 characters
-        userAgent = userAgent[:255]
-        ipAddr = ipAddr[:255]
-
-        row = yield self._selectAPNSubscriptionQuery.on(
-            self,
-            token=token, resourceKey=key
-        )
-        if not row:  # Subscription does not yet exist
-            try:
-                yield self._insertAPNSubscriptionQuery.on(
-                    self,
-                    token=token, resourceKey=key, modified=timestamp,
-                    subscriber=subscriber, userAgent=userAgent,
-                    ipAddr=ipAddr)
-            except Exception:
-                # Subscription may have been added by someone else, which is fine
-                pass
-
-        else:  # Subscription exists, so update with new timestamp and subscriber
-            try:
-                yield self._updateAPNSubscriptionQuery.on(
-                    self,
-                    token=token, resourceKey=key, modified=timestamp,
-                    subscriber=subscriber, userAgent=userAgent,
-                    ipAddr=ipAddr)
-            except Exception:
-                # Subscription may have been added by someone else, which is fine
-                pass
-
-
-    @classproperty
-    def _removeAPNSubscriptionQuery(cls):
-        apn = schema.APN_SUBSCRIPTIONS
-        return Delete(From=apn,
-                      Where=(apn.TOKEN == Parameter("token")).And(
-                          apn.RESOURCE_KEY == Parameter("resourceKey")))
-
-
-    def removeAPNSubscription(self, token, key):
-        return self._removeAPNSubscriptionQuery.on(
-            self,
-            token=token, resourceKey=key)
-
-
-    @classproperty
-    def _purgeOldAPNSubscriptionQuery(cls):
-        apn = schema.APN_SUBSCRIPTIONS
-        return Delete(From=apn,
-                      Where=(apn.MODIFIED < Parameter("olderThan")))
-
-
-    def purgeOldAPNSubscriptions(self, olderThan):
-        return self._purgeOldAPNSubscriptionQuery.on(
-            self,
-            olderThan=olderThan)
-
-
-    @classproperty
-    def _apnSubscriptionsByTokenQuery(cls):
-        apn = schema.APN_SUBSCRIPTIONS
-        return Select([apn.RESOURCE_KEY, apn.MODIFIED, apn.SUBSCRIBER_GUID],
-                      From=apn, Where=apn.TOKEN == Parameter("token"))
-
-
-    def apnSubscriptionsByToken(self, token):
-        return self._apnSubscriptionsByTokenQuery.on(self, token=token)
-
-
-    @classproperty
-    def _apnSubscriptionsByKeyQuery(cls):
-        apn = schema.APN_SUBSCRIPTIONS
-        return Select([apn.TOKEN, apn.SUBSCRIBER_GUID],
-                      From=apn, Where=apn.RESOURCE_KEY == Parameter("resourceKey"))
-
-
-    def apnSubscriptionsByKey(self, key):
-        return self._apnSubscriptionsByKeyQuery.on(self, resourceKey=key)
-
-
-    @classproperty
-    def _apnSubscriptionsBySubscriberQuery(cls):
-        apn = schema.APN_SUBSCRIPTIONS
-        return Select([apn.TOKEN, apn.RESOURCE_KEY, apn.MODIFIED, apn.USER_AGENT, apn.IP_ADDR],
-                      From=apn, Where=apn.SUBSCRIBER_GUID == Parameter("subscriberGUID"))
-
-
-    def apnSubscriptionsBySubscriber(self, guid):
-        return self._apnSubscriptionsBySubscriberQuery.on(self, subscriberGUID=guid)
 
 
     def preCommit(self, operation):
