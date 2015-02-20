@@ -29,11 +29,14 @@ from txdav.common.datastore.podding.migration.sync_metadata import CalendarMigra
 from txdav.common.datastore.podding.test.util import MultiStoreConduitTest
 from txdav.common.datastore.sql_directory import DelegateRecord, \
     ExternalDelegateGroupsRecord, DelegateGroupsRecord
-from txdav.common.datastore.sql_tables import schema
+from txdav.common.datastore.sql_notification import NotificationCollection
+from txdav.common.datastore.sql_tables import schema, _HOME_STATUS_EXTERNAL
 from txdav.common.datastore.test.util import populateCalendarsFrom
 from txdav.who.delegates import Delegates
 from txweb2.http_headers import MimeType
 from txweb2.stream import MemoryStream
+from uuid import uuid4
+import json
 
 
 class TestCrossPodHomeSync(MultiStoreConduitTest):
@@ -923,6 +926,52 @@ END:VCALENDAR
             )),
         )
 
+        yield self.commitTransaction(1)
+
+
+    @inlineCallbacks
+    def test_notifications_reconcile(self):
+        """
+        Test that L{delegateReconcile} copies over the full set of delegates and caches associated groups..
+        """
+
+        # Create remote home - and add some fake notifications
+        yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
+        notifications = yield self.theTransactionUnderTest(0).notificationsWithUID("user01")
+        uid1 = str(uuid4())
+        obj1 = yield notifications.writeNotificationObject(uid1, "type1", "data1")
+        id1 = obj1.id()
+        uid2 = str(uuid4())
+        obj2 = yield notifications.writeNotificationObject(uid2, "type2", "data2")
+        id2 = obj2.id()
+        yield self.commitTransaction(0)
+
+        # Sync from remote side
+        syncer = CrossPodHomeSync(self.theStoreUnderTest(1), "user01")
+        yield syncer.loadRecord()
+        syncer.homeId = yield syncer.prepareCalendarHome()
+        changes = yield syncer.notificationsReconcile()
+        self.assertEqual(changes, 2)
+
+        # Now have local notifications
+        notifications = yield NotificationCollection.notificationsWithUID(
+            self.theTransactionUnderTest(1),
+            "user01",
+            True,
+            _HOME_STATUS_EXTERNAL
+        )
+        results = yield notifications.notificationObjects()
+        self.assertEqual(len(results), 2)
+        for result in results:
+            for test_uid, test_id, test_type, test_data in ((uid1, id1, "type1", "data1",), (uid2, id2, "type2", "data2",),):
+                if result.uid() == test_uid:
+                    self.assertNotEqual(result.id(), test_id)
+                    self.assertEqual(json.loads(result.notificationType()), test_type)
+                    data = yield result.notificationData()
+                    self.assertEqual(json.loads(data), test_data)
+                    break
+            else:
+                self.fail("Notification uid {} not found".format(result.uid()))
         yield self.commitTransaction(1)
 
 

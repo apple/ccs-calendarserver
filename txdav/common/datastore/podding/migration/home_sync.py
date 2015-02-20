@@ -23,6 +23,9 @@ from txdav.caldav.icalendarstore import ComponentUpdateState
 from txdav.common.datastore.podding.migration.sync_metadata import CalendarMigrationRecord, \
     CalendarObjectMigrationRecord, AttachmentMigrationRecord
 from txdav.caldav.datastore.sql import ManagedAttachment
+from txdav.common.datastore.sql_external import NotificationCollectionExternal
+from txdav.common.datastore.sql_notification import NotificationCollection
+from txdav.common.datastore.sql_tables import _HOME_STATUS_EXTERNAL
 from txdav.common.idirectoryservice import DirectoryRecordNotFoundError
 
 import uuid
@@ -186,7 +189,7 @@ class CrossPodHomeSync(object):
         pass
 
         # TODO: notifications
-        pass
+        yield self.notificationsReconcile()
 
         # TODO: work items
         pass
@@ -210,7 +213,7 @@ class CrossPodHomeSync(object):
         """
 
         # TODO: implement API on CommonHome to rename the ownerUID column and
-        # change the status column.
+        # change the status column. Also adjust NotificationCollection.
         pass
 
 
@@ -729,7 +732,7 @@ class CrossPodHomeSync(object):
 
         # Batch setting links for the local home
         len_links = len(links)
-        while len(links):
+        while links:
             yield self.makeAttachmentLinks(links[:50], attachmentIDMap, objectIDMap)
             links = links[50:]
 
@@ -890,3 +893,53 @@ class CrossPodHomeSync(object):
             except KeyError:
                 continue
             yield groupAttendee.insert(txn)
+
+
+    @inlineCallbacks
+    def notificationsReconcile(self):
+        """
+        Sync all the existing L{NotificationObject} resources from the remote store.
+        """
+
+        records = yield self.notificationRecords()
+
+        # Batch setting resources for the local home
+        len_records = len(records)
+        while records:
+            yield self.makeNotifications(records[:50])
+            records = records[50:]
+
+        returnValue(len_records)
+
+
+    @inTransactionWrapper
+    @inlineCallbacks
+    def notificationRecords(self, txn):
+        """
+        Get all the existing L{NotificationObjectRecord}'s from the remote store.
+        """
+
+        notifications = yield NotificationCollectionExternal.notificationsWithUID(txn, self.diruid, True)
+        records = yield notifications.notificationObjectRecords()
+        for record in records:
+            # This needs to be reset when added to the local store
+            del record.resourceID
+
+            # Map the remote id to the local one.
+            record.notificationHomeResourceID = notifications.id()
+
+        returnValue(records)
+
+
+    @inTransactionWrapper
+    @inlineCallbacks
+    def makeNotifications(self, txn, records):
+        """
+        Create L{NotificationObjectRecord} records in the local store.
+        """
+
+        notifications = yield NotificationCollection.notificationsWithUID(txn, self.diruid, True, _HOME_STATUS_EXTERNAL)
+        for record in records:
+            # Do this via the "write" API so that sync revisions are updated properly, rather than just
+            # inserting the records directly.
+            yield notifications.writeNotificationObject(record.notificationUID, record.notificationType, record.notificationData)

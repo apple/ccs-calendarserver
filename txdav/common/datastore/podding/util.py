@@ -17,6 +17,8 @@
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from txdav.common.datastore.podding.base import FailedCrossPodRequestError
+from txdav.common.datastore.sql_notification import NotificationCollection, \
+    NotificationObject
 
 
 class UtilityConduitMixin(object):
@@ -56,6 +58,7 @@ class UtilityConduitMixin(object):
         viewer_home = None
         home_child = None
         object_resource = None
+        notification = None
         if isinstance(storeObject, CommonObjectResource):
             owner_home = storeObject.ownerHome()
             viewer_home = storeObject.viewerHome()
@@ -71,21 +74,30 @@ class UtilityConduitMixin(object):
             viewer_home = storeObject
             txn = storeObject._txn
             result["classMethod"] = classMethod
+        elif isinstance(storeObject, NotificationCollection):
+            notification = storeObject
+            txn = storeObject._txn
+            result["classMethod"] = classMethod
 
         # Add store object identities to JSON request
-        result["homeType"] = viewer_home._homeType
-        result["homeUID"] = viewer_home.uid()
-        if home_child:
-            if home_child.owned():
-                result["homeChildID"] = home_child.id()
-            else:
-                result["homeChildSharedID"] = home_child.name()
-        if object_resource:
-            result["objectResourceID"] = object_resource.id()
+        if viewer_home:
+            result["homeType"] = viewer_home._homeType
+            result["homeUID"] = viewer_home.uid()
+            if home_child:
+                if home_child.owned():
+                    result["homeChildID"] = home_child.id()
+                else:
+                    result["homeChildSharedID"] = home_child.name()
+            if object_resource:
+                result["objectResourceID"] = object_resource.id()
 
-        # Note that the owner_home is always the ownerHome() because in the sharing case
-        # a viewer is accessing the owner's data on another pod.
-        recipient = yield self.store.directoryService().recordWithUID(owner_home.uid())
+            # Note that the owner_home is always the ownerHome() because in the sharing case
+            # a viewer is accessing the owner's data on another pod.
+            recipient = yield self.store.directoryService().recordWithUID(owner_home.uid())
+
+        elif notification:
+            result["notificationUID"] = notification.uid()
+            recipient = yield self.store.directoryService().recordWithUID(notification.uid())
 
         returnValue((txn, result, recipient.server(),))
 
@@ -128,6 +140,15 @@ class UtilityConduitMixin(object):
             if objectResource is None:
                 raise FailedCrossPodRequestError("Invalid object resource specified")
             returnObject = objectResource
+
+        if "notificationUID" in request:
+            notification = yield txn.notificationsWithUID(request["notificationUID"])
+            if notification is None:
+                raise FailedCrossPodRequestError("Invalid notification UID specified")
+            notification._internalRequest = False
+            returnObject = notification
+            if request.get("classMethod", False):
+                classObject = NotificationObject
 
         returnValue((returnObject, classObject,))
 

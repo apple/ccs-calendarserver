@@ -26,6 +26,8 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from txdav.base.propertystore.sql import PropertyStore
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource
+from txdav.common.datastore.sql_notification import NotificationCollection, \
+    NotificationObjectRecord
 from txdav.common.datastore.sql_tables import _HOME_STATUS_EXTERNAL
 from txdav.common.icommondatastore import NonExistentExternalShare, \
     ExternalShareFailed
@@ -199,7 +201,6 @@ class CommonHomeChildExternal(CommonHomeChild):
     """
 
     @classmethod
-    @inlineCallbacks
     def listObjects(cls, home):
         """
         Retrieve the names of the children that exist in the given home.
@@ -207,8 +208,7 @@ class CommonHomeChildExternal(CommonHomeChild):
         @return: an iterable of C{str}s.
         """
 
-        results = yield home._txn.store().conduit.send_homechild_listobjects(home)
-        returnValue(results)
+        return home._txn.store().conduit.send_homechild_listobjects(home)
 
 
     @classmethod
@@ -385,17 +385,13 @@ class CommonObjectResourceExternal(CommonObjectResource):
 
 
     @classmethod
-    @inlineCallbacks
     def listObjects(cls, parent):
-        results = yield parent._txn.store().conduit.send_objectresource_listobjects(parent)
-        returnValue(results)
+        return parent._txn.store().conduit.send_objectresource_listobjects(parent)
 
 
     @classmethod
-    @inlineCallbacks
     def countObjects(cls, parent):
-        result = yield parent._txn.store().conduit.send_objectresource_countobjects(parent)
-        returnValue(result)
+        return parent._txn.store().conduit.send_objectresource_countobjects(parent)
 
 
     @classmethod
@@ -411,17 +407,13 @@ class CommonObjectResourceExternal(CommonObjectResource):
 
 
     @classmethod
-    @inlineCallbacks
     def resourceNameForUID(cls, parent, uid):
-        result = yield parent._txn.store().conduit.send_objectresource_resourcenameforuid(parent, uid)
-        returnValue(result)
+        return parent._txn.store().conduit.send_objectresource_resourcenameforuid(parent, uid)
 
 
     @classmethod
-    @inlineCallbacks
     def resourceUIDForName(cls, parent, name):
-        result = yield parent._txn.store().conduit.send_objectresource_resourceuidforname(parent, name)
-        returnValue(result)
+        return parent._txn.store().conduit.send_objectresource_resourceuidforname(parent, name)
 
 
     @classmethod
@@ -452,6 +444,23 @@ class CommonObjectResourceExternal(CommonObjectResource):
         returnValue(self._cachedComponent)
 
 
-    @inlineCallbacks
     def remove(self):
-        yield self._txn.store().conduit.send_objectresource_remove(self)
+        return self._txn.store().conduit.send_objectresource_remove(self)
+
+
+
+class NotificationCollectionExternal(NotificationCollection):
+    """
+    A NotificationCollection for a resource not hosted on this system, but on another pod. This will forward
+    specific apis to the other pod using cross-pod requests.
+    """
+
+    @classmethod
+    def notificationsWithUID(cls, txn, uid, create):
+        return super(NotificationCollectionExternal, cls).notificationsWithUID(txn, uid, create, expected_status=_HOME_STATUS_EXTERNAL)
+
+
+    @inlineCallbacks
+    def notificationObjectRecords(self):
+        results = yield self._txn.store().conduit.send_notification_all_records(self)
+        returnValue(map(NotificationObjectRecord.deserialize, results))

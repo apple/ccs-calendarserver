@@ -15,6 +15,7 @@
 # limitations under the License.
 ##
 
+from twext.enterprise.dal.record import SerializableRecord, fromTable
 from twext.enterprise.dal.syntax import Select, Parameter, Insert, \
     SavepointAction, Delete, Max, Len, Update
 from twext.enterprise.util import parseSQLTimestamp
@@ -56,11 +57,12 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
     _homeSchema = schema.NOTIFICATION_HOME
 
 
-    def __init__(self, txn, uid, resourceID):
+    def __init__(self, txn, uid, resourceID, status):
 
         self._txn = txn
         self._uid = uid
         self._resourceID = resourceID
+        self._status = status
         self._dataVersion = None
         self._notifications = {}
         self._notificationNames = None
@@ -71,15 +73,22 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
         self._notifiers = dict([(factory_name, factory.newNotifier(self),) for factory_name, factory in txn._notifierFactories.items()])
 
     _resourceIDFromUIDQuery = Select(
-        [_homeSchema.RESOURCE_ID], From=_homeSchema,
-        Where=_homeSchema.OWNER_UID == Parameter("uid"))
+        [_homeSchema.RESOURCE_ID, _homeSchema.STATUS],
+        From=_homeSchema,
+        Where=_homeSchema.OWNER_UID == Parameter("uid")
+    )
 
     _UIDFromResourceIDQuery = Select(
-        [_homeSchema.OWNER_UID], From=_homeSchema,
-        Where=_homeSchema.RESOURCE_ID == Parameter("rid"))
+        [_homeSchema.OWNER_UID],
+        From=_homeSchema,
+        Where=_homeSchema.RESOURCE_ID == Parameter("rid")
+    )
 
     _provisionNewNotificationsQuery = Insert(
-        {_homeSchema.OWNER_UID: Parameter("uid")},
+        {
+            _homeSchema.OWNER_UID: Parameter("uid"),
+            _homeSchema.STATUS: Parameter("status"),
+        },
         Return=_homeSchema.RESOURCE_ID
     )
 
@@ -95,7 +104,7 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
 
     @classmethod
     @inlineCallbacks
-    def notificationsWithUID(cls, txn, uid, create):
+    def notificationsWithUID(cls, txn, uid, create, expected_status=_HOME_STATUS_NORMAL):
         """
         @param uid: I'm going to assume uid is utf-8 encoded bytes
         """
@@ -103,6 +112,9 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
 
         if rows:
             resourceID = rows[0][0]
+            status = rows[0][1]
+            if status != expected_status:
+                raise RecordNotAllowedError("Notifications status mismatch: {} != {}".format(status, expected_status))
             created = False
         elif create:
             # Determine if the user is local or external
@@ -110,9 +122,9 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
             if record is None:
                 raise DirectoryRecordNotFoundError("Cannot create home for UID since no directory record exists: {}".format(uid))
 
-            state = _HOME_STATUS_NORMAL if record.thisServer() else _HOME_STATUS_EXTERNAL
-            if state == _HOME_STATUS_EXTERNAL:
-                raise RecordNotAllowedError("Cannot store notifications for external user: {}".format(uid))
+            status = _HOME_STATUS_NORMAL if record.thisServer() else _HOME_STATUS_EXTERNAL
+            if status != expected_status:
+                raise RecordNotAllowedError("Notifications status mismatch: {} != {}".format(status, expected_status))
 
             # Use savepoint so we can do a partial rollback if there is a race
             # condition where this row has already been inserted
@@ -121,7 +133,7 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
 
             try:
                 resourceID = str((
-                    yield cls._provisionNewNotificationsQuery.on(txn, uid=uid)
+                    yield cls._provisionNewNotificationsQuery.on(txn, uid=uid, status=status)
                 )[0][0])
             except Exception:
                 # FIXME: Really want to trap the pg.DatabaseError but in a non-
@@ -132,6 +144,9 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
                 rows = yield cls._resourceIDFromUIDQuery.on(txn, uid=uid)
                 if rows:
                     resourceID = rows[0][0]
+                    status = rows[0][1]
+                    if status != expected_status:
+                        raise RecordNotAllowedError("Notifications status mismatch: {} != {}".format(status, expected_status))
                     created = False
                 else:
                     raise
@@ -140,7 +155,7 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
                 yield savepoint.release(txn)
         else:
             returnValue(None)
-        collection = cls(txn, uid, resourceID)
+        collection = cls(txn, uid, resourceID, status)
         yield collection._loadPropertyStore()
         if created:
             yield collection._initSyncToken()
@@ -224,6 +239,10 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
         return self._home
 
 
+    def notificationObjectRecords(self):
+        return NotificationObjectRecord.querysimple(self._txn, notificationHomeResourceID=self.id())
+
+
     @inlineCallbacks
     def notificationObjects(self):
         results = (yield NotificationObject.loadAllObjects(self))
@@ -292,6 +311,7 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
         else:
             yield self._updateRevision("%s.xml" % (uid,))
         yield self.notifyChanged()
+        returnValue(notificationObject)
 
 
     def removeNotificationObjectWithName(self, name):
@@ -438,6 +458,15 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
                 nh.RESOURCE_ID == Parameter("ResourceID")
             ),
         ).on(self._txn, **kwds)
+
+
+
+class NotificationObjectRecord(SerializableRecord, fromTable(schema.NOTIFICATION)):
+    """
+    @DynamicAttrs
+    L{Record} for L{schema.NOTIFICATION}.
+    """
+    pass
 
 
 

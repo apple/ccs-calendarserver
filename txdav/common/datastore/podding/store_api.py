@@ -163,3 +163,6 @@ UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "objectresource_cr
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "objectresource_setcomponent", "setComponent")
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "objectresource_component", "component", transform_recv_result=UtilityConduitMixin._to_string)
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "objectresource_remove", "remove")
+
+# Calls on L{NotificationCollection} objects
+UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "notification_all_records", "notificationObjectRecords", classMethod=False, transform_recv_result=UtilityConduitMixin._to_serialize_list)
