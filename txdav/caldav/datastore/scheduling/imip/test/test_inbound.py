@@ -175,13 +175,13 @@ END:VCALENDAR
 
         # Make sure a known token *is* processed
         txn = self.store.newTransaction()
-        token = (yield txn.imipCreateToken(
+        record = (yield txn.imipCreateToken(
             "urn:x-uid:5A985493-EE2C-4665-94CF-4DFEA3A89500",
             "mailto:user02@example.com",
             "1E71F9C8-AEDA-48EB-98D0-76E898F6BB5C"
         ))
         yield txn.commit()
-        calBody = template % token
+        calBody = template % record.token
         result = (yield self.receiver.processDSN(calBody, "xyzzy"))
         self.assertEquals(result, MailReceiver.INJECTION_SUBMITTED)
 

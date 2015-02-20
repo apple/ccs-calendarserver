@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from txdav.common.datastore.sql_imip import imipAPIMixin
 
 """
 SQL data store.
@@ -75,8 +76,7 @@ from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     HomeChildNameAlreadyExistsError, NoSuchHomeChildError, \
     ObjectResourceNameNotAllowedError, ObjectResourceNameAlreadyExistsError, \
     NoSuchObjectResourceError, AllRetriesFailed, InvalidSubscriptionValues, \
-    InvalidIMIPTokenValues, TooManyObjectResourcesError, \
-    SyncTokenValidException
+    TooManyObjectResourcesError, SyncTokenValidException
 from txdav.common.idirectoryservice import IStoreDirectoryService, \
     DirectoryRecordNotFoundError
 from txdav.common.inotifications import INotificationCollection, \
@@ -565,7 +565,10 @@ class CommonStoreTransactionMonitor(object):
 
 
 
-class CommonStoreTransaction(GroupsAPIMixin, GroupCacherAPIMixin, DelegatesAPIMixin):
+class CommonStoreTransaction(
+    GroupsAPIMixin, GroupCacherAPIMixin, DelegatesAPIMixin,
+    imipAPIMixin,
+):
     """
     Transaction implementation for SQL database.
     """
@@ -919,121 +922,6 @@ class CommonStoreTransaction(GroupsAPIMixin, GroupCacherAPIMixin, DelegatesAPIMi
 
     def apnSubscriptionsBySubscriber(self, guid):
         return self._apnSubscriptionsBySubscriberQuery.on(self, subscriberGUID=guid)
-
-
-    # Create IMIP token
-
-    @classproperty
-    def _insertIMIPTokenQuery(cls):
-        imip = schema.IMIP_TOKENS
-        return Insert({
-            imip.TOKEN: Parameter("token"),
-            imip.ORGANIZER: Parameter("organizer"),
-            imip.ATTENDEE: Parameter("attendee"),
-            imip.ICALUID: Parameter("icaluid"),
-        })
-
-
-    @inlineCallbacks
-    def imipCreateToken(self, organizer, attendee, icaluid, token=None):
-        if not (organizer and attendee and icaluid):
-            raise InvalidIMIPTokenValues()
-
-        if token is None:
-            token = str(uuid4())
-
-        try:
-            yield self._insertIMIPTokenQuery.on(
-                self,
-                token=token, organizer=organizer, attendee=attendee,
-                icaluid=icaluid)
-        except Exception:
-            # TODO: is it okay if someone else created the same row just now?
-            pass
-        returnValue(token)
-
-    # Lookup IMIP organizer+attendee+icaluid for token
-
-
-    @classproperty
-    def _selectIMIPTokenByTokenQuery(cls):
-        imip = schema.IMIP_TOKENS
-        return Select([imip.ORGANIZER, imip.ATTENDEE, imip.ICALUID], From=imip,
-                      Where=(imip.TOKEN == Parameter("token")))
-
-
-    def imipLookupByToken(self, token):
-        return self._selectIMIPTokenByTokenQuery.on(self, token=token)
-
-    # Lookup IMIP token for organizer+attendee+icaluid
-
-
-    @classproperty
-    def _selectIMIPTokenQuery(cls):
-        imip = schema.IMIP_TOKENS
-        return Select(
-            [imip.TOKEN],
-            From=imip,
-            Where=(imip.ORGANIZER == Parameter("organizer")).And(
-                imip.ATTENDEE == Parameter("attendee")).And(
-                imip.ICALUID == Parameter("icaluid"))
-        )
-
-
-    @classproperty
-    def _updateIMIPTokenQuery(cls):
-        imip = schema.IMIP_TOKENS
-        return Update(
-            {imip.ACCESSED: utcNowSQL, },
-            Where=(imip.ORGANIZER == Parameter("organizer")).And(
-                imip.ATTENDEE == Parameter("attendee")).And(
-                    imip.ICALUID == Parameter("icaluid"))
-        )
-
-
-    @inlineCallbacks
-    def imipGetToken(self, organizer, attendee, icaluid):
-        row = (yield self._selectIMIPTokenQuery.on(
-            self, organizer=organizer,
-            attendee=attendee, icaluid=icaluid))
-        if row:
-            token = row[0][0]
-            # update the timestamp
-            yield self._updateIMIPTokenQuery.on(
-                self, organizer=organizer,
-                attendee=attendee, icaluid=icaluid)
-        else:
-            token = None
-        returnValue(token)
-
-
-    # Remove IMIP token
-    @classproperty
-    def _removeIMIPTokenQuery(cls):
-        imip = schema.IMIP_TOKENS
-        return Delete(From=imip,
-                      Where=(imip.TOKEN == Parameter("token")))
-
-
-    def imipRemoveToken(self, token):
-        return self._removeIMIPTokenQuery.on(self, token=token)
-
-
-    # Purge old IMIP tokens
-    @classproperty
-    def _purgeOldIMIPTokensQuery(cls):
-        imip = schema.IMIP_TOKENS
-        return Delete(From=imip,
-                      Where=(imip.ACCESSED < Parameter("olderThan")))
-
-
-    def purgeOldIMIPTokens(self, olderThan):
-        """
-        @type olderThan: datetime
-        """
-        return self._purgeOldIMIPTokensQuery.on(self, olderThan=olderThan)
-
-    # End of IMIP
 
 
     def preCommit(self, operation):

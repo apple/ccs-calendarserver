@@ -389,8 +389,8 @@ class ICommonTransaction(ITransaction):
         """
         Returns the organizer, attendee, and icaluid corresponding to the token
 
-        @param token: the token to look up
-        @type token: C{str}
+        @param token: the token record
+        @type token: L{Record}
         """
 
     def imipGetToken(organizer, attendee, icaluid): #@NoSelf

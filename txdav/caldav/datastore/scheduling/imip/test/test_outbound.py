@@ -316,17 +316,17 @@ class OutboundTests(unittest.TestCase):
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
 
         txn = self.store.newTransaction()
-        token = (yield txn.imipGetToken(
+        record = (yield txn.imipGetToken(
             ORGANIZER,
             ATTENDEE,
             ICALUID
         ))
-        self.assertTrue(token)
-        organizer, attendee, icaluid = (yield txn.imipLookupByToken(token))[0]
+        self.assertTrue(record is not None)
+        record = (yield txn.imipLookupByToken(record.token))[0]
         yield txn.commit()
-        self.assertEquals(organizer, ORGANIZER)
-        self.assertEquals(attendee, ATTENDEE)
-        self.assertEquals(icaluid, ICALUID)
+        self.assertEquals(record.organizer, ORGANIZER)
+        self.assertEquals(record.attendee, ATTENDEE)
+        self.assertEquals(record.icaluid, ICALUID)
 
 
     @inlineCallbacks
@@ -492,12 +492,12 @@ END:VCALENDAR
             if UID: # The organizer is local, and server is sending to remote
                     # attendee
                 txn = self.store.newTransaction()
-                token = (yield txn.imipGetToken(inputOriginator, inputRecipient, UID))
+                record = (yield txn.imipGetToken(inputOriginator, inputRecipient, UID))
                 yield txn.commit()
-                self.assertNotEquals(token, None)
+                self.assertNotEquals(record, None)
                 self.assertEquals(
                     msg["Reply-To"],
-                    "server+%s@example.com" % (token,))
+                    "server+%s@example.com" % (record.token,))
 
                 # Make sure attendee property for organizer exists and matches
                 # the CUA of the organizer property
@@ -529,31 +529,31 @@ END:VCALENDAR
     @inlineCallbacks
     def test_tokens(self):
         txn = self.store.newTransaction()
-        token = (yield txn.imipLookupByToken("xyzzy"))
-        yield txn.commit()
-        self.assertEquals(token, [])
-
-        txn = self.store.newTransaction()
-        token1 = (yield txn.imipCreateToken("organizer", "attendee", "icaluid"))
+        self.assertEquals((yield txn.imipLookupByToken("xyzzy")), [])
         yield txn.commit()
 
         txn = self.store.newTransaction()
-        token2 = (yield txn.imipGetToken("organizer", "attendee", "icaluid"))
+        record1 = (yield txn.imipCreateToken("organizer", "attendee", "icaluid"))
         yield txn.commit()
-        self.assertEquals(token1, token2)
 
         txn = self.store.newTransaction()
+        record2 = (yield txn.imipGetToken("organizer", "attendee", "icaluid"))
+        yield txn.commit()
+        self.assertEquals(record1.token, record2.token)
+
+        txn = self.store.newTransaction()
+        record = (yield txn.imipLookupByToken(record1.token))[0]
         self.assertEquals(
-            (yield txn.imipLookupByToken(token1)),
-            [["organizer", "attendee", "icaluid"]])
+            [record.organizer, record.attendee, record.icaluid],
+            ["organizer", "attendee", "icaluid"])
         yield txn.commit()
 
         txn = self.store.newTransaction()
-        yield txn.imipRemoveToken(token1)
+        yield txn.imipRemoveToken(record1.token)
         yield txn.commit()
 
         txn = self.store.newTransaction()
-        self.assertEquals((yield txn.imipLookupByToken(token1)), [])
+        self.assertEquals((yield txn.imipLookupByToken(record1.token)), [])
         yield txn.commit()
 
 
@@ -568,7 +568,7 @@ END:VCALENDAR
         # Explictly store a token with mailto: CUA for organizer
         # (something that doesn't happen any more, but did in the past)
         txn = self.store.newTransaction()
-        origToken = (yield txn.imipCreateToken(
+        origRecord = (yield txn.imipCreateToken(
             organizerEmail,
             "mailto:attendee@example.com",
             "CFDD5E46-4F74-478A-9311-B3FF905449C3"
@@ -588,15 +588,15 @@ END:VCALENDAR
 
         # Verify we didn't create a new token...
         txn = self.store.newTransaction()
-        token = (yield txn.imipGetToken(inputOriginator, inputRecipient, UID))
+        record = (yield txn.imipGetToken(inputOriginator, inputRecipient, UID))
         yield txn.commit()
-        self.assertEquals(token, None)
+        self.assertEquals(record, None)
 
         # But instead kept the old one...
         txn = self.store.newTransaction()
-        token = (yield txn.imipGetToken(organizerEmail, inputRecipient, UID))
+        record = (yield txn.imipGetToken(organizerEmail, inputRecipient, UID))
         yield txn.commit()
-        self.assertEquals(token, origToken)
+        self.assertEquals(record.token, origRecord.token)
 
 
     def generateSampleEmail(self, caltext=initialInviteText):
