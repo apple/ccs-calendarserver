@@ -17,12 +17,9 @@
 
 from twext.enterprise.dal.record import SerializableRecord, fromTable
 from twext.enterprise.dal.syntax import Select, Parameter
-from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
 from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.sql_directory import GroupsRecord
-
-log = Logger()
 
 """
 Classes and methods that relate to directory objects in the SQL store. e.g.,

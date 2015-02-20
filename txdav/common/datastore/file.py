@@ -44,7 +44,8 @@ from txdav.common.datastore.sql_tables import _BIND_MODE_OWN
 from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     HomeChildNameAlreadyExistsError, NoSuchHomeChildError, \
     InternalDataStoreError, ObjectResourceNameNotAllowedError, \
-    ObjectResourceNameAlreadyExistsError, NoSuchObjectResourceError
+    ObjectResourceNameAlreadyExistsError, NoSuchObjectResourceError, \
+    ECALENDARTYPE, EADDRESSBOOKTYPE
 from txdav.common.idirectoryservice import IStoreDirectoryService
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
@@ -63,16 +64,6 @@ import json
 import uuid
 from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
 import os
-
-ECALENDARTYPE = 0
-EADDRESSBOOKTYPE = 1
-
-# Labels used to identify the class of resource being modified, so that
-# notification systems can target the correct application
-NotifierPrefixes = {
-    ECALENDARTYPE : "CalDAV",
-    EADDRESSBOOKTYPE : "CardDAV",
-}
 
 TOPPATHS = (
     "calendars",

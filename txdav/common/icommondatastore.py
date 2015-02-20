@@ -40,6 +40,12 @@ __all__ = [
     "InternalDataStoreError",
 ]
 
+# Constants for top-level store types
+ECALENDARTYPE = 0
+EADDRESSBOOKTYPE = 1
+ENOTIFICATIONTYPE = 2
+
+
 #
 # Exceptions
 #

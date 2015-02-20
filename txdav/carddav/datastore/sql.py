@@ -53,11 +53,12 @@ from txdav.carddav.iaddressbookstore import IAddressBookHome, IAddressBook, \
     KindChangeNotAllowedError
 from txdav.common.datastore.query.generator import SQLQueryGenerator
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
-    CommonObjectResource, EADDRESSBOOKTYPE, SharingMixIn, SharingInvitation
+    CommonObjectResource, EADDRESSBOOKTYPE, SharingMixIn
 from txdav.common.datastore.sql_tables import _ABO_KIND_PERSON, \
     _ABO_KIND_GROUP, _ABO_KIND_RESOURCE, _ABO_KIND_LOCATION, schema, \
     _BIND_MODE_OWN, _BIND_MODE_WRITE, _BIND_STATUS_ACCEPTED, \
     _BIND_STATUS_INVITED, _BIND_MODE_INDIRECT, _BIND_STATUS_DECLINED
+from txdav.common.datastore.sql_sharing import SharingInvitation
 from txdav.common.icommondatastore import InternalDataStoreError, \
     InvalidUIDError, UIDExistsError, ObjectResourceTooBigError, \
     InvalidObjectResourceError, InvalidComponentForStoreError, \

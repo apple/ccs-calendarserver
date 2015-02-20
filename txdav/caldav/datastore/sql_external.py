@@ -16,6 +16,7 @@
 ##
 from txdav.common.datastore.sql_directory import GroupsRecord
 from txdav.caldav.datastore.sql_directory import GroupAttendeeRecord
+from txdav.caldav.datastore.sql_attachment import Attachment, AttachmentLink
 """
 SQL backend for CalDAV storage when resources are external.
 """
@@ -24,8 +25,7 @@ from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 
 from twext.python.log import Logger
 
-from txdav.caldav.datastore.sql import CalendarHome, Calendar, CalendarObject, \
-    Attachment, AttachmentLink
+from txdav.caldav.datastore.sql import CalendarHome, Calendar, CalendarObject
 from txdav.caldav.icalendarstore import ComponentUpdateState, ComponentRemoveState
 from txdav.common.datastore.sql_external import CommonHomeExternal, CommonHomeChildExternal, \
     CommonObjectResourceExternal
