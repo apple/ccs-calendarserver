@@ -563,6 +563,8 @@ class CommonTrashTests(StoreTestCase):
     @inlineCallbacks
     def _getResourceData(self, txn, userName, collectionName, resourceName):
         resource = yield self._getResource(txn, userName, collectionName, resourceName)
+        if resource is None:
+            returnValue(None)
         component = yield resource.component()
         returnValue(str(component).replace("\r\n ", ""))
 
@@ -644,13 +646,10 @@ END:VCALENDAR
 
         # One object in trash
         objects = yield trash.listObjectResources()
-        print("OBJECT LIST", objects)
         self.assertEquals(len(objects), 1)
 
         # Put back from trash
-        print("FETCHING FROM TRASH USING", objects[0])
         resource = yield self._getResource(txn, "user01", "trash", objects[0])
-        print("OBJECT NAME", resource._name)
         yield resource.fromTrash()
 
         # Not in trash
@@ -783,7 +782,6 @@ END:VCALENDAR
 """ % subs
 
         # user01 invites user02
-        print("TEST: user01 creates resource START")
         txn = self.store.newTransaction()
         yield self._createResource(
             txn, "user01", "calendar", "test.ics", data1
@@ -791,7 +789,6 @@ END:VCALENDAR
         yield txn.commit()
 
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
-        print("TEST: user01 creates resource END")
 
         # user01's copy has SCHEDULE-STATUS update
         txn = self.store.newTransaction()
@@ -803,12 +800,10 @@ END:VCALENDAR
         self.assertEqual(len(resourceNames), 1)
 
         # user02 accepts
-        print("TEST: user02 accepts START")
         yield self._updateResource(txn, "user02", "calendar", "", data2)
         yield txn.commit()
 
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
-        print("TEST: user02 accepts END")
 
         # user01 has an inbox item
         txn = self.store.newTransaction()
@@ -825,14 +820,12 @@ END:VCALENDAR
         yield txn.commit()
 
         # user01 trashes event
-        print("TEST: user01 trashes event START")
         txn = self.store.newTransaction()
         resource = yield self._getResource(txn, "user01", "calendar", "test.ics")
         yield resource.remove()
         yield txn.commit()
 
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
-        print("TEST: user01 trashes event END")
 
         # user01's copy is in the trash, still with user02 accepted
         txn = self.store.newTransaction()
@@ -849,41 +842,28 @@ END:VCALENDAR
         data = yield self._getResourceData(txn, "user02", "calendar", "")
         self.assertTrue("STATUS:CANCELLED" in data)
         resource = yield self._getResource(txn, "user02", "calendar", "")
-        print("PLUGH REMOVE user02's copy")
         yield resource.remove()
-        print("PLUGH REMOVE user02's copy done")
         data = yield self._getResource(txn, "user02", "trash", "")
         self.assertEquals(data, None)
         yield txn.commit()
 
         # user01 restores event from the trash
-        print("TEST: user01 restores event START")
         txn = self.store.newTransaction()
         resource = yield self._getResource(txn, "user01", "trash", "")
         data = yield self._getResourceData(txn, "user01", "trash", "")
-        print("user01 trashed copy", data)
-        print("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-")
         yield resource.fromTrash()
         yield txn.commit()
 
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
-        print("TEST: user01 restores event END")
 
         txn = self.store.newTransaction()
 
         # user01's copy should be back on their calendar
-        names = yield self._getResourceNames(txn, "user01", "calendar")
-        print("user01 names", names)
-        data = yield self._getResourceData(txn, "user01", "calendar", "")
-        print("WHAT?", data)
         data = yield self._getResourceData(txn, "user01", "calendar", "test.ics")
-        print("user01 copy")
-        print(data)
+        self.assertTrue("PARTSTAT=NEEDS-ACTION" in data)
 
         # user02's copy should be back on their calendar
         data = yield self._getResourceData(txn, "user02", "calendar", "")
-        print("user02 copy")
-        print(data)
         self.assertTrue("PARTSTAT=NEEDS-ACTION" in data)
 
         yield txn.commit()
@@ -1001,9 +981,7 @@ END:VCALENDAR
         data = yield self._getResourceData(txn, "user02", "calendar", "")
         self.assertTrue("STATUS:CANCELLED" in data)
         resource = yield self._getResource(txn, "user02", "calendar", "")
-        print("PLUGH REMOVE user02's copy")
         yield resource.remove()
-        print("PLUGH REMOVE user02's copy done")
         data = yield self._getResource(txn, "user02", "trash", "")
         self.assertEquals(data, None)
         yield txn.commit()
@@ -1012,8 +990,6 @@ END:VCALENDAR
         txn = self.store.newTransaction()
         resource = yield self._getResource(txn, "user01", "trash", "")
         data = yield self._getResourceData(txn, "user01", "trash", "")
-        print("user01 trashed copy", data)
-        print("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-")
         yield resource.fromTrash()
         yield txn.commit()
 
@@ -1023,13 +999,10 @@ END:VCALENDAR
 
         # user01's copy should be back on their calendar
         data = yield self._getResourceData(txn, "user01", "calendar", "test.ics")
-        print("user01 copy")
-        print(data)
+        self.assertTrue("PARTSTAT=TENTATIVE" in data)
 
         # user02's copy should be back on their calendar
         data = yield self._getResourceData(txn, "user02", "calendar", "")
-        print("user02 copy")
-        print(data)
         self.assertTrue("PARTSTAT=TENTATIVE" in data)
 
 
@@ -1150,9 +1123,7 @@ END:VCALENDAR
         data = yield self._getResourceData(txn, "user02", "calendar", "")
         self.assertTrue("STATUS:CANCELLED" in data)
         resource = yield self._getResource(txn, "user02", "calendar", "")
-        print("PLUGH REMOVE user02's copy")
         yield resource.remove()
-        print("PLUGH REMOVE user02's copy done")
         data = yield self._getResource(txn, "user02", "trash", "")
         self.assertEquals(data, None)
         yield txn.commit()
@@ -1160,18 +1131,12 @@ END:VCALENDAR
         # user01 restores event from the trash
         txn = self.store.newTransaction()
         resource = yield self._getResource(txn, "user01", "trash", "")
-        data = yield self._getResourceData(txn, "user01", "trash", "")
-        print("user01 trashed copy", data)
-        print("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-")
         yield resource.fromTrash()
         yield txn.commit()
 
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
 
         txn = self.store.newTransaction()
-
-        # resourceNames = yield self._getResourceNames(txn, "user01", "calendar")
-        # print("user01's calendar", resourceNames)
 
         # user01's trash should be empty
         resourceNames = yield self._getResourceNames(txn, "user01", "trash")
@@ -1186,24 +1151,25 @@ END:VCALENDAR
 
         # user01's test.ics -- verify it got split correctly
         data = yield self._getResourceData(txn, "user01", "calendar", "test.ics")
-        print("user01 test.ics")
-        print(data)
+        self.assertTrue("COUNT=15" in data)
 
         # user01's new .ics -- verify it got split correctly
         data = yield self._getResourceData(txn, "user01", "calendar", newName)
-        print("user01 new ics")
-        print(data)
+        self.assertTrue("RRULE:FREQ=WEEKLY;UNTIL=" in data)
+
+        # user02's copy should be back on their calendar
 
         resourceNames = yield self._getResourceNames(txn, "user02", "calendar")
         print("user02's calendar", resourceNames)
         resourceNames = yield self._getResourceNames(txn, "user02", "trash")
         print("user02's trash", resourceNames)
 
-        # # user02's copy should be back on their calendar
-        # data = yield self._getResourceData(txn, "user02", "calendar", "")
-        # print("user02 copy")
-        # print(data)
-        # # self.assertTrue("PARTSTAT=NEEDS-ACTION" in data)
+        data = yield self._getResourceData(txn, "user02", "calendar", "")
+        print("user02 copy")
+        if data is None:
+            print("Resource not found")
+        else:
+            print(data)
+        self.assertTrue("PARTSTAT=NEEDS-ACTION" in data)
 
         yield txn.commit()
-
