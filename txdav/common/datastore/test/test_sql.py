@@ -1157,19 +1157,14 @@ END:VCALENDAR
         data = yield self._getResourceData(txn, "user01", "calendar", newName)
         self.assertTrue("RRULE:FREQ=WEEKLY;UNTIL=" in data)
 
-        # user02's copy should be back on their calendar
+        # user02's copy should be back on their calendar, and not in trash
 
         resourceNames = yield self._getResourceNames(txn, "user02", "calendar")
-        print("user02's calendar", resourceNames)
+        self.assertEquals(len(resourceNames), 1)
         resourceNames = yield self._getResourceNames(txn, "user02", "trash")
-        print("user02's trash", resourceNames)
+        self.assertEquals(len(resourceNames), 0)
 
         data = yield self._getResourceData(txn, "user02", "calendar", "")
-        print("user02 copy")
-        if data is None:
-            print("Resource not found")
-        else:
-            print(data)
         self.assertTrue("PARTSTAT=NEEDS-ACTION" in data)
 
         yield txn.commit()

@@ -4913,12 +4913,18 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             splitter = iCalSplitter()
             willSplit = splitter.willSplit(caldata)
             if willSplit:
-                newPastResource = yield self.split(
+                yield self.split(
                     coercePartstatsInExistingResource=True,
                     splitter=splitter
                 )
                 # original resource is the ongoing one,
                 # the new resource is the past one
+
+                # Update the attendee's copy of the ongoing one
+                yield ImplicitScheduler().refreshAllAttendeesExceptSome(
+                    self._txn,
+                    self,
+                )
             else:
                 now = DateTime.getNowUTC()
                 now.setHHMMSS(0, 0, 0)
