@@ -7015,7 +7015,7 @@ class CommonObjectResource(FancyEqMixin, object):
         rows = yield Select(
             [obj.RESOURCE_NAME],
             From=obj,
-            Where=obj.PARENT_RESOURCE_ID == Parameter('parentID')
+            Where=(obj.PARENT_RESOURCE_ID == Parameter('parentID')).And(obj.IS_TRASH == False)
         ).on(parent._txn, parentID=parent.id())
         returnValue(sorted([row[0] for row in rows]))
 
@@ -7498,7 +7498,7 @@ class CommonObjectResource(FancyEqMixin, object):
     def _updateIsTrashQuery(cls):
         obj = cls._objectSchema
         return Update(
-            {obj.IS_TRASH: Parameter("isTrash")},
+            {obj.IS_TRASH: Parameter("isTrash"), obj.TRASHED: Parameter("trashed")},
             Where=obj.RESOURCE_ID == Parameter("resourceID"),
         )
 
@@ -7506,7 +7506,7 @@ class CommonObjectResource(FancyEqMixin, object):
     @inlineCallbacks
     def toTrash(self):
         yield self._updateIsTrashQuery.on(
-            self._txn, isTrash=True, resourceID=self._resourceID
+            self._txn, isTrash=True, trashed=datetime.datetime.utcnow(), resourceID=self._resourceID
         )
         yield self._parentCollection.removedObjectResource(self)
         yield self._parentCollection._deleteRevision(self.name())
@@ -7526,7 +7526,7 @@ class CommonObjectResource(FancyEqMixin, object):
         trash = self._parentCollection
         self._parentCollection = yield trash.originalParentForResource(self)
         yield self._updateIsTrashQuery.on(
-            self._txn, isTrash=False, resourceID=self._resourceID
+            self._txn, isTrash=False, trashed=None, resourceID=self._resourceID
         )
         yield trash._deleteRevision(
             trash.nameForResource(
@@ -7544,7 +7544,7 @@ class CommonObjectResource(FancyEqMixin, object):
     @classproperty
     def _selectIsTrashQuery(cls):
         obj = cls._objectSchema
-        return Select((obj.IS_TRASH,), From=obj, Where=obj.RESOURCE_ID == Parameter("resourceID"))
+        return Select((obj.IS_TRASH, obj.TRASHED), From=obj, Where=obj.RESOURCE_ID == Parameter("resourceID"))
 
 
     @inlineCallbacks
@@ -7555,6 +7555,16 @@ class CommonObjectResource(FancyEqMixin, object):
                     self._txn, resourceID=self._resourceID
                 )
             )[0][0]
+        )
+
+    @inlineCallbacks
+    def whenTrashed(self):
+        returnValue(
+            (
+                yield self._selectIsTrashQuery.on(
+                    self._txn, resourceID=self._resourceID
+                )
+            )[0][1]
         )
 
 

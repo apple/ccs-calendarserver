@@ -2361,6 +2361,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             obj.CREATED,
             obj.MODIFIED,
             obj.DATAVERSION,
+            obj.TRASHED,
+            obj.IS_TRASH,
         ]
 
 
@@ -2382,6 +2384,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             "_created",
             "_modified",
             "_dataversion",
+            "_trashed",
+            "_is_trash",
         )
 
 

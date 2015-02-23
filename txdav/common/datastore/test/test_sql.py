@@ -633,35 +633,57 @@ END:VCALENDAR
 
         # Verify it's not in the trash
         self.assertFalse((yield resource.isTrash()))
+        trashed = yield resource.whenTrashed()
+        self.assertTrue(trashed is None)
 
         # Move object to trash
         yield resource.toTrash()
 
+        yield txn.commit()
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
+
+        txn = self.store.newTransaction()
+
         # Verify it's in the trash
+        resource = yield self._getResource(txn, "user01", "trash", "")
         self.assertTrue((yield resource.isTrash()))
+        trashed = yield resource.whenTrashed()
+        self.assertFalse(trashed is None)
 
         # No objects in collection
-        objects = yield collection.listObjectResources()
-        self.assertEquals(len(objects), 0)
+        resourceNames = yield self._getResourceNames(txn, "user01", "calendar")
+        self.assertEqual(len(resourceNames), 0)
 
         # One object in trash
-        objects = yield trash.listObjectResources()
-        self.assertEquals(len(objects), 1)
+        resourceNames = yield self._getResourceNames(txn, "user01", "trash")
+        self.assertEqual(len(resourceNames), 1)
 
         # Put back from trash
-        resource = yield self._getResource(txn, "user01", "trash", objects[0])
         yield resource.fromTrash()
 
+        yield txn.commit()
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
+
+        txn = self.store.newTransaction()
+
         # Not in trash
-        self.assertFalse((yield resource.isTrash()))
+        resource = yield self._getResource(txn, "user01", "trash", "")
+        self.assertTrue(resource is None)
+
 
         # One object in collection
-        objects = yield collection.listObjectResources()
-        self.assertEquals(len(objects), 1)
+        resourceNames = yield self._getResourceNames(txn, "user01", "calendar")
+        self.assertEqual(len(resourceNames), 1)
+        resource = yield self._getResource(txn, "user01", "calendar", "test.ics")
+        self.assertFalse((yield resource.isTrash()))
+        trashed = yield resource.whenTrashed()
+        self.assertTrue(trashed is None)
 
         # No objects in trash
-        objects = yield trash.listObjectResources()
-        self.assertEquals(len(objects), 0)
+        resourceNames = yield self._getResourceNames(txn, "user01", "trash")
+        self.assertEqual(len(resourceNames), 0)
+
+        yield txn.commit()
 
 
         # Not implemented
@@ -809,6 +831,8 @@ END:VCALENDAR
         txn = self.store.newTransaction()
         resourceNames = yield self._getResourceNames(txn, "user01", "inbox")
         self.assertEqual(len(resourceNames), 1)
+        resource = yield self._getResource(txn, "user01", "inbox", "")
+        yield resource.remove()
 
         # user01's copy has SCHEDULE-STATUS update
         data = yield self._getResourceData(txn, "user01", "calendar", "test.ics")
@@ -829,6 +853,10 @@ END:VCALENDAR
 
         # user01's copy is in the trash, still with user02 accepted
         txn = self.store.newTransaction()
+        resource = yield self._getResource(txn, "user01", "trash", "")
+        self.assertTrue((yield resource.isTrash()))
+        trashed = yield resource.whenTrashed()
+        self.assertFalse(trashed is None)
         data = yield self._getResourceData(txn, "user01", "trash", "")
         self.assertTrue("PARTSTAT=ACCEPTED" in data)
         yield txn.commit()
@@ -859,6 +887,10 @@ END:VCALENDAR
         txn = self.store.newTransaction()
 
         # user01's copy should be back on their calendar
+        resource = yield self._getResource(txn, "user01", "calendar", "test.ics")
+        self.assertFalse((yield resource.isTrash()))
+        trashed = yield resource.whenTrashed()
+        self.assertTrue(trashed is None)
         data = yield self._getResourceData(txn, "user01", "calendar", "test.ics")
         self.assertTrue("PARTSTAT=NEEDS-ACTION" in data)
 
@@ -868,6 +900,138 @@ END:VCALENDAR
 
         yield txn.commit()
 
+
+
+    @inlineCallbacks
+    def test_trashScheduledFullyInFutureAttendeeRemove(self):
+
+        from twistedcaldav.stdconfig import config
+        self.patch(config, "EnableTrashCollection", True)
+
+        # A month in the future
+        start = DateTime.getNowUTC()
+        start.setHHMMSS(0, 0, 0)
+        start.offsetMonth(1)
+        end = DateTime.getNowUTC()
+        end.setHHMMSS(1, 0, 0)
+        end.offsetMonth(1)
+        subs = {
+            "start": start,
+            "end": end,
+        }
+
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTART;TZID=America/Los_Angeles:%(start)s
+DTEND;TZID=America/Los_Angeles:%(end)s
+DTSTAMP:20150204T192546Z
+SUMMARY:Scheduled
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""" % subs
+
+        data2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTART;TZID=America/Los_Angeles:%(start)s
+DTEND;TZID=America/Los_Angeles:%(end)s
+DTSTAMP:20150204T192546Z
+SUMMARY:Scheduled
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""" % subs
+
+        # user01 invites user02
+        txn = self.store.newTransaction()
+        yield self._createResource(
+            txn, "user01", "calendar", "test.ics", data1
+        )
+        yield txn.commit()
+
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
+
+        # user01's copy has SCHEDULE-STATUS update
+        txn = self.store.newTransaction()
+        data = yield self._getResourceData(txn, "user01", "calendar", "test.ics")
+        self.assertTrue("SCHEDULE-STATUS=1.2" in data)
+
+        # user02 has an inbox item
+        resourceNames = yield self._getResourceNames(txn, "user02", "inbox")
+        self.assertEqual(len(resourceNames), 1)
+
+        # user02 accepts
+        yield self._updateResource(txn, "user02", "calendar", "", data2)
+        yield txn.commit()
+
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
+
+        # user01 has an inbox item
+        txn = self.store.newTransaction()
+        resourceNames = yield self._getResourceNames(txn, "user01", "inbox")
+        self.assertEqual(len(resourceNames), 1)
+        resource = yield self._getResource(txn, "user01", "inbox", "")
+        yield resource.remove()
+
+        # user01's copy has SCHEDULE-STATUS update
+        data = yield self._getResourceData(txn, "user01", "calendar", "test.ics")
+        self.assertTrue("SCHEDULE-STATUS=2.0" in data)
+        self.assertTrue("PARTSTAT=ACCEPTED" in data)
+
+        resource = yield self._getResource(txn, "user02", "inbox", "")
+        yield resource.remove()
+
+        yield txn.commit()
+
+        # user02 trashes event
+        txn = self.store.newTransaction()
+        resource = yield self._getResource(txn, "user02", "calendar", "")
+        yield resource.remove()
+
+        yield txn.commit()
+
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
+
+        # user01's calendar copy shows user02 declined
+        txn = self.store.newTransaction()
+
+        data = yield self._getResourceData(txn, "user01", "calendar", "test.ics")
+        self.assertTrue("PARTSTAT=DECLINED" in data)
+
+        # user01's inbox copy also shows user02 declined
+        data = yield self._getResourceData(txn, "user01", "inbox", "")
+        self.assertTrue("PARTSTAT=DECLINED" in data)
+        resource = yield self._getResource(txn, "user01", "inbox", "")
+        yield resource.remove()
+
+        # result = yield txn.execSQL("select * from calendar_object", [])
+        # for row in result:
+        #     print("ROW", row)
+
+        # user02's copy is in the trash only, and still has ACCEPTED
+        resourceNames = yield self._getResourceNames(txn, "user02", "trash")
+        self.assertEqual(len(resourceNames), 1)
+
+        resourceNames = yield self._getResourceNames(txn, "user02", "calendar")
+        self.assertEqual(len(resourceNames), 0)
+
+        resourceNames = yield self._getResourceNames(txn, "user02", "inbox")
+        self.assertEqual(len(resourceNames), 0)
+
+        data = yield self._getResourceData(txn, "user02", "trash", "")
+        self.assertTrue("PARTSTAT=ACCEPTED" in data)
+
+        yield txn.commit()
 
 
     @inlineCallbacks
