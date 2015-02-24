@@ -25,7 +25,9 @@ from twext.python.log import Logger
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twistedcaldav.config import config
-from twistedcaldav.method.report_common import _namedPropertiesForResource
+from twistedcaldav.method.report_common import (
+    _namedPropertiesForResource, responseForHref
+)
 
 from txdav.common.icommondatastore import ConcurrentModification
 from txdav.xml import element
@@ -33,7 +35,6 @@ from txdav.xml import element
 from txweb2 import responsecode
 from txweb2.dav.http import ErrorResponse
 from txweb2.dav.http import MultiStatusResponse
-from txweb2.dav.method.prop_common import responseForHref
 from txweb2.dav.util import joinURL
 from txweb2.http import HTTPError, StatusResponse
 

@@ -29,7 +29,7 @@ class iCalSplitter(object):
 
     uuid_namespace = uuid.UUID("1F50F5E1-3E10-4A85-A8B4-3906DA3B8C52")
 
-    def __init__(self, threshold, past):
+    def __init__(self, threshold=-1, past=1):
         """
         @param threshold: the size in bytes that will trigger a split
         @type threshold: C{int}
@@ -70,21 +70,25 @@ class iCalSplitter(object):
         if len(instances) <= 1 or instances[0].start >= self.past or instances[-1].start < self.now:
             return False
 
-        # Make sure there are some overridden components in the past - as splitting only makes sense when
-        # overrides are present
-        past_count = 0
-        for instance in instances:
-            if instance.start >= self.past:
-                break
-            elif instance.component.hasProperty("RECURRENCE-ID"):
-                past_count += 1
+        if self.threshold != -1:
+            # Make sure there are some overridden components in the past - as splitting only makes sense when
+            # overrides are present
+            past_count = 0
+            for instance in instances:
+                if instance.start >= self.past:
+                    break
+                elif instance.component.hasProperty("RECURRENCE-ID"):
+                    past_count += 1
 
-        # Only split when there is more than one past override to split off
-        if past_count < 2:
-            return False
+            # Only split when there is more than one past override to split off
+            if past_count < 2:
+                return False
 
-        # Now see if overall size exceeds our threshold
-        return len(str(ical)) > self.threshold
+            # Now see if overall size exceeds our threshold
+            return len(str(ical)) > self.threshold
+
+        else:
+            return True
 
 
     def whereSplit(self, ical, break_point=None, allow_past_the_end=True):
