@@ -4911,49 +4911,63 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         yield super(CalendarObject, self).fromTrash()
 
         caldata = yield self.componentForUser()
-        if caldata.getOrganizer():
+        organizer = caldata.getOrganizer()
+        if organizer:
             # This is a scheduled event
 
-            splitter = iCalSplitter()
-            willSplit = splitter.willSplit(caldata)
-            if willSplit:
-                yield self.split(
-                    coercePartstatsInExistingResource=True,
-                    splitter=splitter
-                )
-                # original resource is the ongoing one,
-                # the new resource is the past one
+            uid = self._parentCollection.viewerHome().uid()
+            organizerAddress = yield calendarUserFromCalendarUserAddress(organizer, self._txn)
 
-                # Update the attendee's copy of the ongoing one
-                yield ImplicitScheduler().refreshAllAttendeesExceptSome(
-                    self._txn,
-                    self,
-                )
-            else:
-                now = DateTime.getNowUTC()
-                now.setHHMMSS(0, 0, 0)
-                instances = caldata.cacheExpandedTimeRanges(now)
-                instances = sorted(instances.instances.values(), key=lambda x: x.start)
-                if instances[0].start >= now:
-                    # future
-                    newdata = caldata.duplicate()
-                    newdata.bumpiTIPInfo(doSequence=True)
-                    for attendee in newdata.getAllAttendeeProperties():
-                        if attendee.parameterValue("SCHEDULE-AGENT", "SERVER").upper() == "SERVER" and attendee.hasParameter("PARTSTAT"):
-                            attendee.setParameter("PARTSTAT", "NEEDS-ACTION")
-
-
-                    yield self._setComponentInternal(
-                        newdata, inserting=True, updateSelf=True
+            if organizerAddress.record.uid == uid:
+                print("XYZZY ORGANIZER")
+                # If the ORGANIZER is moving the event from trash
+                splitter = iCalSplitter()
+                willSplit = splitter.willSplit(caldata)
+                if willSplit:
+                    yield self.split(
+                        coercePartstatsInExistingResource=True,
+                        splitter=splitter
                     )
+                    # original resource is the ongoing one,
+                    # the new resource is the past one
 
-                else:
-                    # past
+                    # Update the attendee's copy of the ongoing one
                     yield ImplicitScheduler().refreshAllAttendeesExceptSome(
                         self._txn,
                         self,
                     )
+                else:
+                    now = DateTime.getNowUTC()
+                    now.setHHMMSS(0, 0, 0)
+                    instances = caldata.cacheExpandedTimeRanges(now)
+                    instances = sorted(instances.instances.values(), key=lambda x: x.start)
+                    if instances[0].start >= now:
+                        # future
+                        newdata = caldata.duplicate()
+                        newdata.bumpiTIPInfo(doSequence=True)
+                        for attendee in newdata.getAllAttendeeProperties():
+                            if attendee.parameterValue("SCHEDULE-AGENT", "SERVER").upper() == "SERVER" and attendee.hasParameter("PARTSTAT"):
+                                attendee.setParameter("PARTSTAT", "NEEDS-ACTION")
 
+
+                        yield self._setComponentInternal(
+                            newdata, inserting=True, updateSelf=True
+                        )
+
+                    else:
+                        # past
+                        yield ImplicitScheduler().refreshAllAttendeesExceptSome(
+                            self._txn,
+                            self,
+                        )
+
+            else:
+                # If an ATTENDEE is moving the event from trash
+                print("XYZZY ATTENDEE")
+                yield ImplicitScheduler().sendAttendeeReply(
+                    self._txn,
+                    self
+                )
 
 
 
