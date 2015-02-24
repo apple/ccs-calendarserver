@@ -96,6 +96,8 @@ def utilityMain(
         if patchConfig is not None:
             patchConfig(config)
 
+        checkDirectories(config)
+
         utilityLogFile = LogFile.fromFullPath(
             config.UtilityLogFile,
             rotateLength=config.ErrorLogRotateMB * 1024 * 1024,
@@ -103,9 +105,6 @@ def utilityMain(
         )
         utilityLogObserver = FileLogObserver(utilityLogFile)
         utilityLogObserver.start()
-
-
-        checkDirectories(config)
 
         config.ProcessType = "Utility"
         config.UtilityServiceClass = _makeValidService
