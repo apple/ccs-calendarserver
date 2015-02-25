@@ -100,8 +100,8 @@ class QueryCacher(Memcacher):
 
     # Home child objects by external id
 
-    def keyForObjectWithExternalID(self, homeResourceID, externalID):
-        return "objectWithExternalID:%s:%s" % (homeResourceID, externalID)
+    def keyForObjectWithBindUID(self, homeResourceID, bindUID):
+        return "objectWithBindUID:%s:%s" % (homeResourceID, bindUID)
 
 
     # Home metadata (Created/Modified)

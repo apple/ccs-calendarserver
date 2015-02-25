@@ -78,7 +78,7 @@ class SharingHomeMixIn(object):
     #
     @inlineCallbacks
     def processExternalInvite(
-        self, ownerUID, ownerRID, ownerName, shareUID, bindMode, summary,
+        self, ownerUID, ownerName, shareUID, bindMode, bindUID, summary,
         copy_invite_properties, supported_components=None
     ):
         """
@@ -93,41 +93,9 @@ class SharingHomeMixIn(object):
             raise ExternalShareFailed("Invalid owner UID: {}".format(ownerUID))
 
         # Try to find owner calendar via its external id
-        ownerView = yield ownerHome.childWithExternalID(ownerRID)
+        ownerView = yield ownerHome.childWithBindUID(bindUID)
         if ownerView is None:
-            try:
-                ownerView = yield ownerHome.createChildWithName(
-                    ownerName, externalID=ownerRID
-                )
-            except HomeChildNameAlreadyExistsError:
-                # This is odd - it means we possibly have a left over sharer
-                # collection which the sharer likely removed and re-created
-                # with the same name but now it has a different externalID and
-                # is not found by the initial query. What we do is check to see
-                # whether any shares still reference the old ID - if they do we
-                # are hosed. If not, we can remove the old item and create a new one.
-                oldOwnerView = yield ownerHome.childWithName(ownerName)
-                invites = yield oldOwnerView.sharingInvites()
-                if len(invites) != 0:
-                    log.error(
-                        "External invite collection name is present with a "
-                        "different externalID and still has shares"
-                    )
-                    raise
-                log.error(
-                    "External invite collection name is present with a "
-                    "different externalID - trying to fix"
-                )
-                yield ownerHome.removeExternalChild(oldOwnerView)
-                ownerView = yield ownerHome.createChildWithName(
-                    ownerName, externalID=ownerRID
-                )
-
-            if (
-                supported_components is not None and
-                hasattr(ownerView, "setSupportedComponents")
-            ):
-                yield ownerView.setSupportedComponents(supported_components)
+            ownerView = yield ownerHome.createCollectionForExternalShare(ownerName, bindUID, supported_components)
 
         # Now carry out the share operation
         if bindMode == _BIND_MODE_DIRECT:
@@ -143,7 +111,7 @@ class SharingHomeMixIn(object):
 
 
     @inlineCallbacks
-    def processExternalUninvite(self, ownerUID, ownerRID, shareUID):
+    def processExternalUninvite(self, ownerUID, bindUID, shareUID):
         """
         External invite received.
         """
@@ -154,7 +122,7 @@ class SharingHomeMixIn(object):
             raise ExternalShareFailed("Invalid owner UID: {}".format(ownerUID))
 
         # Try to find owner calendar via its external id
-        ownerView = yield ownerHome.childWithExternalID(ownerRID)
+        ownerView = yield ownerHome.childWithBindUID(bindUID)
         if ownerView is None:
             raise ExternalShareFailed("Invalid share ID: {}".format(shareUID))
 
@@ -200,6 +168,110 @@ class SharingHomeMixIn(object):
                 yield shareeHome.declineShare(shareUID)
 
 
+    @inlineCallbacks
+    def createCollectionForExternalShare(self, name, bindUID, supported_components):
+        """
+        Create the L{CommonHomeChild} object that used as a "stub" to represent the external
+        object on the other pod for the sharer.
+
+        @param name: name of the collection
+        @type name: L{str}
+        @param bindUID: id on other pod
+        @type bindUID: L{str}
+        @param supported_components: optional set of support components
+        @type supported_components: L{str}
+        """
+        try:
+            ownerView = yield self.createChildWithName(
+                name, bindUID=bindUID
+            )
+        except HomeChildNameAlreadyExistsError:
+            # This is odd - it means we possibly have a left over sharer
+            # collection which the sharer likely removed and re-created
+            # with the same name but now it has a different bindUID and
+            # is not found by the initial query. What we do is check to see
+            # whether any shares still reference the old ID - if they do we
+            # are hosed. If not, we can remove the old item and create a new one.
+            oldOwnerView = yield self.childWithName(name)
+            invites = yield oldOwnerView.sharingInvites()
+            if len(invites) != 0:
+                log.error(
+                    "External invite collection name is present with a "
+                    "different bindUID and still has shares"
+                )
+                raise
+            log.error(
+                "External invite collection name is present with a "
+                "different bindUID - trying to fix"
+            )
+            yield self.removeExternalChild(oldOwnerView)
+            ownerView = yield self.createChildWithName(
+                name, bindUID=bindUID
+            )
+
+        if (
+            supported_components is not None and
+            hasattr(ownerView, "setSupportedComponents")
+        ):
+            yield ownerView.setSupportedComponents(supported_components)
+
+        returnValue(ownerView)
+
+
+    @inlineCallbacks
+    def sharedToBindRecords(self):
+        """
+        Return an L{dict} that maps home/directory uid to a sharing bind record for collections shared to this user.
+        """
+
+        # Get shared to bind records
+        records = yield self._childClass._bindRecordClass.query(
+            self._txn,
+            (getattr(self._childClass._bindRecordClass, self._childClass._bindHomeIDAttributeName) == self.id()).And(
+                self._childClass._bindRecordClass.bindMode != _BIND_MODE_OWN
+            )
+        )
+        records = dict([(getattr(record, self._childClass._bindResourceIDAttributeName), record) for record in records])
+        if not records:
+            returnValue({})
+
+        # Look up the owner records for each of the shared to records
+        ownerRecords = yield self._childClass._bindRecordClass.query(
+            self._txn,
+            (getattr(self._childClass._bindRecordClass, self._childClass._bindResourceIDAttributeName).In(records.keys())).And(
+                self._childClass._bindRecordClass.bindMode == _BIND_MODE_OWN
+            )
+        )
+
+        # Important - this method is called when migrating shared-to records to some other pod. For that to work all the
+        # owner records must have a bindUID assigned to them. Normally bindUIDs are assigned the first time an external
+        # share is created, but migration will implicitly create the external share
+        for ownerRecord in ownerRecords:
+            if not ownerRecord.bindUID:
+                yield ownerRecord.update(bindUID=str(uuid4()))
+
+        ownerRecords = dict([(getattr(record, self._childClass._bindResourceIDAttributeName), record) for record in ownerRecords])
+
+        # Look up the metadata records for each of the shared to records
+        metadataRecords = yield self._childClass._metadataRecordClass.query(
+            self._txn,
+            self._childClass._metadataRecordClass.resourceID.In(records.keys()),
+        )
+        metadataRecords = dict([(record.resourceID, record) for record in metadataRecords])
+
+        # Map the owner records to home ownerUIDs
+        homeIDs = dict([(
+            getattr(record, self._childClass._bindHomeIDAttributeName), getattr(record, self._childClass._bindResourceIDAttributeName)
+        ) for record in ownerRecords.values()])
+        homes = yield self._childClass._homeRecordClass.query(
+            self._txn,
+            self._childClass._homeRecordClass.resourceID.In(homeIDs.keys()),
+        )
+        homeMap = dict((homeIDs[home.resourceID], home.ownerUID,) for home in homes)
+
+        returnValue(dict([(homeMap[calendarID], (records[calendarID], ownerRecords[calendarID], metadataRecords[calendarID],),) for calendarID in records]))
+
+
 
 SharingInvitation = namedtuple(
     "SharingInvitation",
@@ -223,10 +295,10 @@ class SharingMixIn(object):
         return Insert({
             bind.HOME_RESOURCE_ID: Parameter("homeID"),
             bind.RESOURCE_ID: Parameter("resourceID"),
-            bind.EXTERNAL_ID: Parameter("externalID"),
             bind.RESOURCE_NAME: Parameter("name"),
             bind.BIND_MODE: Parameter("mode"),
             bind.BIND_STATUS: Parameter("bindStatus"),
+            bind.BIND_UID: Parameter("bindUID"),
             bind.MESSAGE: Parameter("message"),
         })
 
@@ -309,13 +381,13 @@ class SharingMixIn(object):
 
 
     @classproperty
-    def _bindForExternalIDAndHomeID(cls):
+    def _bindForBindUIDAndHomeID(cls):
         """
         DAL query that looks up home bind rows by home child
         resource ID and home resource ID.
         """
         bind = cls._bindSchema
-        return cls._bindFor((bind.EXTERNAL_ID == Parameter("externalID"))
+        return cls._bindFor((bind.BIND_UID == Parameter("bindUID"))
                             .And(bind.HOME_RESOURCE_ID == Parameter("homeID")))
 
 
@@ -580,15 +652,24 @@ class SharingMixIn(object):
     @inlineCallbacks
     def _sendExternalInvite(self, shareeView):
 
+        # Must make sure this collection has a BIND_UID assigned
+        if not self._bindUID:
+            self._bindUID = str(uuid4())
+            yield self._updateBindColumnsQuery({self._bindSchema.BIND_UID: self._bindUID}).on(
+                self._txn,
+                resourceID=self.id(), homeID=self.ownerHome().id()
+            )
+
+        # Now send the invite
         yield self._txn.store().conduit.send_shareinvite(
             self._txn,
             shareeView.ownerHome()._homeType,
             shareeView.ownerHome().uid(),
-            self.id(),
             self.shareName(),
             shareeView.viewerHome().uid(),
             shareeView.shareUID(),
             shareeView.shareMode(),
+            self.bindUID(),
             shareeView.shareMessage(),
             self.getInviteCopyProperties(),
             supported_components=self.getSupportedComponents() if hasattr(self, "getSupportedComponents") else None,
@@ -602,7 +683,7 @@ class SharingMixIn(object):
             self._txn,
             shareeView.ownerHome()._homeType,
             shareeView.ownerHome().uid(),
-            self.id(),
+            self.bindUID(),
             shareeView.viewerHome().uid(),
             shareeView.shareUID(),
         )
@@ -723,10 +804,10 @@ class SharingMixIn(object):
                 subt,
                 homeID=shareeHome._resourceID,
                 resourceID=self._resourceID,
-                externalID=self._externalID,
                 name=newName,
                 mode=mode,
                 bindStatus=status,
+                bindUID=None,
                 message=summary
             )
             returnValue(newName)
@@ -939,6 +1020,28 @@ class SharingMixIn(object):
 
 
     @inlineCallbacks
+    def sharingBindRecords(self):
+        """
+        Return an L{dict} that maps home/directory uid to a sharing bind record.
+        """
+        if not self.owned():
+            returnValue({})
+
+        records = yield self._bindRecordClass.querysimple(
+            self._txn,
+            **{self._bindResourceIDAttributeName: self.id()}
+        )
+        homeIDs = [getattr(record, self._bindHomeIDAttributeName) for record in records]
+        homes = yield self._homeRecordClass.query(
+            self._txn,
+            self._homeRecordClass.resourceID.In(homeIDs),
+        )
+        homeMap = dict((home.resourceID, home.ownerUID,) for home in homes)
+
+        returnValue(dict([(homeMap[getattr(record, self._bindHomeIDAttributeName)], record,) for record in records if record.bindMode != _BIND_MODE_OWN]))
+
+
+    @inlineCallbacks
     def _initBindRevision(self):
         yield self.syncToken() # init self._syncTokenRevision if None
         self._bindRevision = self._syncTokenRevision
@@ -1086,6 +1189,13 @@ class SharingMixIn(object):
         return self._bindStatus
 
 
+    def bindUID(self):
+        """
+        @see: L{ICalendar.bindUID}
+        """
+        return self._bindUID
+
+
     def accepted(self):
         """
         @see: L{ICalendar.shareStatus}
@@ -1159,13 +1269,13 @@ class SharingMixIn(object):
         """
 
         return (
-            cls._bindSchema.BIND_MODE,
             cls._bindSchema.HOME_RESOURCE_ID,
             cls._bindSchema.RESOURCE_ID,
-            cls._bindSchema.EXTERNAL_ID,
             cls._bindSchema.RESOURCE_NAME,
+            cls._bindSchema.BIND_MODE,
             cls._bindSchema.BIND_STATUS,
             cls._bindSchema.BIND_REVISION,
+            cls._bindSchema.BIND_UID,
             cls._bindSchema.MESSAGE
         )
 
@@ -1179,13 +1289,13 @@ class SharingMixIn(object):
         """
 
         return (
-            "_bindMode",
             "_homeResourceID",
             "_resourceID",
-            "_externalID",
             "_name",
+            "_bindMode",
             "_bindStatus",
             "_bindRevision",
+            "_bindUID",
             "_bindMessage",
         )
 
@@ -1251,4 +1361,4 @@ class SharingMixIn(object):
             yield queryCacher.invalidateAfterCommit(self._txn, queryCacher.keyForHomeChildMetaData(self._resourceID))
             yield queryCacher.invalidateAfterCommit(self._txn, queryCacher.keyForObjectWithName(self._home._resourceID, self._name))
             yield queryCacher.invalidateAfterCommit(self._txn, queryCacher.keyForObjectWithResourceID(self._home._resourceID, self._resourceID))
-            yield queryCacher.invalidateAfterCommit(self._txn, queryCacher.keyForObjectWithExternalID(self._home._resourceID, self._externalID))
+            yield queryCacher.invalidateAfterCommit(self._txn, queryCacher.keyForObjectWithBindUID(self._home._resourceID, self._bindUID))

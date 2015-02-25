@@ -22,7 +22,7 @@ from twisted.python.failure import Failure
 from txdav.caldav.icalendarstore import ComponentUpdateState
 from txdav.common.datastore.podding.migration.sync_metadata import CalendarMigrationRecord, \
     CalendarObjectMigrationRecord, AttachmentMigrationRecord
-from txdav.caldav.datastore.sql import ManagedAttachment
+from txdav.caldav.datastore.sql import ManagedAttachment, CalendarBindRecord
 from txdav.common.datastore.sql_external import NotificationCollectionExternal
 from txdav.common.datastore.sql_notification import NotificationCollection
 from txdav.common.datastore.sql_tables import _HOME_STATUS_EXTERNAL
@@ -176,19 +176,20 @@ class CrossPodHomeSync(object):
         # TODO: Re-write attachment URIs - not sure if we need this as reverse proxy may take care of it
         pass
 
-        # TODO: group attendee reconcile
+        # Group attendee reconcile
         yield self.groupAttendeeReconcile()
 
-        # TODO: delegates reconcile
+        # Delegates reconcile
         yield self.delegateReconcile()
 
         # TODO: shared collections reconcile
-        pass
+        yield self.sharedByCollectionsReconcile()
+        yield self.sharedToCollectionsReconcile()
 
         # TODO: group sharee reconcile
         pass
 
-        # TODO: notifications
+        # Notifications
         yield self.notificationsReconcile()
 
         # TODO: work items
@@ -943,3 +944,160 @@ class CrossPodHomeSync(object):
             # Do this via the "write" API so that sync revisions are updated properly, rather than just
             # inserting the records directly.
             yield notifications.writeNotificationObject(record.notificationUID, record.notificationType, record.notificationData)
+
+
+    @inlineCallbacks
+    def sharedByCollectionsReconcile(self):
+        """
+        Sync all the collections shared by the migrating user from the remote store. We will do this one calendar at a time since
+        there could be a large number of sharees per calendar.
+        """
+
+        calendars = yield self.getSyncState()
+
+        len_records = 0
+        for calendar in calendars.values():
+            records = yield self.sharedByCollectionRecords(calendar.remoteResourceID)
+            records = records.items()
+
+            # Batch setting resources for the local home
+            len_records += len(records)
+            while records:
+                yield self.makeSharedByCollections(records[:50], calendar.localResourceID)
+                records = records[50:]
+
+        returnValue(len_records)
+
+
+    @inTransactionWrapper
+    @inlineCallbacks
+    def sharedByCollectionRecords(self, txn, remote_id):
+        """
+        Get all the existing L{CalendarBindRecord}'s from the remote store.
+        """
+
+        remote_home = yield self._remoteHome(txn)
+        remote_calendar = yield remote_home.childWithID(remote_id)
+        records = yield remote_calendar.sharingBindRecords()
+        returnValue(records)
+
+
+    @inTransactionWrapper
+    @inlineCallbacks
+    def makeSharedByCollections(self, txn, records, calendar_id):
+        """
+        Create L{CalendarBindRecord} records in the local store.
+        """
+
+        for shareeUID, record in records:
+            shareeHome = yield txn.calendarHomeWithUID(shareeUID, create=True)
+
+            # First look for an existing record that could be present if the migrating user had
+            # previously shared with this sharee as a cross-pod share
+            oldrecord = yield CalendarBindRecord.querysimple(
+                txn,
+                calendarHomeResourceID=shareeHome.id(),
+                calendarResourceName=record.calendarResourceName,
+            )
+
+            # FIXME: need to figure out sync-token and bind revision changes
+
+            if oldrecord:
+                # Point old record to the new local calendar being shared
+                yield oldrecord[0].update(
+                    calendarResourceID=calendar_id,
+                    bindRevision=0,
+                )
+            else:
+                # Map the record resource ids and insert a new record
+                record.calendarHomeResourceID = shareeHome.id()
+                record.calendarResourceID = calendar_id
+                record.bindRevision = 0
+                yield record.insert(txn)
+
+
+    @inlineCallbacks
+    def sharedToCollectionsReconcile(self):
+        """
+        Sync all the collections shared to the migrating user from the remote store.
+        """
+        records = yield self.sharedToCollectionRecords()
+        records = records.items()
+        len_records = len(records)
+
+        while records:
+            yield self.makeSharedToCollections(records[:50])
+            records = records[50:]
+
+        returnValue(len_records)
+
+
+    @inTransactionWrapper
+    @inlineCallbacks
+    def sharedToCollectionRecords(self, txn):
+        """
+        Get the names and sharer UIDs for remote shared calendars.
+        """
+
+        # List of calendars from the remote side
+        home = yield self._remoteHome(txn)
+        if home is None:
+            returnValue(None)
+        results = yield home.sharedToBindRecords()
+        returnValue(results)
+
+
+    @inTransactionWrapper
+    @inlineCallbacks
+    def makeSharedToCollections(self, txn, records):
+        """
+        Create L{CalendarBindRecord} records in the local store.
+        """
+
+        for sharerUID, (shareeRecord, ownerRecord, metadataRecord) in records:
+            sharerHome = yield txn.calendarHomeWithUID(sharerUID, create=True)
+
+            # We need to figure out the right thing to do based on whether the sharer is local to this pod
+            # (the one where the migrated user will be hosted) vs located on another pod
+
+            if sharerHome.normal():
+                # First look for an existing record that must be present if the migrating user had
+                # previously been shared with by this sharee
+                oldrecord = yield CalendarBindRecord.querysimple(
+                    txn,
+                    calendarResourceName=shareeRecord.calendarResourceName,
+                )
+                if len(oldrecord) == 1:
+                    # Point old record to the new local calendar home
+                    yield oldrecord[0].update(
+                        calendarHomeResourceID=self.homeId,
+                    )
+                else:
+                    raise AssertionError("An existing share must be present")
+            else:
+                # We have an external user. That sharer may have already shared the calendar with some other user
+                # on this pod, in which case there is already a CALENDAR table entry for it, and we need the
+                # resource ID from that to use in the new CALENDAR_BIND record we create. If a pre-existing share
+                # is not present, then we have to create the CALENDAR table entry and associated pieces
+
+                # Look for pre-existing share with the same external ID
+                oldrecord = yield CalendarBindRecord.querysimple(
+                    txn,
+                    calendarHomeResourceID=sharerHome.id(),
+                    bindUID=ownerRecord.bindUID,
+                )
+                if oldrecord:
+                    # Map the record resource ids and insert a new record
+                    calendar_id = oldrecord.calendarResourceID
+                else:
+                    sharerView = yield sharerHome.createCollectionForExternalShare(
+                        ownerRecord.calendarResourceName,
+                        ownerRecord.bindUID,
+                        metadataRecord.supportedComponents,
+                    )
+                    calendar_id = sharerView.id()
+
+                shareeRecord.calendarHomeResourceID = self.homeId
+                shareeRecord.calendarResourceID = calendar_id
+                shareeRecord.bindRevision = 0
+                yield shareeRecord.insert(txn)

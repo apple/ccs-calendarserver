@@ -21,6 +21,20 @@
 -- New status value
 insert into HOME_STATUS values (3, 'migrating');
 
+-- Change columns
+alter table CALENDAR_BIND
+	drop column EXTERNAL_ID,
+	add column BIND_UID varchar(36) default null;
+
+alter table SHARED_ADDRESSBOOK_BIND
+	drop column EXTERNAL_ID,
+	add column BIND_UID varchar(36) default null;
+
+alter table SHARED_GROUP_BIND
+	drop column EXTERNAL_ID,
+	add column BIND_UID varchar(36) default null;
+
+
 -- New table
 create table CALENDAR_MIGRATION (
   CALENDAR_HOME_RESOURCE_ID		integer references CALENDAR_HOME on delete cascade,

@@ -587,6 +587,41 @@ class CalendarSharing(BaseSharingTests):
         yield self.commit()
 
 
+    @inlineCallbacks
+    def test_sharingBindRecords(self):
+
+        yield self.calendarUnderTest(home="user01", name="calendar")
+        yield self.commit()
+
+        shared_name = yield self._createShare()
+
+        shared = yield self.calendarUnderTest(home="user01", name="calendar")
+        results = yield shared.sharingBindRecords()
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results.keys(), ["user02"])
+        self.assertEqual(results["user02"].calendarResourceName, shared_name)
+
+
+    @inlineCallbacks
+    def test_sharedToBindRecords(self):
+
+        yield self.calendarUnderTest(home="user01", name="calendar")
+        yield self.commit()
+
+        shared_name = yield self._createShare()
+
+        home = yield self.homeUnderTest(name="user02")
+        results = yield home.sharedToBindRecords()
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results.keys(), ["user01"])
+        sharedRecord = results["user01"][0]
+        ownerRecord = results["user01"][1]
+        metadataRecord = results["user01"][2]
+        self.assertEqual(ownerRecord.calendarResourceName, "calendar")
+        self.assertEqual(sharedRecord.calendarResourceName, shared_name)
+        self.assertEqual(metadataRecord.supportedComponents, None)
+
+
 
 class GroupSharingTests(BaseSharingTests):
     """

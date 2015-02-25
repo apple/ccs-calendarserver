@@ -26,7 +26,7 @@ class SharingInvitesConduitMixin(object):
     """
 
     @inlineCallbacks
-    def send_shareinvite(self, txn, homeType, ownerUID, ownerID, ownerName, shareeUID, shareUID, bindMode, summary, copy_properties, supported_components):
+    def send_shareinvite(self, txn, homeType, ownerUID, ownerName, shareeUID, shareUID, bindMode, bindUID, summary, copy_properties, supported_components):
         """
         Send a sharing invite cross-pod message.
 
@@ -34,8 +34,6 @@ class SharingInvitesConduitMixin(object):
         @type homeType: C{int}
         @param ownerUID: UID of the sharer.
         @type ownerUID: C{str}
-        @param ownerID: resource ID of the sharer calendar
-        @type ownerID: C{int}
         @param ownerName: owner's name of the sharer calendar
         @type ownerName: C{str}
         @param shareeUID: UID of the sharee
@@ -44,6 +42,8 @@ class SharingInvitesConduitMixin(object):
         @type shareUID: C{str}
         @param bindMode: bind mode for the share
         @type bindMode: C{str}
+        @param bindUID: bind UID of the sharer calendar
+        @type bindUID: C{str}
         @param summary: sharing message
         @type summary: C{str}
         @param copy_properties: C{str} name/value for properties to be copied
@@ -58,11 +58,11 @@ class SharingInvitesConduitMixin(object):
             "action": "shareinvite",
             "type": homeType,
             "owner": ownerUID,
-            "owner_id": ownerID,
             "owner_name": ownerName,
             "sharee": shareeUID,
             "share_id": shareUID,
             "mode": bindMode,
+            "bind_uid": bindUID,
             "summary": summary,
             "properties": copy_properties,
         }
@@ -89,10 +89,10 @@ class SharingInvitesConduitMixin(object):
         # Create a share
         yield shareeHome.processExternalInvite(
             request["owner"],
-            request["owner_id"],
             request["owner_name"],
             request["share_id"],
             request["mode"],
+            request["bind_uid"],
             request["summary"],
             request["properties"],
             supported_components=request.get("supported-components")
@@ -100,7 +100,7 @@ class SharingInvitesConduitMixin(object):
 
 
     @inlineCallbacks
-    def send_shareuninvite(self, txn, homeType, ownerUID, ownerID, shareeUID, shareUID):
+    def send_shareuninvite(self, txn, homeType, ownerUID, bindUID, shareeUID, shareUID):
         """
         Send a sharing uninvite cross-pod message.
 
@@ -108,8 +108,8 @@ class SharingInvitesConduitMixin(object):
         @type homeType: C{int}
         @param ownerUID: UID of the sharer.
         @type ownerUID: C{str}
-        @param ownerID: resource ID of the sharer calendar
-        @type ownerID: C{int}
+        @param bindUID: bind UID of the sharer calendar
+        @type bindUID: C{str}
         @param shareeUID: UID of the sharee
         @type shareeUID: C{str}
         @param shareUID: Resource/invite ID for sharee
@@ -122,7 +122,7 @@ class SharingInvitesConduitMixin(object):
             "action": "shareuninvite",
             "type": homeType,
             "owner": ownerUID,
-            "owner_id": ownerID,
+            "bind_uid": bindUID,
             "sharee": shareeUID,
             "share_id": shareUID,
         }
@@ -147,7 +147,7 @@ class SharingInvitesConduitMixin(object):
         # Remove a share
         yield shareeHome.processExternalUninvite(
             request["owner"],
-            request["owner_id"],
+            request["bind_uid"],
             request["share_id"],
         )
 

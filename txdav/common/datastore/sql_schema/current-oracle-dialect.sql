@@ -99,11 +99,11 @@ create table NOTIFICATION (
 create table CALENDAR_BIND (
     "CALENDAR_HOME_RESOURCE_ID" integer not null references CALENDAR_HOME,
     "CALENDAR_RESOURCE_ID" integer not null references CALENDAR on delete cascade,
-    "EXTERNAL_ID" integer default null,
     "CALENDAR_RESOURCE_NAME" nvarchar2(255),
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
     "BIND_REVISION" integer default 0 not null,
+    "BIND_UID" nvarchar2(36) default null,
     "MESSAGE" nclob,
     "TRANSP" integer default 0 not null,
     "ALARM_VEVENT_TIMED" nclob default null,
@@ -277,11 +277,11 @@ create table ADDRESSBOOK_HOME_METADATA (
 create table SHARED_ADDRESSBOOK_BIND (
     "ADDRESSBOOK_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME,
     "OWNER_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME on delete cascade,
-    "EXTERNAL_ID" integer default null,
     "ADDRESSBOOK_RESOURCE_NAME" nvarchar2(255),
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
     "BIND_REVISION" integer default 0 not null,
+    "BIND_UID" nvarchar2(36) default null,
     "MESSAGE" nclob, 
     primary key ("ADDRESSBOOK_HOME_RESOURCE_ID", "OWNER_HOME_RESOURCE_ID"), 
     unique ("ADDRESSBOOK_HOME_RESOURCE_ID", "ADDRESSBOOK_RESOURCE_NAME")
@@ -331,11 +331,11 @@ create table ABO_FOREIGN_MEMBERS (
 create table SHARED_GROUP_BIND (
     "ADDRESSBOOK_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME,
     "GROUP_RESOURCE_ID" integer not null references ADDRESSBOOK_OBJECT on delete cascade,
-    "EXTERNAL_ID" integer default null,
     "GROUP_ADDRESSBOOK_NAME" nvarchar2(255),
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
     "BIND_REVISION" integer default 0 not null,
+    "BIND_UID" nvarchar2(36) default null,
     "MESSAGE" nclob, 
     primary key ("ADDRESSBOOK_HOME_RESOURCE_ID", "GROUP_RESOURCE_ID"), 
     unique ("ADDRESSBOOK_HOME_RESOURCE_ID", "GROUP_ADDRESSBOOK_NAME")

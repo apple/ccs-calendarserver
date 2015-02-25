@@ -190,11 +190,11 @@ create index NOTIFICATION_NOTIFICATION_HOME_RESOURCE_ID on
 create table CALENDAR_BIND (
   CALENDAR_HOME_RESOURCE_ID integer      not null references CALENDAR_HOME,
   CALENDAR_RESOURCE_ID      integer      not null references CALENDAR on delete cascade,
-  EXTERNAL_ID               integer      default null,
   CALENDAR_RESOURCE_NAME    varchar(255) not null,
   BIND_MODE                 integer      not null, -- enum CALENDAR_BIND_MODE
   BIND_STATUS               integer      not null, -- enum CALENDAR_BIND_STATUS
   BIND_REVISION             integer      default 0 not null,
+  BIND_UID                  varchar(36)  default null,
   MESSAGE                   text,
   TRANSP                    integer      default 0 not null, -- enum CALENDAR_TRANSP
   ALARM_VEVENT_TIMED        text         default null,
@@ -502,11 +502,11 @@ create table ADDRESSBOOK_HOME_METADATA (
 create table SHARED_ADDRESSBOOK_BIND (
   ADDRESSBOOK_HOME_RESOURCE_ID          integer         not null references ADDRESSBOOK_HOME,
   OWNER_HOME_RESOURCE_ID                integer         not null references ADDRESSBOOK_HOME on delete cascade,
-  EXTERNAL_ID                           integer         default null,
   ADDRESSBOOK_RESOURCE_NAME             varchar(255)    not null,
   BIND_MODE                             integer         not null, -- enum CALENDAR_BIND_MODE
   BIND_STATUS                           integer         not null, -- enum CALENDAR_BIND_STATUS
   BIND_REVISION                         integer         default 0 not null,
+  BIND_UID                              varchar(36)     default null,
   MESSAGE                               text,                     -- FIXME: xml?
 
   primary key (ADDRESSBOOK_HOME_RESOURCE_ID, OWNER_HOME_RESOURCE_ID), -- implicit index
@@ -603,11 +603,11 @@ create index ABO_FOREIGN_MEMBERS_ADDRESSBOOK_ID on
 create table SHARED_GROUP_BIND (
   ADDRESSBOOK_HOME_RESOURCE_ID      integer      not null references ADDRESSBOOK_HOME,
   GROUP_RESOURCE_ID                 integer      not null references ADDRESSBOOK_OBJECT on delete cascade,
-  EXTERNAL_ID                       integer      default null,
   GROUP_ADDRESSBOOK_NAME            varchar(255) not null,
   BIND_MODE                         integer      not null, -- enum CALENDAR_BIND_MODE
   BIND_STATUS                       integer      not null, -- enum CALENDAR_BIND_STATUS
   BIND_REVISION                     integer      default 0 not null,
+  BIND_UID                          varchar(36)  default null,
   MESSAGE                           text,                  -- FIXME: xml?
 
   primary key (ADDRESSBOOK_HOME_RESOURCE_ID, GROUP_RESOURCE_ID), -- implicit index

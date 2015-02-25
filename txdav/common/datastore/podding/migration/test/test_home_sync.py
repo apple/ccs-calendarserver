@@ -30,7 +30,8 @@ from txdav.common.datastore.podding.test.util import MultiStoreConduitTest
 from txdav.common.datastore.sql_directory import DelegateRecord, \
     ExternalDelegateGroupsRecord, DelegateGroupsRecord
 from txdav.common.datastore.sql_notification import NotificationCollection
-from txdav.common.datastore.sql_tables import schema, _HOME_STATUS_EXTERNAL
+from txdav.common.datastore.sql_tables import schema, _HOME_STATUS_EXTERNAL, \
+    _BIND_MODE_READ
 from txdav.common.datastore.test.util import populateCalendarsFrom
 from txdav.who.delegates import Delegates
 from txweb2.http_headers import MimeType
@@ -972,6 +973,81 @@ END:VCALENDAR
                     break
             else:
                 self.fail("Notification uid {} not found".format(result.uid()))
+        yield self.commitTransaction(1)
+
+
+
+class TestSharingSync(MultiStoreConduitTest):
+    """
+    Test that L{CrossPodHomeSync} sharing sync works.
+    """
+
+    @inlineCallbacks
+    def _createShare(self, shareFrom, shareTo):
+        # Invite
+        txnindex = 1 if shareFrom[0] == "p" else 0
+        home = yield self.homeUnderTest(txn=self.theTransactionUnderTest(txnindex), name=shareFrom, create=True)
+        calendar = yield home.childWithName("calendar")
+        shareeView = yield calendar.inviteUIDToShare(shareTo, _BIND_MODE_READ, "summary")
+        inviteUID = shareeView.shareUID()
+        yield self.commitTransaction(txnindex)
+
+        # Accept
+        txnindex = 1 if shareTo[0] == "p" else 0
+        shareeHome = yield self.homeUnderTest(txn=self.theTransactionUnderTest(txnindex), name=shareTo)
+        shareeView = yield shareeHome.acceptShare(inviteUID)
+        sharedName = shareeView.name()
+        yield self.commitTransaction(txnindex)
+
+        returnValue(sharedName)
+
+
+    @inlineCallbacks
+    def test_shared_collections_reconcile(self):
+        """
+        Test that L{sharedCollectionsReconcile} copies over the full set of delegates and caches associated groups..
+        """
+
+        # Create home
+        yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
+        yield self.commitTransaction(0)
+
+        # Shared by migrating user
+        shared_name_02 = yield self._createShare("user01", "user02")
+        shared_name_03 = yield self._createShare("user01", "puser03")
+
+        # Shared to migrating user
+        shared_name_04 = yield self._createShare("user04", "user01")
+        shared_name_05 = yield self._createShare("puser05", "user01")
+
+        # Sync from remote side
+        syncer = CrossPodHomeSync(self.theStoreUnderTest(1), "user01")
+        yield syncer.loadRecord()
+        yield syncer.sync()
+        changes = yield syncer.sharedByCollectionsReconcile()
+        self.assertEqual(changes, 2)
+        changes = yield syncer.sharedToCollectionsReconcile()
+        self.assertEqual(changes, 2)
+
+        # Local calendar exists with shares
+        home1 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(1), name=syncer.migratingUid())
+        calendar1 = yield home1.childWithName("calendar")
+        invites1 = yield calendar1.sharingInvites()
+        self.assertEqual(len(invites1), 2)
+        self.assertEqual(set([invite.uid for invite in invites1]), set((shared_name_02, shared_name_03,)))
+        yield self.commitTransaction(1)
+
+        # Local sharee can access it
+        home1 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(1), name="puser03")
+        calendar1 = yield home1.childWithName(shared_name_03)
+        self.assertTrue(calendar1 is not None)
+
+        # Local shared calendars exist
+        home1 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(1), name=syncer.migratingUid())
+        calendar1 = yield home1.childWithName(shared_name_04)
+        self.assertTrue(calendar1 is not None)
+        calendar1 = yield home1.childWithName(shared_name_05)
+        self.assertTrue(calendar1 is not None)
         yield self.commitTransaction(1)
 
 

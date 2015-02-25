@@ -1885,6 +1885,15 @@ class CommonHome(SharingHomeMixIn):
         return self._authzUID
 
 
+    def normal(self):
+        """
+        Is this an normal (internal) home.
+
+        @return: a L{bool}.
+        """
+        return self._status == _HOME_STATUS_NORMAL
+
+
     def external(self):
         """
         Is this an external home.
@@ -2106,15 +2115,15 @@ class CommonHome(SharingHomeMixIn):
         return self._childClass.objectWithID(self, resourceID)
 
 
-    def childWithExternalID(self, externalID):
+    def childWithBindUID(self, bindUID):
         """
-        Retrieve the child with the given C{externalID} contained in this
+        Retrieve the child with the given C{bindUID} contained in this
         home.
 
         @param name: a string.
         @return: an L{ICalendar} or C{None} if no such child exists.
         """
-        return self._childClass.objectWithExternalID(self, externalID)
+        return self._childClass.objectWithBindUID(self, bindUID)
 
 
     def allChildWithID(self, resourceID):
@@ -2129,11 +2138,11 @@ class CommonHome(SharingHomeMixIn):
 
 
     @inlineCallbacks
-    def createChildWithName(self, name, externalID=None):
+    def createChildWithName(self, name, bindUID=None):
         if name.startswith("."):
             raise HomeChildNameNotAllowedError(name)
 
-        child = yield self._childClass.create(self, name, externalID=externalID)
+        child = yield self._childClass.create(self, name, bindUID=bindUID)
         returnValue(child)
 
 
@@ -2706,9 +2715,13 @@ class CommonHome(SharingHomeMixIn):
         Get the owner home for a shared child ID and the owner's name for that bound child.
         Subclasses may override.
         """
-        ownerHomeID, ownerName = (yield self._childClass._ownerHomeWithResourceID.on(self._txn, resourceID=resourceID))[0]
-        ownerHome = yield self._txn.homeWithResourceID(self._homeType, ownerHomeID)
-        returnValue((ownerHome, ownerName))
+        rows = yield self._childClass._ownerHomeWithResourceID.on(self._txn, resourceID=resourceID)
+        if rows:
+            ownerHomeID, ownerName = rows[0]
+            ownerHome = yield self._txn.homeWithResourceID(self._homeType, ownerHomeID)
+            returnValue((ownerHome, ownerName))
+        else:
+            returnValue((None, None))
 
 
 
@@ -2725,6 +2738,11 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
     )
 
     _externalClass = None
+    _homeRecordClass = None
+    _metadataRecordClass = None
+    _bindRecordClass = None
+    _bindHomeIDAttributeName = None
+    _bindResourceIDAttributeName = None
     _objectResourceClass = None
 
     _bindSchema = None
@@ -2758,7 +2776,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         @rtype: L{CommonHomeChild}
         """
 
-        bindMode, _ignore_homeID, resourceID, externalID, name, bindStatus, bindRevision, bindMessage = bindData
+        _ignore_homeID, resourceID, name, bindMode, bindStatus, bindRevision, bindUID, bindMessage = bindData
 
         if ownerHome is None:
             if bindMode == _BIND_MODE_OWN:
@@ -2769,7 +2787,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         else:
             ownerName = None
 
-        c = cls._externalClass if ownerHome.externalClass() else cls
+        c = cls._externalClass if ownerHome and ownerHome.externalClass() else cls
         child = c(
             home=home,
             name=name,
@@ -2780,7 +2798,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             message=bindMessage,
             ownerHome=ownerHome,
             ownerName=ownerName,
-            externalID=externalID,
+            bindUID=bindUID,
         )
 
         if additionalBindData:
@@ -2793,7 +2811,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
         # We have to re-adjust the property store object to account for possible shared
         # collections as previously we loaded them all as if they were owned
-        if propstore and bindMode != _BIND_MODE_OWN:
+        if ownerHome and propstore and bindMode != _BIND_MODE_OWN:
             propstore._setDefaultUserUID(ownerHome.uid())
         yield child._loadPropertyStore(propstore)
 
@@ -2802,10 +2820,10 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
     @classmethod
     @inlineCallbacks
-    def _getDBData(cls, home, name, resourceID, externalID):
+    def _getDBData(cls, home, name, resourceID, bindUID):
         """
         Given a set of identifying information, load the data rows for the object. Only one of
-        L{name}, L{resourceID} or L{externalID} is specified - others are C{None}.
+        L{name}, L{resourceID} or L{bindUID} is specified - others are C{None}.
 
         @param home: the parent home object
         @type home: L{CommonHome}
@@ -2813,8 +2831,8 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         @type name: C{str}
         @param resourceID: the resource ID
         @type resourceID: C{int}
-        @param externalID: the resource ID of the external (cross-pod) referenced item
-        @type externalID: C{int}
+        @param bindUID: the unique ID of the external (cross-pod) referenced item
+        @type bindUID: C{int}
         """
 
         # Get the bind row data
@@ -2827,8 +2845,8 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
                 cacheKey = queryCacher.keyForObjectWithName(home._resourceID, name)
             elif resourceID:
                 cacheKey = queryCacher.keyForObjectWithResourceID(home._resourceID, resourceID)
-            elif externalID:
-                cacheKey = queryCacher.keyForObjectWithExternalID(home._resourceID, externalID)
+            elif bindUID:
+                cacheKey = queryCacher.keyForObjectWithBindUID(home._resourceID, bindUID)
             row = yield queryCacher.get(cacheKey)
 
         if row is None:
@@ -2837,8 +2855,8 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
                 rows = yield cls._bindForNameAndHomeID.on(home._txn, name=name, homeID=home._resourceID)
             elif resourceID:
                 rows = yield cls._bindForResourceIDAndHomeID.on(home._txn, resourceID=resourceID, homeID=home._resourceID)
-            elif externalID:
-                rows = yield cls._bindForExternalIDAndHomeID.on(home._txn, externalID=externalID, homeID=home._resourceID)
+            elif bindUID:
+                rows = yield cls._bindForBindUIDAndHomeID.on(home._txn, bindUID=bindUID, homeID=home._resourceID)
             row = rows[0] if rows else None
 
         if not row:
@@ -2848,7 +2866,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
             # Cache the result
             queryCacher.setAfterCommit(home._txn, queryCacher.keyForObjectWithName(home._resourceID, name), row)
             queryCacher.setAfterCommit(home._txn, queryCacher.keyForObjectWithResourceID(home._resourceID, resourceID), row)
-            queryCacher.setAfterCommit(home._txn, queryCacher.keyForObjectWithExternalID(home._resourceID, externalID), row)
+            queryCacher.setAfterCommit(home._txn, queryCacher.keyForObjectWithBindUID(home._resourceID, bindUID), row)
 
         bindData = row[:cls.bindColumnCount]
         additionalBindData = row[cls.bindColumnCount:cls.bindColumnCount + len(cls.additionalBindColumns())]
@@ -2871,15 +2889,15 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         returnValue((bindData, additionalBindData, metadataData,))
 
 
-    def __init__(self, home, name, resourceID, mode, status, revision=0, message=None, ownerHome=None, ownerName=None, externalID=None):
+    def __init__(self, home, name, resourceID, mode, status, revision=0, message=None, ownerHome=None, ownerName=None, bindUID=None):
 
         self._home = home
         self._name = name
         self._resourceID = resourceID
-        self._externalID = externalID
         self._bindMode = mode
         self._bindStatus = status
         self._bindRevision = revision
+        self._bindUID = bindUID
         self._bindMessage = message
         self._ownerHome = home if ownerHome is None else ownerHome
         self._ownerName = name if ownerName is None else ownerName
@@ -2943,9 +2961,10 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         # Load from the main table first
         dataRows = (yield cls._childrenAndMetadataForHomeID.on(home._txn, homeID=home._resourceID))
 
+        resourceID_index = cls.bindColumns().index(cls._bindSchema.RESOURCE_ID)
         if dataRows:
             # Get property stores
-            childResourceIDs = [dataRow[2] for dataRow in dataRows]
+            childResourceIDs = [dataRow[resourceID_index] for dataRow in dataRows]
 
             propertyStores = yield PropertyStore.forMultipleResourcesWithResourceIDs(
                 home.uid(), None, None, home._txn, childResourceIDs
@@ -2958,7 +2977,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         # Create the actual objects merging in properties
         for dataRow in dataRows:
             bindData = dataRow[:cls.bindColumnCount]
-            resourceID = bindData[cls.bindColumns().index(cls._bindSchema.RESOURCE_ID)]
+            resourceID = bindData[resourceID_index]
             additionalBindData = dataRow[cls.bindColumnCount:cls.bindColumnCount + len(cls.additionalBindColumns())]
             metadataData = dataRow[cls.bindColumnCount + len(cls.additionalBindColumns()):]
             propstore = propertyStores.get(resourceID, None)
@@ -2981,13 +3000,13 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @classmethod
-    def objectWithExternalID(cls, home, externalID, accepted=True):
-        return cls.objectWith(home, externalID=externalID, accepted=accepted)
+    def objectWithBindUID(cls, home, bindUID, accepted=True):
+        return cls.objectWith(home, bindUID=bindUID, accepted=accepted)
 
 
     @classmethod
     @inlineCallbacks
-    def objectWith(cls, home, name=None, resourceID=None, externalID=None, accepted=True):
+    def objectWith(cls, home, name=None, resourceID=None, bindUID=None, accepted=True):
         """
         Create the object using one of the specified arguments as the key to load it. One
         and only one of the keyword arguments must be set.
@@ -3007,7 +3026,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         @rtype: C{CommonHomeChild}
         """
 
-        dbData = yield cls._getDBData(home, name, resourceID, externalID)
+        dbData = yield cls._getDBData(home, name, resourceID, bindUID)
         if dbData is None:
             returnValue(None)
         bindData, additionalBindData, metadataData = dbData
@@ -3044,7 +3063,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
     @classmethod
     @inlineCallbacks
-    def create(cls, home, name, externalID=None):
+    def create(cls, home, name, bindUID=None):
 
         if (yield cls._bindForNameAndHomeID.on(home._txn, name=name, homeID=home._resourceID)):
             raise HomeChildNameAlreadyExistsError(name)
@@ -3059,7 +3078,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         _created, _modified = (yield cls._insertHomeChildMetaData.on(home._txn, resourceID=resourceID))[0]
         # Bind table needs entry
         yield cls._bindInsertQuery.on(
-            home._txn, homeID=home._resourceID, resourceID=resourceID, externalID=externalID,
+            home._txn, homeID=home._resourceID, resourceID=resourceID, bindUID=bindUID,
             name=name, mode=_BIND_MODE_OWN, bindStatus=_BIND_STATUS_ACCEPTED,
             message=None,
         )
@@ -3094,15 +3113,6 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         @rtype: C{int}
         """
         return self._resourceID
-
-
-    def external_id(self):
-        """
-        Retrieve the external store identifier for this collection.
-
-        @return: a string.
-        """
-        return self._externalID
 
 
     def external(self):

@@ -89,13 +89,13 @@ class CommonHomeExternal(CommonHome):
 
     @memoizedKey("name", "_children")
     @inlineCallbacks
-    def createChildWithName(self, name, externalID=None):
+    def createChildWithName(self, name, bindUID=None):
         """
         No real children - only external ones.
         """
-        if externalID is None:
+        if bindUID is None:
             raise AssertionError("CommonHomeExternal: not supported")
-        child = yield super(CommonHomeExternal, self).createChildWithName(name, externalID)
+        child = yield super(CommonHomeExternal, self).createChildWithName(name, bindUID)
         returnValue(child)
 
 
@@ -112,7 +112,7 @@ class CommonHomeExternal(CommonHome):
         Remove an external child. Check that it is invalid or unused before calling this because if there
         are valid references to it, removing will break things.
         """
-        if child._externalID is None:
+        if child._bindUID is None:
             raise AssertionError("CommonHomeExternal: not supported")
         yield super(CommonHomeExternal, self).removeChildWithName(child.name())
 
@@ -186,11 +186,17 @@ class CommonHomeExternal(CommonHome):
         raise AssertionError("CommonHomeExternal: not supported")
 
 
-#    def ownerHomeAndChildNameForChildID(self, resourceID):
-#        """
-#        No children.
-#        """
-#        raise AssertionError("CommonHomeExternal: not supported")
+    @inlineCallbacks
+    def sharedToBindRecords(self):
+        results = yield self._txn.store().conduit.send_home_shared_to_records(self)
+        returnValue(dict([(
+            k,
+            (
+                self._childClass._bindRecordClass.deserialize(v[0]),
+                self._childClass._bindRecordClass.deserialize(v[1]),
+                self._childClass._metadataRecordClass.deserialize(v[2]),
+            ),
+        ) for k, v in results.items()]))
 
 
 
@@ -225,8 +231,8 @@ class CommonHomeChildExternal(CommonHomeChild):
 
     @classmethod
     @inlineCallbacks
-    def objectWith(cls, home, name=None, resourceID=None, externalID=None, accepted=True):
-        mapping = yield home._txn.store().conduit.send_homechild_objectwith(home, name, resourceID, externalID, accepted)
+    def objectWith(cls, home, name=None, resourceID=None, bindUID=None, accepted=True):
+        mapping = yield home._txn.store().conduit.send_homechild_objectwith(home, name, resourceID, bindUID, accepted)
 
         if mapping:
             child = yield cls.deserialize(home, mapping)
@@ -349,6 +355,12 @@ class CommonHomeChildExternal(CommonHomeChild):
             raise ExternalShareFailed("External share does not exist")
 
         returnValue(results)
+
+
+    @inlineCallbacks
+    def sharingBindRecords(self):
+        results = yield self._txn.store().conduit.send_homechild_sharing_records(self)
+        returnValue(dict([(k, self._bindRecordClass.deserialize(v),) for k, v in results.items()]))
 
 
 

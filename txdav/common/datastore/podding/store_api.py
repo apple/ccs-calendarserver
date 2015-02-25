@@ -135,11 +135,28 @@ class StoreAPIConduitMixin(object):
         """
         return [[a.serialize(), b.serialize(), ] for a, b in value]
 
+
+    @staticmethod
+    def _to_serialize_dict_value(value):
+        """
+        Convert the value to the external (JSON-based) representation.
+        """
+        return dict([(k, v.serialize(),) for k, v in value.items()])
+
+
+    @staticmethod
+    def _to_serialize_dict_list_serialized_value(value):
+        """
+        Convert the value to the external (JSON-based) representation.
+        """
+        return dict([(k, UtilityConduitMixin._to_serialize_list(v),) for k, v in value.items()])
+
 # These are the actions on store objects we need to expose via the conduit api
 
 # Calls on L{CommonHome} objects
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "home_metadata", "serialize", classMethod=False)
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "home_get_all_group_attendees", "getAllGroupAttendees", classMethod=False, transform_recv_result=StoreAPIConduitMixin._to_serialize_pair_list)
+UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "home_shared_to_records", "sharedToBindRecords", transform_recv_result=StoreAPIConduitMixin._to_serialize_dict_list_serialized_value)
 
 # Calls on L{CommonHomeChild} objects
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_listobjects", "listObjects", classMethod=True)
@@ -150,6 +167,7 @@ UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_moveawa
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_synctokenrevision", "syncTokenRevision")
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_resourcenamessincerevision", "resourceNamesSinceRevision", transform_send_result=UtilityConduitMixin._to_tuple)
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_search", "search")
+UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_sharing_records", "sharingBindRecords", transform_recv_result=StoreAPIConduitMixin._to_serialize_dict_value)
 
 # Calls on L{CommonObjectResource} objects
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "objectresource_loadallobjects", "loadAllObjects", classMethod=True, transform_recv_result=UtilityConduitMixin._to_serialize_list)

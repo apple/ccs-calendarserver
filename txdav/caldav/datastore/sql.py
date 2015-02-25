@@ -28,7 +28,7 @@ __all__ = [
     "CalendarObject",
 ]
 
-from twext.enterprise.dal.record import fromTable
+from twext.enterprise.dal.record import fromTable, SerializableRecord
 from twext.enterprise.dal.syntax import Count, ColumnSyntax, Delete, \
     Insert, Len, Max, Parameter, Select, Update, utcNowSQL
 from twext.enterprise.locking import NamedLock
@@ -398,6 +398,33 @@ class CalendarStoreFeatures(object):
             results.append(child)
 
         returnValue(results[0] if results else None)
+
+
+
+class CalendarHomeRecord(SerializableRecord, fromTable(schema.CALENDAR_HOME)):
+    """
+    @DynamicAttrs
+    L{Record} for L{schema.CALENDAR_HOME}.
+    """
+    pass
+
+
+
+class CalendarMetaDataRecord(SerializableRecord, fromTable(schema.CALENDAR_METADATA)):
+    """
+    @DynamicAttrs
+    L{Record} for L{schema.CALENDAR_METADATA}.
+    """
+    pass
+
+
+
+class CalendarBindRecord(SerializableRecord, fromTable(schema.CALENDAR_BIND)):
+    """
+    @DynamicAttrs
+    L{Record} for L{schema.CALENDAR_BIND}.
+    """
+    pass
 
 
 
@@ -1001,6 +1028,12 @@ class Calendar(CommonHomeChild):
     _revisionsSchema = schema.CALENDAR_OBJECT_REVISIONS
     _objectSchema = schema.CALENDAR_OBJECT
     _timeRangeSchema = schema.TIME_RANGE
+
+    _homeRecordClass = CalendarHomeRecord
+    _metadataRecordClass = CalendarMetaDataRecord
+    _bindRecordClass = CalendarBindRecord
+    _bindHomeIDAttributeName = "calendarHomeResourceID"
+    _bindResourceIDAttributeName = "calendarResourceID"
 
     # Mapping of iCalendar property name to DB column name
     _queryFields = {
