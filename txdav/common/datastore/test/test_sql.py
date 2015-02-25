@@ -1476,6 +1476,10 @@ END:VCALENDAR
         data = yield self._getResourceData(txn, "user01", "calendar", "test.ics")
         self.assertTrue("SCHEDULE-STATUS=2.0" in data)
         self.assertTrue("PARTSTAT=TENTATIVE" in data)
+
+        # clear the inbox items
+        resource = yield self._getResource(txn, "user01", "inbox", "")
+        yield resource.remove()
         resource = yield self._getResource(txn, "user02", "inbox", "")
         yield resource.remove()
 
@@ -1497,8 +1501,7 @@ END:VCALENDAR
 
         # user01's inbox copy also shows user02 declined
         data = yield self._getResourceData(txn, "user01", "inbox", "")
-        print("user01 inbox after trash", data)
-        self.assertTrue("PARTSTAT=DECLINED" in data) # FIXME -- this is not always true.  Sometimes it shows PARTSTAT=TENTATIVE still, as if the implicit scheduling has not finished.
+        self.assertTrue("PARTSTAT=DECLINED" in data)
         resource = yield self._getResource(txn, "user01", "inbox", "")
         yield resource.remove()
 
