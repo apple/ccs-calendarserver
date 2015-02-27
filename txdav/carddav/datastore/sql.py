@@ -40,7 +40,6 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python import hashlib
 
 from twistedcaldav.config import config
-from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError, Property, \
     vCardProductID
 
@@ -86,13 +85,12 @@ class AddressBookHome(CommonHome):
 
     _notifierPrefix = "CardDAV"
     _dataVersionKey = "ADDRESSBOOK-DATAVERSION"
-    _cacher = Memcacher("SQL.adbkhome", pickle=True, key_normalization=False)
 
 
-    def __init__(self, transaction, ownerUID, authzUID=None):
+    def __init__(self, transaction, homeData, authzUID=None):
 
-        super(AddressBookHome, self).__init__(transaction, ownerUID, authzUID=authzUID)
         self._addressbookPropertyStoreID = None
+        super(AddressBookHome, self).__init__(transaction, homeData, authzUID=authzUID)
         self._addressbook = None
 
 
@@ -118,6 +116,7 @@ class AddressBookHome(CommonHome):
         return (
             cls._homeSchema.RESOURCE_ID,
             cls._homeSchema.OWNER_UID,
+            cls._homeSchema.STATUS,
             cls._homeSchema.ADDRESSBOOK_PROPERTY_STORE_ID,
         )
 
@@ -133,19 +132,20 @@ class AddressBookHome(CommonHome):
         return (
             "_resourceID",
             "_ownerUID",
+            "_status",
             "_addressbookPropertyStoreID",
         )
 
 
     @inlineCallbacks
-    def initFromStore(self, no_cache=False):
+    def initFromStore(self):
         """
         Initialize this object from the store. We read in and cache all the
         extra meta-data from the DB to avoid having to do DB queries for those
         individually later.
         """
 
-        result = yield super(AddressBookHome, self).initFromStore(no_cache)
+        result = yield super(AddressBookHome, self).initFromStore()
         if result is not None:
             # Created owned address book
             addressbook = AddressBook(

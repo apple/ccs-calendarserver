@@ -86,6 +86,18 @@ class QueryCacher(Memcacher):
         return self.delete(key)
 
 
+    # Home objects by UID
+
+    def keyForHomeWithUID(self, homeType, ownerUID, status):
+        return "homeWithUID:%s:%s:%s" % (homeType, status, ownerUID)
+
+
+    # Home objects by id
+
+    def keyForHomeWithID(self, homeType, homeResourceID, status):
+        return "homeWithID:%s:%s:%s" % (homeType, status, homeResourceID)
+
+
     # Home child objects by name
 
     def keyForObjectWithName(self, homeResourceID, name):

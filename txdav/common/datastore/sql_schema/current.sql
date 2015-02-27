@@ -70,9 +70,11 @@ create table JOB (
 
 create table CALENDAR_HOME (
   RESOURCE_ID      integer      primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
-  OWNER_UID        varchar(255) not null unique,                                -- implicit index
+  OWNER_UID        varchar(255) not null,                		                -- implicit index
   STATUS           integer      default 0 not null,                             -- enum HOME_STATUS
-  DATAVERSION      integer      default 0 not null
+  DATAVERSION      integer      default 0 not null,
+  
+  unique (OWNER_UID, STATUS)	-- implicit index
 );
 
 -- Enumeration of statuses
@@ -86,6 +88,7 @@ insert into HOME_STATUS values (0, 'normal' );
 insert into HOME_STATUS values (1, 'external');
 insert into HOME_STATUS values (2, 'purging');
 insert into HOME_STATUS values (3, 'migrating');
+insert into HOME_STATUS values (4, 'disabled');
 
 
 --------------
@@ -159,9 +162,11 @@ create index CALENDAR_MIGRATION_LOCAL_RESOURCE_ID on
 
 create table NOTIFICATION_HOME (
   RESOURCE_ID integer      primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
-  OWNER_UID   varchar(255) not null unique,                                -- implicit index
+  OWNER_UID   varchar(255) not null,	                                   -- implicit index
   STATUS      integer      default 0 not null,                             -- enum HOME_STATUS
-  DATAVERSION integer      default 0 not null
+  DATAVERSION integer      default 0 not null,
+    
+  unique (OWNER_UID, STATUS)	-- implicit index
 );
 
 create table NOTIFICATION (
@@ -475,9 +480,11 @@ create table RESOURCE_PROPERTY (
 create table ADDRESSBOOK_HOME (
   RESOURCE_ID                   integer         primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
   ADDRESSBOOK_PROPERTY_STORE_ID integer         default nextval('RESOURCE_ID_SEQ') not null,    -- implicit index
-  OWNER_UID                     varchar(255)    not null unique,                                -- implicit index
+  OWNER_UID                     varchar(255)    not null,
   STATUS                        integer         default 0 not null,                             -- enum HOME_STATUS
-  DATAVERSION                   integer         default 0 not null
+  DATAVERSION                   integer         default 0 not null,
+    
+  unique (OWNER_UID, STATUS)	-- implicit index
 );
 
 

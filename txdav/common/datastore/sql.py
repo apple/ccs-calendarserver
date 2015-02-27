@@ -14,9 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from txdav.common.datastore.sql_notification import NotificationCollection
-from txdav.common.datastore.sql_util import _EmptyCacher, _SharedSyncLogic
-from txdav.common.datastore.sql_sharing import SharingHomeMixIn, SharingMixIn
 
 """
 SQL data store.
@@ -64,9 +61,12 @@ from txdav.common.datastore.sql_apn import APNSubscriptionsMixin
 from txdav.common.datastore.sql_directory import DelegatesAPIMixin, \
     GroupsAPIMixin, GroupCacherAPIMixin
 from txdav.common.datastore.sql_imip import imipAPIMixin
+from txdav.common.datastore.sql_notification import NotificationCollection
 from txdav.common.datastore.sql_tables import _BIND_MODE_OWN, _BIND_STATUS_ACCEPTED, \
     _HOME_STATUS_EXTERNAL, _HOME_STATUS_NORMAL, \
     _HOME_STATUS_PURGING, schema, splitSQLString, _HOME_STATUS_MIGRATING
+from txdav.common.datastore.sql_util import _SharedSyncLogic
+from txdav.common.datastore.sql_sharing import SharingHomeMixIn, SharingMixIn
 from txdav.common.icommondatastore import ConcurrentModification, \
     RecordNotAllowedError, ShareNotAllowed, \
     IndexedSearchException, EADDRESSBOOKTYPE, ECALENDARTYPE
@@ -81,6 +81,7 @@ from txdav.idav import ChangeCategory
 
 from zope.interface import implements, directlyProvides
 
+import collections
 import inspect
 import itertools
 import sys
@@ -567,8 +568,16 @@ class CommonStoreTransaction(
 
         self._store = store
         self._queuer = self._store.queuer
-        self._calendarHomes = {}
-        self._addressbookHomes = {}
+        self._cachedHomes = {
+            ECALENDARTYPE: {
+                "byUID": collections.defaultdict(dict),
+                "byID": collections.defaultdict(dict),
+            },
+            EADDRESSBOOKTYPE: {
+                "byUID": collections.defaultdict(dict),
+                "byID": collections.defaultdict(dict),
+            },
+        }
         self._notificationHomes = {}
         self._notifierFactories = notifierFactories
         self._notifiedAlready = set()
@@ -677,14 +686,11 @@ class CommonStoreTransaction(
         ).on(self)
 
 
-    def _determineMemo(self, storeType, uid, create=False, authzUID=None, migratingUID=None):
+    def _determineMemo(self, storeType, lookupMode, status):
         """
         Determine the memo dictionary to use for homeWithUID.
         """
-        if storeType == ECALENDARTYPE:
-            return self._calendarHomes
-        else:
-            return self._addressbookHomes
+        return self._cachedHomes[storeType][lookupMode][status]
 
 
     @inlineCallbacks
@@ -699,11 +705,11 @@ class CommonStoreTransaction(
             yield self.homeWithUID(storeType, uid, create=False)
 
         # Return the memoized list directly
-        returnValue([kv[1] for kv in sorted(self._determineMemo(storeType, None).items(), key=lambda x: x[0])])
+        returnValue([kv[1] for kv in sorted(self._determineMemo(storeType, "byUID", _HOME_STATUS_NORMAL).items(), key=lambda x: x[0])])
 
 
-    @memoizedKey("uid", _determineMemo)
-    def homeWithUID(self, storeType, uid, create=False, authzUID=None, migratingUID=None):
+    @inlineCallbacks
+    def homeWithUID(self, storeType, uid, status=None, create=False, authzUID=None):
         """
         We need to distinguish between various different users "looking" at a home and its
         child resources because we have per-user properties that depend on which user is "looking".
@@ -715,15 +721,21 @@ class CommonStoreTransaction(
         if storeType not in (ECALENDARTYPE, EADDRESSBOOKTYPE):
             raise RuntimeError("Unknown home type.")
 
-        return self._homeClass[storeType].homeWithUID(self, uid, create, authzUID, migratingUID)
+        result = self._determineMemo(storeType, "byUID", status).get(uid)
+        if result is None:
+            result = yield self._homeClass[storeType].homeWithUID(self, uid, status, create, authzUID)
+            if result:
+                self._determineMemo(storeType, "byUID", status)[uid] = result
+                self._determineMemo(storeType, "byID", None)[result.id()] = result
+        returnValue(result)
 
 
-    def calendarHomeWithUID(self, uid, create=False, authzUID=None, migratingUID=None):
-        return self.homeWithUID(ECALENDARTYPE, uid, create=create, authzUID=authzUID, migratingUID=migratingUID)
+    def calendarHomeWithUID(self, uid, status=None, create=False, authzUID=None):
+        return self.homeWithUID(ECALENDARTYPE, uid, status=status, create=create, authzUID=authzUID)
 
 
-    def addressbookHomeWithUID(self, uid, create=False, authzUID=None, migratingUID=None):
-        return self.homeWithUID(EADDRESSBOOKTYPE, uid, create=create, authzUID=authzUID, migratingUID=migratingUID)
+    def addressbookHomeWithUID(self, uid, status=None, create=False, authzUID=None):
+        return self.homeWithUID(EADDRESSBOOKTYPE, uid, status=status, create=create, authzUID=authzUID)
 
 
     @inlineCallbacks
@@ -731,12 +743,15 @@ class CommonStoreTransaction(
         """
         Load a calendar or addressbook home by its integer resource ID.
         """
-        uid = (yield self._homeClass[storeType].homeUIDWithResourceID(self, rid))
-        if uid:
-            # Always get the owner's view of the home = i.e., authzUID=uid
-            result = (yield self.homeWithUID(storeType, uid, authzUID=uid))
-        else:
-            result = None
+        if storeType not in (ECALENDARTYPE, EADDRESSBOOKTYPE):
+            raise RuntimeError("Unknown home type.")
+
+        result = self._determineMemo(storeType, "byID", None).get(rid)
+        if result is None:
+            result = yield self._homeClass[storeType].homeWithResourceID(self, rid)
+            if result:
+                self._determineMemo(storeType, "byID", None)[rid] = result
+                self._determineMemo(storeType, "byUID", result._status)[result.uid()] = result
         returnValue(result)
 
 
@@ -1530,38 +1545,38 @@ class CommonHome(SharingHomeMixIn):
     _dataVersionKey = None
     _dataVersionValue = None
 
-    _cacher = None  # Initialize in derived classes
-
     @classmethod
-    @inlineCallbacks
-    def makeClass(cls, transaction, ownerUID, no_cache=False, authzUID=None):
+    def makeClass(cls, transaction, homeData, authzUID=None):
         """
         Build the actual home class taking into account the possibility that we might need to
         switch in the external version of the class.
 
         @param transaction: transaction
         @type transaction: L{CommonStoreTransaction}
-        @param ownerUID: owner UID of home to load
-        @type ownerUID: C{str}
-        @param no_cache: should cached query be used
-        @type no_cache: C{bool}
+        @param homeData: home table column data
+        @type homeData: C{list}
         """
-        home = cls(transaction, ownerUID, authzUID=authzUID)
-        actualHome = yield home.initFromStore(no_cache)
-        returnValue(actualHome)
+
+        status = homeData[cls.homeColumns().index(cls._homeSchema.STATUS)]
+        if status == _HOME_STATUS_EXTERNAL:
+            home = cls._externalClass(transaction, homeData)
+        else:
+            home = cls(transaction, homeData, authzUID=authzUID)
+        return home.initFromStore()
 
 
-    def __init__(self, transaction, ownerUID, authzUID=None):
+    def __init__(self, transaction, homeData, authzUID=None):
         self._txn = transaction
-        self._ownerUID = ownerUID
+
+        for attr, value in zip(self.homeAttributes(), homeData):
+            setattr(self, attr, value)
+
         self._authzUID = authzUID
         if self._authzUID is None:
             if self._txn._authz_uid is not None:
                 self._authzUID = self._txn._authz_uid
             else:
                 self._authzUID = self._ownerUID
-        self._resourceID = None
-        self._status = _HOME_STATUS_NORMAL
         self._dataVersion = None
         self._childrenLoaded = False
         self._children = {}
@@ -1570,15 +1585,13 @@ class CommonHome(SharingHomeMixIn):
         self._created = None
         self._modified = None
         self._syncTokenRevision = None
-        if transaction._disableCache:
-            self._cacher = _EmptyCacher()
 
         # This is used to track whether the originating request is from the store associated
         # by the transaction, or from a remote store. We need to be able to distinguish store
         # objects that are locally hosted (_HOME_STATUS_NORMAL) or remotely hosted
         # (_HOME_STATUS_EXTERNAL). For the later we need to know whether the object is being
         # accessed from the local store (in which case requests for child objects etc will be
-        # directed at a remote store) or whether it is being accessed as the tresult of a remote
+        # directed at a remote store) or whether it is being accessed as the result of a remote
         # request (in which case requests for child objects etc will be directed at the local store).
         self._internalRequest = True
 
@@ -1603,14 +1616,16 @@ class CommonHome(SharingHomeMixIn):
         return Select(
             cls.homeColumns(),
             From=home,
-            Where=home.OWNER_UID == Parameter("ownerUID")
+            Where=(home.OWNER_UID == Parameter("ownerUID")).And(
+                home.STATUS == Parameter("status")
+            )
         )
 
 
     @classproperty
     def _ownerFromResourceID(cls):
         home = cls._homeSchema
-        return Select([home.OWNER_UID],
+        return Select([home.OWNER_UID, home.STATUS],
                       From=home,
                       Where=home.RESOURCE_ID == Parameter("resourceID"))
 
@@ -1686,39 +1701,20 @@ class CommonHome(SharingHomeMixIn):
 
 
     @inlineCallbacks
-    def initFromStore(self, no_cache=False):
+    def initFromStore(self):
         """
         Initialize this object from the store. We read in and cache all the
         extra meta-data from the DB to avoid having to do DB queries for those
         individually later.
         """
-        result = yield self._cacher.get(self._ownerUID)
-        if result is None:
-            result = yield self._homeColumnsFromOwnerQuery.on(self._txn, ownerUID=self._ownerUID)
-            if result:
-                result = result[0]
-                if not no_cache:
-                    yield self._cacher.set(self._ownerUID, result)
 
-        if result:
-            for attr, value in zip(self.homeAttributes(), result):
-                setattr(self, attr, value)
+        yield self.initMetaDataFromStore()
+        yield self._loadPropertyStore()
 
-            # STOP! If the status is external we need to convert this object to a CommonHomeExternal class which will
-            # have the right behavior for non-hosted external users.
-            if self._status == _HOME_STATUS_EXTERNAL:
-                actualHome = self._externalClass(self._txn, self._ownerUID, self._resourceID)
-            else:
-                actualHome = self
-            yield actualHome.initMetaDataFromStore()
-            yield actualHome._loadPropertyStore()
+        for factory_type, factory in self._txn._notifierFactories.items():
+            self.addNotifier(factory_type, factory.newNotifier(self))
 
-            for factory_type, factory in self._txn._notifierFactories.items():
-                actualHome.addNotifier(factory_type, factory.newNotifier(actualHome))
-
-            returnValue(actualHome)
-        else:
-            returnValue(None)
+        returnValue(self)
 
 
     @inlineCallbacks
@@ -1780,30 +1776,107 @@ class CommonHome(SharingHomeMixIn):
 
 
     @classmethod
+    def homeWithUID(cls, txn, uid, status=None, create=False, authzUID=None):
+        return cls.homeWith(txn, None, uid, status, create=create, authzUID=authzUID)
+
+
+    @classmethod
+    def homeWithResourceID(cls, txn, rid):
+        return cls.homeWith(txn, rid, None)
+
+
+    @classmethod
     @inlineCallbacks
-    def homeWithUID(cls, txn, uid, create=False, authzUID=None, migratingUID=None):
+    def homeWith(cls, txn, rid, uid, status=None, create=False, authzUID=None):
         """
-        @param uid: I'm going to assume uid is utf-8 encoded bytes
+        Lookup or create a home based in either its resource id or uid. If a status is given,
+        return only the one matching that status. If status is L{None} we lookup any regular
+        status type (normal, external or purging). When creating with status L{None} we create
+        one with a status matching the current directory record thisServer() value. The only
+        other status that can be directly created is migrating.
         """
-        homeObject = yield cls.makeClass(txn, uid, authzUID=authzUID)
-        if homeObject is not None:
+
+        # Setup the SQL query and query cacher keys
+        queryCacher = txn._queryCacher
+        cacheKeys = []
+        if rid is not None:
+            query = cls._homeSchema.RESOURCE_ID == rid
+            if queryCacher:
+                cacheKeys.append(queryCacher.keyForHomeWithID(cls._homeType, rid, status))
+        elif uid is not None:
+            query = cls._homeSchema.OWNER_UID == uid
+            if status is not None:
+                query = query.And(cls._homeSchema.STATUS == status)
+                if queryCacher:
+                    cacheKeys.append(queryCacher.keyForHomeWithUID(cls._homeType, uid, status))
+            else:
+                statusSet = (_HOME_STATUS_NORMAL, _HOME_STATUS_EXTERNAL, _HOME_STATUS_PURGING)
+                query = query.And(cls._homeSchema.STATUS.In(statusSet))
+                if queryCacher:
+                    for item in statusSet:
+                        cacheKeys.append(queryCacher.keyForHomeWithUID(cls._homeType, uid, item))
+        else:
+            raise AssertionError("One of rid or uid must be set")
+
+        # Try to fetch a result from the query cache first
+        for cacheKey in cacheKeys:
+            result = (yield queryCacher.get(cacheKey))
+            if result is not None:
+                break
+        else:
+            result = None
+
+        # If nothing in thr cache, do the SQL query and cache the result
+        if result is None:
+            results = yield Select(
+                cls.homeColumns(),
+                From=cls._homeSchema,
+                Where=query,
+            ).on(txn)
+
+            # Pick the internal one
+            if len(results) > 1:
+                if results[0][cls.homeColumns().index(cls._homeSchema.STATUS)] == _HOME_STATUS_NORMAL:
+                    result = results[0]
+                else:
+                    result = results[1]
+            elif results:
+                result = results[0]
+            else:
+                result = None
+
+            if result and queryCacher:
+                if rid is not None:
+                    cacheKey = cacheKeys[0]
+                elif uid is not None:
+                    cacheKey = queryCacher.keyForHomeWithUID(cls._homeType, uid, result[cls.homeColumns().index(cls._homeSchema.STATUS)])
+                yield queryCacher.set(cacheKey, result)
+
+        if result:
+            # Return object that already exists in the store
+            homeObject = yield cls.makeClass(txn, result, authzUID=authzUID)
             returnValue(homeObject)
         else:
-            if not create:
+            # Can only create when uid is specified
+            if not create or uid is None:
                 returnValue(None)
 
             # Determine if the user is local or external
-            diruid = uid if migratingUID is None else migratingUID
-            record = yield txn.directoryService().recordWithUID(diruid.decode("utf-8"))
+            record = yield txn.directoryService().recordWithUID(uid.decode("utf-8"))
             if record is None:
-                raise DirectoryRecordNotFoundError("Cannot create home for UID since no directory record exists: {}".format(diruid))
+                raise DirectoryRecordNotFoundError("Cannot create home for UID since no directory record exists: {}".format(uid))
 
-            if migratingUID is None:
-                state = _HOME_STATUS_NORMAL if record.thisServer() else _HOME_STATUS_EXTERNAL
-            else:
+            if status is None:
+                createStatus = _HOME_STATUS_NORMAL if record.thisServer() else _HOME_STATUS_EXTERNAL
+            elif status == _HOME_STATUS_MIGRATING:
                 if record.thisServer():
                     raise RecordNotAllowedError("Cannot migrate a user data for a user already hosted on this server")
-                state = _HOME_STATUS_MIGRATING
+                createStatus = status
+            elif status in (_HOME_STATUS_NORMAL, _HOME_STATUS_EXTERNAL,):
+                createStatus = status
+            else:
+                raise RecordNotAllowedError("Cannot create home with status {}: {}".format(status, uid))
+
 
             # Use savepoint so we can do a partial rollback if there is a race condition
             # where this row has already been inserted
@@ -1816,7 +1889,7 @@ class CommonHome(SharingHomeMixIn):
                 resourceid = (yield Insert(
                     {
                         cls._homeSchema.OWNER_UID: uid,
-                        cls._homeSchema.STATUS: state,
+                        cls._homeSchema.STATUS: createStatus,
                         cls._homeSchema.DATAVERSION: cls._dataVersionValue,
                     },
                     Return=cls._homeSchema.RESOURCE_ID
@@ -1826,8 +1899,13 @@ class CommonHome(SharingHomeMixIn):
                 yield savepoint.rollback(txn)
 
                 # Retry the query - row may exist now, if not re-raise
-                homeObject = yield cls.makeClass(txn, uid, authzUID=authzUID)
-                if homeObject:
+                results = yield Select(
+                    cls.homeColumns(),
+                    From=cls._homeSchema,
+                    Where=query,
+                ).on(txn)
+                if results:
+                    homeObject = yield cls.makeClass(txn, results[0], authzUID=authzUID)
                     returnValue(homeObject)
                 else:
                     raise
@@ -1835,26 +1913,25 @@ class CommonHome(SharingHomeMixIn):
                 yield savepoint.release(txn)
 
                 # Note that we must not cache the owner_uid->resource_id
-                # mapping in _cacher when creating as we don't want that to appear
+                # mapping in the query cacher when creating as we don't want that to appear
                 # until AFTER the commit
-                home = yield cls.makeClass(txn, uid, no_cache=True, authzUID=authzUID)
-                if migratingUID is None:
-                    yield home.createdHome()
-                returnValue(home)
-
-
-    @classmethod
-    @inlineCallbacks
-    def homeUIDWithResourceID(cls, txn, rid):
-        rows = (yield cls._ownerFromResourceID.on(txn, resourceID=rid))
-        if rows:
-            returnValue(rows[0][0])
-        else:
-            returnValue(None)
+                results = yield Select(
+                    cls.homeColumns(),
+                    From=cls._homeSchema,
+                    Where=cls._homeSchema.RESOURCE_ID == resourceid,
+                ).on(txn)
+                homeObject = yield cls.makeClass(txn, results[0], authzUID=authzUID)
+                if homeObject.normal():
+                    yield homeObject.createdHome()
+                returnValue(homeObject)
 
 
     def __repr__(self):
         return "<%s: %s, %s>" % (self.__class__.__name__, self._resourceID, self._ownerUID)
+
+
+    def cacheKey(self):
+        return "{}-{}".format(self._status, self._ownerUID)
 
 
     def id(self):
@@ -1957,8 +2034,18 @@ class CommonHome(SharingHomeMixIn):
                 {self._homeSchema.STATUS: newStatus},
                 Where=(self._homeSchema.RESOURCE_ID == self._resourceID),
             ).on(self._txn)
+            if self._txn._queryCacher:
+                yield self._txn._queryCacher.delete(self._txn._queryCacher.keyForHomeWithUID(
+                    self._homeType,
+                    self.uid(),
+                    self._status,
+                ))
+                yield self._txn._queryCacher.delete(self._txn._queryCacher.keyForHomeWithID(
+                    self._homeType,
+                    self.id(),
+                    self._status,
+                ))
             self._status = newStatus
-            yield self._cacher.delete(self._ownerUID)
 
 
     @inlineCallbacks
@@ -1982,7 +2069,17 @@ class CommonHome(SharingHomeMixIn):
 
         yield self.properties()._removeResource()
 
-        yield self._cacher.delete(str(self._ownerUID))
+        if self._txn._queryCacher:
+            yield self._txn._queryCacher.delete(self._txn._queryCacher.keyForHomeWithUID(
+                self._homeType,
+                self.uid(),
+                self._status,
+            ))
+            yield self._txn._queryCacher.delete(self._txn._queryCacher.keyForHomeWithID(
+                self._homeType,
+                self.id(),
+                self._status,
+            ))
 
 
     @inlineCallbacks

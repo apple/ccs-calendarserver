@@ -52,7 +52,6 @@ from twistedcaldav.dateops import normalizeForIndex, \
     pyCalendarTodatetime, parseSQLDateToPyCalendar
 from twistedcaldav.ical import Component, InvalidICalendarDataError, Property
 from twistedcaldav.instance import InvalidOverriddenInstanceError
-from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.timezones import TimezoneException
 
 from txdav.base.propertystore.base import PropertyName
@@ -444,8 +443,6 @@ class CalendarHome(CommonHome):
 
     _notifierPrefix = "CalDAV"
     _dataVersionKey = "CALENDAR-DATAVERSION"
-
-    _cacher = Memcacher("SQL.calhome", pickle=True, key_normalization=False)
 
     _componentCalendarName = {
         "VEVENT": "calendar",

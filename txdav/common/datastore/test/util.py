@@ -303,10 +303,7 @@ class SQLStoreBuilder(object):
         yield cleanupTxn.commit()
 
         # Deal with memcached items that must be cleared
-        from txdav.caldav.datastore.sql import CalendarHome
-        CalendarHome._cacher.flushAll()
-        from txdav.carddav.datastore.sql import AddressBookHome
-        AddressBookHome._cacher.flushAll()
+        storeToClean.queryCacher.flushAll()
         from txdav.base.propertystore.sql import PropertyStore
         PropertyStore._cacher.flushAll()
 
@@ -449,7 +446,7 @@ def populateCalendarsFrom(requirements, store, migrating=False):
         populateTxn._migrating = True
     for homeUID in requirements:
         calendars = requirements[homeUID]
-        home = yield populateTxn.calendarHomeWithUID(homeUID, True)
+        home = yield populateTxn.calendarHomeWithUID(homeUID, create=True)
         if calendars is not None:
             # We don't want the default calendar or inbox to appear unless it's
             # explicitly listed.
@@ -534,7 +531,7 @@ def resetCalendarMD5s(md5s, store):
     for homeUID in md5s:
         calendars = md5s[homeUID]
         if calendars is not None:
-            home = yield populateTxn.calendarHomeWithUID(homeUID, True)
+            home = yield populateTxn.calendarHomeWithUID(homeUID, create=True)
             for calendarName in calendars:
                 calendarObjNames = calendars[calendarName]
                 if calendarObjNames is not None:
@@ -565,7 +562,7 @@ def populateAddressBooksFrom(requirements, store):
     for homeUID in requirements:
         addressbooks = requirements[homeUID]
         if addressbooks is not None:
-            home = yield populateTxn.addressbookHomeWithUID(homeUID, True)
+            home = yield populateTxn.addressbookHomeWithUID(homeUID, create=True)
             # We don't want the default addressbook
             try:
                 yield home.removeAddressBookWithName("addressbook")
@@ -602,7 +599,7 @@ def resetAddressBookMD5s(md5s, store):
     for homeUID in md5s:
         addressbooks = md5s[homeUID]
         if addressbooks is not None:
-            home = yield populateTxn.addressbookHomeWithUID(homeUID, True)
+            home = yield populateTxn.addressbookHomeWithUID(homeUID, create=True)
             for addressbookName in addressbooks:
                 addressbookObjNames = addressbooks[addressbookName]
                 if addressbookObjNames is not None:
@@ -883,32 +880,32 @@ class CommonCommonTests(object):
 
 
     @inlineCallbacks
-    def homeUnderTest(self, txn=None, name="home1", create=False):
+    def homeUnderTest(self, txn=None, name="home1", status=None, create=False):
         """
         Get the calendar home detailed by C{requirements['home1']}.
         """
         if txn is None:
             txn = self.transactionUnderTest()
-        returnValue((yield txn.calendarHomeWithUID(name, create=create)))
+        returnValue((yield txn.calendarHomeWithUID(name, status=status, create=create)))
 
 
     @inlineCallbacks
-    def calendarUnderTest(self, txn=None, name="calendar_1", home="home1"):
+    def calendarUnderTest(self, txn=None, name="calendar_1", home="home1", status=None):
         """
         Get the calendar detailed by C{requirements['home1']['calendar_1']}.
         """
         returnValue((
-            yield (yield self.homeUnderTest(txn, home)).calendarWithName(name)
+            yield (yield self.homeUnderTest(txn, name=home, status=status)).calendarWithName(name)
         ))
 
 
     @inlineCallbacks
-    def calendarObjectUnderTest(self, txn=None, name="1.ics", calendar_name="calendar_1", home="home1"):
+    def calendarObjectUnderTest(self, txn=None, name="1.ics", calendar_name="calendar_1", home="home1", status=None):
         """
         Get the calendar detailed by
         C{requirements[home][calendar_name][name]}.
         """
-        returnValue((yield (yield self.calendarUnderTest(txn, name=calendar_name, home=home))
+        returnValue((yield (yield self.calendarUnderTest(txn, name=calendar_name, home=home, status=status))
                      .calendarObjectWithName(name)))
 
 

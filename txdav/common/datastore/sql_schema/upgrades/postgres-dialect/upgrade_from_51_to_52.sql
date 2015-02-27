@@ -20,6 +20,20 @@
 
 -- New status value
 insert into HOME_STATUS values (3, 'migrating');
+insert into HOME_STATUS values (4, 'disabled');
+
+-- Home constraints
+alter table CALENDAR_HOME
+	drop constraint CALENDAR_HOME_OWNER_UID_KEY,
+	add unique (OWNER_UID, STATUS);
+
+alter table ADDRESSBOOK_HOME
+	drop constraint ADDRESSBOOK_HOME_OWNER_UID_KEY,
+	add unique (OWNER_UID, STATUS);
+
+alter table NOTIFICATION_HOME
+	drop constraint NOTIFICATION_HOME_OWNER_UID_KEY,
+	add unique (OWNER_UID, STATUS);
 
 -- Change columns
 alter table CALENDAR_BIND

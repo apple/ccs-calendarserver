@@ -334,15 +334,15 @@ class CommonStoreTransaction(DataStoreTransaction):
         CommonStoreTransaction._homeClass[EADDRESSBOOKTYPE] = AddressBookHome
 
 
-    def calendarHomeWithUID(self, uid, create=False):
-        return self.homeWithUID(ECALENDARTYPE, uid, create=create)
+    def calendarHomeWithUID(self, uid, status=None, create=False):
+        return self.homeWithUID(ECALENDARTYPE, uid, status=status, create=create)
 
 
-    def addressbookHomeWithUID(self, uid, create=False):
-        return self.homeWithUID(EADDRESSBOOKTYPE, uid, create=create)
+    def addressbookHomeWithUID(self, uid, status=None, create=False):
+        return self.homeWithUID(EADDRESSBOOKTYPE, uid, status=status, create=create)
 
 
-    def _determineMemo(self, storeType, uid, create=False):
+    def _determineMemo(self, storeType, uid, status=None, create=False):
         """
         Determine the memo dictionary to use for homeWithUID.
         """
@@ -365,7 +365,7 @@ class CommonStoreTransaction(DataStoreTransaction):
 
 
     @memoizedKey("uid", _determineMemo, deferredResult=False)
-    def homeWithUID(self, storeType, uid, create=False):
+    def homeWithUID(self, storeType, uid, status=None, create=False):
         if uid.startswith("."):
             return None
 

@@ -25,10 +25,11 @@ from txdav.common.datastore.podding.migration.sync_metadata import CalendarMigra
 from txdav.caldav.datastore.sql import ManagedAttachment, CalendarBindRecord
 from txdav.common.datastore.sql_external import NotificationCollectionExternal
 from txdav.common.datastore.sql_notification import NotificationCollection
-from txdav.common.datastore.sql_tables import _HOME_STATUS_EXTERNAL
+from txdav.common.datastore.sql_tables import _HOME_STATUS_EXTERNAL, \
+    _HOME_STATUS_MIGRATING
 from txdav.common.idirectoryservice import DirectoryRecordNotFoundError
 
-import uuid
+from uuid import uuid4
 
 log = Logger()
 
@@ -100,10 +101,6 @@ class CrossPodHomeSync(object):
         return "Cross-pod Migration Sync for {}: {}".format(self.diruid, detail)
 
 
-    def migratingUid(self):
-        return "Migrating-{}".format(self.diruid)
-
-
     @inlineCallbacks
     def migrateHere(self):
         """
@@ -151,7 +148,7 @@ class CrossPodHomeSync(object):
         """
 
         yield self.loadRecord()
-        self.homeId = yield self.prepareCalendarHome()
+        yield self.prepareCalendarHome()
 
         # Calendar list and calendar data
         yield self.syncCalendarList()
@@ -249,10 +246,10 @@ class CrossPodHomeSync(object):
         Make sure the inactive home to migrate into is present on this pod.
         """
 
-        home = yield txn.calendarHomeWithUID(self.migratingUid())
+        home = yield self._localHome(txn)
         if home is None:
-            home = yield txn.calendarHomeWithUID(self.migratingUid(), create=True, migratingUID=self.diruid)
-        returnValue(home.id())
+            home = yield txn.calendarHomeWithUID(self.diruid, status=_HOME_STATUS_MIGRATING, create=True)
+        self.homeId = home.id()
 
 
     @inTransactionWrapper
@@ -268,7 +265,7 @@ class CrossPodHomeSync(object):
         calendars = yield CalendarMigrationRecord.querysimple(txn, calendarHomeResourceID=self.homeId)
         calendarIDMap = dict((item.remoteResourceID, item.localResourceID) for item in calendars)
 
-        local_home = yield txn.calendarHomeWithUID(self.migratingUid())
+        local_home = yield self._localHome(txn)
         yield local_home.copyMetadata(remote_home, calendarIDMap)
 
 
@@ -276,17 +273,20 @@ class CrossPodHomeSync(object):
     def _remoteHome(self, txn):
         """
         Create a synthetic external home object that maps to the actual remote home.
-
-        @param ownerUID: directory uid of the user's home
-        @type ownerUID: L{str}
         """
 
         from txdav.caldav.datastore.sql_external import CalendarHomeExternal
         resourceID = yield txn.store().conduit.send_home_resource_id(txn, self.record)
-        home = CalendarHomeExternal(txn, self.record.uid, resourceID) if resourceID is not None else None
-        if home:
-            home._childClass = home._childClass._externalClass
+        home = CalendarHomeExternal.makeSyntheticExternalHome(txn, self.record.uid, resourceID) if resourceID is not None else None
         returnValue(home)
+
+
+    def _localHome(self, txn):
+        """
+        Get the home on this pod that will have data migrated to it.
+        """
+
+        return txn.calendarHomeWithUID(self.diruid, status=_HOME_STATUS_MIGRATING)
 
 
     @inlineCallbacks
@@ -377,7 +377,7 @@ class CrossPodHomeSync(object):
         @param remote_sync_state: remote sync state
         @type remote_sync_state: L{dict}
         """
-        home = yield txn.calendarHomeWithUID(self.migratingUid())
+        home = yield self._localHome(txn)
         for remoteID in set(local_sync_state.keys()) - set(remote_sync_state.keys()):
             calendar = yield home.childWithID(local_sync_state[remoteID].localResourceID)
             if calendar is not None:
@@ -431,8 +431,8 @@ class CrossPodHomeSync(object):
         of the calendar right now - it will be sync'd later.
         """
 
-        home = yield txn.calendarHomeWithUID(self.migratingUid())
-        calendar = yield home.createChildWithName(str(uuid.uuid4()))
+        home = yield self._localHome(txn)
+        calendar = yield home.createChildWithName(str(uuid4()))
         returnValue(calendar.id())
 
 
@@ -452,7 +452,7 @@ class CrossPodHomeSync(object):
             returnValue(None)
 
         # Check whether the deleted set items
-        local_home = yield txn.calendarHomeWithUID(self.migratingUid())
+        local_home = yield self._localHome(txn)
         local_calendar = yield local_home.childWithID(migrationRecord.localResourceID)
         yield local_calendar.copyMetadata(remote_calendar)
 
@@ -478,7 +478,7 @@ class CrossPodHomeSync(object):
         changed, deleted, _ignore_invalid = yield remote_calendar.resourceNamesSinceToken(migrationRecord.lastSyncToken)
 
         # Check whether the deleted set items
-        local_home = yield txn.calendarHomeWithUID(self.migratingUid())
+        local_home = yield self._localHome(txn)
         local_calendar = yield local_home.childWithID(migrationRecord.localResourceID)
 
         # Check the md5's on each changed remote with the local one to filter out ones
@@ -531,7 +531,7 @@ class CrossPodHomeSync(object):
         """
 
         # Check whether the deleted set items
-        local_home = yield txn.calendarHomeWithUID(self.migratingUid())
+        local_home = yield self._localHome(txn)
         local_calendar = yield local_home.childWithID(localID)
         local_objects = yield local_calendar.objectResourcesWithNames(purge_names)
 
@@ -587,7 +587,7 @@ class CrossPodHomeSync(object):
         remote_objects = dict([(obj.name(), obj) for obj in remote_objects])
 
         # Get local objects
-        local_home = yield txn.calendarHomeWithUID(self.migratingUid())
+        local_home = yield self._localHome(txn)
         local_calendar = yield local_home.childWithID(localID)
         local_objects = yield local_calendar.objectResourcesWithNames(remaining)
         local_objects = dict([(obj.name(), obj) for obj in local_objects])
@@ -652,7 +652,7 @@ class CrossPodHomeSync(object):
         rattachments = yield remote_home.getAllAttachments()
         rmap = dict([(attachment.id(), attachment) for attachment in rattachments])
 
-        local_home = yield txn.calendarHomeWithUID(self.migratingUid())
+        local_home = yield self._localHome(txn)
         lattachments = yield local_home.getAllAttachments()
         lmap = dict([(attachment.id(), attachment) for attachment in lattachments])
 
@@ -706,7 +706,7 @@ class CrossPodHomeSync(object):
         """
 
         remote_home = yield self._remoteHome(txn)
-        local_home = yield txn.calendarHomeWithUID(self.migratingUid())
+        local_home = yield self._localHome(txn)
         attachment = yield local_home.getAttachmentByID(local_id)
         if attachment is None:
             returnValue(None)
@@ -951,13 +951,24 @@ class CrossPodHomeSync(object):
         """
         Sync all the collections shared by the migrating user from the remote store. We will do this one calendar at a time since
         there could be a large number of sharees per calendar.
+
+        Here is the logic we need: first assume we have three pods: A, B, C, and we are migrating a user from A->B. We start
+        with a set of shares (X -> Y - where X is the sharer and Y the sharee) on pod A. We migrate the sharer to pod B. We
+        then need to have a set of bind records on pod B, and adjust the set on pod A. Note that no changes are required on pod C.
+
+        Original      |  Changes                     | Changes
+        Shares        |  on B                        | on A
+        --------------|------------------------------|---------------------
+        A -> A        |  B -> A (new)                | B -> A (modify existing)
+        A -> B        |  B -> B (modify existing)    | (removed)
+        A -> C        |  B -> C (new)                | (removed)
         """
 
         calendars = yield self.getSyncState()
 
         len_records = 0
         for calendar in calendars.values():
-            records = yield self.sharedByCollectionRecords(calendar.remoteResourceID)
+            records, bindUID = yield self.sharedByCollectionRecords(calendar.remoteResourceID, calendar.localResourceID)
             records = records.items()
 
             # Batch setting resources for the local home
@@ -966,20 +977,34 @@ class CrossPodHomeSync(object):
                 yield self.makeSharedByCollections(records[:50], calendar.localResourceID)
                 records = records[50:]
 
+            # Update the remote pod to switch over the shares
+            yield self.updatedRemoteSharedByCollections(calendar.remoteResourceID, bindUID)
+
         returnValue(len_records)
 
 
     @inTransactionWrapper
     @inlineCallbacks
-    def sharedByCollectionRecords(self, txn, remote_id):
+    def sharedByCollectionRecords(self, txn, remote_id, local_id):
         """
-        Get all the existing L{CalendarBindRecord}'s from the remote store.
+        Get all the existing L{CalendarBindRecord}'s from the remote store. Also make sure a
+        bindUID exists for the local calendar.
         """
 
         remote_home = yield self._remoteHome(txn)
         remote_calendar = yield remote_home.childWithID(remote_id)
         records = yield remote_calendar.sharingBindRecords()
-        returnValue(records)
+
+        # Check bindUID
+        local_records = yield CalendarBindRecord.querysimple(
+            txn,
+            calendarHomeResourceID=self.homeId,
+            calendarResourceID=local_id,
+        )
+        if not local_records[0].bindUID:
+            yield local_records[0].update(bindUID=str(uuid4()))
+
+        returnValue((records, local_records[0].bindUID,))
 
 
     @inTransactionWrapper
@@ -1016,10 +1041,34 @@ class CrossPodHomeSync(object):
                 yield record.insert(txn)
 
 
+    @inTransactionWrapper
+    @inlineCallbacks
+    def updatedRemoteSharedByCollections(self, txn, remote_id, bindUID):
+        """
+        Get all the existing L{CalendarBindRecord}'s from the remote store.
+        """
+
+        remote_home = yield self._remoteHome(txn)
+        remote_calendar = yield remote_home.childWithID(remote_id)
+        records = yield remote_calendar.migrateBindRecords(bindUID)
+        returnValue(records)
+
+
     @inlineCallbacks
     def sharedToCollectionsReconcile(self):
         """
         Sync all the collections shared to the migrating user from the remote store.
+
+        Here is the logic we need: first assume we have three pods: A, B, C, and we are migrating a user from A->B. We start
+        with a set of shares (X -> Y - where X is the sharer and Y the sharee) with sharee on pod A. We migrate the sharee to pod B. We
+        then need to have a set of bind records on pod B, and adjust the set on pod A. Note that no changes are required on pod C.
+
+        Original      |  Changes                     | Changes
+        Shares        |  on B                        | on A
+        --------------|------------------------------|---------------------
+        A -> A        |  A -> B (new)                | A -> B (modify existing)
+        B -> A        |  B -> B (modify existing)    | (removed)
+        C -> A        |  C -> B (new)                | (removed)
         """
         records = yield self.sharedToCollectionRecords()
         records = records.items()
@@ -1080,6 +1129,8 @@ class CrossPodHomeSync(object):
                 # resource ID from that to use in the new CALENDAR_BIND record we create. If a pre-existing share
                 # is not present, then we have to create the CALENDAR table entry and associated pieces
 
+                remote_id = shareeRecord.calendarResourceID
+
                 # Look for pre-existing share with the same external ID
                 oldrecord = yield CalendarBindRecord.querysimple(
                     txn,
@@ -1101,3 +1152,18 @@ class CrossPodHomeSync(object):
                 shareeRecord.calendarResourceID = calendar_id
                 shareeRecord.bindRevision = 0
                 yield shareeRecord.insert(txn)
+
+                yield self.updatedRemoteSharedToCollection(remote_id, txn=txn)
+
+
+    @inTransactionWrapper
+    @inlineCallbacks
+    def updatedRemoteSharedToCollection(self, txn, remote_id):
+        """
+        Get all the existing L{CalendarBindRecord}'s from the remote store.
+        """
+
+        remote_home = yield self._remoteHome(txn)
+        remote_calendar = yield remote_home.childWithID(remote_id)
+        records = yield remote_calendar.migrateBindRecords(None)
+        returnValue(records)

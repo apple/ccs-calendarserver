@@ -28,7 +28,8 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from txdav.base.propertystore.base import PropertyName
 from txdav.common.datastore.sql_tables import _BIND_MODE_OWN, _BIND_MODE_DIRECT, \
     _BIND_MODE_INDIRECT, _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED, \
-    _BIND_STATUS_INVITED, _BIND_STATUS_INVALID, _BIND_STATUS_DELETED
+    _BIND_STATUS_INVITED, _BIND_STATUS_INVALID, _BIND_STATUS_DELETED, \
+    _HOME_STATUS_EXTERNAL
 from txdav.common.icommondatastore import ExternalShareFailed, \
     HomeChildNameAlreadyExistsError, AllRetriesFailed
 from txdav.xml import element
@@ -87,7 +88,7 @@ class SharingHomeMixIn(object):
 
         # Get the owner home - create external one if not present
         ownerHome = yield self._txn.homeWithUID(
-            self._homeType, ownerUID, create=True
+            self._homeType, ownerUID, status=_HOME_STATUS_EXTERNAL, create=True
         )
         if ownerHome is None or not ownerHome.external():
             raise ExternalShareFailed("Invalid owner UID: {}".format(ownerUID))
@@ -117,7 +118,7 @@ class SharingHomeMixIn(object):
         """
 
         # Get the owner home
-        ownerHome = yield self._txn.homeWithUID(self._homeType, ownerUID)
+        ownerHome = yield self._txn.homeWithUID(self._homeType, ownerUID, status=_HOME_STATUS_EXTERNAL)
         if ownerHome is None or not ownerHome.external():
             raise ExternalShareFailed("Invalid owner UID: {}".format(ownerUID))
 
@@ -147,7 +148,7 @@ class SharingHomeMixIn(object):
         # Make sure the shareeUID and shareUID match
 
         # Get the owner home - create external one if not present
-        shareeHome = yield self._txn.homeWithUID(self._homeType, shareeUID)
+        shareeHome = yield self._txn.homeWithUID(self._homeType, shareeUID, status=_HOME_STATUS_EXTERNAL)
         if shareeHome is None or not shareeHome.external():
             raise ExternalShareFailed(
                 "Invalid sharee UID: {}".format(shareeUID)
@@ -761,7 +762,7 @@ class SharingMixIn(object):
         @return: the name of the shared calendar in the new calendar home.
         @rtype: L{str}
         """
-        shareeHome = yield self._txn.calendarHomeWithUID(shareeUID, create=True)
+        shareeHome = yield self._txn.homeWithUID(self._home._homeType, shareeUID, create=True)
         returnValue(
             (yield self.shareWith(shareeHome, mode, status, summary, shareName))
         )
@@ -1039,6 +1040,111 @@ class SharingMixIn(object):
         homeMap = dict((home.resourceID, home.ownerUID,) for home in homes)
 
         returnValue(dict([(homeMap[getattr(record, self._bindHomeIDAttributeName)], record,) for record in records if record.bindMode != _BIND_MODE_OWN]))
+
+
+    def migrateBindRecords(self, bindUID):
+        """
+        The user that owns this collection is being migrated to another pod. We need to switch over
+        the sharing details to point to the new external user.
+        """
+        if self.owned():
+            return self.migrateSharedByRecords(bindUID)
+        else:
+            return self.migrateSharedToRecords()
+
+
+    @inlineCallbacks
+    def migrateSharedByRecords(self, bindUID):
+        """
+        The user that owns this collection is being migrated to another pod. We need to switch over
+        the sharing details to point to the new external user. For sharees hosted on this pod, we
+        update their bind record to point to a new external home/calendar for the sharer. For sharees
+        hosted on other pods, we simply remove their bind entries.
+        """
+
+        # Get the external home and make sure there is a "fake" calendar associated with it
+        home = yield self.externalHome()
+        calendar = yield home.childWithBindUID(bindUID)
+        if calendar is None:
+            calendar = yield home.createCollectionForExternalShare(
+                self.name(),
+                bindUID,
+                self.getSupportedComponents() if hasattr(self, "getSupportedComponents") else None,
+            )
+
+        remaining = False
+        records = yield self._bindRecordClass.querysimple(self._txn, **{self._bindResourceIDAttributeName: self.id()})
+        for record in records:
+            if record.bindMode == _BIND_MODE_OWN:
+                continue
+            shareeHome = yield self._txn.homeWithResourceID(home._homeType, getattr(record, self._bindHomeIDAttributeName))
+            if shareeHome.normal():
+                remaining = True
+                yield record.update(**{
+                    self._bindResourceIDAttributeName: calendar.id(),
+                })
+            else:
+                # It is OK to just delete (as opposed to doing a full "unshare") without adjusting other things
+                # like sync revisions since those would not have been used for an external share anyway. Also,
+                # revisions are tied to the calendar id and the original calendar will be removed after migration
+                # is complete.
+                yield record.delete()
+
+        # If there are no external shares remaining, we can remove the external calendar
+        if not remaining:
+            yield calendar.remove()
+
+
+    @inlineCallbacks
+    def migrateSharedToRecords(self):
+        """
+        The user that owns this collection is being migrated to another pod. We need to switch over
+        the sharing details to point to the new external user.
+        """
+
+        # Update the bind record for this calendar to point to the external home
+        records = yield self._bindRecordClass.querysimple(
+            self._txn,
+            **{
+                self._bindHomeIDAttributeName: self.viewerHome().id(),
+                self._bindResourceIDAttributeName: self.id(),
+            }
+        )
+
+        if len(records) == 1:
+
+            # What we do depends on whether the sharer is local to this pod or not
+            if self.ownerHome().normal():
+                # Get the external home for the sharee
+                home = yield self.externalHome()
+
+                yield records[0].update(**{
+                    self._bindHomeIDAttributeName: home.id(),
+                })
+            else:
+                # It is OK to just delete (as opposed to doing a full "unshare") without adjusting other things
+                # like sync revisions since those would not have been used for an external share anyway. Also,
+                # revisions are tied to the sharee calendar home id and that will be removed after migration
+                # is complete.
+                yield records[0].delete()
+
+                # Clean up external calendar if no sharees left
+                calendar = yield self.ownerView()
+                invites = yield calendar.sharingInvites()
+                if len(invites) == 0:
+                    yield calendar.remove()
+        else:
+            raise AssertionError("We must have a bind record for this calendar.")
+
+
+    def externalHome(self):
+        """
+        Create and return an L{CommonHome} for the user being migrated. Note that when called, the user
+        directory record may still indicate that they are hosted on this pod, so we have to forcibly create
+        a home for the external user.
+        """
+        currentHome = self.viewerHome()
+        return self._txn.homeWithUID(currentHome._homeType, currentHome.uid(), status=_HOME_STATUS_EXTERNAL, create=True)
 
 
     @inlineCallbacks

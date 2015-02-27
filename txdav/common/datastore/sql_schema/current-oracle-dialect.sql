@@ -29,9 +29,10 @@ create table JOB (
 
 create table CALENDAR_HOME (
     "RESOURCE_ID" integer primary key,
-    "OWNER_UID" nvarchar2(255) unique,
+    "OWNER_UID" nvarchar2(255),
     "STATUS" integer default 0 not null,
-    "DATAVERSION" integer default 0 not null
+    "DATAVERSION" integer default 0 not null, 
+    unique ("OWNER_UID", "STATUS")
 );
 
 create table HOME_STATUS (
@@ -43,6 +44,7 @@ insert into HOME_STATUS (DESCRIPTION, ID) values ('normal', 0);
 insert into HOME_STATUS (DESCRIPTION, ID) values ('external', 1);
 insert into HOME_STATUS (DESCRIPTION, ID) values ('purging', 2);
 insert into HOME_STATUS (DESCRIPTION, ID) values ('migrating', 3);
+insert into HOME_STATUS (DESCRIPTION, ID) values ('disabled', 4);
 create table CALENDAR (
     "RESOURCE_ID" integer primary key
 );
@@ -79,9 +81,10 @@ create table CALENDAR_MIGRATION (
 
 create table NOTIFICATION_HOME (
     "RESOURCE_ID" integer primary key,
-    "OWNER_UID" nvarchar2(255) unique,
+    "OWNER_UID" nvarchar2(255),
     "STATUS" integer default 0 not null,
-    "DATAVERSION" integer default 0 not null
+    "DATAVERSION" integer default 0 not null, 
+    unique ("OWNER_UID", "STATUS")
 );
 
 create table NOTIFICATION (
@@ -262,9 +265,10 @@ create table RESOURCE_PROPERTY (
 create table ADDRESSBOOK_HOME (
     "RESOURCE_ID" integer primary key,
     "ADDRESSBOOK_PROPERTY_STORE_ID" integer not null,
-    "OWNER_UID" nvarchar2(255) unique,
+    "OWNER_UID" nvarchar2(255),
     "STATUS" integer default 0 not null,
-    "DATAVERSION" integer default 0 not null
+    "DATAVERSION" integer default 0 not null, 
+    unique ("OWNER_UID", "STATUS")
 );
 
 create table ADDRESSBOOK_HOME_METADATA (

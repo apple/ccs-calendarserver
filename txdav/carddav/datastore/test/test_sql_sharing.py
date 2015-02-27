@@ -45,7 +45,7 @@ class BaseSharingTests(CommonCommonTests, TestCase):
         for homeUID in self.requirements:
             addressbooks = self.requirements[homeUID]
             if addressbooks is not None:
-                home = yield populateTxn.addressbookHomeWithUID(homeUID, True)
+                home = yield populateTxn.addressbookHomeWithUID(homeUID, create=True)
                 addressbook = home.addressbook()
 
                 addressbookObjNames = addressbooks[addressbook.name()]

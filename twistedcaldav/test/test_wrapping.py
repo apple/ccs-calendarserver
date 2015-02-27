@@ -120,7 +120,7 @@ class WrappingTests(StoreTestCase):
         record = yield self.directory.recordWithShortName(RecordType.user, u"wsanchez")
         uid = record.uid
         txn = self.transactionUnderTest()
-        home = yield txn.calendarHomeWithUID(uid, True)
+        home = yield txn.calendarHomeWithUID(uid, create=True)
         cal = yield home.calendarWithName("calendar")
         yield cal.createCalendarObjectWithName(objectName, VComponent.fromString(objectText))
         yield self.commit()
@@ -139,7 +139,7 @@ class WrappingTests(StoreTestCase):
         record = yield self.directory.recordWithShortName(RecordType.user, u"wsanchez")
         uid = record.uid
         txn = self.transactionUnderTest()
-        home = yield txn.addressbookHomeWithUID(uid, True)
+        home = yield txn.addressbookHomeWithUID(uid, create=True)
         adbk = yield home.addressbookWithName("addressbook")
         yield adbk.createAddressBookObjectWithName(objectName, VCComponent.fromString(objectText))
         yield self.commit()

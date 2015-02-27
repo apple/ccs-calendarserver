@@ -42,17 +42,38 @@ class CommonHomeExternal(CommonHome):
     are all stubbed out since no data for the user is actually hosted in this store.
     """
 
-    def __init__(self, transaction, ownerUID, resourceID):
-        super(CommonHomeExternal, self).__init__(transaction, ownerUID)
-        self._resourceID = resourceID
-        self._status = _HOME_STATUS_EXTERNAL
+    @classmethod
+    def makeSyntheticExternalHome(cls, transaction, diruid, resourceID):
+        """
+        During migration we need to refer to the remote home as an external home but without have a local representation
+        of it in the store. There will be a new local store home for the migrating user that will operate on local store
+        objects. The synthetic home operates only on remote objects.
+
+        @param diruid: directory UID of user
+        @type diruid: L{str}
+        @param resourceID: resource ID in the remote store
+        @type resourceID: L{int}
+        """
+        attrMap = {
+            "_resourceID": resourceID,
+            "_ownerUID": diruid,
+            "_status": _HOME_STATUS_EXTERNAL,
+        }
+        homeData = [attrMap.get(attr) for attr in cls.homeAttributes()]
+        result = cls(transaction, homeData)
+        result._childClass = result._childClass._externalClass
+        return result
 
 
-    def initFromStore(self, no_cache=False):
+    def __init__(self, transaction, homeData):
+        super(CommonHomeExternal, self).__init__(transaction, homeData)
+
+
+    def initFromStore(self):
         """
-        Never called - this should be done by CommonHome.initFromStore only.
+        NoOp for an external share as there is no metadata or properties.
         """
-        raise AssertionError("CommonHomeExternal: not supported")
+        return succeed(self)
 
 
     @inlineCallbacks
@@ -361,6 +382,10 @@ class CommonHomeChildExternal(CommonHomeChild):
     def sharingBindRecords(self):
         results = yield self._txn.store().conduit.send_homechild_sharing_records(self)
         returnValue(dict([(k, self._bindRecordClass.deserialize(v),) for k, v in results.items()]))
+
+
+    def migrateBindRecords(self, bindUID):
+        return self._txn.store().conduit.send_homechild_migrate_sharing_records(self, bindUID)
 
 
 

@@ -203,7 +203,7 @@ class _ExporterBase(object):
         for this calendar home.
         """
         uid = yield self.getHomeUID(exportService)
-        home = yield txn.calendarHomeWithUID(uid, True)
+        home = yield txn.calendarHomeWithUID(uid, create=True)
         result = []
         if self.collections:
             for collection in self.collections:
@@ -301,6 +301,7 @@ def exportToFile(calendars, fileobj):
                     comp.addComponent(sub)
 
     fileobj.write(comp.getTextWithTimezones(True))
+
 
 
 @inlineCallbacks
