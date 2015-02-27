@@ -1086,10 +1086,6 @@ END:VCALENDAR
 
         txn = self.store.newTransaction()
 
-        # result = yield txn.execSQL("select * from calendar_object", [])
-        # for row in result:
-        #     print("ROW", row)
-
         resourceNames = yield self._getResourceNames(txn, "user02", "trash")
         self.assertEqual(len(resourceNames), 0)
 
@@ -1106,17 +1102,6 @@ END:VCALENDAR
         yield resource.remove()
 
         yield txn.commit()
-
-        # yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
-
-        # txn = self.store.newTransaction()
-
-        # result = yield txn.execSQL("select * from calendar_object", [])
-        # for row in result:
-        #     print("ROW", row)
-        # resourceNames = yield self._getResourceNames(txn, "user02", "calendar")
-        # print ("user02 calendar again", resourceNames)
-        # yield txn.commit()
 
         # user02 trashes event again
         txn = self.store.newTransaction()
@@ -1155,10 +1140,6 @@ END:VCALENDAR
 
         txn = self.store.newTransaction()
 
-        # result = yield txn.execSQL("select * from calendar_object", [])
-        # for row in result:
-        #     print("ROW", row)
-
         resourceNames = yield self._getResourceNames(txn, "user02", "trash")
         self.assertEqual(len(resourceNames), 1)
 
@@ -1170,7 +1151,227 @@ END:VCALENDAR
 
         yield txn.commit()
 
-# FIXME:  we should have a test where after the attendee's copy is trashed, it is fully removed, then have the organizer make a SUMMARY change, then a time change
+
+    @inlineCallbacks
+    def test_trashScheduledFullyInFutureAttendeeRemovedThenOrganizerChanged(self):
+
+        from twistedcaldav.stdconfig import config
+        self.patch(config, "EnableTrashCollection", True)
+
+        # A month in the future
+        start = DateTime.getNowUTC()
+        start.setHHMMSS(0, 0, 0)
+        start.offsetMonth(1)
+        end = DateTime.getNowUTC()
+        end.setHHMMSS(1, 0, 0)
+        end.offsetMonth(1)
+        subs = {
+            "start": start,
+            "end": end,
+        }
+
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTART;TZID=America/Los_Angeles:%(start)s
+DTEND;TZID=America/Los_Angeles:%(end)s
+DTSTAMP:20150204T192546Z
+SUMMARY:Scheduled
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""" % subs
+
+        data2 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTART;TZID=America/Los_Angeles:%(start)s
+DTEND;TZID=America/Los_Angeles:%(end)s
+DTSTAMP:20150204T192546Z
+SUMMARY:Scheduled
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""" % subs
+
+
+        data3 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTART;TZID=America/Los_Angeles:%(start)s
+DTEND;TZID=America/Los_Angeles:%(end)s
+DTSTAMP:20150204T192546Z
+SUMMARY:CHANGED!
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=DECLINED:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""" % subs
+
+
+        start.offsetHours(1)
+        end.offsetHours(1)
+
+        data4 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTART;TZID=America/Los_Angeles:%(start)s
+DTEND;TZID=America/Los_Angeles:%(end)s
+DTSTAMP:20150204T192546Z
+SUMMARY:CHANGED!
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=DECLINED:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""" % subs
+
+
+        # user01 invites user02
+        txn = self.store.newTransaction()
+        yield self._createResource(
+            txn, "user01", "calendar", "test.ics", data1
+        )
+        yield txn.commit()
+
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
+
+        # user01's copy has SCHEDULE-STATUS update
+        txn = self.store.newTransaction()
+        data = yield self._getResourceData(txn, "user01", "calendar", "test.ics")
+        self.assertTrue("SCHEDULE-STATUS=1.2" in data)
+
+        # user02 has an inbox item
+        resourceNames = yield self._getResourceNames(txn, "user02", "inbox")
+        self.assertEqual(len(resourceNames), 1)
+
+        # user02 accepts
+        yield self._updateResource(txn, "user02", "calendar", "", data2)
+        yield txn.commit()
+
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
+
+        # user01 has an inbox item
+        txn = self.store.newTransaction()
+        resourceNames = yield self._getResourceNames(txn, "user01", "inbox")
+        self.assertEqual(len(resourceNames), 1)
+        resource = yield self._getResource(txn, "user01", "inbox", "")
+        yield resource.remove()
+
+        # user01's copy has SCHEDULE-STATUS update
+        data = yield self._getResourceData(txn, "user01", "calendar", "test.ics")
+        self.assertTrue("SCHEDULE-STATUS=2.0" in data)
+        self.assertTrue("PARTSTAT=ACCEPTED" in data)
+
+        resource = yield self._getResource(txn, "user02", "inbox", "")
+        yield resource.remove()
+
+        yield txn.commit()
+
+        # user02 trashes event
+        txn = self.store.newTransaction()
+        resource = yield self._getResource(txn, "user02", "calendar", "")
+        yield resource.remove()
+
+        yield txn.commit()
+
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
+
+        # user01's calendar copy shows user02 declined
+        txn = self.store.newTransaction()
+
+        data = yield self._getResourceData(txn, "user01", "calendar", "test.ics")
+        self.assertTrue("PARTSTAT=DECLINED" in data)
+
+        # user01's inbox copy also shows user02 declined
+        data = yield self._getResourceData(txn, "user01", "inbox", "")
+        self.assertTrue("PARTSTAT=DECLINED" in data)
+        resource = yield self._getResource(txn, "user01", "inbox", "")
+        yield resource.remove()
+
+        # user02's copy is in the trash only, and still has ACCEPTED
+        resourceNames = yield self._getResourceNames(txn, "user02", "trash")
+        self.assertEqual(len(resourceNames), 1)
+
+        resourceNames = yield self._getResourceNames(txn, "user02", "calendar")
+        self.assertEqual(len(resourceNames), 0)
+
+        resourceNames = yield self._getResourceNames(txn, "user02", "inbox")
+        self.assertEqual(len(resourceNames), 0)
+
+        data = yield self._getResourceData(txn, "user02", "trash", "")
+        self.assertTrue("PARTSTAT=ACCEPTED" in data)
+        yield txn.commit()
+
+
+        # user02 removes the event completely from the trash
+
+        txn = self.store.newTransaction()
+
+        resource = yield self._getResource(txn, "user02", "trash", "")
+        yield resource.reallyRemove()
+
+        yield txn.commit()
+
+
+        # user01 makes a SUMMARY change to event (user02 does not get notified because they are fully declined)
+        txn = self.store.newTransaction()
+
+        yield self._updateResource(txn, "user01", "calendar", "test.ics", data3)
+        yield txn.commit()
+
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
+
+        txn = self.store.newTransaction()
+
+        resourceNames = yield self._getResourceNames(txn, "user02", "trash")
+        self.assertEqual(len(resourceNames), 0)
+
+        resourceNames = yield self._getResourceNames(txn, "user02", "calendar")
+        self.assertEqual(len(resourceNames), 0)
+
+        resourceNames = yield self._getResourceNames(txn, "user02", "inbox")
+        self.assertEqual(len(resourceNames), 0)
+
+        yield txn.commit()
+
+        # user01 makes a time change to event (user02 gets notified)
+        txn = self.store.newTransaction()
+
+        yield self._updateResource(txn, "user01", "calendar", "test.ics", data4)
+        yield txn.commit()
+
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
+
+        txn = self.store.newTransaction()
+
+        resourceNames = yield self._getResourceNames(txn, "user02", "trash")
+        self.assertEqual(len(resourceNames), 0)
+
+        resourceNames = yield self._getResourceNames(txn, "user02", "calendar")
+        self.assertEqual(len(resourceNames), 1)
+
+        resourceNames = yield self._getResourceNames(txn, "user02", "inbox")
+        self.assertEqual(len(resourceNames), 1)
+
+        data = yield self._getResourceData(txn, "user02", "calendar", "")
+        self.assertTrue("PARTSTAT=NEEDS-ACTION" in data)
+
+        yield txn.commit()
+
 
 
     @inlineCallbacks
