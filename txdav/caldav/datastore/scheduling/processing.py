@@ -520,17 +520,12 @@ class ImplicitProcessor(object):
 
                 # Only move from trash if attendee is not fully declined:
                 isTrash = yield self.recipient_calendar_resource.isTrash()
-                print("XYZZY is trash?", self.recipient_calendar_resource, self.recipient_calendar_resource._parentCollection, isTrash)
                 if isTrash:
-                    print("XYZZY MESSAGE", self.message)
                     attendees = self.message.getAttendeeProperties((self.recipient.cuaddr,))
-                    print("ATTENDEES", attendees, attendees[0].parameterValue("PARTSTAT", "blah"))
                     if not all([attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") == "DECLINED" for attendee in attendees]):
-                        print("XYZZY fromTrash start", self.recipient_calendar_resource)
                         yield self.recipient_calendar_resource.fromTrash()
-                        print("XYZZY fromTrash end", self.recipient_calendar_resource)
                     else:
-                        print("ATTENDEE IS FULLY DECLINED")
+                        store_inbox = False
 
                 new_resource = (yield self.writeCalendarResource(None, self.recipient_calendar_resource, new_calendar))
 

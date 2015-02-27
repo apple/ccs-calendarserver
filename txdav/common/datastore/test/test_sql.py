@@ -967,7 +967,7 @@ DTSTAMP:20150204T192546Z
 SUMMARY:Scheduled
 ORGANIZER;CN="User 01":mailto:user01@example.com
 ATTENDEE:mailto:user01@example.com
-ATTENDEE:mailto:user02@example.com
+ATTENDEE;PARTSTAT=DECLINED:mailto:user02@example.com
 END:VEVENT
 END:VCALENDAR
 """ % subs
@@ -983,7 +983,7 @@ DTSTAMP:20150204T192546Z
 SUMMARY:CHANGED!
 ORGANIZER;CN="User 01":mailto:user01@example.com
 ATTENDEE:mailto:user01@example.com
-ATTENDEE:mailto:user02@example.com
+ATTENDEE;PARTSTAT=DECLINED:mailto:user02@example.com
 END:VEVENT
 END:VCALENDAR
 """ % subs
@@ -1100,7 +1100,7 @@ END:VCALENDAR
         self.assertEqual(len(resourceNames), 1)
 
         data = yield self._getResourceData(txn, "user02", "calendar", "")
-        self.assertTrue("EMAIL=user02@example.com;RSVP=TRUE" in data)
+        self.assertTrue("PARTSTAT=NEEDS-ACTION" in data)
 
         resource = yield self._getResource(txn, "user01", "inbox", "")
         yield resource.remove()
@@ -1138,6 +1138,8 @@ END:VCALENDAR
         self.assertTrue("PARTSTAT=DECLINED" in data)
         resource = yield self._getResource(txn, "user01", "inbox", "")
         yield resource.remove()
+        resource = yield self._getResource(txn, "user02", "inbox", "")
+        yield resource.remove()
 
         yield txn.commit()
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
@@ -1145,7 +1147,6 @@ END:VCALENDAR
         # user01 makes a SUMMARY change to event while user02's copy is in the trash
         txn = self.store.newTransaction()
 
-        print("USER CHANGING SUMMARY")
         yield self._updateResource(txn, "user01", "calendar", "test.ics", data4)
         yield txn.commit()
 
@@ -1166,10 +1167,6 @@ END:VCALENDAR
 
         resourceNames = yield self._getResourceNames(txn, "user02", "inbox")
         self.assertEqual(len(resourceNames), 0)
-
-        data = yield self._getResourceData(txn, "user02", "trash", "")
-        print("User02 trash copy", data)
-        # self.assertTrue("EMAIL=user02@example.com;RSVP=TRUE" in data)
 
         yield txn.commit()
 
