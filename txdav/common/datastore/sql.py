@@ -7533,23 +7533,21 @@ class CommonObjectResource(FancyEqMixin, object):
             # The parent is indeed the trash collection
             trash = self._parentCollection
             self._parentCollection = yield trash.originalParentForResource(self)
+            trashedName = self._name # for deleting trash revision below
             _ignore, newName = trash.parseName(self._name)
         else:
             # The parent is the original collection because it was retrieved
             # via that parent, not the trash collection
             home = self._parentCollection.viewerHome()
             trash = yield home.childWithName("trash")
+            trashedName = trash.nameForResource(self._parentCollection, self)
             newName = self._name
 
         yield self._updateIsTrashQuery.on(
             self._txn, isTrash=False, trashed=None, resourceID=self._resourceID
         )
-        yield trash._deleteRevision(
-            trash.nameForResource(
-                self._parentCollection,
-                self
-            )
-        )
+        yield trash._deleteRevision(trashedName)
+
         self._name = newName
 
         yield self._parentCollection.addedObjectResource(self)
