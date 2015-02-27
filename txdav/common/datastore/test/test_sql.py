@@ -972,6 +972,23 @@ END:VEVENT
 END:VCALENDAR
 """ % subs
 
+        data4 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-attendee-reply
+DTSTART;TZID=America/Los_Angeles:%(start)s
+DTEND;TZID=America/Los_Angeles:%(end)s
+DTSTAMP:20150204T192546Z
+SUMMARY:CHANGED!
+ORGANIZER;CN="User 01":mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""" % subs
+
+
         # user01 invites user02
         txn = self.store.newTransaction()
         yield self._createResource(
@@ -1034,9 +1051,6 @@ END:VCALENDAR
         resource = yield self._getResource(txn, "user01", "inbox", "")
         yield resource.remove()
 
-        # result = yield txn.execSQL("select * from calendar_object", [])
-        # for row in result:
-        #     print("ROW", row)
 
         # user02's copy is in the trash only, and still has ACCEPTED
         resourceNames = yield self._getResourceNames(txn, "user02", "trash")
@@ -1050,7 +1064,15 @@ END:VCALENDAR
 
         data = yield self._getResourceData(txn, "user02", "trash", "")
         self.assertTrue("PARTSTAT=ACCEPTED" in data)
-        print("user02 trash copy before user01 updates it", data)
+
+        # result = yield txn.execSQL("select * from calendar_object", [])
+        # for row in result:
+        #     print("calendar object ROW", row)
+
+        # result = yield txn.execSQL("select * from calendar_metadata", [])
+        # for row in result:
+        #     print("calendar ROW", row)
+
 
         yield txn.commit()
 
@@ -1063,27 +1085,95 @@ END:VCALENDAR
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
 
         txn = self.store.newTransaction()
-        data = yield self._getResourceData(txn, "user01", "calendar", "test.ics")
-        print("user01 calendar copy", data)
+
+        # result = yield txn.execSQL("select * from calendar_object", [])
+        # for row in result:
+        #     print("ROW", row)
 
         resourceNames = yield self._getResourceNames(txn, "user02", "trash")
-        print ("user02 trash", resourceNames)
-        data = yield self._getResourceData(txn, "user02", "trash", "")
-        print("user02 trash copy", data)
-
+        self.assertEqual(len(resourceNames), 0)
 
         resourceNames = yield self._getResourceNames(txn, "user02", "calendar")
-        print ("user02 calendar", resourceNames)
-
-        # FIXME:  user02 calendar should have the event!
+        self.assertEqual(len(resourceNames), 1)
 
         resourceNames = yield self._getResourceNames(txn, "user02", "inbox")
-        print ("user02 inbox", resourceNames)
-        data = yield self._getResourceData(txn, "user02", "inbox", "")
-        print("user02 inbox copy", data)
+        self.assertEqual(len(resourceNames), 1)
+
+        data = yield self._getResourceData(txn, "user02", "calendar", "")
+        self.assertTrue("EMAIL=user02@example.com;RSVP=TRUE" in data)
+
+        resource = yield self._getResource(txn, "user01", "inbox", "")
+        yield resource.remove()
 
         yield txn.commit()
 
+        # yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
+
+        # txn = self.store.newTransaction()
+
+        # result = yield txn.execSQL("select * from calendar_object", [])
+        # for row in result:
+        #     print("ROW", row)
+        # resourceNames = yield self._getResourceNames(txn, "user02", "calendar")
+        # print ("user02 calendar again", resourceNames)
+        # yield txn.commit()
+
+        # user02 trashes event again
+        txn = self.store.newTransaction()
+        resource = yield self._getResource(txn, "user02", "calendar", "")
+        yield resource.remove()
+
+        yield txn.commit()
+
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
+
+        # user01's calendar copy shows user02 declined
+        txn = self.store.newTransaction()
+
+        data = yield self._getResourceData(txn, "user01", "calendar", "test.ics")
+        self.assertTrue("PARTSTAT=DECLINED" in data)
+
+        # user01's inbox copy also shows user02 declined
+        data = yield self._getResourceData(txn, "user01", "inbox", "")
+        self.assertTrue("PARTSTAT=DECLINED" in data)
+        resource = yield self._getResource(txn, "user01", "inbox", "")
+        yield resource.remove()
+
+        yield txn.commit()
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
+
+        # user01 makes a SUMMARY change to event while user02's copy is in the trash
+        txn = self.store.newTransaction()
+
+        print("USER CHANGING SUMMARY")
+        yield self._updateResource(txn, "user01", "calendar", "test.ics", data4)
+        yield txn.commit()
+
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
+
+
+        txn = self.store.newTransaction()
+
+        # result = yield txn.execSQL("select * from calendar_object", [])
+        # for row in result:
+        #     print("ROW", row)
+
+        resourceNames = yield self._getResourceNames(txn, "user02", "trash")
+        self.assertEqual(len(resourceNames), 1)
+
+        resourceNames = yield self._getResourceNames(txn, "user02", "calendar")
+        self.assertEqual(len(resourceNames), 0)
+
+        resourceNames = yield self._getResourceNames(txn, "user02", "inbox")
+        self.assertEqual(len(resourceNames), 0)
+
+        data = yield self._getResourceData(txn, "user02", "trash", "")
+        print("User02 trash copy", data)
+        # self.assertTrue("EMAIL=user02@example.com;RSVP=TRUE" in data)
+
+        yield txn.commit()
+
+# FIXME:  we should have a test where after the attendee's copy is trashed, it is fully removed, then have the organizer make a SUMMARY change, then a time change
 
 
     @inlineCallbacks
@@ -1825,6 +1915,8 @@ END:VCALENDAR
         self.assertEqual(len(resourceNames), 1)
         resourceNames = yield self._getResourceNames(txn, "user01", "inbox")
         self.assertEqual(len(resourceNames), 1)
+        resource = yield self._getResource(txn, "user01", "inbox", "")
+        yield resource.remove()
 
         # user02's copy is in the trash only, and still has ACCEPTED
         resourceNames = yield self._getResourceNames(txn, "user02", "trash")

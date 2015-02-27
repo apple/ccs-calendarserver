@@ -7523,8 +7523,24 @@ class CommonObjectResource(FancyEqMixin, object):
 
     @inlineCallbacks
     def fromTrash(self):
-        trash = self._parentCollection
-        self._parentCollection = yield trash.originalParentForResource(self)
+
+        # First make sure this is actually in the trash
+        isTrash = yield self.isTrash()
+        if not isTrash:
+            returnValue(None)
+
+        if self._parentCollection.isTrash():
+            # The parent is indeed the trash collection
+            trash = self._parentCollection
+            self._parentCollection = yield trash.originalParentForResource(self)
+            _ignore, newName = trash.parseName(self._name)
+        else:
+            # The parent is the original collection because it was retrieved
+            # via that parent, not the trash collection
+            home = self._parentCollection.viewerHome()
+            trash = yield home.childWithName("trash")
+            newName = self._name
+
         yield self._updateIsTrashQuery.on(
             self._txn, isTrash=False, trashed=None, resourceID=self._resourceID
         )
@@ -7534,10 +7550,11 @@ class CommonObjectResource(FancyEqMixin, object):
                 self
             )
         )
-        _ignored, self._name = trash.parseName(self._name)
+        self._name = newName
 
         yield self._parentCollection.addedObjectResource(self)
         yield self._parentCollection._insertRevision(self.name())
+
 
 
 

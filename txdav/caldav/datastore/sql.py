@@ -4919,7 +4919,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             organizerAddress = yield calendarUserFromCalendarUserAddress(organizer, self._txn)
 
             if organizerAddress.record.uid == uid:
-                print("XYZZY ORGANIZER")
                 # If the ORGANIZER is moving the event from trash
                 splitter = iCalSplitter()
                 willSplit = splitter.willSplit(caldata)
@@ -4963,7 +4962,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
             else:
                 # If an ATTENDEE is moving the event from trash
-                print("XYZZY ATTENDEE")
                 yield ImplicitScheduler().sendAttendeeReply(
                     self._txn,
                     self
