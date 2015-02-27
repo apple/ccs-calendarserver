@@ -134,7 +134,7 @@ create table CALENDAR_METADATA (
   MODIFIED              timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   CHILD_TYPE            varchar(10)  default null, -- None, inbox, trash (FIXME: convert this to enumeration)
   TRASHED               timestamp    default null,
-  IS_TRASH              boolean      default false not null -- collection is in the trash
+  IS_IN_TRASH           boolean      default false not null -- collection is in the trash
 
 );
 
@@ -263,7 +263,7 @@ create table CALENDAR_OBJECT (
   MODIFIED             timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   DATAVERSION          integer      default 0 not null,
   TRASHED              timestamp    default null,
-  IS_TRASH             boolean      default false not null, -- entire resource is in the trash
+  IS_IN_TRASH          boolean      default false not null, -- entire resource is in the trash
 
   unique (CALENDAR_RESOURCE_ID, RESOURCE_NAME) -- implicit index
 
@@ -485,7 +485,7 @@ create table ADDRESSBOOK_OBJECT (
   MODIFIED                      timestamp       default timezone('UTC', CURRENT_TIMESTAMP),
   DATAVERSION                   integer         default 0 not null,
   TRASHED                       timestamp       default null,
-  IS_TRASH                      boolean         default false not null,
+  IS_IN_TRASH                   boolean         default false not null,
 
   unique (ADDRESSBOOK_HOME_RESOURCE_ID, RESOURCE_NAME), -- implicit index
   unique (ADDRESSBOOK_HOME_RESOURCE_ID, VCARD_UID)      -- implicit index

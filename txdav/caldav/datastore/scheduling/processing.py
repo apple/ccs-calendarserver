@@ -519,8 +519,8 @@ class ImplicitProcessor(object):
                 log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - updating event" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
 
                 # Only move from trash if attendee is not fully declined:
-                isTrash = yield self.recipient_calendar_resource.isTrash()
-                if isTrash:
+                isInTrash = yield self.recipient_calendar_resource.isInTrash()
+                if isInTrash:
                     attendees = self.message.getAttendeeProperties((self.recipient.cuaddr,))
                     if not all([attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") == "DECLINED" for attendee in attendees]):
                         yield self.recipient_calendar_resource.fromTrash()

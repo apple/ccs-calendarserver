@@ -6093,6 +6093,21 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
     @inlineCallbacks
     def remove(self):
+        """
+        Just moves the collection to the trash
+        """
+
+        if config.EnableTrashCollection:
+            if self.isInTrash():
+                raise AlreadyInTrashError
+            else:
+                yield self.toTrash()
+        else:
+            yield self.reallyRemove()
+
+
+    @inlineCallbacks
+    def reallyRemove(self):
 
         # Stop sharing first
         yield self.ownerDeleteShare()
@@ -6178,7 +6193,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
     def listObjectResources(self):
         """
         Returns a list of names of object resources in this collection, taking
-        into account the IS_TRASH flag and skipping those in the trash.
+        into account the IS_IN_TRASH flag and skipping those in the trash.
         """
         if self._objectNames is None:
             self._objectNames = yield self._objectResourceClass.listObjects(self)
@@ -7015,7 +7030,7 @@ class CommonObjectResource(FancyEqMixin, object):
         rows = yield Select(
             [obj.RESOURCE_NAME],
             From=obj,
-            Where=(obj.PARENT_RESOURCE_ID == Parameter('parentID')).And(obj.IS_TRASH == False)
+            Where=(obj.PARENT_RESOURCE_ID == Parameter('parentID')).And(obj.IS_IN_TRASH == False)
         ).on(parent._txn, parentID=parent.id())
         returnValue(sorted([row[0] for row in rows]))
 
@@ -7495,18 +7510,18 @@ class CommonObjectResource(FancyEqMixin, object):
 
 
     @classproperty
-    def _updateIsTrashQuery(cls):
+    def _updateIsInTrashQuery(cls):
         obj = cls._objectSchema
         return Update(
-            {obj.IS_TRASH: Parameter("isTrash"), obj.TRASHED: Parameter("trashed")},
+            {obj.IS_IN_TRASH: Parameter("isInTrash"), obj.TRASHED: Parameter("trashed")},
             Where=obj.RESOURCE_ID == Parameter("resourceID"),
         )
 
 
     @inlineCallbacks
     def toTrash(self):
-        yield self._updateIsTrashQuery.on(
-            self._txn, isTrash=True, trashed=datetime.datetime.utcnow(), resourceID=self._resourceID
+        yield self._updateIsInTrashQuery.on(
+            self._txn, isInTrash=True, trashed=datetime.datetime.utcnow(), resourceID=self._resourceID
         )
         yield self._parentCollection.removedObjectResource(self)
         yield self._parentCollection._deleteRevision(self.name())
@@ -7525,8 +7540,8 @@ class CommonObjectResource(FancyEqMixin, object):
     def fromTrash(self):
 
         # First make sure this is actually in the trash
-        isTrash = yield self.isTrash()
-        if not isTrash:
+        isInTrash = yield self.isInTrash()
+        if not isInTrash:
             returnValue(None)
 
         if self._parentCollection.isTrash():
@@ -7543,8 +7558,8 @@ class CommonObjectResource(FancyEqMixin, object):
             trashedName = trash.nameForResource(self._parentCollection, self)
             newName = self._name
 
-        yield self._updateIsTrashQuery.on(
-            self._txn, isTrash=False, trashed=None, resourceID=self._resourceID
+        yield self._updateIsInTrashQuery.on(
+            self._txn, isInTrash=False, trashed=None, resourceID=self._resourceID
         )
         yield trash._deleteRevision(trashedName)
 
@@ -7559,11 +7574,11 @@ class CommonObjectResource(FancyEqMixin, object):
     @classproperty
     def _selectIsTrashQuery(cls):
         obj = cls._objectSchema
-        return Select((obj.IS_TRASH, obj.TRASHED), From=obj, Where=obj.RESOURCE_ID == Parameter("resourceID"))
+        return Select((obj.IS_IN_TRASH, obj.TRASHED), From=obj, Where=obj.RESOURCE_ID == Parameter("resourceID"))
 
 
     @inlineCallbacks
-    def isTrash(self):
+    def isInTrash(self):
         returnValue(
             (
                 yield self._selectIsTrashQuery.on(

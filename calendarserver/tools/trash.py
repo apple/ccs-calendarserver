@@ -96,7 +96,7 @@ def restoreFromTrash(store, directory, root, principals):
 
             if cobj is not None:
                 # If it's still in the trash, restore it from trash
-                if (yield cobj.isTrash()):
+                if (yield cobj.isInTrash()):
                     print("Restoring:", name)
                     yield cobj.fromTrash()
 

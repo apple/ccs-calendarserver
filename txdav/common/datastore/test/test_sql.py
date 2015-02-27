@@ -632,7 +632,7 @@ END:VCALENDAR
         self.assertEquals(len(objects), 0)
 
         # Verify it's not in the trash
-        self.assertFalse((yield resource.isTrash()))
+        self.assertFalse((yield resource.isInTrash()))
         trashed = yield resource.whenTrashed()
         self.assertTrue(trashed is None)
 
@@ -646,7 +646,7 @@ END:VCALENDAR
 
         # Verify it's in the trash
         resource = yield self._getResource(txn, "user01", "trash", "")
-        self.assertTrue((yield resource.isTrash()))
+        self.assertTrue((yield resource.isInTrash()))
         trashed = yield resource.whenTrashed()
         self.assertFalse(trashed is None)
 
@@ -675,7 +675,7 @@ END:VCALENDAR
         resourceNames = yield self._getResourceNames(txn, "user01", "calendar")
         self.assertEqual(len(resourceNames), 1)
         resource = yield self._getResource(txn, "user01", "calendar", "test.ics")
-        self.assertFalse((yield resource.isTrash()))
+        self.assertFalse((yield resource.isInTrash()))
         trashed = yield resource.whenTrashed()
         self.assertTrue(trashed is None)
 
@@ -719,13 +719,13 @@ END:VCALENDAR
 #         self.assertEquals(len(objects), 1)
 
 #         # Verify it's not in the trash
-#         self.assertFalse((yield resource.isTrash()))
+#         self.assertFalse((yield resource.isInTrash()))
 
 #         # Move object to trash
 #         yield resource.toTrash()
 
 #         # Verify it's in the trash
-#         self.assertTrue((yield resource.isTrash()))
+#         self.assertTrue((yield resource.isInTrash()))
 
 #         # No objects
 #         objects = yield collection.listObjectResources()
@@ -742,7 +742,7 @@ END:VCALENDAR
 #         yield resource.fromTrash()
 
 #         # Not in trash
-#         self.assertFalse((yield resource.isTrash()))
+#         self.assertFalse((yield resource.isInTrash()))
 
 #         # One object
 #         objects = yield collection.listObjectResources()
@@ -854,7 +854,7 @@ END:VCALENDAR
         # user01's copy is in the trash, still with user02 accepted
         txn = self.store.newTransaction()
         resource = yield self._getResource(txn, "user01", "trash", "")
-        self.assertTrue((yield resource.isTrash()))
+        self.assertTrue((yield resource.isInTrash()))
         trashed = yield resource.whenTrashed()
         self.assertFalse(trashed is None)
         data = yield self._getResourceData(txn, "user01", "trash", "")
@@ -888,7 +888,7 @@ END:VCALENDAR
 
         # user01's copy should be back on their calendar
         resource = yield self._getResource(txn, "user01", "calendar", "test.ics")
-        self.assertFalse((yield resource.isTrash()))
+        self.assertFalse((yield resource.isInTrash()))
         trashed = yield resource.whenTrashed()
         self.assertTrue(trashed is None)
         data = yield self._getResourceData(txn, "user01", "calendar", "test.ics")

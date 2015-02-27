@@ -2362,7 +2362,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             obj.MODIFIED,
             obj.DATAVERSION,
             obj.TRASHED,
-            obj.IS_TRASH,
+            obj.IS_IN_TRASH,
         ]
 
 
@@ -2385,7 +2385,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             "_modified",
             "_dataversion",
             "_trashed",
-            "_is_trash",
+            "_is_in_trash",
         )
 
 
@@ -5880,7 +5880,7 @@ class TrashCollection(Calendar):
             From=obj.join(
                 bind, obj.PARENT_RESOURCE_ID == bind.RESOURCE_ID
             ),
-            Where=(obj.IS_TRASH == True).And(
+            Where=(obj.IS_IN_TRASH == True).And(
                 bind.HOME_RESOURCE_ID == Parameter("resourceID")
             ).And(
                 bind.BIND_MODE == _BIND_MODE_OWN
