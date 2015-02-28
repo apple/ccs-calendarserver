@@ -61,9 +61,9 @@ from txdav.caldav.datastore.scheduling.icaldiff import iCalDiff
 from txdav.caldav.datastore.scheduling.icalsplitter import iCalSplitter
 from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
 from txdav.caldav.datastore.scheduling.utils import uidFromCalendarUserAddress
-ffrom txdav.caldav.datastore.sql_attachment import Attachment, DropBoxAttachment, \
+from txdav.caldav.datastore.sql_attachment import Attachment, DropBoxAttachment, \
     AttachmentLink, ManagedAttachment
-rom txdav.caldav.datastore.sql_directory import GroupAttendeeRecord,\
+from txdav.caldav.datastore.sql_directory import GroupAttendeeRecord, \
     GroupShareeRecord
 from txdav.caldav.datastore.util import normalizationLookup
 from txdav.caldav.datastore.util import CalendarObjectBase
