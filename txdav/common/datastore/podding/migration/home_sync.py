@@ -179,12 +179,9 @@ class CrossPodHomeSync(object):
         # Delegates reconcile
         yield self.delegateReconcile()
 
-        # TODO: shared collections reconcile
+        # Shared collections reconcile (including group sharees)
         yield self.sharedByCollectionsReconcile()
         yield self.sharedToCollectionsReconcile()
-
-        # TODO: group sharee reconcile
-        pass
 
         # Notifications
         yield self.notificationsReconcile()
@@ -977,6 +974,9 @@ class CrossPodHomeSync(object):
                 yield self.makeSharedByCollections(records[:50], calendar.localResourceID)
                 records = records[50:]
 
+            # Get groups from remote pod
+            yield self.syncGroupSharees(calendar.remoteResourceID, calendar.localResourceID)
+
             # Update the remote pod to switch over the shares
             yield self.updatedRemoteSharedByCollections(calendar.remoteResourceID, bindUID)
 
@@ -1039,6 +1039,23 @@ class CrossPodHomeSync(object):
                 record.calendarResourceID = calendar_id
                 record.bindRevision = 0
                 yield record.insert(txn)
+
+
+    @inTransactionWrapper
+    @inlineCallbacks
+    def syncGroupSharees(self, txn, remote_id, local_id):
+        """
+        Sync the group sharees for a remote share.
+        """
+        remote_home = yield self._remoteHome(txn)
+        remote_calendar = yield remote_home.childWithID(remote_id)
+        results = yield remote_calendar.groupSharees()
+        groups = dict([(group.groupID, group.groupUID,) for group in results["groups"]])
+        for share in results["sharees"]:
+            local_group = yield txn.groupByUID(groups[share.groupID])
+            share.groupID = local_group.groupID
+            share.calendarID = local_id
+            yield share.insert(txn)
 
 
     @inTransactionWrapper

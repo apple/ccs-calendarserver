@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from txdav.caldav.datastore.sql_attachment import Attachment, DropBoxAttachment, \
-    AttachmentLink, ManagedAttachment
 
 
 """
@@ -63,7 +61,10 @@ from txdav.caldav.datastore.scheduling.icaldiff import iCalDiff
 from txdav.caldav.datastore.scheduling.icalsplitter import iCalSplitter
 from txdav.caldav.datastore.scheduling.implicit import ImplicitScheduler
 from txdav.caldav.datastore.scheduling.utils import uidFromCalendarUserAddress
-from txdav.caldav.datastore.sql_directory import GroupAttendeeRecord
+ffrom txdav.caldav.datastore.sql_attachment import Attachment, DropBoxAttachment, \
+    AttachmentLink, ManagedAttachment
+rom txdav.caldav.datastore.sql_directory import GroupAttendeeRecord,\
+    GroupShareeRecord
 from txdav.caldav.datastore.util import normalizationLookup
 from txdav.caldav.datastore.util import CalendarObjectBase
 from txdav.caldav.datastore.util import dropboxIDFromCalendarObject
@@ -79,6 +80,7 @@ from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObjec
     UnknownTimezone, SetComponentOptions
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
+from txdav.common.datastore.sql_directory import GroupsRecord
 from txdav.common.datastore.sql_tables import _ATTACHMENTS_MODE_NONE, \
     _ATTACHMENTS_MODE_READ, _ATTACHMENTS_MODE_WRITE, _BIND_MODE_DIRECT, \
     _BIND_MODE_GROUP, _BIND_MODE_GROUP_READ, _BIND_MODE_GROUP_WRITE, \
@@ -2313,6 +2315,14 @@ class Calendar(CommonHomeChild):
 
         invitations.extend(user_invitations)
         returnValue(invitations)
+
+
+    @inlineCallbacks
+    def groupSharees(self):
+        sharees = yield GroupShareeRecord.querysimple(self._txn, calendarID=self.id())
+        groups = set([sharee.groupID for sharee in sharees])
+        groups = (yield GroupsRecord.query(self._txn, GroupsRecord.groupID.In(groups))) if groups else []
+        returnValue({"groups": groups, "sharees": sharees})
 
 
 icalfbtype_to_indexfbtype = {

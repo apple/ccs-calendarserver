@@ -169,6 +169,7 @@ UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_resourc
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_search", "search")
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_sharing_records", "sharingBindRecords", transform_recv_result=StoreAPIConduitMixin._to_serialize_dict_value)
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_migrate_sharing_records", "migrateBindRecords")
+UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "homechild_group_sharees", "groupSharees", transform_recv_result=StoreAPIConduitMixin._to_serialize_dict_list_serialized_value)
 
 # Calls on L{CommonObjectResource} objects
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "objectresource_loadallobjects", "loadAllObjects", classMethod=True, transform_recv_result=UtilityConduitMixin._to_serialize_list)

@@ -62,3 +62,12 @@ class GroupAttendeeRecord(SerializableRecord, fromTable(schema.GROUP_ATTENDEE)):
             results.append((groupAttendeeRecord, groupsRecord,))
 
         returnValue(results)
+
+
+
+class GroupShareeRecord(SerializableRecord, fromTable(schema.GROUP_SHAREE)):
+    """
+    @DynamicAttrs
+    L{Record} for L{schema.GROUP_SHAREE}.
+    """
+    pass

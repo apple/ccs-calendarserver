@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+Copyright (c) 2009-2015 Apple Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+ -->
+
+<!DOCTYPE augments SYSTEM "../../../conf/auth/augments.dtd">
+
+<augments>
+	<record>
+	    <uid>user01</uid>
+	    <server-id>A</server-id>
+	    <enable-calendar>true</enable-calendar>
+	    <enable-addressbook>true</enable-addressbook>
+	</record>
+	<record>
+	    <uid>user02</uid>
+	    <server-id>A</server-id>
+	    <enable-calendar>true</enable-calendar>
+	    <enable-addressbook>true</enable-addressbook>
+	</record>
+	<record>
+	    <uid>user03</uid>
+	    <server-id>A</server-id>
+	    <enable-calendar>true</enable-calendar>
+	    <enable-addressbook>true</enable-addressbook>
+	</record>
+	<record>
+	    <uid>user04</uid>
+	    <server-id>A</server-id>
+	    <enable-calendar>true</enable-calendar>
+	    <enable-addressbook>true</enable-addressbook>
+	</record>
+	<record>
+	    <uid>user05</uid>
+	    <server-id>A</server-id>
+	    <enable-calendar>true</enable-calendar>
+	    <enable-addressbook>true</enable-addressbook>
+	</record>
+	<record>
+	    <uid>user06</uid>
+	    <server-id>A</server-id>
+	    <enable-calendar>true</enable-calendar>
+	    <enable-addressbook>true</enable-addressbook>
+	</record>
+	<record>
+	    <uid>user07</uid>
+	    <server-id>A</server-id>
+	    <enable-calendar>true</enable-calendar>
+	    <enable-addressbook>true</enable-addressbook>
+	</record>
+	<record>
+	    <uid>user08</uid>
+	    <server-id>A</server-id>
+	    <enable-calendar>true</enable-calendar>
+	    <enable-addressbook>true</enable-addressbook>
+	</record>
+	<record>
+	    <uid>user09</uid>
+	    <server-id>A</server-id>
+	    <enable-calendar>true</enable-calendar>
+	    <enable-addressbook>true</enable-addressbook>
+	</record>
+	<record>
+	    <uid>user10</uid>
+	    <server-id>A</server-id>
+	    <enable-calendar>true</enable-calendar>
+	    <enable-addressbook>true</enable-addressbook>
+	</record>
+	<record>
+	    <uid>puser01</uid>
+	    <server-id>B</server-id>
+	    <enable-calendar>true</enable-calendar>
+	    <enable-addressbook>true</enable-addressbook>
+	</record>
+	<record>
+	    <uid>puser02</uid>
+	    <server-id>B</server-id>
+	    <enable-calendar>true</enable-calendar>
+	    <enable-addressbook>true</enable-addressbook>
+	</record>
+	<record>
+	    <uid>puser03</uid>
+	    <server-id>B</server-id>
+	    <enable-calendar>true</enable-calendar>
+	    <enable-addressbook>true</enable-addressbook>
+	</record>
+	<record>
+	    <uid>puser04</uid>
+	    <server-id>B</server-id>
+	    <enable-calendar>true</enable-calendar>
+	    <enable-addressbook>true</enable-addressbook>
+	</record>
+	<record>
+	    <uid>puser05</uid>
+	    <server-id>B</server-id>
+	    <enable-calendar>true</enable-calendar>
+	    <enable-addressbook>true</enable-addressbook>
+	</record>
+	<record>
+	    <uid>puser06</uid>
+	    <server-id>B</server-id>
+	    <enable-calendar>true</enable-calendar>
+	    <enable-addressbook>true</enable-addressbook>
+	</record>
+	<record>
+	    <uid>puser07</uid>
+	    <server-id>B</server-id>
+	    <enable-calendar>true</enable-calendar>
+	    <enable-addressbook>true</enable-addressbook>
+	</record>
+	<record>
+	    <uid>puser08</uid>
+	    <server-id>B</server-id>
+	    <enable-calendar>true</enable-calendar>
+	    <enable-addressbook>true</enable-addressbook>
+	</record>
+	<record>
+	    <uid>puser09</uid>
+	    <server-id>B</server-id>
+	    <enable-calendar>true</enable-calendar>
+	    <enable-addressbook>true</enable-addressbook>
+	</record>
+	<record>
+	    <uid>puser10</uid>
+	    <server-id>B</server-id>
+	    <enable-calendar>true</enable-calendar>
+	    <enable-addressbook>true</enable-addressbook>
+	</record>
+</augments>

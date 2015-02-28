@@ -23,12 +23,13 @@ from twisted.python.filepath import FilePath
 from twistedcaldav.config import config
 from twistedcaldav.ical import Component, normalize_iCalStr
 from txdav.caldav.datastore.sql import ManagedAttachment
+from txdav.caldav.datastore.sql_directory import GroupShareeRecord
 from txdav.common.datastore.podding.migration.home_sync import CrossPodHomeSync
 from txdav.common.datastore.podding.migration.sync_metadata import CalendarMigrationRecord, \
     AttachmentMigrationRecord
 from txdav.common.datastore.podding.test.util import MultiStoreConduitTest
 from txdav.common.datastore.sql_directory import DelegateRecord, \
-    ExternalDelegateGroupsRecord, DelegateGroupsRecord
+    ExternalDelegateGroupsRecord, DelegateGroupsRecord, GroupsRecord
 from txdav.common.datastore.sql_notification import NotificationCollection
 from txdav.common.datastore.sql_tables import schema, _HOME_STATUS_EXTERNAL, \
     _BIND_MODE_READ, _HOME_STATUS_MIGRATING
@@ -983,21 +984,55 @@ class TestSharingSync(MultiStoreConduitTest):
     """
 
     @inlineCallbacks
-    def _createShare(self, shareFrom, shareTo):
+    def setUp(self):
+        self.accounts = FilePath(__file__).sibling("accounts").child("groupAccounts.xml")
+        self.augments = FilePath(__file__).sibling("accounts").child("augments.xml")
+        yield super(TestSharingSync, self).setUp()
+        yield self.populate()
+
+
+    def configure(self):
+        super(TestSharingSync, self).configure()
+        config.Sharing.Enabled = True
+        config.Sharing.Calendars.Enabled = True
+        config.Sharing.Calendars.Groups.Enabled = True
+        config.Sharing.Calendars.Groups.ReconciliationDelaySeconds = 0
+
+
+    @inlineCallbacks
+    def populate(self):
+        yield populateCalendarsFrom(self.requirements, self.theStoreUnderTest(0))
+
+    requirements = {
+        "user01" : None,
+        "user02" : None,
+        "user06" : None,
+        "user07" : None,
+        "user08" : None,
+        "user09" : None,
+        "user10" : None,
+    }
+
+
+    @inlineCallbacks
+    def _createShare(self, shareFrom, shareTo, accept=True):
         # Invite
         txnindex = 1 if shareFrom[0] == "p" else 0
         home = yield self.homeUnderTest(txn=self.theTransactionUnderTest(txnindex), name=shareFrom, create=True)
         calendar = yield home.childWithName("calendar")
         shareeView = yield calendar.inviteUIDToShare(shareTo, _BIND_MODE_READ, "summary")
-        inviteUID = shareeView.shareUID()
         yield self.commitTransaction(txnindex)
 
         # Accept
-        txnindex = 1 if shareTo[0] == "p" else 0
-        shareeHome = yield self.homeUnderTest(txn=self.theTransactionUnderTest(txnindex), name=shareTo)
-        shareeView = yield shareeHome.acceptShare(inviteUID)
-        sharedName = shareeView.name()
-        yield self.commitTransaction(txnindex)
+        if accept:
+            inviteUID = shareeView.shareUID()
+            txnindex = 1 if shareTo[0] == "p" else 0
+            shareeHome = yield self.homeUnderTest(txn=self.theTransactionUnderTest(txnindex), name=shareTo)
+            shareeView = yield shareeHome.acceptShare(inviteUID)
+            sharedName = shareeView.name()
+            yield self.commitTransaction(txnindex)
+        else:
+            sharedName = None
 
         returnValue(sharedName)
 
@@ -1070,6 +1105,41 @@ class TestSharingSync(MultiStoreConduitTest):
         self.assertEqual(len(invites), 1)
         self.assertEqual(invites[0].shareeUID, "user01")
         self.assertEqual(invites[0].shareeHomeID, shareeHome1.id())
+        yield self.commitTransaction(1)
+
+
+    @inlineCallbacks
+    def test_group_shared_collections_reconcile(self):
+        """
+        Test that L{sharedCollectionsReconcile} copies over the full set of delegates and caches associated groups..
+        """
+
+        # Create home
+        yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
+        yield self.commitTransaction(0)
+
+        # Shared by migrating user
+        yield self._createShare("user01", "group02", accept=False)
+
+        # Sync from remote side
+        syncer = CrossPodHomeSync(self.theStoreUnderTest(1), "user01")
+        yield syncer.loadRecord()
+        yield syncer.sync()
+        changes = yield syncer.sharedByCollectionsReconcile()
+        self.assertEqual(changes, 3)
+        changes = yield syncer.sharedToCollectionsReconcile()
+        self.assertEqual(changes, 0)
+
+        # Local calendar exists with shares
+        home1 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(1), name="user01", status=_HOME_STATUS_MIGRATING)
+        calendar1 = yield home1.childWithName("calendar")
+        invites1 = yield calendar1.sharingInvites()
+        self.assertEqual(len(invites1), 3)
+        sharee = yield GroupShareeRecord.querysimple(self.theTransactionUnderTest(1), calendarID=calendar1.id())
+        self.assertEqual(len(sharee), 1)
+        group = yield GroupsRecord.querysimple(self.theTransactionUnderTest(1), groupID=sharee[0].groupID)
+        self.assertEqual(len(group), 1)
+        self.assertEqual(group[0].groupUID, "group02")
         yield self.commitTransaction(1)
 
 
@@ -1155,7 +1225,6 @@ END:VCALENDAR""".format(**now)
         "user08" : None,
         "user09" : None,
         "user10" : None,
-
     }
 
     @inlineCallbacks

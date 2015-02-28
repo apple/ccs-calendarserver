@@ -129,6 +129,7 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
     theStores = []
     activeTransactions = []
     accounts = None
+    augments = None
 
     def __init__(self, methodName='runTest'):
         txweb2.dav.test.util.TestCase.__init__(self, methodName)
@@ -156,6 +157,7 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
                     serversDB=serversDB,
                     storeBuilder=self.theStoreBuilders[i],
                     accounts=self.accounts,
+                    augments=self.augments,
                 )
                 self.theStores[i] = self.store
             else:
@@ -165,6 +167,7 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
                     self.mktemp(),
                     serversDB=serversDB,
                     accounts=self.accounts,
+                    augments=self.augments,
                 )
                 self.theStores[i].setDirectoryService(directory)
 

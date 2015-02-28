@@ -24,7 +24,7 @@ from twext.python.log import Logger
 
 from txdav.caldav.datastore.sql import CalendarHome, Calendar, CalendarObject
 from txdav.caldav.datastore.sql_attachment import Attachment, AttachmentLink
-from txdav.caldav.datastore.sql_directory import GroupAttendeeRecord
+from txdav.caldav.datastore.sql_directory import GroupAttendeeRecord, GroupShareeRecord
 from txdav.caldav.icalendarstore import ComponentUpdateState, ComponentRemoveState
 from txdav.common.datastore.sql_directory import GroupsRecord
 from txdav.common.datastore.sql_external import CommonHomeExternal, CommonHomeChildExternal, \
@@ -194,7 +194,13 @@ class CalendarExternal(CommonHomeChildExternal, Calendar):
     """
     SQL-based implementation of L{ICalendar}.
     """
-    pass
+
+    @inlineCallbacks
+    def groupSharees(self):
+        results = yield self._txn.store().conduit.send_homechild_group_sharees(self)
+        results["groups"] = [GroupsRecord.deserialize(items) for items in results["groups"]]
+        results["sharees"] = [GroupShareeRecord.deserialize(items) for items in results["sharees"]]
+        returnValue(results)
 
 
 
