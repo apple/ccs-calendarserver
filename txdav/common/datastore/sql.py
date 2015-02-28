@@ -64,7 +64,8 @@ from txdav.common.datastore.sql_imip import imipAPIMixin
 from txdav.common.datastore.sql_notification import NotificationCollection
 from txdav.common.datastore.sql_tables import _BIND_MODE_OWN, _BIND_STATUS_ACCEPTED, \
     _HOME_STATUS_EXTERNAL, _HOME_STATUS_NORMAL, \
-    _HOME_STATUS_PURGING, schema, splitSQLString, _HOME_STATUS_MIGRATING
+    _HOME_STATUS_PURGING, schema, splitSQLString, _HOME_STATUS_MIGRATING, \
+    _HOME_STATUS_DISABLED
 from txdav.common.datastore.sql_util import _SharedSyncLogic
 from txdav.common.datastore.sql_sharing import SharingHomeMixIn, SharingMixIn
 from txdav.common.icommondatastore import ConcurrentModification, \
@@ -584,6 +585,7 @@ class CommonStoreTransaction(
         self._bumpedRevisionAlready = set()
         self._label = label
         self._migrating = migrating
+        self._allowDisabled = False
         self._primaryHomeType = None
         self._disableCache = disableCache or not store.queryCachingEnabled()
         if disableCache:
@@ -764,11 +766,11 @@ class CommonStoreTransaction(
 
 
     @memoizedKey("uid", "_notificationHomes")
-    def notificationsWithUID(self, uid, create=True):
+    def notificationsWithUID(self, uid, status=None, create=True):
         """
         Implement notificationsWithUID.
         """
-        return NotificationCollection.notificationsWithUID(self, uid, create)
+        return NotificationCollection.notificationsWithUID(self, uid, create=create)
 
 
     @memoizedKey("rid", "_notificationHomes")
@@ -1811,6 +1813,8 @@ class CommonHome(SharingHomeMixIn):
                     cacheKeys.append(queryCacher.keyForHomeWithUID(cls._homeType, uid, status))
             else:
                 statusSet = (_HOME_STATUS_NORMAL, _HOME_STATUS_EXTERNAL, _HOME_STATUS_PURGING)
+                if txn._allowDisabled:
+                    statusSet += (_HOME_STATUS_DISABLED,)
                 query = query.And(cls._homeSchema.STATUS.In(statusSet))
                 if queryCacher:
                     for item in statusSet:
@@ -1826,7 +1830,7 @@ class CommonHome(SharingHomeMixIn):
         else:
             result = None
 
-        # If nothing in thr cache, do the SQL query and cache the result
+        # If nothing in the cache, do the SQL query and cache the result
         if result is None:
             results = yield Select(
                 cls.homeColumns(),
@@ -1834,12 +1838,14 @@ class CommonHome(SharingHomeMixIn):
                 Where=query,
             ).on(txn)
 
-            # Pick the internal one
             if len(results) > 1:
-                if results[0][cls.homeColumns().index(cls._homeSchema.STATUS)] == _HOME_STATUS_NORMAL:
-                    result = results[0]
-                else:
-                    result = results[1]
+                # Pick the best one in order: normal, disabled and external
+                byStatus = dict([(result[cls.homeColumns().index(cls._homeSchema.STATUS)], result) for result in results])
+                result = byStatus.get(_HOME_STATUS_NORMAL)
+                if result is None:
+                    result = byStatus.get(_HOME_STATUS_DISABLED)
+                if result is None:
+                    result = byStatus.get(_HOME_STATUS_EXTERNAL)
             elif results:
                 result = results[0]
             else:

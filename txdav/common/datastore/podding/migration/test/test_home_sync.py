@@ -806,7 +806,8 @@ END:VCALENDAR
         self.assertEqual(changed, set(((yield _mapLocalIDToRemote(id0_1)), (yield _mapLocalIDToRemote(id0_2)),)))
         self.assertEqual(removed, set())
 
-        # Link attachments
+        # Link attachments (after home is disabled)
+        yield syncer.disableRemoteHome()
         len_links = yield syncer.linkAttachments()
         self.assertEqual(len_links, 3)
 
@@ -891,6 +892,7 @@ END:VCALENDAR
         # Sync from remote side
         syncer = CrossPodHomeSync(self.theStoreUnderTest(1), "user01")
         yield syncer.loadRecord()
+        yield syncer.disableRemoteHome()
         yield syncer.delegateReconcile()
 
         # Now have local delegates
@@ -952,6 +954,7 @@ END:VCALENDAR
         syncer = CrossPodHomeSync(self.theStoreUnderTest(1), "user01")
         yield syncer.loadRecord()
         yield syncer.prepareCalendarHome()
+        yield syncer.disableRemoteHome()
         changes = yield syncer.notificationsReconcile()
         self.assertEqual(changes, 2)
 
@@ -959,8 +962,7 @@ END:VCALENDAR
         notifications = yield NotificationCollection.notificationsWithUID(
             self.theTransactionUnderTest(1),
             "user01",
-            True,
-            _HOME_STATUS_EXTERNAL
+            status=_HOME_STATUS_MIGRATING,
         )
         results = yield notifications.notificationObjects()
         self.assertEqual(len(results), 2)
@@ -1059,6 +1061,7 @@ class TestSharingSync(MultiStoreConduitTest):
         syncer = CrossPodHomeSync(self.theStoreUnderTest(1), "user01")
         yield syncer.loadRecord()
         yield syncer.sync()
+        yield syncer.disableRemoteHome()
         changes = yield syncer.sharedByCollectionsReconcile()
         self.assertEqual(changes, 2)
         changes = yield syncer.sharedToCollectionsReconcile()
@@ -1125,6 +1128,7 @@ class TestSharingSync(MultiStoreConduitTest):
         syncer = CrossPodHomeSync(self.theStoreUnderTest(1), "user01")
         yield syncer.loadRecord()
         yield syncer.sync()
+        yield syncer.disableRemoteHome()
         changes = yield syncer.sharedByCollectionsReconcile()
         self.assertEqual(changes, 3)
         changes = yield syncer.sharedToCollectionsReconcile()

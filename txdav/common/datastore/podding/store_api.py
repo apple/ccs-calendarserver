@@ -18,6 +18,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 
 from txdav.caldav.datastore.scheduling.freebusy import generateFreeBusyInfo
 from txdav.common.datastore.podding.util import UtilityConduitMixin
+from txdav.common.datastore.sql_tables import _HOME_STATUS_DISABLED
 
 from twistedcaldav.caldavxml import TimeRange
 
@@ -28,17 +29,20 @@ class StoreAPIConduitMixin(object):
     """
 
     @inlineCallbacks
-    def send_home_resource_id(self, txn, recipient):
+    def send_home_resource_id(self, txn, recipient, migrating=False):
         """
         Lookup the remote resourceID matching the specified directory uid.
 
         @param ownerUID: directory record for user whose home is needed
         @type ownerUID: L{DirectroryRecord}
+        @param migrating: if L{True} then also return a disbaled home
+        @type migrating: L{bool}
         """
 
         request = {
             "action": "home-resource_id",
             "ownerUID": recipient.uid,
+            "migrating": migrating,
         }
 
         response = yield self.sendRequest(txn, recipient, request)
@@ -55,6 +59,8 @@ class StoreAPIConduitMixin(object):
         """
 
         home = yield txn.calendarHomeWithUID(request["ownerUID"])
+        if home is None and request["migrating"]:
+            home = yield txn.calendarHomeWithUID(request["ownerUID"], status=_HOME_STATUS_DISABLED)
         returnValue(home.id() if home is not None else None)
 
 
@@ -154,8 +160,9 @@ class StoreAPIConduitMixin(object):
 # These are the actions on store objects we need to expose via the conduit api
 
 # Calls on L{CommonHome} objects
-UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "home_metadata", "serialize", classMethod=False)
-UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "home_get_all_group_attendees", "getAllGroupAttendees", classMethod=False, transform_recv_result=StoreAPIConduitMixin._to_serialize_pair_list)
+UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "home_metadata", "serialize")
+UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "home_set_status", "setStatus")
+UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "home_get_all_group_attendees", "getAllGroupAttendees", transform_recv_result=StoreAPIConduitMixin._to_serialize_pair_list)
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "home_shared_to_records", "sharedToBindRecords", transform_recv_result=StoreAPIConduitMixin._to_serialize_dict_list_serialized_value)
 
 # Calls on L{CommonHomeChild} objects
@@ -185,4 +192,5 @@ UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "objectresource_co
 UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "objectresource_remove", "remove")
 
 # Calls on L{NotificationCollection} objects
-UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "notification_all_records", "notificationObjectRecords", classMethod=False, transform_recv_result=UtilityConduitMixin._to_serialize_list)
+UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "notification_set_status", "setStatus")
+UtilityConduitMixin._make_simple_action(StoreAPIConduitMixin, "notification_all_records", "notificationObjectRecords", transform_recv_result=UtilityConduitMixin._to_serialize_list)

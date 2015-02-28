@@ -27,7 +27,7 @@ from twisted.python.util import FancyEqMixin
 from twistedcaldav.dateops import datetimeMktime
 from txdav.base.propertystore.sql import PropertyStore
 from txdav.common.datastore.sql_tables import schema, _HOME_STATUS_NORMAL, \
-    _HOME_STATUS_EXTERNAL
+    _HOME_STATUS_EXTERNAL, _HOME_STATUS_DISABLED, _HOME_STATUS_MIGRATING
 from txdav.common.datastore.sql_util import _SharedSyncLogic
 from txdav.common.icommondatastore import RecordNotAllowedError
 from txdav.common.idirectoryservice import DirectoryRecordNotFoundError
@@ -49,20 +49,74 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
     implements(INotificationCollection)
 
     compareAttributes = (
-        "_uid",
+        "_ownerUID",
         "_resourceID",
     )
 
     _revisionsSchema = schema.NOTIFICATION_OBJECT_REVISIONS
     _homeSchema = schema.NOTIFICATION_HOME
 
+    _externalClass = None
 
-    def __init__(self, txn, uid, resourceID, status):
+
+    @classmethod
+    def makeClass(cls, transaction, homeData):
+        """
+        Build the actual home class taking into account the possibility that we might need to
+        switch in the external version of the class.
+
+        @param transaction: transaction
+        @type transaction: L{CommonStoreTransaction}
+        @param homeData: home table column data
+        @type homeData: C{list}
+        """
+
+        status = homeData[cls.homeColumns().index(cls._homeSchema.STATUS)]
+        if status == _HOME_STATUS_EXTERNAL:
+            home = cls._externalClass(transaction, homeData)
+        else:
+            home = cls(transaction, homeData)
+        return home.initFromStore()
+
+
+    @classmethod
+    def homeColumns(cls):
+        """
+        Return a list of column names to retrieve when doing an ownerUID->home lookup.
+        """
+
+        # Common behavior is to have created and modified
+
+        return (
+            cls._homeSchema.RESOURCE_ID,
+            cls._homeSchema.OWNER_UID,
+            cls._homeSchema.STATUS,
+        )
+
+
+    @classmethod
+    def homeAttributes(cls):
+        """
+        Return a list of attributes names to map L{homeColumns} to.
+        """
+
+        # Common behavior is to have created and modified
+
+        return (
+            "_resourceID",
+            "_ownerUID",
+            "_status",
+        )
+
+
+    def __init__(self, txn, homeData):
 
         self._txn = txn
-        self._uid = uid
-        self._resourceID = resourceID
-        self._status = status
+
+        for attr, value in zip(self.homeAttributes(), homeData):
+            setattr(self, attr, value)
+
+        self._txn = txn
         self._dataVersion = None
         self._notifications = {}
         self._notificationNames = None
@@ -72,25 +126,15 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
         # as well as the home it is in
         self._notifiers = dict([(factory_name, factory.newNotifier(self),) for factory_name, factory in txn._notifierFactories.items()])
 
-    _resourceIDFromUIDQuery = Select(
-        [_homeSchema.RESOURCE_ID, _homeSchema.STATUS],
-        From=_homeSchema,
-        Where=_homeSchema.OWNER_UID == Parameter("uid")
-    )
 
-    _UIDFromResourceIDQuery = Select(
-        [_homeSchema.OWNER_UID],
-        From=_homeSchema,
-        Where=_homeSchema.RESOURCE_ID == Parameter("rid")
-    )
+    @inlineCallbacks
+    def initFromStore(self):
+        """
+        Initialize this object from the store.
+        """
 
-    _provisionNewNotificationsQuery = Insert(
-        {
-            _homeSchema.OWNER_UID: Parameter("uid"),
-            _homeSchema.STATUS: Parameter("status"),
-        },
-        Return=_homeSchema.RESOURCE_ID
-    )
+        yield self._loadPropertyStore()
+        returnValue(self)
 
 
     @property
@@ -103,28 +147,78 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
 
 
     @classmethod
+    def notificationsWithUID(cls, txn, uid, status=None, create=True):
+        return cls.notificationsWith(txn, None, uid, status, create=create)
+
+
+    @classmethod
+    def notificationsWithResourceID(cls, txn, rid):
+        return cls.notificationsWith(txn, rid, None)
+
+
+    @classmethod
     @inlineCallbacks
-    def notificationsWithUID(cls, txn, uid, create, expected_status=_HOME_STATUS_NORMAL):
+    def notificationsWith(cls, txn, rid, uid, status=None, create=True):
         """
         @param uid: I'm going to assume uid is utf-8 encoded bytes
         """
-        rows = yield cls._resourceIDFromUIDQuery.on(txn, uid=uid)
+        if rid is not None:
+            query = cls._homeSchema.RESOURCE_ID == rid
+        elif uid is not None:
+            query = cls._homeSchema.OWNER_UID == uid
+            if status is not None:
+                query = query.And(cls._homeSchema.STATUS == status)
+            else:
+                statusSet = (_HOME_STATUS_NORMAL, _HOME_STATUS_EXTERNAL,)
+                if txn._allowDisabled:
+                    statusSet += (_HOME_STATUS_DISABLED,)
+                query = query.And(cls._homeSchema.STATUS.In(statusSet))
+        else:
+            raise AssertionError("One of rid or uid must be set")
 
-        if rows:
-            resourceID = rows[0][0]
-            status = rows[0][1]
-            if status != expected_status:
-                raise RecordNotAllowedError("Notifications status mismatch: {} != {}".format(status, expected_status))
-            created = False
-        elif create:
+        results = yield Select(
+            cls.homeColumns(),
+            From=cls._homeSchema,
+            Where=query,
+        ).on(txn)
+
+        if len(results) > 1:
+            # Pick the best one in order: normal, disabled and external
+            byStatus = dict([(result[cls.homeColumns().index(cls._homeSchema.STATUS)], result) for result in results])
+            result = byStatus.get(_HOME_STATUS_NORMAL)
+            if result is None:
+                result = byStatus.get(_HOME_STATUS_DISABLED)
+            if result is None:
+                result = byStatus.get(_HOME_STATUS_EXTERNAL)
+        elif results:
+            result = results[0]
+        else:
+            result = None
+
+        if result:
+            # Return object that already exists in the store
+            homeObject = yield cls.makeClass(txn, result)
+            returnValue(homeObject)
+        else:
+            # Can only create when uid is specified
+            if not create or uid is None:
+                returnValue(None)
+
             # Determine if the user is local or external
             record = yield txn.directoryService().recordWithUID(uid.decode("utf-8"))
             if record is None:
                 raise DirectoryRecordNotFoundError("Cannot create home for UID since no directory record exists: {}".format(uid))
 
-            status = _HOME_STATUS_NORMAL if record.thisServer() else _HOME_STATUS_EXTERNAL
-            if status != expected_status:
-                raise RecordNotAllowedError("Notifications status mismatch: {} != {}".format(status, expected_status))
+            if status is None:
+                createStatus = _HOME_STATUS_NORMAL if record.thisServer() else _HOME_STATUS_EXTERNAL
+            elif status == _HOME_STATUS_MIGRATING:
+                if record.thisServer():
+                    raise RecordNotAllowedError("Cannot migrate a user data for a user already hosted on this server")
+                createStatus = status
+            elif status in (_HOME_STATUS_NORMAL, _HOME_STATUS_EXTERNAL,):
+                createStatus = status
+            else:
+                raise RecordNotAllowedError("Cannot create home with status {}: {}".format(status, uid))
 
             # Use savepoint so we can do a partial rollback if there is a race
             # condition where this row has already been inserted
@@ -132,55 +226,52 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
             yield savepoint.acquire(txn)
 
             try:
-                resourceID = str((
-                    yield cls._provisionNewNotificationsQuery.on(txn, uid=uid, status=status)
-                )[0][0])
+                resourceid = (yield Insert(
+                    {
+                        cls._homeSchema.OWNER_UID: uid,
+                        cls._homeSchema.STATUS: createStatus,
+                    },
+                    Return=cls._homeSchema.RESOURCE_ID
+                ).on(txn))[0][0]
             except Exception:
                 # FIXME: Really want to trap the pg.DatabaseError but in a non-
                 # DB specific manner
                 yield savepoint.rollback(txn)
 
                 # Retry the query - row may exist now, if not re-raise
-                rows = yield cls._resourceIDFromUIDQuery.on(txn, uid=uid)
-                if rows:
-                    resourceID = rows[0][0]
-                    status = rows[0][1]
-                    if status != expected_status:
-                        raise RecordNotAllowedError("Notifications status mismatch: {} != {}".format(status, expected_status))
-                    created = False
+                results = yield Select(
+                    cls.homeColumns(),
+                    From=cls._homeSchema,
+                    Where=query,
+                ).on(txn)
+                if results:
+                    homeObject = yield cls.makeClass(txn, results[0])
+                    returnValue(homeObject)
                 else:
                     raise
             else:
-                created = True
                 yield savepoint.release(txn)
-        else:
-            returnValue(None)
-        collection = cls(txn, uid, resourceID, status)
-        yield collection._loadPropertyStore()
-        if created:
-            yield collection._initSyncToken()
-            yield collection.notifyChanged()
-        returnValue(collection)
 
-
-    @classmethod
-    @inlineCallbacks
-    def notificationsWithResourceID(cls, txn, rid):
-        rows = yield cls._UIDFromResourceIDQuery.on(txn, rid=rid)
-
-        if rows:
-            uid = rows[0][0]
-            result = (yield cls.notificationsWithUID(txn, uid, create=False))
-            returnValue(result)
-        else:
-            returnValue(None)
+                # Note that we must not cache the owner_uid->resource_id
+                # mapping in the query cacher when creating as we don't want that to appear
+                # until AFTER the commit
+                results = yield Select(
+                    cls.homeColumns(),
+                    From=cls._homeSchema,
+                    Where=cls._homeSchema.RESOURCE_ID == resourceid,
+                ).on(txn)
+                homeObject = yield cls.makeClass(txn, results[0])
+                if homeObject.normal():
+                    yield homeObject._initSyncToken()
+                    yield homeObject.notifyChanged()
+                returnValue(homeObject)
 
 
     @inlineCallbacks
     def _loadPropertyStore(self):
         self._propertyStore = yield PropertyStore.load(
-            self._uid,
-            self._uid,
+            self._ownerUID,
+            self._ownerUID,
             None,
             self._txn,
             self._resourceID,
@@ -224,7 +315,39 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
 
 
     def uid(self):
-        return self._uid
+        return self._ownerUID
+
+
+    @inlineCallbacks
+    def setStatus(self, newStatus):
+        """
+        Mark this home as being purged.
+        """
+        # Only if different
+        if self._status != newStatus:
+            yield Update(
+                {self._homeSchema.STATUS: newStatus},
+                Where=(self._homeSchema.RESOURCE_ID == self._resourceID),
+            ).on(self._txn)
+            self._status = newStatus
+
+
+    def normal(self):
+        """
+        Is this an normal (internal) home.
+
+        @return: a L{bool}.
+        """
+        return self._status == _HOME_STATUS_NORMAL
+
+
+    def external(self):
+        """
+        Is this an external home.
+
+        @return: a L{bool}.
+        """
+        return self._status == _HOME_STATUS_EXTERNAL
 
 
     def owned(self):

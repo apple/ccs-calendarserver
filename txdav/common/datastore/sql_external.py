@@ -85,6 +85,10 @@ class CommonHomeExternal(CommonHome):
         self.deserialize(mapping)
 
 
+    def setStatus(self, newStatus):
+        return self._txn.store().conduit.send_home_set_status(self, newStatus)
+
+
     def external(self):
         """
         Is this an external home.
@@ -493,11 +497,24 @@ class NotificationCollectionExternal(NotificationCollection):
     """
 
     @classmethod
-    def notificationsWithUID(cls, txn, uid, create):
-        return super(NotificationCollectionExternal, cls).notificationsWithUID(txn, uid, create, expected_status=_HOME_STATUS_EXTERNAL)
+    def notificationsWithUID(cls, txn, uid, create=False):
+        return super(NotificationCollectionExternal, cls).notificationsWithUID(txn, uid, status=_HOME_STATUS_EXTERNAL, create=create)
+
+
+    def initFromStore(self):
+        """
+        NoOp for an external share as there are no properties.
+        """
+        return succeed(self)
 
 
     @inlineCallbacks
     def notificationObjectRecords(self):
         results = yield self._txn.store().conduit.send_notification_all_records(self)
         returnValue(map(NotificationObjectRecord.deserialize, results))
+
+
+    def setStatus(self, newStatus):
+        return self._txn.store().conduit.send_notification_set_status(self, newStatus)
+
+NotificationCollection._externalClass = NotificationCollectionExternal

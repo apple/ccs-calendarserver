@@ -25,8 +25,8 @@ from txdav.common.datastore.podding.migration.sync_metadata import CalendarMigra
 from txdav.caldav.datastore.sql import ManagedAttachment, CalendarBindRecord
 from txdav.common.datastore.sql_external import NotificationCollectionExternal
 from txdav.common.datastore.sql_notification import NotificationCollection
-from txdav.common.datastore.sql_tables import _HOME_STATUS_EXTERNAL, \
-    _HOME_STATUS_MIGRATING
+from txdav.common.datastore.sql_tables import _HOME_STATUS_MIGRATING, _HOME_STATUS_DISABLED, \
+    _HOME_STATUS_EXTERNAL, _HOME_STATUS_NORMAL
 from txdav.common.idirectoryservice import DirectoryRecordNotFoundError
 
 from uuid import uuid4
@@ -95,6 +95,7 @@ class CrossPodHomeSync(object):
 
         self.store = store
         self.diruid = diruid
+        self.disabledRemote = False
 
 
     def label(self, detail):
@@ -190,25 +191,48 @@ class CrossPodHomeSync(object):
         pass
 
 
+    @inTransactionWrapper
     @inlineCallbacks
-    def disableRemoteHome(self):
+    def disableRemoteHome(self, txn):
         """
         Mark the remote home as disabled.
         """
 
-        # TODO: implement API on CommonHome to rename the ownerUID column and
-        # change the status column.
-        pass
+        # Calendar home
+        remote_home = yield self._remoteHome(txn)
+        yield remote_home.setStatus(_HOME_STATUS_DISABLED)
+
+        # Notification home
+        notifications = yield self._remoteNotificationsHome(txn)
+        yield notifications.setStatus(_HOME_STATUS_DISABLED)
+
+        self.disabledRemote = True
 
 
+    @inTransactionWrapper
     @inlineCallbacks
-    def enableLocalHome(self):
+    def enableLocalHome(self, txn):
         """
-        Mark the local home as enabled.
+        Mark the local home as enabled and remove any previously existing external home.
         """
 
-        # TODO: implement API on CommonHome to rename the ownerUID column and
-        # change the status column. Also adjust NotificationCollection.
+        # Disable any local external homes
+        oldhome = yield txn.calendarHomeWithUID(self.diruid, status=_HOME_STATUS_EXTERNAL)
+        if oldhome is not None:
+            yield oldhome.setStatus(_HOME_STATUS_DISABLED)
+        oldnotifications = yield txn.notificationsWithUID(self.diruid, status=_HOME_STATUS_EXTERNAL)
+        if oldnotifications:
+            yield oldnotifications.setStatus(_HOME_STATUS_DISABLED)
+
+        # Enable the migrating ones
+        newhome = yield txn.calendarHomeWithUID(self.diruid, status=_HOME_STATUS_MIGRATING)
+        if newhome is not None:
+            yield newhome.setStatus(_HOME_STATUS_NORMAL)
+        newnotifications = yield txn.notificationsWithUID(self.diruid, status=_HOME_STATUS_MIGRATING)
+        if newnotifications:
+            yield newnotifications.setStatus(_HOME_STATUS_NORMAL)
+
+        # TODO: purge the old ones
         pass
 
 
@@ -256,7 +280,7 @@ class CrossPodHomeSync(object):
         Make sure the home meta-data (alarms, default calendars) is properly sync'd
         """
 
-        remote_home = yield self._remoteHome(txn=txn)
+        remote_home = yield self._remoteHome(txn)
         yield remote_home.readMetaData()
 
         calendars = yield CalendarMigrationRecord.querysimple(txn, calendarHomeResourceID=self.homeId)
@@ -273,9 +297,23 @@ class CrossPodHomeSync(object):
         """
 
         from txdav.caldav.datastore.sql_external import CalendarHomeExternal
-        resourceID = yield txn.store().conduit.send_home_resource_id(txn, self.record)
+        resourceID = yield txn.store().conduit.send_home_resource_id(txn, self.record, migrating=True)
         home = CalendarHomeExternal.makeSyntheticExternalHome(txn, self.record.uid, resourceID) if resourceID is not None else None
+        if self.disabledRemote:
+            home._migratingHome = True
         returnValue(home)
+
+
+    @inlineCallbacks
+    def _remoteNotificationsHome(self, txn):
+        """
+        Create a synthetic external home object that maps to the actual remote home.
+        """
+
+        notifications = yield NotificationCollectionExternal.notificationsWithUID(txn, self.diruid, create=True)
+        if self.disabledRemote:
+            notifications._migratingHome = True
+        returnValue(notifications)
 
 
     def _localHome(self, txn):
@@ -917,7 +955,7 @@ class CrossPodHomeSync(object):
         Get all the existing L{NotificationObjectRecord}'s from the remote store.
         """
 
-        notifications = yield NotificationCollectionExternal.notificationsWithUID(txn, self.diruid, True)
+        notifications = yield self._remoteNotificationsHome(txn)
         records = yield notifications.notificationObjectRecords()
         for record in records:
             # This needs to be reset when added to the local store
@@ -936,7 +974,7 @@ class CrossPodHomeSync(object):
         Create L{NotificationObjectRecord} records in the local store.
         """
 
-        notifications = yield NotificationCollection.notificationsWithUID(txn, self.diruid, True, _HOME_STATUS_EXTERNAL)
+        notifications = yield NotificationCollection.notificationsWithUID(txn, self.diruid, status=_HOME_STATUS_MIGRATING, create=True)
         for record in records:
             # Do this via the "write" API so that sync revisions are updated properly, rather than just
             # inserting the records directly.

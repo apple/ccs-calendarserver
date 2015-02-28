@@ -83,6 +83,8 @@ class UtilityConduitMixin(object):
         if viewer_home:
             result["homeType"] = viewer_home._homeType
             result["homeUID"] = viewer_home.uid()
+            if getattr(viewer_home, "_migratingHome", False):
+                result["allowDisabledHome"] = True
             if home_child:
                 if home_child.owned():
                     result["homeChildID"] = home_child.id()
@@ -97,6 +99,8 @@ class UtilityConduitMixin(object):
 
         elif notification:
             result["notificationUID"] = notification.uid()
+            if getattr(notification, "_migratingHome", False):
+                result["allowDisabledHome"] = True
             recipient = yield self.store.directoryService().recordWithUID(notification.uid())
 
         returnValue((txn, result, recipient.server(),))
@@ -110,6 +114,9 @@ class UtilityConduitMixin(object):
 
         returnObject = txn
         classObject = None
+
+        if "allowDisabledHome" in request:
+            txn._allowDisabled = True
 
         if "homeUID" in request:
             home = yield txn.homeWithUID(request["homeType"], request["homeUID"])
