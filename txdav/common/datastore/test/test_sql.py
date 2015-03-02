@@ -1983,9 +1983,11 @@ END:VCALENDAR
         resourceNames.remove("test.ics")
         newName = resourceNames[0]
 
-        # user01's test.ics -- verify it got split correctly
+        # user01's test.ics -- verify it got split correctly, by making sure
+        # it's got a count other than 20 now
         data = yield self._getResourceData(txn, "user01", "calendar", "test.ics")
-        self.assertTrue("COUNT=15" in data)
+        self.assertTrue("COUNT=" in data)
+        self.assertFalse("COUNT=20" in data)
 
         # user01's new .ics -- verify it got split correctly
         data = yield self._getResourceData(txn, "user01", "calendar", newName)

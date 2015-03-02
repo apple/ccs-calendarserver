@@ -7572,7 +7572,7 @@ class CommonObjectResource(FancyEqMixin, object):
 
 
     @classproperty
-    def _selectIsTrashQuery(cls):
+    def _selectIsInTrashQuery(cls):
         obj = cls._objectSchema
         return Select((obj.IS_IN_TRASH, obj.TRASHED), From=obj, Where=obj.RESOURCE_ID == Parameter("resourceID"))
 
@@ -7581,7 +7581,7 @@ class CommonObjectResource(FancyEqMixin, object):
     def isInTrash(self):
         returnValue(
             (
-                yield self._selectIsTrashQuery.on(
+                yield self._selectIsInTrashQuery.on(
                     self._txn, resourceID=self._resourceID
                 )
             )[0][0]
@@ -7591,7 +7591,7 @@ class CommonObjectResource(FancyEqMixin, object):
     def whenTrashed(self):
         returnValue(
             (
-                yield self._selectIsTrashQuery.on(
+                yield self._selectIsInTrashQuery.on(
                     self._txn, resourceID=self._resourceID
                 )
             )[0][1]
