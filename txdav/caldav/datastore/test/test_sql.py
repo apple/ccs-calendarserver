@@ -2223,6 +2223,36 @@ END:VCALENDAR
         yield self.commit()
 
 
+    @inlineCallbacks
+    def test_removeAfterRevisionCleanup(self):
+        """
+        Make sure L{Calendar}'s can be renamed after revision cleanup
+        removes their revision table entry..
+        """
+        yield self.homeUnderTest(name="user01", create=True)
+        cal = yield self.calendarUnderTest(home="user01", name="calendar")
+        self.assertTrue(cal is not None)
+        yield self.commit()
+
+        # Remove the revision
+        cal = yield self.calendarUnderTest(home="user01", name="calendar")
+        yield cal.syncToken()
+        yield self.transactionUnderTest().deleteRevisionsBefore(cal._syncTokenRevision + 1)
+        yield self.commit()
+
+        # Rename the calendar
+        cal = yield self.calendarUnderTest(home="user01", name="calendar")
+        self.assertTrue(cal is not None)
+        yield cal.rename("calendar_renamed")
+        yield self.commit()
+
+        cal = yield self.calendarUnderTest(home="user01", name="calendar")
+        self.assertTrue(cal is None)
+        cal = yield self.calendarUnderTest(home="user01", name="calendar_renamed")
+        self.assertTrue(cal is not None)
+        yield self.commit()
+
+
 
 class SchedulingTests(CommonCommonTests, unittest.TestCase):
     """

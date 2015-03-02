@@ -4259,9 +4259,13 @@ class _SharedSyncLogic(object):
 
     @inlineCallbacks
     def _renameSyncToken(self):
-        self._syncTokenRevision = (yield self._renameSyncTokenQuery.on(
-            self._txn, name=self._name, resourceID=self._resourceID))[0][0]
-        self._txn.bumpRevisionForObject(self)
+        rows = yield self._renameSyncTokenQuery.on(
+            self._txn, name=self._name, resourceID=self._resourceID)
+        if rows:
+            self._syncTokenRevision = rows[0][0]
+            self._txn.bumpRevisionForObject(self)
+        else:
+            yield self._initSyncToken()
 
 
     @classproperty
@@ -4440,6 +4444,21 @@ class _SharedSyncLogic(object):
         )
 
 
+    @classproperty
+    def _completelyNewDeletedRevisionQuery(cls):
+        rev = cls._revisionsSchema
+        return Insert(
+            {
+                rev.HOME_RESOURCE_ID: Parameter("homeID"),
+                rev.RESOURCE_ID: Parameter("resourceID"),
+                rev.RESOURCE_NAME: Parameter("name"),
+                rev.REVISION: schema.REVISION_SEQ,
+                rev.DELETED: True
+            },
+            Return=rev.REVISION
+        )
+
+
     @inlineCallbacks
     def _changeRevision(self, action, name):
 
@@ -4452,6 +4471,13 @@ class _SharedSyncLogic(object):
                     self._txn, resourceID=self._resourceID, name=name))
             if rows:
                 self._syncTokenRevision = rows[0][0]
+            else:
+                self._syncTokenRevision = (
+                    yield self._completelyNewDeletedRevisionQuery.on(
+                        self._txn, homeID=self.ownerHome()._resourceID,
+                        resourceID=self._resourceID, name=name)
+                )[0][0]
+
         elif action == "update":
             rows = (
                 yield self._updateBumpTokenQuery.on(
@@ -4459,9 +4485,13 @@ class _SharedSyncLogic(object):
             if rows:
                 self._syncTokenRevision = rows[0][0]
             else:
-                action = "insert"
+                self._syncTokenRevision = (
+                    yield self._completelyNewRevisionQuery.on(
+                        self._txn, homeID=self.ownerHome()._resourceID,
+                        resourceID=self._resourceID, name=name)
+                )[0][0]
 
-        if action == "insert":
+        elif action == "insert":
             # Note that an "insert" may happen for a resource that previously
             # existed and then was deleted. In that case an entry in the
             # REVISIONS table still exists so we have to detect that and do db
