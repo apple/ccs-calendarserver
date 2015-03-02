@@ -38,6 +38,7 @@ from twisted.protocols.basic import LineReceiver
 from twisted.internet.defer import Deferred
 from txdav.base.datastore.dbapiclient import DBAPIConnector
 from txdav.base.datastore.dbapiclient import postgresPreflight
+from txdav.common.icommondatastore import InternalDataStoreError
 
 from twisted.application.service import MultiService
 
@@ -46,6 +47,7 @@ log = Logger()
 # This appears in the postgres log to indicate that it is accepting
 # connections.
 _MAGIC_READY_COOKIE = "database system is ready to accept connections"
+
 
 
 class _PostgresMonitor(ProcessProtocol):
@@ -77,17 +79,17 @@ class _PostgresMonitor(ProcessProtocol):
 
 
     def outReceived(self, out):
-        log.warn("received postgres stdout {out!r}", out=out)
+        log.info("received postgres stdout {out!r}", out=out)
         # self.lineReceiver.dataReceived(out)
 
 
     def errReceived(self, err):
-        log.warn("received postgres stderr {err}", err=err)
+        log.info("received postgres stderr {err}", err=err)
         self.lineReceiver.dataReceived(err)
 
 
     def processEnded(self, reason):
-        log.warn(
+        log.info(
             "postgres process ended with status {status}",
             status=reason.value.status
         )
@@ -98,7 +100,7 @@ class _PostgresMonitor(ProcessProtocol):
         if reason.value.status == 0:
             self.completionDeferred.callback(None)
         else:
-            log.warn("Could not start postgres; see postgres.log")
+            log.error("Could not start postgres; see postgres.log")
             self.completionDeferred.errback(reason)
 
 
@@ -266,8 +268,17 @@ class PostgresService(MultiService):
         self.schema = schema
         self.monitor = None
         self.openConnections = []
-        self._pgCtl = pgCtl
-        self._initdb = initDB
+
+        def locateCommand(name, cmd):
+            for found in which(cmd):
+                return found
+
+            raise InternalDataStoreError(
+                "Unable to locate {} command: {}".format(name, cmd)
+            )
+
+        self._pgCtl = locateCommand("pg_ctl", pgCtl)
+        self._initdb = locateCommand("initdb", initDB)
         self._reactor = reactor
         self._postgresPid = None
 
@@ -278,17 +289,6 @@ class PostgresService(MultiService):
             from twisted.internet import reactor
             self._reactor = reactor
         return self._reactor
-
-
-    def pgCtl(self):
-        """
-        Locate the path to pg_ctl.
-        """
-        return which(self._pgCtl)[0]
-
-
-    def initdb(self):
-        return which(self._initdb)[0]
 
 
     def activateDelayedShutdown(self):
@@ -427,7 +427,8 @@ class PostgresService(MultiService):
                 )
             except postgres.DatabaseError as e:
                 log.error(
-                    "Unable to connect to database for schema creation: {error}",
+                    "Unable to connect to database for schema creation:"
+                    " {error}",
                     error=e
                 )
                 raise
@@ -436,7 +437,6 @@ class PostgresService(MultiService):
             return createDatabaseConn, createDatabaseCursor
 
         monitor = _PostgresMonitor(self)
-        pgCtl = self.pgCtl()
         # check consistency of initdb and postgres?
 
         options = []
@@ -477,14 +477,14 @@ class PostgresService(MultiService):
         if self.testMode:
             options.append("-c log_statement=all")
 
-        log.warn(
+        log.info(
             "Requesting postgres start via {cmd} {opts}",
-            cmd=pgCtl, opts=options
+            cmd=self._pgCtl, opts=options
         )
         self.reactor.spawnProcess(
-            monitor, pgCtl,
+            monitor, self._pgCtl,
             [
-                pgCtl,
+                self._pgCtl,
                 "start",
                 "-l", self.logFile,
                 "-t 86400",  # Give plenty of time for a long cluster upgrade
@@ -517,12 +517,12 @@ class PostgresService(MultiService):
             We started postgres; we're responsible for stopping it later.
             Call pgCtl status to get the pid.
             """
-            log.warn("{cmd} exited", cmd=pgCtl)
+            log.info("{cmd} exited", cmd=self._pgCtl)
             self.shouldStopDatabase = True
             d = Deferred()
             statusMonitor = CapturingProcessProtocol(d, None)
             self.reactor.spawnProcess(
-                statusMonitor, pgCtl, [pgCtl, "status"],
+                statusMonitor, self._pgCtl, [self._pgCtl, "status"],
                 env=self.env, path=self.workingDir.path,
                 uid=self.uid, gid=self.gid,
             )
@@ -537,7 +537,7 @@ class PostgresService(MultiService):
             d = Deferred()
             statusMonitor = CapturingProcessProtocol(d, None)
             self.reactor.spawnProcess(
-                statusMonitor, pgCtl, [pgCtl, "status"],
+                statusMonitor, self._pgCtl, [self._pgCtl, "status"],
                 env=self.env, path=self.workingDir.path,
                 uid=self.uid, gid=self.gid,
             )
@@ -565,11 +565,10 @@ class PostgresService(MultiService):
         env.update(PGDATA=clusterDir.path,
                    PGHOST=self.host,
                    PGUSER=self.spawnedDBUser)
-        initdb = self.initdb()
 
         if self.socketDir:
             if not self.socketDir.isdir():
-                log.warn("Creating {dir}", dir=self.socketDir.path)
+                log.info("Creating {dir}", dir=self.socketDir.path)
                 self.socketDir.createDirectory()
 
             if self.uid and self.gid:
@@ -578,11 +577,11 @@ class PostgresService(MultiService):
             os.chmod(self.socketDir.path, 0770)
 
         if not self.dataStoreDirectory.isdir():
-            log.warn("Creating {dir}", dir=self.dataStoreDirectory.path)
+            log.info("Creating {dir}", dir=self.dataStoreDirectory.path)
             self.dataStoreDirectory.createDirectory()
 
         if not self.workingDir.isdir():
-            log.warn("Creating {dir}", dir=self.workingDir.path)
+            log.info("Creating {dir}", dir=self.workingDir.path)
             self.workingDir.createDirectory()
 
         if self.uid and self.gid:
@@ -591,11 +590,12 @@ class PostgresService(MultiService):
 
         if not clusterDir.isdir():
             # No cluster directory, run initdb
-            log.warn("Running initdb for {dir}", dir=clusterDir.path)
+            log.info("Running initdb for {dir}", dir=clusterDir.path)
             dbInited = Deferred()
             self.reactor.spawnProcess(
                 CapturingProcessProtocol(dbInited, None),
-                initdb, [initdb, "-E", "UTF8", "-U", self.spawnedDBUser],
+                self._initdb,
+                [self._initdb, "-E", "UTF8", "-U", self.spawnedDBUser],
                 env=env, path=self.workingDir.path,
                 uid=self.uid, gid=self.gid,
             )
@@ -612,7 +612,7 @@ class PostgresService(MultiService):
             dbInited.addCallback(doCreate)
 
         else:
-            log.warn("Cluster already exists at {dir}", dir=clusterDir.path)
+            log.info("Cluster already exists at {dir}", dir=clusterDir.path)
             self.startDatabase()
 
 
@@ -634,11 +634,10 @@ class PostgresService(MultiService):
             # database.  (This also happens in command-line tools.)
             if self.shouldStopDatabase:
                 monitor = _PostgresMonitor()
-                pgCtl = self.pgCtl()
                 # FIXME: why is this 'logfile' and not self.logfile?
                 self.reactor.spawnProcess(
-                    monitor, pgCtl,
-                    [pgCtl, "-l", "logfile", "stop"],
+                    monitor, self._pgCtl,
+                    [self._pgCtl, "-l", "logfile", "stop"],
                     env=self.env, path=self.workingDir.path,
                     uid=self.uid, gid=self.gid,
                 )
