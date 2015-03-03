@@ -296,17 +296,17 @@ class PostgresService(MultiService):
         Call this when starting database initialization code to
         protect against shutdown.
 
-        Sets the delayedShutdown flag to True so that if reactor
-        shutdown commences, the shutdown will be delayed until
-        deactivateDelayedShutdown is called.
+        Sets the delayedShutdown flag to True so that if reactor shutdown
+        commences, the shutdown will be delayed until deactivateDelayedShutdown
+        is called.
         """
         self.delayedShutdown = True
 
 
     def deactivateDelayedShutdown(self):
         """
-        Call this when database initialization code has completed so
-        that the reactor can shutdown.
+        Call this when database initialization code has completed so that the
+        reactor can shutdown.
         """
         self.delayedShutdown = False
         if self.shutdownDeferred:
