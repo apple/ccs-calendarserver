@@ -348,7 +348,6 @@ class PostgresService(MultiService):
         If the database has not been created and there is a dump file,
         then the dump file is imported.
         """
-
         if self.resetSchema:
             try:
                 createDatabaseCursor.execute(
@@ -419,7 +418,6 @@ class PostgresService(MultiService):
         """
         Start the database and initialize the subservice.
         """
-
         def createConnection():
             try:
                 createDatabaseConn = self.produceConnection(
