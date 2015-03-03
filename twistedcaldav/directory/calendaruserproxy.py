@@ -873,9 +873,13 @@ class ProxyPostgreSQLDB(ADBAPIPostgreSQLMixin, ProxyDB):
     """
 
     def __init__(self, host, database, user=None, password=None, dbtype=None):
+        from txdav.base.datastore.subpostgres import postgres
 
         ADBAPIPostgreSQLMixin.__init__(self,)
-        ProxyDB.__init__(self, "Proxies", "pgdb", (), host=host, database=database, user=user, password=password,)
+        ProxyDB.__init__(
+            self, "Proxies", postgres.__name__, (),
+            host=host, database=database, user=user, password=password,
+        )
         if dbtype:
             ProxyDB.schema_type = dbtype
 

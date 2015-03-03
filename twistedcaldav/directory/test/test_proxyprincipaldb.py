@@ -598,7 +598,7 @@ class ProxyPrincipalDBPostgreSQL (twistedcaldav.test.util.TestCase):
 
 
 try:
-    import pgdb as postgres
+    from txdav.base.datastore.subpostgres import postgres
 except ImportError:
     ProxyPrincipalDBPostgreSQL.skip = True
 else:

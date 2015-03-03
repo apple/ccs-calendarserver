@@ -161,8 +161,8 @@ def pgConnectorFromConfig(config):
     """
     Create a postgres DB-API connector from the given configuration.
     """
-    import pgdb
-    return DBAPIConnector(pgdb, postgresPreflight, config.DSN).connect
+    from txdav.base.datastore.subpostgres import postgres
+    return DBAPIConnector(postgres, postgresPreflight, config.DSN).connect
 
 
 
