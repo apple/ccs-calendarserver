@@ -483,6 +483,9 @@ class PostgresService(MultiService):
                     error=e
                 )
                 raise
+
+            createDatabaseConn.realConnection.autocommit = True
+
             createDatabaseCursor = createDatabaseConn.cursor()
             createDatabaseCursor.execute("commit")
             return createDatabaseConn, createDatabaseCursor
