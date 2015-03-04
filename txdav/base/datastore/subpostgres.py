@@ -484,10 +484,17 @@ class PostgresService(MultiService):
                 )
                 raise
 
-            createDatabaseConn.realConnection.autocommit = True
-
             createDatabaseCursor = createDatabaseConn.cursor()
-            createDatabaseCursor.execute("commit")
+
+            if postgres.__name__ == "pg8000":
+                createDatabaseConn.realConnection.autocommit = True
+            elif postgres.__name__ == "pgdb":
+                createDatabaseCursor.execute("commit")
+            else:
+                raise InternalDataStoreError(
+                    "Unknown Postgres DBM module: {}".format(postgres)
+                )
+
             return createDatabaseConn, createDatabaseCursor
 
         monitor = PostgresMonitor(self)
