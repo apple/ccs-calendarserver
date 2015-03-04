@@ -50,10 +50,11 @@ _MAGIC_READY_COOKIE = "database system is ready to accept connections"
 
 
 
-class _PostgresMonitor(ProcessProtocol):
+class PostgresMonitor(ProcessProtocol):
     """
     A monitoring protocol which watches the postgres subprocess.
     """
+    log = Logger()
 
     def __init__(self, svc=None):
         self.lineReceiver = LineReceiver()
@@ -79,12 +80,16 @@ class _PostgresMonitor(ProcessProtocol):
 
 
     def outReceived(self, out):
-        log.info("received postgres stdout {out!r}", out=out)
+        for line in out.split("\n"):
+            if line:
+                self.log.info("{message}", message=line)
         # self.lineReceiver.dataReceived(out)
 
 
     def errReceived(self, err):
-        log.info("received postgres stderr {err}", err=err)
+        for line in err.split("\n"):
+            if line:
+                self.log.error("{message}", message=line)
         self.lineReceiver.dataReceived(err)
 
 
@@ -336,7 +341,35 @@ class PostgresService(MultiService):
         if self.port:
             kwargs["host"] = "{}:{}".format(self.host, self.port)
 
+        log.info(
+            "Connecting to Postgres with dsn={dsn!r} args={args}",
+            dsn=dsn, args=kwargs
+        )
+
         return DBAPIConnector(postgres, postgresPreflight, dsn, **kwargs)
+
+
+    def _connectorFor_pg8000(self, databaseName):
+        kwargs = dict(database=databaseName)
+
+        if self.host.startswith("/"):
+            kwargs["host"] = None
+            kwargs["unix_sock"] = self.host
+        else:
+            kwargs["host"] = self.host
+            kwargs["unix_sock"] = None
+
+        if self.port:
+            kwargs["port"] = self.port
+
+        if self.spawnedDBUser:
+            kwargs["user"] = self.spawnedDBUser
+        elif self.uid is not None:
+            kwargs["user"] = pwd.getpwuid(self.uid).pw_name
+
+        log.info("Connecting to Postgres with args={args}", args=kwargs)
+
+        return DBAPIConnector(postgres, postgresPreflight, **kwargs)
 
 
     def produceConnection(self, label="<unlabeled>", databaseName=None):
@@ -438,7 +471,7 @@ class PostgresService(MultiService):
             createDatabaseCursor.execute("commit")
             return createDatabaseConn, createDatabaseCursor
 
-        monitor = _PostgresMonitor(self)
+        monitor = PostgresMonitor(self)
         # check consistency of initdb and postgres?
 
         options = []
@@ -638,7 +671,7 @@ class PostgresService(MultiService):
             # If pg_ctl's startup wasn't successful, don't bother to stop the
             # database.  (This also happens in command-line tools.)
             if self.shouldStopDatabase:
-                monitor = _PostgresMonitor()
+                monitor = PostgresMonitor()
                 # FIXME: why is this 'logfile' and not self.logfile?
                 self.reactor.spawnProcess(
                     monitor, self._pgCtl,
