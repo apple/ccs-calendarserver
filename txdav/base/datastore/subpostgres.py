@@ -94,8 +94,8 @@ class PostgresMonitor(ProcessProtocol):
 
 
     def processEnded(self, reason):
-        log.info(
-            "postgres process ended with status {status}",
+        self.log.info(
+            "pg_ctl process ended with status={status}",
             status=reason.value.status
         )
         # If pg_ctl exited with zero, we were successful in starting postgres
@@ -105,7 +105,7 @@ class PostgresMonitor(ProcessProtocol):
         if reason.value.status == 0:
             self.completionDeferred.callback(None)
         else:
-            log.error("Could not start postgres; see postgres.log")
+            self.log.error("Could not start postgres; see postgres.log")
             self.completionDeferred.errback(reason)
 
 
