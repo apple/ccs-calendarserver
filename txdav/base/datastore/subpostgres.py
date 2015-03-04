@@ -324,7 +324,9 @@ class PostgresService(MultiService):
 
         m = getattr(self, "_connectorFor_{}".format(postgres.__name__), None)
         if m is None:
-            raise InternalDataStoreError("Unknown Postgres DBM module: {}".format(postgres))
+            raise InternalDataStoreError(
+                "Unknown Postgres DBM module: {}".format(postgres)
+            )
 
         return m(databaseName)
 
@@ -481,7 +483,7 @@ class PostgresService(MultiService):
         )
         if self.socketDir:
             options.append(
-                "-k {}"
+                "-c unix_socket_directories={}"
                 .format(shell_quote(self.socketDir.path))
             )
         if self.port:
@@ -512,23 +514,17 @@ class PostgresService(MultiService):
         if self.testMode:
             options.append("-c log_statement=all")
 
-        log.info(
-            "Requesting postgres start via {cmd} {opts}",
-            cmd=self._pgCtl, opts=options
-        )
+        args = [
+            self._pgCtl, "start",
+            "--log={}".format(self.logFile),
+            "--timeout=86400",  # Plenty of time for a long cluster upgrade
+            "-w",  # Wait for startup to complete
+            "-o", " ".join(options),  # Options passed to postgres
+        ]
+
+        log.info("Requesting postgres start via: {args}", args=args)
         self.reactor.spawnProcess(
-            monitor, self._pgCtl,
-            [
-                self._pgCtl,
-                "start",
-                "-l", self.logFile,
-                "-t 86400",  # Give plenty of time for a long cluster upgrade
-                "-w",
-                # XXX what are the quoting rules for '-o'?  do I need to repr()
-                # the path here?
-                "-o",
-                " ".join(options),
-            ],
+            monitor, self._pgCtl, args,
             env=self.env, path=self.workingDir.path,
             uid=self.uid, gid=self.gid,
         )
