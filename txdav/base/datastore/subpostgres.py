@@ -163,7 +163,7 @@ class CapturingProcessProtocol(ProcessProtocol):
         """
         The process is over, fire the Deferred with the output.
         """
-        self.deferred.callback(''.join(self.output))
+        self.deferred.callback("".join(self.output))
 
 
 
@@ -317,16 +317,20 @@ class PostgresService(MultiService):
         if databaseName is None:
             databaseName = self.databaseName
 
+        m = getattr(self, "_connectorFor_{}".format(postgres.__name__), None)
+        if m is None:
+            raise InternalDataStoreError("Unknown Postgres DBM module: {}".format(postgres))
+
+        return m(databaseName)
+
+
+    def _connectorFor_pgdb(self, databaseName):
+        dsn = "{}:dbname={}".format(self.host, databaseName)
+
         if self.spawnedDBUser:
-            dsn = "{}:dbname={}:{}".format(
-                self.host, databaseName, self.spawnedDBUser
-            )
+            dsn = "{}:{}".format(dsn, self.spawnedDBUser)
         elif self.uid is not None:
-            dsn = "{}:dbname={}:{}".format(
-                self.host, databaseName, pwd.getpwuid(self.uid).pw_name
-            )
-        else:
-            dsn = "{}:dbname={}".format(self.host, databaseName)
+            dsn = "{}:{}".format(dsn, pwd.getpwuid(self.uid).pw_name)
 
         kwargs = {}
         if self.port:
@@ -546,7 +550,10 @@ class PostgresService(MultiService):
             We can't start postgres or connect to a running instance.  Shut
             down.
             """
-            log.failure("Can't start or connect to postgres", f)
+            log.critical(
+                "Can't start or connect to postgres: {failure.value}",
+                failure=f
+            )
             self.deactivateDelayedShutdown()
             self.reactor.stop()
 
@@ -601,7 +608,7 @@ class PostgresService(MultiService):
             def doCreate(result):
                 if result.find("FATAL:") != -1:
                     log.error(result)
-                    raise RuntimeError(
+                    raise InternalDataStoreError(
                         "Unable to initialize postgres database: {}"
                         .format(result)
                     )
