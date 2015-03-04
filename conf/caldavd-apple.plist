@@ -99,8 +99,6 @@
     <string></string>
     <key>DSN</key>
     <string></string>
-    <key>DBImportFile</key>
-    <string>/Library/Server/Calendar and Contacts/DataDump.sql</string>
     <key>Postgres</key>
     <dict>
         <key>Ctl</key>

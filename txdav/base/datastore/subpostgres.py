@@ -186,7 +186,6 @@ class PostgresService(MultiService):
         testMode=False,
         uid=None, gid=None,
         spawnedDBUser="caldav",
-        importFileName=None,
         pgCtl="pg_ctl",
         initDB="initdb",
         reactor=None,
@@ -203,9 +202,6 @@ class PostgresService(MultiService):
 
         @param spawnedDBUser: the postgres role
         @type spawnedDBUser: C{str}
-        @param importFileName: path to SQL file containing previous data to
-            import
-        @type importFileName: C{str}
         """
 
         # FIXME: By default there is very little (4MB) shared memory available,
@@ -269,7 +265,6 @@ class PostgresService(MultiService):
         self.uid = uid
         self.gid = gid
         self.spawnedDBUser = spawnedDBUser
-        self.importFileName = importFileName
         self.schema = schema
         self.monitor = None
         self.openConnections = []
@@ -422,10 +417,6 @@ class PostgresService(MultiService):
             # otherwise execute schema
             executeSQL = True
             sqlToExecute = self.schema
-            if self.importFileName:
-                importFilePath = CachingFilePath(self.importFileName)
-                if importFilePath.exists():
-                    sqlToExecute = importFilePath.getContent()
 
         createDatabaseCursor.close()
         createDatabaseConn.close()
