@@ -355,8 +355,22 @@ class PostgresService(MultiService):
         kwargs = dict(database=databaseName)
 
         if self.host.startswith("/"):
+            # We're using a socket file
+            socketFP = CachingFilePath(self.host)
+
+            if socketFP.isdir():
+                # We have been given the directory, not the actual socket file
+                socketFP = socketFP.child(
+                    ".s.PGSQL.{}".format(self.port if self.port else 5432)
+                )
+
+            if not socketFP.isSocket():
+                raise InternalDataStoreError(
+                    "No such socket file: {}".format(socketFP.path)
+                )
+
             kwargs["host"] = None
-            kwargs["unix_sock"] = self.host
+            kwargs["unix_sock"] = socketFP.path
         else:
             kwargs["host"] = self.host
             kwargs["unix_sock"] = None
