@@ -34,13 +34,17 @@ class StoreAPIConduitMixin(object):
     @inlineCallbacks
     def _getRequestForStoreObject(self, action, storeObject, classMethod):
         """
-        Create the JSON data needed to identify the remote resource by type and ids, along with any parent resources.
+        Create the JSON data needed to identify the remote resource by type and
+        ids, along with any parent resources.
 
         @param action: the conduit action name
         @type action: L{str}
+
         @param storeObject: the store object that is being operated on
         @type storeObject: L{object}
-        @param classMethod: indicates whether the method being called is a classmethod
+
+        @param classMethod: indicates whether the method being called is a
+            classmethod
         @type classMethod: L{bool}
 
         @return: the transaction in use, the JSON dict to send in the request,
@@ -48,7 +52,10 @@ class StoreAPIConduitMixin(object):
         @rtype: L{tuple} of (L{CommonStoreTransaction}, L{dict}, L{str})
         """
 
-        from txdav.common.datastore.sql import CommonObjectResource, CommonHomeChild, CommonHome
+        from txdav.common.datastore.sql import (
+            CommonObjectResource, CommonHomeChild, CommonHome
+        )
+
         result = {
             "action": action,
         }
@@ -59,6 +66,7 @@ class StoreAPIConduitMixin(object):
         viewer_home = None
         home_child = None
         object_resource = None
+
         if isinstance(storeObject, CommonObjectResource):
             owner_home = storeObject.ownerHome()
             viewer_home = storeObject.viewerHome()
@@ -86,9 +94,10 @@ class StoreAPIConduitMixin(object):
         if object_resource:
             result["objectResourceID"] = object_resource.id()
 
-        # Note that the owner_home is always the ownerHome() because in the sharing case
-        # a viewer is accessing the owner's data on another pod.
-        recipient = yield self.store.directoryService().recordWithUID(owner_home.uid())
+        # Note that the owner_home is always the ownerHome() because in the
+        # sharing case a viewer is accessing the owner's data on another pod.
+        directory = self.store.directoryService()
+        recipient = yield directory.recordWithUID(owner_home.uid())
 
         returnValue((txn, result, recipient.server(),))
 
@@ -103,7 +112,9 @@ class StoreAPIConduitMixin(object):
         classObject = None
 
         if "homeUID" in request:
-            home = yield txn.homeWithUID(request["homeType"], request["homeUID"])
+            home = yield txn.homeWithUID(
+                request["homeType"], request["homeUID"]
+            )
             if home is None:
                 raise FailedCrossPodRequestError("Invalid owner UID specified")
             home._internalRequest = False
@@ -114,22 +125,30 @@ class StoreAPIConduitMixin(object):
         if "homeChildID" in request:
             homeChild = yield home.childWithID(request["homeChildID"])
             if homeChild is None:
-                raise FailedCrossPodRequestError("Invalid home child specified")
+                raise FailedCrossPodRequestError(
+                    "Invalid home child specified"
+                )
             returnObject = homeChild
             if request.get("classMethod", False):
                 classObject = homeChild._objectResourceClass
         elif "homeChildSharedID" in request:
             homeChild = yield home.childWithName(request["homeChildSharedID"])
             if homeChild is None:
-                raise FailedCrossPodRequestError("Invalid home child specified")
+                raise FailedCrossPodRequestError(
+                    "Invalid home child specified"
+                )
             returnObject = homeChild
             if request.get("classMethod", False):
                 classObject = homeChild._objectResourceClass
 
         if "objectResourceID" in request:
-            objectResource = yield homeChild.objectResourceWithID(request["objectResourceID"])
+            objectResource = yield homeChild.objectResourceWithID(
+                request["objectResourceID"]
+            )
             if objectResource is None:
-                raise FailedCrossPodRequestError("Invalid object resource specified")
+                raise FailedCrossPodRequestError(
+                    "Invalid object resource specified"
+                )
             returnObject = objectResource
 
         returnValue((returnObject, classObject,))
@@ -156,7 +175,8 @@ class StoreAPIConduitMixin(object):
     @inlineCallbacks
     def recv_home_resource_id(self, txn, request):
         """
-        Process an addAttachment cross-pod request. Request arguments as per L{send_add_attachment}.
+        Process an addAttachment cross-pod request.
+        Request arguments as per L{send_add_attachment}.
 
         @param request: request arguments
         @type request: C{dict}
@@ -180,12 +200,18 @@ class StoreAPIConduitMixin(object):
         event_details,
     ):
         """
-        Request free busy information for a shared calendar collection hosted on a different pod. See
-        L{txdav.caldav.datastore.scheduling.freebusy} for the base free busy lookup behavior.
+        Request free busy information for a shared calendar collection hosted
+        on a different pod.
+        See L{txdav.caldav.datastore.scheduling.freebusy} for the base free
+        busy lookup behavior.
         """
-        txn, request, server = yield self._getRequestForStoreObject("freebusy", calresource, False)
+        txn, request, server = yield self._getRequestForStoreObject(
+            "freebusy", calresource, False
+        )
 
-        request["timerange"] = [timerange.start.getText(), timerange.end.getText()]
+        request["timerange"] = [
+            timerange.start.getText(), timerange.end.getText()
+        ]
         request["matchtotal"] = matchtotal
         request["excludeuid"] = excludeuid
         request["organizer"] = organizer
@@ -201,20 +227,26 @@ class StoreAPIConduitMixin(object):
     @inlineCallbacks
     def recv_freebusy(self, txn, request):
         """
-        Process a freebusy cross-pod request. Message arguments as per L{send_freebusy}.
+        Process a freebusy cross-pod request.
+        Message arguments as per L{send_freebusy}.
 
         @param request: request arguments
         @type request: C{dict}
         """
 
         # Operate on the L{CommonHomeChild}
-        calresource, _ignore = yield self._getStoreObjectForRequest(txn, request)
+        calresource, _ignore = yield self._getStoreObjectForRequest(
+            txn, request
+        )
 
         fbinfo = [[], [], []]
         matchtotal = yield generateFreeBusyInfo(
             calresource,
             fbinfo,
-            TimeRange(start=request["timerange"][0], end=request["timerange"][1]),
+            TimeRange(
+                start=request["timerange"][0],
+                end=request["timerange"][1],
+            ),
             request["matchtotal"],
             request["excludeuid"],
             request["organizer"],
@@ -237,29 +269,42 @@ class StoreAPIConduitMixin(object):
 
 
     #
-    # We can simplify code generation for simple calls by dynamically generating the appropriate class methods.
+    # We can simplify code generation for simple calls by dynamically
+    # generating the appropriate class methods.
     #
 
     @inlineCallbacks
-    def _simple_object_send(self, actionName, storeObject, classMethod=False, transform=None, args=None, kwargs=None):
+    def _simple_object_send(
+        self, actionName, storeObject,
+        classMethod=False, transform=None, args=None, kwargs=None
+    ):
         """
         A simple send operation that returns a value.
 
         @param actionName: name of the action.
         @type actionName: C{str}
+
         @param shareeView: sharee resource being operated on.
         @type shareeView: L{CommonHomeChildExternal}
-        @param objectResource: the resource being operated on, or C{None} for classmethod.
+
+        @param objectResource: the resource being operated on, or C{None} for
+            classmethod.
         @type objectResource: L{CommonObjectResourceExternal}
-        @param transform: a function used to convert the JSON response into return values.
+
+        @param transform: a function used to convert the JSON response into
+            return values.
         @type transform: C{callable}
+
         @param args: list of optional arguments.
         @type args: C{list}
+
         @param kwargs: optional keyword arguments.
         @type kwargs: C{dict}
         """
 
-        txn, request, server = yield self._getRequestForStoreObject(actionName, storeObject, classMethod)
+        txn, request, server = yield self._getRequestForStoreObject(
+            actionName, storeObject, classMethod
+        )
         if args is not None:
             request["arguments"] = args
         if kwargs is not None:
@@ -269,26 +314,46 @@ class StoreAPIConduitMixin(object):
 
 
     @inlineCallbacks
-    def _simple_object_recv(self, txn, actionName, request, method, transform=None):
+    def _simple_object_recv(
+        self, txn, actionName, request, method, transform=None
+    ):
         """
-        A simple recv operation that returns a value. We also look for an optional set of arguments/keywords
-        and include those only if present.
+        A simple recv operation that returns a value.
+        We also look for an optional set of arguments/keywords and include
+        those only if present.
 
         @param actionName: name of the action.
         @type actionName: C{str}
+
         @param request: request arguments
         @type request: C{dict}
-        @param method: name of the method to execute on the shared resource to get the result.
+
+        @param method: name of the method to execute on the shared resource to
+            get the result.
         @type method: C{str}
-        @param transform: method to call on returned JSON value to convert it to something useful.
+
+        @param transform: method to call on returned JSON value to convert it
+            to something useful.
         @type transform: C{callable}
         """
 
-        storeObject, classObject = yield self._getStoreObjectForRequest(txn, request)
+        storeObject, classObject = yield self._getStoreObjectForRequest(
+            txn, request
+        )
+
         if classObject is not None:
-            value = yield getattr(classObject, method)(storeObject, *request.get("arguments", ()), **request.get("keywords", {}))
+            m = getattr(classObject, method)
+            value = yield m(
+                storeObject,
+                *request.get("arguments", ()),
+                **request.get("keywords", {})
+            )
         else:
-            value = yield getattr(storeObject, method)(*request.get("arguments", ()), **request.get("keywords", {}))
+            m = getattr(storeObject, method)
+            value = yield m(
+                *request.get("arguments", ()),
+                **request.get("keywords", {})
+            )
 
         returnValue(transform(value) if transform is not None else value)
 
@@ -297,18 +362,27 @@ class StoreAPIConduitMixin(object):
     # Factory methods for binding actions to the conduit class
     #
     @classmethod
-    def _make_simple_action(cls, action, method, classMethod=False, transform_recv_result=None, transform_send_result=None):
+    def _make_simple_action(
+        cls, action, method, classMethod=False,
+        transform_recv_result=None, transform_send_result=None
+    ):
         setattr(
             cls,
             "send_{}".format(action),
             lambda self, storeObject, *args, **kwargs:
-                self._simple_object_send(action, storeObject, classMethod=classMethod, transform=transform_send_result, args=args, kwargs=kwargs)
+                self._simple_object_send(
+                    action, storeObject, classMethod=classMethod,
+                    transform=transform_send_result, args=args, kwargs=kwargs
+            )
         )
         setattr(
             cls,
             "recv_{}".format(action),
             lambda self, txn, message:
-                self._simple_object_recv(txn, action, message, method, transform=transform_recv_result)
+                self._simple_object_recv(
+                    txn, action, message, method,
+                    transform=transform_recv_result
+                )
         )
 
 
@@ -345,24 +419,81 @@ class StoreAPIConduitMixin(object):
 # Calls on L{CommonHome} objects
 
 # Calls on L{CommonHomeChild} objects
-StoreAPIConduitMixin._make_simple_action("homechild_listobjects", "listObjects", classMethod=True)
-StoreAPIConduitMixin._make_simple_action("homechild_loadallobjects", "loadAllObjects", classMethod=True, transform_recv_result=StoreAPIConduitMixin._to_externalize_list)
-StoreAPIConduitMixin._make_simple_action("homechild_objectwith", "objectWith", classMethod=True, transform_recv_result=StoreAPIConduitMixin._to_externalize)
-StoreAPIConduitMixin._make_simple_action("homechild_movehere", "moveObjectResourceHere")
-StoreAPIConduitMixin._make_simple_action("homechild_moveaway", "moveObjectResourceAway")
-StoreAPIConduitMixin._make_simple_action("homechild_synctoken", "syncToken")
-StoreAPIConduitMixin._make_simple_action("homechild_resourcenamessincerevision", "resourceNamesSinceRevision", transform_send_result=StoreAPIConduitMixin._to_tuple)
-StoreAPIConduitMixin._make_simple_action("homechild_search", "search")
+StoreAPIConduitMixin._make_simple_action(
+    "homechild_listobjects", "listObjects",
+    classMethod=True
+)
+StoreAPIConduitMixin._make_simple_action(
+    "homechild_loadallobjects", "loadAllObjects",
+    classMethod=True,
+    transform_recv_result=StoreAPIConduitMixin._to_externalize_list
+)
+StoreAPIConduitMixin._make_simple_action(
+    "homechild_objectwith", "objectWith",
+    classMethod=True,
+    transform_recv_result=StoreAPIConduitMixin._to_externalize
+)
+StoreAPIConduitMixin._make_simple_action(
+    "homechild_movehere", "moveObjectResourceHere"
+)
+StoreAPIConduitMixin._make_simple_action(
+    "homechild_moveaway", "moveObjectResourceAway"
+)
+StoreAPIConduitMixin._make_simple_action(
+    "homechild_synctoken", "syncToken"
+)
+StoreAPIConduitMixin._make_simple_action(
+    "homechild_resourcenamessincerevision", "resourceNamesSinceRevision",
+    transform_send_result=StoreAPIConduitMixin._to_tuple
+)
+StoreAPIConduitMixin._make_simple_action(
+    "homechild_search", "search"
+)
 
 # Calls on L{CommonObjectResource} objects
-StoreAPIConduitMixin._make_simple_action("objectresource_loadallobjects", "loadAllObjects", classMethod=True, transform_recv_result=StoreAPIConduitMixin._to_externalize_list)
-StoreAPIConduitMixin._make_simple_action("objectresource_loadallobjectswithnames", "loadAllObjectsWithNames", classMethod=True, transform_recv_result=StoreAPIConduitMixin._to_externalize_list)
-StoreAPIConduitMixin._make_simple_action("objectresource_listobjects", "listObjects", classMethod=True)
-StoreAPIConduitMixin._make_simple_action("objectresource_countobjects", "countObjects", classMethod=True)
-StoreAPIConduitMixin._make_simple_action("objectresource_objectwith", "objectWith", classMethod=True, transform_recv_result=StoreAPIConduitMixin._to_externalize)
-StoreAPIConduitMixin._make_simple_action("objectresource_resourcenameforuid", "resourceNameForUID", classMethod=True)
-StoreAPIConduitMixin._make_simple_action("objectresource_resourceuidforname", "resourceUIDForName", classMethod=True)
-StoreAPIConduitMixin._make_simple_action("objectresource_create", "create", classMethod=True, transform_recv_result=StoreAPIConduitMixin._to_externalize)
-StoreAPIConduitMixin._make_simple_action("objectresource_setcomponent", "setComponent")
-StoreAPIConduitMixin._make_simple_action("objectresource_component", "component", transform_recv_result=StoreAPIConduitMixin._to_string)
-StoreAPIConduitMixin._make_simple_action("objectresource_remove", "remove")
+StoreAPIConduitMixin._make_simple_action(
+    "objectresource_loadallobjects", "loadAllObjects",
+    classMethod=True,
+    transform_recv_result=StoreAPIConduitMixin._to_externalize_list
+)
+StoreAPIConduitMixin._make_simple_action(
+    "objectresource_loadallobjectswithnames", "loadAllObjectsWithNames",
+    classMethod=True,
+    transform_recv_result=StoreAPIConduitMixin._to_externalize_list
+)
+StoreAPIConduitMixin._make_simple_action(
+    "objectresource_listobjects", "listObjects",
+    classMethod=True
+)
+StoreAPIConduitMixin._make_simple_action(
+    "objectresource_countobjects", "countObjects",
+    classMethod=True
+)
+StoreAPIConduitMixin._make_simple_action(
+    "objectresource_objectwith", "objectWith",
+    classMethod=True,
+    transform_recv_result=StoreAPIConduitMixin._to_externalize
+)
+StoreAPIConduitMixin._make_simple_action(
+    "objectresource_resourcenameforuid", "resourceNameForUID",
+    classMethod=True
+)
+StoreAPIConduitMixin._make_simple_action(
+    "objectresource_resourceuidforname", "resourceUIDForName",
+    classMethod=True
+)
+StoreAPIConduitMixin._make_simple_action(
+    "objectresource_create", "create",
+    classMethod=True,
+    transform_recv_result=StoreAPIConduitMixin._to_externalize
+)
+StoreAPIConduitMixin._make_simple_action(
+    "objectresource_setcomponent", "setComponent"
+)
+StoreAPIConduitMixin._make_simple_action(
+    "objectresource_component", "component",
+    transform_recv_result=StoreAPIConduitMixin._to_string
+)
+StoreAPIConduitMixin._make_simple_action(
+    "objectresource_remove", "remove"
+)
