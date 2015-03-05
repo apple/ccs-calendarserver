@@ -38,6 +38,7 @@ from twisted.protocols.basic import LineReceiver
 from twisted.internet.defer import Deferred
 from txdav.base.datastore.dbapiclient import DBAPIConnector
 from txdav.base.datastore.dbapiclient import postgresPreflight
+from txdav.common.datastore.sql_tables import splitSQLString
 from txdav.common.icommondatastore import InternalDataStoreError
 
 from twisted.application.service import MultiService
@@ -423,7 +424,8 @@ class PostgresService(MultiService):
         if sqlToExecute is not None:
             connection = self.produceConnection()
             cursor = connection.cursor()
-            cursor.execute(sqlToExecute)
+            for statement in splitSQLString(sqlToExecute):
+                cursor.execute(statement)
             connection.commit()
             connection.close()
 
