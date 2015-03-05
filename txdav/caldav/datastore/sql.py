@@ -1045,6 +1045,8 @@ class Calendar(CommonHomeChild):
             cls._homeChildMetaDataSchema.CREATED,
             cls._homeChildMetaDataSchema.MODIFIED,
             cls._homeChildMetaDataSchema.CHILD_TYPE,
+            cls._homeChildMetaDataSchema.TRASHED,
+            cls._homeChildMetaDataSchema.IS_IN_TRASH,
         )
 
 
@@ -1063,6 +1065,8 @@ class Calendar(CommonHomeChild):
             "_created",
             "_modified",
             "_childType",
+            "_trashed",
+            "_isInTrash",
         )
 
 
@@ -2362,7 +2366,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             obj.MODIFIED,
             obj.DATAVERSION,
             obj.TRASHED,
-            obj.IS_IN_TRASH,
+            obj.ORIGINAL_COLLECTION,
         ]
 
 
@@ -2385,7 +2389,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             "_modified",
             "_dataversion",
             "_trashed",
-            "_is_in_trash",
+            "_original_collection",
         )
 
 
@@ -4908,7 +4912,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
     @inlineCallbacks
     def fromTrash(self):
-        yield super(CalendarObject, self).fromTrash()
+        name = yield super(CalendarObject, self).fromTrash()
 
         caldata = yield self.componentForUser()
         organizer = caldata.getOrganizer()
@@ -4966,6 +4970,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     self._txn,
                     self
                 )
+
+        returnValue(name)
 
 
 
@@ -5868,64 +5874,41 @@ class TrashCollection(Calendar):
 
     _childType = "trash"  # FIXME: make childType an enumeration
 
-
-    @classproperty
-    def _trashInHomeQuery(cls):
-        obj = cls._objectSchema
-        bind = cls._bindSchema
-        return Select(
-            [
-                obj.PARENT_RESOURCE_ID, obj.RESOURCE_ID
-            ],
-            From=obj.join(
-                bind, obj.PARENT_RESOURCE_ID == bind.RESOURCE_ID
-            ),
-            Where=(obj.IS_IN_TRASH == True).And(
-                bind.HOME_RESOURCE_ID == Parameter("resourceID")
-            ).And(
-                bind.BIND_MODE == _BIND_MODE_OWN
-            )
-        )
-
-
     def isTrash(self):
         return True
 
 
-    def nameForResource(self, collection, objectResource):
-        return "{}-{}".format(collection._resourceID, objectResource.name())
-
-    def originalParentForResource(self, objectResource):
-        parentID, resourceName = self.parseName(objectResource._name)
-        return self._home.childWithID(parentID)
-
-    def parseName(self, name):
-        parentID, resourceName = name.split("-", 1)
-        return int(parentID), resourceName
+    @classproperty
+    def _trashForCollectionQuery(cls):
+        obj = cls._objectSchema
+        return Select(
+            [obj.RESOURCE_ID], From=obj,
+            Where=(
+                obj.ORIGINAL_COLLECTION == Parameter("resourceID")).And(
+                obj.TRASHED >= Parameter("start")).And(
+                obj.TRASHED <= Parameter("end")),
+        )
 
 
     @inlineCallbacks
-    def listObjectResources(self):
-        """
-        Return a list of names of child object resources in this trash; the
-        list is computed from all the homeChildren in the trash's parent home.
-        """
-        home = self._calendarHome
+    def trashForCollection(self, resourceID, start=None, end=None):
 
-        results = []
-        rows = (yield self._trashInHomeQuery.on(
-            self._txn, resourceID=home._resourceID
-        ))
-        if rows:
-            for childID, objectID in rows:
-                child = (yield home.childWithID(childID))
-                if child:
-                    objectResource = (
-                        yield child.objectResourceWithID(objectID)
-                    )
-                    results.append(self.nameForResource(child, objectResource))
+        if start is None:
+            start = datetime.datetime(datetime.MINYEAR, 1, 1)
 
-        returnValue(results)
+        if end is None:
+            end = datetime.datetime.utcnow()
+
+        results = yield self._trashForCollectionQuery.on(
+            self._txn, resourceID=resourceID, start=start, end=end
+        )
+        resources = []
+        for (objectResourceID,) in results:
+            resource = yield self.objectResourceWithID(objectResourceID)
+            resources.append(resource)
+        returnValue(resources)
+
+
 
 
 

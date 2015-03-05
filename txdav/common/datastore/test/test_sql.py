@@ -517,10 +517,16 @@ class StubTransaction(object):
 
 class CommonTrashTests(StoreTestCase):
 
+    def _homeForUser(self, txn, userName):
+        return txn.calendarHomeWithUID(userName, create=True)
+
     @inlineCallbacks
-    def _collectionForUser(self, txn, userName, collectionName):
+    def _collectionForUser(self, txn, userName, collectionName, create=False, onlyInTrash=False):
         home = yield txn.calendarHomeWithUID(userName, create=True)
-        collection = yield home.childWithName(collectionName)
+        collection = yield home.childWithName(collectionName, onlyInTrash=onlyInTrash)
+        if collection is None:
+            if create:
+                collection = yield home.createCalendarWithName(collectionName)
         returnValue(collection)
 
 
@@ -637,7 +643,7 @@ END:VCALENDAR
         self.assertTrue(trashed is None)
 
         # Move object to trash
-        yield resource.toTrash()
+        newName = yield resource.toTrash()
 
         yield txn.commit()
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
@@ -645,7 +651,7 @@ END:VCALENDAR
         txn = self.store.newTransaction()
 
         # Verify it's in the trash
-        resource = yield self._getResource(txn, "user01", "trash", "")
+        resource = yield self._getResource(txn, "user01", "trash", newName)
         self.assertTrue((yield resource.isInTrash()))
         trashed = yield resource.whenTrashed()
         self.assertFalse(trashed is None)
@@ -674,7 +680,7 @@ END:VCALENDAR
         # One object in collection
         resourceNames = yield self._getResourceNames(txn, "user01", "calendar")
         self.assertEqual(len(resourceNames), 1)
-        resource = yield self._getResource(txn, "user01", "calendar", "test.ics")
+        resource = yield self._getResource(txn, "user01", "calendar", newName)
         self.assertFalse((yield resource.isInTrash()))
         trashed = yield resource.whenTrashed()
         self.assertTrue(trashed is None)
@@ -887,11 +893,11 @@ END:VCALENDAR
         txn = self.store.newTransaction()
 
         # user01's copy should be back on their calendar
-        resource = yield self._getResource(txn, "user01", "calendar", "test.ics")
+        resource = yield self._getResource(txn, "user01", "calendar", "")
         self.assertFalse((yield resource.isInTrash()))
         trashed = yield resource.whenTrashed()
         self.assertTrue(trashed is None)
-        data = yield self._getResourceData(txn, "user01", "calendar", "test.ics")
+        data = yield self._getResourceData(txn, "user01", "calendar", "")
         self.assertTrue("PARTSTAT=NEEDS-ACTION" in data)
 
         # user02's copy should be back on their calendar
@@ -1670,7 +1676,7 @@ END:VCALENDAR
         txn = self.store.newTransaction()
 
         # user01's copy should be back on their calendar
-        data = yield self._getResourceData(txn, "user01", "calendar", "test.ics")
+        data = yield self._getResourceData(txn, "user01", "calendar", "")
         self.assertTrue("PARTSTAT=TENTATIVE" in data)
 
         # user02's copy should be back on their calendar
@@ -1965,7 +1971,7 @@ END:VCALENDAR
         # user01 restores event from the trash
         txn = self.store.newTransaction()
         resource = yield self._getResource(txn, "user01", "trash", "")
-        yield resource.fromTrash()
+        trashedName = yield resource.fromTrash()
         yield txn.commit()
 
         yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
@@ -1976,16 +1982,16 @@ END:VCALENDAR
         resourceNames = yield self._getResourceNames(txn, "user01", "trash")
         self.assertEquals(len(resourceNames), 0)
 
-        # user01 should have test.ics and a new .ics
+        # user01 should have two .ics
         resourceNames = yield self._getResourceNames(txn, "user01", "calendar")
         self.assertEquals(len(resourceNames), 2)
-        self.assertTrue("test.ics" in resourceNames)
-        resourceNames.remove("test.ics")
+        self.assertTrue(trashedName in resourceNames)
+        resourceNames.remove(trashedName)
         newName = resourceNames[0]
 
         # user01's test.ics -- verify it got split correctly, by making sure
         # it's got a count other than 20 now
-        data = yield self._getResourceData(txn, "user01", "calendar", "test.ics")
+        data = yield self._getResourceData(txn, "user01", "calendar", trashedName)
         self.assertTrue("COUNT=" in data)
         self.assertFalse("COUNT=20" in data)
 
@@ -2163,5 +2169,168 @@ END:VCALENDAR
 
         data = yield self._getResourceData(txn, "user02", "calendar", "")
         self.assertTrue("PARTSTAT=ACCEPTED" in data)
+
+        yield txn.commit()
+
+
+    @inlineCallbacks
+    def test_trashCalendar(self):
+
+        from twistedcaldav.stdconfig import config
+        self.patch(config, "EnableTrashCollection", True)
+
+        txn = self.store.newTransaction()
+
+        collection = yield self._collectionForUser(txn, "user01", "test", create=True)
+        isInTrash = collection.isInTrash()
+        self.assertFalse(isInTrash)
+        whenTrashed = collection.whenTrashed()
+        self.assertEquals(whenTrashed, None)
+
+        home = yield self._homeForUser(txn, "user01")
+        names = yield home.listChildren()
+        self.assertTrue("test" in names)
+        names = yield home.listChildren(onlyInTrash=True)
+        self.assertFalse("test" in names)
+
+        yield collection.remove()
+        isInTrash = collection.isInTrash()
+        self.assertTrue(isInTrash)
+        whenTrashed = collection.whenTrashed()
+        self.assertNotEquals(whenTrashed, None)
+
+        collection = yield self._collectionForUser(txn, "user01", "test")
+        self.assertEquals(collection, None)
+
+        yield txn.commit()
+
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
+
+        txn = self.store.newTransaction()
+
+        collection = yield self._collectionForUser(txn, "user01", "test")
+        self.assertEquals(collection, None)
+        home = yield self._homeForUser(txn, "user01")
+        names = yield home.listChildren(onlyInTrash=True)
+        trashedName = names[0]
+        collection = yield self._collectionForUser(txn, "user01", trashedName, onlyInTrash=True)
+        self.assertNotEquals(collection, None)
+        home = yield self._homeForUser(txn, "user01")
+        names = yield home.listChildren()
+        self.assertFalse("test" in names)
+        names = yield home.listChildren(onlyInTrash=True)
+        self.assertTrue(trashedName in names)
+
+        yield collection.fromTrash()
+
+        yield txn.commit()
+
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
+
+        txn = self.store.newTransaction()
+        home = yield self._homeForUser(txn, "user01")
+        names = yield home.listChildren()
+        self.assertTrue(trashedName in names)
+        names = yield home.listChildren(onlyInTrash=True)
+        self.assertFalse("test" in names)
+        yield txn.commit()
+
+
+    @inlineCallbacks
+    def test_trashCalendarWithUnscheduled(self):
+
+        from twistedcaldav.stdconfig import config
+        self.patch(config, "EnableTrashCollection", True)
+
+        txn = self.store.newTransaction()
+
+        collection = yield self._collectionForUser(txn, "user01", "test", create=True)
+
+        data1 = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:5CE3B280-DBC9-4E8E-B0B2-996754020E5F
+DTSTART;TZID=America/Los_Angeles:20141108T093000
+DTEND;TZID=America/Los_Angeles:20141108T103000
+CREATED:20141106T192546Z
+DTSTAMP:20141106T192546Z
+RRULE:FREQ=DAILY
+SEQUENCE:0
+SUMMARY:repeating event
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+UID:5CE3B280-DBC9-4E8E-B0B2-996754020E5F
+RECURRENCE-ID;TZID=America/Los_Angeles:20141111T093000
+DTSTART;TZID=America/Los_Angeles:20141111T110000
+DTEND;TZID=America/Los_Angeles:20141111T120000
+CREATED:20141106T192546Z
+DTSTAMP:20141106T192546Z
+SEQUENCE:0
+SUMMARY:repeating event
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR
+"""
+
+        # Create an object
+        resource = yield collection.createObjectResourceWithName(
+            "test.ics",
+            Component.allFromString(data1)
+        )
+
+        # One object in collection
+        objects = yield collection.listObjectResources()
+        self.assertEquals(len(objects), 1)
+
+        # No objects in trash
+        trash = yield self._collectionForUser(txn, "user01", "trash")
+        objects = yield trash.listObjectResources()
+        self.assertEquals(len(objects), 0)
+
+        # Verify it's not in the trash
+        self.assertFalse((yield resource.isInTrash()))
+        trashed = yield resource.whenTrashed()
+        self.assertTrue(trashed is None)
+
+        collection = yield self._collectionForUser(txn, "user01", "test")
+        resources = yield trash.trashForCollection(collection._resourceID)
+        self.assertEquals(len(resources), 0)
+
+        yield txn.commit()
+
+        txn = self.store.newTransaction()
+        collection = yield self._collectionForUser(txn, "user01", "test")
+        yield collection.remove()
+        yield txn.commit()
+
+        txn = self.store.newTransaction()
+        # One object in trash
+        trash = yield self._collectionForUser(txn, "user01", "trash")
+        objects = yield trash.listObjectResources()
+        self.assertEquals(len(objects), 1)
+
+        resources = yield trash.trashForCollection(collection._resourceID)
+        self.assertEquals(len(resources), 1)
+
+        home = yield self._homeForUser(txn, "user01")
+        names = yield home.listChildren(onlyInTrash=True)
+        trashedName = names[0]
+        collection = yield self._collectionForUser(txn, "user01", trashedName, onlyInTrash=True)
+        yield collection.fromTrash()
+
+        yield txn.commit()
+
+        yield JobItem.waitEmpty(self.store.newTransaction, reactor, 60)
+
+        txn = self.store.newTransaction()
+        home = yield self._homeForUser(txn, "user01")
+        names = yield home.listChildren()
+        self.assertTrue(trashedName in names)
+        names = yield home.listChildren(onlyInTrash=True)
+        self.assertFalse(trashedName in names)
+        resourceNames = yield self._getResourceNames(txn, "user01", trashedName)
+        self.assertEqual(len(resourceNames), 1)
 
         yield txn.commit()

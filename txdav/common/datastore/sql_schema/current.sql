@@ -263,7 +263,7 @@ create table CALENDAR_OBJECT (
   MODIFIED             timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   DATAVERSION          integer      default 0 not null,
   TRASHED              timestamp    default null,
-  IS_IN_TRASH          boolean      default false not null, -- entire resource is in the trash
+  ORIGINAL_COLLECTION  integer      default null, -- calendar_resource_id prior to trash
 
   unique (CALENDAR_RESOURCE_ID, RESOURCE_NAME) -- implicit index
 
