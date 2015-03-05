@@ -411,17 +411,16 @@ class PostgresService(MultiService):
             )
         except:
             # database already exists
-            executeSQL = False
+            sqlToExecute = None
         else:
             # database does not yet exist; if dump file exists, execute it,
             # otherwise execute schema
-            executeSQL = True
             sqlToExecute = self.schema
 
         createDatabaseCursor.close()
         createDatabaseConn.close()
 
-        if executeSQL:
+        if sqlToExecute is not None:
             connection = self.produceConnection()
             cursor = connection.cursor()
             cursor.execute(sqlToExecute)
