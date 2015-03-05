@@ -19,10 +19,14 @@ from twext.python.log import Logger
 from txdav.common.idirectoryservice import DirectoryRecordNotFoundError
 from txdav.common.datastore.podding.attachments import AttachmentsConduitMixin
 from txdav.common.datastore.podding.base import FailedCrossPodRequestError
-from txdav.common.datastore.podding.directory import DirectoryPoddingConduitMixin
+from txdav.common.datastore.podding.directory import (
+    DirectoryPoddingConduitMixin
+)
 from txdav.common.datastore.podding.store_api import StoreAPIConduitMixin
 from txdav.common.datastore.podding.request import ConduitRequest
-from txdav.common.datastore.podding.sharing_invites import SharingInvitesConduitMixin
+from txdav.common.datastore.podding.sharing_invites import (
+    SharingInvitesConduitMixin
+)
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.reflect import namedClass
@@ -40,29 +44,33 @@ class PoddingConduit(
     """
     This class is the API/RPC bridge between cross-pod requests and the store.
 
-    Each cross-pod request/response is described by a Python C{dict} that is serialized
-    to JSON for the HTTP request/response.
+    Each cross-pod request/response is described by a Python C{dict} that is
+    serialized to JSON for the HTTP request/response.
 
-    Each request C{dict} has an "action" key that indicates what call is being made, and
-    the other keys are arguments to that call.
+    Each request C{dict} has an "action" key that indicates what call is being
+    made, and the other keys are arguments to that call.
 
-    Each response C{dict} has a "result" key that indicates the call result, and other
-    optional keys for any values returned by the call.
+    Each response C{dict} has a "result" key that indicates the call result,
+    and other optional keys for any values returned by the call.
 
-    The conduit provides two methods for each action: one for the sending side and one for
-    the receiving side, called "send_{action}" and "recv_{action}", respectively, where
-    {action} is the action value.
+    The conduit provides two methods for each action: one for the sending side
+    and one for the receiving side, called "send_{action}" and "recv_{action}",
+    respectively, where {action} is the action value.
 
-    The "send_{action}" calls each have a set of arguments specific to the call itself. The
-    code takes care of packing that into a C{dict} and sending to the appropriate pod.
+    The "send_{action}" calls each have a set of arguments specific to the call
+    itself.
+    The code takes care of packing that into a C{dict} and sending to the
+    appropriate pod.
 
-    The "recv_{action}" calls take a single C{dict} argument that is the deserialized JSON
-    data from the incoming request. The return value is a C{dict} with the result.
+    The "recv_{action}" calls take a single C{dict} argument that is the
+    deserialized JSON data from the incoming request. The return value is a
+    C{dict} with the result.
 
-    Some simple forms of send_/recv_ methods can be auto-generated to simplify coding.
+    Some simple forms of send_/recv_ methods can be auto-generated to simplify
+    coding.
 
-    Actual implementations of this will be done via mix-ins for the different sub-systems using
-    the conduit.
+    Actual implementations of this will be done via mix-ins for the different
+    sub-systems using the conduit.
     """
 
     conduitRequestClass = ConduitRequest
@@ -80,9 +88,12 @@ class PoddingConduit(
         Verify that the specified uids are valid for the request and return the
         matching directory records.
 
-        @param source_uid: UID for the user on whose behalf the request is being made
+        @param source_uid: UID for the user on whose behalf the request is
+            being made
         @type source_uid: C{str}
-        @param destination_uid: UID for the user to whom the request is being sent
+
+        @param destination_uid: UID for the user to whom the request is being
+            sent
         @type destination_uid: C{str}
 
         @return: L{Deferred} resulting in C{tuple} of L{IStoreDirectoryRecord}
@@ -90,35 +101,55 @@ class PoddingConduit(
 
         source = yield self.store.directoryService().recordWithUID(source_uid)
         if source is None:
-            raise DirectoryRecordNotFoundError("Cross-pod source: {}".format(source_uid))
+            raise DirectoryRecordNotFoundError(
+                "Cross-pod source: {}".format(source_uid)
+            )
         if not source.thisServer():
-            raise FailedCrossPodRequestError("Cross-pod source not on this server: {}".format(source_uid))
+            raise FailedCrossPodRequestError(
+                "Cross-pod source not on this server: {}".format(source_uid)
+            )
 
-        destination = yield self.store.directoryService().recordWithUID(destination_uid)
+        destination = yield self.store.directoryService().recordWithUID(
+            destination_uid
+        )
         if destination is None:
-            raise DirectoryRecordNotFoundError("Cross-pod destination: {}".format(destination_uid))
+            raise DirectoryRecordNotFoundError(
+                "Cross-pod destination: {}".format(destination_uid)
+            )
         if destination.thisServer():
-            raise FailedCrossPodRequestError("Cross-pod destination on this server: {}".format(destination_uid))
+            raise FailedCrossPodRequestError(
+                "Cross-pod destination on this server: {}".format(
+                    destination_uid
+                )
+            )
 
         returnValue((source, destination,))
 
 
     def sendRequest(self, txn, recipient, data, stream=None, streamType=None):
-        return self.sendRequestToServer(txn, recipient.server(), data, stream, streamType)
+        return self.sendRequestToServer(
+            txn, recipient.server(), data, stream, streamType
+        )
 
 
     @inlineCallbacks
-    def sendRequestToServer(self, txn, server, data, stream=None, streamType=None):
+    def sendRequestToServer(
+        self, txn, server, data, stream=None, streamType=None
+    ):
 
         request = self.conduitRequestClass(server, data, stream, streamType)
         try:
             response = (yield request.doRequest(txn))
         except Exception as e:
-            raise FailedCrossPodRequestError("Failed cross-pod request: {}".format(e))
+            raise FailedCrossPodRequestError(
+                "Failed cross-pod request: {}".format(e)
+            )
         if response["result"] == "exception":
             raise namedClass(response["class"])(response["details"])
         elif response["result"] != "ok":
-            raise FailedCrossPodRequestError("Cross-pod request failed: {}".format(response))
+            raise FailedCrossPodRequestError(
+                "Cross-pod request failed: {}".format(response)
+            )
         else:
             returnValue(response.get("value"))
 
@@ -135,8 +166,15 @@ class PoddingConduit(
         try:
             action = data["action"]
         except (KeyError, TypeError) as e:
-            log.error("JSON data must have an object as its root with an 'action' attribute: {ex}\n{json}", ex=e, json=data)
-            raise FailedCrossPodRequestError("JSON data must have an object as its root with an 'action' attribute: {}\n{}".format(e, data,))
+            log.error(
+                "JSON data must have an object as its root with an 'action' "
+                "attribute: {ex}\n{json}",
+                ex=e, json=data
+            )
+            raise FailedCrossPodRequestError(
+                "JSON data must have an object as its root with an 'action' "
+                "attribute: {}\n{}".format(e, data,)
+            )
 
         if action == "ping":
             result = {"result": "ok"}
@@ -145,7 +183,9 @@ class PoddingConduit(
         method = "recv_{}".format(action.replace("-", "_"))
         if not hasattr(self, method):
             log.error("Unsupported action: {action}", action=action)
-            raise FailedCrossPodRequestError("Unsupported action: {}".format(action))
+            raise FailedCrossPodRequestError(
+                "Unsupported action: {}".format(action)
+            )
 
         # Need a transaction to work with
         txn = self.store.newTransaction(repr("Conduit request"))
@@ -163,7 +203,9 @@ class PoddingConduit(
             log.error("Failed action: {action}, {ex}", action=action, ex=e)
             result = {
                 "result": "exception",
-                "class": ".".join((e.__class__.__module__, e.__class__.__name__,)),
+                "class": ".".join((
+                    e.__class__.__module__, e.__class__.__name__,
+                )),
                 "details": str(e),
             }
 
