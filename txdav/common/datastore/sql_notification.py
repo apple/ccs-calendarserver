@@ -147,8 +147,8 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
 
 
     @classmethod
-    def notificationsWithUID(cls, txn, uid, status=None, create=True):
-        return cls.notificationsWith(txn, None, uid, status, create=create)
+    def notificationsWithUID(cls, txn, uid, status=None, create=False):
+        return cls.notificationsWith(txn, None, uid, status=status, create=create)
 
 
     @classmethod
@@ -158,7 +158,7 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
 
     @classmethod
     @inlineCallbacks
-    def notificationsWith(cls, txn, rid, uid, status=None, create=True):
+    def notificationsWith(cls, txn, rid, uid, status=None, create=False):
         """
         @param uid: I'm going to assume uid is utf-8 encoded bytes
         """
@@ -316,6 +316,10 @@ class NotificationCollection(FancyEqMixin, _SharedSyncLogic):
 
     def uid(self):
         return self._ownerUID
+
+
+    def status(self):
+        return self._status
 
 
     @inlineCallbacks

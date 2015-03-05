@@ -744,6 +744,7 @@ END:VCALENDAR
         """
 
         home0 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
+        yield self.notificationCollectionUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
         calendar0 = yield home0.childWithName("calendar")
         object0_1 = yield calendar0.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
         object0_2 = yield calendar0.createCalendarObjectWithName("2.ics", Component.fromString(self.caldata2))
@@ -854,6 +855,7 @@ END:VCALENDAR
 
         # Create remote home
         yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
+        yield self.notificationCollectionUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
         yield self.commitTransaction(0)
 
         # Add some delegates
@@ -941,7 +943,7 @@ END:VCALENDAR
 
         # Create remote home - and add some fake notifications
         yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
-        notifications = yield self.theTransactionUnderTest(0).notificationsWithUID("user01")
+        notifications = yield self.theTransactionUnderTest(0).notificationsWithUID("user01", create=True)
         uid1 = str(uuid4())
         obj1 = yield notifications.writeNotificationObject(uid1, "type1", "data1")
         id1 = obj1.id()
@@ -1047,6 +1049,7 @@ class TestSharingSync(MultiStoreConduitTest):
 
         # Create home
         yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
+        yield self.notificationCollectionUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
         yield self.commitTransaction(0)
 
         # Shared by migrating user
@@ -1119,6 +1122,7 @@ class TestSharingSync(MultiStoreConduitTest):
 
         # Create home
         yield self.homeUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
+        yield self.notificationCollectionUnderTest(txn=self.theTransactionUnderTest(0), name="user01", create=True)
         yield self.commitTransaction(0)
 
         # Shared by migrating user

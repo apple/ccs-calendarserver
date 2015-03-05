@@ -14,6 +14,7 @@
 # limitations under the License.
 ##
 
+from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.protocol import Protocol
 
@@ -34,6 +35,7 @@ from txweb2.http_headers import MimeDisposition, MimeType
 from txweb2.stream import ProducerStream
 
 from twext.enterprise.ienterprise import AlreadyFinishedError
+from twext.enterprise.jobqueue import JobItem
 
 import json
 
@@ -223,6 +225,12 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
         assert self.activeTransactions[count] is not None
         yield self.activeTransactions[count].abort()
         self.activeTransactions[count] = None
+
+
+    @inlineCallbacks
+    def waitAllEmpty(self):
+        for i in range(self.numberOfStores):
+            yield JobItem.waitEmpty(self.theStoreUnderTest(i).newTransaction, reactor, 60.0)
 
 
     def makeConduit(self, store):

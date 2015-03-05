@@ -448,15 +448,6 @@ class IScheduleRequest(object):
 
     @inlineCallbacks
     def _processRequest(self, ssl, host, port, path):
-        from twisted.internet import reactor
-        f = Factory()
-        f.protocol = HTTPClientProtocol
-        if ssl:
-            ep = GAIEndpoint(reactor, host, port, _configuredClientContextFactory())
-        else:
-            ep = GAIEndpoint(reactor, host, port)
-        proto = (yield ep.connect(f))
-
         if not self.server.podding() and config.Scheduling.iSchedule.DKIM.Enabled:
             domain, selector, key_file, algorithm, useDNSKey, useHTTPKey, usePrivateExchangeKey, expire = DKIMUtils.getConfiguration(config)
             request = DKIMRequest(
@@ -480,6 +471,21 @@ class IScheduleRequest(object):
 
         if accountingEnabledForCategory("iSchedule"):
             self.loggedRequest = yield self.logRequest(request)
+
+        response = yield self._submitRequest(ssl, host, port, request)
+        returnValue(response)
+
+
+    @inlineCallbacks
+    def _submitRequest(self, ssl, host, port, request):
+        from twisted.internet import reactor
+        f = Factory()
+        f.protocol = HTTPClientProtocol
+        if ssl:
+            ep = GAIEndpoint(reactor, host, port, _configuredClientContextFactory())
+        else:
+            ep = GAIEndpoint(reactor, host, port)
+        proto = (yield ep.connect(f))
 
         response = (yield proto.submitRequest(request))
 

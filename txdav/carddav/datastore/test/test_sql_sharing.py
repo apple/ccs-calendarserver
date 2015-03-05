@@ -198,7 +198,7 @@ END:VCARD
 
     @inlineCallbacks
     def _check_notifications(self, home, items):
-        notifyHome = yield self.transactionUnderTest().notificationsWithUID(home)
+        notifyHome = yield self.transactionUnderTest().notificationsWithUID(home, create=True)
         notifications = yield notifyHome.listNotificationObjects()
         self.assertEqual(set(notifications), set(items))
 

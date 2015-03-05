@@ -297,7 +297,7 @@ class NotifierFactory(StoreTestCase):
     @inlineCallbacks
     def test_notificationNotifier(self):
 
-        notifications = yield self.transactionUnderTest().notificationsWithUID("user01")
+        notifications = yield self.transactionUnderTest().notificationsWithUID("user01", create=True)
         yield notifications.notifyChanged(category=ChangeCategory.default)
         self.assertEquals(
             set(self.notifierFactory.history),

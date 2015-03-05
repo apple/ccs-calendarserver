@@ -89,6 +89,16 @@ class CommonHomeExternal(CommonHome):
         return self._txn.store().conduit.send_home_set_status(self, newStatus)
 
 
+    def setLocalStatus(self, newStatus):
+        """
+        Set the status on the object in the local store not the remote one.
+
+        @param newStatus: the new status to set
+        @type newStatus: L{int}
+        """
+        return super(CommonHomeExternal, self).setStatus(newStatus)
+
+
     def external(self):
         """
         Is this an external home.
@@ -516,5 +526,15 @@ class NotificationCollectionExternal(NotificationCollection):
 
     def setStatus(self, newStatus):
         return self._txn.store().conduit.send_notification_set_status(self, newStatus)
+
+
+    def setLocalStatus(self, newStatus):
+        """
+        Set the status on the object in the local store not the remote one.
+
+        @param newStatus: the new status to set
+        @type newStatus: L{int}
+        """
+        return super(NotificationCollectionExternal, self).setStatus(newStatus)
 
 NotificationCollection._externalClass = NotificationCollectionExternal

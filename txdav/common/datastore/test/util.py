@@ -939,6 +939,13 @@ class CommonCommonTests(object):
 
 
     @inlineCallbacks
+    def notificationCollectionUnderTest(self, txn=None, name="home1", status=None, create=False):
+        if txn is None:
+            txn = self.transactionUnderTest()
+        returnValue((yield txn.notificationsWithUID(name, status=status, create=create)))
+
+
+    @inlineCallbacks
     def userRecordWithShortName(self, shortname):
         record = yield self.directory.recordWithShortName(self.directory.recordType.user, shortname)
         returnValue(record)
@@ -962,11 +969,13 @@ class CommonCommonTests(object):
 
 
     @inlineCallbacks
-    def changeRecord(self, record, fieldname, value):
+    def changeRecord(self, record, fieldname, value, directory=None):
+        if directory is None:
+            directory = self.directory
         fields = record.fields.copy()
         fields[fieldname] = value
-        updatedRecord = DirectoryRecord(self.directory, fields)
-        yield self.directory.updateRecords((updatedRecord,))
+        updatedRecord = DirectoryRecord(directory, fields)
+        yield directory.updateRecords((updatedRecord,))
 
 
 

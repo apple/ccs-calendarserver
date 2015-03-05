@@ -601,7 +601,7 @@ class SharingMixIn(object):
             notificationdata["supported-components"] = self.getSupportedComponents()
 
         # Add to sharee's collection
-        notifications = yield self._txn.notificationsWithUID(shareeView.viewerHome().uid())
+        notifications = yield self._txn.notificationsWithUID(shareeView.viewerHome().uid(), create=True)
         yield notifications.writeNotificationObject(shareeView.shareUID(), notificationtype, notificationdata)
 
 
@@ -632,7 +632,7 @@ class SharingMixIn(object):
         }
 
         # Add to owner notification collection
-        notifications = yield self._txn.notificationsWithUID(self.ownerHome().uid())
+        notifications = yield self._txn.notificationsWithUID(self.ownerHome().uid(), create=True)
         yield notifications.writeNotificationObject(notificationUID, notificationtype, notificationdata)
 
 

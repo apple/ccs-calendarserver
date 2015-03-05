@@ -464,7 +464,7 @@ class CalendarSharing(BaseSharingTests):
         shared = yield self.calendarUnderTest(home="user02", name=sharedName)
         self.assertTrue(shared is not None)
 
-        notifyHome = yield self.transactionUnderTest().notificationsWithUID("user02")
+        notifyHome = yield self.transactionUnderTest().notificationsWithUID("user02", create=True)
         notifications = yield notifyHome.listNotificationObjects()
         self.assertEqual(len(notifications), 0)
 
@@ -654,7 +654,7 @@ class GroupSharingTests(BaseSharingTests):
 
     @inlineCallbacks
     def _check_notifications(self, uid, items):
-        notifyHome = yield self.transactionUnderTest().notificationsWithUID(uid)
+        notifyHome = yield self.transactionUnderTest().notificationsWithUID(uid, create=True)
         notifications = yield notifyHome.listNotificationObjects()
         self.assertEqual(set(notifications), set(items))
 

@@ -376,7 +376,7 @@ class CommonStoreTransaction(DataStoreTransaction):
 
 
     @memoizedKey("uid", "_notificationHomes", deferredResult=False)
-    def notificationsWithUID(self, uid, home=None):
+    def notificationsWithUID(self, uid, home=None, create=False):
 
         if home is None:
             home = self.homeWithUID(self._notificationHomeType, uid, create=True)

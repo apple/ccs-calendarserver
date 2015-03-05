@@ -85,17 +85,22 @@ class CrossPodHomeSync(object):
 
     BATCH_SIZE = 50
 
-    def __init__(self, store, diruid):
+    def __init__(self, store, diruid, final=False):
         """
         @param store: the data store
         @type store: L{CommonDataStore}
         @param diruid: directory uid of the user whose home is to be sync'd
         @type diruid: L{str}
+        @param final: indicates whether this is in the final sync stage with the remote home
+            already disabled
+        @type final: L{bool}
         """
 
         self.store = store
         self.diruid = diruid
-        self.disabledRemote = False
+        self.disabledRemote = final
+        self.record = None
+        self.homeId = None
 
 
     def label(self, detail):
@@ -133,7 +138,7 @@ class CrossPodHomeSync(object):
         # Step 6 - enable new home
         yield self.enableLocalHome()
 
-        # Step 7 - remote remote home
+        # Step 7 - remove remote home
         yield self.removeRemoteHome()
 
         # Step 8 - say phew! TODO: Actually alert everyone else
@@ -168,6 +173,9 @@ class CrossPodHomeSync(object):
         rows, recalculate quota etc.
         """
 
+        yield self.loadRecord()
+        yield self.prepareCalendarHome()
+
         # Link attachments to resources: ATTACHMENT_CALENDAR_OBJECT table
         yield self.linkAttachments()
 
@@ -198,6 +206,9 @@ class CrossPodHomeSync(object):
         Mark the remote home as disabled.
         """
 
+        yield self.loadRecord()
+        yield self.prepareCalendarHome()
+
         # Calendar home
         remote_home = yield self._remoteHome(txn)
         yield remote_home.setStatus(_HOME_STATUS_DISABLED)
@@ -216,13 +227,16 @@ class CrossPodHomeSync(object):
         Mark the local home as enabled and remove any previously existing external home.
         """
 
+        yield self.loadRecord()
+        yield self.prepareCalendarHome()
+
         # Disable any local external homes
         oldhome = yield txn.calendarHomeWithUID(self.diruid, status=_HOME_STATUS_EXTERNAL)
         if oldhome is not None:
-            yield oldhome.setStatus(_HOME_STATUS_DISABLED)
+            yield oldhome.setLocalStatus(_HOME_STATUS_DISABLED)
         oldnotifications = yield txn.notificationsWithUID(self.diruid, status=_HOME_STATUS_EXTERNAL)
         if oldnotifications:
-            yield oldnotifications.setStatus(_HOME_STATUS_DISABLED)
+            yield oldnotifications.setLocalStatus(_HOME_STATUS_DISABLED)
 
         # Enable the migrating ones
         newhome = yield txn.calendarHomeWithUID(self.diruid, status=_HOME_STATUS_MIGRATING)
@@ -244,7 +258,8 @@ class CrossPodHomeSync(object):
 
         # TODO: implement API on CommonHome to purge the old data without
         # any side-effects (scheduling, sharing etc).
-        pass
+        yield self.loadRecord()
+        yield self.prepareCalendarHome()
 
 
     @inlineCallbacks
@@ -253,11 +268,12 @@ class CrossPodHomeSync(object):
         Initiate a sync of the home.
         """
 
-        self.record = yield self.store.directoryService().recordWithUID(self.diruid)
         if self.record is None:
-            raise DirectoryRecordNotFoundError("Cross-pod Migration Sync missing directory record for {}".format(self.diruid))
-        if self.record.thisServer():
-            raise ValueError("Cross-pod Migration Sync cannot sync with user already on this server: {}".format(self.diruid))
+            self.record = yield self.store.directoryService().recordWithUID(self.diruid)
+            if self.record is None:
+                raise DirectoryRecordNotFoundError("Cross-pod Migration Sync missing directory record for {}".format(self.diruid))
+            if self.record.thisServer():
+                raise ValueError("Cross-pod Migration Sync cannot sync with user already on this server: {}".format(self.diruid))
 
 
     @inTransactionWrapper
@@ -267,10 +283,14 @@ class CrossPodHomeSync(object):
         Make sure the inactive home to migrate into is present on this pod.
         """
 
-        home = yield self._localHome(txn)
-        if home is None:
-            home = yield txn.calendarHomeWithUID(self.diruid, status=_HOME_STATUS_MIGRATING, create=True)
-        self.homeId = home.id()
+        if self.homeId is None:
+            home = yield self._localHome(txn)
+            if home is None:
+                if self.disabledRemote:
+                    self.homeId = None
+                else:
+                    home = yield txn.calendarHomeWithUID(self.diruid, status=_HOME_STATUS_MIGRATING, create=True)
+            self.homeId = home.id() if home is not None else None
 
 
     @inTransactionWrapper
@@ -1004,6 +1024,8 @@ class CrossPodHomeSync(object):
         len_records = 0
         for calendar in calendars.values():
             records, bindUID = yield self.sharedByCollectionRecords(calendar.remoteResourceID, calendar.localResourceID)
+            if not records:
+                continue
             records = records.items()
 
             # Batch setting resources for the local home
@@ -1039,7 +1061,7 @@ class CrossPodHomeSync(object):
             calendarHomeResourceID=self.homeId,
             calendarResourceID=local_id,
         )
-        if not local_records[0].bindUID:
+        if records and not local_records[0].bindUID:
             yield local_records[0].update(bindUID=str(uuid4()))
 
         returnValue((records, local_records[0].bindUID,))

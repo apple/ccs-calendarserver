@@ -579,7 +579,10 @@ class CommonStoreTransaction(
                 "byID": collections.defaultdict(dict),
             },
         }
-        self._notificationHomes = {}
+        self._notificationHomes = {
+            "byUID": collections.defaultdict(dict),
+            "byID": collections.defaultdict(dict),
+        }
         self._notifierFactories = notifierFactories
         self._notifiedAlready = set()
         self._bumpedRevisionAlready = set()
@@ -753,7 +756,7 @@ class CommonStoreTransaction(
             result = yield self._homeClass[storeType].homeWithResourceID(self, rid)
             if result:
                 self._determineMemo(storeType, "byID", None)[rid] = result
-                self._determineMemo(storeType, "byUID", result._status)[result.uid()] = result
+                self._determineMemo(storeType, "byUID", result.status())[result.uid()] = result
         returnValue(result)
 
 
@@ -765,20 +768,34 @@ class CommonStoreTransaction(
         return self.homeWithResourceID(EADDRESSBOOKTYPE, rid)
 
 
-    @memoizedKey("uid", "_notificationHomes")
-    def notificationsWithUID(self, uid, status=None, create=True):
+    @inlineCallbacks
+    def notificationsWithUID(self, uid, status=None, create=False):
         """
         Implement notificationsWithUID.
         """
-        return NotificationCollection.notificationsWithUID(self, uid, create=create)
+
+        result = self._notificationHomes["byUID"][status].get(uid)
+        if result is None:
+            result = yield NotificationCollection.notificationsWithUID(self, uid, status=status, create=create)
+            if result:
+                self._notificationHomes["byUID"][status][uid] = result
+                self._notificationHomes["byID"][None][result.id()] = result
+        returnValue(result)
 
 
-    @memoizedKey("rid", "_notificationHomes")
+    @inlineCallbacks
     def notificationsWithResourceID(self, rid):
         """
         Implement notificationsWithResourceID.
         """
-        return NotificationCollection.notificationsWithResourceID(self, rid)
+
+        result = self._notificationHomes["byID"][None].get(rid)
+        if result is None:
+            result = yield NotificationCollection.notificationsWithResourceID(self, rid)
+            if result:
+                self._notificationHomes["byID"][None][rid] = result
+                self._notificationHomes["byUID"][result.status()][result.uid()] = result
+        returnValue(result)
 
 
     def preCommit(self, operation):
@@ -1966,6 +1983,10 @@ class CommonHome(SharingHomeMixIn):
         @return: a string.
         """
         return self._authzUID
+
+
+    def status(self):
+        return self._status
 
 
     def normal(self):

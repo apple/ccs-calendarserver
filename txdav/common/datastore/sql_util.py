@@ -691,7 +691,7 @@ def _getHome(txn, homeType, uid):
         L{NotificationHome} when it has been retrieved.
     """
     if homeType == ENOTIFICATIONTYPE:
-        return txn.notificationsWithUID(uid, create=False)
+        return txn.notificationsWithUID(uid)
     else:
         return txn.homeWithUID(homeType, uid)
 

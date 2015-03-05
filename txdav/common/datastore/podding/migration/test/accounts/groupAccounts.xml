@@ -106,6 +106,7 @@ limitations under the License.
 	    <full-name>Group 01</full-name>
 	    <email>group01@example.com</email>
 	    <member-uid>user01</member-uid>
+	    <member-uid>puser01</member-uid>
 	</record>
 	<record type="group">
 	    <short-name>group02</short-name>
