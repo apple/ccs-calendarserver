@@ -569,7 +569,7 @@ def resetCalendarMD5s(md5s, store):
                         md5 = calendarObjNames[objectName]
                         obj = (
                             yield calendar.calendarObjectWithName(objectName)
-                        ),
+                        )
                         obj.properties()[md5key] = (
                             TwistedGETContentMD5.fromString(md5)
                         )
