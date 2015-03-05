@@ -71,9 +71,9 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         txn = self.transactionUnderTest()
         cs = schema.CALENDARSERVER
         version = (yield Select(
-            [cs.VALUE, ],
+            [cs.VALUE],
             From=cs,
-            Where=cs.NAME == 'VERSION',
+            Where=cs.NAME == "VERSION",
         ).on(txn))
         self.assertNotEqual(version, None)
         self.assertEqual(len(version), 1)
