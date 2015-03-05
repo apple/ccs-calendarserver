@@ -591,6 +591,14 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
                     self._txn, resourceID=self._resourceID, name=name, id=id))
             if rows:
                 self._syncTokenRevision = rows[0][0]
+            else:
+                # Nothing was matched on the delete so insert a new row
+                self._syncTokenRevision = (
+                    yield self._completelyNewDeletedRevisionQuery.on(
+                        self._txn, homeID=self.ownerHome()._resourceID,
+                        resourceID=self._resourceID, name=name)
+                )[0][0]
+
         elif action == "update":
             rows = (
                 yield self._updateBumpTokenQuery.on(
@@ -598,9 +606,14 @@ class AddressBook(AddressBookSharingMixIn, CommonHomeChild):
             if rows:
                 self._syncTokenRevision = rows[0][0]
             else:
-                action = "insert"
+                # Nothing was matched on the update so insert a new row
+                self._syncTokenRevision = (
+                    yield self._completelyNewRevisionQuery.on(
+                        self._txn, homeID=self.ownerHome()._resourceID,
+                        resourceID=self._resourceID, name=name)
+                )[0][0]
 
-        if action == "insert":
+        elif action == "insert":
             # Note that an "insert" may happen for a resource that previously
             # existed and then was deleted. In that case an entry in the
             # REVISIONS table still exists so we have to detect that and do db

@@ -99,8 +99,6 @@
     <string></string>
     <key>DSN</key>
     <string></string>
-    <key>DBImportFile</key>
-    <string>/Library/Server/Calendar and Contacts/DataDump.sql</string>
     <key>Postgres</key>
     <dict>
         <key>Ctl</key>
@@ -331,7 +329,7 @@
 
     <!-- Log levels -->
     <key>DefaultLogLevel</key>
-    <string>warn</string> <!-- debug, info, warn, error -->
+    <string>info</string> <!-- debug, info, warn, error -->
 
     <!-- Server process ID file -->
     <key>PIDFile</key>

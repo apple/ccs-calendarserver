@@ -14,11 +14,19 @@
 # limitations under the License.
 ##
 
+"""
+Generic ADAPI database access object.
+"""
+
+__all__ = [
+    "AbstractADBAPIDatabase",
+]
+
 import thread
 
 try:
-    import pgdb as postgres
-except:
+    from txdav.base.datastore.subpostgres import postgres
+except ImportError:
     postgres = None
 
 from twisted.enterprise.adbapi import ConnectionPool
@@ -29,15 +37,9 @@ from twext.python.log import Logger
 
 from twistedcaldav.config import ConfigurationError
 
-"""
-Generic ADAPI database access object.
-"""
-
-__all__ = [
-    "AbstractADBAPIDatabase",
-]
-
 log = Logger()
+
+
 
 class ConnectionClosingThreadPool(ThreadPool):
     """
