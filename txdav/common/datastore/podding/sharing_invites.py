@@ -26,33 +26,45 @@ class SharingInvitesConduitMixin(object):
     """
 
     @inlineCallbacks
-    def send_shareinvite(self, txn, homeType, ownerUID, ownerName, shareeUID, shareUID, bindMode, bindUID, summary, copy_properties, supported_components):
+    def send_shareinvite(
+        self, txn, homeType, ownerUID, ownerName, shareeUID, shareUID,
+        bindMode, bindUID, summary, copy_properties, supported_components
+    ):
         """
         Send a sharing invite cross-pod message.
 
         @param homeType: Type of home being shared.
         @type homeType: C{int}
+
         @param ownerUID: UID of the sharer.
         @type ownerUID: C{str}
+
         @param ownerName: owner's name of the sharer calendar
         @type ownerName: C{str}
+
         @param shareeUID: UID of the sharee
         @type shareeUID: C{str}
+
         @param shareUID: Resource/invite ID for sharee
         @type shareUID: C{str}
+
         @param bindMode: bind mode for the share
         @type bindMode: C{str}
         @param bindUID: bind UID of the sharer calendar
         @type bindUID: C{str}
         @param summary: sharing message
         @type summary: C{str}
+
         @param copy_properties: C{str} name/value for properties to be copied
         @type copy_properties: C{dict}
+
         @param supported_components: supproted components, may be C{None}
         @type supported_components: C{str}
         """
 
-        _ignore_sender, recipient = yield self.validRequest(ownerUID, shareeUID)
+        _ignore_sender, recipient = yield self.validRequest(
+            ownerUID, shareeUID
+        )
 
         request = {
             "action": "shareinvite",
@@ -75,14 +87,17 @@ class SharingInvitesConduitMixin(object):
     @inlineCallbacks
     def recv_shareinvite(self, txn, request):
         """
-        Process a sharing invite cross-pod request. Request arguments as per L{send_shareinvite}.
+        Process a sharing invite cross-pod request.
+        Request arguments as per L{send_shareinvite}.
 
         @param request: request arguments
         @type request: C{dict}
         """
 
         # Sharee home on this pod must exist (create if needed)
-        shareeHome = yield txn.homeWithUID(request["type"], request["sharee"], create=True)
+        shareeHome = yield txn.homeWithUID(
+            request["type"], request["sharee"], create=True
+        )
         if shareeHome is None or shareeHome.external():
             raise FailedCrossPodRequestError("Invalid sharee UID specified")
 
@@ -100,23 +115,31 @@ class SharingInvitesConduitMixin(object):
 
 
     @inlineCallbacks
-    def send_shareuninvite(self, txn, homeType, ownerUID, bindUID, shareeUID, shareUID):
+    def send_shareuninvite(
+        self, txn, homeType, ownerUID,
+        bindUID, shareeUID, shareUID
+    ):
         """
         Send a sharing uninvite cross-pod message.
 
         @param homeType: Type of home being shared.
         @type homeType: C{int}
+
         @param ownerUID: UID of the sharer.
         @type ownerUID: C{str}
         @param bindUID: bind UID of the sharer calendar
         @type bindUID: C{str}
+
         @param shareeUID: UID of the sharee
         @type shareeUID: C{str}
+
         @param shareUID: Resource/invite ID for sharee
         @type shareUID: C{str}
         """
 
-        _ignore_sender, recipient = yield self.validRequest(ownerUID, shareeUID)
+        _ignore_sender, recipient = yield self.validRequest(
+            ownerUID, shareeUID
+        )
 
         request = {
             "action": "shareuninvite",
@@ -133,7 +156,8 @@ class SharingInvitesConduitMixin(object):
     @inlineCallbacks
     def recv_shareuninvite(self, txn, request):
         """
-        Process a sharing uninvite cross-pod request. Request arguments as per L{send_shareuninvite}.
+        Process a sharing uninvite cross-pod request.
+        Request arguments as per L{send_shareuninvite}.
 
         @param request: request arguments
         @type request: C{dict}
@@ -153,7 +177,10 @@ class SharingInvitesConduitMixin(object):
 
 
     @inlineCallbacks
-    def send_sharereply(self, txn, homeType, ownerUID, shareeUID, shareUID, bindStatus, summary=None):
+    def send_sharereply(
+        self, txn, homeType, ownerUID,
+        shareeUID, shareUID, bindStatus, summary=None
+    ):
         """
         Send a sharing reply cross-pod message.
 
@@ -171,7 +198,9 @@ class SharingInvitesConduitMixin(object):
         @type summary: C{str}
         """
 
-        _ignore_sender, recipient = yield self.validRequest(shareeUID, ownerUID)
+        _ignore_sender, recipient = yield self.validRequest(
+            shareeUID, ownerUID
+        )
 
         request = {
             "action": "sharereply",
@@ -190,7 +219,8 @@ class SharingInvitesConduitMixin(object):
     @inlineCallbacks
     def recv_sharereply(self, txn, request):
         """
-        Process a sharing reply cross-pod request. Request arguments as per L{send_sharereply}.
+        Process a sharing reply cross-pod request.
+        Request arguments as per L{send_sharereply}.
 
         @param request: request arguments
         @type request: C{dict}
