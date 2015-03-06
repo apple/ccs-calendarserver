@@ -4927,6 +4927,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 splitter = iCalSplitter()
                 willSplit = splitter.willSplit(caldata)
                 if willSplit:
+                    log.debug("Splitting scheduled event being recovered by organizer from trash")
                     yield self.split(
                         coercePartstatsInExistingResource=True,
                         splitter=splitter
@@ -4946,6 +4947,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     instances = sorted(instances.instances.values(), key=lambda x: x.start)
                     if instances[0].start >= now:
                         # future
+                        log.debug("Scheduled event being recovered by organizer from trash, fully in the future")
                         newdata = caldata.duplicate()
                         newdata.bumpiTIPInfo(doSequence=True)
                         for attendee in newdata.getAllAttendeeProperties():
@@ -4959,6 +4961,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
                     else:
                         # past
+                        log.debug("Scheduled event being recovered by organizer from trash, fully in the past")
                         yield ImplicitScheduler().refreshAllAttendeesExceptSome(
                             self._txn,
                             self,
@@ -4966,10 +4969,13 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
             else:
                 # If an ATTENDEE is moving the event from trash
+                log.debug("Scheduled event being recovered by attendee from trash")
                 yield ImplicitScheduler().sendAttendeeReply(
                     self._txn,
                     self
                 )
+        else:
+            log.debug("Recovered un-scheduled event from trash")
 
         returnValue(name)
 

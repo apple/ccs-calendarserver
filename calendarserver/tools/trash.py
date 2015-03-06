@@ -17,33 +17,15 @@
 ##
 from __future__ import print_function
 
-import collections
-import datetime
-from getopt import getopt, GetoptError
-import os
-import sys
-
-from calendarserver.tools import tables
-from calendarserver.tools.cmdline import utilityMain, WorkerService
-
-from pycalendar.datetime import DateTime
-
-from twext.enterprise.dal.record import fromTable
-from twext.enterprise.dal.syntax import Delete, Select, Union
-from twext.enterprise.jobqueue import WorkItem, RegeneratingWorkItem
-from twext.python.log import Logger
-
-from twisted.internet.defer import inlineCallbacks, returnValue, succeed
-
-from twistedcaldav import caldavxml
-from twistedcaldav.config import config
-
-from txdav.caldav.datastore.query.filter import Filter
-from txdav.common.datastore.sql_tables import schema, _HOME_STATUS_NORMAL
-from txdav.caldav.datastore.sql import CalendarStoreFeatures
-
 from argparse import ArgumentParser
+import datetime
 
+from calendarserver.tools.cmdline import utilityMain, WorkerService
+from calendarserver.tools.util import prettyRecord
+from twext.python.log import Logger
+from twisted.internet.defer import inlineCallbacks, returnValue
+from txdav.base.propertystore.base import PropertyName
+from txdav.xml import element
 
 log = Logger()
 
@@ -51,14 +33,11 @@ log = Logger()
 
 class TrashRestorationService(WorkerService):
 
-    principals = []
+    operation = None
+    operationArgs = []
 
     def doWork(self):
-        rootResource = self.rootResource()
-        directory = rootResource.getDirectory()
-        return restoreFromTrash(
-            self.store, directory, rootResource, self.principals
-        )
+        return self.operation(self.store, *self.operationArgs)
 
 
 
@@ -67,40 +46,276 @@ def main():
     parser = ArgumentParser(description='Restore events from trash')
     parser.add_argument('-f', '--config', dest='configFileName', metavar='CONFIGFILE', help='caldavd.plist configuration file path')
     parser.add_argument('-d', '--debug', action='store_true', help='show debug logging')
-    parser.add_argument('principal', help='one or more principals to restore', nargs='+')  # Required
+    parser.add_argument('-p', '--principal', dest='principal', help='the principal to use (uid)')
+    parser.add_argument('-e', '--events', action='store_true', help='list trashed events')
+    parser.add_argument('-c', '--collections', action='store_true', help='list trashed collections for principal (uid)')
+    parser.add_argument('-r', '--recover', dest='resourceID', type=int, help='recover trashed collection or event (by resource ID)')
+    parser.add_argument('--empty', action='store_true', help='empty the principal\'s trash')
+    parser.add_argument('--days', type=int, default=0, help='number of past days to retain')
+
     args = parser.parse_args()
 
-    TrashRestorationService.principals = args.principal
+    if not args.principal:
+        print("--principal missing")
+        return
+
+    if args.empty:
+        operation = emptyTrashForPrincipal
+        operationArgs = [args.principal, args.days]
+    elif args.collections:
+        if args.resourceID:
+            operation = restoreTrashedCollection
+            operationArgs = [args.principal, args.resourceID]
+        else:
+            operation = listTrashedCollectionsForPrincipal
+            operationArgs = [args.principal]
+    elif args.events:
+        if args.resourceID:
+            operation = restoreTrashedEvent
+            operationArgs = [args.principal, args.resourceID]
+        else:
+            operation = listTrashedEventsForPrincipal
+            operationArgs = [args.principal]
+    else:
+        operation = listTrashedCollectionsForPrincipal
+        operationArgs = [args.principal]
+
+    TrashRestorationService.operation = operation
+    TrashRestorationService.operationArgs = operationArgs
 
     utilityMain(
         args.configFileName,
         TrashRestorationService,
         verbose=args.debug,
+        loadTimezones=True
     )
+
+
+@inlineCallbacks
+def listTrashedCollectionsForPrincipal(service, store, principalUID):
+    directory = store.directoryService()
+    record = yield directory.recordWithUID(principalUID)
+    if record is None:
+        print("No record found for:", principalUID)
+        returnValue(None)
+
+    txn = store.newTransaction(label="List trashed collections")
+    home = yield txn.calendarHomeWithUID(principalUID)
+    if home is None:
+        print("No home for principal")
+        returnValue(None)
+
+    trash = yield home.childWithName("trash")
+
+    trashedCollections = yield home.children(onlyInTrash=True)
+    if len(trashedCollections) == 0:
+        print("No trashed collections for:", prettyRecord(record))
+        returnValue(None)
+
+    print("Listing trashed collections for:", prettyRecord(record))
+    for collection in trashedCollections:
+        displayName = displayNameForCollection(collection)
+        print(
+            "Collection = \"{}\", trashed = {}, id = {}".format(
+                displayName.encode("utf-8"), collection.whenTrashed(),
+                collection._resourceID
+            )
+        )
+        startTime = collection.whenTrashed() - datetime.timedelta(minutes=5)
+        children = yield trash.trashForCollection(
+            collection._resourceID, start=startTime
+        )
+        print(" ...containing events:")
+        for child in children:
+            component = yield child.component()
+            summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
+            whenTrashed = yield child.whenTrashed()
+            print(" \"{}\", trashed = {}".format(summary.encode("utf-8"), whenTrashed))
+
+    yield txn.commit()
+
+
+@inlineCallbacks
+def listTrashedEventsForPrincipal(service, store, principalUID):
+    directory = store.directoryService()
+    record = yield directory.recordWithUID(principalUID)
+    if record is None:
+        print("No record found for:", principalUID)
+        returnValue(None)
+
+    txn = store.newTransaction(label="List trashed collections")
+    home = yield txn.calendarHomeWithUID(principalUID)
+    if home is None:
+        print("No home for principal")
+        returnValue(None)
+
+    trash = yield home.childWithName("trash")
+
+    untrashedCollections = yield home.children(onlyInTrash=False)
+    if len(untrashedCollections) == 0:
+        print("No untrashed collections for:", prettyRecord(record))
+        returnValue(None)
+
+    # print("Listing trashed collections for:", prettyRecord(record))
+    for collection in untrashedCollections:
+        displayName = displayNameForCollection(collection)
+        children = yield trash.trashForCollection(collection._resourceID)
+        if len(children) == 0:
+            continue
+
+        print("Collection = \"{}\"".format(displayName.encode("utf-8")))
+        for child in children:
+            component = yield child.component()
+            summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
+            whenTrashed = yield child.whenTrashed()
+            print(
+                " \"{}\", trashed = {}, id = {}".format(
+                    summary.encode("utf-8"), whenTrashed, child._resourceID
+                )
+            )
+
+    yield txn.commit()
+
+
+@inlineCallbacks
+def restoreTrashedCollection(service, store, principalUID, resourceID):
+    directory = store.directoryService()
+    record = yield directory.recordWithUID(principalUID)
+    if record is None:
+        print("No record found for:", principalUID)
+        returnValue(None)
+
+    txn = store.newTransaction(label="Restore trashed collection")
+    home = yield txn.calendarHomeWithUID(principalUID)
+    if home is None:
+        print("No home for principal")
+        returnValue(None)
+
+    collection = yield home.childWithID(resourceID, onlyInTrash=True)
+    if collection is None:
+        print("Collection {} is not in the trash".format(resourceID))
+        returnValue(None)
+
+    yield collection.fromTrash(
+        restoreChildren=True, delta=datetime.timedelta(minutes=5), verbose=True
+    )
+
+    yield txn.commit()
+
+
+@inlineCallbacks
+def restoreTrashedEvent(service, store, principalUID, resourceID):
+    directory = store.directoryService()
+    record = yield directory.recordWithUID(principalUID)
+    if record is None:
+        print("No record found for:", principalUID)
+        returnValue(None)
+
+    txn = store.newTransaction(label="Restore trashed collection")
+    home = yield txn.calendarHomeWithUID(principalUID)
+    if home is None:
+        print("No home for principal")
+        returnValue(None)
+
+    trash = yield home.childWithName("trash")
+    child = yield trash.objectResourceWithID(resourceID)
+    if child is None:
+        print("Event not found")
+        returnValue(None)
+
+    component = yield child.component()
+    summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
+    print("Restoring \"{}\"".format(summary.encode("utf-8")))
+    yield child.fromTrash()
+
+    yield txn.commit()
 
 
 
 @inlineCallbacks
-def restoreFromTrash(store, directory, root, principals):
+def emptyTrashForPrincipal(service, store, principalUID, days):
+    directory = store.directoryService()
+    record = yield directory.recordWithUID(principalUID)
+    if record is None:
+        print("No record found for:", principalUID)
+        returnValue(None)
 
-    for principalUID in principals:
-        txn = store.newTransaction(label="Restore trashed events")
-        home = yield txn.calendarHomeWithUID(principalUID)
-        if home is None:
+    txn = store.newTransaction(label="List trashed collections")
+    home = yield txn.calendarHomeWithUID(principalUID)
+    if home is None:
+        print("No home for principal")
+        returnValue(None)
+
+    trash = yield home.childWithName("trash")
+
+    untrashedCollections = yield home.children(onlyInTrash=False)
+    if len(untrashedCollections) == 0:
+        print("No untrashed collections for:", prettyRecord(record))
+        returnValue(None)
+
+    endTime = datetime.datetime.utcnow() - datetime.timedelta(days=-days)
+    # print("Listing trashed collections for:", prettyRecord(record))
+    for collection in untrashedCollections:
+        displayName = displayNameForCollection(collection)
+        children = yield trash.trashForCollection(
+            collection._resourceID, end=endTime
+        )
+        if len(children) == 0:
             continue
-        trash = yield home.childWithName("trash")
-        names = yield trash.listObjectResources()
-        for name in names:
-            cobj = yield trash.calendarObjectWithName(name)
-            print(name, cobj)
 
-            if cobj is not None:
-                # If it's still in the trash, restore it from trash
-                if (yield cobj.isInTrash()):
-                    print("Restoring:", name)
-                    yield cobj.fromTrash()
+        print("Collection = \"{}\"".format(displayName.encode("utf-8")))
+        for child in children:
+            component = yield child.component()
+            summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
+            whenTrashed = yield child.whenTrashed()
+            print(
+                " \"{}\", trashed = {}, id = {}".format(
+                    summary.encode("utf-8"), whenTrashed, child._resourceID
+                )
+            )
+            print("Removing...")
+            yield child.reallyRemove()
 
-        yield txn.commit()
+    yield txn.commit()
+
+# @inlineCallbacks
+# def restoreFromTrash(store, directory, root, principals):
+
+#     for principalUID in principals:
+#         txn = store.newTransaction(label="Restore trashed events")
+#         home = yield txn.calendarHomeWithUID(principalUID)
+#         if home is None:
+#             continue
+#         trashedCollections = yield home.children(onlyInTrash=True)
+#         for collection in trashedCollections:
+#             displayName = displayNameForCollection(collection)
+#             print("Restoring collection", displayName, collection._resourceID)
+#             yield collection.fromTrash(restoreChildren=True)
+#         # This code is for untrashing all objects:
+#         # names = yield trash.listObjectResources()
+#         # for name in names:
+#         #     cobj = yield trash.calendarObjectWithName(name)
+#         #     print(name, cobj)
+
+#         #     if cobj is not None:
+#         #         # If it's still in the trash, restore it from trash
+#         #         if (yield cobj.isInTrash()):
+#         #             print("Restoring:", name)
+#         #             yield cobj.fromTrash()
+
+#         yield txn.commit()
+
+
+def displayNameForCollection(collection):
+    try:
+        displayName = collection.properties()[
+            PropertyName.fromElement(element.DisplayName)
+        ]
+        displayName = displayName.toString()
+    except:
+        displayName = collection.name()
+
+    return displayName
 
 
 if __name__ == "__main__":

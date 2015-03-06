@@ -6168,7 +6168,7 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
         yield self._updateIsInTrashQuery.on(
             self._txn, isInTrash=True, trashed=whenTrashed, resourceID=self._resourceID
         )
-        newName = "{}-{}".format(self._name[:200], str(uuid4()))
+        newName = "{}-{}".format(self._name[:36], str(uuid4()))
         yield self.rename(newName)
         # yield self.notifyPropertyChanged()
         # yield self.invalidateQueryCache()
@@ -6192,16 +6192,16 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
 
 
     @inlineCallbacks
-    def fromTrash(self, restoreChildren=True, delta=datetime.timedelta(minutes=3)):
-
-        # print("XYZZY collection fromTrash")
+    def fromTrash(
+        self, restoreChildren=True, delta=datetime.timedelta(minutes=5),
+        verbose=False
+    ):
         if not self._isInTrash:
             returnValue(None)
 
         startTime = self.whenTrashed()
         if delta is not None:
             startTime = startTime - delta
-
 
         yield self._updateIsInTrashQuery.on(
             self._txn, isInTrash=False, trashed=None, resourceID=self._resourceID
@@ -6231,7 +6231,11 @@ class CommonHomeChild(FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase,
                 self._resourceID, start=startTime
             )
             for child in childrenToRestore:
-                # print("Restoring", child)
+                if verbose:
+                    component = yield child.component()
+                    summary = component.mainComponent().propertyValue("SUMMARY", "<no title>")
+                    print("Recovering \"{}\"".format(summary.encode("utf-8")))
+
                 yield child.fromTrash()
 
 
