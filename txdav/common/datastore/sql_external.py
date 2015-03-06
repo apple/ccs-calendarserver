@@ -26,6 +26,8 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from txdav.base.propertystore.sql import PropertyStore
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource
+from txdav.common.datastore.sql_notification import NotificationCollection, \
+    NotificationObjectRecord
 from txdav.common.datastore.sql_tables import _HOME_STATUS_EXTERNAL
 from txdav.common.icommondatastore import NonExistentExternalShare, \
     ExternalShareFailed
@@ -40,17 +42,61 @@ class CommonHomeExternal(CommonHome):
     are all stubbed out since no data for the user is actually hosted in this store.
     """
 
-    def __init__(self, transaction, ownerUID, resourceID):
-        super(CommonHomeExternal, self).__init__(transaction, ownerUID)
-        self._resourceID = resourceID
-        self._status = _HOME_STATUS_EXTERNAL
+    @classmethod
+    def makeSyntheticExternalHome(cls, transaction, diruid, resourceID):
+        """
+        During migration we need to refer to the remote home as an external home but without have a local representation
+        of it in the store. There will be a new local store home for the migrating user that will operate on local store
+        objects. The synthetic home operates only on remote objects.
+
+        @param diruid: directory UID of user
+        @type diruid: L{str}
+        @param resourceID: resource ID in the remote store
+        @type resourceID: L{int}
+        """
+        attrMap = {
+            "_resourceID": resourceID,
+            "_ownerUID": diruid,
+            "_status": _HOME_STATUS_EXTERNAL,
+        }
+        homeData = [attrMap.get(attr) for attr in cls.homeAttributes()]
+        result = cls(transaction, homeData)
+        result._childClass = result._childClass._externalClass
+        return result
 
 
-    def initFromStore(self, no_cache=False):
+    def __init__(self, transaction, homeData):
+        super(CommonHomeExternal, self).__init__(transaction, homeData)
+
+
+    def initFromStore(self):
         """
-        Never called - this should be done by CommonHome.initFromStore only.
+        NoOp for an external share as there is no metadata or properties.
         """
-        raise AssertionError("CommonHomeExternal: not supported")
+        return succeed(self)
+
+
+    @inlineCallbacks
+    def readMetaData(self):
+        """
+        Read the home metadata from remote home and save as attributes on this object.
+        """
+        mapping = yield self._txn.store().conduit.send_home_metadata(self)
+        self.deserialize(mapping)
+
+
+    def setStatus(self, newStatus):
+        return self._txn.store().conduit.send_home_set_status(self, newStatus)
+
+
+    def setLocalStatus(self, newStatus):
+        """
+        Set the status on the object in the local store not the remote one.
+
+        @param newStatus: the new status to set
+        @type newStatus: L{int}
+        """
+        return super(CommonHomeExternal, self).setStatus(newStatus)
 
 
     def external(self):
@@ -78,13 +124,13 @@ class CommonHomeExternal(CommonHome):
 
     @memoizedKey("name", "_children")
     @inlineCallbacks
-    def createChildWithName(self, name, externalID=None):
+    def createChildWithName(self, name, bindUID=None):
         """
         No real children - only external ones.
         """
-        if externalID is None:
+        if bindUID is None:
             raise AssertionError("CommonHomeExternal: not supported")
-        child = yield super(CommonHomeExternal, self).createChildWithName(name, externalID)
+        child = yield super(CommonHomeExternal, self).createChildWithName(name, bindUID)
         returnValue(child)
 
 
@@ -101,7 +147,7 @@ class CommonHomeExternal(CommonHome):
         Remove an external child. Check that it is invalid or unused before calling this because if there
         are valid references to it, removing will break things.
         """
-        if child._externalID is None:
+        if child._bindUID is None:
             raise AssertionError("CommonHomeExternal: not supported")
         yield super(CommonHomeExternal, self).removeChildWithName(child.name())
 
@@ -175,11 +221,17 @@ class CommonHomeExternal(CommonHome):
         raise AssertionError("CommonHomeExternal: not supported")
 
 
-#    def ownerHomeAndChildNameForChildID(self, resourceID):
-#        """
-#        No children.
-#        """
-#        raise AssertionError("CommonHomeExternal: not supported")
+    @inlineCallbacks
+    def sharedToBindRecords(self):
+        results = yield self._txn.store().conduit.send_home_shared_to_records(self)
+        returnValue(dict([(
+            k,
+            (
+                self._childClass._bindRecordClass.deserialize(v[0]),
+                self._childClass._bindRecordClass.deserialize(v[1]),
+                self._childClass._metadataRecordClass.deserialize(v[2]),
+            ),
+        ) for k, v in results.items()]))
 
 
 
@@ -190,7 +242,6 @@ class CommonHomeChildExternal(CommonHomeChild):
     """
 
     @classmethod
-    @inlineCallbacks
     def listObjects(cls, home):
         """
         Retrieve the names of the children that exist in the given home.
@@ -198,8 +249,7 @@ class CommonHomeChildExternal(CommonHomeChild):
         @return: an iterable of C{str}s.
         """
 
-        results = yield home._txn.store().conduit.send_homechild_listobjects(home)
-        returnValue(results)
+        return home._txn.store().conduit.send_homechild_listobjects(home)
 
 
     @classmethod
@@ -209,18 +259,18 @@ class CommonHomeChildExternal(CommonHomeChild):
 
         results = []
         for mapping in raw_results:
-            child = yield cls.internalize(home, mapping)
+            child = yield cls.deserialize(home, mapping)
             results.append(child)
         returnValue(results)
 
 
     @classmethod
     @inlineCallbacks
-    def objectWith(cls, home, name=None, resourceID=None, externalID=None, accepted=True):
-        mapping = yield home._txn.store().conduit.send_homechild_objectwith(home, name, resourceID, externalID, accepted)
+    def objectWith(cls, home, name=None, resourceID=None, bindUID=None, accepted=True):
+        mapping = yield home._txn.store().conduit.send_homechild_objectwith(home, name, resourceID, bindUID, accepted)
 
         if mapping:
-            child = yield cls.internalize(home, mapping)
+            child = yield cls.deserialize(home, mapping)
             returnValue(child)
         else:
             returnValue(None)
@@ -310,15 +360,14 @@ class CommonHomeChildExternal(CommonHomeChild):
 
 
     @inlineCallbacks
-    def syncToken(self):
+    def syncTokenRevision(self):
         if self._syncTokenRevision is None:
             try:
-                token = yield self._txn.store().conduit.send_homechild_synctoken(self)
-                self._syncTokenRevision = self.revisionFromToken(token)
+                revision = yield self._txn.store().conduit.send_homechild_synctokenrevision(self)
             except NonExistentExternalShare:
                 yield self.fixNonExistentExternalShare()
                 raise ExternalShareFailed("External share does not exist")
-        returnValue(("%s_%s" % (self._externalID, self._syncTokenRevision,)))
+        returnValue(revision)
 
 
     @inlineCallbacks
@@ -343,6 +392,16 @@ class CommonHomeChildExternal(CommonHomeChild):
         returnValue(results)
 
 
+    @inlineCallbacks
+    def sharingBindRecords(self):
+        results = yield self._txn.store().conduit.send_homechild_sharing_records(self)
+        returnValue(dict([(k, self._bindRecordClass.deserialize(v),) for k, v in results.items()]))
+
+
+    def migrateBindRecords(self, bindUID):
+        return self._txn.store().conduit.send_homechild_migrate_sharing_records(self, bindUID)
+
+
 
 class CommonObjectResourceExternal(CommonObjectResource):
     """
@@ -358,7 +417,7 @@ class CommonObjectResourceExternal(CommonObjectResource):
         results = []
         if mapping_list:
             for mapping in mapping_list:
-                child = yield cls.internalize(parent, mapping)
+                child = yield cls.deserialize(parent, mapping)
                 results.append(child)
         returnValue(results)
 
@@ -371,23 +430,19 @@ class CommonObjectResourceExternal(CommonObjectResource):
         results = []
         if mapping_list:
             for mapping in mapping_list:
-                child = yield cls.internalize(parent, mapping)
+                child = yield cls.deserialize(parent, mapping)
                 results.append(child)
         returnValue(results)
 
 
     @classmethod
-    @inlineCallbacks
     def listObjects(cls, parent):
-        results = yield parent._txn.store().conduit.send_objectresource_listobjects(parent)
-        returnValue(results)
+        return parent._txn.store().conduit.send_objectresource_listobjects(parent)
 
 
     @classmethod
-    @inlineCallbacks
     def countObjects(cls, parent):
-        result = yield parent._txn.store().conduit.send_objectresource_countobjects(parent)
-        returnValue(result)
+        return parent._txn.store().conduit.send_objectresource_countobjects(parent)
 
 
     @classmethod
@@ -396,24 +451,20 @@ class CommonObjectResourceExternal(CommonObjectResource):
         mapping = yield parent._txn.store().conduit.send_objectresource_objectwith(parent, name, uid, resourceID)
 
         if mapping:
-            child = yield cls.internalize(parent, mapping)
+            child = yield cls.deserialize(parent, mapping)
             returnValue(child)
         else:
             returnValue(None)
 
 
     @classmethod
-    @inlineCallbacks
     def resourceNameForUID(cls, parent, uid):
-        result = yield parent._txn.store().conduit.send_objectresource_resourcenameforuid(parent, uid)
-        returnValue(result)
+        return parent._txn.store().conduit.send_objectresource_resourcenameforuid(parent, uid)
 
 
     @classmethod
-    @inlineCallbacks
     def resourceUIDForName(cls, parent, name):
-        result = yield parent._txn.store().conduit.send_objectresource_resourceuidforname(parent, name)
-        returnValue(result)
+        return parent._txn.store().conduit.send_objectresource_resourceuidforname(parent, name)
 
 
     @classmethod
@@ -422,7 +473,7 @@ class CommonObjectResourceExternal(CommonObjectResource):
         mapping = yield parent._txn.store().conduit.send_objectresource_create(parent, name, str(component), options=options)
 
         if mapping:
-            child = yield cls.internalize(parent, mapping)
+            child = yield cls.deserialize(parent, mapping)
             returnValue(child)
         else:
             returnValue(None)
@@ -444,6 +495,46 @@ class CommonObjectResourceExternal(CommonObjectResource):
         returnValue(self._cachedComponent)
 
 
-    @inlineCallbacks
     def remove(self):
-        yield self._txn.store().conduit.send_objectresource_remove(self)
+        return self._txn.store().conduit.send_objectresource_remove(self)
+
+
+
+class NotificationCollectionExternal(NotificationCollection):
+    """
+    A NotificationCollection for a resource not hosted on this system, but on another pod. This will forward
+    specific apis to the other pod using cross-pod requests.
+    """
+
+    @classmethod
+    def notificationsWithUID(cls, txn, uid, create=False):
+        return super(NotificationCollectionExternal, cls).notificationsWithUID(txn, uid, status=_HOME_STATUS_EXTERNAL, create=create)
+
+
+    def initFromStore(self):
+        """
+        NoOp for an external share as there are no properties.
+        """
+        return succeed(self)
+
+
+    @inlineCallbacks
+    def notificationObjectRecords(self):
+        results = yield self._txn.store().conduit.send_notification_all_records(self)
+        returnValue(map(NotificationObjectRecord.deserialize, results))
+
+
+    def setStatus(self, newStatus):
+        return self._txn.store().conduit.send_notification_set_status(self, newStatus)
+
+
+    def setLocalStatus(self, newStatus):
+        """
+        Set the status on the object in the local store not the remote one.
+
+        @param newStatus: the new status to set
+        @type newStatus: L{int}
+        """
+        return super(NotificationCollectionExternal, self).setStatus(newStatus)
+
+NotificationCollection._externalClass = NotificationCollectionExternal

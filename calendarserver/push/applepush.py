@@ -234,10 +234,7 @@ class ApplePushNotifierService(service.MultiService):
                 self.log.debug(
                     "Sending %d APNS notifications for %s" %
                     (numSubscriptions, pushKey))
-                tokens = []
-                for token, uid in subscriptions:
-                    if token and uid:
-                        tokens.append(token)
+                tokens = [record.token for record in subscriptions if record.token and record.subscriberGUID]
                 if tokens:
                     provider.scheduleNotifications(
                         tokens, pushKey,
@@ -349,11 +346,11 @@ class APNProviderProtocol(Protocol):
                     (token,))
                 txn = self.factory.store.newTransaction(label="APNProviderProtocol.processError")
                 subscriptions = (yield txn.apnSubscriptionsByToken(token))
-                for key, _ignore_modified, _ignore_uid in subscriptions:
+                for record in subscriptions:
                     self.log.debug(
                         "Removing subscription: %s %s" %
-                        (token, key))
-                    yield txn.removeAPNSubscription(token, key)
+                        (token, record.resourceKey))
+                    yield txn.removeAPNSubscription(token, record.resourceKey)
                 yield txn.commit()
 
 
@@ -746,12 +743,12 @@ class APNFeedbackProtocol(Protocol):
         txn = self.factory.store.newTransaction(label="APNFeedbackProtocol.processFeedback")
         subscriptions = (yield txn.apnSubscriptionsByToken(token))
 
-        for key, modified, _ignore_uid in subscriptions:
-            if timestamp > modified:
+        for record in subscriptions:
+            if timestamp > record.modified:
                 self.log.debug(
                     "FeedbackProtocol removing subscription: %s %s" %
-                    (token, key))
-                yield txn.removeAPNSubscription(token, key)
+                    (token, record.resourceKey))
+                yield txn.removeAPNSubscription(token, record.resourceKey)
         yield txn.commit()
 
 

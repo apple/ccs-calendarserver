@@ -29,8 +29,7 @@ from twisted.trial import unittest
 from twistedcaldav.config import config
 from twistedcaldav.ical import Property, Component
 
-from txdav.caldav.datastore.sql import CalendarStoreFeatures, DropBoxAttachment, \
-    ManagedAttachment
+from txdav.caldav.datastore.sql import CalendarStoreFeatures
 from txdav.caldav.datastore.test.common import CaptureProtocol
 from txdav.caldav.icalendarstore import IAttachmentStorageTransport, IAttachment, \
     QuotaExceeded, AttachmentSizeTooLarge
@@ -40,6 +39,8 @@ from txdav.common.datastore.test.util import CommonCommonTests, \
 
 import hashlib
 import os
+from txdav.caldav.datastore.sql_attachment import DropBoxAttachment, \
+    ManagedAttachment
 
 """
 Tests for txdav.caldav.datastore.sql attachment handling.

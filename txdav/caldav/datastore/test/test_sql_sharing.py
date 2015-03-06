@@ -464,7 +464,7 @@ class CalendarSharing(BaseSharingTests):
         shared = yield self.calendarUnderTest(home="user02", name=sharedName)
         self.assertTrue(shared is not None)
 
-        notifyHome = yield self.transactionUnderTest().notificationsWithUID("user02")
+        notifyHome = yield self.transactionUnderTest().notificationsWithUID("user02", create=True)
         notifications = yield notifyHome.listNotificationObjects()
         self.assertEqual(len(notifications), 0)
 
@@ -587,6 +587,41 @@ class CalendarSharing(BaseSharingTests):
         yield self.commit()
 
 
+    @inlineCallbacks
+    def test_sharingBindRecords(self):
+
+        yield self.calendarUnderTest(home="user01", name="calendar")
+        yield self.commit()
+
+        shared_name = yield self._createShare()
+
+        shared = yield self.calendarUnderTest(home="user01", name="calendar")
+        results = yield shared.sharingBindRecords()
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results.keys(), ["user02"])
+        self.assertEqual(results["user02"].calendarResourceName, shared_name)
+
+
+    @inlineCallbacks
+    def test_sharedToBindRecords(self):
+
+        yield self.calendarUnderTest(home="user01", name="calendar")
+        yield self.commit()
+
+        shared_name = yield self._createShare()
+
+        home = yield self.homeUnderTest(name="user02")
+        results = yield home.sharedToBindRecords()
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results.keys(), ["user01"])
+        sharedRecord = results["user01"][0]
+        ownerRecord = results["user01"][1]
+        metadataRecord = results["user01"][2]
+        self.assertEqual(ownerRecord.calendarResourceName, "calendar")
+        self.assertEqual(sharedRecord.calendarResourceName, shared_name)
+        self.assertEqual(metadataRecord.supportedComponents, None)
+
+
 
 class GroupSharingTests(BaseSharingTests):
     """
@@ -619,7 +654,7 @@ class GroupSharingTests(BaseSharingTests):
 
     @inlineCallbacks
     def _check_notifications(self, uid, items):
-        notifyHome = yield self.transactionUnderTest().notificationsWithUID(uid)
+        notifyHome = yield self.transactionUnderTest().notificationsWithUID(uid, create=True)
         notifications = yield notifyHome.listNotificationObjects()
         self.assertEqual(set(notifications), set(items))
 

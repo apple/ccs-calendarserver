@@ -14,25 +14,33 @@
 # limitations under the License.
 ##
 
+from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.protocol import Protocol
 
 from txdav.caldav.datastore.scheduling.ischedule.localservers import (
     Server, ServersDB
 )
 from txdav.common.datastore.podding.conduit import PoddingConduit
+from txdav.common.datastore.podding.request import ConduitRequest
 from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
 from txdav.common.datastore.test.util import (
     CommonCommonTests, SQLStoreBuilder, buildTestDirectory
 )
 
 import txweb2.dav.test.util
+from txweb2 import responsecode
+from txweb2.http import Response, JSONResponse
+from txweb2.http_headers import MimeDisposition, MimeType
+from txweb2.stream import ProducerStream
 
 from twext.enterprise.ienterprise import AlreadyFinishedError
+from twext.enterprise.jobqueue import JobItem
 
 import json
 
 
-class FakeConduitRequest(object):
+class FakeConduitRequest(ConduitRequest):
     """
     A conduit request that sends messages internally rather than using HTTP
     """
@@ -54,25 +62,13 @@ class FakeConduitRequest(object):
         cls.storeMap[server.details()] = store
 
 
-    def __init__(self, server, data, stream=None, stream_type=None):
+    def __init__(self, server, data, stream=None, stream_type=None, writeStream=None):
 
         self.server = server
         self.data = json.dumps(data)
         self.stream = stream
         self.streamType = stream_type
-
-
-    @inlineCallbacks
-    def doRequest(self, txn):
-
-        # Generate an HTTP client request
-        try:
-            response = (yield self._processRequest())
-            response = json.loads(response)
-        except Exception as e:
-            raise ValueError("Failed cross-pod request: {}".format(e))
-
-        returnValue(response)
+        self.writeStream = writeStream
 
 
     @inlineCallbacks
@@ -90,16 +86,40 @@ class FakeConduitRequest(object):
             j["stream"] = self.stream
             j["streamType"] = self.streamType
         try:
-            result = yield store.conduit.processRequest(j)
+            if store.conduit.isStreamAction(j):
+                stream = ProducerStream()
+                class StreamProtocol(Protocol):
+                    def connectionMade(self):
+                        stream.registerProducer(self.transport, False)
+                    def dataReceived(self, data):
+                        stream.write(data)
+                    def connectionLost(self, reason):
+                        stream.finish()
+
+                result = yield store.conduit.processRequestStream(j, StreamProtocol())
+
+                try:
+                    ct, name = result
+                except ValueError:
+                    code = responsecode.BAD_REQUEST
+                else:
+                    headers = {"content-type": MimeType.fromString(ct)}
+                    headers["content-disposition"] = MimeDisposition("attachment", params={"filename": name})
+                    returnValue(Response(responsecode.OK, headers, stream))
+            else:
+                result = yield store.conduit.processRequest(j)
+                code = responsecode.OK
         except Exception as e:
             # Send the exception over to the other side
             result = {
                 "result": "exception",
                 "class": ".".join((e.__class__.__module__, e.__class__.__name__,)),
-                "request": str(e),
+                "details": str(e),
             }
-        result = json.dumps(result)
-        returnValue(result)
+            code = responsecode.BAD_REQUEST
+
+        response = JSONResponse(code, result)
+        returnValue(response)
 
 
 
@@ -110,6 +130,8 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
     theStoreBuilders = []
     theStores = []
     activeTransactions = []
+    accounts = None
+    augments = None
 
     def __init__(self, methodName='runTest'):
         txweb2.dav.test.util.TestCase.__init__(self, methodName)
@@ -135,13 +157,19 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
             if i == 0:
                 yield self.buildStoreAndDirectory(
                     serversDB=serversDB,
-                    storeBuilder=self.theStoreBuilders[i]
+                    storeBuilder=self.theStoreBuilders[i],
+                    accounts=self.accounts,
+                    augments=self.augments,
                 )
                 self.theStores[i] = self.store
             else:
                 self.theStores[i] = yield self.buildStore(self.theStoreBuilders[i])
                 directory = buildTestDirectory(
-                    self.theStores[i], self.mktemp(), serversDB=serversDB
+                    self.theStores[i],
+                    self.mktemp(),
+                    serversDB=serversDB,
+                    accounts=self.accounts,
+                    augments=self.augments,
                 )
                 self.theStores[i].setDirectoryService(directory)
 
@@ -197,6 +225,12 @@ class MultiStoreConduitTest(CommonCommonTests, txweb2.dav.test.util.TestCase):
         assert self.activeTransactions[count] is not None
         yield self.activeTransactions[count].abort()
         self.activeTransactions[count] = None
+
+
+    @inlineCallbacks
+    def waitAllEmpty(self):
+        for i in range(self.numberOfStores):
+            yield JobItem.waitEmpty(self.theStoreUnderTest(i).newTransaction, reactor, 60.0)
 
 
     def makeConduit(self, store):

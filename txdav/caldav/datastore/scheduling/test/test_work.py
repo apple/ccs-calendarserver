@@ -250,7 +250,7 @@ END:VCALENDAR
 
         work = yield jobs[0].workItem()
         self.assertTrue(isinstance(work, ScheduleOrganizerWork))
-        self.assertEqual(work.icalendarUid, "12345-67890")
+        self.assertEqual(work.icalendarUID, "12345-67890")
         self.assertEqual(scheduleActionFromSQL[work.scheduleAction], "create")
 
         yield work.delete()

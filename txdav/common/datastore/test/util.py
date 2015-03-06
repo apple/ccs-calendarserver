@@ -30,7 +30,7 @@ from hashlib import md5
 
 from pycalendar.datetime import DateTime
 
-from random import Random
+from random import Random, randint
 
 from twext.python.log import Logger
 from twext.python.filepath import CachingFilePath as FilePath
@@ -302,7 +302,7 @@ class SQLStoreBuilder(object):
         # later table.  Therefore it's OK to drop them in the (reverse) order
         # that they happen to be in.
         tables = [
-            t.name for t in schema.model.tables
+            t.name for t in schema.model.tables #@UndefinedVariable
             # All tables with rows _in_ the schema are populated
             # exclusively _by_ the schema and shouldn't be manipulated
             # while the server is running, so we leave those populated.
@@ -314,13 +314,20 @@ class SQLStoreBuilder(object):
                 yield cleanupTxn.execSQL("delete from " + table, [])
             except:
                 log.failure("delete table {table} failed", table=table)
+
+        # Change the starting values of sequences to random values
+        for sequence in schema.model.sequences: #@UndefinedVariable
+            try:
+                curval = (yield cleanupTxn.execSQL("select nextval('{}')".format(sequence.name), []))[0][0]
+                yield cleanupTxn.execSQL("select setval('{}', {})".format(sequence.name, curval + randint(1, 10000)), [])
+            except:
+                log.failure("setval sequence '{}' failed", sequence=sequence.name)
+        yield cleanupTxn.execSQL("update CALENDARSERVER set VALUE = '1' where NAME = 'MIN-VALID-REVISION'", [])
+
         yield cleanupTxn.commit()
 
         # Deal with memcached items that must be cleared
-        from txdav.caldav.datastore.sql import CalendarHome
-        CalendarHome._cacher.flushAll()
-        from txdav.carddav.datastore.sql import AddressBookHome
-        AddressBookHome._cacher.flushAll()
+        storeToClean.queryCacher.flushAll()
         from txdav.base.propertystore.sql import PropertyStore
         PropertyStore._cacher.flushAll()
 
@@ -463,7 +470,7 @@ def populateCalendarsFrom(requirements, store, migrating=False):
         populateTxn._migrating = True
     for homeUID in requirements:
         calendars = requirements[homeUID]
-        home = yield populateTxn.calendarHomeWithUID(homeUID, True)
+        home = yield populateTxn.calendarHomeWithUID(homeUID, create=True)
         if calendars is not None:
             # We don't want the default calendar or inbox to appear unless it's
             # explicitly listed.
@@ -558,7 +565,7 @@ def resetCalendarMD5s(md5s, store):
     for homeUID in md5s:
         calendars = md5s[homeUID]
         if calendars is not None:
-            home = yield populateTxn.calendarHomeWithUID(homeUID, True)
+            home = yield populateTxn.calendarHomeWithUID(homeUID, create=True)
             for calendarName in calendars:
                 calendarObjNames = calendars[calendarName]
                 if calendarObjNames is not None:
@@ -591,7 +598,7 @@ def populateAddressBooksFrom(requirements, store):
     for homeUID in requirements:
         addressbooks = requirements[homeUID]
         if addressbooks is not None:
-            home = yield populateTxn.addressbookHomeWithUID(homeUID, True)
+            home = yield populateTxn.addressbookHomeWithUID(homeUID, create=True)
             # We don't want the default addressbook
             try:
                 yield home.removeAddressBookWithName("addressbook")
@@ -630,7 +637,7 @@ def resetAddressBookMD5s(md5s, store):
     for homeUID in md5s:
         addressbooks = md5s[homeUID]
         if addressbooks is not None:
-            home = yield populateTxn.addressbookHomeWithUID(homeUID, True)
+            home = yield populateTxn.addressbookHomeWithUID(homeUID, create=True)
             for addressbookName in addressbooks:
                 addressbookObjNames = addressbooks[addressbookName]
                 if addressbookObjNames is not None:
@@ -922,35 +929,35 @@ class CommonCommonTests(object):
         return self.store
 
 
-    def homeUnderTest(self, txn=None, name="home1", create=False):
+    def homeUnderTest(self, txn=None, name="home1", status=None, create=False):
         """
         Get the calendar home detailed by C{requirements['home1']}.
         """
         if txn is None:
             txn = self.transactionUnderTest()
-        return txn.calendarHomeWithUID(name, create=create)
+        return txn.calendarHomeWithUID(name, status=status, create=create)
 
 
     @inlineCallbacks
-    def calendarUnderTest(self, txn=None, name="calendar_1", home="home1"):
+    def calendarUnderTest(self, txn=None, name="calendar_1", home="home1", status=None):
         """
         Get the calendar detailed by C{requirements['home1']['calendar_1']}.
         """
-        home = yield self.homeUnderTest(txn, home)
+        home = yield self.homeUnderTest(txn, home, status=status)
         calendar = yield home.calendarWithName(name)
         returnValue(calendar)
 
 
     @inlineCallbacks
     def calendarObjectUnderTest(
-        self, txn=None, name="1.ics", calendar_name="calendar_1", home="home1"
+        self, txn=None, name="1.ics", calendar_name="calendar_1", home="home1", status=None
     ):
         """
         Get the calendar detailed by
         C{requirements[home][calendar_name][name]}.
         """
         calendar = yield self.calendarUnderTest(
-            txn, name=calendar_name, home=home
+            txn, name=calendar_name, home=home, status=status
         )
         object = yield calendar.calendarObjectWithName(name)
         returnValue(object)
@@ -992,6 +999,12 @@ class CommonCommonTests(object):
         returnValue(object)
 
 
+    def notificationCollectionUnderTest(self, txn=None, name="home1", status=None, create=False):
+        if txn is None:
+            txn = self.transactionUnderTest()
+        return txn.notificationsWithUID(name, status=status, create=create)
+
+
     def userRecordWithShortName(self, shortname):
         return self.directory.recordWithShortName(
             self.directory.recordType.user, shortname
@@ -1015,11 +1028,13 @@ class CommonCommonTests(object):
         return self.directory.removeRecords([uid])
 
 
-    def changeRecord(self, record, fieldname, value):
+    def changeRecord(self, record, fieldname, value, directory=None):
+        if directory is None:
+            directory = self.directory
         fields = record.fields.copy()
         fields[fieldname] = value
-        updatedRecord = DirectoryRecord(self.directory, fields)
-        return self.directory.updateRecords((updatedRecord,))
+        updatedRecord = DirectoryRecord(directory, fields)
+        return directory.updateRecords((updatedRecord,))
 
 
 

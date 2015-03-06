@@ -18,8 +18,6 @@
 SQL backend for CardDAV storage when resources are external.
 """
 
-from twisted.internet.defer import succeed
-
 from twext.python.log import Logger
 
 from txdav.carddav.datastore.sql import AddressBookHome, AddressBook, \
@@ -31,10 +29,10 @@ log = Logger()
 
 class AddressBookHomeExternal(CommonHomeExternal, AddressBookHome):
 
-    def __init__(self, transaction, ownerUID, resourceID):
+    def __init__(self, transaction, homeData):
 
-        AddressBookHome.__init__(self, transaction, ownerUID)
-        CommonHomeExternal.__init__(self, transaction, ownerUID, resourceID)
+        AddressBookHome.__init__(self, transaction, homeData)
+        CommonHomeExternal.__init__(self, transaction, homeData)
 
 
     def hasAddressBookResourceUIDSomewhereElse(self, uid, ok_object, mode):
@@ -49,13 +47,6 @@ class AddressBookHomeExternal(CommonHomeExternal, AddressBookHome):
         No children.
         """
         raise AssertionError("CommonHomeExternal: not supported")
-
-
-    def createdHome(self):
-        """
-        No children - make this a no-op.
-        """
-        return succeed(None)
 
 
     def addressbook(self):

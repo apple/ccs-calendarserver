@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from txdav.common.datastore.sql_util import _normalizeColumnUUIDs, \
+    fixUUIDNormalization
 
 """
 Tests for L{txdav.common.datastore.sql}.
@@ -31,7 +33,6 @@ from txdav.common.datastore.sql import log, CommonStoreTransactionMonitor, \
 from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.test.util import CommonCommonTests
 from txdav.common.icommondatastore import AllRetriesFailed
-from txdav.common.datastore.sql import fixUUIDNormalization
 from txdav.xml import element as davxml
 
 from uuid import UUID
@@ -371,7 +372,6 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
             rp.VIEWER_UID: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"}
         ).on(txn)
         # test
-        from txdav.common.datastore.sql import _normalizeColumnUUIDs
         yield _normalizeColumnUUIDs(txn, rp.VIEWER_UID)
         self.assertEqual(
             map(

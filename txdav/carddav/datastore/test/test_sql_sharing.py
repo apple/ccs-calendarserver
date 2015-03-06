@@ -45,7 +45,7 @@ class BaseSharingTests(CommonCommonTests, TestCase):
         for homeUID in self.requirements:
             addressbooks = self.requirements[homeUID]
             if addressbooks is not None:
-                home = yield populateTxn.addressbookHomeWithUID(homeUID, True)
+                home = yield populateTxn.addressbookHomeWithUID(homeUID, create=True)
                 addressbook = home.addressbook()
 
                 addressbookObjNames = addressbooks[addressbook.name()]
@@ -198,7 +198,7 @@ END:VCARD
 
     @inlineCallbacks
     def _check_notifications(self, home, items):
-        notifyHome = yield self.transactionUnderTest().notificationsWithUID(home)
+        notifyHome = yield self.transactionUnderTest().notificationsWithUID(home, create=True)
         notifications = yield notifyHome.listNotificationObjects()
         self.assertEqual(set(notifications), set(items))
 

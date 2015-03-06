@@ -18,7 +18,6 @@
     group attendee tests
 """
 
-from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.jobqueue import JobItem
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.who.directory import DirectoryService
@@ -27,8 +26,8 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.trial import unittest
 from twistedcaldav.config import config
 from twistedcaldav.ical import Component, normalize_iCalStr
+from txdav.caldav.datastore.sql_directory import GroupAttendeeRecord
 from txdav.caldav.datastore.test.util import populateCalendarsFrom, CommonCommonTests
-from txdav.common.datastore.sql_tables import schema
 from txdav.who.directory import CalendarDirectoryRecordMixin
 from txdav.who.groups import GroupCacher
 import os
@@ -871,16 +870,13 @@ END:VCALENDAR
         # finally, simulate an event that has become old
         self.patch(CalendarDirectoryRecordMixin, "expandedMembers", unpatchedExpandedMembers)
 
-        (
-            groupID, _ignore_name, _ignore_membershipHash, _ignore_modDate,
-            _ignore_extant
-        ) = yield self.transactionUnderTest().groupByUID("group01")
-        ga = schema.GROUP_ATTENDEE
-        yield Insert({
-            ga.RESOURCE_ID: cobj._resourceID,
-            ga.GROUP_ID: groupID,
-            ga.MEMBERSHIP_HASH: (-1),
-        }).on(self.transactionUnderTest())
+        group = yield self.transactionUnderTest().groupByUID("group01")
+        yield GroupAttendeeRecord.create(
+            self.transactionUnderTest(),
+            resourceID=cobj._resourceID,
+            groupID=group.groupID,
+            membershipHash=-1,
+        )
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "group01")
         self.assertEqual(len(wps), 1)
         yield self.commit()
@@ -1033,16 +1029,13 @@ END:VCALENDAR
         # finally, simulate an event that has become old
         self.patch(CalendarDirectoryRecordMixin, "expandedMembers", unpatchedExpandedMembers)
 
-        (
-            groupID, _ignore_name, _ignore_membershipHash, _ignore_modDate,
-            _ignore_extant
-        ) = yield self.transactionUnderTest().groupByUID("group01")
-        ga = schema.GROUP_ATTENDEE
-        yield Insert({
-            ga.RESOURCE_ID: cobj._resourceID,
-            ga.GROUP_ID: groupID,
-            ga.MEMBERSHIP_HASH: (-1),
-        }).on(self.transactionUnderTest())
+        group = yield self.transactionUnderTest().groupByUID("group01")
+        yield GroupAttendeeRecord.create(
+            self.transactionUnderTest(),
+            resourceID=cobj._resourceID,
+            groupID=group.groupID,
+            membershipHash=-1,
+        )
         wps = yield groupCacher.refreshGroup(self.transactionUnderTest(), "group01")
         self.assertEqual(len(wps), 1)
         yield self.commit()

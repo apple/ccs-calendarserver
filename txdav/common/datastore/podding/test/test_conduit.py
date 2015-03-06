@@ -32,7 +32,7 @@ from twistedcaldav.ical import Component, normalize_iCalStr
 from txdav.caldav.datastore.query.filter import Filter
 from txdav.caldav.datastore.scheduling.freebusy import generateFreeBusyInfo
 from txdav.caldav.datastore.scheduling.ischedule.localservers import ServersDB, Server
-from txdav.caldav.datastore.sql import ManagedAttachment
+from txdav.caldav.datastore.sql import ManagedAttachment, AttachmentLink
 from txdav.caldav.datastore.test.common import CaptureProtocol
 from txdav.common.datastore.podding.conduit import PoddingConduit, \
     FailedCrossPodRequestError
@@ -362,11 +362,11 @@ END:VCALENDAR
         yield self.createShare("user01", "puser01")
 
         calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
-        token1_1 = yield calendar1.syncToken()
+        token1_1 = yield calendar1.syncTokenRevision()
         yield self.commitTransaction(0)
 
         shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
-        token2_1 = yield shared.syncToken()
+        token2_1 = yield shared.syncTokenRevision()
         yield self.commitTransaction(1)
 
         self.assertEqual(token1_1, token2_1)
@@ -376,11 +376,11 @@ END:VCALENDAR
         yield self.commitTransaction(0)
 
         calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
-        token1_2 = yield calendar1.syncToken()
+        token1_2 = yield calendar1.syncTokenRevision()
         yield self.commitTransaction(0)
 
         shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
-        token2_2 = yield shared.syncToken()
+        token2_2 = yield shared.syncTokenRevision()
         yield self.commitTransaction(1)
 
         self.assertNotEqual(token1_1, token1_2)
@@ -394,11 +394,11 @@ END:VCALENDAR
         yield self.commitTransaction(0)
 
         calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
-        token1_3 = yield calendar1.syncToken()
+        token1_3 = yield calendar1.syncTokenRevision()
         yield self.commitTransaction(0)
 
         shared = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", name="shared-calendar")
-        token2_3 = yield shared.syncToken()
+        token2_3 = yield shared.syncTokenRevision()
         yield self.commitTransaction(1)
 
         self.assertNotEqual(token1_1, token1_3)
@@ -1056,3 +1056,83 @@ END:VCALENDAR
         attachment = yield ManagedAttachment.load(self.theTransactionUnderTest(0), resourceID, managedID)
         self.assertTrue(attachment is None)
         yield self.commitTransaction(0)
+
+
+    @inlineCallbacks
+    def test_get_all_attachments(self):
+        """
+        Test that action=get-all-attachments works.
+        """
+
+        yield self.createShare("user01", "puser01")
+
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
+        yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        yield self.commitTransaction(0)
+
+        object1 = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(0), home="user01", calendar_name="calendar", name="1.ics")
+        yield object1.addAttachment(None, MimeType.fromString("text/plain"), "test.txt", MemoryStream("Here is some text."))
+        yield self.commitTransaction(0)
+
+        shared_object = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", calendar_name="shared-calendar", name="1.ics")
+        attachments = yield shared_object.ownerHome().getAllAttachments()
+        self.assertEqual(len(attachments), 1)
+        self.assertTrue(isinstance(attachments[0], ManagedAttachment))
+        self.assertEqual(attachments[0].contentType(), MimeType.fromString("text/plain"))
+        self.assertEqual(attachments[0].name(), "test.txt")
+        yield self.commitTransaction(1)
+
+
+    @inlineCallbacks
+    def test_get_attachment_data(self):
+        """
+        Test that action=get-all-attachments works.
+        """
+
+        yield self.createShare("user01", "puser01")
+
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
+        yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        yield self.commitTransaction(0)
+
+        object1 = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(0), home="user01", calendar_name="calendar", name="1.ics")
+        attachment, _ignore_location = yield object1.addAttachment(None, MimeType.fromString("text/plain"), "test.txt", MemoryStream("Here is some text."))
+        remote_id = attachment.id()
+        yield self.commitTransaction(0)
+
+        home1 = yield self.homeUnderTest(txn=self.theTransactionUnderTest(1), name="puser01")
+        shared_object = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", calendar_name="shared-calendar", name="1.ics")
+        attachment = yield ManagedAttachment._create(self.theTransactionUnderTest(1), None, home1.id())
+        attachment._contentType = MimeType.fromString("text/plain")
+        attachment._name = "test.txt"
+        yield shared_object.ownerHome().readAttachmentData(remote_id, attachment)
+        yield self.commitTransaction(1)
+
+
+    @inlineCallbacks
+    def test_get_attachment_links(self):
+        """
+        Test that action=get-attachment-links works.
+        """
+
+        yield self.createShare("user01", "puser01")
+
+        calendar1 = yield self.calendarUnderTest(txn=self.theTransactionUnderTest(0), home="user01", name="calendar")
+        cobj1 = yield calendar1.createCalendarObjectWithName("1.ics", Component.fromString(self.caldata1))
+        calobjID = cobj1.id()
+        yield self.commitTransaction(0)
+
+        object1 = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(0), home="user01", calendar_name="calendar", name="1.ics")
+        attachment, _ignore_location = yield object1.addAttachment(None, MimeType.fromString("text/plain"), "test.txt", MemoryStream("Here is some text."))
+        attID = attachment.id()
+        managedID = attachment.managedID()
+        yield self.commitTransaction(0)
+
+        shared_object = yield self.calendarObjectUnderTest(txn=self.theTransactionUnderTest(1), home="puser01", calendar_name="shared-calendar", name="1.ics")
+        links = yield shared_object.ownerHome().getAttachmentLinks()
+        self.assertEqual(len(links), 1)
+        self.assertTrue(isinstance(links[0], AttachmentLink))
+        self.assertEqual(links[0]._attachmentID, attID)
+        self.assertEqual(links[0]._managedID, managedID)
+        self.assertEqual(links[0]._calendarObjectID, calobjID)
+        yield self.commitTransaction(1)

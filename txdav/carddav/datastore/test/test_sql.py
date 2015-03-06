@@ -70,7 +70,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         populateTxn = self.storeUnderTest().newTransaction()
         for homeUID in self.requirements:
             addressbooks = self.requirements[homeUID]
-            home = yield populateTxn.addressbookHomeWithUID(homeUID, True)
+            home = yield populateTxn.addressbookHomeWithUID(homeUID, create=True)
             if addressbooks is not None:
                 addressbook = home.addressbook()
 
@@ -364,13 +364,13 @@ END:VCARD
         txn2 = addressbookStore.newTransaction()
 
         notification_uid1_1 = yield txn1.notificationsWithUID(
-            "uid1",
+            "uid1", create=True,
         )
 
         @inlineCallbacks
         def _defer_notification_uid1_2():
             notification_uid1_2 = yield txn2.notificationsWithUID(
-                "uid1",
+                "uid1", create=True,
             )
             yield txn2.commit()
             returnValue(notification_uid1_2)

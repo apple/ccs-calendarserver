@@ -169,7 +169,7 @@ class Upgrade_from_0_to_1(CommonStoreTests):
         )
 
         for uid, notificationtype, _ignore_jtype, notificationdata, _ignore_jdata in data:
-            notifications = yield self.transactionUnderTest().notificationsWithUID("user01")
+            notifications = yield self.transactionUnderTest().notificationsWithUID("user01", create=True)
             yield notifications.writeNotificationObject(uid, notificationtype, notificationdata)
 
         # Force data version to previous

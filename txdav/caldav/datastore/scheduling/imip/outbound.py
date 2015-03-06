@@ -364,28 +364,29 @@ class MailSender(object):
 
             # Reuse or generate a token based on originator, toAddr, and
             # event uid
-            token = (yield txn.imipGetToken(originator, toAddr.lower(), icaluid))
-            if token is None:
+            record = (yield txn.imipGetToken(originator, toAddr.lower(), icaluid))
+            if record is None:
 
                 # Because in the past the originator was sometimes in mailto:
                 # form, lookup an existing token by mailto: as well
                 organizerProperty = calendar.getOrganizerProperty()
                 organizerEmailAddress = organizerProperty.parameterValue("EMAIL", None)
                 if organizerEmailAddress is not None:
-                    token = (yield txn.imipGetToken("mailto:%s" % (organizerEmailAddress.lower(),), toAddr.lower(), icaluid))
+                    record = (yield txn.imipGetToken("mailto:%s" % (organizerEmailAddress.lower(),), toAddr.lower(), icaluid))
 
-            if token is None:
-                token = (yield txn.imipCreateToken(originator, toAddr.lower(), icaluid))
+            if record is None:
+                record = (yield txn.imipCreateToken(originator, toAddr.lower(), icaluid))
                 self.log.debug("Mail gateway created token %s for %s "
                                "(originator), %s (recipient) and %s (icaluid)"
-                               % (token, originator, toAddr, icaluid))
+                               % (record.token, originator, toAddr, icaluid))
                 inviteState = "new"
 
             else:
                 self.log.debug("Mail gateway reusing token %s for %s "
                                "(originator), %s (recipient) and %s (icaluid)"
-                               % (token, originator, toAddr, icaluid))
+                               % (record.token, originator, toAddr, icaluid))
                 inviteState = "update"
+            token = record.token
 
             fullServerAddress = self.address
             _ignore_name, serverAddress = email.utils.parseaddr(fullServerAddress)

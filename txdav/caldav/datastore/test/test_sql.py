@@ -767,13 +767,13 @@ END:VCALENDAR
         txn2 = calendarStore.newTransaction()
 
         notification_uid1_1 = yield txn1.notificationsWithUID(
-            "uid1",
+            "uid1", create=True
         )
 
         @inlineCallbacks
         def _defer_notification_uid1_2():
             notification_uid1_2 = yield txn2.notificationsWithUID(
-                "uid1",
+                "uid1", create=True
             )
             yield txn2.commit()
             returnValue(notification_uid1_2)

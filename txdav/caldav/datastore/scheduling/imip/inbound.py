@@ -260,11 +260,11 @@ class MailReceiver(object):
             return
 
         txn = self.store.newTransaction(label="MailReceiver.processDSN")
-        result = (yield txn.imipLookupByToken(token))
+        records = (yield txn.imipLookupByToken(token))
         yield txn.commit()
         try:
             # Note the results are returned as utf-8 encoded strings
-            organizer, attendee, _ignore_icaluid = result[0]
+            record = records[0]
         except:
             # This isn't a token we recognize
             log.error(
@@ -272,7 +272,7 @@ class MailReceiver(object):
                 % (token, msgId))
             returnValue(self.UNKNOWN_TOKEN)
 
-        calendar.removeAllButOneAttendee(attendee)
+        calendar.removeAllButOneAttendee(record.attendee)
         calendar.getOrganizerProperty().setValue(organizer)
         for comp in calendar.subcomponents():
             if comp.name() == "VEVENT":
@@ -288,8 +288,11 @@ class MailReceiver(object):
         log.warn("Mail gateway processing DSN %s" % (msgId,))
         txn = self.store.newTransaction(label="MailReceiver.processDSN")
         yield txn.enqueue(
-            IMIPReplyWork, organizer=organizer, attendee=attendee,
-            icalendarText=str(calendar))
+            IMIPReplyWork,
+            organizer=record.organizer,
+            attendee=record.attendee,
+            icalendarText=str(calendar)
+        )
         yield txn.commit()
         returnValue(self.INJECTION_SUBMITTED)
 
@@ -313,11 +316,11 @@ class MailReceiver(object):
             returnValue(self.MALFORMED_TO_ADDRESS)
 
         txn = self.store.newTransaction(label="MailReceiver.processReply")
-        result = (yield txn.imipLookupByToken(token))
+        records = (yield txn.imipLookupByToken(token))
         yield txn.commit()
         try:
             # Note the results are returned as utf-8 encoded strings
-            organizer, attendee, _ignore_icaluid = result[0]
+            record = records[0]
         except:
             # This isn't a token we recognize
             log.error(
@@ -337,11 +340,11 @@ class MailReceiver(object):
                 "in message %s" % (msg['Message-ID'],))
 
             toAddr = None
-            fromAddr = attendee[7:]
-            if organizer.startswith("mailto:"):
-                toAddr = organizer[7:]
-            elif organizer.startswith("urn:x-uid:"):
-                uid = organizer[10:]
+            fromAddr = record.attendee[7:]
+            if record.organizer.startswith("mailto:"):
+                toAddr = record.organizer[7:]
+            elif record.organizer.startswith("urn:x-uid:"):
+                uid = record.organizer[10:]
                 record = yield self.directory.recordWithUID(uid)
                 try:
                     if record and record.emailAddresses:
@@ -376,23 +379,23 @@ class MailReceiver(object):
         calendar = Component.fromString(calBody)
         event = calendar.mainComponent()
 
-        calendar.removeAllButOneAttendee(attendee)
+        calendar.removeAllButOneAttendee(record.attendee)
         organizerProperty = calendar.getOrganizerProperty()
         if organizerProperty is None:
             # ORGANIZER is required per rfc2446 section 3.2.3
             log.warn(
                 "Mail gateway didn't find an ORGANIZER in REPLY %s"
                 % (msg['Message-ID'],))
-            event.addProperty(Property("ORGANIZER", organizer))
+            event.addProperty(Property("ORGANIZER", record.organizer))
         else:
-            organizerProperty.setValue(organizer)
+            organizerProperty.setValue(record.organizer)
 
         if not calendar.getAttendees():
             # The attendee we're expecting isn't there, so add it back
             # with a SCHEDULE-STATUS of SERVICE_UNAVAILABLE.
             # The organizer will then see that the reply was not successful.
             attendeeProp = Property(
-                "ATTENDEE", attendee,
+                "ATTENDEE", record.attendee,
                 params={
                     "SCHEDULE-STATUS": iTIPRequestStatus.SERVICE_UNAVAILABLE,
                 }
@@ -406,8 +409,11 @@ class MailReceiver(object):
 
         txn = self.store.newTransaction(label="MailReceiver.processReply")
         yield txn.enqueue(
-            IMIPReplyWork, organizer=organizer, attendee=attendee,
-            icalendarText=str(calendar))
+            IMIPReplyWork,
+            organizer=record.organizer,
+            attendee=record.attendee,
+            icalendarText=str(calendar)
+        )
         yield txn.commit()
         returnValue(self.INJECTION_SUBMITTED)
 

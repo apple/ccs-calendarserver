@@ -522,6 +522,11 @@ class StorageTransportBase(object):
             self._contentType = http_headers.MimeType.fromString(getType(self._attachment.name(), self.contentTypes))
 
 
+    def resetDetails(self, contentType, dispositionName):
+        self._contentType = contentType
+        self._dispositionName = dispositionName
+
+
     def write(self, data):
         """
         Children must override this to actually write the data, but should

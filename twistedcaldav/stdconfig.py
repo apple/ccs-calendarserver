@@ -405,6 +405,7 @@ DEFAULT_CONFIG = {
         "Implicit Errors": False,
         "AutoScheduling": False,
         "iSchedule": False,
+        "migration": False,
     },
     "AccountingPrincipals": [],
     "AccountingLogRoot"   : "accounting",

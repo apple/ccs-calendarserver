@@ -19,6 +19,8 @@ Delegates implementation tests
 """
 
 from txdav.common.datastore.sql import CommonStoreTransaction
+from txdav.common.datastore.sql_directory import DelegateRecord, \
+    DelegateGroupsRecord
 from txdav.who.delegates import Delegates, RecordType as DelegateRecordType
 from txdav.who.groups import GroupCacher
 from twext.who.idirectory import RecordType
@@ -211,12 +213,9 @@ class DelegationTest(StoreTestCase):
                 yield self.directory.recordWithShortName(RecordType.user, name)
             )
             newSet.add(record.uid)
-        (
-            groupID, name, _ignore_membershipHash, _ignore_modified,
-            _ignore_extant
-        ) = (yield txn.groupByUID(group1.uid))
+        group = yield txn.groupByUID(group1.uid)
         _ignore_added, _ignore_removed = (
-            yield self.groupCacher.synchronizeMembers(txn, groupID, newSet)
+            yield self.groupCacher.synchronizeMembers(txn, group.groupID, newSet)
         )
         delegates = (yield Delegates.delegatesOf(txn, delegator, True, expanded=True))
         self.assertEquals(
@@ -261,15 +260,14 @@ class DelegationTest(StoreTestCase):
         yield txn.commit()
 
         txn = self.store.newTransaction(label="test_noDuplication")
-        results = (
-            yield txn._selectDelegatesQuery.on(
-                txn,
-                delegator=delegator.uid.encode("utf-8"),
-                readWrite=1
+        results = yield DelegateRecord.query(
+            txn,
+            (DelegateRecord.delegator == delegator.uid.encode("utf-8")).And(
+                DelegateRecord.readWrite == 1
             )
         )
         yield txn.commit()
-        self.assertEquals([["__sagen1__"]], map(list, results))
+        self.assertEquals(["__sagen1__", ], [record.delegate for record in results])
 
         # Delegate groups:
         group1 = yield self.directory.recordWithUID(u"__top_group_1__")
@@ -283,15 +281,13 @@ class DelegationTest(StoreTestCase):
         yield txn.commit()
 
         txn = self.store.newTransaction(label="test_noDuplication")
-        results = (
-            yield txn._selectDelegateGroupsQuery.on(
-                txn,
-                delegator=delegator.uid.encode("utf-8"),
-                readWrite=1
-            )
+        results = yield DelegateGroupsRecord.delegateGroups(
+            txn,
+            delegator.uid,
+            True,
         )
         yield txn.commit()
-        self.assertEquals([["__top_group_1__"]], map(list, results))
+        self.assertEquals(["__top_group_1__", ], [record.groupUID for record in results])
 
 
 

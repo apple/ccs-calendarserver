@@ -21,9 +21,9 @@ CALENDAR_HOME/ADDRESSBOOK_HOME/NOTIFICATION/APN_SUBSCRIPTIONS tables, as well
 as in calendar data and properties.
 """
 
-from txdav.common.datastore.sql import fixUUIDNormalization
 from twisted.internet.defer import inlineCallbacks
 from txdav.common.datastore.upgrade.sql.upgrades.util import updateCalendarDataVersion
+from txdav.common.datastore.sql_util import fixUUIDNormalization
 
 UPGRADE_TO_VERSION = 3
 
