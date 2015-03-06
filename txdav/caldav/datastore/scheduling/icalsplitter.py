@@ -58,28 +58,26 @@ class iCalSplitter(object):
             C{True} if a split is required
             C{True} if event is fully in future
             The second boolean's value is undefined if the first is True or
-            the event is not recurring, or threshold != -1
+            threshold != -1
         @rtype: C{tuple} of two C{bool}
         """
 
         fullyInFuture = False
 
-        # Must be recurring
-        if not ical.isRecurring():
-            return (False, False)
-
         # Look for past/future (cacheExpandedTimeRanges will go one year in the future by default)
         now = self.now.duplicate()
         now.offsetDay(1)
+
+        # Check recurring
+        if not ical.isRecurring():
+            fullyInFuture = (ical.mainComponent().getStartDateUTC() >= now)
+            return (False, fullyInFuture)
+
         instances = ical.cacheExpandedTimeRanges(now)
         instances = sorted(instances.instances.values(), key=lambda x: x.start)
         if len(instances) <= 1 or instances[0].start >= self.past or instances[-1].start < self.now:
             # Event is either fully in past or in future
-            if len(instances) == 0 or instances[0].start >= now:
-                # fully in future
-                fullyInFuture = True
-            else:
-                fullyInFuture = False
+            fullyInFuture = (len(instances) == 0 or instances[0].start >= now)
             return (False, fullyInFuture)
 
         if self.threshold != -1:

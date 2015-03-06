@@ -1100,6 +1100,8 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
             return customxml.ResourceType.sharedownercalendar
         elif self.isShareeResource():
             return customxml.ResourceType.sharedcalendar
+        elif self._newStoreObject.isTrash():
+            return customxml.ResourceType.trash
         else:
             return caldavxml.ResourceType.calendar
 

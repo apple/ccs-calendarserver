@@ -1167,6 +1167,15 @@ class ScheduleOutbox (CalDAVEmptyElement):
 
 
 @registerElement
+class Trash (CalDAVEmptyElement):
+    """
+    Denotes the resource type of a trash collection.
+    """
+    name = "trash"
+
+
+
+@registerElement
 class ScheduleResponse (CalDAVElement):
     """
     The set of responses for a SCHEDULE method operation.
@@ -1417,3 +1426,4 @@ ResourceType.isCalendar = _isCalendar
 ResourceType.calendar = ResourceType(Collection(), Calendar())
 ResourceType.scheduleInbox = ResourceType(Collection(), ScheduleInbox())
 ResourceType.scheduleOutbox = ResourceType(Collection(), ScheduleOutbox())
+ResourceType.trash = ResourceType(Collection(), Trash())
