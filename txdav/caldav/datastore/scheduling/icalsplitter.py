@@ -54,13 +54,19 @@ class iCalSplitter(object):
         @param ical: the iCalendar object to examine
         @type ical: L{Component}
 
-        @return: C{True} if a split is require, C{False} otherwise
-        @rtype: C{bool}
+        @return: A tuple of two booleans:
+            C{True} if a split is required
+            C{True} if event is fully in future
+            The second boolean's value is undefined if the first is True or
+            the event is not recurring, or threshold != -1
+        @rtype: C{tuple} of two C{bool}
         """
+
+        fullyInFuture = False
 
         # Must be recurring
         if not ical.isRecurring():
-            return False
+            return (False, False)
 
         # Look for past/future (cacheExpandedTimeRanges will go one year in the future by default)
         now = self.now.duplicate()
@@ -68,7 +74,13 @@ class iCalSplitter(object):
         instances = ical.cacheExpandedTimeRanges(now)
         instances = sorted(instances.instances.values(), key=lambda x: x.start)
         if len(instances) <= 1 or instances[0].start >= self.past or instances[-1].start < self.now:
-            return False
+            # Event is either fully in past or in future
+            if len(instances) == 0 or instances[0].start >= now:
+                # fully in future
+                fullyInFuture = True
+            else:
+                fullyInFuture = False
+            return (False, fullyInFuture)
 
         if self.threshold != -1:
             # Make sure there are some overridden components in the past - as splitting only makes sense when
@@ -82,13 +94,13 @@ class iCalSplitter(object):
 
             # Only split when there is more than one past override to split off
             if past_count < 2:
-                return False
+                return (False, False)
 
             # Now see if overall size exceeds our threshold
-            return len(str(ical)) > self.threshold
+            return (len(str(ical)) > self.threshold, False)
 
         else:
-            return True
+            return (True, False)
 
 
     def whereSplit(self, ical, break_point=None, allow_past_the_end=True):

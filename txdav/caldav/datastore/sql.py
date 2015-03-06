@@ -4690,7 +4690,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         splitter = iCalSplitter(config.Scheduling.Options.Splitting.Size, config.Scheduling.Options.Splitting.PastDays)
         ical = (yield self.component())
-        will_split = splitter.willSplit(ical)
+        will_split, fullyInFuture = splitter.willSplit(ical)
         returnValue(will_split)
 
 
@@ -4925,7 +4925,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             if organizerAddress.record.uid == uid:
                 # If the ORGANIZER is moving the event from trash
                 splitter = iCalSplitter()
-                willSplit = splitter.willSplit(caldata)
+                willSplit, fullyInFuture = splitter.willSplit(caldata)
                 if willSplit:
                     log.debug("Splitting scheduled event being recovered by organizer from trash")
                     yield self.split(
@@ -4941,12 +4941,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                         self,
                     )
                 else:
-                    now = DateTime.getNowUTC()
-                    now.setHHMMSS(0, 0, 0)
-                    instances = caldata.cacheExpandedTimeRanges(now)
-                    instances = sorted(instances.instances.values(), key=lambda x: x.start)
-                    if instances[0].start >= now:
-                        # future
+                    if fullyInFuture:
                         log.debug("Scheduled event being recovered by organizer from trash, fully in the future")
                         newdata = caldata.duplicate()
                         newdata.bumpiTIPInfo(doSequence=True)
